@@ -46,7 +46,7 @@ internal object GodexRpsRenderer {
         deleteExistingGraphics: Boolean,
         includeFinalStatus: Boolean,
     ): GodexNativePrintJob {
-        if (request.labelKind == "qolip_code") {
+        if (request.labelKind == "qolip_code" || request.labelKind == "paddon_code") {
             return renderQolipCode(
                 request,
                 graphicNames = graphicNames,

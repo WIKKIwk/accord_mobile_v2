@@ -1775,6 +1775,9 @@ class AdminLaminatsiyaAstatkaReport {
     required this.laminationPrintLeftoverRolls,
     required this.laminationFilmLeftoverRolls,
     required this.totalWaste,
+    this.finishedGoodsMeter,
+    this.finishedGoodsKg,
+    this.bobinaKg,
     required this.workerRole,
     required this.workerRef,
     required this.workerDisplayName,
@@ -1790,6 +1793,9 @@ class AdminLaminatsiyaAstatkaReport {
   final double laminationPrintLeftoverRolls;
   final double laminationFilmLeftoverRolls;
   final double totalWaste;
+  final double? finishedGoodsMeter;
+  final double? finishedGoodsKg;
+  final double? bobinaKg;
   final String workerRole;
   final String workerRef;
   final String workerDisplayName;
@@ -1808,6 +1814,10 @@ class AdminLaminatsiyaAstatkaReport {
       laminationFilmLeftoverRolls:
           (json['lamination_film_leftover_rolls'] as num?)?.toDouble() ?? 0,
       totalWaste: (json['total_waste'] as num?)?.toDouble() ?? 0,
+      finishedGoodsMeter: (json['finished_goods_meter'] as num?)?.toDouble(),
+      finishedGoodsKg: (json['finished_goods_kg'] as num?)?.toDouble(),
+      bobinaKg: (json['bobina_kg'] as num?)?.toDouble() ??
+          (json['babina_kg'] as num?)?.toDouble(),
       workerRole: json['worker_role']?.toString() ?? '',
       workerRef: json['worker_ref']?.toString() ?? '',
       workerDisplayName: json['worker_display_name']?.toString() ?? '',
@@ -1828,6 +1838,9 @@ class AdminRezkaAstatkaReport {
     required this.rezkaBosmaWaste,
     required this.rezkaLaminationWaste,
     required this.rezkaEdgeWaste,
+    this.finishedGoodsMeter,
+    this.finishedGoodsKg,
+    this.bobinaKg,
     required this.workerRole,
     required this.workerRef,
     required this.workerDisplayName,
@@ -1844,6 +1857,9 @@ class AdminRezkaAstatkaReport {
   final double rezkaBosmaWaste;
   final double rezkaLaminationWaste;
   final double rezkaEdgeWaste;
+  final double? finishedGoodsMeter;
+  final double? finishedGoodsKg;
+  final double? bobinaKg;
   final String workerRole;
   final String workerRef;
   final String workerDisplayName;
@@ -1862,6 +1878,10 @@ class AdminRezkaAstatkaReport {
       rezkaLaminationWaste:
           (json['rezka_lamination_waste'] as num?)?.toDouble() ?? 0,
       rezkaEdgeWaste: (json['rezka_edge_waste'] as num?)?.toDouble() ?? 0,
+      finishedGoodsMeter: (json['finished_goods_meter'] as num?)?.toDouble(),
+      finishedGoodsKg: (json['finished_goods_kg'] as num?)?.toDouble(),
+      bobinaKg: (json['bobina_kg'] as num?)?.toDouble() ??
+          (json['babina_kg'] as num?)?.toDouble(),
       workerRole: json['worker_role']?.toString() ?? '',
       workerRef: json['worker_ref']?.toString() ?? '',
       workerDisplayName: json['worker_display_name']?.toString() ?? '',
@@ -1894,6 +1914,7 @@ class AdminProgressBatch {
     this.rezkaEdgeWaste,
     this.totalWaste,
     this.finishedGoodsKg,
+    this.bobinaKg,
     this.finishedGoodsMeter,
     this.description = '',
     this.workerRole = '',
@@ -1936,6 +1957,7 @@ class AdminProgressBatch {
   final double? rezkaEdgeWaste;
   final double? totalWaste;
   final double? finishedGoodsKg;
+  final double? bobinaKg;
   final double? finishedGoodsMeter;
   final String description;
   final String workerRole;
@@ -1982,6 +2004,8 @@ class AdminProgressBatch {
       rezkaEdgeWaste: (json['rezka_edge_waste'] as num?)?.toDouble(),
       totalWaste: (json['total_waste'] as num?)?.toDouble(),
       finishedGoodsKg: (json['finished_goods_kg'] as num?)?.toDouble(),
+      bobinaKg: (json['bobina_kg'] as num?)?.toDouble() ??
+          (json['babina_kg'] as num?)?.toDouble(),
       finishedGoodsMeter: (json['finished_goods_meter'] as num?)?.toDouble(),
       description: json['description']?.toString() ?? '',
       workerRole: json['worker_role']?.toString() ?? '',
@@ -2038,6 +2062,7 @@ class AdminProgressBatch {
       rezkaEdgeWaste: rezkaEdgeWaste,
       totalWaste: totalWaste,
       finishedGoodsKg: finishedGoodsKg,
+      bobinaKg: bobinaKg,
       finishedGoodsMeter: finishedGoodsMeter,
       description: description,
       workerRole: workerRole,
@@ -5038,9 +5063,8 @@ extension MobileApiAdmin on MobileApi {
       }
       ProductionMapSaved? savedMapForRollback;
       try {
-        var orderMap = previousIndex < 0
-            ? _testModeAssignOrderNumberIfMissing(map)
-            : map;
+        var orderMap =
+            previousIndex < 0 ? _testModeAssignOrderNumberIfMissing(map) : map;
         if (previousIndex < 0) {
           orderMap = _orderMapWithTemplateRezkaKadrCount(orderMap, template);
         }
@@ -7191,6 +7215,7 @@ extension MobileApiAdmin on MobileApi {
     List<String> qolipCodes = const [],
     double? producedQty,
     double? grossQty,
+    double? bobinaKg,
     double? diameter,
     double? returnInkKg,
     double? laminationPrintLeftoverRolls,
@@ -7204,6 +7229,7 @@ extension MobileApiAdmin on MobileApi {
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
+    String customerName = '',
     String driverUrl = '',
     PrintTransport printTransport = PrintTransport.wifi,
     String printer = '',
@@ -7223,6 +7249,7 @@ extension MobileApiAdmin on MobileApi {
       qolipCodes: qolipCodes,
       producedQty: producedQty,
       grossQty: grossQty,
+      bobinaKg: bobinaKg,
       diameter: diameter,
       returnInkKg: returnInkKg,
       laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
@@ -7236,6 +7263,7 @@ extension MobileApiAdmin on MobileApi {
       uom: uom,
       qrPayload: qrPayload,
       progressBatchId: progressBatchId,
+      customerName: customerName,
       driverUrl: driverUrl,
       printTransport: printTransport,
       printer: printer,
@@ -7600,20 +7628,28 @@ extension MobileApiAdmin on MobileApi {
     double? laminationPrintLeftoverRolls,
     double? laminationFilmLeftoverRolls,
     double? totalWaste,
+    double? finishedGoodsMeter,
+    double? finishedGoodsKg,
+    double? bobinaKg,
     String description = '',
   }) async {
     final normalizedApparatus = apparatus.trim();
     final normalizedOrderId = orderId.trim();
     bool isNonNegative(double? value) =>
         value != null && value.isFinite && value >= 0;
+    bool isPositive(double? value) =>
+        value != null && value.isFinite && value > 0;
     if (!productionMapIsLaminatsiyaApparatus(normalizedApparatus) ||
         normalizedOrderId.isEmpty ||
         !isNonNegative(laminationPrintLeftoverRolls) ||
         !isNonNegative(laminationFilmLeftoverRolls) ||
-        !isNonNegative(totalWaste)) {
+        !isNonNegative(totalWaste) ||
+        (finishedGoodsMeter != null && !isPositive(finishedGoodsMeter)) ||
+        (finishedGoodsKg != null && !isPositive(finishedGoodsKg)) ||
+        (bobinaKg != null && !isPositive(bobinaKg))) {
       throw const MobileApiException(
         code: 'laminatsiya_astatka_metrics_required',
-        message: 'Bosmadan, plyonkadan ortgan rulon va chiqindini kiriting',
+        message: 'Metraj, og‘irlik, babina va chiqindini to‘g‘ri kiriting',
       );
     }
     if (await TestModeController.instance.isEnabled()) {
@@ -7644,6 +7680,9 @@ extension MobileApiAdmin on MobileApi {
         laminationPrintLeftoverRolls: laminationPrintLeftoverRolls!,
         laminationFilmLeftoverRolls: laminationFilmLeftoverRolls!,
         totalWaste: totalWaste!,
+        finishedGoodsMeter: finishedGoodsMeter,
+        finishedGoodsKg: finishedGoodsKg,
+        bobinaKg: bobinaKg,
         workerRole: AppSession.instance.profile?.role.name ?? '',
         workerRef: AppSession.instance.profile?.ref.trim() ?? '',
         workerDisplayName:
@@ -7667,6 +7706,10 @@ extension MobileApiAdmin on MobileApi {
           'lamination_print_leftover_rolls': laminationPrintLeftoverRolls,
           'lamination_film_leftover_rolls': laminationFilmLeftoverRolls,
           'total_waste': totalWaste,
+          if (finishedGoodsMeter != null)
+            'finished_goods_meter': finishedGoodsMeter,
+          if (finishedGoodsKg != null) 'finished_goods_kg': finishedGoodsKg,
+          if (bobinaKg != null) 'bobina_kg': bobinaKg,
           if (description.trim().isNotEmpty) 'description': description.trim(),
         }),
       ),
@@ -7697,21 +7740,30 @@ extension MobileApiAdmin on MobileApi {
     double? rezkaBosmaWaste,
     double? rezkaLaminationWaste,
     double? rezkaEdgeWaste,
+    double? finishedGoodsMeter,
+    double? finishedGoodsKg,
+    double? bobinaKg,
     String description = '',
   }) async {
     final normalizedApparatus = apparatus.trim();
     final normalizedOrderId = orderId.trim();
     bool isNonNegative(double? value) =>
         value != null && value.isFinite && value >= 0;
+    bool isPositive(double? value) =>
+        value != null && value.isFinite && value > 0;
     if (!productionMapIsRezkaApparatus(normalizedApparatus) ||
         normalizedOrderId.isEmpty ||
         !isNonNegative(totalWaste) ||
         !isNonNegative(rezkaBosmaWaste) ||
         !isNonNegative(rezkaLaminationWaste) ||
-        !isNonNegative(rezkaEdgeWaste)) {
+        !isNonNegative(rezkaEdgeWaste) ||
+        (finishedGoodsMeter != null && !isPositive(finishedGoodsMeter)) ||
+        (finishedGoodsKg != null && !isPositive(finishedGoodsKg)) ||
+        (bobinaKg != null && !isPositive(bobinaKg))) {
       throw const MobileApiException(
         code: 'rezka_astatka_metrics_required',
-        message: 'Rezka chiqindi astatkasini to‘liq kiriting',
+        message:
+            'Rezka metraj, og‘irlik, babina va chiqindisini to‘g‘ri kiriting',
       );
     }
     if (await TestModeController.instance.isEnabled()) {
@@ -7743,6 +7795,9 @@ extension MobileApiAdmin on MobileApi {
         rezkaBosmaWaste: rezkaBosmaWaste!,
         rezkaLaminationWaste: rezkaLaminationWaste!,
         rezkaEdgeWaste: rezkaEdgeWaste!,
+        finishedGoodsMeter: finishedGoodsMeter,
+        finishedGoodsKg: finishedGoodsKg,
+        bobinaKg: bobinaKg,
         workerRole: AppSession.instance.profile?.role.name ?? '',
         workerRef: AppSession.instance.profile?.ref.trim() ?? '',
         workerDisplayName:
@@ -7767,6 +7822,10 @@ extension MobileApiAdmin on MobileApi {
           'rezka_bosma_waste': rezkaBosmaWaste,
           'rezka_lamination_waste': rezkaLaminationWaste,
           'rezka_edge_waste': rezkaEdgeWaste,
+          if (finishedGoodsMeter != null)
+            'finished_goods_meter': finishedGoodsMeter,
+          if (finishedGoodsKg != null) 'finished_goods_kg': finishedGoodsKg,
+          if (bobinaKg != null) 'bobina_kg': bobinaKg,
           if (description.trim().isNotEmpty) 'description': description.trim(),
         }),
       ),
@@ -7800,6 +7859,7 @@ extension MobileApiAdmin on MobileApi {
     List<String> qolipCodes = const [],
     double? producedQty,
     double? grossQty,
+    double? bobinaKg,
     double? diameter,
     double? returnInkKg,
     double? laminationPrintLeftoverRolls,
@@ -7813,6 +7873,7 @@ extension MobileApiAdmin on MobileApi {
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
+    String customerName = '',
     String driverUrl = '',
     PrintTransport printTransport = PrintTransport.wifi,
     String printer = '',
@@ -8326,6 +8387,7 @@ extension MobileApiAdmin on MobileApi {
                   'roll_removed_finished_goods_meter':
                       finishedGoodsMeter ?? producedQty,
                   'roll_removed_finished_goods_kg': finishedGoodsKg ?? grossQty,
+                  if (bobinaKg != null) 'roll_removed_bobina_kg': bobinaKg,
                 },
               )
             : handoffInput.copyWith(
@@ -8343,6 +8405,7 @@ extension MobileApiAdmin on MobileApi {
                       laminationPrintLeftoverRolls,
                   'lamination_film_leftover_rolls': laminationFilmLeftoverRolls,
                   'total_waste': totalWaste,
+                  if (bobinaKg != null) 'bobina_kg': bobinaKg,
                 },
               );
         _testModeProgressBatchesByQr[updatedInput.qrPayload] = updatedInput;
@@ -8398,6 +8461,7 @@ extension MobileApiAdmin on MobileApi {
                 totalWaste: null,
                 finishedGoodsKg: finishedGoodsKg ?? grossQty,
                 finishedGoodsMeter: finishedGoodsMeter ?? producedQty,
+                bobinaKg: bobinaKg,
               )
             : [
                 _testModeProgressBatch(
@@ -8417,6 +8481,7 @@ extension MobileApiAdmin on MobileApi {
                   totalWaste: isLaminatsiya ? null : totalWaste,
                   finishedGoodsKg: finishedGoodsKg,
                   finishedGoodsMeter: finishedGoodsMeter,
+                  bobinaKg: bobinaKg,
                 ),
               ];
         for (final batch in outputBatches) {
@@ -8443,6 +8508,7 @@ extension MobileApiAdmin on MobileApi {
           batches: outputBatches,
           printer: printer,
           printMode: printMode,
+          customerName: customerName,
         );
         return AdminApparatusQueueActionResult(
           states: Map<String, String>.unmodifiable(states),
@@ -8477,6 +8543,7 @@ extension MobileApiAdmin on MobileApi {
           totalWaste: totalWaste,
           finishedGoodsKg: finishedGoodsKg ?? grossQty,
           finishedGoodsMeter: finishedGoodsMeter ?? producedQty,
+          bobinaKg: bobinaKg,
         );
         for (final batch in outputBatches) {
           _testModeProgressBatchesByQr[batch.qrPayload] = batch;
@@ -8506,6 +8573,7 @@ extension MobileApiAdmin on MobileApi {
           batches: outputBatches,
           printer: printer,
           printMode: printMode,
+          customerName: customerName,
         );
         return AdminApparatusQueueActionResult(
           states: Map<String, String>.unmodifiable(states),
@@ -8658,6 +8726,7 @@ extension MobileApiAdmin on MobileApi {
           if (totalWaste == 0) 'total_waste',
           if (finishedGoodsKg == 0) 'finished_goods_kg',
           if (finishedGoodsMeter == 0) 'finished_goods_meter',
+          if (bobinaKg == 0) 'bobina_kg',
         ];
         if (zeroMetricCodes.isNotEmpty && note.isEmpty) {
           throw const MobileApiException(
@@ -8733,6 +8802,7 @@ extension MobileApiAdmin on MobileApi {
                 totalWaste: allowPartialStationCompletion ? null : totalWaste,
                 finishedGoodsKg: finishedGoodsKg ?? grossQty,
                 finishedGoodsMeter: finishedGoodsMeter ?? producedQty,
+                bobinaKg: bobinaKg,
               )
             : [
                 _testModeProgressBatch(
@@ -8754,6 +8824,7 @@ extension MobileApiAdmin on MobileApi {
                   totalWaste: totalWaste,
                   finishedGoodsKg: finishedGoodsKg,
                   finishedGoodsMeter: finishedGoodsMeter,
+                  bobinaKg: bobinaKg,
                 ),
               ];
         for (final batch in outputBatches) {
@@ -8850,6 +8921,7 @@ extension MobileApiAdmin on MobileApi {
           batches: outputBatches,
           printer: printer,
           printMode: printMode,
+          customerName: customerName,
         );
         return AdminApparatusQueueActionResult(
           states: Map<String, String>.unmodifiable(states),
@@ -8914,6 +8986,7 @@ extension MobileApiAdmin on MobileApi {
             'qolip_code': trimmedQolipCode,
           if (producedQty != null) 'produced_qty': producedQty,
           if (grossQty != null) 'gross_qty': grossQty,
+          if (bobinaKg != null) 'bobina_kg': bobinaKg,
           if (diameter != null) 'diameter': diameter,
           if (returnInkKg != null) 'return_ink_kg': returnInkKg,
           if (laminationPrintLeftoverRolls != null)
@@ -8932,6 +9005,8 @@ extension MobileApiAdmin on MobileApi {
           if (qrPayload.trim().isNotEmpty) 'qr_payload': qrPayload.trim(),
           if (progressBatchId.trim().isNotEmpty)
             'progress_batch_id': progressBatchId.trim(),
+          if (customerName.trim().isNotEmpty)
+            'customer_name': customerName.trim(),
           if (trimmedDriverUrl.isNotEmpty) 'driver_url': trimmedDriverUrl,
           if (printTransport.isLocal)
             'print_transport': printTransport.clientApiValue,
@@ -9130,11 +9205,14 @@ extension MobileApiAdmin on MobileApi {
         printMode: normalizedPrintMode.isEmpty ? 'label' : normalizedPrintMode,
         grossQty: batch.finishedGoodsKg ?? batch.producedQty,
         unit: 'kg',
+        tareEnabled: (batch.bobinaKg ?? 0) > 0,
+        tareKg: batch.bobinaKg ?? 0,
         printCount: boundedPrintCount,
         labelKind: 'progress',
         executorName: batch.executorName,
         progressQty: batch.producedQty,
         progressUnit: batch.uom.isEmpty ? 'm' : batch.uom,
+        customerName: batch.payloadJson['customer_name']?.toString() ?? '',
       );
       return AdminProgressQrReprintResult(
         ok: true,
@@ -10982,6 +11060,7 @@ AdminProgressBatch _testModeProgressBatch({
   double? totalWaste,
   double? finishedGoodsKg,
   double? finishedGoodsMeter,
+  double? bobinaKg,
 }) {
   final nowUnix = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final stamp = DateTime.now().microsecondsSinceEpoch;
@@ -11021,6 +11100,7 @@ AdminProgressBatch _testModeProgressBatch({
     totalWaste: totalWaste,
     finishedGoodsKg: finishedGoodsKg,
     finishedGoodsMeter: finishedGoodsMeter,
+    bobinaKg: bobinaKg,
     wipStatus: 'waiting',
     statusDetail: statusDetail,
     currentApparatus: apparatus,
@@ -11119,6 +11199,7 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
   double? totalWaste,
   double? finishedGoodsKg,
   double? finishedGoodsMeter,
+  double? bobinaKg,
 }) {
   final baseStamp = DateTime.now().microsecondsSinceEpoch;
   final parentBatchId = inputBatch?.batchId.trim() ?? '';
@@ -11160,6 +11241,7 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
         totalWaste: index == 0 ? totalWaste : null,
         finishedGoodsKg: finishedGoodsKg,
         finishedGoodsMeter: finishedGoodsMeter,
+        bobinaKg: index == 0 ? bobinaKg : null,
         payloadJson: {
           'rezka_frame_index': index + 1,
           'rezka_frame_count': frameCount,
@@ -11175,6 +11257,7 @@ List<UsbRpsPrintRequest> _testModeProgressPrintJobs({
   required List<AdminProgressBatch> batches,
   required String printer,
   required String printMode,
+  String customerName = '',
 }) {
   return [
     for (final batch in batches)
@@ -11191,6 +11274,11 @@ List<UsbRpsPrintRequest> _testModeProgressPrintJobs({
         executorName: batch.executorName,
         progressQty: batch.producedQty,
         progressUnit: batch.uom.isEmpty ? 'm' : batch.uom,
+        tareEnabled: (batch.bobinaKg ?? 0) > 0,
+        tareKg: batch.bobinaKg ?? 0,
+        customerName: customerName.trim().isEmpty
+            ? (batch.payloadJson['customer_name']?.toString() ?? '')
+            : customerName.trim(),
       ),
   ];
 }

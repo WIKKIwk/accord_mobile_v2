@@ -232,6 +232,8 @@ class UsbRpsPrintRequest {
 
   bool get isQolipCodeLabel => labelKind.trim().toLowerCase() == 'qolip_code';
 
+  bool get isPaddonCodeLabel => labelKind.trim().toLowerCase() == 'paddon_code';
+
   bool get isMaterialProductLabel =>
       labelKind.trim().toLowerCase() == 'material_product';
 

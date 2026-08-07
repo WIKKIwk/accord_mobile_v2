@@ -7,7 +7,9 @@ import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../../core/print_service.dart';
 import '../../admin/presentation/admin_progress_qr_scan_screen.dart';
+import '../../admin/presentation/progress_printer_picker.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
 import 'widgets/aparatchi_dock.dart';
 import 'widgets/aparatchi_navigation_drawer.dart';
@@ -19,6 +21,8 @@ class AparatchiPaddonDetailArgs {
 }
 
 typedef AparatchiPaddonDetailLoader = Future<AdminPaddonSnapshot> Function();
+
+enum _PaddonEditMode { add, remove }
 
 class AparatchiPaddonDetailScreen extends StatefulWidget {
   const AparatchiPaddonDetailScreen({
@@ -38,9 +42,13 @@ class AparatchiPaddonDetailScreen extends StatefulWidget {
 class _AparatchiPaddonDetailScreenState
     extends State<AparatchiPaddonDetailScreen> {
   late Future<AdminPaddonSnapshot> _future;
-  final _availableWipsSectionKey = GlobalKey();
+  final _selectionListKey = GlobalKey();
+  final Set<String> _selectedAvailableBatchIds = <String>{};
+  final Set<String> _selectedAssignedBatchIds = <String>{};
   bool _busy = false;
-  bool _showAvailableWips = false;
+  bool _printingQr = false;
+  bool _selectionMode = false;
+  _PaddonEditMode _editMode = _PaddonEditMode.add;
 
   @override
   void initState() {
@@ -57,7 +65,11 @@ class _AparatchiPaddonDetailScreenState
 
   Future<void> _retry() async {
     final future = _load();
-    setState(() => _future = future);
+    setState(() {
+      _future = future;
+      _selectedAvailableBatchIds.clear();
+      _selectedAssignedBatchIds.clear();
+    });
     try {
       await future;
     } catch (_) {
@@ -105,52 +117,125 @@ class _AparatchiPaddonDetailScreenState
     }
   }
 
-  Future<void> _addWip(
-    AdminProgressBatch batch,
-    int displayedItemCount,
-  ) async {
+  Future<void> _printPaddonQr() async {
+    if (_busy || _printingQr) {
+      return;
+    }
+    setState(() => _printingQr = true);
+    try {
+      final printer = await pickProgressPrinter(context);
+      if (printer == null || !mounted) {
+        return;
+      }
+      final result = await MobileApi.instance.adminPaddonPrintQr(
+        code: widget.code,
+        driverUrl: printer.driverUrl,
+        printer: printer.printer,
+        printMode: printer.printMode,
+        printTransport: printer.transport,
+      );
+      if (printer.transport.isLocal) {
+        final printJob = result.printJob;
+        if (printJob == null) {
+          throw StateError('Paddon QR print ma’lumoti olinmadi');
+        }
+        final printResult = await PrintService.printRps(
+          printJob,
+          printerProfile: printer.offlinePrinter,
+          bluetoothPrinter: printer.bluetoothPrinter,
+          transport: printer.transport,
+        );
+        if (!printResult.ok) {
+          throw StateError('Paddon QR printerga yuborilmadi');
+        }
+      }
+      if (mounted) {
+        _showMessage('Paddon ${result.qrPayload} QR chop etildi');
+      }
+    } catch (error) {
+      if (mounted) {
+        _showMessage(
+          error is MobileApiException && error.message.trim().isNotEmpty
+              ? error.message
+              : 'Paddon QR chop etilmadi',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _printingQr = false);
+      }
+    }
+  }
+
+  void _toggleAvailableWip(AdminProgressBatch batch) {
     if (_busy) {
       return;
     }
     final batchId = batch.batchId.trim();
-    final qrPayload = batch.qrPayload.trim().toLowerCase();
-    final expectedItemCount = displayedItemCount + 1;
-    bool isTargetBatch(AdminProgressBatch candidate) {
-      final candidateBatchId = candidate.batchId.trim();
-      if (batchId.isNotEmpty && candidateBatchId == batchId) {
-        return true;
-      }
-      return qrPayload.isNotEmpty &&
-          candidate.qrPayload.trim().toLowerCase() == qrPayload;
+    if (batchId.isEmpty) {
+      return;
     }
-
-    await _runMutation(() async {
-      final refreshed = await _load();
-      final isStillAvailable = refreshed.availableItems.any(isTargetBatch);
-      if (!isStillAvailable) {
-        return refreshed;
+    setState(() {
+      if (_selectedAvailableBatchIds.contains(batchId)) {
+        _selectedAvailableBatchIds.remove(batchId);
+      } else {
+        _selectedAvailableBatchIds.add(batchId);
+        _selectedAssignedBatchIds.clear();
       }
-      return MobileApi.instance.adminPaddonAddWip(
-        paddonCode: widget.code,
-        progressBatchId: batchId,
-      );
-    }, confirmsApplied: (snapshot) {
-      return snapshot.items.any(isTargetBatch) ||
-          (snapshot.items.length >= expectedItemCount &&
-              !snapshot.availableItems.any(isTargetBatch));
-    }, fallbackMessage: 'WIP qo‘shilmadi: o‘zgarish tasdiqlanmadi');
+    });
   }
 
-  Future<void> _removeWip(AdminProgressBatch batch) async {
+  void _toggleAssignedWip(AdminProgressBatch batch) {
     if (_busy) {
       return;
     }
+    final batchId = batch.batchId.trim();
+    if (batchId.isEmpty) {
+      return;
+    }
+    setState(() {
+      if (_selectedAssignedBatchIds.contains(batchId)) {
+        _selectedAssignedBatchIds.remove(batchId);
+      } else {
+        _selectedAssignedBatchIds.add(batchId);
+        _selectedAvailableBatchIds.clear();
+      }
+    });
+  }
+
+  Future<void> _addSelectedWips() async {
+    if (_busy || _selectedAvailableBatchIds.isEmpty) {
+      return;
+    }
+    final selectedBatchIds = _selectedAvailableBatchIds.toList(growable: false);
+    final applied = await _runMutation(
+      () => MobileApi.instance.adminPaddonAddWips(
+        paddonCode: widget.code,
+        progressBatchIds: selectedBatchIds,
+      ),
+      confirmsApplied: (snapshot) {
+        final assignedBatchIds =
+            snapshot.items.map((batch) => batch.batchId.trim()).toSet();
+        return selectedBatchIds.every(assignedBatchIds.contains);
+      },
+      fallbackMessage: 'Tanlangan WIP lar qo‘shilmadi',
+    );
+    if (applied && mounted) {
+      setState(() => _selectedAvailableBatchIds.clear());
+    }
+  }
+
+  Future<void> _removeSelectedWips() async {
+    if (_busy || _selectedAssignedBatchIds.isEmpty) {
+      return;
+    }
+    final selectedBatchIds = _selectedAssignedBatchIds.toList(growable: false);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('WIPni paddondan chiqarishmi?'),
+        title: const Text('Tanlangan WIP larni chiqarishmi?'),
         content: Text(
-          '“${_batchTitle(batch)}” WIP paddon tarkibidan chiqariladi.',
+          '${selectedBatchIds.length} ta WIP paddon tarkibidan chiqariladi.',
         ),
         actions: [
           TextButton(
@@ -167,17 +252,26 @@ class _AparatchiPaddonDetailScreenState
     if (confirmed != true || !mounted) {
       return;
     }
-    await _runMutation(() {
-      return MobileApi.instance.adminPaddonRemoveWip(
+    final applied = await _runMutation(
+      () => MobileApi.instance.adminPaddonRemoveWips(
         paddonCode: widget.code,
-        progressBatchId: batch.batchId,
-      );
-    }, confirmsApplied: (snapshot) {
-      return snapshot.items.every((item) => item.batchId != batch.batchId);
-    });
+        progressBatchIds: selectedBatchIds,
+      ),
+      confirmsApplied: (snapshot) {
+        final assignedBatchIds =
+            snapshot.items.map((batch) => batch.batchId.trim()).toSet();
+        return selectedBatchIds.every(
+          (batchId) => !assignedBatchIds.contains(batchId),
+        );
+      },
+      fallbackMessage: 'Tanlangan WIP lar chiqarilmadi',
+    );
+    if (applied && mounted) {
+      setState(() => _selectedAssignedBatchIds.clear());
+    }
   }
 
-  Future<void> _runMutation(
+  Future<bool> _runMutation(
     Future<AdminPaddonSnapshot> Function() mutation, {
     bool Function(AdminPaddonSnapshot snapshot)? confirmsApplied,
     String fallbackMessage = 'Paddon tarkibi o‘zgartirilmadi',
@@ -186,16 +280,17 @@ class _AparatchiPaddonDetailScreenState
     try {
       final snapshot = await mutation();
       if (!mounted) {
-        return;
+        return false;
       }
       _clearMessages();
       setState(() => _future = Future<AdminPaddonSnapshot>.value(snapshot));
+      return true;
     } catch (error) {
       if (mounted && confirmsApplied != null) {
         try {
           final refreshed = await _load();
           if (!mounted) {
-            return;
+            return false;
           }
           final applied = confirmsApplied(refreshed);
           try {
@@ -207,7 +302,7 @@ class _AparatchiPaddonDetailScreenState
           }
           if (applied) {
             _clearMessages();
-            return;
+            return true;
           }
         } catch (_) {
           // Show the original mutation error below.
@@ -220,6 +315,7 @@ class _AparatchiPaddonDetailScreenState
                 : fallbackMessage;
         _showMessage(message);
       }
+      return false;
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -227,43 +323,61 @@ class _AparatchiPaddonDetailScreenState
     }
   }
 
-  Future<void> _toggleAvailableWips() async {
-    final shouldShow = !_showAvailableWips;
-    if (!shouldShow) {
-      setState(() => _showAvailableWips = false);
+  Set<String> get _selectedBatchIds => _editMode == _PaddonEditMode.add
+      ? _selectedAvailableBatchIds
+      : _selectedAssignedBatchIds;
+
+  String get _editModeActionLabel {
+    final label =
+        _editMode == _PaddonEditMode.add ? 'Qo‘shish' : 'Olib tashlash';
+    final selectedCount = _selectedBatchIds.length;
+    return selectedCount == 0 ? label : '$label ($selectedCount)';
+  }
+
+  IconData get _editModeActionIcon => _editMode == _PaddonEditMode.add
+      ? Icons.playlist_add_rounded
+      : Icons.playlist_remove_rounded;
+
+  Future<void> _handleEditModeAction() async {
+    if (_busy) {
       return;
     }
-
-    setState(() => _busy = true);
-    try {
-      final refreshed = await _load();
-      if (!mounted) {
-        return;
-      }
+    if (!_selectionMode) {
       setState(() {
-        _future = Future<AdminPaddonSnapshot>.value(refreshed);
-        _showAvailableWips = true;
+        _selectionMode = true;
+        _editMode = _PaddonEditMode.add;
+        _selectedAvailableBatchIds.clear();
+        _selectedAssignedBatchIds.clear();
       });
-    } catch (error) {
-      if (mounted) {
-        _showMessage(
-          error is MobileApiException && error.message.trim().isNotEmpty
-              ? error.message
-              : 'WIP qo‘shish ro‘yxati yuklanmadi',
-        );
-      }
+      _scrollToSelectionList();
       return;
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      }
     }
 
+    if (_selectedBatchIds.isNotEmpty) {
+      if (_editMode == _PaddonEditMode.add) {
+        await _addSelectedWips();
+      } else {
+        await _removeSelectedWips();
+      }
+      return;
+    }
+
+    setState(() {
+      _editMode = _editMode == _PaddonEditMode.add
+          ? _PaddonEditMode.remove
+          : _PaddonEditMode.add;
+      _selectedAvailableBatchIds.clear();
+      _selectedAssignedBatchIds.clear();
+    });
+    _scrollToSelectionList();
+  }
+
+  void _scrollToSelectionList() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
       }
-      final sectionContext = _availableWipsSectionKey.currentContext;
+      final sectionContext = _selectionListKey.currentContext;
       if (sectionContext == null) {
         return;
       }
@@ -276,12 +390,18 @@ class _AparatchiPaddonDetailScreenState
     });
   }
 
-  Widget _buildAvailableWipsSection(
+  Widget _buildPaddonItemsSection(
     BuildContext context,
     AdminPaddonSnapshot data,
   ) {
+    final showingAvailableItems =
+        _selectionMode && _editMode == _PaddonEditMode.add;
+    final items = showingAvailableItems ? data.availableItems : data.items;
+    final selectedBatchIds = showingAvailableItems
+        ? _selectedAvailableBatchIds
+        : _selectedAssignedBatchIds;
     return KeyedSubtree(
-      key: _availableWipsSectionKey,
+      key: _selectionListKey,
       child: Column(
         children: [
           const SizedBox(height: 8),
@@ -289,7 +409,9 @@ class _AparatchiPaddonDetailScreenState
             children: [
               Expanded(
                 child: Text(
-                  'Paddonga kirmagan WIP lar',
+                  showingAvailableItems
+                      ? 'Paddonga qo‘shish mumkin bo‘lgan WIP lar'
+                      : 'Paddon ichidagi WIP lar',
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
@@ -297,7 +419,7 @@ class _AparatchiPaddonDetailScreenState
                 ),
               ),
               Text(
-                '${data.availableItems.length} ta',
+                '${items.length} ta',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w800,
@@ -306,29 +428,38 @@ class _AparatchiPaddonDetailScreenState
             ],
           ),
           const SizedBox(height: 8),
-          if (data.availableItems.isEmpty)
-            const _PaddonItemsEmpty(
-              message: 'Paddonga kirmagan WIP topilmadi.',
+          if (items.isEmpty)
+            _PaddonItemsEmpty(
+              message: showingAvailableItems
+                  ? 'Paddonga qo‘shish mumkin bo‘lgan WIP topilmadi.'
+                  : 'Bu paddonda hozircha WIP yo‘q.',
             )
           else
             M3SegmentSpacedColumn(
               children: [
-                for (var index = 0; index < data.availableItems.length; index++)
+                for (var index = 0; index < items.length; index++)
                   _PaddonWipCard(
                     key: ValueKey(
-                      'paddon-available-wip-card-${data.availableItems[index].batchId}',
+                      showingAvailableItems
+                          ? 'paddon-available-wip-card-${items[index].batchId}'
+                          : 'paddon-wip-card-${items[index].batchId}',
                     ),
                     slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                       index,
-                      data.availableItems.length,
+                      items.length,
                     ),
-                    batch: data.availableItems[index],
-                    onAdd: _busy
-                        ? null
-                        : () => _addWip(
-                              data.availableItems[index],
-                              data.items.length,
-                            ),
+                    batch: items[index],
+                    selected: selectedBatchIds.contains(
+                      items[index].batchId.trim(),
+                    ),
+                    onSelect: showingAvailableItems && !_busy
+                        ? () => _toggleAvailableWip(items[index])
+                        : !showingAvailableItems && _selectionMode && !_busy
+                            ? () => _toggleAssignedWip(items[index])
+                            : null,
+                    selectionIcon: showingAvailableItems
+                        ? Icons.add_circle_outline_rounded
+                        : Icons.remove_circle_outline_rounded,
                   ),
               ],
             ),
@@ -411,67 +542,37 @@ class _AparatchiPaddonDetailScreenState
               const SizedBox(height: 12),
               FilledButton.icon(
                 key: const ValueKey('paddon-add-wip-scan'),
-                onPressed: _busy ? null : _scanAndAdd,
+                onPressed: _busy || _printingQr ? null : _scanAndAdd,
                 icon: const Icon(Icons.qr_code_scanner_rounded),
                 label: const Text('WIP QR scan qilib qo‘shish'),
               ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Paddon ichidagi WIP lar',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                  ),
-                  Text(
-                    '${data.items.length} ta',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                  IconButton(
-                    key: const ValueKey('paddon-toggle-available-wips'),
-                    onPressed: _busy ? null : _toggleAvailableWips,
-                    tooltip: _showAvailableWips
-                        ? 'WIP qo‘shish ro‘yxatini yopish'
-                        : 'WIP qo‘shish',
-                    icon: Icon(
-                      _showAvailableWips
-                          ? Icons.close_rounded
-                          : Icons.add_rounded,
-                    ),
-                  ),
-                ],
-              ),
-              if (_showAvailableWips) _buildAvailableWipsSection(context, data),
               const SizedBox(height: 8),
-              if (data.items.isEmpty)
-                const _PaddonItemsEmpty(
-                  message: 'Bu paddonda hozircha WIP yo‘q.',
-                )
-              else
-                M3SegmentSpacedColumn(
-                  children: [
-                    for (var index = 0; index < data.items.length; index++)
-                      _PaddonWipCard(
-                        key: ValueKey(
-                          'paddon-wip-card-${data.items[index].batchId}',
-                        ),
-                        slot:
-                            M3SegmentedListGeometry.standaloneListSlotForIndex(
-                          index,
-                          data.items.length,
-                        ),
-                        batch: data.items[index],
-                        onRemove:
-                            _busy ? null : () => _removeWip(data.items[index]),
-                      ),
-                  ],
+              OutlinedButton.icon(
+                key: const ValueKey('paddon-print-qr'),
+                onPressed: _busy || _printingQr ? null : _printPaddonQr,
+                icon: _printingQr
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.qr_code_2_rounded),
+                label: Text(
+                  _printingQr ? 'QR tayyorlanmoqda...' : 'Paddon QR chop etish',
                 ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonalIcon(
+                  key: const ValueKey('paddon-edit-mode-action'),
+                  onPressed:
+                      _busy || _printingQr ? null : _handleEditModeAction,
+                  icon: Icon(_editModeActionIcon),
+                  label: Text(_editModeActionLabel),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildPaddonItemsSection(context, data),
             ],
           ),
         );
@@ -592,14 +693,16 @@ class _PaddonWipCard extends StatelessWidget {
     super.key,
     required this.slot,
     required this.batch,
-    this.onAdd,
-    this.onRemove,
+    this.selected = false,
+    this.onSelect,
+    required this.selectionIcon,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminProgressBatch batch;
-  final VoidCallback? onAdd;
-  final VoidCallback? onRemove;
+  final bool selected;
+  final VoidCallback? onSelect;
+  final IconData selectionIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -612,78 +715,59 @@ class _PaddonWipCard extends StatelessWidget {
     return M3SegmentFilledSurface(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.view_carousel_outlined,
-              color: scheme.primary,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Order: $orderId',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+      onTap: onSelect,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 64),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.view_carousel_outlined,
+                color: scheme.primary,
+                size: 24,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Order: $orderId',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                  Text(
-                    'EPC: $epc',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w800,
+                    Text(
+                      'EPC: $epc',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            if (onAdd != null)
-              IconButton(
-                key: ValueKey('paddon-add-wip-${batch.batchId}'),
-                onPressed: onAdd,
-                tooltip: 'Paddonga qo‘shish',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.add_circle_outline_rounded),
-              ),
-            if (onRemove != null)
-              IconButton(
-                key: ValueKey('paddon-remove-wip-${batch.batchId}'),
-                onPressed: onRemove,
-                tooltip: 'Paddondan chiqarish',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.remove_circle_outline_rounded),
-              ),
-          ],
+              if (onSelect != null) ...[
+                const SizedBox(width: 10),
+                Icon(
+                  selected ? Icons.check_circle_rounded : selectionIcon,
+                  size: 28,
+                  color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
-}
-
-String _batchTitle(AdminProgressBatch batch) {
-  final orderId = batch.orderId.trim();
-  if (orderId.isNotEmpty) {
-    return 'Order: $orderId';
-  }
-  final epc = batch.qrPayload.trim();
-  if (epc.isNotEmpty) {
-    return 'EPC: $epc';
-  }
-  return 'WIP';
 }
 
 class _PaddonItemsEmpty extends StatelessWidget {

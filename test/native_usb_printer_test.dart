@@ -60,9 +60,12 @@ void main() {
       'qr_payload': '303132333435363738394142',
       'item_code': 'ORDER-2',
       'item_name': 'Progress label',
+      'customer_name': 'Customer One',
       'executor_name': 'Ali',
-      'gross_qty': 12.5,
+      'gross_qty': 10.0,
       'qty': 35.75,
+      'tare_enabled': true,
+      'tare_kg': 1.0,
       'unit': 'kg',
       'progress_unit': 'm',
       'label_kind': 'progress',
@@ -75,6 +78,8 @@ void main() {
     expect(request.warehouse, 'Ijrochi: Ali');
     expect(request.isProgressLabel, isTrue);
     expect(request.effectiveProgressQty, 35.75);
+    expect(request.customerName, 'Customer One');
+    expect(request.netQty, 9.0);
     expect(request.progressUnit, 'm');
     expect(request.printCount, 2);
   });

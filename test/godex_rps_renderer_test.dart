@@ -83,6 +83,27 @@ void main() {
     expect(output, isNot(contains('Y224,224,QRLBL')));
   });
 
+  test('renders Paddon code as a large QR label', () {
+    final output = String.fromCharCodes(
+      GodexRpsRenderer.render(
+        const UsbRpsPrintRequest(
+          epc: '00001',
+          itemCode: '00001',
+          itemName: 'Paddon 00001',
+          warehouse: '',
+          printer: 'godex',
+          printMode: 'label',
+          grossQty: 1,
+          labelKind: 'paddon_code',
+        ),
+      ),
+    );
+
+    expect(output, contains('Y56,56,QRLBL'));
+    expect(output, isNot(contains('BA,')));
+    expect(output, isNot(contains('Y224,224,QRLBL')));
+  });
+
   test('renders material batch as QR-only without a product barcode', () {
     final output = String.fromCharCodes(
       GodexRpsRenderer.render(

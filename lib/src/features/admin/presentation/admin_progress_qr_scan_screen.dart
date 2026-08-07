@@ -39,6 +39,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
   bool _processing = false;
   String _statusText = 'Progress QR kodni ramkaga keltiring';
   AdminProgressQrReport? _report;
+  AdminPaddonSnapshot? _paddonReport;
   AdminRawMaterialLookup? _rawMaterialReport;
   String? _errorText;
   bool _sharing = false;
@@ -115,7 +116,10 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
   }
 
   Future<void> _handleDetect(BarcodeCapture capture) async {
-    if (_processing || _report != null || _rawMaterialReport != null) {
+    if (_processing ||
+        _report != null ||
+        _paddonReport != null ||
+        _rawMaterialReport != null) {
       return;
     }
     final qrPayload = _extractQrPayload(_firstBarcodeValue(capture));
@@ -173,6 +177,24 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
         _statusText = 'Report tayyor';
       });
     } catch (error) {
+      if (_shouldTryPaddonLookup(normalized)) {
+        try {
+          final paddonReport = await MobileApi.instance.adminPaddonQrReport(
+            normalized,
+          );
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _paddonReport = paddonReport;
+            _processing = false;
+            _statusText = 'Paddon report tayyor';
+          });
+          return;
+        } catch (_) {
+          // This five-digit QR may still belong to another flow.
+        }
+      }
       if (_shouldTryRawMaterialLookup(error)) {
         try {
           final rawReport = await MobileApi.instance.adminRawMaterialLookup(
@@ -243,6 +265,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
   void _scanAgain() {
     setState(() {
       _report = null;
+      _paddonReport = null;
       _rawMaterialReport = null;
       _errorText = null;
       _statusText = 'Progress QR kodni ramkaga keltiring';
@@ -313,6 +336,10 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
         error.code == 'progress_batch_not_accepted';
   }
 
+  bool _shouldTryPaddonLookup(String qrPayload) {
+    return RegExp(r'^\d{5}$').hasMatch(qrPayload.trim());
+  }
+
   String _messageForError(Object error) {
     if (error is MobileApiException) {
       return switch (error.code) {
@@ -365,9 +392,12 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final report = _report;
+    final paddonReport = _paddonReport;
     final rawMaterialReport = _rawMaterialReport;
-    final scannerMode =
-        report == null && rawMaterialReport == null && _scannerSupported;
+    final scannerMode = report == null &&
+        paddonReport == null &&
+        rawMaterialReport == null &&
+        _scannerSupported;
     final backgroundColor =
         scannerMode ? Colors.black : scheme.surfaceContainerLow;
     final appBarTheme = theme.appBarTheme.copyWith(
@@ -392,27 +422,32 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
                 onShare: _shareCurrentReport,
                 sharing: _sharing,
               )
-            : rawMaterialReport != null
-                ? _RawMaterialReportView(
-                    report: rawMaterialReport,
+            : paddonReport != null
+                ? _PaddonQrReportView(
+                    report: paddonReport,
                     onScanAgain: _scanAgain,
-                    onShare: _shareCurrentReport,
-                    sharing: _sharing,
                   )
-                : scannerMode
-                    ? _ScannerView(
-                        controller: _controller,
-                        statusText: _statusText,
-                        processing: _processing,
-                        errorText: _errorText,
-                        onDetect: _handleDetect,
-                        onRetry: _startScanner,
-                        onManualEntry: _showManualQrDialog,
+                : rawMaterialReport != null
+                    ? _RawMaterialReportView(
+                        report: rawMaterialReport,
+                        onScanAgain: _scanAgain,
+                        onShare: _shareCurrentReport,
+                        sharing: _sharing,
                       )
-                    : _UnsupportedScannerView(
-                        onBack: Navigator.of(context).pop,
-                        onManualEntry: _showManualQrDialog,
-                      ),
+                    : scannerMode
+                        ? _ScannerView(
+                            controller: _controller,
+                            statusText: _statusText,
+                            processing: _processing,
+                            errorText: _errorText,
+                            onDetect: _handleDetect,
+                            onRetry: _startScanner,
+                            onManualEntry: _showManualQrDialog,
+                          )
+                        : _UnsupportedScannerView(
+                            onBack: Navigator.of(context).pop,
+                            onManualEntry: _showManualQrDialog,
+                          ),
       ),
     );
   }
@@ -779,6 +814,154 @@ class _RawMaterialReportView extends StatelessWidget {
           label: const Text('Yana scan qilish'),
         ),
       ],
+    );
+  }
+}
+
+class _PaddonQrReportView extends StatelessWidget {
+  const _PaddonQrReportView({
+    required this.report,
+    required this.onScanAgain,
+  });
+
+  final AdminPaddonSnapshot report;
+  final VoidCallback onScanAgain;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final paddon = report.paddon;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+      children: [
+        Card.filled(
+          color: scheme.primaryContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.inventory_2_rounded,
+                      color: scheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Paddon QR',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: scheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  paddon.code,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${report.items.length} ta WIP shu package ichida',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (paddon.location.trim().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text('Joylashuv: ${paddon.location}'),
+                ],
+                if (paddon.note.trim().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text('Izoh: ${paddon.note}'),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _InfoSection(
+          title: 'Paddon ichidagi WIP lar (${report.items.length})',
+          children: report.items.isEmpty
+              ? const [
+                  _SentenceLine(text: 'Bu package ichida hozircha WIP yo‘q.'),
+                ]
+              : [
+                  for (var index = 0; index < report.items.length; index++)
+                    _PaddonScannedWipCard(
+                      index: index + 1,
+                      batch: report.items[index],
+                    ),
+                ],
+        ),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: onScanAgain,
+          icon: const Icon(Icons.qr_code_scanner_rounded),
+          label: const Text('Yana scan qilish'),
+        ),
+      ],
+    );
+  }
+}
+
+class _PaddonScannedWipCard extends StatelessWidget {
+  const _PaddonScannedWipCard({
+    required this.index,
+    required this.batch,
+  });
+
+  final int index;
+  final AdminProgressBatch batch;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = batch.labelItemName.trim().isNotEmpty
+        ? batch.labelItemName.trim()
+        : batch.labelItemCode.trim().isNotEmpty
+            ? batch.labelItemCode.trim()
+            : batch.batchId.trim();
+    final status = progressQrHumanStatusLabel(
+      workStatus: batch.statusDetail.workStatus,
+      flowStatus: batch.statusDetail.flowStatus,
+      wipStatus: batch.wipStatus,
+    );
+    final location = [
+      batch.currentLocation.trim(),
+      batch.currentApparatus.trim().isNotEmpty
+          ? batch.currentApparatus.trim()
+          : batch.apparatus.trim(),
+    ].where((item) => item.isNotEmpty).join(' • ');
+    return Card.outlined(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$index. ${title.isEmpty ? 'WIP' : title}',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            _InfoRow(label: 'Order', value: batch.orderId),
+            _InfoRow(label: 'EPC / QR', value: batch.qrPayload),
+            _InfoRow(label: 'Batch ID', value: batch.batchId),
+            _InfoRow(
+                label: 'Holati', value: status.isEmpty ? batch.status : status),
+            _InfoRow(label: 'Joylashuv', value: location),
+          ],
+        ),
+      ),
     );
   }
 }

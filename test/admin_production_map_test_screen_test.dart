@@ -4555,8 +4555,9 @@ void main() {
       expect(find.text('Bosmadan ortgan rulon'), findsOneWidget);
       expect(find.text('Plyonkadan ortgan rulon'), findsOneWidget);
       expect(find.text('Jami chiqindi'), findsOneWidget);
-      expect(find.text('Metraj'), findsNothing);
-      expect(find.text("Og'irlik"), findsNothing);
+      expect(find.text('Babina'), findsOneWidget);
+      expect(find.text('Metraj'), findsOneWidget);
+      expect(find.text("Og'irlik"), findsOneWidget);
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Bosmadan ortgan rulon'),
         '0',
@@ -4568,6 +4569,18 @@ void main() {
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Jami chiqindi'),
         '0',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Babina'),
+        '1',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Metraj'),
+        '1',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, "Og'irlik"),
+        '1',
       );
       await tester.tap(find.text('Tasdiqlash'));
       await tester.pumpAndSettle();

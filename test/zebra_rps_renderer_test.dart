@@ -101,6 +101,28 @@ void main() {
     expect(zpl, isNot(contains('^RFW')));
   });
 
+  test('renders Paddon code as a large QR label', () {
+    final zpl = String.fromCharCodes(
+      ZebraRpsRenderer.render(
+        const UsbRpsPrintRequest(
+          epc: '00001',
+          itemCode: '00001',
+          itemName: 'Paddon 00001',
+          warehouse: '',
+          printer: 'zebra',
+          printMode: 'label',
+          grossQty: 1,
+          labelKind: 'paddon_code',
+        ),
+      ),
+    );
+
+    expect(zpl, contains('^FDLA,00001^FS'));
+    expect(zpl, contains('^FO120,56^BQN,2,11'));
+    expect(zpl, contains('^FD00001^FS'));
+    expect(zpl, isNot(contains('^BCN')));
+  });
+
   test('renders material batch as QR-only without RFID or barcode', () {
     final zpl = String.fromCharCodes(
       ZebraRpsRenderer.render(

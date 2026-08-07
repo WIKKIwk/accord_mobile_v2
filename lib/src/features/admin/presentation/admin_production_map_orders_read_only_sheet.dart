@@ -538,6 +538,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               uom: uom,
               qrPayload: qrPayload,
               progressBatchId: progressBatchId,
+              customerName: widget.customerName?.trim().isNotEmpty == true
+                  ? widget.customerName!.trim()
+                  : widget.order.map.customerName.trim(),
               driverUrl: driverUrl,
               printTransport: printTransport,
               printer: printer,
@@ -1022,6 +1025,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           apparatus: apparatus,
           orderId: widget.order.map.id,
           totalWaste: input.totalWaste,
+          finishedGoodsMeter: input.meterQty,
+          finishedGoodsKg: input.kgQty,
+          bobinaKg: input.bobinaKg,
           rezkaBosmaWaste: input.rezkaBosmaWaste,
           rezkaLaminationWaste: input.rezkaLaminationWaste,
           rezkaEdgeWaste: input.rezkaEdgeWaste,
@@ -1031,6 +1037,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         await MobileApi.instance.adminLaminatsiyaAstatkaReport(
           apparatus: apparatus,
           orderId: widget.order.map.id,
+          finishedGoodsMeter: input.meterQty,
+          finishedGoodsKg: input.kgQty,
+          bobinaKg: input.bobinaKg,
           laminationPrintLeftoverRolls: input.laminationPrintLeftoverRolls,
           laminationFilmLeftoverRolls: input.laminationFilmLeftoverRolls,
           totalWaste: input.totalWaste,

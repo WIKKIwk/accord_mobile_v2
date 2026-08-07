@@ -4,6 +4,7 @@ class _ProgressQtyInput {
   const _ProgressQtyInput({
     this.meterQty,
     this.kgQty,
+    this.bobinaKg,
     this.diameter,
     this.returnInkKg,
     this.laminationPrintLeftoverRolls,
@@ -23,6 +24,7 @@ class _ProgressQtyInput {
 
   final double? meterQty;
   final double? kgQty;
+  final double? bobinaKg;
   final double? diameter;
   final double? returnInkKg;
   final double? laminationPrintLeftoverRolls;
@@ -159,6 +161,7 @@ class _ProgressQtyDialog extends StatefulWidget {
 class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final _meterController = TextEditingController();
   final _kgController = TextEditingController();
+  final _bobinaController = TextEditingController();
   final _diameterController = TextEditingController();
   final _printLeftoverController = TextEditingController();
   final _filmLeftoverController = TextEditingController();
@@ -198,6 +201,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     _filmLeftoverController.dispose();
     _printLeftoverController.dispose();
     _diameterController.dispose();
+    _bobinaController.dispose();
     _kgController.dispose();
     _meterController.dispose();
     super.dispose();
@@ -273,6 +277,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
 
     final meterQty = _parseQty(_meterController.text);
     final kgQty = _parseQty(_kgController.text);
+    final bobinaKg = _parseQty(_bobinaController.text);
     final diameter = _parseQty(_diameterController.text);
     if (_requiresFullCompletionReport &&
         widget.isBosma &&
@@ -330,8 +335,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final totalWaste = _parseQty(_wasteController.text);
     final hasMeter = meterQty != null && meterQty.isFinite && meterQty > 0;
     final hasKg = kgQty != null && kgQty.isFinite && kgQty > 0;
-    final hasDiameter =
-        diameter != null && diameter.isFinite && diameter > 0;
+    final hasBobina = bobinaKg != null && bobinaKg.isFinite && bobinaKg > 0;
+    final hasDiameter = diameter != null && diameter.isFinite && diameter > 0;
     final hasPrintLeftover = printLeftoverRolls != null &&
         printLeftoverRolls.isFinite &&
         printLeftoverRolls > 0;
@@ -353,6 +358,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       if (widget.isRezka) {
         Navigator.of(context).pop(
           _ProgressQtyInput(
+            meterQty: meterQty,
+            kgQty: kgQty,
+            bobinaKg: bobinaKg,
             totalWaste: totalWaste,
             rezkaBosmaWaste: rezkaBosmaWaste,
             rezkaLaminationWaste: rezkaLaminationWaste,
@@ -364,6 +372,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       }
       Navigator.of(context).pop(
         _ProgressQtyInput(
+          meterQty: meterQty,
+          kgQty: kgQty,
+          bobinaKg: bobinaKg,
           laminationPrintLeftoverRolls: printLeftoverRolls,
           laminationFilmLeftoverRolls: filmLeftoverRolls,
           totalWaste: totalWaste,
@@ -376,6 +387,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       if (!formValid) return;
       Navigator.of(context).pop(
         _ProgressQtyInput(
+          bobinaKg: bobinaKg,
           laminationPrintLeftoverRolls: printLeftoverRolls,
           laminationFilmLeftoverRolls: filmLeftoverRolls,
           totalWaste: totalWaste,
@@ -385,37 +397,45 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       return;
     }
     if (_isRollRemoval) {
-      if (!formValid || !hasMeter || !hasKg) return;
+      if (!formValid || !hasMeter || !hasKg || !hasBobina) return;
       Navigator.of(context).pop(
         _ProgressQtyInput(
           finishedGoodsMeter: meterQty,
           finishedGoodsKg: kgQty,
+          bobinaKg: bobinaKg,
         ),
       );
       return;
     }
     final bosmaMetricsReady = _requiresFullCompletionReport
-        ? hasWaste && hasMeter && hasKg && returnedPaintValid
-        : hasMeter && hasKg;
+        ? hasWaste && hasMeter && hasKg && hasBobina && returnedPaintValid
+        : hasMeter && hasKg && hasBobina;
     final laminatsiyaMetricsReady = _requiresFullCompletionReport
-        ? (hasPrintLeftover || hasFilmLeftover) && hasWaste && hasMeter && hasKg
-        : hasMeter && hasKg;
+        ? (hasPrintLeftover || hasFilmLeftover) &&
+            hasWaste &&
+            hasMeter &&
+            hasKg &&
+            hasBobina
+        : hasMeter && hasKg && hasBobina;
     final hasRezkaWaste = hasWaste ||
         hasRezkaBosmaWaste ||
         hasRezkaLaminationWaste ||
         hasRezkaEdgeWaste;
     final rezkaMetricsReady = hasMeter &&
         hasKg &&
+        hasBobina &&
         hasDiameter &&
         (!_requiresFullCompletionReport || hasRezkaWaste);
     if (!widget.isBosma &&
         !widget.isLaminatsiya &&
         !widget.isRezka &&
         hasMeter &&
-        hasKg) {
+        hasKg &&
+        hasBobina) {
       Navigator.of(context).pop(_ProgressQtyInput(
         meterQty: meterQty,
         kgQty: kgQty,
+        bobinaKg: bobinaKg,
         returnedPaintItems: returnedPaintItems,
         returnedPaintImageId: returnedPaintImageId,
       ));
@@ -426,6 +446,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         _ProgressQtyInput(
           finishedGoodsMeter: meterQty,
           finishedGoodsKg: kgQty,
+          bobinaKg: bobinaKg,
           returnInkKg: _isComplete ? returnInkKg : null,
           totalWaste: _isComplete ? totalWaste : null,
           returnedPaintItems: returnedPaintItems,
@@ -440,6 +461,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         _ProgressQtyInput(
           meterQty: meterQty,
           kgQty: kgQty,
+          bobinaKg: bobinaKg,
           diameter: diameter,
           totalWaste: totalWaste,
           rezkaBosmaWaste: rezkaBosmaWaste,
@@ -457,6 +479,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         _ProgressQtyInput(
           finishedGoodsMeter: meterQty,
           finishedGoodsKg: kgQty,
+          bobinaKg: bobinaKg,
           laminationPrintLeftoverRolls: _isComplete ? printLeftoverRolls : null,
           laminationFilmLeftoverRolls: _isComplete ? filmLeftoverRolls : null,
           totalWaste: _isComplete ? totalWaste : null,
@@ -478,6 +501,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           _completionRequestInput(
             meterQty: meterQty,
             kgQty: kgQty,
+            bobinaKg: bobinaKg,
             diameter: diameter,
             returnInkKg: returnInkKg,
             printLeftoverRolls: printLeftoverRolls,
@@ -502,6 +526,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   _ProgressQtyInput _completionRequestInput({
     required double? meterQty,
     required double? kgQty,
+    required double? bobinaKg,
     required double? diameter,
     required double? returnInkKg,
     required double? printLeftoverRolls,
@@ -516,6 +541,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       return _ProgressQtyInput(
         finishedGoodsMeter: meterQty,
         finishedGoodsKg: kgQty,
+        bobinaKg: bobinaKg,
         returnInkKg: returnInkKg,
         totalWaste: totalWaste,
         description: description,
@@ -528,6 +554,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       return _ProgressQtyInput(
         finishedGoodsMeter: meterQty,
         finishedGoodsKg: kgQty,
+        bobinaKg: bobinaKg,
         laminationPrintLeftoverRolls: printLeftoverRolls,
         laminationFilmLeftoverRolls: filmLeftoverRolls,
         totalWaste: totalWaste,
@@ -542,6 +569,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       return _ProgressQtyInput(
         meterQty: meterQty,
         kgQty: kgQty,
+        bobinaKg: bobinaKg,
         diameter: diameter,
         totalWaste: totalWaste,
         rezkaBosmaWaste: rezkaBosmaWaste,
@@ -557,6 +585,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     return _ProgressQtyInput(
       meterQty: meterQty,
       kgQty: kgQty,
+      bobinaKg: bobinaKg,
       description: description,
       returnedPaintItems: _returnedPaintItems,
       returnedPaintImageId: _returnedPaintDraft.image?.imageId.trim() ?? '',
@@ -664,6 +693,16 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        _progressQtySectionLabel(context, 'Standart miqdor'),
+                        _qtyField(
+                          controller: _bobinaController,
+                          label: 'Babina',
+                          error: 'Babina kg kiriting',
+                          suffix: 'kg',
+                          requiredField: true,
+                          positive: true,
+                        ),
+                        const SizedBox(height: 10),
                         if ((_requiresFullCompletionReport ||
                                 _isWorkerHandoff ||
                                 _isAstatkaReport) &&
@@ -790,7 +829,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           ),
                           const SizedBox(height: 10),
                         ],
-                        if (!_isWorkerHandoff && !_isAstatkaReport) ...[
+                        if (!_isWorkerHandoff) ...[
                           _progressQtySectionLabel(
                             context,
                             hasDetailedMetrics ? 'Tayyor mahsulot' : 'Miqdor',
@@ -803,8 +842,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                 : 'Metraj kiriting',
                             suffix: 'metr',
                             requiredField:
-                                isRezka || _isRollRemoval ? true : null,
-                            positive: isRezka || _isRollRemoval,
+                                isRezka || _isRollRemoval || _isAstatkaReport
+                                    ? true
+                                    : null,
+                            positive:
+                                isRezka || _isRollRemoval || _isAstatkaReport,
                           ),
                           const SizedBox(height: 10),
                           _qtyField(
@@ -815,8 +857,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                 : 'Kg kiriting',
                             suffix: 'kg',
                             requiredField:
-                                isRezka || _isRollRemoval ? true : null,
-                            positive: isRezka || _isRollRemoval,
+                                isRezka || _isRollRemoval || _isAstatkaReport
+                                    ? true
+                                    : null,
+                            positive:
+                                isRezka || _isRollRemoval || _isAstatkaReport,
                           ),
                           if (isRezka) ...[
                             const SizedBox(height: 10),

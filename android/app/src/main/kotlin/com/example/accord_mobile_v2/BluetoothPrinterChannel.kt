@@ -51,6 +51,8 @@ class BluetoothPrinterChannel(
         private const val PACK_QR_X = 278
         private const val PACK_QR_Y = 166
         private const val PACK_EPC_Y = 328
+        private const val PROGRESS_PACK_QR_Y = 250
+        private const val PROGRESS_PACK_EPC_GAP_DOTS = 16
         private const val LARGE_QR_FOOTER_GAP_DOTS = 28
         private const val LARGE_QR_FOOTER_LEFT_SHIFT_DOTS = 16
         private const val LARGE_QR_FOOTER_HEIGHT_DOTS = 24
@@ -424,6 +426,10 @@ class BluetoothPrinterChannel(
         printer: TSPLPrinter,
         label: BluetoothLabelRequest,
     ) {
+        if (label.isProgress) {
+            printProgressPackLabel(printer, label)
+            return
+        }
         val payload = requiredPayload(label.epc)
         val product = cleanLabelText(label.itemName.ifBlank { label.itemCode })
         val productLines = wrapLabelText(product, 24).take(3)
@@ -489,6 +495,78 @@ class BluetoothPrinterChannel(
             printer,
             centeredLabelX(epcText, if (epcFont == TSPLConst.FNT_12_20) 12 else 8),
             PACK_EPC_Y,
+            epcFont,
+            epcText,
+        )
+    }
+
+    private fun printProgressPackLabel(
+        printer: TSPLPrinter,
+        label: BluetoothLabelRequest,
+    ) {
+        val payload = requiredPayload(label.epc)
+        val customer = cleanLabelText(label.customerName.ifBlank { "-" })
+        val product = cleanLabelText(
+            label.itemName.ifBlank { label.itemCode }.ifBlank { "-" },
+        )
+        val metadataLines = buildList {
+            addAll(wrapLabelText("MIJOZ: $customer", 21).take(2))
+            addAll(wrapLabelText("MAHSULOT NOMI: $product", 21).take(4))
+        }
+        var y = 24
+        metadataLines.forEach { line ->
+            sdkText(printer, LABEL_LEFT_MARGIN_DOTS, y, TSPLConst.FNT_12_20, line)
+            y += 24
+        }
+        y += 4
+
+        val meterUnit = cleanLabelText(label.progressUnit.ifBlank { "m" })
+        val weightUnit = cleanLabelText(label.unit.ifBlank { "kg" })
+        sdkText(
+            printer,
+            LABEL_LEFT_MARGIN_DOTS,
+            y,
+            TSPLConst.FNT_12_20,
+            "METRAJ: ${formatLabelQty(label.progressQty ?: label.netQty)} $meterUnit",
+        )
+        y += 24
+        sdkText(
+            printer,
+            LABEL_LEFT_MARGIN_DOTS,
+            y,
+            TSPLConst.FNT_12_20,
+            "NETTO: ${formatLabelQty(label.netQty)} $weightUnit",
+        )
+        y += 24
+        sdkText(
+            printer,
+            LABEL_LEFT_MARGIN_DOTS,
+            y,
+            TSPLConst.FNT_12_20,
+            "BRUTTO: ${formatLabelQty(label.grossQty)} $weightUnit",
+        )
+
+        val qrCellSize = packQrCellSize(payload)
+        val qrSize = qrSymbolSizeDots(payload, qrCellSize)
+        val epcY = (PROGRESS_PACK_QR_Y + qrSize + PROGRESS_PACK_EPC_GAP_DOTS)
+            .coerceAtMost(LABEL_HEIGHT_DOTS - 24)
+        sdkQr(
+            printer,
+            PACK_QR_X,
+            PROGRESS_PACK_QR_Y,
+            payload,
+            cellSize = qrCellSize,
+        )
+        val epcFont = if (payload.length <= 32) {
+            TSPLConst.FNT_12_20
+        } else {
+            TSPLConst.FNT_8_12
+        }
+        val epcText = fitLabelText(payload, if (epcFont == TSPLConst.FNT_12_20) 32 else 46)
+        sdkText(
+            printer,
+            centeredLabelX(epcText, if (epcFont == TSPLConst.FNT_12_20) 12 else 8),
+            epcY,
             epcFont,
             epcText,
         )
@@ -842,7 +920,7 @@ private data class BluetoothLabelRequest(
         get() = labelKind == "qolip_cell" || labelKind == "qr_center"
 
     val isQolipCode: Boolean
-        get() = labelKind == "qolip_code"
+        get() = labelKind == "qolip_code" || labelKind == "paddon_code"
 
     val isMaterialProduct: Boolean
         get() = labelKind == "material_product"

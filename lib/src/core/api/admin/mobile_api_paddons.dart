@@ -89,6 +89,22 @@ class AdminPaddonSnapshot {
   }
 }
 
+class AdminPaddonQrPrintResult {
+  const AdminPaddonQrPrintResult({
+    required this.ok,
+    required this.paddon,
+    required this.qrPayload,
+    this.printJob,
+    this.printStatus = '',
+  });
+
+  final bool ok;
+  final AdminPaddon paddon;
+  final String qrPayload;
+  final UsbRpsPrintRequest? printJob;
+  final String printStatus;
+}
+
 extension MobileApiPaddons on MobileApi {
   Future<List<AdminPaddon>> adminPaddons({int limit = 100}) async {
     final boundedLimit = limit.clamp(1, 200).toInt();
@@ -137,6 +153,95 @@ extension MobileApiPaddons on MobileApi {
     }
     return AdminPaddonSnapshot.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminPaddonSnapshot> adminPaddonQrReport(String code) async {
+    final normalizedCode = code.trim();
+    if (normalizedCode.isEmpty) {
+      throw const MobileApiException(
+        code: 'paddon_not_found',
+        message: 'Paddon topilmadi',
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/qr/report',
+        ).replace(
+          queryParameters: {'code': normalizedCode},
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'paddon_not_found');
+    }
+    return AdminPaddonSnapshot.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminPaddonQrPrintResult> adminPaddonPrintQr({
+    required String code,
+    String driverUrl = '',
+    String printer = '',
+    String printMode = '',
+    int printCount = 1,
+    PrintTransport printTransport = PrintTransport.wifi,
+  }) async {
+    final normalizedCode = code.trim();
+    if (normalizedCode.isEmpty) {
+      throw const MobileApiException(
+        code: 'paddon_not_found',
+        message: 'Paddon topilmadi',
+      );
+    }
+    final boundedPrintCount = printCount.clamp(1, 100).toInt();
+    final normalizedDriverUrl =
+        driverUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    final normalizedPrinter = printer.trim();
+    final normalizedPrintMode = printMode.trim();
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/qr/print',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'code': normalizedCode,
+          if (normalizedDriverUrl.isNotEmpty) 'driver_url': normalizedDriverUrl,
+          if (printTransport.isLocal)
+            'print_transport': printTransport.clientApiValue,
+          if (normalizedPrinter.isNotEmpty) 'printer': normalizedPrinter,
+          if (normalizedPrintMode.isNotEmpty) 'print_mode': normalizedPrintMode,
+          'print_count': boundedPrintCount,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'paddon_qr_print');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final rawPaddon = payload['paddon'];
+    if (rawPaddon is! Map) {
+      throw const MobileApiException(
+        code: 'paddon_not_found',
+        message: 'Paddon topilmadi',
+      );
+    }
+    final rawPrint = payload['print'];
+    final printMap = rawPrint is Map
+        ? rawPrint.cast<String, dynamic>()
+        : const <String, dynamic>{};
+    return AdminPaddonQrPrintResult(
+      ok: payload['ok'] == true,
+      paddon: AdminPaddon.fromJson(rawPaddon.cast<String, dynamic>()),
+      qrPayload: payload['qr_payload']?.toString() ?? normalizedCode,
+      printJob:
+          printMap.isEmpty ? null : UsbRpsPrintRequest.fromPrintJson(printMap),
+      printStatus: printMap['status']?.toString() ?? '',
     );
   }
 
@@ -198,6 +303,34 @@ extension MobileApiPaddons on MobileApi {
     );
   }
 
+  Future<AdminPaddonSnapshot> adminPaddonAddWips({
+    required String paddonCode,
+    required List<String> progressBatchIds,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/items/add-batch',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'code': paddonCode.trim(),
+          'progress_batch_ids': progressBatchIds
+              .map((batchId) => batchId.trim())
+              .where((batchId) => batchId.isNotEmpty)
+              .toList(growable: false),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'paddon_items_add');
+    }
+    return AdminPaddonSnapshot.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<AdminPaddonSnapshot> adminPaddonRemoveWip({
     required String paddonCode,
     required String progressBatchId,
@@ -217,6 +350,34 @@ extension MobileApiPaddons on MobileApi {
     );
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'paddon_item_remove');
+    }
+    return AdminPaddonSnapshot.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminPaddonSnapshot> adminPaddonRemoveWips({
+    required String paddonCode,
+    required List<String> progressBatchIds,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/items/remove-batch',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'code': paddonCode.trim(),
+          'progress_batch_ids': progressBatchIds
+              .map((batchId) => batchId.trim())
+              .where((batchId) => batchId.isNotEmpty)
+              .toList(growable: false),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'paddon_items_remove');
     }
     return AdminPaddonSnapshot.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,

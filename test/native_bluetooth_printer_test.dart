@@ -64,7 +64,12 @@ void main() {
         printer: 'xp-p323b',
         printMode: 'label',
         grossQty: 2.5,
+        tareEnabled: true,
+        tareKg: 0.5,
+        labelKind: 'progress',
         customerName: 'CUSTOMER ONE',
+        progressQty: 125,
+        progressUnit: 'm',
       ),
       bluetoothPrinter: printer,
       transport: PrintTransport.bluetooth,
@@ -81,6 +86,11 @@ void main() {
     );
     expect(captured?.arguments, containsPair('item_name', "QIZIL G'ISHT"));
     expect(captured?.arguments, containsPair('customer_name', 'CUSTOMER ONE'));
+    expect(captured?.arguments, containsPair('tare_enabled', true));
+    expect(captured?.arguments, containsPair('tare_kg', 0.5));
+    expect(captured?.arguments, containsPair('label_kind', 'progress'));
+    expect(captured?.arguments, containsPair('progress_qty', 125.0));
+    expect(captured?.arguments, containsPair('progress_unit', 'm'));
     expect(captured?.arguments, isNot(contains('bytes')));
   });
 

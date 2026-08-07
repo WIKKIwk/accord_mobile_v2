@@ -16,6 +16,7 @@ class _ReadOnlyQueueActionRequest {
     this.qolipCodes = const [],
     this.producedQty,
     this.grossQty,
+    this.bobinaKg,
     this.diameter,
     this.returnInkKg,
     this.laminationPrintLeftoverRolls,
@@ -29,6 +30,7 @@ class _ReadOnlyQueueActionRequest {
     this.uom = '',
     this.qrPayload = '',
     this.progressBatchId = '',
+    this.customerName = '',
     this.driverUrl = '',
     this.printTransport = PrintTransport.wifi,
     this.printer = '',
@@ -49,6 +51,7 @@ class _ReadOnlyQueueActionRequest {
   final List<String> qolipCodes;
   final double? producedQty;
   final double? grossQty;
+  final double? bobinaKg;
   final double? diameter;
   final double? returnInkKg;
   final double? laminationPrintLeftoverRolls;
@@ -62,6 +65,7 @@ class _ReadOnlyQueueActionRequest {
   final String uom;
   final String qrPayload;
   final String progressBatchId;
+  final String customerName;
   final String driverUrl;
   final PrintTransport printTransport;
   final String printer;

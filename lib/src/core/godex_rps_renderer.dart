@@ -81,7 +81,9 @@ class GodexRpsRenderer {
         includeFinalStatus: includeFinalStatus,
       );
     }
-    if (request.isQolipCodeLabel || request.isMaterialProductLabel) {
+    if (request.isQolipCodeLabel ||
+        request.isPaddonCodeLabel ||
+        request.isMaterialProductLabel) {
       return _renderQolipCode(
         request,
         graphicNames: graphicNames,

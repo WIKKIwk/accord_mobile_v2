@@ -149,7 +149,7 @@ void main() {
     );
   });
 
-  testWidgets('paddon detail renders its WIP and remove action', (
+  testWidgets('paddon detail switches between add and remove modes', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
@@ -171,22 +171,36 @@ void main() {
     expect(find.text('Paddon ichidagi WIP lar'), findsOneWidget);
     expect(find.text('Bo‘sh rulon'), findsNothing);
     await tester.tap(
-      find.byKey(const ValueKey('paddon-toggle-available-wips')),
+      find.byKey(const ValueKey('paddon-edit-mode-action')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Paddonga kirmagan WIP lar'), findsOneWidget);
+    expect(
+      find.text('Paddonga qo‘shish mumkin bo‘lgan WIP lar'),
+      findsOneWidget,
+    );
     expect(find.text('Order: order-002'), findsOneWidget);
     expect(find.text('EPC: 40019876543210FEDCBA'), findsOneWidget);
-    expect(find.text('Bo‘sh rulon'), findsNothing);
     expect(
-      find.byKey(const ValueKey('paddon-add-wip-free-wip-001')),
+      find.byKey(const ValueKey('paddon-available-wip-card-free-wip-001')),
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('paddon-remove-wip-wip-001')),
-      findsOneWidget,
+      find.byIcon(Icons.remove_circle_outline_rounded),
+      findsNothing,
     );
     expect(find.byKey(const ValueKey('paddon-add-wip-scan')), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('paddon-edit-mode-action')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Olib tashlash'), findsOneWidget);
+    expect(find.text('Paddon ichidagi WIP lar'), findsOneWidget);
+    expect(find.text('Order: order-002'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('paddon-wip-card-wip-001')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('opening available WIPs scrolls them into view', (tester) async {
@@ -204,7 +218,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(
-      find.byKey(const ValueKey('paddon-toggle-available-wips')),
+      find.byKey(const ValueKey('paddon-edit-mode-action')),
     );
     await tester.pumpAndSettle();
 
@@ -217,42 +231,50 @@ void main() {
     expect(rect.bottom, greaterThan(0));
   });
 
-  testWidgets('available WIPs are refreshed before the add list opens', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues(const <String, Object>{});
-    _setSession();
-    var loadCount = 0;
-    final initial = _snapshot();
-    final refreshed = AdminPaddonSnapshot(
-      paddon: initial.paddon,
-      items: initial.items,
-    );
+  testWidgets(
+    'available WIPs use the detail snapshot when the add list opens',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      _setSession();
+      var loadCount = 0;
+      final initial = _snapshot();
 
-    await tester.pumpWidget(
-      _app(
-        AparatchiPaddonDetailScreen(
-          code: '00001',
-          loader: () async {
-            loadCount += 1;
-            return loadCount == 1 ? initial : refreshed;
-          },
+      await tester.pumpWidget(
+        _app(
+          AparatchiPaddonDetailScreen(
+            code: '00001',
+            loader: () async {
+              loadCount += 1;
+              return initial;
+            },
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const ValueKey('paddon-toggle-available-wips')),
-    );
-    await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('paddon-edit-mode-action')),
+      );
+      await tester.pumpAndSettle();
 
-    expect(loadCount, 2);
-    expect(find.text('Paddonga kirmagan WIP lar'), findsOneWidget);
-    expect(find.text('Paddonga kirmagan WIP topilmadi.'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('paddon-add-wip-free-wip-001')),
-      findsNothing,
-    );
-  });
+      expect(loadCount, 1);
+      expect(
+        find.text('Paddonga qo‘shish mumkin bo‘lgan WIP lar'),
+        findsOneWidget,
+      );
+      expect(find.text('Order: order-002'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('paddon-available-wip-card-free-wip-001')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('paddon-available-wip-card-free-wip-001')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(loadCount, 1);
+      expect(find.text('Qo‘shish (1)'), findsOneWidget);
+    },
+  );
 }

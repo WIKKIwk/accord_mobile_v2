@@ -11,7 +11,9 @@ class ZebraRpsRenderer {
     if (request.isQolipCellLabel) {
       return _renderQolipCell(request);
     }
-    if (request.isQolipCodeLabel || request.isMaterialProductLabel) {
+    if (request.isQolipCodeLabel ||
+        request.isPaddonCodeLabel ||
+        request.isMaterialProductLabel) {
       return _renderQolipCode(request);
     }
     final epc = _normalizeEpc(request.epc);
