@@ -5,6 +5,7 @@ final List<CalculateMaterial> _testModeCalculateMaterials =
     List<CalculateMaterial>.from(_defaultCalculateMaterials());
 const double kCalculateEdgeAllowanceMm = 15;
 const double kCalculateMinMoldExtraMm = 50;
+const double kCalculateAdhesiveGsmPerBond = 2.5;
 
 void resetMobileApiCalculateTestModeData() {
   _testModeCalculateOrderTemplates.clear();
@@ -262,11 +263,25 @@ extension MobileApiCalculate on MobileApi {
 CalculateResponse _testModeCalculate(CalculateRequest request) {
   final widthSm = request.widthMm / 10;
   final rubberSize = productionMapRubberSizeFromWidth(request.widthMm);
-  const coeffSum = 4.3;
-  final baseLength =
-      widthSm <= 0 ? 0.0 : request.kg / (coeffSum * widthSm) * 6000.0;
-  final wasteLength = baseLength * request.wastePercent / 100;
-  final roundedLength = ((baseLength + wasteLength) / 100).ceil() * 100.0;
+  final layers = request.effectiveLayers;
+  final layerGsm = layers.map(_testModeLayerGsm).toList(growable: false);
+  final filmGsm = layerGsm.fold<double>(0, (sum, gsm) => sum + gsm);
+  final adhesiveGsm = (layers.length - 1).clamp(0, layers.length).toDouble() *
+      kCalculateAdhesiveGsmPerBond;
+  final totalGsm = filmGsm + adhesiveGsm;
+  final baseLength = request.widthMm <= 0 || totalGsm <= 0
+      ? 0.0
+      : request.kg * 1000000 / (request.widthMm * totalGsm);
+  final productionLength =
+      request.wastePercent < 0 || request.wastePercent >= 100
+          ? baseLength
+          : baseLength / (1 - request.wastePercent / 100);
+  final wasteLength = productionLength - baseLength;
+  final roundedLength = (productionLength / 500).ceil() * 500.0;
+  final firstGsm = layerGsm.isEmpty ? 0.0 : layerGsm.first;
+  final firstCoeff = firstGsm * 0.06;
+  final otherCoeff = (totalGsm - firstGsm) * 0.06;
+  final coeffSum = totalGsm * 0.06;
   return CalculateResponse(
     ok: true,
     kg: request.kg,
@@ -277,7 +292,7 @@ CalculateResponse _testModeCalculate(CalculateRequest request) {
     minMoldSizeMm: request.minMoldSizeMm,
     rubberSizeMm: rubberSize,
     wastePercent: request.wastePercent,
-    layers: request.effectiveLayers
+    layers: layers
         .map(
           (layer) => CalculateLayer(
             materialId: layer.materialId,
@@ -288,8 +303,11 @@ CalculateResponse _testModeCalculate(CalculateRequest request) {
         .toList(growable: false),
     results: [
       CalculateResult(
-        firstCoeff: 1,
-        otherCoeff: coeffSum - 1,
+        filmGsm: filmGsm,
+        adhesiveGsm: adhesiveGsm,
+        totalGsm: totalGsm,
+        firstCoeff: firstCoeff,
+        otherCoeff: otherCoeff,
         coeffSum: coeffSum,
         widthSm: widthSm,
         baseLength: baseLength,
@@ -299,6 +317,46 @@ CalculateResponse _testModeCalculate(CalculateRequest request) {
     ],
   );
 }
+
+double _testModeLayerGsm(CalculateLayerInput layer) {
+  final materialKey = _calculateMaterialKey(layer.material);
+  CalculateMaterial? material;
+  for (final candidate in _testModeCalculateMaterials) {
+    final matches = layer.materialId.trim().isNotEmpty
+        ? candidate.id.trim() == layer.materialId.trim()
+        : _calculateMaterialKey(candidate.name) == materialKey ||
+            candidate.aliases.any(
+              (alias) => _calculateMaterialKey(alias) == materialKey,
+            );
+    if (matches) {
+      material = candidate;
+      break;
+    }
+  }
+  final micron = int.tryParse(layer.micron.trim()) ?? 0;
+  CalculateMaterialVariant? variant;
+  for (final candidate
+      in material?.variants ?? const <CalculateMaterialVariant>[]) {
+    if (candidate.micron == micron) {
+      variant = candidate;
+      break;
+    }
+  }
+  final actualGsm = variant?.actualGsm;
+  if (actualGsm != null && actualGsm > 0) {
+    return actualGsm;
+  }
+  if (material != null && material.densityGCm3 > 0 && micron > 0) {
+    return material.densityGCm3 * micron;
+  }
+  if (variant != null && variant.coefficient > 0) {
+    return variant.coefficient * (1000000 / 60000);
+  }
+  return 0;
+}
+
+String _calculateMaterialKey(String value) =>
+    value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 
 class CalculateRequest {
   const CalculateRequest({
@@ -408,8 +466,9 @@ class CalculateLayerInput {
 class CalculateMaterialVariant {
   const CalculateMaterialVariant({
     required this.micron,
-    required this.coefficient,
+    this.coefficient = 0,
     this.firstLayerCoefficient,
+    this.actualGsm,
   });
 
   factory CalculateMaterialVariant.fromJson(Map<String, dynamic> json) {
@@ -419,12 +478,14 @@ class CalculateMaterialVariant {
       firstLayerCoefficient: _calculateOptionalNumber(
         json['first_layer_coefficient'],
       ),
+      actualGsm: _calculateOptionalNumber(json['actual_gsm']),
     );
   }
 
   final int micron;
   final double coefficient;
   final double? firstLayerCoefficient;
+  final double? actualGsm;
 
   Map<String, dynamic> toJson() {
     return {
@@ -432,6 +493,7 @@ class CalculateMaterialVariant {
       'coefficient': coefficient,
       if (firstLayerCoefficient != null)
         'first_layer_coefficient': firstLayerCoefficient,
+      if (actualGsm != null) 'actual_gsm': actualGsm,
     };
   }
 }
@@ -442,6 +504,7 @@ class CalculateMaterial {
     required this.name,
     required this.aliases,
     required this.active,
+    this.densityGCm3 = 0,
     required this.variants,
   });
 
@@ -463,6 +526,7 @@ class CalculateMaterial {
           .where((item) => item.isNotEmpty)
           .toList(growable: false),
       active: json['active'] != false,
+      densityGCm3: _calculateNumber(json['density_g_cm3']),
       variants: variants,
     );
   }
@@ -471,6 +535,7 @@ class CalculateMaterial {
   final String name;
   final List<String> aliases;
   final bool active;
+  final double densityGCm3;
   final List<CalculateMaterialVariant> variants;
 
   CalculateMaterial copyWith({
@@ -478,6 +543,7 @@ class CalculateMaterial {
     String? name,
     List<String>? aliases,
     bool? active,
+    double? densityGCm3,
     List<CalculateMaterialVariant>? variants,
   }) {
     return CalculateMaterial(
@@ -485,6 +551,7 @@ class CalculateMaterial {
       name: name ?? this.name,
       aliases: aliases ?? this.aliases,
       active: active ?? this.active,
+      densityGCm3: densityGCm3 ?? this.densityGCm3,
       variants: variants ?? this.variants,
     );
   }
@@ -498,6 +565,7 @@ class CalculateMaterial {
           .where((alias) => alias.isNotEmpty)
           .toList(growable: false),
       'active': active,
+      'density_g_cm3': densityGCm3,
       'variants': variants.map((variant) => variant.toJson()).toList(),
     };
   }
@@ -594,6 +662,9 @@ class CalculateLayer {
 
 class CalculateResult {
   const CalculateResult({
+    this.filmGsm = 0,
+    this.adhesiveGsm = 0,
+    this.totalGsm = 0,
     required this.firstCoeff,
     required this.otherCoeff,
     required this.coeffSum,
@@ -605,6 +676,9 @@ class CalculateResult {
 
   factory CalculateResult.fromJson(Map<String, dynamic> json) {
     return CalculateResult(
+      filmGsm: _calculateNumber(json['film_gsm']),
+      adhesiveGsm: _calculateNumber(json['adhesive_gsm']),
+      totalGsm: _calculateNumber(json['total_gsm']),
       firstCoeff: _calculateNumber(json['first_coeff']),
       otherCoeff: _calculateNumber(json['other_coeff']),
       coeffSum: _calculateNumber(json['coeff_sum']),
@@ -616,6 +690,9 @@ class CalculateResult {
   }
 
   final double firstCoeff;
+  final double filmGsm;
+  final double adhesiveGsm;
+  final double totalGsm;
   final double otherCoeff;
   final double coeffSum;
   final double widthSm;
@@ -978,90 +1055,101 @@ CalculateOrderTemplate _testModeUpsertCalculateOrderTemplate(
 }
 
 List<CalculateMaterial> _defaultCalculateMaterials() {
-  const mcpCpp = <CalculateMaterialVariant>[
-    CalculateMaterialVariant(
-      micron: 20,
-      coefficient: 1.07,
-      firstLayerCoefficient: 1,
-    ),
-    CalculateMaterialVariant(micron: 25, coefficient: 1.3),
-    CalculateMaterialVariant(micron: 30, coefficient: 1.6),
-    CalculateMaterialVariant(micron: 35, coefficient: 2),
-    CalculateMaterialVariant(micron: 40, coefficient: 2.15),
-    CalculateMaterialVariant(micron: 45, coefficient: 2.7),
-    CalculateMaterialVariant(micron: 50, coefficient: 2.8),
-    CalculateMaterialVariant(micron: 60, coefficient: 3.2),
-  ];
-  const pe = <CalculateMaterialVariant>[
-    CalculateMaterialVariant(micron: 30, coefficient: 2),
-    CalculateMaterialVariant(micron: 35, coefficient: 2.3),
-    CalculateMaterialVariant(micron: 40, coefficient: 2.6),
-    CalculateMaterialVariant(micron: 45, coefficient: 3),
-    CalculateMaterialVariant(micron: 50, coefficient: 3.3),
-    CalculateMaterialVariant(micron: 55, coefficient: 3.6),
-    CalculateMaterialVariant(micron: 60, coefficient: 4),
-    CalculateMaterialVariant(micron: 65, coefficient: 4.3),
-    CalculateMaterialVariant(micron: 70, coefficient: 4.6),
-    CalculateMaterialVariant(micron: 75, coefficient: 5),
-    CalculateMaterialVariant(micron: 80, coefficient: 5.3),
-    CalculateMaterialVariant(micron: 85, coefficient: 5.6),
-    CalculateMaterialVariant(micron: 90, coefficient: 6),
-  ];
-  const jem = <CalculateMaterialVariant>[
-    CalculateMaterialVariant(micron: 25, coefficient: 1),
-    CalculateMaterialVariant(micron: 30, coefficient: 1.5),
-  ];
-  return const [
+  const commonMicrons = <int>[20, 25, 30, 35, 40, 45, 50, 60];
+  return [
     CalculateMaterial(
       id: 'builtin-pet',
       name: 'PET',
-      aliases: ['pet'],
+      aliases: const ['pet'],
       active: true,
-      variants: mcpCpp,
+      densityGCm3: 1.40,
+      variants: _densityCalculateVariants(
+        const [12, ...commonMicrons],
+        1.40,
+      ),
     ),
     CalculateMaterial(
       id: 'builtin-opp',
       name: 'OPP',
-      aliases: ['opp', 'bopp'],
+      aliases: const ['opp', 'bopp'],
       active: true,
-      variants: mcpCpp,
+      densityGCm3: 0.91,
+      variants: _densityCalculateVariants(
+        const [18, ...commonMicrons],
+        0.91,
+      ),
     ),
     CalculateMaterial(
       id: 'builtin-bopp-metal',
       name: 'BOPP metal',
-      aliases: ['bopp metall', 'boppmetal'],
+      aliases: const ['bopp metall', 'boppmetal'],
       active: true,
-      variants: mcpCpp,
+      densityGCm3: 0.91,
+      variants: _densityCalculateVariants(
+        const [18, ...commonMicrons],
+        0.91,
+      ),
     ),
     CalculateMaterial(
       id: 'builtin-mcp',
       name: 'MCP',
-      aliases: ['mcp', 'mcpp'],
+      aliases: const ['mcp', 'mcpp'],
       active: true,
-      variants: mcpCpp,
+      densityGCm3: 0.90,
+      variants: _densityCalculateVariants(commonMicrons, 0.90),
     ),
     CalculateMaterial(
       id: 'builtin-cpp',
       name: 'CPP',
-      aliases: ['cpp'],
+      aliases: const ['cpp'],
       active: true,
-      variants: mcpCpp,
+      densityGCm3: 0.90,
+      variants: _densityCalculateVariants(commonMicrons, 0.90),
     ),
     CalculateMaterial(
       id: 'builtin-pe',
       name: 'PE',
-      aliases: ['pe', 'pe oq', 'pe pr'],
+      aliases: const ['pe', 'pe oq', 'pe pr'],
       active: true,
-      variants: pe,
+      densityGCm3: 0.92,
+      variants: _densityCalculateVariants(
+        const [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90],
+        0.92,
+      ),
     ),
-    CalculateMaterial(
+    const CalculateMaterial(
       id: 'builtin-jem',
       name: 'JEM',
       aliases: ['jem'],
       active: true,
-      variants: jem,
+      variants: [
+        CalculateMaterialVariant(
+          micron: 25,
+          coefficient: 1,
+          actualGsm: 16.666666666666668,
+        ),
+        CalculateMaterialVariant(
+          micron: 30,
+          coefficient: 1.5,
+          actualGsm: 25,
+        ),
+      ],
     ),
   ];
+}
+
+List<CalculateMaterialVariant> _densityCalculateVariants(
+  List<int> microns,
+  double densityGCm3,
+) {
+  return microns
+      .map(
+        (micron) => CalculateMaterialVariant(
+          micron: micron,
+          coefficient: micron * densityGCm3 * 0.06,
+        ),
+      )
+      .toList(growable: false);
 }
 
 Future<Map<String, dynamic>> _calculateDecodeObject(String body) async {

@@ -19,6 +19,7 @@ import '../features/boyoqchi/presentation/boyoqchi_home_screen.dart';
 import '../features/admin/presentation/admin_activity_screen.dart';
 import '../features/admin/presentation/admin_apparatus_settings_screen.dart';
 import '../features/admin/presentation/admin_calculate_screen.dart';
+import '../features/admin/presentation/admin_calculate_materials_screen.dart';
 import '../features/admin/presentation/admin_calculate_orders_screen.dart';
 import '../features/admin/presentation/admin_create_hub_screen.dart';
 import '../features/admin/presentation/admin_factory_map_screen.dart';
@@ -158,6 +159,7 @@ class AppRoutes {
   static const String adminHome = '/admin-home';
   static const String adminActivity = '/admin-activity';
   static const String adminCalculate = '/admin-calculate';
+  static const String adminCalculateMaterials = '/admin-calculate-materials';
   static const String adminCalculateOrders = '/admin-calculate-orders';
   static const String adminCreateHub = '/admin-create-hub';
   static const String adminSettings = '/admin-settings';
@@ -228,6 +230,7 @@ class AppRouter {
     AppRoutes.adminHome,
     AppRoutes.adminActivity,
     AppRoutes.adminCalculate,
+    AppRoutes.adminCalculateMaterials,
     AppRoutes.adminCalculateOrders,
     AppRoutes.adminCreateHub,
     AppRoutes.adminSettings,
@@ -494,6 +497,8 @@ class AppRouter {
                 ? settings.arguments as CalculateOrderTemplate
                 : null;
         return _buildRoute(settings, AdminCalculateScreen(template: template));
+      case AppRoutes.adminCalculateMaterials:
+        return _buildRoute(settings, const AdminCalculateMaterialsScreen());
       case AppRoutes.adminCalculateOrders:
         return _buildRoute(settings, const AdminCalculateOrdersScreen());
       case AppRoutes.adminCreateHub:
@@ -913,6 +918,10 @@ class AppRouter {
     },
     AppRoutes.adminActivity: {'admin.activity.read'},
     AppRoutes.adminCalculate: {'admin.access', 'production.map.manage'},
+    AppRoutes.adminCalculateMaterials: {
+      'admin.access',
+      'production.map.manage',
+    },
     AppRoutes.adminCalculateOrders: {'admin.access', 'production.map.manage'},
     AppRoutes.adminCreateHub: {
       'admin.access',

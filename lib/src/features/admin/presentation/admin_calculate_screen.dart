@@ -399,7 +399,12 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             return variants.skip(offset).take(limit).toList(growable: false);
           },
           itemTitle: (item) => '${item.micron} mikron',
-          itemSubtitle: (item) => 'Koifisent: ${_fmtInput(item.coefficient)}',
+          itemSubtitle: (item) => 'GSM: ${_fmtInput(
+            item.actualGsm ??
+                (material.densityGCm3 > 0
+                    ? item.micron * material.densityGCm3
+                    : item.coefficient * (1000000 / 60000)),
+          )}',
           itemKey: (item) => '${material.id}:${item.micron}',
           onSelected: (item) => Navigator.of(context).pop(item),
         );
@@ -412,19 +417,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   }
 
   Future<void> _openMaterialCatalogManager() async {
-    await _ensureMaterialCatalog();
-    if (!mounted) {
-      return;
-    }
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      builder: (context) => _CalculateMaterialManager(
-        materials: _materialCatalog,
-      ),
-    );
+    await Navigator.of(context).pushNamed(AppRoutes.adminCalculateMaterials);
+    if (!mounted) return;
     M3AsyncPickerSheet.clearMemoryCache();
     await _loadMaterialCatalog(force: true);
   }

@@ -283,6 +283,11 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       icon: Icons.list_alt_rounded,
       routeName: AppRoutes.adminCalculateOrders,
     ),
+    const _AdminHomeAction(
+      title: 'Xomashyo mikronlari',
+      icon: Icons.straighten_rounded,
+      routeName: AppRoutes.adminCalculateMaterials,
+    ),
     _AdminHomeAction(
       title: l10n.adminProductionMapTestTitle,
       icon: Icons.schema_rounded,

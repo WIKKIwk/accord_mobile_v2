@@ -95,6 +95,12 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       label: l10n.adminRawMaterialRulesNavTitle,
       routeName: AppRoutes.adminRawMaterialSettings,
     ),
+    const RoleNavigationDrawerDestination(
+      icon: Icons.straighten_outlined,
+      selectedIcon: Icons.straighten_rounded,
+      label: 'Xomashyo mikronlari',
+      routeName: AppRoutes.adminCalculateMaterials,
+    ),
     RoleNavigationDrawerDestination(
       icon: Icons.groups_outlined,
       selectedIcon: Icons.groups_rounded,
