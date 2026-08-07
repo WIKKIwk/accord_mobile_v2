@@ -17,6 +17,7 @@ import net.posprinter.IDeviceConnection
 import net.posprinter.POSConnect
 import net.posprinter.TSPLConst
 import net.posprinter.TSPLPrinter
+import java.io.ByteArrayOutputStream
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToInt
@@ -29,11 +30,6 @@ class BluetoothPrinterChannel(
         private const val TAG = "BluetoothPrinter"
         private const val PERMISSION_REQUEST_CODE = 4917
         private const val PRINT_TIMEOUT_MS = 25_000L
-        // The SDK callback confirms that the TSPL bytes reached Bluetooth,
-        // not that XP-P323B finished feeding the label. Keep the channel
-        // busy for one label's mechanical print time before allowing the
-        // next batch item to start.
-        private const val PRINT_SETTLE_MS_PER_LABEL = 1_200L
         private const val LABEL_WIDTH_MM = 56.0
         private const val LABEL_HEIGHT_MM = 60.0
         // XP-P323B is 203 dpi, so a 56 x 60 mm label is approximately
@@ -239,29 +235,39 @@ class BluetoothPrinterChannel(
                 return
             }
             try {
-                connection.setSendCallback { sentBytes ->
-                    if (sentBytes > 0) {
-                        finishSuccess(
-                            completed,
-                            connection,
-                            result,
-                            sentBytes,
-                            address,
-                            label.printCount,
-                        )
-                    } else {
-                        finishError(
-                            completed,
-                            connection,
-                            result,
-                            "bluetooth_send_failed",
-                            "XP-P323B Bluetooth write failed",
-                        )
-                    }
-                }
-                val printer = TSPLPrinter(connection)
+                val printer = CapturingTsplPrinter(connection)
                 buildSdkLabel(printer, label)
                 printer.print(label.printCount)
+                val payload = printer.payload()
+                if (payload.isEmpty()) {
+                    finishError(
+                        completed,
+                        connection,
+                        result,
+                        "bluetooth_print_failed",
+                        "XP-P323B SDK produced an empty TSPL payload",
+                    )
+                    return
+                }
+                val sentBytes = connection.sendSync(payload)
+                if (sentBytes > 0) {
+                    finishSuccess(
+                        completed,
+                        connection,
+                        result,
+                        sentBytes,
+                        address,
+                        label.printCount,
+                    )
+                } else {
+                    finishError(
+                        completed,
+                        connection,
+                        result,
+                        "bluetooth_send_failed",
+                        "XP-P323B Bluetooth write failed (status=$sentBytes)",
+                    )
+                }
             } catch (error: Exception) {
                 Log.e(TAG, "XP-P323B SDK print failed", error)
                 finishError(
@@ -819,16 +825,10 @@ class BluetoothPrinterChannel(
             "label_count" to labelCount,
             "printer_status" to "Bluetooth OK",
         )
-        mainHandler.postDelayed({
+        activity.runOnUiThread {
             printBusy.set(false)
-            activity.runOnUiThread {
-                result.success(response)
-            }
-        }, printSettleDelayMs(labelCount))
-    }
-
-    private fun printSettleDelayMs(labelCount: Int): Long {
-        return PRINT_SETTLE_MS_PER_LABEL * labelCount.coerceIn(1, 100).toLong()
+            result.success(response)
+        }
     }
 
     private fun finishError(
@@ -894,6 +894,28 @@ class BluetoothPrinterChannel(
         return name.uppercase().replace("-", "").replace("_", "").replace(" ", "")
             .contains("XPP323B") || name.uppercase().contains("P323B")
     }
+}
+
+private class CapturingTsplPrinter(
+    connection: IDeviceConnection,
+) : TSPLPrinter(connection) {
+    private val output = ByteArrayOutputStream()
+
+    override fun sendData(data: ByteArray): TSPLPrinter {
+        output.write(data)
+        return this
+    }
+
+    override fun sendData(data: MutableList<ByteArray?>): TSPLPrinter {
+        data.forEach { chunk ->
+            if (chunk != null) {
+                output.write(chunk)
+            }
+        }
+        return this
+    }
+
+    fun payload(): ByteArray = output.toByteArray()
 }
 
 private data class BluetoothLabelRequest(
