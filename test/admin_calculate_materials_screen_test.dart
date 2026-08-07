@@ -53,6 +53,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Xomashyo mikronlari'), findsOneWidget);
+    expect(find.byKey(const ValueKey('admin-hub-custom-Xomashyo qo‘shish')),
+        findsNothing);
+    await tester.tap(
+      find.byKey(const ValueKey('app-primary-navigation-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('admin-hub-custom-Xomashyo qo‘shish')),
+        findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('admin-hub-custom-Xomashyo qo‘shish')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Xomashyo qo‘shish'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Xomashyo qo‘shish'), findsNothing);
     await tester.scrollUntilVisible(find.text('PET'), 200);
     expect(find.textContaining('1.4 g/cm³'), findsOneWidget);
 

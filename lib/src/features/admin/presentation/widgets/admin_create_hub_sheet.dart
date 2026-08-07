@@ -403,8 +403,10 @@ class _AdminCreateHubOverlayState extends State<_AdminCreateHubOverlay>
                     onTap: () {
                       final customTap = actions[index].onTap;
                       if (customTap != null) {
-                        _setOpen(false);
-                        customTap();
+                        widget.onClose();
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          customTap();
+                        });
                         return;
                       }
                       widget.onOpenRoute(actions[index].routeName);

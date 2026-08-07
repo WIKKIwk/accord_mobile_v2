@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'package:flutter/material.dart';
@@ -107,15 +108,17 @@ class _AdminCalculateMaterialsScreenState
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      actions: [
-        AppShellIconAction(
-          icon: Icons.add_rounded,
-          onTap: () {
-            if (!_saving) _edit();
-          },
-        ),
-      ],
-      bottom: const AdminDock(activeTab: AdminDockTab.home),
+      bottom: AdminDock(
+        activeTab: AdminDockTab.home,
+        primaryFabActions: [
+          AdminFabMenuAction(
+            title: 'Xomashyo qo‘shish',
+            icon: Icons.add_box_outlined,
+            enabled: !_saving,
+            onTap: () => _edit(),
+          ),
+        ],
+      ),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
       child: ColoredBox(
@@ -162,12 +165,6 @@ class _AdminCalculateMaterialsScreenState
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-        ),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: _saving ? null : () => _edit(),
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Xomashyo qo‘shish'),
         ),
         const SizedBox(height: 12),
         if (_materials.isEmpty)
