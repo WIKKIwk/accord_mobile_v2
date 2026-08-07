@@ -278,10 +278,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       if (normalizedQuery.isEmpty) {
         return true;
       }
-      return _normalizeMaterialKey(material.name).contains(normalizedQuery) ||
-          material.aliases.any(
-            (alias) => _normalizeMaterialKey(alias).contains(normalizedQuery),
-          );
+      return _normalizeMaterialKey(material.name).contains(normalizedQuery);
     }).toList(growable: false);
     if (offset >= filtered.length) {
       return const <CalculateMaterial>[];
@@ -303,8 +300,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       return null;
     }
     for (final material in _materialCatalog) {
-      if (_normalizeMaterialKey(material.name) == key ||
-          material.aliases.any((alias) => _normalizeMaterialKey(alias) == key)) {
+      if (_normalizeMaterialKey(material.name) == key) {
         return material;
       }
     }
@@ -336,8 +332,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           cacheKey: 'calculate:materials',
           loadPage: _loadMaterialPickerPage,
           itemTitle: (item) => item.name,
-          itemSubtitle: (item) =>
-              '${item.variants.length} ta mikron • ${item.aliases.join(', ')}',
+          itemSubtitle: (item) => '${item.variants.length} ta mikron',
           itemKey: (item) => item.id,
           onSelected: (item) => Navigator.of(context).pop(item),
         );
@@ -2438,7 +2433,6 @@ class _CalculateMaterialEditor extends StatefulWidget {
 class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
-  late final TextEditingController _aliases;
   late bool _active;
   late List<_CalculateMaterialVariantControllers> _variants;
   String _variantError = '';
@@ -2448,7 +2442,6 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
     super.initState();
     final material = widget.material;
     _name = TextEditingController(text: material?.name ?? '');
-    _aliases = TextEditingController(text: material?.aliases.join(', ') ?? '');
     _active = material?.active ?? true;
     _variants = material?.variants
             .map(_CalculateMaterialVariantControllers.fromVariant)
@@ -2459,7 +2452,6 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
   @override
   void dispose() {
     _name.dispose();
-    _aliases.dispose();
     for (final variant in _variants) {
       variant.dispose();
     }
@@ -2503,16 +2495,10 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
         ),
       );
     }
-    final aliases = _aliases.text
-        .split(',')
-        .map((alias) => alias.trim())
-        .where((alias) => alias.isNotEmpty)
-        .toList(growable: false);
     Navigator.of(context).pop(
       CalculateMaterial(
         id: widget.material?.id ?? '',
         name: _name.text.trim(),
-        aliases: aliases,
         active: _active,
         variants: variants,
       ),
@@ -2560,15 +2546,6 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
                 ),
                 validator: (value) =>
                     value == null || value.trim().isEmpty ? 'Majburiy' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _aliases,
-                decoration: appSurfaceInputDecoration(
-                  context,
-                  labelText: 'Aliaslar',
-                  hintText: 'masalan: bopp metall, boppmetal',
-                ),
               ),
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,

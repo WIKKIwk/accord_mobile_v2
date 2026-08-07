@@ -265,6 +265,12 @@ CalculateResponse _testModeCalculate(CalculateRequest request) {
   final rubberSize = productionMapRubberSizeFromWidth(request.widthMm);
   final layers = request.effectiveLayers;
   final layerGsm = layers.map(_testModeLayerGsm).toList(growable: false);
+  if (layers.isEmpty || layerGsm.any((gsm) => gsm <= 0)) {
+    throw StateError('Xomashyo katalogdan aniq tanlanishi kerak');
+  }
+  if (request.wastePercent < 0 || request.wastePercent >= 100) {
+    throw StateError('Atxod foiz noto‘g‘ri');
+  }
   final filmGsm = layerGsm.fold<double>(0, (sum, gsm) => sum + gsm);
   final adhesiveGsm = (layers.length - 1).clamp(0, layers.length).toDouble() *
       kCalculateAdhesiveGsmPerBond;
@@ -272,10 +278,7 @@ CalculateResponse _testModeCalculate(CalculateRequest request) {
   final baseLength = request.widthMm <= 0 || totalGsm <= 0
       ? 0.0
       : request.kg * 1000000 / (request.widthMm * totalGsm);
-  final productionLength =
-      request.wastePercent < 0 || request.wastePercent >= 100
-          ? baseLength
-          : baseLength / (1 - request.wastePercent / 100);
+  final productionLength = baseLength / (1 - request.wastePercent / 100);
   final wasteLength = productionLength - baseLength;
   final roundedLength = (productionLength / 500).ceil() * 500.0;
   final firstGsm = layerGsm.isEmpty ? 0.0 : layerGsm.first;
@@ -324,10 +327,7 @@ double _testModeLayerGsm(CalculateLayerInput layer) {
   for (final candidate in _testModeCalculateMaterials) {
     final matches = layer.materialId.trim().isNotEmpty
         ? candidate.id.trim() == layer.materialId.trim()
-        : _calculateMaterialKey(candidate.name) == materialKey ||
-            candidate.aliases.any(
-              (alias) => _calculateMaterialKey(alias) == materialKey,
-            );
+        : _calculateMaterialKey(candidate.name) == materialKey;
     if (matches) {
       material = candidate;
       break;
@@ -502,7 +502,6 @@ class CalculateMaterial {
   const CalculateMaterial({
     required this.id,
     required this.name,
-    required this.aliases,
     required this.active,
     this.densityGCm3 = 0,
     required this.variants,
@@ -521,10 +520,6 @@ class CalculateMaterial {
     return CalculateMaterial(
       id: _calculateText(json['id']),
       name: _calculateText(json['name']),
-      aliases: (json['aliases'] as List? ?? const [])
-          .map((item) => item.toString().trim())
-          .where((item) => item.isNotEmpty)
-          .toList(growable: false),
       active: json['active'] != false,
       densityGCm3: _calculateNumber(json['density_g_cm3']),
       variants: variants,
@@ -533,7 +528,6 @@ class CalculateMaterial {
 
   final String id;
   final String name;
-  final List<String> aliases;
   final bool active;
   final double densityGCm3;
   final List<CalculateMaterialVariant> variants;
@@ -541,7 +535,6 @@ class CalculateMaterial {
   CalculateMaterial copyWith({
     String? id,
     String? name,
-    List<String>? aliases,
     bool? active,
     double? densityGCm3,
     List<CalculateMaterialVariant>? variants,
@@ -549,7 +542,6 @@ class CalculateMaterial {
     return CalculateMaterial(
       id: id ?? this.id,
       name: name ?? this.name,
-      aliases: aliases ?? this.aliases,
       active: active ?? this.active,
       densityGCm3: densityGCm3 ?? this.densityGCm3,
       variants: variants ?? this.variants,
@@ -560,10 +552,6 @@ class CalculateMaterial {
     return {
       if (id.trim().isNotEmpty) 'id': id.trim(),
       'name': name.trim(),
-      'aliases': aliases
-          .map((alias) => alias.trim())
-          .where((alias) => alias.isNotEmpty)
-          .toList(growable: false),
       'active': active,
       'density_g_cm3': densityGCm3,
       'variants': variants.map((variant) => variant.toJson()).toList(),
@@ -1060,7 +1048,6 @@ List<CalculateMaterial> _defaultCalculateMaterials() {
     CalculateMaterial(
       id: 'builtin-pet',
       name: 'PET',
-      aliases: const ['pet'],
       active: true,
       densityGCm3: 1.40,
       variants: _densityCalculateVariants(
@@ -1071,7 +1058,6 @@ List<CalculateMaterial> _defaultCalculateMaterials() {
     CalculateMaterial(
       id: 'builtin-opp',
       name: 'OPP',
-      aliases: const ['opp', 'bopp'],
       active: true,
       densityGCm3: 0.91,
       variants: _densityCalculateVariants(
@@ -1082,7 +1068,6 @@ List<CalculateMaterial> _defaultCalculateMaterials() {
     CalculateMaterial(
       id: 'builtin-bopp-metal',
       name: 'BOPP metal',
-      aliases: const ['bopp metall', 'boppmetal'],
       active: true,
       densityGCm3: 0.91,
       variants: _densityCalculateVariants(
@@ -1093,7 +1078,6 @@ List<CalculateMaterial> _defaultCalculateMaterials() {
     CalculateMaterial(
       id: 'builtin-mcp',
       name: 'MCP',
-      aliases: const ['mcp', 'mcpp'],
       active: true,
       densityGCm3: 0.90,
       variants: _densityCalculateVariants(commonMicrons, 0.90),
@@ -1101,7 +1085,6 @@ List<CalculateMaterial> _defaultCalculateMaterials() {
     CalculateMaterial(
       id: 'builtin-cpp',
       name: 'CPP',
-      aliases: const ['cpp'],
       active: true,
       densityGCm3: 0.90,
       variants: _densityCalculateVariants(commonMicrons, 0.90),
@@ -1109,7 +1092,6 @@ List<CalculateMaterial> _defaultCalculateMaterials() {
     CalculateMaterial(
       id: 'builtin-pe',
       name: 'PE',
-      aliases: const ['pe', 'pe oq', 'pe pr'],
       active: true,
       densityGCm3: 0.92,
       variants: _densityCalculateVariants(
@@ -1120,7 +1102,6 @@ List<CalculateMaterial> _defaultCalculateMaterials() {
     const CalculateMaterial(
       id: 'builtin-jem',
       name: 'JEM',
-      aliases: ['jem'],
       active: true,
       variants: [
         CalculateMaterialVariant(

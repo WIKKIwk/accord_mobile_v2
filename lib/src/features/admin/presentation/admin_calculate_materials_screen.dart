@@ -211,7 +211,6 @@ class _CalculateMaterialEditor extends StatefulWidget {
 class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
-  late final TextEditingController _aliases;
   late final TextEditingController _density;
   late bool _active;
   late List<_VariantControllers> _variants;
@@ -222,7 +221,6 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
     super.initState();
     final material = widget.material;
     _name = TextEditingController(text: material?.name ?? '');
-    _aliases = TextEditingController(text: material?.aliases.join(', ') ?? '');
     _density = TextEditingController(
       text: material == null || material.densityGCm3 <= 0
           ? ''
@@ -237,7 +235,6 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
   @override
   void dispose() {
     _name.dispose();
-    _aliases.dispose();
     _density.dispose();
     for (final variant in _variants) {
       variant.dispose();
@@ -285,11 +282,6 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
       CalculateMaterial(
         id: widget.material?.id ?? '',
         name: _name.text.trim(),
-        aliases: _aliases.text
-            .split(',')
-            .map((value) => value.trim())
-            .where((value) => value.isNotEmpty)
-            .toList(growable: false),
         active: _active,
         densityGCm3: density,
         variants: variants,
@@ -338,15 +330,6 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
                 ),
                 validator: (value) =>
                     value == null || value.trim().isEmpty ? 'Majburiy' : null,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _aliases,
-                decoration: appSurfaceInputDecoration(
-                  context,
-                  labelText: 'Boshqa nomlari',
-                  hintText: 'masalan: bopp metall, boppmetal',
-                ),
               ),
               const SizedBox(height: 10),
               TextFormField(

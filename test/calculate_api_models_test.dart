@@ -44,11 +44,11 @@ void main() {
     expect(response.results.single.totalGsm, 46.9);
   });
 
-  test('material parses density and optional actual GSM', () {
+  test('material parses physical fields and drops legacy aliases', () {
     final material = CalculateMaterial.fromJson(const {
       'id': 'pet',
       'name': 'PET',
-      'aliases': ['pet'],
+      'aliases': ['pet film'],
       'active': true,
       'density_g_cm3': 1.4,
       'variants': [
@@ -61,6 +61,39 @@ void main() {
     expect(material.variants.first.actualGsm, isNull);
     expect(material.variants.last.actualGsm, 27.5);
     expect(material.toJson()['density_g_cm3'], 1.4);
+    expect(material.toJson(), isNot(contains('aliases')));
+  });
+
+  test('PE oq is saved and calculated as a separate material', () async {
+    final saved = await MobileApi.instance.upsertCalculateMaterial(
+      const CalculateMaterial(
+        id: '',
+        name: 'PE oq',
+        active: true,
+        densityGCm3: 0.93,
+        variants: [CalculateMaterialVariant(micron: 30)],
+      ),
+    );
+
+    final response = await MobileApi.instance.calculate(
+      CalculateRequest(
+        kg: 100,
+        frameProductSizeMm: 500,
+        frameCount: 1,
+        wastePercent: 0,
+        layers: [
+          CalculateLayerInput(
+            materialId: saved.id,
+            material: saved.name,
+            micron: '30',
+          ),
+        ],
+      ),
+    );
+
+    expect(saved.name, 'PE oq');
+    expect(response.layers.single.material, 'PE oq');
+    expect(response.results.single.totalGsm, closeTo(27.9, 0.001));
   });
 
   test('1000 kg PET 12 + PET 12 uses physical GSM formula', () async {

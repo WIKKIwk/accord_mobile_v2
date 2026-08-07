@@ -60,6 +60,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Xomashyoni tahrirlash'), findsOneWidget);
+    expect(find.text('Boshqa nomlari'), findsNothing);
     expect(find.widgetWithText(TextFormField, 'Mikron'), findsWidgets);
     final density = find.widgetWithText(TextFormField, 'Zichlik');
     await tester.enterText(density, '1.38');
