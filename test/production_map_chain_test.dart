@@ -255,6 +255,39 @@ void main() {
     ]);
   });
 
+  test('next and final work stage follow the production map topology', () {
+    final map = _hotlunchMap();
+
+    expect(
+      productionMapNextWorkStageStation(
+        map: map,
+        station: '9 ta rangli pechat - A',
+      ),
+      'Laminatsiya',
+    );
+    expect(
+      productionMapIsFinalWorkStageStation(
+        map: map,
+        station: 'Rezka aparat - A',
+      ),
+      isTrue,
+    );
+    expect(
+      productionMapIsFinalWorkStageStation(
+        map: map,
+        station: 'Noma’lum aparat',
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapIsFinalWorkStageStation(
+        map: _pechatOnlyMap(),
+        station: '7 ta rangli pechat - A',
+      ),
+      isTrue,
+    );
+  });
+
   test('unassigned bosma alternative group exposes each candidate stage', () {
     const map = ProductionMapDefinition(
       id: 'zakaz-unassigned-bosma',

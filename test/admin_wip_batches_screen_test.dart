@@ -71,6 +71,47 @@ void main() {
 
     expect(isFinalFreeWip(batch), isTrue);
   });
+
+  test('paused final-stage output is free WIP while session is paused', () {
+    final batch = _batch(
+      'paused-final',
+      'Rezka chiqim',
+      action: 'pause',
+      status: 'paused',
+    );
+
+    expect(isFinalFreeWip(batch), isTrue);
+    expect(
+      AdminProgressBatchStatusDetail.fromJsonOrBatchJson(const {
+        'action': 'pause',
+        'status': 'paused',
+        'wip_status': 'waiting',
+        'next_apparatus': '',
+      }).flowStatus,
+      'free_wip',
+    );
+  });
+
+  test('paused intermediate-stage output still waits for next apparatus', () {
+    final batch = _batch(
+      'paused-intermediate',
+      'Bosma chiqim',
+      action: 'pause',
+      status: 'paused',
+      nextApparatus: 'Laminatsiya',
+    );
+
+    expect(isFinalFreeWip(batch), isFalse);
+    expect(
+      AdminProgressBatchStatusDetail.fromJsonOrBatchJson(const {
+        'action': 'pause',
+        'status': 'paused',
+        'wip_status': 'waiting',
+        'next_apparatus': 'Laminatsiya',
+      }).flowStatus,
+      'waiting_next_stage',
+    );
+  });
 }
 
 AdminProgressBatch _batch(
@@ -80,6 +121,7 @@ AdminProgressBatch _batch(
   String action = 'pause',
   String status = 'paused',
   String flowStatus = '',
+  String nextApparatus = '',
 }) {
   return AdminProgressBatch(
     batchId: id,
@@ -102,5 +144,6 @@ AdminProgressBatch _batch(
     ),
     currentApparatus: '7 ta rangli pechat',
     currentLocation: currentLocation,
+    nextApparatus: nextApparatus,
   );
 }

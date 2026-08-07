@@ -1364,7 +1364,13 @@ class _SummarySection extends StatelessWidget {
       if (report.isStale)
         'Scan qilingan QR eski bosqichga tegishli. Quyida mahsulotning hozirgi holati ko‘rsatilgan.',
       if (productStatus.isNotEmpty)
-        'Yarim tayyor mahsulot holati: ${productStatus.toLowerCase()}.',
+        '${progressQrTechnicalProductStatusLabel(
+          workStatus: current.statusDetail.workStatus.isNotEmpty
+              ? current.statusDetail.workStatus
+              : state,
+          flowStatus: current.statusDetail.flowStatus,
+          wipStatus: current.wipStatus,
+        )}.',
       _apparatusStateSentence(current.apparatus, state),
       if (quantity.isNotEmpty) '$quantity mahsulot qayd qilingan.',
       _nextApparatusSentence(current.nextApparatus),
@@ -1404,7 +1410,13 @@ class _ResultSection extends StatelessWidget {
     );
     final lines = [
       if (productStatus.isNotEmpty)
-        'Yarim tayyor mahsulot holati: $productStatus.',
+        '${progressQrTechnicalProductStatusLabel(
+          workStatus: batch.statusDetail.workStatus.isNotEmpty
+              ? batch.statusDetail.workStatus
+              : state,
+          flowStatus: batch.statusDetail.flowStatus,
+          wipStatus: batch.wipStatus,
+        )}.',
       _apparatusStateSentence(batch.apparatus, state),
       if (batch.executorName.trim().isNotEmpty)
         'Bajargan ishchi: ${batch.executorName.trim()}.',
@@ -2334,7 +2346,14 @@ String progressQrTechnicalProductStatusLabel({
   if (status.trim().isEmpty) {
     return '';
   }
-  return 'Yarim tayyor mahsulot holati: $status';
+  final productKind = switch (flow) {
+    'free_wip' ||
+    'finished_pending_acceptance' ||
+    'accepted_to_stock' =>
+      'Tayyor mahsulot',
+    _ => 'Yarim tayyor mahsulot',
+  };
+  return '$productKind holati: $status';
 }
 
 String _nextApparatusSentence(String apparatus) {

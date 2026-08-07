@@ -2137,9 +2137,11 @@ class AdminProgressBatchStatusDetail {
       'completed' => 'completed',
       _ => batchStatus,
     };
-    final isFinalOutput = (action == 'roll_complete' || action == 'complete') &&
-        batchStatus == 'completed' &&
-        nextApparatus.isEmpty;
+    final isFinalOutput = adminProgressBatchIsFinishedGoodsOutput(
+      action: action,
+      status: batchStatus,
+      nextApparatus: nextApparatus,
+    );
     final flowStatus = switch (wipStatus) {
       'waiting' when isFinalOutput => 'free_wip',
       'waiting' => 'waiting_next_stage',
@@ -2160,6 +2162,22 @@ class AdminProgressBatchStatusDetail {
       stockStatus: stockStatus,
     );
   }
+}
+
+bool adminProgressBatchIsFinishedGoodsOutput({
+  required String action,
+  required String status,
+  required String nextApparatus,
+}) {
+  if (nextApparatus.trim().isNotEmpty) return false;
+  final normalizedAction = action.trim();
+  final normalizedStatus = status.trim();
+  if (normalizedAction == 'pause') {
+    return normalizedStatus == 'paused' || normalizedStatus == 'resumed';
+  }
+  return (normalizedAction == 'roll_complete' ||
+          normalizedAction == 'complete') &&
+      normalizedStatus == 'completed';
 }
 
 class AdminProductionOrderStatusDetail {
@@ -11071,11 +11089,37 @@ AdminProgressBatch _testModeProgressBatch({
       ? qrPayloadOverride!.trim()
       : 'GSP:$batchId'.toUpperCase();
   final executor = AppSession.instance.profile?.displayName.trim() ?? '';
+  final orderMap = _testModeOrderById(orderId)?.map;
+  final nextApparatus = orderMap == null
+      ? ''
+      : productionMapNextWorkStageStation(
+            map: orderMap,
+            station: apparatus,
+          ) ??
+          '';
+  final isFinalOutput = orderMap != null &&
+      productionMapIsFinalWorkStageStation(
+        map: orderMap,
+        station: apparatus,
+      );
+  final orderTitle = orderMap == null
+      ? orderId
+      : (orderMap.title.trim().isNotEmpty
+          ? orderMap.title.trim()
+          : orderMap.productCode.trim());
+  final productKind =
+      isFinalOutput ? 'tayyor mahsulot' : 'yarim tayyor mahsulot';
+  final actionLabel = switch (action.trim()) {
+    'pause' => 'chiqarildi',
+    'roll_complete' => 'rulon tugatildi',
+    'complete' => 'ish tugatildi',
+    _ => status.trim(),
+  };
   final statusDetail = AdminProgressBatchStatusDetail.fromJsonOrBatchJson({
     'action': action,
     'status': status,
     'wip_status': 'waiting',
-    'next_apparatus': '',
+    'next_apparatus': nextApparatus,
   });
   return AdminProgressBatch(
     batchId: batchId,
@@ -11088,7 +11132,8 @@ AdminProgressBatch _testModeProgressBatch({
     uom: uom,
     qrPayload: qrPayload,
     labelItemCode: orderId,
-    labelItemName: '$orderId yarim tayyor, $apparatus holatda, $status',
+    labelItemName:
+        '$orderTitle $productKind, apparat: $apparatus, $actionLabel',
     executorName: executor,
     diameter: diameter,
     returnInkKg: returnInkKg,
@@ -11105,6 +11150,7 @@ AdminProgressBatch _testModeProgressBatch({
     statusDetail: statusDetail,
     currentApparatus: apparatus,
     currentLocation: apparatus,
+    nextApparatus: nextApparatus,
     parentBatchId: parentBatchId,
     startedAtUnix: nowUnix,
     completedAtUnix: nowUnix,

@@ -38,7 +38,18 @@ void main() {
         flowStatus: 'free_wip',
         wipStatus: 'waiting',
       ),
-      'Yarim tayyor mahsulot holati: erkin WIP holatida',
+      'Tayyor mahsulot holati: erkin WIP holatida',
+    );
+  });
+
+  test('intermediate output remains labelled as semi-finished', () {
+    expect(
+      progressQrTechnicalProductStatusLabel(
+        workStatus: 'paused',
+        flowStatus: 'waiting_next_stage',
+        wipStatus: 'waiting',
+      ),
+      'Yarim tayyor mahsulot holati: keyingi bosqichni kutmoqda',
     );
   });
 

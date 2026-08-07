@@ -105,6 +105,49 @@ String? productionMapPreviousWorkStageStation({
   return stages[index - 1].stationTitle;
 }
 
+String? productionMapNextWorkStageStation({
+  required ProductionMapDefinition map,
+  required String station,
+}) {
+  final byId = {for (final node in map.nodes) node.id: node};
+  final byFrom = <String, List<String>>{};
+  for (final edge in map.edges) {
+    byFrom.putIfAbsent(edge.from, () => <String>[]).add(edge.to);
+  }
+  for (final start in map.nodes) {
+    if (!productionMapNodeMatchesStation(node: start, station: station)) {
+      continue;
+    }
+    final queue = <String>[...?byFrom[start.id]];
+    final visited = <String>{};
+    for (var index = 0; index < queue.length; index += 1) {
+      final nodeId = queue[index];
+      if (!visited.add(nodeId)) continue;
+      final node = byId[nodeId];
+      if (node == null || node.kind == 'end') continue;
+      if (node.kind == 'apparatus' || node.kind == 'task') {
+        final title = _isUnassignedAlternativeApparatus(node)
+            ? (node.alternativeGroupLabel.trim().isEmpty
+                ? node.title.trim()
+                : node.alternativeGroupLabel.trim())
+            : _stageTitle(node);
+        if (title.isNotEmpty) return title;
+        continue;
+      }
+      queue.addAll(byFrom[nodeId] ?? const <String>[]);
+    }
+  }
+  return null;
+}
+
+bool productionMapIsFinalWorkStageStation({
+  required ProductionMapDefinition map,
+  required String station,
+}) {
+  return productionMapMapHasWorkStageForStation(map: map, station: station) &&
+      productionMapNextWorkStageStation(map: map, station: station) == null;
+}
+
 bool productionMapMapHasWorkStageForStation({
   required ProductionMapDefinition map,
   required String station,
