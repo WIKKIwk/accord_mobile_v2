@@ -305,6 +305,11 @@ class AppLocalizations {
         '${downloadedMb.toStringAsFixed(1)} / ${totalMb.toStringAsFixed(1)} MB',
         '${downloadedMb.toStringAsFixed(1)} / ${totalMb.toStringAsFixed(1)} МБ',
       );
+  String get appUpdateBackgroundHint => _t(
+        'Boshqa oynaga o‘tsangiz ham yuklash davom etadi.',
+        'The download continues if you switch to another screen.',
+        'Загрузка продолжится, даже если вы перейдёте в другое окно.',
+      );
   String get accessDenied => _t('Ruxsat yo‘q', 'Access denied', 'Нет доступа');
   String get confirmTitle => _t('Tasdiqlash', 'Confirm', 'Подтверждение');
   String get qtyRequired =>

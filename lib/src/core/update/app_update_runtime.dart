@@ -93,7 +93,7 @@ class AppUpdateCoordinator {
       await showDialog<void>(
         context: context,
         useRootNavigator: true,
-        barrierDismissible: !result.mandatory,
+        barrierDismissible: false,
         builder: (_) => _AppUpdateDialog(
           result: result,
           service: _service,
@@ -153,6 +153,12 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
 
   AppUpdateManifest get manifest => widget.result.manifest!;
 
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_restoreActiveDownload());
+  }
+
   double? get _progress {
     if (!_downloading || manifest.sizeBytes <= 0) {
       return null;
@@ -160,12 +166,34 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
     return (_receivedBytes / manifest.sizeBytes).clamp(0.0, 1.0);
   }
 
-  Future<void> _install() async {
+  Future<void> _restoreActiveDownload() async {
+    try {
+      final active = await widget.service.activeDownload(widget.result);
+      if (!mounted || _downloading || active == null) {
+        return;
+      }
+      await _install(initialReceivedBytes: active.receivedBytes);
+    } catch (error) {
+      if (!mounted || _downloading) {
+        return;
+      }
+      setState(() {
+        _message = error is AppUpdateException
+            ? error.message
+            : context.l10n.appUpdateDownloadFailed;
+      });
+    }
+  }
+
+  Future<void> _install({int initialReceivedBytes = 0}) async {
+    if (_downloading) {
+      return;
+    }
     final cancellation = AppUpdateCancellation();
     setState(() {
       _downloading = true;
       _installerLaunched = false;
-      _receivedBytes = 0;
+      _receivedBytes = initialReceivedBytes;
       _message = null;
       _cancellation = cancellation;
     });
@@ -258,6 +286,11 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
                   l10n.appUpdateDownloadProgress(downloadedMb, totalMb),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.appUpdateBackgroundHint,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
               if (_message != null) ...[
                 const SizedBox(height: 14),
@@ -285,7 +318,7 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
               child: Text(l10n.closeAction),
             ),
             FilledButton.icon(
-              onPressed: _install,
+              onPressed: () => _install(),
               icon: const Icon(Icons.open_in_new_rounded),
               label: Text(l10n.appUpdateOpenInstaller),
             ),
@@ -296,7 +329,7 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
                 child: Text(l10n.appUpdateLater),
               ),
             FilledButton.icon(
-              onPressed: _install,
+              onPressed: () => _install(),
               icon: const Icon(Icons.download_rounded),
               label: Text(l10n.appUpdateAction),
             ),

@@ -57,6 +57,29 @@ void main() {
     );
     expect(find.text('O‘rnatuvchini qayta ochish'), findsOneWidget);
   });
+
+  testWidgets('active background download resumes when dialog is recreated', (
+    tester,
+  ) async {
+    final service = _FakeUpdateService(
+      result: _result(currentVersionCode: 5, releaseVersionCode: 6),
+      hasActiveDownload: true,
+    );
+    final coordinator = AppUpdateCoordinator(service: service);
+    await _pumpHarness(tester, coordinator);
+
+    await tester.tap(find.text('Check directly'));
+    await tester.pumpAndSettle();
+
+    expect(service.installCalls, 1);
+    expect(
+      find.text(
+        'APK tayyor. Android o‘rnatuvchisi ochildi — '
+        'o‘rnatishni tizim oynasida tasdiqlang.',
+      ),
+      findsOneWidget,
+    );
+  });
 }
 
 Future<void> _pumpHarness(
@@ -141,9 +164,13 @@ AppUpdateCheckResult _result({
 }
 
 class _FakeUpdateService extends AppUpdateService {
-  _FakeUpdateService({required this.result});
+  _FakeUpdateService({
+    required this.result,
+    this.hasActiveDownload = false,
+  });
 
   final AppUpdateCheckResult result;
+  final bool hasActiveDownload;
   int installCalls = 0;
 
   @override
@@ -151,6 +178,23 @@ class _FakeUpdateService extends AppUpdateService {
 
   @override
   Future<AppUpdateCheckResult> check() async => result;
+
+  @override
+  Future<AppUpdateDownloadSnapshot?> activeDownload(
+    AppUpdateCheckResult update,
+  ) async {
+    if (!hasActiveDownload) {
+      return null;
+    }
+    return AppUpdateDownloadSnapshot(
+      status: AppUpdateDownloadStatus.running,
+      receivedBytes: update.manifest!.sizeBytes ~/ 2,
+      totalBytes: update.manifest!.sizeBytes,
+      path: '',
+      reason: 0,
+      retryable: false,
+    );
+  }
 
   @override
   Future<AppInstallLaunchResult> downloadAndInstall(

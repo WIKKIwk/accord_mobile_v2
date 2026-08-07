@@ -1,25 +1,27 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 
 import '../api/mobile_api.dart';
 import 'app_update_installer.dart';
 import 'app_update_models.dart';
 
 typedef AppUpdateProgress = void Function(int receivedBytes, int totalBytes);
-typedef TemporaryDirectoryProvider = Future<Directory> Function();
 
 class AppUpdateCancellation {
-  bool _cancelled = false;
+  final Completer<void> _cancelled = Completer<void>();
 
-  bool get isCancelled => _cancelled;
+  bool get isCancelled => _cancelled.isCompleted;
+  Future<void> get whenCancelled => _cancelled.future;
 
   void cancel() {
-    _cancelled = true;
+    if (!_cancelled.isCompleted) {
+      _cancelled.complete();
+    }
   }
 }
 
@@ -27,22 +29,26 @@ class AppUpdateService {
   AppUpdateService({
     http.Client? client,
     AppUpdatePlatform? platform,
-    TemporaryDirectoryProvider? temporaryDirectoryProvider,
     Uri? baseUri,
+    Duration downloadPollInterval = const Duration(milliseconds: 750),
+    Duration automaticRetryDelay = const Duration(seconds: 2),
   })  : _client = client ?? http.Client(),
         _platform = platform ?? const NativeAppUpdatePlatform(),
-        _temporaryDirectoryProvider =
-            temporaryDirectoryProvider ?? getTemporaryDirectory,
-        _baseUriOverride = baseUri;
+        _baseUriOverride = baseUri,
+        _downloadPollInterval = downloadPollInterval,
+        _automaticRetryDelay = automaticRetryDelay;
 
   static final AppUpdateService instance = AppUpdateService();
   static const int _maximumManifestBytes = 128 * 1024;
   static const int _maximumApkBytes = 512 * 1024 * 1024;
+  static const int _maximumAutomaticRetries = 2;
+  static const Duration _manifestReadTimeout = Duration(seconds: 15);
 
   final http.Client _client;
   final AppUpdatePlatform _platform;
-  final TemporaryDirectoryProvider _temporaryDirectoryProvider;
   final Uri? _baseUriOverride;
+  final Duration _downloadPollInterval;
+  final Duration _automaticRetryDelay;
 
   Uri get _baseUri => _baseUriOverride ?? Uri.parse(MobileApi.baseUrl);
 
@@ -57,9 +63,27 @@ class AppUpdateService {
     }
     final current = await _platform.currentAppInfo();
     final endpoint = _baseUri.resolve('/v1/mobile/app-update/android');
-    final response = await _client
-        .send(http.Request('GET', endpoint))
-        .timeout(const Duration(seconds: 15));
+    final http.StreamedResponse response;
+    try {
+      response = await _client
+          .send(http.Request('GET', endpoint))
+          .timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      throw const AppUpdateException(
+        code: 'update_check_timeout',
+        message: 'Yangilanish serveri javob bermadi',
+      );
+    } on SocketException {
+      throw const AppUpdateException(
+        code: 'update_check_network',
+        message: 'Yangilanish serveriga ulanib bo‘lmadi',
+      );
+    } on http.ClientException {
+      throw const AppUpdateException(
+        code: 'update_check_network',
+        message: 'Yangilanish serveriga ulanib bo‘lmadi',
+      );
+    }
     if (response.statusCode == HttpStatus.noContent) {
       return AppUpdateCheckResult(current: current, manifest: null);
     }
@@ -69,12 +93,38 @@ class AppUpdateService {
         message: 'Yangilanish tekshirilmadi (${response.statusCode})',
       );
     }
-    final body = await _readLimited(
-      response.stream,
-      maximumBytes: _maximumManifestBytes,
-      tooLargeCode: 'manifest_too_large',
-    );
-    final decoded = jsonDecode(utf8.decode(body));
+    final List<int> body;
+    try {
+      body = await _readLimited(
+        response.stream.timeout(_manifestReadTimeout),
+        maximumBytes: _maximumManifestBytes,
+        tooLargeCode: 'manifest_too_large',
+      );
+    } on TimeoutException {
+      throw const AppUpdateException(
+        code: 'update_check_timeout',
+        message: 'Yangilanish serveri javobi tugamadi',
+      );
+    } on SocketException {
+      throw const AppUpdateException(
+        code: 'update_check_network',
+        message: 'Yangilanish serveri bilan aloqa uzildi',
+      );
+    } on http.ClientException {
+      throw const AppUpdateException(
+        code: 'update_check_network',
+        message: 'Yangilanish serveri bilan aloqa uzildi',
+      );
+    }
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(utf8.decode(body));
+    } on FormatException {
+      throw const AppUpdateException(
+        code: 'invalid_manifest',
+        message: 'Update ma’lumoti noto‘g‘ri',
+      );
+    }
     if (decoded is! Map) {
       throw const AppUpdateException(
         code: 'invalid_manifest',
@@ -107,22 +157,30 @@ class AppUpdateService {
       );
     }
 
-    final root = await _temporaryDirectoryProvider();
-    final updateDirectory = Directory('${root.path}/app_updates');
-    await updateDirectory.create(recursive: true);
-    final finalFile =
-        File('${updateDirectory.path}/accord-${manifest.versionCode}.apk');
-    if (!await _matchesManifest(finalFile, manifest)) {
-      await _download(
-        manifest,
-        finalFile,
-        onProgress: onProgress,
-        cancellation: cancellation,
+    final path = await _download(
+      manifest,
+      onProgress: onProgress,
+      cancellation: cancellation,
+    );
+    final finalFile = File(path);
+    final fileExists = await finalFile.exists();
+    final sizeMatches =
+        fileExists && await finalFile.length() == manifest.sizeBytes;
+    if (!sizeMatches) {
+      await _platform.cancelDownload(manifest: manifest);
+      throw const AppUpdateException(
+        code: 'apk_size_mismatch',
+        message: 'APK to‘liq yuklanmadi',
       );
-    } else {
-      onProgress?.call(manifest.sizeBytes, manifest.sizeBytes);
     }
-    await _removeOtherApks(updateDirectory, except: finalFile.path);
+    if (!await _matchesManifest(finalFile, manifest)) {
+      await _platform.cancelDownload(manifest: manifest);
+      throw const AppUpdateException(
+        code: 'apk_checksum_mismatch',
+        message: 'APK xavfsizlik tekshiruvidan o‘tmadi',
+      );
+    }
+    onProgress?.call(manifest.sizeBytes, manifest.sizeBytes);
     return _platform.installApk(
       path: finalFile.path,
       expectedPackageName: update.current.packageName,
@@ -130,109 +188,153 @@ class AppUpdateService {
     );
   }
 
-  Future<void> _download(
-    AppUpdateManifest manifest,
-    File finalFile, {
+  Future<AppUpdateDownloadSnapshot?> activeDownload(
+    AppUpdateCheckResult update,
+  ) async {
+    final manifest = update.manifest;
+    if (manifest == null || !update.updateAvailable) {
+      return null;
+    }
+    final snapshot = await _platform.queryDownload(manifest: manifest);
+    return switch (snapshot.status) {
+      AppUpdateDownloadStatus.pending ||
+      AppUpdateDownloadStatus.running ||
+      AppUpdateDownloadStatus.paused ||
+      AppUpdateDownloadStatus.successful =>
+        snapshot,
+      AppUpdateDownloadStatus.missing || AppUpdateDownloadStatus.failed => null,
+    };
+  }
+
+  Future<String> _download(
+    AppUpdateManifest manifest, {
     AppUpdateProgress? onProgress,
     AppUpdateCancellation? cancellation,
   }) async {
-    final partFile = File('${finalFile.path}.part');
-    await _deleteIfExists(partFile);
-    final request = http.Request('GET', manifest.apkUri);
-    final response =
-        await _client.send(request).timeout(const Duration(seconds: 30));
-    if (response.statusCode != HttpStatus.ok) {
-      throw AppUpdateException(
-        code: 'apk_download_failed',
-        message: 'APK yuklanmadi (${response.statusCode})',
-      );
-    }
-    final responseLength = response.contentLength;
-    if (responseLength != null && responseLength != manifest.sizeBytes) {
-      throw const AppUpdateException(
-        code: 'apk_size_mismatch',
-        message: 'APK hajmi server ma’lumotiga mos emas',
-      );
-    }
-
-    var received = 0;
-    final sink = partFile.openWrite();
-    try {
-      await for (final chunk in response.stream) {
-        if (cancellation?.isCancelled == true) {
-          throw const AppUpdateException(
-            code: 'cancelled',
-            message: 'Yangilanish bekor qilindi',
-          );
-        }
-        received += chunk.length;
-        if (received > manifest.sizeBytes || received > _maximumApkBytes) {
-          throw const AppUpdateException(
-            code: 'apk_size_mismatch',
-            message: 'APK hajmi server ma’lumotiga mos emas',
-          );
-        }
-        sink.add(chunk);
-        onProgress?.call(received, manifest.sizeBytes);
+    var snapshot = await _platform.startOrAttachDownload(manifest: manifest);
+    var retries = 0;
+    while (true) {
+      if (cancellation?.isCancelled == true) {
+        await _cancelDownload(manifest);
       }
-      await sink.flush();
-    } finally {
-      await sink.close();
+      final received = snapshot.receivedBytes.clamp(0, manifest.sizeBytes);
+      onProgress?.call(received, manifest.sizeBytes);
+      switch (snapshot.status) {
+        case AppUpdateDownloadStatus.successful:
+          if (snapshot.path.isEmpty) {
+            throw const AppUpdateException(
+              code: 'download_file_missing',
+              message: 'Yuklangan APK fayli topilmadi',
+            );
+          }
+          return snapshot.path;
+        case AppUpdateDownloadStatus.failed:
+        case AppUpdateDownloadStatus.missing:
+          if (retries < _maximumAutomaticRetries &&
+              (snapshot.status == AppUpdateDownloadStatus.missing ||
+                  snapshot.retryable)) {
+            retries += 1;
+            await _platform.cancelDownload(manifest: manifest);
+            await _waitForRetry(cancellation, manifest);
+            snapshot =
+                await _platform.startOrAttachDownload(manifest: manifest);
+            continue;
+          }
+          throw _downloadFailure(snapshot);
+        case AppUpdateDownloadStatus.pending:
+        case AppUpdateDownloadStatus.running:
+        case AppUpdateDownloadStatus.paused:
+          await _waitForPoll(cancellation, manifest);
+          snapshot = await _platform.queryDownload(manifest: manifest);
+      }
     }
-
-    if (received != manifest.sizeBytes) {
-      await _deleteIfExists(partFile);
-      throw const AppUpdateException(
-        code: 'apk_size_mismatch',
-        message: 'APK to‘liq yuklanmadi',
-      );
-    }
-    if (!await _matchesManifest(partFile, manifest)) {
-      await _deleteIfExists(partFile);
-      throw const AppUpdateException(
-        code: 'apk_checksum_mismatch',
-        message: 'APK xavfsizlik tekshiruvidan o‘tmadi',
-      );
-    }
-    await _deleteIfExists(finalFile);
-    await partFile.rename(finalFile.path);
   }
 
   Future<bool> _matchesManifest(
     File file,
     AppUpdateManifest manifest,
   ) async {
-    if (!await file.exists()) {
-      return false;
-    }
-    if (await file.length() != manifest.sizeBytes) {
-      return false;
-    }
-    final digest = await sha256.bind(file.openRead()).first;
-    return digest.toString().toLowerCase() == manifest.sha256;
-  }
-
-  Future<void> _removeOtherApks(
-    Directory directory, {
-    required String except,
-  }) async {
-    await for (final entity in directory.list()) {
-      if (entity is File &&
-          entity.path != except &&
-          (entity.path.endsWith('.apk') || entity.path.endsWith('.part'))) {
-        await _deleteIfExists(entity);
-      }
-    }
-  }
-
-  Future<void> _deleteIfExists(File file) async {
     try {
-      if (await file.exists()) {
-        await file.delete();
+      if (!await file.exists()) {
+        return false;
       }
+      if (await file.length() != manifest.sizeBytes) {
+        return false;
+      }
+      final digest = await sha256.bind(file.openRead()).first;
+      return digest.toString().toLowerCase() == manifest.sha256;
     } on FileSystemException {
-      // Stale update files are best-effort cleanup only.
+      throw const AppUpdateException(
+        code: 'update_storage_failed',
+        message: 'Yuklangan APK faylini o‘qib bo‘lmadi',
+      );
     }
+  }
+
+  Future<void> _waitForPoll(
+    AppUpdateCancellation? cancellation,
+    AppUpdateManifest manifest,
+  ) async {
+    await _waitOrCancel(_downloadPollInterval, cancellation);
+    if (cancellation?.isCancelled == true) {
+      await _cancelDownload(manifest);
+    }
+  }
+
+  Future<void> _waitForRetry(
+    AppUpdateCancellation? cancellation,
+    AppUpdateManifest manifest,
+  ) async {
+    await _waitOrCancel(_automaticRetryDelay, cancellation);
+    if (cancellation?.isCancelled == true) {
+      await _cancelDownload(manifest);
+    }
+  }
+
+  Future<void> _waitOrCancel(
+    Duration duration,
+    AppUpdateCancellation? cancellation,
+  ) async {
+    if (cancellation == null) {
+      await Future<void>.delayed(duration);
+      return;
+    }
+    if (cancellation.isCancelled) {
+      return;
+    }
+    await Future.any<void>([
+      Future<void>.delayed(duration),
+      cancellation.whenCancelled,
+    ]);
+  }
+
+  Future<Never> _cancelDownload(AppUpdateManifest manifest) async {
+    await _platform.cancelDownload(manifest: manifest);
+    throw const AppUpdateException(
+      code: 'cancelled',
+      message: 'Yangilanish bekor qilindi',
+    );
+  }
+
+  AppUpdateException _downloadFailure(AppUpdateDownloadSnapshot snapshot) {
+    if (snapshot.reason == 1006) {
+      return const AppUpdateException(
+        code: 'insufficient_storage',
+        message: 'Yangilanish uchun qurilmada bo‘sh joy yetarli emas',
+      );
+    }
+    if (snapshot.reason == HttpStatus.notFound) {
+      return const AppUpdateException(
+        code: 'apk_not_found',
+        message: 'Yangilanish APK fayli serverda topilmadi',
+      );
+    }
+    return AppUpdateException(
+      code: 'apk_download_failed',
+      message: snapshot.reason > 0
+          ? 'APK yuklanmadi (${snapshot.reason})'
+          : 'APK yuklanmadi',
+    );
   }
 
   Future<List<int>> _readLimited(
