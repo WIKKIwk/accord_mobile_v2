@@ -6,6 +6,9 @@ final List<CalculateMaterial> _testModeCalculateMaterials =
 const double kCalculateEdgeAllowanceMm = 15;
 const double kCalculateMinMoldExtraMm = 50;
 const double kCalculateAdhesiveGsmPerBond = 2.5;
+const double _defaultPetDensityGCm3 = 1.400;
+const double _defaultPpFilmDensityGCm3 = 0.905;
+const double _defaultPeDensityGCm3 = 0.920;
 
 void resetMobileApiCalculateTestModeData() {
   _testModeCalculateOrderTemplates.clear();
@@ -1049,101 +1052,100 @@ List<CalculateMaterial> _defaultCalculateMaterials() {
       id: 'builtin-pet',
       name: 'PET',
       active: true,
-      densityGCm3: 1.40,
+      densityGCm3: _defaultPetDensityGCm3,
       variants: _densityCalculateVariants(
         const [12, ...commonMicrons],
-        1.40,
+        _defaultPetDensityGCm3,
       ),
     ),
     CalculateMaterial(
       id: 'builtin-opp',
       name: 'OPP',
       active: true,
-      densityGCm3: 0.91,
+      densityGCm3: _defaultPpFilmDensityGCm3,
       variants: _densityCalculateVariants(
         const [18, ...commonMicrons],
-        0.91,
+        _defaultPpFilmDensityGCm3,
       ),
     ),
     CalculateMaterial(
       id: 'builtin-bopp',
       name: 'BOPP',
       active: true,
-      densityGCm3: 0.91,
+      densityGCm3: _defaultPpFilmDensityGCm3,
       variants: _densityCalculateVariants(
         const [18, ...commonMicrons],
-        0.91,
+        _defaultPpFilmDensityGCm3,
       ),
     ),
     CalculateMaterial(
       id: 'builtin-bopp-metal',
       name: 'BOPP metal',
       active: true,
-      densityGCm3: 0.91,
+      densityGCm3: _defaultPpFilmDensityGCm3,
       variants: _densityCalculateVariants(
         const [18, ...commonMicrons],
-        0.91,
+        _defaultPpFilmDensityGCm3,
       ),
     ),
     CalculateMaterial(
       id: 'builtin-mcp',
       name: 'MCP',
       active: true,
-      densityGCm3: 0.90,
-      variants: _densityCalculateVariants(commonMicrons, 0.90),
+      densityGCm3: _defaultPpFilmDensityGCm3,
+      variants: _densityCalculateVariants(
+        commonMicrons,
+        _defaultPpFilmDensityGCm3,
+      ),
     ),
     CalculateMaterial(
       id: 'builtin-mcpp',
       name: 'MCPP',
       active: true,
-      densityGCm3: 0.90,
-      variants: _densityCalculateVariants(commonMicrons, 0.90),
+      densityGCm3: _defaultPpFilmDensityGCm3,
+      variants: _densityCalculateVariants(
+        commonMicrons,
+        _defaultPpFilmDensityGCm3,
+      ),
     ),
     CalculateMaterial(
       id: 'builtin-cpp',
       name: 'CPP',
       active: true,
-      densityGCm3: 0.90,
-      variants: _densityCalculateVariants(commonMicrons, 0.90),
+      densityGCm3: _defaultPpFilmDensityGCm3,
+      variants: _densityCalculateVariants(
+        commonMicrons,
+        _defaultPpFilmDensityGCm3,
+      ),
     ),
     CalculateMaterial(
       id: 'builtin-pe',
       name: 'PE',
       active: true,
-      densityGCm3: 0.92,
+      densityGCm3: _defaultPeDensityGCm3,
       variants: _densityCalculateVariants(
         const [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90],
-        0.92,
+        _defaultPeDensityGCm3,
       ),
     ),
     CalculateMaterial(
       id: 'builtin-pe-oq',
       name: 'PE oq',
       active: true,
-      densityGCm3: 0.92,
+      densityGCm3: _defaultPeDensityGCm3,
       variants: _densityCalculateVariants(
         const [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90],
-        0.92,
-      ),
-    ),
-    CalculateMaterial(
-      id: 'builtin-pe-qora',
-      name: 'PE qora',
-      active: true,
-      densityGCm3: 0.92,
-      variants: _densityCalculateVariants(
-        const [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90],
-        0.92,
+        _defaultPeDensityGCm3,
       ),
     ),
     CalculateMaterial(
       id: 'builtin-pe-pr',
       name: 'PE PR',
       active: true,
-      densityGCm3: 0.92,
+      densityGCm3: _defaultPeDensityGCm3,
       variants: _densityCalculateVariants(
         const [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90],
-        0.92,
+        _defaultPeDensityGCm3,
       ),
     ),
     const CalculateMaterial(

@@ -64,12 +64,11 @@ void main() {
     expect(material.toJson(), isNot(contains('aliases')));
   });
 
-  test('PE oq and PE qora are separate default materials', () async {
+  test('real PE variants are separate defaults without invented PE qora',
+      () async {
     final materials = await MobileApi.instance.calculateMaterials();
     final peOq = materials.firstWhere((item) => item.id == 'builtin-pe-oq');
-    final peQora = materials.firstWhere(
-      (item) => item.id == 'builtin-pe-qora',
-    );
+    final pePr = materials.firstWhere((item) => item.id == 'builtin-pe-pr');
 
     final response = await MobileApi.instance.calculate(
       CalculateRequest(
@@ -88,10 +87,23 @@ void main() {
     );
 
     expect(peOq.name, 'PE oq');
-    expect(peQora.name, 'PE qora');
-    expect(peQora.id, isNot(peOq.id));
+    expect(pePr.name, 'PE PR');
+    expect(pePr.id, isNot(peOq.id));
+    expect(materials.where((item) => item.name == 'PE qora'), isEmpty);
     expect(response.layers.single.material, 'PE oq');
     expect(response.results.single.totalGsm, closeTo(27.6, 0.001));
+  });
+
+  test('PP default GSM matches manufacturer nominal substance', () async {
+    final materials = await MobileApi.instance.calculateMaterials();
+
+    for (final name in ['BOPP', 'CPP', 'MCPP']) {
+      final material = materials.firstWhere((item) => item.name == name);
+      final variant = material.variants.firstWhere((item) => item.micron == 20);
+      final gsm = variant.actualGsm ?? material.densityGCm3 * variant.micron;
+
+      expect(gsm, closeTo(18.1, 0.001), reason: name);
+    }
   });
 
   test('1000 kg PET 12 + PET 12 uses physical GSM formula', () async {
