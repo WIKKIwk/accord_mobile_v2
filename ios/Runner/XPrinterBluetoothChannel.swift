@@ -30,8 +30,19 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private static let packQrX = 278
   private static let packQrY = 166
   private static let packEpcY = 328
-  private static let progressPackQrY = 250
+  private static let progressPackQrX = 250
+  private static let progressPackQrY = 285
   private static let progressPackEpcGapDots = 16
+  private static let progressTextCharWidthDots = 16
+  private static let progressTextLineHeightDots = 24
+  private static let progressTextTopY = 36
+  private static let progressFieldGapDots = 4
+  private static let progressBoldOffsetDots = 1
+  private static let progressFieldWidthChars = 24
+  private static let qolipFieldCharWidthDots = 12
+  private static let qolipFieldLineHeightDots = 24
+  private static let qolipFieldTopY = 4
+  private static let qolipFieldValueGapDots = 12
   private static let largeQrFooterGapDots = 28
   private static let largeQrFooterLeftShiftDots = 16
   private static let largeQrFooterHeightDots = 24
@@ -503,24 +514,48 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     let qrSize = qrSymbolSizeDots(payload, cellWidth: cellWidth)
 
     var result = command
-    for (index, line) in titleLines.enumerated() {
-      let titleX = Self.labelLeftMarginDots
-      let titleY = 6 + index * 26
-      result = text(
+    if label.labelKind == "qolip_code" {
+      var field = appendQolipField(
         result,
-        x: titleX,
-        y: titleY,
-        font: titleFont,
-        value: line
+        y: Self.qolipFieldTopY,
+        fieldLabel: "MIJOZ",
+        value: label.customerName
       )
-      if label.labelKind == "material_product" {
+      result = field.command
+      field = appendQolipField(
+        result,
+        y: field.nextY,
+        fieldLabel: "MAHSULOT NOMI",
+        value: rawTitle
+      )
+      result = field.command
+      field = appendQolipField(
+        result,
+        y: field.nextY,
+        fieldLabel: "QOLIP RANGI",
+        value: label.qolipColor
+      )
+      result = field.command
+    } else {
+      for (index, line) in titleLines.enumerated() {
+        let titleX = Self.labelLeftMarginDots
+        let titleY = 6 + index * 26
         result = text(
           result,
-          x: titleX + Self.materialTextBoldOffsetDots,
+          x: titleX,
           y: titleY,
           font: titleFont,
           value: line
         )
+        if label.labelKind == "material_product" {
+          result = text(
+            result,
+            x: titleX + Self.materialTextBoldOffsetDots,
+            y: titleY,
+            font: titleFont,
+            value: line
+          )
+        }
       }
     }
     result = qr(
@@ -530,6 +565,14 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       value: payload,
       cellWidth: cellWidth
     )
+    if label.labelKind == "qolip_code" {
+      return appendQolipField(
+        result,
+        y: centeredQrFooterY(qrY: qrY, qrSize: qrSize),
+        fieldLabel: "EPC",
+        value: payload
+      ).command
+    }
     let footerLimit = label.labelKind == "material_product" ? 32 : 46
     let footer = fitLabelText(
       largeQrFooter(label, payload: payload),
@@ -638,48 +681,48 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   ) -> XTSPLCommand? {
     let payload = requiredPayload(label.epc)
     let customer = cleanLabelText(label.customerName.isEmpty ? "-" : label.customerName)
-    let product = cleanLabelText(
+    let rawProduct = cleanLabelText(
       label.itemName.isEmpty
         ? (label.itemCode.isEmpty ? "-" : label.itemCode)
         : label.itemName
     )
-    let customerLines = wrapLabelText("MIJOZ: \(customer)", width: 21).prefix(2)
-    let productLines = wrapLabelText("MAHSULOT NOMI: \(product)", width: 21).prefix(4)
-    let metadataLines = Array(customerLines) + Array(productLines)
+    let product = progressProductName(rawProduct, fallback: label.itemCode)
+    let apparatus = progressApparatusName(label.apparatus, fallback: rawProduct)
+    let status = progressStatusLabel(rawProduct)
 
     var result = command
-    var y = 24
-    for line in metadataLines {
-      result = text(result, x: Self.labelLeftMarginDots, y: y, font: kFNT_12_20, value: line)
-      y += 24
-    }
-    y += 4
+    var y = Self.progressTextTopY
+    let customerLines = progressFieldLines("MIJOZ", value: customer, maxLines: 2)
+    result = appendProgressLines(result, lines: customerLines, y: y)
+    y += customerLines.count * Self.progressTextLineHeightDots + Self.progressFieldGapDots
+
+    let productLines = progressFieldLines("MAHSULOT NOMI", value: product, maxLines: 3)
+    result = appendProgressLines(result, lines: productLines, y: y)
+    y += productLines.count * Self.progressTextLineHeightDots +
+      Self.progressFieldGapDots * 3
+
+    let apparatusLines = progressFieldLines("APARAT", value: apparatus, maxLines: 2)
+    result = appendProgressLines(result, lines: apparatusLines, y: y)
+    y += apparatusLines.count * Self.progressTextLineHeightDots +
+      Self.progressFieldGapDots * 2
+
+    let statusLines = progressFieldLines("HOLAT", value: status, maxLines: 2)
+    result = appendProgressLines(result, lines: statusLines, y: y)
+    y += statusLines.count * Self.progressTextLineHeightDots +
+      Self.progressFieldGapDots * 2
 
     let meterUnit = cleanLabelText(label.progressUnit.isEmpty ? "m" : label.progressUnit)
     let weightUnit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
-    result = text(
-      result,
-      x: Self.labelLeftMarginDots,
-      y: y,
-      font: kFNT_12_20,
-      value: "METRAJ: \(formatLabelQty(label.progressQty ?? label.netQty)) \(meterUnit)"
-    )
-    y += 24
-    result = text(
-      result,
-      x: Self.labelLeftMarginDots,
-      y: y,
-      font: kFNT_12_20,
-      value: "NETTO: \(formatLabelQty(label.netQty)) \(weightUnit)"
-    )
-    y += 24
-    result = text(
-      result,
-      x: Self.labelLeftMarginDots,
-      y: y,
-      font: kFNT_12_20,
-      value: "BRUTTO: \(formatLabelQty(label.grossQty)) \(weightUnit)"
-    )
+    let metricLines = [
+      ("METRAJ", "\(formatLabelQty(label.progressQty ?? label.netQty)) \(meterUnit)"),
+      ("NETTO", "\(formatLabelQty(label.netQty)) \(weightUnit)"),
+      ("BRUTTO", "\(formatLabelQty(label.grossQty)) \(weightUnit)")
+    ]
+    for (fieldLabel, value) in metricLines {
+      let lines = progressFieldLines(fieldLabel, value: value, maxLines: 1)
+      result = appendProgressLines(result, lines: lines, y: y)
+      y += lines.count * Self.progressTextLineHeightDots + Self.progressFieldGapDots
+    }
 
     let qrCellWidth = packQrCellWidth(payload)
     let qrSize = qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
@@ -689,7 +732,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     )
     result = qr(
       result,
-      x: Self.packQrX,
+      x: Self.progressPackQrX,
       y: Self.progressPackQrY,
       value: payload,
       cellWidth: qrCellWidth
@@ -705,6 +748,199 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       value: epcText
     )
     return result
+  }
+
+  private func progressFieldLines(
+    _ fieldLabel: String,
+    value: String,
+    maxLines: Int
+  ) -> [String] {
+    Array(
+      wrapLabelText(
+        "\(fieldLabel): \(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "-" : value)",
+        width: Self.progressFieldWidthChars
+      ).prefix(max(1, maxLines))
+    )
+  }
+
+  private func appendProgressLines(
+    _ command: XTSPLCommand?,
+    lines: [String],
+    y: Int
+  ) -> XTSPLCommand? {
+    var result = command
+    for (index, line) in lines.enumerated() {
+      result = appendProgressStyledLine(
+        result,
+        line: line,
+        y: y + index * Self.progressTextLineHeightDots
+      )
+    }
+    return result
+  }
+
+  private func appendProgressStyledLine(
+    _ command: XTSPLCommand?,
+    line: String,
+    y: Int
+  ) -> XTSPLCommand? {
+    guard let separator = line.firstIndex(of: ":") else {
+      return appendBoldText(
+        command,
+        x: Self.labelLeftMarginDots,
+        y: y,
+        value: line
+      )
+    }
+    let labelEnd = line.index(after: separator)
+    let labelPart = String(line[..<labelEnd])
+    let valuePart = String(line[line.index(after: separator)...])
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    var result = text(
+      command,
+      x: Self.labelLeftMarginDots,
+      y: y,
+      font: kFNT_16_24,
+      value: labelPart
+    )
+    if !valuePart.isEmpty {
+      result = appendBoldText(
+        result,
+        x: Self.labelLeftMarginDots +
+          (labelPart.count + 1) * Self.progressTextCharWidthDots,
+        y: y,
+        value: valuePart
+      )
+    }
+    return result
+  }
+
+  private func appendBoldText(
+    _ command: XTSPLCommand?,
+    x: Int,
+    y: Int,
+    value: String,
+    font: String = kFNT_16_24
+  ) -> XTSPLCommand? {
+    var result = text(command, x: x, y: y, font: font, value: value)
+    result = text(
+      result,
+      x: x + Self.progressBoldOffsetDots,
+      y: y,
+      font: font,
+      value: value
+    )
+    return result
+  }
+
+  private func appendQolipField(
+    _ command: XTSPLCommand?,
+    y: Int,
+    fieldLabel: String,
+    value: String
+  ) -> (command: XTSPLCommand?, nextY: Int) {
+    let labelPart = "\(fieldLabel):"
+    let valueX = Self.labelLeftMarginDots +
+      labelPart.count * Self.qolipFieldCharWidthDots +
+      Self.qolipFieldValueGapDots
+    let availableChars = max(
+      1,
+      (Self.labelWidthDots - Self.labelRightMarginDots - valueX) /
+        Self.qolipFieldCharWidthDots
+    )
+    let normalizedValue = cleanLabelText(value)
+    let displayValue = normalizedValue.isEmpty ? "-" : normalizedValue
+    let fullLineChars = max(
+      1,
+      (Self.labelWidthDots - Self.labelLeftMarginDots - Self.labelRightMarginDots) /
+        Self.qolipFieldCharWidthDots
+    )
+    let valueLines = displayValue.count <= availableChars
+      ? [displayValue]
+      : wrapLabelText(displayValue, width: fullLineChars)
+    var result = text(
+      command,
+      x: Self.labelLeftMarginDots,
+      y: y,
+      font: kFNT_12_20,
+      value: labelPart
+    )
+    if valueLines.count == 1 {
+      result = appendBoldText(
+        result,
+        x: valueX,
+        y: y,
+        value: valueLines[0],
+        font: kFNT_12_20
+      )
+    } else {
+      for (index, line) in valueLines.enumerated() {
+        result = appendBoldText(
+          result,
+          x: Self.labelLeftMarginDots,
+          y: y + Self.qolipFieldLineHeightDots * (index + 1),
+          value: line,
+          font: kFNT_12_20
+        )
+      }
+    }
+    let lineCount = valueLines.count == 1 ? 1 : valueLines.count + 1
+    return (
+      command: result,
+      nextY: y + Self.qolipFieldLineHeightDots * lineCount +
+        Self.qolipFieldValueGapDots
+    )
+  }
+
+  private func progressProductName(_ itemName: String, fallback: String) -> String {
+    let value = cleanLabelText(itemName.isEmpty ? (fallback.isEmpty ? "-" : fallback) : itemName)
+    let markers = [
+      " YARIM TAYYOR MAHSULOT",
+      " YARIM TAYYOR",
+      " TAYYOR MAHSULOT",
+      ", APPARAT:",
+      ", REZKA HOLATDA"
+    ]
+    var cutIndex: String.Index?
+    for marker in markers {
+      if let range = value.range(of: marker, options: [.caseInsensitive]),
+         cutIndex == nil || range.lowerBound < cutIndex! {
+        cutIndex = range.lowerBound
+      }
+    }
+    let product = (cutIndex == nil ? value : String(value[..<cutIndex!]))
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .trimmingCharacters(in: CharacterSet(charactersIn: " ,-"))
+    return product.isEmpty ? value : product
+  }
+
+  private func progressStatusLabel(_ itemName: String) -> String {
+    if itemName.range(of: "YARIM TAYYOR", options: [.caseInsensitive]) != nil {
+      return "YARIM TAYYOR MAHSULOT"
+    }
+    if itemName.range(of: "TAYYOR MAHSULOT", options: [.caseInsensitive]) != nil {
+      return "TAYYOR MAHSULOT"
+    }
+    if itemName.range(of: "TAYYOR", options: [.caseInsensitive]) != nil {
+      return "TAYYOR MAHSULOT"
+    }
+    return "YARIM TAYYOR MAHSULOT"
+  }
+
+  private func progressApparatusName(_ apparatus: String, fallback itemName: String) -> String {
+    let explicit = cleanLabelText(apparatus).trimmingCharacters(in: .whitespacesAndNewlines)
+    if !explicit.isEmpty {
+      return explicit
+    }
+    guard let marker = itemName.range(of: ", APPARAT:", options: [.caseInsensitive]) else {
+      return "-"
+    }
+    let value = itemName[marker.upperBound...]
+      .split(separator: ",", maxSplits: 1, omittingEmptySubsequences: true)
+      .first
+      .map(String.init)?
+      .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return value.isEmpty ? "-" : value
   }
 
   private func text(
@@ -834,6 +1070,9 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private func largeQrFooter(_ label: BluetoothLabelRequest, payload: String) -> String {
     if label.labelKind == "material_product" {
       return payload
+    }
+    if label.labelKind == "qolip_code" {
+      return "EPC: \(payload)"
     }
     if label.labelKind == "qolip_code", payload.hasPrefix("RPS-BATCH:") {
       return "BATCH ID: \(payload.dropFirst("RPS-BATCH:".count))"
@@ -1077,7 +1316,9 @@ private struct BluetoothLabelRequest {
   let epc: String
   let itemCode: String
   let itemName: String
+  let apparatus: String
   let customerName: String
+  let qolipColor: String
   let grossQty: Double
   let unit: String
   let tareEnabled: Bool
@@ -1099,7 +1340,9 @@ private struct BluetoothLabelRequest {
     self.epc = epc
     itemCode = (arguments["item_code"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     itemName = (arguments["item_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    apparatus = (arguments["apparatus"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     customerName = (arguments["customer_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    qolipColor = (arguments["qolip_color"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     self.grossQty = max(0, grossQty)
     unit = (arguments["unit"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
       ? (arguments["unit"] as? String)!.trimmingCharacters(in: .whitespacesAndNewlines)

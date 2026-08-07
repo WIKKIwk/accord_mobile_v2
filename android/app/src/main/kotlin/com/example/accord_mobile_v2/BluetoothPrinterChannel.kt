@@ -47,8 +47,19 @@ class BluetoothPrinterChannel(
         private const val PACK_QR_X = 278
         private const val PACK_QR_Y = 166
         private const val PACK_EPC_Y = 328
-        private const val PROGRESS_PACK_QR_Y = 250
+        private const val PROGRESS_PACK_QR_X = 250
+        private const val PROGRESS_PACK_QR_Y = 285
         private const val PROGRESS_PACK_EPC_GAP_DOTS = 16
+        private const val PROGRESS_TEXT_CHAR_WIDTH_DOTS = 16
+        private const val PROGRESS_TEXT_LINE_HEIGHT_DOTS = 24
+        private const val PROGRESS_TEXT_TOP_Y = 36
+        private const val PROGRESS_FIELD_GAP_DOTS = 4
+        private const val PROGRESS_BOLD_OFFSET_DOTS = 1
+        private const val PROGRESS_FIELD_WIDTH_CHARS = 24
+        private const val QOLIP_FIELD_CHAR_WIDTH_DOTS = 12
+        private const val QOLIP_FIELD_LINE_HEIGHT_DOTS = 24
+        private const val QOLIP_FIELD_TOP_Y = 4
+        private const val QOLIP_FIELD_VALUE_GAP_DOTS = 12
         private const val LARGE_QR_FOOTER_GAP_DOTS = 28
         private const val LARGE_QR_FOOTER_LEFT_SHIFT_DOTS = 16
         private const val LARGE_QR_FOOTER_HEIGHT_DOTS = 24
@@ -378,20 +389,42 @@ class BluetoothPrinterChannel(
         val qrX = centeredQrX(payload, cellSize)
         val qrY = centeredQrY(payload, cellSize)
         val qrSize = qrSymbolSizeDots(payload, cellSize)
-        titleLines.forEachIndexed { index, line ->
-            val titleX = LABEL_LEFT_MARGIN_DOTS
-            val titleY = 6 + index * 26
-            if (label.isMaterialProduct) {
-                sdkText(printer, titleX, titleY, titleFont, line)
-                sdkText(
-                    printer,
-                    titleX + MATERIAL_TEXT_BOLD_OFFSET_DOTS,
-                    titleY,
-                    titleFont,
-                    line,
-                )
-            } else {
-                sdkText(printer, titleX, titleY, titleFont, line)
+        if (label.isQolipProductCode) {
+            var fieldY = QOLIP_FIELD_TOP_Y
+            fieldY = printQolipField(
+                printer,
+                fieldY,
+                "MIJOZ",
+                label.customerName,
+            )
+            fieldY = printQolipField(
+                printer,
+                fieldY,
+                "MAHSULOT NOMI",
+                rawTitle,
+            )
+            printQolipField(
+                printer,
+                fieldY,
+                "QOLIP RANGI",
+                label.qolipColor,
+            )
+        } else {
+            titleLines.forEachIndexed { index, line ->
+                val titleX = LABEL_LEFT_MARGIN_DOTS
+                val titleY = 6 + index * 26
+                if (label.isMaterialProduct) {
+                    sdkText(printer, titleX, titleY, titleFont, line)
+                    sdkText(
+                        printer,
+                        titleX + MATERIAL_TEXT_BOLD_OFFSET_DOTS,
+                        titleY,
+                        titleFont,
+                        line,
+                    )
+                } else {
+                    sdkText(printer, titleX, titleY, titleFont, line)
+                }
             }
         }
         sdkQr(
@@ -401,6 +434,15 @@ class BluetoothPrinterChannel(
             payload,
             cellSize = cellSize,
         )
+        if (label.isQolipProductCode) {
+            printQolipField(
+                printer,
+                centeredQrFooterY(qrY, qrSize),
+                "EPC",
+                payload,
+            )
+            return
+        }
         val footer = fitLabelText(
             largeQrFooter(label, payload),
             if (label.isMaterialProduct) 32 else 46,
@@ -512,44 +554,45 @@ class BluetoothPrinterChannel(
     ) {
         val payload = requiredPayload(label.epc)
         val customer = cleanLabelText(label.customerName.ifBlank { "-" })
-        val product = cleanLabelText(
+        val rawProduct = cleanLabelText(
             label.itemName.ifBlank { label.itemCode }.ifBlank { "-" },
         )
-        val metadataLines = buildList {
-            addAll(wrapLabelText("MIJOZ: $customer", 21).take(2))
-            addAll(wrapLabelText("MAHSULOT NOMI: $product", 21).take(4))
-        }
-        var y = 24
-        metadataLines.forEach { line ->
-            sdkText(printer, LABEL_LEFT_MARGIN_DOTS, y, TSPLConst.FNT_12_20, line)
-            y += 24
-        }
-        y += 4
+        val product = progressProductName(rawProduct, label.itemCode)
+        val apparatus = progressApparatusName(label.apparatus, rawProduct)
+        val status = progressStatusLabel(rawProduct)
+        var y = PROGRESS_TEXT_TOP_Y
+        y = printProgressField(printer, y, "MIJOZ", customer, maxLines = 2)
+        y = printProgressField(printer, y, "MAHSULOT NOMI", product, maxLines = 3)
+        y = printProgressField(printer, y, "APARAT", apparatus, maxLines = 2)
+        y += PROGRESS_FIELD_GAP_DOTS * 2
+        y = printProgressField(
+            printer,
+            y,
+            "HOLAT",
+            status,
+            maxLines = 2,
+        )
+        y += PROGRESS_FIELD_GAP_DOTS
 
         val meterUnit = cleanLabelText(label.progressUnit.ifBlank { "m" })
         val weightUnit = cleanLabelText(label.unit.ifBlank { "kg" })
-        sdkText(
+        y = printProgressField(
             printer,
-            LABEL_LEFT_MARGIN_DOTS,
             y,
-            TSPLConst.FNT_12_20,
-            "METRAJ: ${formatLabelQty(label.progressQty ?: label.netQty)} $meterUnit",
+            "METRAJ",
+            "${formatLabelQty(label.progressQty ?: label.netQty)} $meterUnit",
         )
-        y += 24
-        sdkText(
+        y = printProgressField(
             printer,
-            LABEL_LEFT_MARGIN_DOTS,
             y,
-            TSPLConst.FNT_12_20,
-            "NETTO: ${formatLabelQty(label.netQty)} $weightUnit",
+            "NETTO",
+            "${formatLabelQty(label.netQty)} $weightUnit",
         )
-        y += 24
-        sdkText(
+        printProgressField(
             printer,
-            LABEL_LEFT_MARGIN_DOTS,
             y,
-            TSPLConst.FNT_12_20,
-            "BRUTTO: ${formatLabelQty(label.grossQty)} $weightUnit",
+            "BRUTTO",
+            "${formatLabelQty(label.grossQty)} $weightUnit",
         )
 
         val qrCellSize = packQrCellSize(payload)
@@ -558,7 +601,7 @@ class BluetoothPrinterChannel(
             .coerceAtMost(LABEL_HEIGHT_DOTS - 24)
         sdkQr(
             printer,
-            PACK_QR_X,
+            PROGRESS_PACK_QR_X,
             PROGRESS_PACK_QR_Y,
             payload,
             cellSize = qrCellSize,
@@ -576,6 +619,176 @@ class BluetoothPrinterChannel(
             epcFont,
             epcText,
         )
+    }
+
+    private fun printProgressField(
+        printer: TSPLPrinter,
+        y: Int,
+        fieldLabel: String,
+        value: String,
+        maxLines: Int = 1,
+    ): Int {
+        val lines = progressFieldLines(fieldLabel, value, maxLines)
+        lines.forEachIndexed { index, line ->
+            sdkProgressLine(printer, y + index * PROGRESS_TEXT_LINE_HEIGHT_DOTS, line)
+        }
+        return y + lines.size * PROGRESS_TEXT_LINE_HEIGHT_DOTS + PROGRESS_FIELD_GAP_DOTS
+    }
+
+    private fun progressFieldLines(
+        fieldLabel: String,
+        value: String,
+        maxLines: Int,
+    ): List<String> {
+        return wrapLabelText(
+            "$fieldLabel: ${value.trim().ifBlank { "-" }}",
+            PROGRESS_FIELD_WIDTH_CHARS,
+        ).take(maxLines.coerceAtLeast(1))
+    }
+
+    private fun sdkProgressLine(
+        printer: TSPLPrinter,
+        y: Int,
+        line: String,
+    ) {
+        val separator = line.indexOf(':')
+        if (separator < 0) {
+            sdkBoldText(printer, LABEL_LEFT_MARGIN_DOTS, y, line)
+            return
+        }
+        val labelPart = line.take(separator + 1)
+        val valuePart = line.drop(separator + 1).trimStart()
+        sdkText(
+            printer,
+            LABEL_LEFT_MARGIN_DOTS,
+            y,
+            TSPLConst.FNT_16_24,
+            labelPart,
+        )
+        if (valuePart.isNotEmpty()) {
+            sdkBoldText(
+                printer,
+                LABEL_LEFT_MARGIN_DOTS +
+                    (labelPart.length + 1) * PROGRESS_TEXT_CHAR_WIDTH_DOTS,
+                y,
+                valuePart,
+            )
+        }
+    }
+
+    private fun sdkBoldText(
+        printer: TSPLPrinter,
+        x: Int,
+        y: Int,
+        value: String,
+        font: String = TSPLConst.FNT_16_24,
+    ) {
+        sdkText(printer, x, y, font, value)
+        sdkText(
+            printer,
+            x + PROGRESS_BOLD_OFFSET_DOTS,
+            y,
+            font,
+            value,
+        )
+    }
+
+    private fun printQolipField(
+        printer: TSPLPrinter,
+        y: Int,
+        fieldLabel: String,
+        value: String,
+    ): Int {
+        val labelPart = "$fieldLabel:"
+        val valueX = LABEL_LEFT_MARGIN_DOTS +
+            labelPart.length * QOLIP_FIELD_CHAR_WIDTH_DOTS +
+            QOLIP_FIELD_VALUE_GAP_DOTS
+        val availableChars = ((LABEL_WIDTH_DOTS - LABEL_RIGHT_MARGIN_DOTS - valueX) /
+            QOLIP_FIELD_CHAR_WIDTH_DOTS).coerceAtLeast(1)
+        val displayValue = cleanLabelText(value).ifBlank { "-" }
+        val fullLineChars = ((LABEL_WIDTH_DOTS - LABEL_LEFT_MARGIN_DOTS -
+            LABEL_RIGHT_MARGIN_DOTS) / QOLIP_FIELD_CHAR_WIDTH_DOTS).coerceAtLeast(1)
+        val valueLines = if (displayValue.length <= availableChars) {
+            listOf(displayValue)
+        } else {
+            wrapLabelText(displayValue, fullLineChars)
+        }
+        sdkText(
+            printer,
+            LABEL_LEFT_MARGIN_DOTS,
+            y,
+            TSPLConst.FNT_12_20,
+            labelPart,
+        )
+        if (valueLines.size == 1) {
+            sdkBoldText(
+                printer,
+                valueX,
+                y,
+                valueLines.single(),
+                font = TSPLConst.FNT_12_20,
+            )
+        } else {
+            valueLines.forEachIndexed { index, line ->
+                sdkBoldText(
+                    printer,
+                    LABEL_LEFT_MARGIN_DOTS,
+                    y + QOLIP_FIELD_LINE_HEIGHT_DOTS * (index + 1),
+                    line,
+                    font = TSPLConst.FNT_12_20,
+                )
+            }
+        }
+        return y + QOLIP_FIELD_LINE_HEIGHT_DOTS *
+            (if (valueLines.size == 1) 1 else valueLines.size + 1) +
+            QOLIP_FIELD_VALUE_GAP_DOTS
+    }
+
+    private fun progressProductName(itemName: String, fallback: String): String {
+        val value = cleanLabelText(itemName.ifBlank { fallback }.ifBlank { "-" })
+        val markers = listOf(
+            " YARIM TAYYOR MAHSULOT",
+            " YARIM TAYYOR",
+            " TAYYOR MAHSULOT",
+            ", APPARAT:",
+            ", REZKA HOLATDA",
+        )
+        val cutAt = markers.mapNotNull { marker ->
+            value.indexOf(marker, ignoreCase = true).takeIf { it > 0 }
+        }.minOrNull()
+        return (if (cutAt == null) value else value.take(cutAt))
+            .trim()
+            .trimEnd(',', '-', ' ')
+            .ifBlank { value }
+    }
+
+    private fun progressStatusLabel(itemName: String): String {
+        return when {
+            itemName.contains("YARIM TAYYOR", ignoreCase = true) ->
+                "YARIM TAYYOR MAHSULOT"
+            itemName.contains("TAYYOR MAHSULOT", ignoreCase = true) ->
+                "TAYYOR MAHSULOT"
+            itemName.contains("TAYYOR", ignoreCase = true) ->
+                "TAYYOR MAHSULOT"
+            else -> "YARIM TAYYOR MAHSULOT"
+        }
+    }
+
+    private fun progressApparatusName(apparatus: String, itemName: String): String {
+        val explicit = cleanLabelText(apparatus).trim()
+        if (explicit.isNotEmpty()) {
+            return explicit
+        }
+        val marker = ", APPARAT:"
+        val markerStart = itemName.indexOf(marker, ignoreCase = true)
+        if (markerStart < 0) {
+            return "-"
+        }
+        val valueStart = markerStart + marker.length
+        return itemName.substring(valueStart)
+            .substringBefore(',')
+            .trim()
+            .ifBlank { "-" }
     }
 
     private fun sdkText(
@@ -703,6 +916,7 @@ class BluetoothPrinterChannel(
     ): String {
         val value = when {
             label.isMaterialProduct -> payload
+            label.isQolipProductCode -> "EPC: $payload"
             label.isQolipCode && payload.startsWith("RPS-BATCH:") ->
                 "BATCH ID: ${payload.removePrefix("RPS-BATCH:")}"
             label.itemCode.isNotBlank() -> label.itemCode
@@ -922,7 +1136,9 @@ private data class BluetoothLabelRequest(
     val epc: String,
     val itemCode: String,
     val itemName: String,
+    val apparatus: String,
     val customerName: String,
+    val qolipColor: String,
     val grossQty: Double,
     val unit: String,
     val tareEnabled: Boolean,
@@ -944,6 +1160,9 @@ private data class BluetoothLabelRequest(
     val isQolipCode: Boolean
         get() = labelKind == "qolip_code" || labelKind == "paddon_code"
 
+    val isQolipProductCode: Boolean
+        get() = labelKind == "qolip_code"
+
     val isMaterialProduct: Boolean
         get() = labelKind == "material_product"
 
@@ -962,7 +1181,9 @@ private data class BluetoothLabelRequest(
                 epc = epc,
                 itemCode = call.argument<String>("item_code").orEmpty().trim(),
                 itemName = call.argument<String>("item_name").orEmpty().trim(),
+                apparatus = call.argument<String>("apparatus").orEmpty().trim(),
                 customerName = call.argument<String>("customer_name").orEmpty().trim(),
+                qolipColor = call.argument<String>("qolip_color").orEmpty().trim(),
                 grossQty = grossQty.coerceAtLeast(0.0),
                 unit = call.argument<String>("unit").orEmpty().trim().ifBlank { "kg" },
                 tareEnabled = call.argument<Boolean>("tare_enabled") == true || tareKg > 0,

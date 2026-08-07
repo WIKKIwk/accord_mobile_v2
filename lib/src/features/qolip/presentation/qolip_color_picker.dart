@@ -29,13 +29,18 @@ const qolipDefaultColors = <QolipColorOption>[
 ];
 
 const qolipPantonPrefix = 'PANTON';
+const int qolipPantonMaxNumber = 100;
 
 String qolipPantonColorValue(int number) => '$qolipPantonPrefix $number';
 
 int? qolipPantonNumber(String value) {
   final match =
-      RegExp(r'^PANTON\s+([1-7])$').firstMatch(value.trim().toUpperCase());
-  return match == null ? null : int.tryParse(match.group(1)!);
+      RegExp(r'^PANTON\s+([1-9]\d*)$').firstMatch(value.trim().toUpperCase());
+  final number = match == null ? null : int.tryParse(match.group(1)!);
+  if (number == null || number > qolipPantonMaxNumber) {
+    return null;
+  }
+  return number;
 }
 
 Color qolipColorValue(String value) {
@@ -54,6 +59,8 @@ class QolipColorPicker extends StatelessWidget {
     this.maxSelectedColors,
     this.enabled = true,
     this.availablePantonNumber = 1,
+    this.pantonNumbers,
+    this.onAddPanton,
   });
 
   final String? selectedColor;
@@ -63,13 +70,29 @@ class QolipColorPicker extends StatelessWidget {
   final int? maxSelectedColors;
   final bool enabled;
   final int? availablePantonNumber;
+  final List<int>? pantonNumbers;
+  final VoidCallback? onAddPanton;
 
   @override
   Widget build(BuildContext context) {
     final multiSelect = selectedColors != null && onColorsChanged != null;
     final selected = selectedColor?.trim().toUpperCase();
     final selectedPantonNumber = qolipPantonNumber(selectedColor ?? '');
-    final pantonNumber = selectedPantonNumber ?? availablePantonNumber;
+    final fallbackPantonNumber = availablePantonNumber;
+    final availableNumbers = <int>{
+      ...?pantonNumbers,
+      if (selectedPantonNumber != null) selectedPantonNumber,
+      if (selectedPantonNumber == null && fallbackPantonNumber != null)
+        fallbackPantonNumber,
+      if (selectedColors != null)
+        for (final color in selectedColors!)
+          if (qolipPantonNumber(color) case final number?) number,
+    }
+        .where(
+          (number) => number > 0 && number <= qolipPantonMaxNumber,
+        )
+        .toList()
+      ..sort();
 
     void selectColor(String value) {
       if (!multiSelect) {
@@ -116,7 +139,7 @@ class QolipColorPicker extends StatelessWidget {
             selectionNumber: selectionNumberFor(option.value),
             onTap: enabled ? () => selectColor(option.value) : null,
           ),
-        if (pantonNumber != null)
+        for (final pantonNumber in availableNumbers)
           _QolipColorTile(
             option: QolipColorOption(
               name: 'Panton $pantonNumber',
@@ -133,7 +156,39 @@ class QolipColorPicker extends StatelessWidget {
                 ? () => selectColor(qolipPantonColorValue(pantonNumber))
                 : null,
           ),
+        if (multiSelect && onAddPanton != null)
+          _QolipAddPantonButton(
+            onTap: enabled ? onAddPanton : null,
+          ),
       ],
+    );
+  }
+}
+
+class _QolipAddPantonButton extends StatelessWidget {
+  const _QolipAddPantonButton({required this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 92,
+      height: 64,
+      child: OutlinedButton(
+        key: const ValueKey('qolip-add-panton'),
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: const FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text('+ Panton'),
+        ),
+      ),
     );
   }
 }

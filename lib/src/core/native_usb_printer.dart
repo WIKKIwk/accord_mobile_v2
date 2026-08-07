@@ -150,6 +150,7 @@ class UsbRpsPrintRequest {
     required this.epc,
     required this.itemCode,
     required this.itemName,
+    this.apparatus = '',
     required this.warehouse,
     required this.printer,
     required this.printMode,
@@ -161,6 +162,7 @@ class UsbRpsPrintRequest {
     this.labelKind = '',
     this.executorName = '',
     this.customerName = '',
+    this.qolipColor = '',
     this.progressQty,
     this.progressUnit = '',
   });
@@ -186,6 +188,7 @@ class UsbRpsPrintRequest {
       epc: (json['epc'] ?? json['qr_payload'])?.toString() ?? '',
       itemCode: json['item_code']?.toString() ?? '',
       itemName: json['item_name']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
       warehouse: json['warehouse']?.toString() ??
           (executorName.isEmpty ? 'ACCORD' : 'Ijrochi: $executorName'),
       printer: json['printer']?.toString() ?? 'godex',
@@ -198,6 +201,7 @@ class UsbRpsPrintRequest {
       labelKind: json['label_kind']?.toString() ?? '',
       executorName: executorName,
       customerName: json['customer_name']?.toString() ?? '',
+      qolipColor: json['qolip_color']?.toString() ?? '',
       progressQty: (json['progress_qty'] as num?)?.toDouble() ??
           (json['qty'] as num?)?.toDouble(),
       progressUnit: json['progress_unit']?.toString() ?? '',
@@ -207,6 +211,7 @@ class UsbRpsPrintRequest {
   final String epc;
   final String itemCode;
   final String itemName;
+  final String apparatus;
   final String warehouse;
   final String printer;
   final String printMode;
@@ -218,6 +223,7 @@ class UsbRpsPrintRequest {
   final String labelKind;
   final String executorName;
   final String customerName;
+  final String qolipColor;
   final double? progressQty;
   final String progressUnit;
 
@@ -266,6 +272,7 @@ class UsbRpsPrintRequest {
       epc: epc,
       itemCode: itemCode,
       itemName: itemName,
+      apparatus: apparatus,
       warehouse: warehouse,
       printer: profile.printer,
       printMode: profile.printMode,
@@ -277,6 +284,7 @@ class UsbRpsPrintRequest {
       labelKind: labelKind,
       executorName: executorName,
       customerName: customerName,
+      qolipColor: qolipColor,
       progressQty: progressQty,
       progressUnit: progressUnit,
     );
@@ -287,6 +295,7 @@ class UsbRpsPrintRequest {
       epc: epc,
       itemCode: itemCode,
       itemName: cellLabel.trim(),
+      apparatus: apparatus,
       warehouse: warehouse,
       printer: printer,
       printMode: printMode,
@@ -298,6 +307,7 @@ class UsbRpsPrintRequest {
       labelKind: 'qolip_cell',
       executorName: executorName,
       customerName: customerName,
+      qolipColor: qolipColor,
       progressQty: progressQty,
       progressUnit: progressUnit,
     );
@@ -308,11 +318,13 @@ class UsbRpsPrintRequest {
     required String code,
     required String payload,
     String customerName = '',
+    String qolipColor = '',
   }) {
     return UsbRpsPrintRequest(
       epc: payload.trim(),
       itemCode: code.trim(),
       itemName: name.trim(),
+      apparatus: apparatus,
       warehouse: warehouse,
       printer: printer,
       printMode: printMode,
@@ -325,6 +337,8 @@ class UsbRpsPrintRequest {
       executorName: executorName,
       customerName:
           customerName.trim().isEmpty ? this.customerName : customerName.trim(),
+      qolipColor:
+          qolipColor.trim().isEmpty ? this.qolipColor : qolipColor.trim(),
       progressQty: progressQty,
       progressUnit: progressUnit,
     );
@@ -335,6 +349,8 @@ class UsbRpsPrintRequest {
       'epc': _cleanEpc(epc),
       'item_code': _cleanText(itemCode, fallback: 'USB-TEST'),
       'item_name': _cleanText(itemName, fallback: 'USB printer test'),
+      if (apparatus.trim().isNotEmpty)
+        'apparatus': _cleanText(apparatus, fallback: ''),
       'warehouse': _cleanText(warehouse, fallback: 'RPS USB TEST'),
       'printer': _cleanText(printer, fallback: 'godex').toLowerCase(),
       'print_mode': _cleanText(printMode, fallback: 'label').toLowerCase(),
@@ -348,6 +364,8 @@ class UsbRpsPrintRequest {
       if (executorName.trim().isNotEmpty) 'executor_name': executorName.trim(),
       if (customerName.trim().isNotEmpty)
         'customer_name': _cleanText(customerName, fallback: ''),
+      if (qolipColor.trim().isNotEmpty)
+        'qolip_color': _cleanText(qolipColor, fallback: ''),
       if (progressQty != null) 'progress_qty': progressQty!,
       if (progressUnit.trim().isNotEmpty) 'progress_unit': progressUnit.trim(),
     };
@@ -432,4 +450,26 @@ String _cleanEpc(String value) {
 String _cleanText(String value, {required String fallback}) {
   final text = value.trim();
   return text.isEmpty ? fallback : text;
+}
+
+String qolipColorDisplayName(String value) {
+  final normalized = value.trim().replaceFirst('#', '').toUpperCase();
+  const defaultColorNames = <String, String>{
+    'E53935': 'Qizil',
+    'FB8C00': 'To‘q sariq',
+    'FDD835': 'Sariq',
+    '43A047': 'Yashil',
+    '00ACC1': 'Moviy',
+    '1E88E5': 'Ko‘k',
+    '3949AB': 'To‘q ko‘k',
+    '8E24AA': 'Binafsha',
+    'D81B60': 'Pushti',
+    '6D4C41': 'Jigarrang',
+    'D4A72C': 'Tilla',
+    '757575': 'Kulrang',
+    'B7BCC2': 'Matlak',
+    '212121': 'Qora',
+    'FFFFFF': 'Oq',
+  };
+  return defaultColorNames[normalized] ?? value.trim();
 }

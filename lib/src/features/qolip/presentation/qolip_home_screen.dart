@@ -3502,6 +3502,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   List<QolipProduct> _selectedProducts = const <QolipProduct>[];
   List<QolipProduct> _savedProductSpecs = const <QolipProduct>[];
   final List<String> _selectedColors = <String>[];
+  final List<int> _pantonNumbers = <int>[1];
   bool _batchCodesExpanded = false;
   String? _rowLetter;
   int? _columnNumber;
@@ -3716,6 +3717,22 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   }
 
   QolipBatchCodeDraft? get _batchDraft => parseQolipBatchCode(_qolipCode.text);
+
+  bool get _canAddPanton {
+    final draft = _batchDraft;
+    return draft == null || _pantonNumbers.length < draft.count;
+  }
+
+  void _addPanton() {
+    if (_saving || _savedProductSpecs.isNotEmpty || !_canAddPanton) {
+      return;
+    }
+    final nextNumber = _pantonNumbers.isEmpty ? 1 : _pantonNumbers.last + 1;
+    if (nextNumber > qolipPantonMaxNumber) {
+      return;
+    }
+    setState(() => _pantonNumbers.add(nextNumber));
+  }
 
   Future<void> _save() async {
     final product = _product;
@@ -3949,6 +3966,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   ? 'label'
                   : 'rfid',
           customerName: item.customerNames.join(', '),
+          qolipColor: item.qolipColor,
           printTransport: option.transport,
         );
         if (option.transport.isLocal) {
@@ -4194,8 +4212,11 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 const SizedBox(height: 8),
                 QolipColorPicker(
                   selectedColors: _selectedColors,
+                  pantonNumbers: _pantonNumbers,
                   maxSelectedColors: batchDraft?.count ?? 1,
                   enabled: !productSpecSaved,
+                  onAddPanton:
+                      !productSpecSaved && _canAddPanton ? _addPanton : null,
                   onColorsChanged: (colors) => setState(() {
                     _selectedColors
                       ..clear()

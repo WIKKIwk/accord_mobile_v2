@@ -37,6 +37,7 @@ class PrintService {
         epc: request.epc,
         itemCode: request.itemCode,
         itemName: request.itemName,
+        apparatus: request.apparatus,
         warehouse: request.warehouse,
         printer: printer.printer,
         printMode: printer.printMode,
@@ -48,6 +49,7 @@ class PrintService {
         labelKind: request.labelKind,
         executorName: request.executorName,
         customerName: request.customerName,
+        qolipColor: request.qolipColor,
         progressQty: request.progressQty,
         progressUnit: request.progressUnit,
       );

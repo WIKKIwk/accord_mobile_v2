@@ -21,10 +21,12 @@ void main() {
     );
   });
 
-  test('qolip Panton numbers are limited to one through seven', () {
+  test('qolip Panton numbers support the batch limit', () {
     expect(qolipPantonNumber('PANTON 1'), 1);
     expect(qolipPantonNumber('PANTON 7'), 7);
-    expect(qolipPantonNumber('PANTON 8'), isNull);
+    expect(qolipPantonNumber('PANTON 8'), 8);
+    expect(qolipPantonNumber('PANTON 100'), 100);
+    expect(qolipPantonNumber('PANTON 101'), isNull);
   });
 
   testWidgets('qolip color picker renders every default color', (tester) async {
@@ -113,5 +115,41 @@ void main() {
     expect(find.text('1'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
     expect(find.byIcon(Icons.check_rounded), findsNothing);
+  });
+
+  testWidgets('qolip color picker adds and selects dynamic Panton colors',
+      (tester) async {
+    var selected = <String>[];
+    var pantonNumbers = <int>[1];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => QolipColorPicker(
+              selectedColors: selected,
+              pantonNumbers: pantonNumbers,
+              maxSelectedColors: 5,
+              onAddPanton: () => setState(
+                () =>
+                    pantonNumbers = [...pantonNumbers, pantonNumbers.last + 1],
+              ),
+              onColorsChanged: (value) => setState(() => selected = value),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('qolip-add-panton')));
+    await tester.pump();
+    await tester.tap(find.text('Panton 2'));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('qolip-add-panton')));
+    await tester.pump();
+
+    expect(find.text('Panton 2'), findsOneWidget);
+    expect(find.text('Panton 3'), findsOneWidget);
+    expect(selected, ['PANTON 2']);
+    expect(find.text('1'), findsOneWidget);
   });
 }

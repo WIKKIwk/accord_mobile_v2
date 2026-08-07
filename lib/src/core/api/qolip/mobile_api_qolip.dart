@@ -48,7 +48,7 @@ String qolipErrorMessage(
       'Qolip ishchiga berilgan yoki aktiv orderda ishlatilmoqda',
     'qolip_code_conflict' => 'Bu qolip code allaqachon mavjud',
     'panton_limit_exceeded' =>
-      'Panton 1–7 band. Yangi Panton biriktirib bo‘lmaydi',
+      'Panton 1–100 band. Yangi Panton biriktirib bo‘lmaydi',
     'block_in_use' =>
       'Blokda qolip yoki qaytarilmagan berish bor. Uni o‘chirib bo‘lmaydi',
     'block_exists' => 'Bu nomdagi blok allaqachon mavjud',
@@ -1359,6 +1359,7 @@ extension MobileApiQolip on MobileApi {
     String printer = '',
     String printMode = '',
     String customerName = '',
+    String qolipColor = '',
     PrintTransport printTransport = PrintTransport.wifi,
   }) async {
     final code = qolipCode.trim();
@@ -1386,6 +1387,7 @@ extension MobileApiQolip on MobileApi {
           code: qolipQr.qolipCode,
           payload: qolipQr.qrPayload,
           customerName: customerName,
+          qolipColor: qolipColor,
         ),
       );
     }
@@ -1422,6 +1424,7 @@ extension MobileApiQolip on MobileApi {
         code: qolipQr.qolipCode,
         payload: qolipQr.qrPayload,
         customerName: customerName,
+        qolipColor: qolipColor,
       ),
     );
   }

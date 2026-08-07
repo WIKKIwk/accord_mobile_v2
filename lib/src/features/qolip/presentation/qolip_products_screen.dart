@@ -360,7 +360,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
         used.add(number);
       }
     }
-    for (var number = 1; number <= 7; number++) {
+    for (var number = 1; number <= qolipPantonMaxNumber; number++) {
       if (!used.contains(number)) {
         return number;
       }
@@ -547,6 +547,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
               ? 'label'
               : 'rfid',
       customerName: product.customerNames.join(', '),
+      qolipColor: product.qolipColor,
       printTransport: option.transport,
     );
     if (option.transport.isLocal) {

@@ -9218,6 +9218,7 @@ extension MobileApiAdmin on MobileApi {
         epc: batch.qrPayload,
         itemCode: batch.labelItemCode,
         itemName: batch.labelItemName,
+        apparatus: batch.apparatus,
         warehouse: 'Ijrochi: ${batch.executorName}',
         printer: normalizedPrinter.isEmpty ? 'godex' : normalizedPrinter,
         printMode: normalizedPrintMode.isEmpty ? 'label' : normalizedPrintMode,

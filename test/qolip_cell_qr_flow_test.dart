@@ -59,11 +59,13 @@ void main() {
         printer: 'zebra',
         printMode: 'rfid',
         customerName: 'Customer One',
+        qolipColor: 'Qizil',
       );
 
       expect(qr.qolipCode, 'QOLIP-0007');
       expect(qr.qrPayload, 'QOLIP-0007');
       expect(qr.printJob.customerName, 'Customer One');
+      expect(qr.printJob.qolipColor, 'Qizil');
       expect(
         seenRequests,
         contains('POST /v1/mobile/qolip/code-qr/print?'),

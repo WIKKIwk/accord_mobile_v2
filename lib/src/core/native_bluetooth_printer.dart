@@ -53,15 +53,19 @@ Map<String, Object> _bluetoothLabelPayload(UsbRpsPrintRequest request) {
   for (final key in const <String>[
     'item_code',
     'item_name',
+    'apparatus',
     'warehouse',
     'unit',
     'executor_name',
     'customer_name',
+    'qolip_color',
     'progress_unit',
   ]) {
     final value = payload[key];
     if (value is String) {
-      payload[key] = bluetoothPrinterText(value);
+      final displayValue =
+          key == 'qolip_color' ? qolipColorDisplayName(value) : value;
+      payload[key] = bluetoothPrinterText(displayValue);
     }
   }
   return payload;

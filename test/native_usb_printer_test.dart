@@ -84,6 +84,35 @@ void main() {
     expect(request.printCount, 2);
   });
 
+  test('keeps qolip color in the Bluetooth label request', () {
+    const request = UsbRpsPrintRequest(
+      epc: 'QOLIP-0007',
+      itemCode: 'ITEM-1',
+      itemName: 'Product One',
+      warehouse: 'ACCORD',
+      printer: 'xp-p323b',
+      printMode: 'label',
+      grossQty: 1,
+      customerName: 'Customer One',
+      qolipColor: 'Qizil',
+    );
+
+    final qolipRequest = request.forQolipCode(
+      name: request.itemName,
+      code: request.itemCode,
+      payload: request.epc,
+    );
+
+    expect(qolipRequest.qolipColor, 'Qizil');
+    expect(qolipRequest.toJson(), containsPair('qolip_color', 'Qizil'));
+  });
+
+  test('maps default qolip color codes to printable names', () {
+    expect(qolipColorDisplayName('#212121'), 'Qora');
+    expect(qolipColorDisplayName('#3949AB'), 'To‘q ko‘k');
+    expect(qolipColorDisplayName('PANTON 2'), 'PANTON 2');
+  });
+
   test('parses detected Zebra USB profile and applies its defaults', () {
     final profile = UsbPrinterProfile.fromMap(const {
       'printer': 'zebra',
