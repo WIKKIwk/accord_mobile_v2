@@ -540,10 +540,57 @@ class _AdminApparatusSettingsScreenState
             onClose: () => Navigator.of(dialogContext).pop(),
             onAssignGroup: (groupName) =>
                 _assignApparatusToGroup(apparatus, groupName),
+            onTrainingChanged: (enabled) =>
+                _saveApparatusTraining(apparatus, enabled),
           ),
         );
       },
     );
+  }
+
+  Future<AdminApparatus?> _saveApparatusTraining(
+    AdminApparatus apparatus,
+    bool enabled,
+  ) async {
+    var current = apparatus;
+    for (final item in _apparatus) {
+      if (item.id == apparatus.id) {
+        current = item;
+        break;
+      }
+    }
+    try {
+      final saved = await MobileApi.instance.adminCreateApparatus(
+        current.name,
+        id: current.id,
+        family: current.family,
+        kind: current.kind,
+        capabilities: current.capabilities,
+        capabilityProfiles: current.capabilityProfiles,
+        colorStations: current.colorStations,
+        trainingEnabled: enabled,
+      );
+      if (!mounted) {
+        return null;
+      }
+      setState(() {
+        _apparatus = [
+          for (final item in _apparatus)
+            if (item.id == saved.id) saved else item,
+        ];
+      });
+      _saveCache();
+      showAdminTopNotice(
+        context,
+        enabled ? 'Training rejimi yoqildi' : 'Training rejimi o‘chirildi',
+      );
+      return saved;
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(context, 'Training rejimi saqlanmadi');
+      }
+      return null;
+    }
   }
 
   Future<void> _save() async {
@@ -656,6 +703,7 @@ class _AdminApparatusSettingsScreenState
         capabilities: capabilities,
         capabilityProfiles: capabilityProfiles,
         colorStations: colorStations,
+        trainingEnabled: previous?.trainingEnabled,
       );
       if (!mounted) {
         return;
@@ -1569,6 +1617,7 @@ class _ApparatusSettingsCard extends StatefulWidget {
     required this.currentGroupName,
     required this.onClose,
     required this.onAssignGroup,
+    required this.onTrainingChanged,
   });
 
   final AdminApparatus apparatus;
@@ -1576,6 +1625,7 @@ class _ApparatusSettingsCard extends StatefulWidget {
   final String? currentGroupName;
   final VoidCallback onClose;
   final Future<void> Function(String? groupName) onAssignGroup;
+  final Future<AdminApparatus?> Function(bool enabled) onTrainingChanged;
 
   @override
   State<_ApparatusSettingsCard> createState() =>
@@ -1584,17 +1634,63 @@ class _ApparatusSettingsCard extends StatefulWidget {
 
 class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
   late String _selectedGroupName;
+  late AdminApparatus _apparatus;
   bool _savingGroup = false;
+  bool _savingTraining = false;
 
   @override
   void initState() {
     super.initState();
+    _apparatus = widget.apparatus;
     final current = widget.currentGroupName?.trim() ?? '';
     _selectedGroupName = widget.groups.any(
       (group) => group.name.trim().toLowerCase() == current.toLowerCase(),
     )
         ? current
         : '';
+  }
+
+  Future<void> _setTrainingEnabled(bool enabled) async {
+    if (_savingTraining) {
+      return;
+    }
+    setState(() => _savingTraining = true);
+    try {
+      final saved = await widget.onTrainingChanged(enabled);
+      if (saved != null && mounted) {
+        setState(() => _apparatus = saved);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _savingTraining = false);
+      }
+    }
+  }
+
+  Widget _buildTrainingTab(BuildContext context) {
+    final enabled = _apparatus.trainingEnabled;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+      children: [
+        SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          value: enabled,
+          onChanged: _savingTraining ? null : _setTrainingEnabled,
+          title: const Text('Training’ni yoqish'),
+          subtitle: Text(
+            enabled
+                ? 'Training rejimi faol. Keyingi bosqichda demo orderlar shu apparatda ko‘rinadi.'
+                : 'Production rejimi faol.',
+          ),
+          secondary: _savingTraining
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.school_outlined),
+        ),
+      ],
+    );
   }
 
   Future<void> _saveGroup() async {
@@ -1697,7 +1793,7 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
     return SizedBox(
       height: cardHeight.toDouble(),
       child: DefaultTabController(
-        length: 3,
+        length: 4,
         child: Material(
           color: scheme.surface,
           borderRadius: BorderRadius.circular(24),
@@ -1744,6 +1840,7 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
                   Tab(text: 'Guruh'),
                   Tab(text: 'Navbat'),
                   Tab(text: 'Quvvat / jadval'),
+                  Tab(text: 'Training'),
                 ],
               ),
               Expanded(
@@ -1759,6 +1856,7 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
                       bottomPadding: bottomPadding,
                       showApparatusSelector: false,
                     ),
+                    _buildTrainingTab(context),
                   ],
                 ),
               ),

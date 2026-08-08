@@ -59,6 +59,42 @@ void main() {
     );
   });
 
+  test('apparatus training mode can be enabled and disabled', () async {
+    await TestModeController.instance.setEnabled(true);
+    final apparatus = (await MobileApi.instance.adminApparatus(limit: 500))
+        .firstWhere((item) => item.id == 'apparatus:default:bosma_7');
+
+    final enabled = await MobileApi.instance.adminCreateApparatus(
+      apparatus.name,
+      id: apparatus.id,
+      family: apparatus.family,
+      kind: apparatus.kind,
+      capabilities: apparatus.capabilities,
+      capabilityProfiles: apparatus.capabilityProfiles,
+      colorStations: apparatus.colorStations,
+      trainingEnabled: true,
+    );
+    expect(enabled.trainingEnabled, isTrue);
+    expect(
+      (await MobileApi.instance.adminApparatus(limit: 500))
+          .firstWhere((item) => item.id == apparatus.id)
+          .trainingEnabled,
+      isTrue,
+    );
+
+    final disabled = await MobileApi.instance.adminCreateApparatus(
+      enabled.name,
+      id: enabled.id,
+      family: enabled.family,
+      kind: enabled.kind,
+      capabilities: enabled.capabilities,
+      capabilityProfiles: enabled.capabilityProfiles,
+      colorStations: enabled.colorStations,
+      trainingEnabled: false,
+    );
+    expect(disabled.trainingEnabled, isFalse);
+  });
+
   test('capacity API schedules Flexo orders with finite capacity and cancel',
       () async {
     await TestModeController.instance.setEnabled(true);
