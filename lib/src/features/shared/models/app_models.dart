@@ -301,6 +301,7 @@ class AdminApparatus {
     this.capabilities = const [],
     this.capabilityProfiles = const [],
     this.colorStations,
+    this.trainingEnabled = false,
   });
 
   final String id;
@@ -312,6 +313,7 @@ class AdminApparatus {
   final List<String> capabilities;
   final List<AdminApparatusCapabilityProfile> capabilityProfiles;
   final int? colorStations;
+  final bool trainingEnabled;
 
   bool get isDefault => source == 'default';
   bool get isPechat =>
@@ -362,6 +364,7 @@ class AdminApparatus {
       capabilityProfiles: effectiveProfiles,
       colorStations:
           (json['color_stations'] as num?)?.toInt() ?? inferred.colorStations,
+      trainingEnabled: json['training_enabled'] as bool? ?? false,
     );
   }
 
@@ -378,6 +381,7 @@ class AdminApparatus {
         for (final profile in capabilityProfiles) profile.toJson(),
       ],
       if (colorStations != null) 'color_stations': colorStations,
+      'training_enabled': trainingEnabled,
     };
   }
 }

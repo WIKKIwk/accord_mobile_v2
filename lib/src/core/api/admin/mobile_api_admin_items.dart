@@ -898,6 +898,7 @@ extension MobileApiAdminItems on MobileApi {
     Iterable<AdminApparatusCapabilityProfile> capabilityProfiles =
         const <AdminApparatusCapabilityProfile>[],
     int? colorStations,
+    bool? trainingEnabled,
   }) async {
     final name = apparatusName.trim();
     if (name.isEmpty) {
@@ -937,6 +938,8 @@ extension MobileApiAdminItems on MobileApi {
       );
       final existing =
           existingIndex >= 0 ? _testModeApparatus[existingIndex] : null;
+      final effectiveTrainingEnabled =
+          trainingEnabled ?? existing?.trainingEnabled ?? false;
       final effectiveProfiles = normalizedProfiles.isEmpty
           ? (normalizedCapabilities.isEmpty
               ? inferred.capabilityProfiles
@@ -957,6 +960,7 @@ extension MobileApiAdminItems on MobileApi {
             : normalizedCapabilities,
         capabilityProfiles: effectiveProfiles,
         colorStations: colorStations ?? inferred.colorStations,
+        trainingEnabled: effectiveTrainingEnabled,
       );
       if (existingIndex >= 0) {
         _testModeApparatus[existingIndex] = item;
@@ -987,6 +991,7 @@ extension MobileApiAdminItems on MobileApi {
               for (final profile in normalizedProfiles) profile.toJson(),
             ],
           if (colorStations != null) 'color_stations': colorStations,
+          if (trainingEnabled != null) 'training_enabled': trainingEnabled,
         }),
       ),
     );
@@ -1311,6 +1316,7 @@ List<AdminApparatus> _testModeApparatusCatalog() {
       capabilities: apparatus.capabilities,
       capabilityProfiles: apparatus.capabilityProfiles,
       colorStations: apparatus.colorStations,
+      trainingEnabled: apparatus.trainingEnabled,
     );
   }).toList(growable: false);
 }
