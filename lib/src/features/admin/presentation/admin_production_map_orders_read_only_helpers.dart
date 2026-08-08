@@ -165,10 +165,14 @@ bool _progressBatchMatchesPreviousStage({
     batch.apparatus,
     previousStage,
   );
-  final usableAction =
-      action == 'pause' || action == 'roll_complete' || action == 'complete';
-  final usableStatus =
-      status == 'paused' || status == 'completed' || status == 'resumed';
+  final usableAction = action == 'pause' ||
+      action == 'detach_roll' ||
+      action == 'roll_complete' ||
+      action == 'complete';
+  final usableStatus = status == 'paused' ||
+      status == 'roll_detached' ||
+      status == 'completed' ||
+      status == 'resumed';
   return matchesOrder && matchesStage && usableAction && usableStatus;
 }
 

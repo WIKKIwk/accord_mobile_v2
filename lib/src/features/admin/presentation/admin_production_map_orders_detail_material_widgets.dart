@@ -331,6 +331,7 @@ String _inputProgressBatchTitle(AdminProgressBatch batch) {
   final actionText = switch (action) {
     'complete' => 'tugatib chiqargan',
     'pause' => 'pauzada chiqargan',
+    'detach_roll' => 'rulonni yechib chiqargan',
     'roll_complete' => 'rulonni tugatib chiqargan',
     _ => 'chiqargan',
   };

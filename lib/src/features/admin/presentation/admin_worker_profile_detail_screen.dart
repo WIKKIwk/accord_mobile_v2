@@ -314,6 +314,7 @@ String _actionLabel(String action) {
   return switch (action.trim()) {
     'start' => 'Boshladi',
     'pause' => 'Pauza',
+    'detach_roll' => 'Rulonni yechdi',
     'resume' => 'Davom etdi',
     'roll_complete' => 'Rulonni tugatdi',
     'complete' => 'Tugatdi',

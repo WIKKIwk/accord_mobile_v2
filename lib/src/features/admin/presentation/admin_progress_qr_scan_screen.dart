@@ -2199,11 +2199,13 @@ String _stateLabel(String value) {
   return switch (value.trim()) {
     'start' => 'Boshlandi',
     'pause' => 'Pauza',
+    'detach_roll' => 'Rulon yechildi',
     'resume' => 'Davom etdi',
     'complete' => 'Tugadi',
     'pending' => 'Kutilmoqda',
     'in_progress' => 'Jarayonda',
     'paused' => 'Pauzada',
+    'roll_detached' => 'Rulon yechilgan',
     'completed' => 'Tugagan',
     'waiting' => 'Keyingi ishni kutmoqda',
     'in_use' => 'Ish jarayonida',
@@ -2220,11 +2222,13 @@ String _stateDescription(String value) {
   return switch (value.trim()) {
     'start' => 'ish boshlangan',
     'pause' => 'ish pauzaga olingan',
+    'detach_roll' => 'rulon yechilgan',
     'resume' => 'ish davom ettirilgan',
     'complete' || 'completed' => 'ish tugagan',
     'pending' || 'waiting' => 'ish boshlanishini kutyapti',
     'in_progress' => 'ish jarayonda',
     'paused' => 'ish vaqtincha pauzada',
+    'roll_detached' => 'rulon apparatdan yechilgan',
     'stopped' || 'cancelled' => 'ish to‘xtatilgan',
     'in_use' => 'ish jarayonida',
     'processed' => 'keyingi bosqichda ishlatilgan',
@@ -2312,6 +2316,7 @@ String progressQrHumanStatusLabel({
     return switch (work) {
       'completed' || 'complete' => 'Ishi tugagan',
       'paused' || 'pause' => 'Ishi vaqtincha to‘xtatilgan',
+      'roll_detached' || 'detach_roll' => 'Ruloni yechilgan',
       'in_progress' || 'start' || 'resume' => 'Ish jarayonida',
       'pending' || 'waiting' => 'Ish boshlanishini kutmoqda',
       _ => _stateLabel(work),
@@ -2426,6 +2431,7 @@ String progressQrTimelineTitle(String action) {
   return switch (action.trim()) {
     'start' => 'Bosqichdagi ish boshlandi',
     'pause' => 'Bosqichdagi ish vaqtincha to‘xtatildi',
+    'detach_roll' => 'Bosqichdagi rulon yechildi',
     'resume' => 'Bosqichdagi ish davom ettirildi',
     'roll_complete' => 'Bitta rulon yakunlandi',
     'complete' => 'Bosqichdagi ish yakunlandi',
@@ -2441,6 +2447,7 @@ String _logSentence(AdminProductionOrderLogEntry log, String time) {
   final actionSentence = switch (log.action.trim()) {
     'start' => '$actor $apparatus bosqichida ishni boshladi.',
     'pause' => '$actor $apparatus bosqichidagi ishni vaqtincha to‘xtatdi.',
+    'detach_roll' => '$actor $apparatus bosqichidagi rulonni yechdi.',
     'resume' => '$actor $apparatus bosqichidagi ishni davom ettirdi.',
     'roll_complete' =>
       '$actor $apparatus bosqichidagi bitta rulonni yakunladi.',

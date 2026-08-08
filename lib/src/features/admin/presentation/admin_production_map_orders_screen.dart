@@ -407,6 +407,7 @@ class _AdminProductionMapOrdersScreenState
       builder: (context) => _ReadOnlyOrderDetailSheet(
         order: order,
         apparatus: apparatus,
+        workerMode: widget.workerMode,
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
         canManageQueue: widget.workerMode &&
             _isAssignedWatchApparatus(

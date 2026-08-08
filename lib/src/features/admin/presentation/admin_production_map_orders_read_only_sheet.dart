@@ -11,6 +11,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.customerName,
     this.apparatus,
     this.canManageQueue = false,
+    this.workerMode = false,
     this.initialQueueStates = const {},
     this.queueStatesByApparatus = const {},
     this.queueActionControl,
@@ -36,6 +37,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final String? customerName;
   final AdminApparatus? apparatus;
   final bool canManageQueue;
+  final bool workerMode;
   final Map<String, String> initialQueueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final AdminApparatusQueueOrderActionControl? queueActionControl;
@@ -889,9 +891,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               station,
             )) &&
         (action == 'pause' ||
+            action == 'detach_roll' ||
             action == 'roll_complete' ||
             action == 'complete') &&
-        (status == 'paused' || status == 'completed' || status == 'resumed');
+        (status == 'paused' ||
+            status == 'roll_detached' ||
+            status == 'completed' ||
+            status == 'resumed');
   }
 
   Future<bool> _confirmAndSwitchToScannedOrder({
@@ -1074,7 +1080,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   Future<void> _runInitialRollRemovalFlow() async {
     final outcome = await _runProgressAction(
-      'pause',
+      'detach_roll',
       removeRollFromApparatus: true,
     );
     if (!mounted) return;
@@ -1426,6 +1432,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       customerName: widget.customerName,
       steps: steps,
       uiState: uiState,
+      pauseLabel: widget.workerMode ? 'Rulonni yechish' : 'Pauza',
       queueStates: _queueStates,
       queueStatesByApparatus: widget.queueStatesByApparatus,
       materialsLoading: _materialsLoading,
@@ -1480,7 +1487,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           : () => unawaited(_scanStartInputProgressQr(uiState.previousStage!)),
       onQolipScan: () => unawaited(_scanQolip()),
       onStart: () => unawaited(_runQueueAction('start')),
-      onPause: () => unawaited(_runProgressAction('pause')),
+      onPause: () => unawaited(
+        _runProgressAction(widget.workerMode ? 'detach_roll' : 'pause'),
+      ),
       onRollComplete: () => unawaited(_runProgressAction('roll_complete')),
       onComplete: () => unawaited(_runProgressAction('complete')),
       onResume: () => unawaited(_runQueueAction('resume')),

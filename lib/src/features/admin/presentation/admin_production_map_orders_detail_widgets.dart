@@ -9,6 +9,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.customerName,
     required this.steps,
     required this.uiState,
+    required this.pauseLabel,
     required this.queueStates,
     required this.queueStatesByApparatus,
     required this.materialsLoading,
@@ -63,6 +64,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final String? customerName;
   final List<ProductionMapNode> steps;
   final _ReadOnlyOrderDetailUiState uiState;
+  final String pauseLabel;
   final Map<String, String> queueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final bool materialsLoading;
@@ -161,6 +163,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 onToggleIntakeCandidatesExpanded:
                     onToggleIntakeCandidatesExpanded,
                 showPause: uiState.showPause,
+                pauseLabel: pauseLabel,
                 showRollComplete: uiState.showRollComplete,
                 showComplete: uiState.showComplete,
                 showResume: uiState.showResume,
@@ -662,6 +665,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.intakeCandidatesExpanded,
     required this.onToggleIntakeCandidatesExpanded,
     required this.showPause,
+    required this.pauseLabel,
     required this.showRollComplete,
     required this.showComplete,
     required this.showResume,
@@ -723,6 +727,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool intakeCandidatesExpanded;
   final VoidCallback onToggleIntakeCandidatesExpanded;
   final bool showPause;
+  final String pauseLabel;
   final bool showRollComplete;
   final bool showComplete;
   final bool showResume;
@@ -1136,7 +1141,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: const Text('Pauza'),
+                      child: Text(pauseLabel),
                     ),
                   ),
                   const SizedBox(width: 10),

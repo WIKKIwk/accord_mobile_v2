@@ -615,6 +615,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                 ? 'Rulonni yechib tashlash'
                 : switch (widget.action) {
                     'pause' => 'Pauza miqdori',
+                    'detach_roll' => 'Rulonni yechish',
                     'roll_complete' => 'Rulonni tugatish',
                     _ => 'Tugatish miqdori',
                   };

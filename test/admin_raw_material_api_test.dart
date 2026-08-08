@@ -345,6 +345,45 @@ void main() {
             ));
   });
 
+  test('worker roll removal sends canonical detach roll action', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Aparatchi',
+      legalName: '',
+      ref: 'ap-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: 'Pechat',
+        orderId: 'zakaz-1',
+        action: 'detach_roll',
+        producedQty: 12.5,
+        grossQty: 17,
+        uom: 'm',
+      );
+
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/production-maps/queue-action '
+          '{"apparatus":"Pechat","order_id":"zakaz-1",'
+          '"action":"detach_roll","produced_qty":12.5,'
+          '"gross_qty":17.0,"uom":"m"}',
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              queueActionProgress: true,
+            ));
+  });
+
   test('progress qr report reads server aggregated order flow', () async {
     final seenRequests = <String>[];
     AppSession.instance.token = 'token';

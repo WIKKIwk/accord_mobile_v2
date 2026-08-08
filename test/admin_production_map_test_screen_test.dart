@@ -5213,7 +5213,7 @@ void main() {
 
     await tester.tap(find.text('Bekor qilish'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Pauza'));
+    await tester.tap(find.text('Rulonni yechish'));
     await tester.pumpAndSettle();
 
     expect(find.text("Qaytarilgan bo'yoq"), findsNothing);
@@ -5290,7 +5290,7 @@ void main() {
 
     await tester.tap(find.text('Bekor qilish'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Pauza'));
+    await tester.tap(find.text('Rulonni yechish'));
     await tester.pumpAndSettle();
 
     expect(find.text('Bosmadan ortgan rulon'), findsNothing);
@@ -5373,7 +5373,7 @@ void main() {
 
     await tester.tap(find.text('Bekor qilish'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Pauza'));
+    await tester.tap(find.text('Rulonni yechish'));
     await tester.pumpAndSettle();
 
     expect(find.text('Chiqindilar'), findsNothing);

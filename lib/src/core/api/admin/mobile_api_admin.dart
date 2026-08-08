@@ -2133,6 +2133,7 @@ class AdminProgressBatchStatusDetail {
         batchJson['processed_by_apparatus']?.toString().trim() ?? '';
     final workStatus = switch (batchStatus) {
       'paused' => 'paused',
+      'roll_detached' => 'roll_detached',
       'resumed' => 'in_progress',
       'completed' => 'completed',
       _ => batchStatus,
@@ -2175,6 +2176,9 @@ bool adminProgressBatchIsFinishedGoodsOutput({
   if (normalizedAction == 'pause') {
     return normalizedStatus == 'paused' || normalizedStatus == 'resumed';
   }
+  if (normalizedAction == 'detach_roll') {
+    return normalizedStatus == 'roll_detached' || normalizedStatus == 'resumed';
+  }
   return (normalizedAction == 'roll_complete' ||
           normalizedAction == 'complete') &&
       normalizedStatus == 'completed';
@@ -2196,6 +2200,7 @@ class AdminProductionOrderStatusDetail {
     this.acceptedWipCount = 0,
     this.activeSessionCount = 0,
     this.pausedSessionCount = 0,
+    this.rollDetachedSessionCount = 0,
     this.completedQueueCount = 0,
     this.completedWithIssueCount = 0,
   });
@@ -2214,6 +2219,7 @@ class AdminProductionOrderStatusDetail {
   final int acceptedWipCount;
   final int activeSessionCount;
   final int pausedSessionCount;
+  final int rollDetachedSessionCount;
   final int completedQueueCount;
   final int completedWithIssueCount;
 
@@ -2241,6 +2247,8 @@ class AdminProductionOrderStatusDetail {
       acceptedWipCount: (json['accepted_wip_count'] as num?)?.toInt() ?? 0,
       activeSessionCount: (json['active_session_count'] as num?)?.toInt() ?? 0,
       pausedSessionCount: (json['paused_session_count'] as num?)?.toInt() ?? 0,
+      rollDetachedSessionCount:
+          (json['roll_detached_session_count'] as num?)?.toInt() ?? 0,
       completedQueueCount:
           (json['completed_queue_count'] as num?)?.toInt() ?? 0,
       completedWithIssueCount:
@@ -7986,6 +7994,7 @@ extension MobileApiAdmin on MobileApi {
       }
       final current = apparatusQueueOrderStateFromRaw(states[orderId.trim()]);
       final isRezka = apparatus.trim().toLowerCase().contains('rezka');
+      final isPauseOrDetach = action == 'pause' || action == 'detach_roll';
       bool isPositive(double? value) =>
           value != null && value.isFinite && value > 0;
       final hasRezkaQuantityMetrics = isPositive(
@@ -8000,7 +8009,7 @@ extension MobileApiAdmin on MobileApi {
         rezkaEdgeWaste,
       ].any(isPositive);
       if (isRezka &&
-          (action == 'pause' ||
+          (isPauseOrDetach ||
               action == 'roll_complete' ||
               action == 'complete') &&
           (!hasRezkaQuantityMetrics || !hasRezkaDiameter)) {
@@ -8010,7 +8019,7 @@ extension MobileApiAdmin on MobileApi {
         );
       }
       if (isRezka &&
-          (action == 'pause' ||
+          (isPauseOrDetach ||
               action == 'roll_complete' ||
               action == 'complete') &&
           _testModeRezkaKadrCount(
@@ -8060,6 +8069,7 @@ extension MobileApiAdmin on MobileApi {
         }
         final actionName = batch.action.trim().toLowerCase();
         if (actionName != 'pause' &&
+            actionName != 'detach_roll' &&
             actionName != 'roll_complete' &&
             actionName != 'complete') {
           return false;
@@ -8104,7 +8114,7 @@ extension MobileApiAdmin on MobileApi {
         );
       }
       if (isRezka &&
-          (action == 'pause' ||
+          (isPauseOrDetach ||
               action == 'roll_complete' ||
               action == 'complete') &&
           hasPreviousStage &&
@@ -8116,7 +8126,7 @@ extension MobileApiAdmin on MobileApi {
       }
       if (isLaminatsiya &&
           hasPreviousStage &&
-          (action == 'pause' || action == 'complete') &&
+          (isPauseOrDetach || action == 'complete') &&
           activeInputBatch == null) {
         throw const MobileApiException(
           code: 'progress_qr_required',
@@ -8199,9 +8209,11 @@ extension MobileApiAdmin on MobileApi {
                   batch.batchId.trim() != progressBatchId.trim()) ||
               batch.orderId.trim() != orderId.trim() ||
               (batchAction != 'pause' &&
+                  batchAction != 'detach_roll' &&
                   batchAction != 'roll_complete' &&
                   batchAction != 'complete') ||
               (batchStatus != 'paused' &&
+                  batchStatus != 'roll_detached' &&
                   batchStatus != 'completed' &&
                   batchStatus != 'resumed') ||
               (hasPreviousStage &&
@@ -8342,8 +8354,8 @@ extension MobileApiAdmin on MobileApi {
             );
           }
         }
-      } else if (action == 'pause' &&
-          (workerHandoff || removeRollFromApparatus)) {
+      } else if ((action == 'pause' && workerHandoff) ||
+          (action == 'detach_roll' && removeRollFromApparatus)) {
         if (!isLaminatsiya ||
             (workerHandoff && removeRollFromApparatus) ||
             (workerHandoff && current != ApparatusQueueOrderState.inProgress) ||
@@ -8449,7 +8461,7 @@ extension MobileApiAdmin on MobileApi {
         return AdminApparatusQueueActionResult(
           states: Map<String, String>.unmodifiable(states),
         );
-      } else if (action == 'pause') {
+      } else if (isPauseOrDetach) {
         if (current != ApparatusQueueOrderState.inProgress) {
           throw const MobileApiException(
             code: 'queue_action_not_allowed',
@@ -8461,8 +8473,8 @@ extension MobileApiAdmin on MobileApi {
             ? _testModeRezkaProgressBatches(
                 apparatus: storageKey,
                 orderId: orderId.trim(),
-                action: 'pause',
-                status: 'paused',
+                action: action,
+                status: action == 'detach_roll' ? 'roll_detached' : 'paused',
                 producedQty: qty,
                 uom: uom.trim().isEmpty ? 'm' : uom.trim(),
                 frameCount: _testModeRezkaKadrCount(
@@ -8485,8 +8497,8 @@ extension MobileApiAdmin on MobileApi {
                 _testModeProgressBatch(
                   apparatus: storageKey,
                   orderId: orderId.trim(),
-                  action: 'pause',
-                  status: 'paused',
+                  action: action,
+                  status: action == 'detach_roll' ? 'roll_detached' : 'paused',
                   producedQty: qty,
                   uom: uom.trim().isEmpty ? 'kg' : uom.trim(),
                   parentBatchId: activeInputBatch?.batchId ?? '',
@@ -8612,7 +8624,7 @@ extension MobileApiAdmin on MobileApi {
         if (progressKey.isNotEmpty) {
           final batch = _testModeProgressBatchForKey(progressKey);
           if (batch == null ||
-              batch.status != 'paused' ||
+              (batch.status != 'paused' && batch.status != 'roll_detached') ||
               batch.orderId != orderId.trim() ||
               !productionMapWarehouseTitlesMatch(batch.apparatus, storageKey)) {
             throw const MobileApiException(
@@ -8628,8 +8640,12 @@ extension MobileApiAdmin on MobileApi {
                       candidate.apparatus,
                       storageKey,
                     ) &&
-                    candidate.action.trim().toLowerCase() == 'pause' &&
-                    candidate.status.trim().toLowerCase() == 'paused' &&
+                    (candidate.action.trim().toLowerCase() == 'pause' ||
+                        candidate.action.trim().toLowerCase() ==
+                            'detach_roll') &&
+                    (candidate.status.trim().toLowerCase() == 'paused' ||
+                        candidate.status.trim().toLowerCase() ==
+                            'roll_detached') &&
                     candidate.sessionId.trim() == batch.sessionId.trim() &&
                     candidate.parentBatchId.trim() ==
                         batch.parentBatchId.trim(),
@@ -8675,8 +8691,10 @@ extension MobileApiAdmin on MobileApi {
                     batch.orderId.trim() == orderId.trim() &&
                     productionMapWarehouseTitlesMatch(
                         batch.apparatus, storageKey) &&
-                    batch.action.trim().toLowerCase() == 'pause' &&
-                    batch.status.trim().toLowerCase() == 'paused' &&
+                    (batch.action.trim().toLowerCase() == 'pause' ||
+                        batch.action.trim().toLowerCase() == 'detach_roll') &&
+                    (batch.status.trim().toLowerCase() == 'paused' ||
+                        batch.status.trim().toLowerCase() == 'roll_detached') &&
                     batch.parentBatchId.trim() ==
                         activeInputBatch.batchId.trim(),
               )
@@ -11112,6 +11130,7 @@ AdminProgressBatch _testModeProgressBatch({
       isFinalOutput ? 'tayyor mahsulot' : 'yarim tayyor mahsulot';
   final actionLabel = switch (action.trim()) {
     'pause' => 'chiqarildi',
+    'detach_roll' => 'rulon yechildi',
     'roll_complete' => 'rulon tugatildi',
     'complete' => 'ish tugatildi',
     _ => status.trim(),
