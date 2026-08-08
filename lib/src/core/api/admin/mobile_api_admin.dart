@@ -7138,12 +7138,14 @@ extension MobileApiAdmin on MobileApi {
       }
       return AdminRawMaterialLookup(
         barcode: normalized,
-        warehouse: '',
-        itemCode: '',
-        itemName: '',
-        itemGroup: '',
-        qty: 0,
-        uom: '',
+        warehouse: assignment?.stockWarehouse ?? '',
+        itemCode: assignment?.itemCode ?? '',
+        itemName: assignment?.itemName ?? '',
+        itemGroup: assignment?.itemGroup ?? '',
+        qty: assignment?.stockQty ?? 0,
+        uom: assignment?.stockUom ?? '',
+        status: assignment?.stockStatus ?? '',
+        reservedOrderId: assignment?.reservedOrderId ?? '',
         assignment: assignment,
         order: order,
       );

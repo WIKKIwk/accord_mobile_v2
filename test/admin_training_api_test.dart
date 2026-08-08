@@ -61,6 +61,12 @@ void main() {
       apparatus: apparatus,
     );
     expect(assignments.map((item) => item.barcode), contains('TRN-TRAINING-1'));
+    final lookup = await MobileApi.instance.adminRawMaterialLookup(
+      barcode: 'TRN-TRAINING-1',
+    );
+    expect(lookup.itemName, '${material.name} / 50 mikron');
+    expect(lookup.qty, 1);
+    expect(lookup.order?.id, orderId);
 
     final locations = await MobileApi.instance.inventoryLocations();
     expect(
