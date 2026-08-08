@@ -77,6 +77,12 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       label: l10n.adminEquipmentNavTitle,
       routeName: AppRoutes.adminApparatusSettings,
     ),
+    const RoleNavigationDrawerDestination(
+      icon: Icons.school_outlined,
+      selectedIcon: Icons.school_rounded,
+      label: 'Training',
+      routeName: AppRoutes.adminTraining,
+    ),
     RoleNavigationDrawerDestination(
       icon: Icons.warehouse_outlined,
       selectedIcon: Icons.warehouse_rounded,
