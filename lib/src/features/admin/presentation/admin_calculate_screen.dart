@@ -5,6 +5,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
@@ -23,10 +24,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
-class AdminCalculateScreen extends StatefulWidget {
-  const AdminCalculateScreen({super.key, this.template});
+class AdminCalculateArgs {
+  const AdminCalculateArgs({this.template, this.trainingMode = false});
 
   final CalculateOrderTemplate? template;
+  final bool trainingMode;
+}
+
+class AdminCalculateScreen extends StatefulWidget {
+  const AdminCalculateScreen({
+    super.key,
+    this.template,
+    this.trainingMode = false,
+  });
+
+  final CalculateOrderTemplate? template;
+  final bool trainingMode;
 
   @override
   State<AdminCalculateScreen> createState() => _AdminCalculateScreenState();
@@ -46,9 +59,11 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final List<_LayerControllers> _layers = [_LayerControllers()];
   final _note = TextEditingController();
   List<CalculateMaterial> _materialCatalog = const <CalculateMaterial>[];
+  List<AdminApparatus> _trainingApparatus = const <AdminApparatus>[];
   bool _loadingMaterialCatalog = false;
 
   String _customerRef = '';
+  String _trainingApparatusName = '';
   String _itemCode = '';
   String _templateId = '';
   String _orderCode = '';
@@ -56,6 +71,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   int _productCustomerGeneration = 0;
   bool _calculating = false;
   bool _openingSavedOrder = false;
+  bool _openingTrainingOrder = false;
   bool _uploadingImage = false;
   bool _editingAllFields = true;
   bool _applyingTemplate = false;
@@ -81,6 +97,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     _calculationListenersAttached = true;
     unawaited(_warmQuickOrderTemplates());
     unawaited(_loadMaterialCatalog());
+    if (widget.trainingMode) {
+      unawaited(_loadTrainingApparatus());
+    }
   }
 
   @override
@@ -245,6 +264,28 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       // The existing text values remain usable for legacy templates.
     } finally {
       _loadingMaterialCatalog = false;
+    }
+  }
+
+  Future<void> _loadTrainingApparatus() async {
+    try {
+      final apparatus = await MobileApi.instance.adminApparatus(limit: 10000);
+      final enabled = [...apparatus]
+        ..removeWhere(
+          (item) => !item.trainingEnabled || item.name.trim().isEmpty,
+        )
+        ..sort(
+          (left, right) => left.name.toLowerCase().compareTo(
+                right.name.toLowerCase(),
+              ),
+        );
+      if (mounted) {
+        setState(() => _trainingApparatus = enabled);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _trainingApparatus = const <AdminApparatus>[]);
+      }
     }
   }
 
@@ -528,6 +569,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       itemCode: _itemCode,
       rollCount: _parseOptionalDouble(_rollCount.text),
       widthMm: _derivedWidthMm(),
+      apparatus: widget.trainingMode ? _trainingApparatusName : '',
       templateDraft: _buildTemplateDraft(),
     );
   }
@@ -615,6 +657,88 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     } finally {
       if (mounted) {
         setState(() => _openingSavedOrder = false);
+      }
+    }
+  }
+
+  Future<void> _openTrainingOrder() async {
+    if (_openingTrainingOrder || !widget.trainingMode) {
+      return;
+    }
+    final testModeEnabled = await TestModeController.instance.isEnabled();
+    if (!mounted) {
+      return;
+    }
+    if (!testModeEnabled) {
+      showAdminTopNotice(
+        context,
+        'Training order faqat test rejimida ochiladi',
+      );
+      return;
+    }
+    if (!_hasFreshCalculation) {
+      showAdminTopNotice(context, 'Avval hisoblash tugmasini bosing');
+      return;
+    }
+    final error = _templateValidationError();
+    if (error != null) {
+      showAdminTopNotice(context, error);
+      return;
+    }
+    final confirmed = await showProductionMapOrderConfirmationSheet(context);
+    if (!mounted || !confirmed) {
+      return;
+    }
+    setState(() => _openingTrainingOrder = true);
+    try {
+      final orderContext = _buildProductionMapOrderContext();
+      final calculation = _result;
+      final saved = await MobileApi.instance.adminSaveProductionMapWithOrder(
+        map: ProductionMapDefinition(
+          id: 'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}',
+          productCode: _firstNonEmpty([
+            _itemCode,
+            _product.text,
+            _resolvedOrderName(),
+          ]),
+          title: _resolvedOrderName(),
+          customerName: _customer.text.trim(),
+          rollCount: _parseOptionalDouble(_rollCount.text),
+          widthMm: _derivedWidthMm(),
+          orderKg: _parseRequiredDouble(_kg.text),
+          baseLength: calculation != null && calculation.results.isNotEmpty
+              ? calculation.results.first.baseLength
+              : null,
+          nodes: productionMapOrderFlowNodes(orderContext),
+          edges: productionMapOrderFlowEdges(orderContext),
+        ),
+        template: _buildTemplateDraft(),
+      );
+      if (!mounted) {
+        return;
+      }
+      final savedTemplate = saved.template;
+      if (savedTemplate != null) {
+        CalculateOrderTemplateStore.instance.remember(savedTemplate);
+      }
+      showAdminTopNotice(
+        context,
+        'Training order ochildi: ${saved.saved.map.orderNumber}',
+        icon: Icons.check_circle_outline,
+      );
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : 'Training order ochilmadi',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _openingTrainingOrder = false);
       }
     }
   }
@@ -775,6 +899,49 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     });
   }
 
+  Future<void> _openTrainingApparatusPicker() async {
+    if (_trainingApparatus.isEmpty) {
+      await _loadTrainingApparatus();
+    }
+    if (!mounted) {
+      return;
+    }
+    final picked = await showModalBottomSheet<AdminApparatus>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3AsyncPickerSheet<AdminApparatus>(
+          title: 'Training aparati',
+          hintText: 'Aparat qidiring',
+          pageSize: 50,
+          cacheKey: 'training:enabled-apparatus',
+          loadPage: (query, offset, limit) async {
+            final normalized = query.trim().toLowerCase();
+            final filtered = _trainingApparatus.where((item) {
+              return normalized.isEmpty ||
+                  item.name.toLowerCase().contains(normalized);
+            }).toList(growable: false);
+            return filtered.skip(offset).take(limit).toList(growable: false);
+          },
+          itemTitle: (item) => item.name,
+          itemSubtitle: (_) => 'Training rejimi yoqilgan',
+          itemKey: (item) => item.id,
+          onSelected: (item) => Navigator.of(context).pop(item),
+        );
+      },
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() => _trainingApparatusName = picked.name);
+  }
+
   Future<void> _openProductPicker() async {
     final pickerCustomerName = _customer.text.trim();
     final picked = await showModalBottomSheet<SupplierItem>(
@@ -869,6 +1036,16 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     }
   }
 
+  String _firstNonEmpty(Iterable<String> values) {
+    for (final value in values) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return 'zakaz';
+  }
+
   String _resolvedOrderName() {
     final product = _product.text.trim();
     return product.isEmpty ? 'Zakaz' : product;
@@ -882,6 +1059,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   String? _templateValidationError() {
     final checks = <String?>[
+      if (widget.trainingMode) _requiredText(_trainingApparatusName),
       _requiredText(_product.text),
       _requiredPositiveNumber(_frameProductSizeMm.text),
       _requiredPositiveNumber(_frameCount.text),
@@ -900,6 +1078,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   Future<void> _calculate() async {
     FocusManager.instance.primaryFocus?.unfocus();
+    if (widget.trainingMode && _trainingApparatusName.trim().isEmpty) {
+      showAdminTopNotice(context, 'Training aparatini tanlang');
+      return;
+    }
     if (_product.text.trim().isEmpty) {
       showAdminTopNotice(context, 'Mahsulot tanlang');
       return;
@@ -1021,6 +1203,15 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   List<Widget> _fullEditChildren() {
     return [
+      if (widget.trainingMode) ...[
+        const _SectionHeader(title: 'Training'),
+        _PickerInput(
+          label: 'Aparat',
+          value: _trainingApparatusName,
+          required: true,
+          onTap: _openTrainingApparatusPicker,
+        ),
+      ],
       const _SectionHeader(title: 'Buyurtma'),
       _PickerInput(
         label: 'Mijoz',
@@ -1172,6 +1363,25 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           widthMm: _derivedWidthMm(),
           onViewMap: _sourceMapId.trim().isEmpty ? null : _viewProductionMap,
         ),
+        if (widget.trainingMode) ...[
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: _openingTrainingOrder ? null : _openTrainingOrder,
+            icon: Icon(
+              _openingTrainingOrder
+                  ? Icons.hourglass_top_rounded
+                  : Icons.school_outlined,
+            ),
+            label: Text(
+              _openingTrainingOrder
+                  ? 'Training order ochilmoqda...'
+                  : 'Training order ochish',
+            ),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+            ),
+          ),
+        ],
         if (_sourceMapId.trim().isNotEmpty) ...[
           const SizedBox(height: 18),
           FilledButton.icon(
@@ -1235,8 +1445,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         selectedRouteName: AppRoutes.adminCalculate,
         onNavigate: _openDrawerRoute,
       ),
-      title: pageTitle,
-      subtitle: '',
+      title: widget.trainingMode ? 'Training order' : pageTitle,
+      subtitle: widget.trainingMode ? 'Test rejimi' : '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       actions: [

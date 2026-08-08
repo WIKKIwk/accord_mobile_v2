@@ -76,43 +76,11 @@ extension _AdminProductionMapTestDefinitionState
   }
 
   List<ProductionMapNode> _orderFlowNodes(ProductionMapOrderContext context) {
-    final orderName =
-        context.orderName.trim().isEmpty ? 'Zakaz' : context.orderName.trim();
-    final productName = context.productName.trim().isEmpty
-        ? 'Mahsulot'
-        : context.productName.trim();
-    return [
-      const ProductionMapNode(
-        id: 'start',
-        kind: 'start',
-        title: 'Start',
-        x: 420,
-        y: 32,
-      ),
-      ProductionMapNode(
-        id: 'order',
-        kind: 'task',
-        title: orderName,
-        roleCode: 'zakaz',
-        x: 420,
-        y: 164,
-      ),
-      ProductionMapNode(
-        id: 'end',
-        kind: 'end',
-        title: productName,
-        itemCode: context.itemCode,
-        x: 420,
-        y: 296,
-      ),
-    ];
+    return productionMapOrderFlowNodes(context);
   }
 
   List<ProductionMapEdge> _orderFlowEdges() {
-    return [
-      const ProductionMapEdge(from: 'start', to: 'order'),
-      const ProductionMapEdge(from: 'order', to: 'end'),
-    ];
+    return productionMapOrderFlowEdges(widget.orderContext!);
   }
 
   Future<void> _saveMap() async {

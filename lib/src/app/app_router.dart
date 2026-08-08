@@ -495,11 +495,18 @@ class AppRouter {
       case AppRoutes.adminActivity:
         return _buildRoute(settings, const AdminActivityScreen());
       case AppRoutes.adminCalculate:
-        final CalculateOrderTemplate? template =
-            settings.arguments is CalculateOrderTemplate
-                ? settings.arguments as CalculateOrderTemplate
-                : null;
-        return _buildRoute(settings, AdminCalculateScreen(template: template));
+        final args = settings.arguments;
+        final calculateArgs = args is AdminCalculateArgs ? args : null;
+        final template = args is CalculateOrderTemplate
+            ? args
+            : calculateArgs?.template;
+        return _buildRoute(
+          settings,
+          AdminCalculateScreen(
+            template: template,
+            trainingMode: calculateArgs?.trainingMode ?? false,
+          ),
+        );
       case AppRoutes.adminCalculateMaterials:
         return _buildRoute(settings, const AdminCalculateMaterialsScreen());
       case AppRoutes.adminCalculateOrders:

@@ -29,6 +29,7 @@ class ProductionMapOrderContext {
     required this.itemCode,
     this.rollCount,
     this.widthMm,
+    this.apparatus = '',
     this.templateDraft,
   });
 
@@ -39,7 +40,66 @@ class ProductionMapOrderContext {
   final String itemCode;
   final double? rollCount;
   final double? widthMm;
+  final String apparatus;
   final CalculateOrderTemplate? templateDraft;
+}
+
+List<ProductionMapNode> productionMapOrderFlowNodes(
+  ProductionMapOrderContext context,
+) {
+  final orderName =
+      context.orderName.trim().isEmpty ? 'Zakaz' : context.orderName.trim();
+  final productName = context.productName.trim().isEmpty
+      ? 'Mahsulot'
+      : context.productName.trim();
+  final apparatus = context.apparatus.trim();
+  return [
+    const ProductionMapNode(
+      id: 'start',
+      kind: 'start',
+      title: 'Start',
+      x: 420,
+      y: 32,
+    ),
+    ProductionMapNode(
+      id: 'order',
+      kind: 'task',
+      title: orderName,
+      roleCode: 'zakaz',
+      x: 420,
+      y: 164,
+    ),
+    if (apparatus.isNotEmpty)
+      ProductionMapNode(
+        id: 'apparatus',
+        kind: 'apparatus',
+        title: apparatus,
+        x: 420,
+        y: 296,
+      ),
+    ProductionMapNode(
+      id: 'end',
+      kind: 'end',
+      title: productName,
+      itemCode: context.itemCode,
+      x: 420,
+      y: apparatus.isEmpty ? 296 : 428,
+    ),
+  ];
+}
+
+List<ProductionMapEdge> productionMapOrderFlowEdges(
+  ProductionMapOrderContext context,
+) {
+  final apparatus = context.apparatus.trim();
+  return [
+    const ProductionMapEdge(from: 'start', to: 'order'),
+    if (apparatus.isNotEmpty) ...[
+      const ProductionMapEdge(from: 'order', to: 'apparatus'),
+      const ProductionMapEdge(from: 'apparatus', to: 'end'),
+    ] else
+      const ProductionMapEdge(from: 'order', to: 'end'),
+  ];
 }
 
 bool _isRezkaProductionNode(ProductionMapNode node) {

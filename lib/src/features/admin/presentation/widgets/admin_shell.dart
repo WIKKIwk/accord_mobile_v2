@@ -2,6 +2,7 @@ import '../../../../app/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/shell/app_shell.dart';
 import 'admin_dock.dart';
+import 'admin_create_hub_sheet.dart';
 import 'admin_drawer_navigation.dart';
 import 'admin_navigation_drawer.dart';
 import 'package:flutter/foundation.dart';
@@ -20,6 +21,7 @@ class AdminShell extends StatelessWidget {
     this.bottomDockFadeStrength,
     this.contentPadding = EdgeInsets.zero,
     this.includeDrawer = true,
+    this.primaryFabActions,
   });
 
   final String title;
@@ -32,6 +34,7 @@ class AdminShell extends StatelessWidget {
   final ValueListenable<double>? bottomDockFadeStrength;
   final EdgeInsets contentPadding;
   final bool includeDrawer;
+  final List<AdminFabMenuAction>? primaryFabActions;
 
   void _openDrawerRoute(BuildContext context, String routeName) {
     if (ModalRoute.of(context)?.settings.name == routeName) {
@@ -56,7 +59,10 @@ class AdminShell extends StatelessWidget {
       subtitle: subtitle,
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: AdminDock(activeTab: activeTab),
+      bottom: AdminDock(
+        activeTab: activeTab,
+        primaryFabActions: primaryFabActions,
+      ),
       bottomDockFadeStrength: bottomDockFadeStrength,
       contentPadding: contentPadding,
       child: child,

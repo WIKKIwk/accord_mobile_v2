@@ -15,7 +15,9 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../admin/logic/production_map_pechat_rules.dart';
 import '../../admin/models/production_map_models.dart';
 import '../../shared/models/app_models.dart';
+import 'admin_calculate_screen.dart';
 import 'progress_printer_picker.dart';
+import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_shell.dart';
 import 'widgets/admin_top_notice.dart';
@@ -233,6 +235,25 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     }
   }
 
+  Future<void> _openTrainingOrder() async {
+    if (!_apparatus.any((item) => item.trainingEnabled)) {
+      showAdminTopNotice(
+        context,
+        'Avval kamida bitta aparat uchun Training rejimini yoqing',
+        icon: Icons.school_outlined,
+      );
+      return;
+    }
+    final result = await Navigator.of(context).pushNamed(
+      AppRoutes.adminCalculate,
+      arguments: const AdminCalculateArgs(trainingMode: true),
+    );
+    if (!mounted || result != true) {
+      return;
+    }
+    await _load();
+  }
+
   Future<void> _printTrainingLabel(
     ProgressPrinterOption printer,
     UsbRpsPrintRequest request,
@@ -292,6 +313,13 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       title: 'Training',
       selectedRouteName: AppRoutes.adminTraining,
       activeTab: AdminDockTab.home,
+      primaryFabActions: [
+        AdminFabMenuAction(
+          title: 'Training order qo‘shish',
+          icon: Icons.playlist_add_rounded,
+          onTap: _openTrainingOrder,
+        ),
+      ],
       child: ColoredBox(
         color: AppTheme.shellStart(context),
         child: _loading
