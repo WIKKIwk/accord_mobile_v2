@@ -21,6 +21,7 @@ import 'widgets/admin_shell.dart';
 import 'widgets/admin_top_notice.dart';
 
 int _trainingBarcodeSequence = 0;
+const double _adminTrainingPanelGap = 4;
 
 class AdminTrainingScreen extends StatefulWidget {
   const AdminTrainingScreen({super.key});
@@ -299,34 +300,37 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                 ? AppRetryState(onRetry: _load)
                 : ListView(
                     padding: EdgeInsets.fromLTRB(
+                      _adminTrainingPanelGap,
                       16,
-                      16,
-                      16,
+                      _adminTrainingPanelGap,
                       bottomPadding,
                     ),
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .tertiaryContainer
-                              .withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: const Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Icons.school_outlined),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Training apparat bo‘yicha yoqiladi. Aparatni ochib, '
-                                'rejimni almashtiring yoki zanjir orqali test '
-                                'homashyosini orderga ulang.',
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .tertiaryContainer
+                                .withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: const Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.school_outlined),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Training apparat bo‘yicha yoqiladi. Aparatni ochib, '
+                                  'rejimni almashtiring yoki zanjir orqali test '
+                                  'homashyosini orderga ulang.',
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 14),
