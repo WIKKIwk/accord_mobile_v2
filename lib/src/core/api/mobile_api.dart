@@ -31,6 +31,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'json_payload_decoder.dart';
 
 part 'admin/mobile_api_admin.dart';
+part 'admin/mobile_api_admin_training.dart';
 part 'admin/mobile_api_admin_items.dart';
 part 'admin/mobile_api_admin_item_groups.dart';
 part 'admin/mobile_api_paddons.dart';
