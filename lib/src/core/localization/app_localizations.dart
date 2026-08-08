@@ -760,6 +760,150 @@ class AppLocalizations {
       );
   String get adminSettingsTitle =>
       _t('Admin sozlamalari', 'Admin settings', 'Настройки администратора');
+  String get adminTelegramTitle =>
+      _t('Telegram bot', 'Telegram bot', 'Telegram-бот');
+  String get adminTelegramSubtitle => _t(
+        'Admin va sotuv managerlari uchun Telegram ulanishi',
+        'Telegram access for admins and sales managers',
+        'Telegram-доступ для администраторов и менеджеров продаж',
+      );
+  String get adminTelegramGroupsTitle => _t(
+        'Buyurtma guruhlari',
+        'Order groups',
+        'Группы заказов',
+      );
+  String get adminTelegramGroupsHint => _t(
+        'Botni guruhga qo‘shing va guruhda /connect yuboring.',
+        'Add the bot to a group and send /connect there.',
+        'Добавьте бота в группу и отправьте там /connect.',
+      );
+  String get adminTelegramNoGroups => _t(
+        'Hali Telegram guruhi ulanmagan',
+        'No Telegram group connected yet',
+        'Группа Telegram ещё не подключена',
+      );
+  String get adminTelegramBotSettingsTitle => _t(
+        'Bot settings',
+        'Bot settings',
+        'Настройки бота',
+      );
+  String get adminTelegramBotSettingsSubtitle => _t(
+        'Bot username va tokenni shu yerda sozlang',
+        'Configure the bot username and token here',
+        'Настройте здесь имя и токен бота',
+      );
+  String get adminTelegramBotUsernameLabel => _t(
+        'Bot username',
+        'Bot username',
+        'Имя пользователя бота',
+      );
+  String get adminTelegramBotTokenLabel => _t(
+        'Bot token',
+        'Bot token',
+        'Токен бота',
+      );
+  String get adminTelegramBotTokenHint => _t(
+        'Token bo‘sh qolsa, mavjud token saqlanadi.',
+        'Leave the token empty to keep the current token.',
+        'Оставьте токен пустым, чтобы сохранить текущий.',
+      );
+  String get adminTelegramSaveBotSettings => _t(
+        'Saqlash',
+        'Save',
+        'Сохранить',
+      );
+  String get adminTelegramSettingsSaved => _t(
+        'Telegram sozlamalari saqlandi',
+        'Telegram settings saved',
+        'Настройки Telegram сохранены',
+      );
+  String get adminTelegramSettingsSaveFailed => _t(
+        'Telegram sozlamalari saqlanmadi',
+        'Telegram settings could not be saved',
+        'Не удалось сохранить настройки Telegram',
+      );
+  String get adminTelegramBotNotConfigured => _t(
+        'Bot sozlanmagan',
+        'Bot is not configured',
+        'Бот не настроен',
+      );
+  String get adminTelegramInviteRolesTitle => _t(
+        'Taklif yuborish',
+        'Send an invite',
+        'Отправить приглашение',
+      );
+  String get adminTelegramInviteRolesSubtitle => _t(
+        'Role ni tanlang va native share orqali kerakli userga yuboring',
+        'Choose a role and send it to the user through native sharing',
+        'Выберите роль и отправьте ссылку пользователю через системную отправку',
+      );
+  String get adminTelegramAdminRoleTitle =>
+      _t('Admin', 'Admin', 'Администратор');
+  String get adminTelegramSalesManagerRoleTitle => _t(
+        'Sotuv manageri',
+        'Sales manager',
+        'Менеджер продаж',
+      );
+  String get adminTelegramInviteRoleDescription => _t(
+        'Link yaratib Telegram orqali yuborish',
+        'Create a link and send it through Telegram',
+        'Создать ссылку и отправить через Telegram',
+      );
+  String get adminTelegramShareInvite => _t(
+        'Invite linkni ulashish',
+        'Share invite link',
+        'Поделиться ссылкой-приглашением',
+      );
+  String get adminTelegramShareTitle => _t(
+        'Accord Telegram taklifi',
+        'Accord Telegram invite',
+        'Приглашение Accord в Telegram',
+      );
+  String get adminTelegramInviteFailed => _t(
+        'Telegram invite yaratilmadi',
+        'Telegram invite could not be created',
+        'Не удалось создать приглашение Telegram',
+      );
+  String get adminTelegramUsersTitle => _t(
+        'Ulangan Telegram userlar',
+        'Connected Telegram users',
+        'Подключенные пользователи Telegram',
+      );
+  String get adminTelegramNoUsers => _t(
+        'Hali hech kim start bosmagan.',
+        'No one has started the bot yet.',
+        'Пока никто не запустил бота.',
+      );
+  String get adminTelegramUnknownUser => _t(
+        'Noma’lum user',
+        'Unknown user',
+        'Неизвестный пользователь',
+      );
+  String get adminTelegramDeliveryBot => _t(
+        'Bot orqali',
+        'Via bot',
+        'Через бота',
+      );
+  String get adminTelegramDeliveryUserProfile => _t(
+        'User profile orqali',
+        'Via user profile',
+        'Через профиль пользователя',
+      );
+  String get adminTelegramUserProfileConnected => _t(
+        'User profile ulangan',
+        'User profile connected',
+        'Профиль пользователя подключен',
+      );
+  String get adminTelegramUserProfileNotConnected => _t(
+        'User profile ulanmagan',
+        'User profile not connected',
+        'Профиль пользователя не подключен',
+      );
+  String get adminTelegramSelectedGroup => _t(
+        'Tanlangan guruh',
+        'Selected group',
+        'Выбранная группа',
+      );
   String get adminActivityTitle => _t('Harakatlar', 'Activity', 'Активность');
   String get adminActivityNavTitle => _t('Faoliyat', 'Activity', 'Активность');
   String get adminDrawerSections => _t('Bo‘limlar', 'Sections', 'Разделы');

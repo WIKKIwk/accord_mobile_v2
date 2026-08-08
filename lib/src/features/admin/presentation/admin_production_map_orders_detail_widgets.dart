@@ -3,6 +3,7 @@ part of 'admin_production_map_orders_screen.dart';
 class _ReadOnlyOrderDetailContent extends StatelessWidget {
   const _ReadOnlyOrderDetailContent({
     required this.noticeAnchorKey,
+    required this.onBack,
     required this.map,
     required this.baseMetraj,
     required this.orderKg,
@@ -58,6 +59,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   });
 
   final GlobalKey noticeAnchorKey;
+  final VoidCallback onBack;
   final ProductionMapDefinition map;
   final double? baseMetraj;
   final double? orderKg;
@@ -131,6 +133,14 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
             controller: controller,
             padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
             children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton.filledTonal(
+                  tooltip: 'Orderga qaytish',
+                  onPressed: onBack,
+                  icon: const Icon(Icons.arrow_back_rounded),
+                ),
+              ),
               if (showQuickScanner) ...[
                 ProductionQuickScannerPanel(
                   statusText: quickScanStatus,

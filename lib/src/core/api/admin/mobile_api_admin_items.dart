@@ -898,6 +898,7 @@ extension MobileApiAdminItems on MobileApi {
     Iterable<AdminApparatusCapabilityProfile> capabilityProfiles =
         const <AdminApparatusCapabilityProfile>[],
     int? colorStations,
+    String? factoryMapObjectId,
     bool? trainingEnabled,
   }) async {
     final name = apparatusName.trim();
@@ -905,9 +906,7 @@ extension MobileApiAdminItems on MobileApi {
       throw Exception('Admin apparatus name required');
     }
     final normalizedId = id.trim();
-    if (normalizedId.startsWith('apparatus:default:')) {
-      throw Exception('Default apparatus master data is immutable');
-    }
+    final normalizedFactoryMapObjectId = factoryMapObjectId?.trim() ?? '';
     final normalizedFamily = family.trim().toLowerCase();
     final normalizedKind = kind.trim().toLowerCase();
     final normalizedProfiles = capabilityProfiles
@@ -940,6 +939,7 @@ extension MobileApiAdminItems on MobileApi {
           existingIndex >= 0 ? _testModeApparatus[existingIndex] : null;
       final effectiveTrainingEnabled =
           trainingEnabled ?? existing?.trainingEnabled ?? false;
+      final isDefault = normalizedId.startsWith('apparatus:default:');
       final effectiveProfiles = normalizedProfiles.isEmpty
           ? (normalizedCapabilities.isEmpty
               ? inferred.capabilityProfiles
@@ -953,13 +953,29 @@ extension MobileApiAdminItems on MobileApi {
             ? normalizedId
             : existing?.id ?? 'apparatus:${name.toLowerCase()}',
         name: name,
-        family: normalizedFamily.isEmpty ? inferred.family : normalizedFamily,
-        kind: normalizedKind.isEmpty ? inferred.kind : normalizedKind,
-        capabilities: normalizedCapabilities.isEmpty
+        source: isDefault ? 'default' : existing?.source ?? 'custom',
+        sortOrder: existing?.sortOrder ?? 10000,
+        family: isDefault
+            ? inferred.family
+            : normalizedFamily.isEmpty
+                ? inferred.family
+                : normalizedFamily,
+        kind: isDefault
+            ? inferred.kind
+            : normalizedKind.isEmpty
+                ? inferred.kind
+                : normalizedKind,
+        capabilities: isDefault
             ? inferred.capabilities
-            : normalizedCapabilities,
-        capabilityProfiles: effectiveProfiles,
-        colorStations: colorStations ?? inferred.colorStations,
+            : normalizedCapabilities.isEmpty
+                ? inferred.capabilities
+                : normalizedCapabilities,
+        capabilityProfiles:
+            isDefault ? inferred.capabilityProfiles : effectiveProfiles,
+        colorStations: isDefault
+            ? inferred.colorStations
+            : colorStations ?? inferred.colorStations,
+        factoryMapObjectId: normalizedFactoryMapObjectId,
         trainingEnabled: effectiveTrainingEnabled,
       );
       if (existingIndex >= 0) {
@@ -991,6 +1007,8 @@ extension MobileApiAdminItems on MobileApi {
               for (final profile in normalizedProfiles) profile.toJson(),
             ],
           if (colorStations != null) 'color_stations': colorStations,
+          if (factoryMapObjectId != null)
+            'factory_map_object_id': normalizedFactoryMapObjectId,
           if (trainingEnabled != null) 'training_enabled': trainingEnabled,
         }),
       ),
@@ -1290,9 +1308,14 @@ extension MobileApiAdminItems on MobileApi {
 
 List<AdminApparatus> _testModeApparatusCatalog() {
   final seen = <String>{};
+  final overrides = {
+    for (final apparatus in _testModeApparatus)
+      apparatus.name.trim().toLowerCase(): apparatus,
+  };
   final items = [
-    ...TestModeDemoData.apparatus,
-    ..._testModeApparatus,
+    for (final apparatus in TestModeDemoData.apparatus)
+      overrides.remove(apparatus.name.trim().toLowerCase()) ?? apparatus,
+    ...overrides.values,
   ];
   return items.indexed.where(
     (entry) {
@@ -1316,6 +1339,7 @@ List<AdminApparatus> _testModeApparatusCatalog() {
       capabilities: apparatus.capabilities,
       capabilityProfiles: apparatus.capabilityProfiles,
       colorStations: apparatus.colorStations,
+      factoryMapObjectId: apparatus.factoryMapObjectId,
       trainingEnabled: apparatus.trainingEnabled,
     );
   }).toList(growable: false);

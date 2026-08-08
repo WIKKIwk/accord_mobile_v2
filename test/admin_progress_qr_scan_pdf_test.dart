@@ -2,12 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/src/core/api/mobile_api.dart';
-import '../lib/src/features/admin/presentation/admin_progress_qr_scan_pdf.dart';
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_progress_qr_passport.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_progress_qr_scan_pdf.dart';
 
 void main() {
-  test('progress QR PDF keeps full batch, session, transfer and freeze data',
-      () {
+  test('progress QR PDF is a human-readable product passport', () {
     final report = AdminProgressQrReport.fromJson({
       'scanned_batch': _batchJson('batch-old', 'qr-old'),
       'current_batch': _batchJson('batch-current', 'qr-current'),
@@ -18,6 +18,11 @@ void main() {
         'product_code': 'product-1',
         'title': '90 гр сочная курица',
         'order_number': '9993',
+        'customer_name': 'Accord',
+        'roll_count': 12,
+        'width_mm': 650,
+        'order_kg': 500,
+        'base_length': 574908.5345345345,
         'nodes': const [],
         'edges': const [],
       },
@@ -65,6 +70,22 @@ void main() {
           },
         },
       ],
+      'corrections': [
+        {
+          'batch_id': 'batch-current',
+          'previous_revision': 1,
+          'new_revision': 2,
+          'reason': 'Tarozida qayta o‘lchandi',
+          'actor': {
+            'role': 'admin',
+            'ref_': 'admin-1',
+            'display_name': 'Bosh admin',
+          },
+          'old_values': {'produced_qty': 425, 'uom': 'm'},
+          'new_values': {'produced_qty': 424, 'uom': 'm'},
+          'created_at_unix': 1785665350,
+        },
+      ],
       'progress_batches': [_batchJson('batch-current', 'qr-current')],
       'run_sessions': [
         {
@@ -91,13 +112,60 @@ void main() {
 
     final pdf = AdminProgressQrScanPdf.buildProgress(report);
     final source = utf8.decode(pdf);
+    final passport = buildProgressQrPassport(report).toPlainText();
+
+    expect(
+      passport,
+      '''MAHSULOT PASPORTI
+Zakaz 9993 • 90 гр сочная курица
+Holati: Keyingi bosqichni kutmoqda
+Eslatma: skan qilingan QR oldingi bosqichniki. Quyida mahsulotning hozirgi holati berilgan.
+
+BUYURTMA REJASI
+Mijoz: Accord
+Rejadagi rulonlar: 12 ta
+Mahsulot eni: 650 mm
+Rejadagi og‘irlik: 500 kg
+Rejadagi metraj: 574 908.53 metr
+
+ISHLAB CHIQARISH BOSQICHLARI
+1. Rezka (hozirgi bosqich)
+Holati: Keyingi bosqichni kutmoqda
+Bajargan: Rezka
+Boshlangan: 02.08.2026 15:09
+Natija: 424 m
+Babina og‘irligi: 5 kg
+Keyingi bosqich: Laminatsiya 1
+
+TAHRIRLAR
+1. Rezka
+Tahrir qilgan: Bosh admin
+Vaqt: 02.08.2026 15:09
+Sabab: Tarozida qayta o‘lchandi
+Ishlab chiqarilgan miqdor: 425 m → 424 m
+
+MUAMMOLAR VA O‘ZGARISHLAR
+1. Rezka → Laminatsiya 1: Aparatdagi nosozlik sababli boshqa apparatga o‘tkazilgan
+Vaqt: 02.08.2026 15:09''',
+    );
+    expect(passport, isNot(contains('Qisqa xulosa')));
+    expect(passport, isNot(contains('Mahsulot natijasi')));
+    expect(passport, isNot(contains('Kimlar ishlagan')));
+    expect(passport, isNot(contains('Ish ketma-ketligi')));
+    expect(passport, isNot(contains('Bobina')));
 
     expect(source, startsWith('%PDF-1.4\n'));
-    expect(source, contains('Admin QR report'));
-    expect(source, contains('batch-current'));
-    expect(source, contains('transfer-1'));
-    expect(source, contains('freeze-1'));
-    expect(source, contains('input_progress_qr_payload'));
+    expect(source, contains('Mahsulot pasporti'));
+    expect(source, contains('Rejadagi metraj: 574 908.53 metr'));
+    expect(source, contains('Natija: 424 m'));
+    expect(source, contains('Babina og\'irligi: 5 kg'));
+    expect(source, contains('Tahrir qilgan: Bosh admin'));
+    expect(source, contains('Sabab: Tarozida qayta o\'lchandi'));
+    expect(source, contains('Ishlab chiqarilgan miqdor: 425 m -> 424 m'));
+    expect(source, isNot(contains('batch-current')));
+    expect(source, isNot(contains('transfer-1')));
+    expect(source, isNot(contains('freeze-1')));
+    expect(source, isNot(contains('input_progress_qr_payload')));
     expect(source, endsWith('%%EOF\n'));
   });
 }
@@ -131,6 +199,7 @@ Map<String, dynamic> _batchJson(String batchId, String qrPayload) {
     'current_apparatus': 'Rezka',
     'current_location': 'Rezka chiqim',
     'next_apparatus': 'Laminatsiya 1',
+    'bobina_kg': 5,
     'payload_json': {
       'input_progress_qr_payload': qrPayload,
       'gross_qty': 424,

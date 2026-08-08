@@ -1975,6 +1975,14 @@ class _ResultPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          if (response.results.isNotEmpty) ...[
+            _ResultRow(
+              label: 'Tayyor mahsulot GSM',
+              value: '${_fmt(response.results.first.totalGsm)} g/m²',
+              emphasized: true,
+            ),
+            const Divider(height: 18),
+          ],
           _ResultMultilineRow(
             label: 'Bosma',
             value: productionMapPechatCompatibilitySummary(

@@ -1426,6 +1426,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         !requiresQolipScan || _allRequiredQolipsScanned;
     return _ReadOnlyOrderDetailContent(
       noticeAnchorKey: _noticeAnchorKey,
+      onBack: () => Navigator.of(context).pop(),
       map: map,
       baseMetraj: widget.baseMetraj,
       orderKg: widget.orderKg,

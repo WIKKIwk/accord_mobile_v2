@@ -1894,6 +1894,7 @@ class AdminRezkaAstatkaReport {
 class AdminProgressBatch {
   const AdminProgressBatch({
     required this.batchId,
+    this.revision = 1,
     required this.sessionId,
     required this.apparatus,
     required this.orderId,
@@ -1937,6 +1938,7 @@ class AdminProgressBatch {
   });
 
   final String batchId;
+  final int revision;
   final String sessionId;
   final String apparatus;
   final String orderId;
@@ -1981,6 +1983,7 @@ class AdminProgressBatch {
   factory AdminProgressBatch.fromJson(Map<String, dynamic> json) {
     return AdminProgressBatch(
       batchId: json['batch_id']?.toString() ?? '',
+      revision: (json['revision'] as num?)?.toInt() ?? 1,
       sessionId: json['session_id']?.toString() ?? '',
       apparatus: json['apparatus']?.toString() ?? '',
       orderId: json['order_id']?.toString() ?? '',
@@ -2029,6 +2032,7 @@ class AdminProgressBatch {
   }
 
   AdminProgressBatch copyWith({
+    int? revision,
     String? status,
     String? wipStatus,
     String? currentApparatus,
@@ -2042,6 +2046,7 @@ class AdminProgressBatch {
   }) {
     return AdminProgressBatch(
       batchId: batchId,
+      revision: revision ?? this.revision,
       sessionId: sessionId,
       apparatus: apparatus,
       orderId: orderId,
@@ -2082,6 +2087,114 @@ class AdminProgressBatch {
       startedAtUnix: startedAtUnix,
       completedAtUnix: completedAtUnix,
       payloadJson: payloadJson ?? this.payloadJson,
+    );
+  }
+}
+
+class AdminProgressBatchCorrectionInput {
+  const AdminProgressBatchCorrectionInput({
+    required this.batchId,
+    required this.expectedRevision,
+    required this.producedQty,
+    required this.uom,
+    required this.reason,
+    this.returnInkKg,
+    this.laminationPrintLeftoverRolls,
+    this.laminationFilmLeftoverRolls,
+    this.rezkaBosmaWaste,
+    this.rezkaLaminationWaste,
+    this.rezkaEdgeWaste,
+    this.totalWaste,
+    this.finishedGoodsKg,
+    this.bobinaKg,
+    this.finishedGoodsMeter,
+    this.diameter,
+    this.description = '',
+  });
+
+  final String batchId;
+  final int expectedRevision;
+  final double producedQty;
+  final String uom;
+  final double? returnInkKg;
+  final double? laminationPrintLeftoverRolls;
+  final double? laminationFilmLeftoverRolls;
+  final double? rezkaBosmaWaste;
+  final double? rezkaLaminationWaste;
+  final double? rezkaEdgeWaste;
+  final double? totalWaste;
+  final double? finishedGoodsKg;
+  final double? bobinaKg;
+  final double? finishedGoodsMeter;
+  final double? diameter;
+  final String description;
+  final String reason;
+
+  Map<String, dynamic> toJson() => {
+        'batch_id': batchId.trim(),
+        'expected_revision': expectedRevision,
+        'produced_qty': producedQty,
+        'uom': uom.trim(),
+        'return_ink_kg': returnInkKg,
+        'lamination_print_leftover_rolls': laminationPrintLeftoverRolls,
+        'lamination_film_leftover_rolls': laminationFilmLeftoverRolls,
+        'rezka_bosma_waste': rezkaBosmaWaste,
+        'rezka_lamination_waste': rezkaLaminationWaste,
+        'rezka_edge_waste': rezkaEdgeWaste,
+        'total_waste': totalWaste,
+        'finished_goods_kg': finishedGoodsKg,
+        'bobina_kg': bobinaKg,
+        'finished_goods_meter': finishedGoodsMeter,
+        'diameter': diameter,
+        'description': description.trim(),
+        'reason': reason.trim(),
+      };
+}
+
+class AdminProgressBatchCorrectionRecord {
+  const AdminProgressBatchCorrectionRecord({
+    required this.batchId,
+    required this.previousRevision,
+    required this.newRevision,
+    required this.reason,
+    required this.actorRole,
+    required this.actorRef,
+    required this.actorDisplayName,
+    required this.oldValues,
+    required this.newValues,
+    required this.createdAtUnix,
+  });
+
+  final String batchId;
+  final int previousRevision;
+  final int newRevision;
+  final String reason;
+  final String actorRole;
+  final String actorRef;
+  final String actorDisplayName;
+  final Map<String, dynamic> oldValues;
+  final Map<String, dynamic> newValues;
+  final int createdAtUnix;
+
+  factory AdminProgressBatchCorrectionRecord.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final actor = json['actor'];
+    final actorJson = actor is Map
+        ? actor.cast<String, dynamic>()
+        : const <String, dynamic>{};
+    return AdminProgressBatchCorrectionRecord(
+      batchId: json['batch_id']?.toString() ?? '',
+      previousRevision: (json['previous_revision'] as num?)?.toInt() ?? 0,
+      newRevision: (json['new_revision'] as num?)?.toInt() ?? 0,
+      reason: json['reason']?.toString() ?? '',
+      actorRole: actorJson['role']?.toString() ?? '',
+      actorRef:
+          actorJson['ref_']?.toString() ?? actorJson['ref']?.toString() ?? '',
+      actorDisplayName: actorJson['display_name']?.toString() ?? '',
+      oldValues: _jsonObject(json['old_values']),
+      newValues: _jsonObject(json['new_values']),
+      createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -2331,6 +2444,7 @@ class AdminProgressQrReport {
     required this.progressBatches,
     required this.runSessions,
     required this.activeSessions,
+    this.corrections = const [],
     this.currentBatch,
     this.order,
     this.orderStatus = const AdminProductionOrderStatusDetail(),
@@ -2345,6 +2459,7 @@ class AdminProgressQrReport {
   final AdminProductionOrderStatusDetail orderStatus;
   final Map<String, Map<String, String>> queueStates;
   final List<AdminProductionOrderLogEntry> logs;
+  final List<AdminProgressBatchCorrectionRecord> corrections;
   final List<AdminProgressBatch> progressBatches;
   final List<AdminWorkerRunSession> runSessions;
   final List<AdminWorkerRunSession> activeSessions;
@@ -2380,6 +2495,12 @@ class AdminProgressQrReport {
       logs: [
         for (final item in (json['logs'] as List? ?? const []))
           AdminProductionOrderLogEntry.fromJson(
+            (item as Map).cast<String, dynamic>(),
+          ),
+      ],
+      corrections: [
+        for (final item in (json['corrections'] as List? ?? const []))
+          AdminProgressBatchCorrectionRecord.fromJson(
             (item as Map).cast<String, dynamic>(),
           ),
       ],
@@ -3827,6 +3948,14 @@ MobileApiException _adminProductionMapException(
         'Bu QR oldingi bosqich mahsulotiga mos emas',
       'progress_batch_not_resumable' =>
         'Bu progress QR davom ettirishga yaramaydi',
+      'progress_batch_correction_reason_required' =>
+        'O‘zgartirish sababini yozing',
+      'progress_batch_correction_locked' =>
+        'Ishlatilgan WIPni o‘zgartirib bo‘lmaydi',
+      'progress_batch_correction_conflict' =>
+        'WIP boshqa joyda yangilangan. Ma’lumotni qayta oching',
+      'progress_batch_correction_unchanged' =>
+        'WIP qiymatlarida o‘zgarish yo‘q',
       'paddon_invalid_input' => 'Paddon ma’lumoti noto‘g‘ri',
       'paddon_code_exhausted' => 'Paddon code raqamlari tugagan',
       'paddon_not_found' => 'Paddon topilmadi',
@@ -9191,6 +9320,120 @@ extension MobileApiAdmin on MobileApi {
         for (final item in raw)
           AdminProgressBatch.fromJson((item as Map).cast<String, dynamic>()),
     ];
+  }
+
+  Future<AdminProgressBatch> adminProgressBatchCorrect(
+    AdminProgressBatchCorrectionInput input,
+  ) async {
+    if (input.batchId.trim().isEmpty ||
+        input.expectedRevision <= 0 ||
+        !input.producedQty.isFinite ||
+        input.producedQty <= 0 ||
+        input.uom.trim().isEmpty ||
+        input.reason.trim().isEmpty) {
+      throw const MobileApiException(
+        code: 'progress_input_invalid',
+        message: 'WIP o‘zgartirish ma’lumoti to‘liq emas',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      AdminProgressBatch? current;
+      for (final batch in _testModeProgressBatchesByQr.values) {
+        if (batch.batchId.trim() == input.batchId.trim()) {
+          current = batch;
+          break;
+        }
+      }
+      if (current == null) {
+        throw const MobileApiException(
+          code: 'progress_batch_not_found',
+          message: 'Progress QR topilmadi',
+        );
+      }
+      if (current.wipStatus.trim().toLowerCase() != 'waiting') {
+        throw const MobileApiException(
+          code: 'progress_batch_correction_locked',
+          message: 'Ishlatilgan WIPni o‘zgartirib bo‘lmaydi',
+        );
+      }
+      if (current.revision != input.expectedRevision) {
+        throw const MobileApiException(
+          code: 'progress_batch_correction_conflict',
+          message: 'WIP boshqa joyda yangilangan',
+        );
+      }
+      final corrected = AdminProgressBatch(
+        batchId: current.batchId,
+        revision: current.revision + 1,
+        sessionId: current.sessionId,
+        apparatus: current.apparatus,
+        orderId: current.orderId,
+        action: current.action,
+        status: current.status,
+        producedQty: input.producedQty,
+        uom: input.uom.trim(),
+        qrPayload: current.qrPayload,
+        labelItemCode: current.labelItemCode,
+        labelItemName: current.labelItemName,
+        executorName: current.executorName,
+        diameter: input.diameter,
+        returnInkKg: input.returnInkKg,
+        laminationPrintLeftoverRolls: input.laminationPrintLeftoverRolls,
+        laminationFilmLeftoverRolls: input.laminationFilmLeftoverRolls,
+        rezkaBosmaWaste: input.rezkaBosmaWaste,
+        rezkaLaminationWaste: input.rezkaLaminationWaste,
+        rezkaEdgeWaste: input.rezkaEdgeWaste,
+        totalWaste: input.totalWaste,
+        finishedGoodsKg: input.finishedGoodsKg,
+        bobinaKg: input.bobinaKg,
+        finishedGoodsMeter: input.finishedGoodsMeter,
+        description: input.description.trim(),
+        workerRole: current.workerRole,
+        workerRef: current.workerRef,
+        workerDisplayName: current.workerDisplayName,
+        wipStatus: current.wipStatus,
+        statusDetail: current.statusDetail,
+        currentApparatus: current.currentApparatus,
+        currentApparatusKey: current.currentApparatusKey,
+        currentLocation: current.currentLocation,
+        nextApparatus: current.nextApparatus,
+        parentBatchId: current.parentBatchId,
+        usedBySessionId: current.usedBySessionId,
+        usedByApparatus: current.usedByApparatus,
+        processedBySessionId: current.processedBySessionId,
+        processedByApparatus: current.processedByApparatus,
+        startedAtUnix: current.startedAtUnix,
+        completedAtUnix: current.completedAtUnix,
+        payloadJson: current.payloadJson,
+      );
+      _testModeProgressBatchesByQr[current.qrPayload] = corrected;
+      return corrected;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/progress-qr/correct',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(input.toJson()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'progress_batch_correction_failed',
+      );
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['batch'];
+    if (raw is! Map) {
+      throw const MobileApiException(
+        code: 'progress_batch_correction_failed',
+        message: 'Yangilangan WIP ma’lumoti kelmadi',
+      );
+    }
+    return AdminProgressBatch.fromJson(raw.cast<String, dynamic>());
   }
 
   Future<AdminProgressQrReprintResult> adminProgressQrReprint({

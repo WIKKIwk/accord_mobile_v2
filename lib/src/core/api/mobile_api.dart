@@ -5,6 +5,7 @@ import '../../features/shared/models/app_models.dart';
 import '../../features/shared/models/inventory_movement_models.dart';
 import '../../features/admin/models/admin_item_group_tree_entry.dart';
 import '../../features/admin/models/production_map_models.dart';
+import '../../features/admin/telegram/models/telegram_models.dart';
 import '../../features/chat/models/chat_models.dart';
 import '../../features/chat/models/chat_media_models.dart';
 import '../../features/boyoqchi/models/returned_paint_models.dart';
@@ -32,6 +33,7 @@ import 'json_payload_decoder.dart';
 
 part 'admin/mobile_api_admin.dart';
 part 'admin/mobile_api_admin_training.dart';
+part 'admin/mobile_api_admin_telegram.dart';
 part 'admin/mobile_api_admin_items.dart';
 part 'admin/mobile_api_admin_item_groups.dart';
 part 'admin/mobile_api_paddons.dart';

@@ -9,6 +9,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../logic/production_map_pechat_rules.dart';
 import 'admin_apparatus_capacity_panel.dart';
+import 'admin_factory_map_viewer.dart';
 import 'admin_queue_policy_screen.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_drawer_navigation.dart';
@@ -316,8 +317,8 @@ class _AdminApparatusSettingsScreenState
           return StatefulBuilder(
             builder: (context, setDialogState) {
               _createEditorDialogSetState = setDialogState;
-              _closeCreateEditorDialog = () =>
-                  Navigator.of(dialogContext).pop();
+              _closeCreateEditorDialog =
+                  () => Navigator.of(dialogContext).pop();
               if (!focusRequested) {
                 focusRequested = true;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -540,12 +541,69 @@ class _AdminApparatusSettingsScreenState
             onClose: () => Navigator.of(dialogContext).pop(),
             onAssignGroup: (groupName) =>
                 _assignApparatusToGroup(apparatus, groupName),
+            onMapObjectChanged: (objectId) =>
+                _saveApparatusFactoryMapObject(apparatus, objectId),
             onTrainingChanged: (enabled) =>
                 _saveApparatusTraining(apparatus, enabled),
           ),
         );
       },
     );
+  }
+
+  Future<AdminApparatus?> _saveApparatusFactoryMapObject(
+    AdminApparatus apparatus,
+    String objectId,
+  ) async {
+    final normalizedObjectId = objectId.trim();
+    if (normalizedObjectId.isNotEmpty) {
+      for (final item in _apparatus) {
+        if (item.id != apparatus.id &&
+            item.factoryMapObjectId.trim() == normalizedObjectId) {
+          showAdminTopNotice(
+            context,
+            'Bu 3D obyekt ${item.name} apparatiga biriktirilgan',
+          );
+          return null;
+        }
+      }
+    }
+
+    try {
+      final saved = await MobileApi.instance.adminCreateApparatus(
+        apparatus.name,
+        id: apparatus.id,
+        family: apparatus.family,
+        kind: apparatus.kind,
+        capabilities: apparatus.capabilities,
+        capabilityProfiles: apparatus.capabilityProfiles,
+        colorStations: apparatus.colorStations,
+        factoryMapObjectId: normalizedObjectId,
+        trainingEnabled: apparatus.trainingEnabled,
+      );
+      if (!mounted) {
+        return null;
+      }
+      setState(() {
+        _apparatus = [
+          for (final item in _apparatus)
+            if (item.id == saved.id) saved else item,
+        ];
+      });
+      _saveCache();
+      showAdminTopNotice(
+        context,
+        normalizedObjectId.isEmpty
+            ? '3D xarita bog‘lanishi olib tashlandi'
+            : 'Aparat 3D xaritaga biriktirildi',
+      );
+      return saved;
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(context, '3D xarita bog‘lanishi saqlanmadi');
+      }
+      return null;
+    }
   }
 
   Future<AdminApparatus?> _saveApparatusTraining(
@@ -568,6 +626,7 @@ class _AdminApparatusSettingsScreenState
         capabilities: current.capabilities,
         capabilityProfiles: current.capabilityProfiles,
         colorStations: current.colorStations,
+        factoryMapObjectId: current.factoryMapObjectId,
         trainingEnabled: enabled,
       );
       if (!mounted) {
@@ -642,9 +701,10 @@ class _AdminApparatusSettingsScreenState
     }
     final family = _selectedApparatusFamily;
     final kind = _selectedApparatusKind;
-    if (family == null || kind == null || _selectedApparatusCapabilities.isEmpty) {
-      showAdminTopNotice(
-          context, 'Aparat oilasi, turi va capability tanlang');
+    if (family == null ||
+        kind == null ||
+        _selectedApparatusCapabilities.isEmpty) {
+      showAdminTopNotice(context, 'Aparat oilasi, turi va capability tanlang');
       return;
     }
     final colorStationsText = _apparatusColorStations.text.trim();
@@ -703,6 +763,7 @@ class _AdminApparatusSettingsScreenState
         capabilities: capabilities,
         capabilityProfiles: capabilityProfiles,
         colorStations: colorStations,
+        factoryMapObjectId: previous?.factoryMapObjectId,
         trainingEnabled: previous?.trainingEnabled,
       );
       if (!mounted) {
@@ -813,6 +874,8 @@ class _AdminApparatusSettingsScreenState
                       _apparatus.length,
                     ),
                     apparatus: _apparatus[index],
+                    onTap: () =>
+                        unawaited(_showApparatusSettings(_apparatus[index])),
                     onLongPress: () =>
                         unawaited(_showApparatusSettings(_apparatus[index])),
                     onEdit: _apparatus[index].isDefault
@@ -952,8 +1015,7 @@ class _AdminApparatusSettingsScreenState
             decoration: appSurfaceInputDecoration(
               context,
               labelText: 'Rang stansiyalari (ixtiyoriy)',
-              hintText:
-                  '${_apparatusOptions.colorStationsMin}-'
+              hintText: '${_apparatusOptions.colorStationsMin}-'
                   '${_apparatusOptions.colorStationsMax}',
             ),
           ),
@@ -1512,14 +1574,14 @@ class _ApparatusListRow extends StatelessWidget {
   const _ApparatusListRow({
     required this.slot,
     required this.apparatus,
-    this.onTap,
+    required this.onTap,
     this.onLongPress,
     this.onEdit,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminApparatus apparatus;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onEdit;
 
@@ -1531,7 +1593,7 @@ class _ApparatusListRow extends StatelessWidget {
       title: apparatus.name,
       subtitle: _apparatusMetadataLabel(apparatus),
       value: '',
-      showChevron: onTap != null || onLongPress != null,
+      showChevron: true,
       onTap: onTap,
       onLongPress: onLongPress,
       fixedHeight: 61,
@@ -1611,12 +1673,12 @@ class _ApparatusSelectRow extends StatelessWidget {
 
 class _ApparatusSettingsCard extends StatefulWidget {
   const _ApparatusSettingsCard({
-    super.key,
     required this.apparatus,
     required this.groups,
     required this.currentGroupName,
     required this.onClose,
     required this.onAssignGroup,
+    required this.onMapObjectChanged,
     required this.onTrainingChanged,
   });
 
@@ -1625,17 +1687,18 @@ class _ApparatusSettingsCard extends StatefulWidget {
   final String? currentGroupName;
   final VoidCallback onClose;
   final Future<void> Function(String? groupName) onAssignGroup;
+  final Future<AdminApparatus?> Function(String objectId) onMapObjectChanged;
   final Future<AdminApparatus?> Function(bool enabled) onTrainingChanged;
 
   @override
-  State<_ApparatusSettingsCard> createState() =>
-      _ApparatusSettingsCardState();
+  State<_ApparatusSettingsCard> createState() => _ApparatusSettingsCardState();
 }
 
 class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
   late String _selectedGroupName;
   late AdminApparatus _apparatus;
   bool _savingGroup = false;
+  bool _savingMapObject = false;
   bool _savingTraining = false;
 
   @override
@@ -1648,6 +1711,117 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
     )
         ? current
         : '';
+  }
+
+  Future<void> _chooseMapObject() async {
+    if (_savingMapObject) {
+      return;
+    }
+    final selection = await showAdminFactoryMapObjectPicker(
+      context,
+      initialObjectId: _apparatus.factoryMapObjectId,
+    );
+    if (selection == null || !mounted) {
+      return;
+    }
+    setState(() => _savingMapObject = true);
+    try {
+      final saved = await widget.onMapObjectChanged(selection.objectId);
+      if (saved != null && mounted) {
+        setState(() => _apparatus = saved);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _savingMapObject = false);
+      }
+    }
+  }
+
+  Future<void> _clearMapObject() async {
+    if (_savingMapObject || _apparatus.factoryMapObjectId.trim().isEmpty) {
+      return;
+    }
+    setState(() => _savingMapObject = true);
+    try {
+      final saved = await widget.onMapObjectChanged('');
+      if (saved != null && mounted) {
+        setState(() => _apparatus = saved);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _savingMapObject = false);
+      }
+    }
+  }
+
+  Widget _buildMapTab(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final objectId = _apparatus.factoryMapObjectId.trim();
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: objectId.isEmpty
+                ? scheme.surfaceContainerHighest
+                : scheme.primaryContainer.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                objectId.isEmpty
+                    ? Icons.location_off_outlined
+                    : Icons.view_in_ar_rounded,
+                color:
+                    objectId.isEmpty ? scheme.onSurfaceVariant : scheme.primary,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                objectId.isEmpty
+                    ? '3D xaritada belgilanmagan'
+                    : '3D xaritaga biriktirilgan',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                objectId.isEmpty
+                    ? 'Zavod xaritasidan shu apparatga mos qizil obyektni tanlang.'
+                    : objectId,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        FilledButton.icon(
+          onPressed: _savingMapObject ? null : _chooseMapObject,
+          icon: _savingMapObject
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.map_outlined),
+          label: Text(
+            objectId.isEmpty ? 'Xaritadan tanlash' : 'Xaritadan qayta tanlash',
+          ),
+        ),
+        if (objectId.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _savingMapObject ? null : _clearMapObject,
+            icon: const Icon(Icons.link_off_rounded),
+            label: const Text('Bog‘lanishni olib tashlash'),
+          ),
+        ],
+      ],
+    );
   }
 
   Future<void> _setTrainingEnabled(bool enabled) async {
@@ -1793,7 +1967,7 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
     return SizedBox(
       height: cardHeight.toDouble(),
       child: DefaultTabController(
-        length: 4,
+        length: 5,
         child: Material(
           color: scheme.surface,
           borderRadius: BorderRadius.circular(24),
@@ -1836,10 +2010,12 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
                 ),
               ),
               const TabBar(
+                isScrollable: true,
                 tabs: [
                   Tab(text: 'Guruh'),
                   Tab(text: 'Navbat'),
                   Tab(text: 'Quvvat / jadval'),
+                  Tab(text: '3D xarita'),
                   Tab(text: 'Training'),
                 ],
               ),
@@ -1852,10 +2028,11 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
                       apparatusName: widget.apparatus.name,
                     ),
                     AdminApparatusCapacityPanel(
-                      apparatus: [widget.apparatus],
+                      apparatus: [_apparatus],
                       bottomPadding: bottomPadding,
                       showApparatusSelector: false,
                     ),
+                    _buildMapTab(context),
                     _buildTrainingTab(context),
                   ],
                 ),

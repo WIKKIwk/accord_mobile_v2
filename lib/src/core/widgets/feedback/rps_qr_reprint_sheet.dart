@@ -21,6 +21,8 @@ class RpsQrReprintSheet extends StatefulWidget {
     this.successMessage = 'Mavjud QR qayta chop etildi',
     this.previewKey,
     this.reprintButtonKey = const ValueKey('rps-qr-reprint'),
+    this.onEdit,
+    this.editButtonKey,
   });
 
   final String title;
@@ -32,6 +34,8 @@ class RpsQrReprintSheet extends StatefulWidget {
   final String successMessage;
   final Key? previewKey;
   final Key reprintButtonKey;
+  final Future<void> Function()? onEdit;
+  final Key? editButtonKey;
 
   @override
   State<RpsQrReprintSheet> createState() => _RpsQrReprintSheetState();
@@ -108,6 +112,13 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
                       ),
                     ),
                   ),
+                  if (widget.onEdit != null)
+                    IconButton(
+                      key: widget.editButtonKey,
+                      onPressed: _printing ? null : widget.onEdit,
+                      tooltip: 'WIPni o‘zgartirish',
+                      icon: const Icon(Icons.edit_rounded),
+                    ),
                   IconButton(
                     onPressed: _printing ? null : () => Navigator.pop(context),
                     tooltip: 'Yopish',

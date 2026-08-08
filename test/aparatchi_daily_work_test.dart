@@ -260,4 +260,211 @@ void main() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
   });
+
+  testWidgets(
+      'waiting WIP pencils open one prefilled editor and require a reason', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Rezka operatori',
+      legalName: '',
+      ref: 'daily-correction-worker',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.read'],
+      assignedApparatus: ['Rezka 1'],
+    );
+    final day = DateTime(2026, 8, 1);
+    final batch = AdminProgressBatch.fromJson({
+      'batch_id': 'correction-wip',
+      'revision': 3,
+      'order_id': 'correction-order',
+      'apparatus': 'Rezka 1',
+      'produced_qty': 100,
+      'uom': 'm',
+      'qr_payload': 'CORRECTION-QR',
+      'label_item_name': 'Correction mahsulot',
+      'wip_status': 'waiting',
+      'worker_ref': 'daily-correction-worker',
+      'finished_goods_meter': 100,
+      'finished_goods_kg': 50,
+      'bobina_kg': 5,
+      'diameter': 200,
+      'started_at_unix':
+          day.add(const Duration(hours: 8)).millisecondsSinceEpoch ~/ 1000,
+      'completed_at_unix':
+          day.add(const Duration(hours: 9)).millisecondsSinceEpoch ~/ 1000,
+    });
+    AdminProgressBatchCorrectionInput? submitted;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AparatchiDailyWorkScreen(
+          initialDate: day,
+          historyLoader: () async => [batch],
+          correctionSaver: (input) async {
+            submitted = input;
+            return AdminProgressBatch.fromJson({
+              'batch_id': input.batchId,
+              'revision': input.expectedRevision + 1,
+              'order_id': batch.orderId,
+              'apparatus': batch.apparatus,
+              'produced_qty': input.producedQty,
+              'uom': input.uom,
+              'qr_payload': batch.qrPayload,
+              'label_item_name': batch.labelItemName,
+              'wip_status': 'waiting',
+              'worker_ref': batch.workerRef,
+              'finished_goods_meter': input.finishedGoodsMeter,
+              'finished_goods_kg': input.finishedGoodsKg,
+              'bobina_kg': input.bobinaKg,
+              'diameter': input.diameter,
+              'description': input.description,
+              'started_at_unix': batch.startedAtUnix,
+              'completed_at_unix': batch.completedAtUnix,
+            });
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('daily-work-order-header-correction-order')),
+    );
+    await tester.pumpAndSettle();
+    final card =
+        find.byKey(const ValueKey('daily-work-wip-card-correction-wip'));
+    expect(card, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('daily-work-wip-edit-correction-wip')),
+      findsNothing,
+    );
+
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('daily-work-wip-edit-correction-wip')),
+      findsOneWidget,
+    );
+
+    await tester.longPress(card);
+    await tester.pumpAndSettle();
+    final sheetEdit =
+        find.byKey(const ValueKey('daily-work-wip-sheet-edit-correction-wip'));
+    expect(sheetEdit, findsOneWidget);
+    await tester.tap(sheetEdit);
+    await tester.pumpAndSettle();
+    expect(find.text('WIPni o‘zgartirish'), findsOneWidget);
+    expect(find.text('100'), findsWidgets);
+    expect(find.text('50'), findsOneWidget);
+    expect(find.text('5'), findsOneWidget);
+    expect(find.text('200'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).first, '120');
+    await tester.tap(
+      find.byKey(const ValueKey('daily-work-wip-edit-save')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('O‘zgartirish sababi'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('daily-work-wip-correction-confirm')),
+    );
+    await tester.pump();
+    expect(find.text('Izohsiz o‘zgartirib bo‘lmaydi'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('daily-work-wip-correction-reason')),
+      'Metraj noto‘g‘ri yozilgan',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('daily-work-wip-correction-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(submitted, isNotNull);
+    expect(submitted!.expectedRevision, 3);
+    expect(submitted!.producedQty, 120);
+    expect(submitted!.reason, 'Metraj noto‘g‘ri yozilgan');
+    expect(find.text('120 m'), findsOneWidget);
+
+    AppSession.instance.token = null;
+    AppSession.instance.profile = null;
+  });
+
+  testWidgets('in-use WIP does not show an edit pencil', (tester) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Laminatsiya operatori',
+      legalName: '',
+      ref: 'locked-wip-worker',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.read'],
+      assignedApparatus: ['Laminatsiya 1'],
+    );
+    final day = DateTime(2026, 8, 1);
+    final batch = AdminProgressBatch.fromJson({
+      'batch_id': 'locked-wip',
+      'order_id': 'locked-order',
+      'apparatus': 'Laminatsiya 1',
+      'wip_status': 'in_use',
+      'qr_payload': 'LOCKED-QR',
+      'started_at_unix':
+          day.add(const Duration(hours: 8)).millisecondsSinceEpoch ~/ 1000,
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AparatchiDailyWorkScreen(
+          initialDate: day,
+          historyLoader: () async => [batch],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('daily-work-order-header-locked-order')),
+    );
+    await tester.pumpAndSettle();
+    final card = find.byKey(const ValueKey('daily-work-wip-card-locked-wip'));
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('daily-work-wip-edit-locked-wip')),
+      findsNothing,
+    );
+    await tester.longPress(card);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('daily-work-wip-sheet-edit-locked-wip')),
+      findsNothing,
+    );
+
+    AppSession.instance.token = null;
+    AppSession.instance.profile = null;
+  });
 }

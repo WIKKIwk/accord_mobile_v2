@@ -1748,7 +1748,8 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('production map order number is allocated after existing orders', (
+  testWidgets('production map order number is allocated after existing orders',
+      (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
@@ -1980,11 +1981,17 @@ void main() {
       expect(find.text('Metraj'), findsOneWidget);
       expect(find.text('Val'), findsOneWidget);
 
-      await tester.tapAt(const Offset(1, 1));
+      await tester.tap(find.byTooltip('Orderga qaytish'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').last);
+      expect(find.text('Zakaz kodi'), findsNothing);
+
+      await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
       await tester.pumpAndSettle();
       expect(find.text('Zakaz kodi'), findsOneWidget);
+      expect(find.byTooltip('Orderga qaytish'), findsOneWidget);
+      await tester.tap(find.byTooltip('Orderga qaytish'));
+      await tester.pumpAndSettle();
+      expect(find.text('Zakaz kodi'), findsNothing);
     },
   );
 

@@ -2,9 +2,23 @@ import * as THREE from './three.module.js';
 import { GLTFLoader } from './GLTFLoader.js';
 import { OrbitControls } from './OrbitControls.js';
 
-const canvas = document.getElementById('factory-map-canvas');
-const status = document.getElementById('factory-map-status');
+const canvas = Array.from(
+  document.querySelectorAll('[data-factory-map-canvas]'),
+).find((candidate) => candidate.dataset.rendererInitialized !== 'true');
+if (!canvas) {
+  throw new Error('Factory map canvas not found');
+}
+canvas.dataset.rendererInitialized = 'true';
+const factoryMapHost = canvas.parentElement;
+const status = factoryMapHost.querySelector('[data-factory-map-status]');
 const modelSource = canvas.dataset.modelSrc || '/model';
+const initialSelectedObjectId = canvas.dataset.selectedObjectId || '';
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const selectableMeshes = [];
+const selectableObjectsById = new Map();
+let selectionHelper = null;
+let pointerStart = null;
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -47,6 +61,118 @@ scene.add(keyLight.target);
 const fillLight = new THREE.DirectionalLight(0xd5e6ff, 0.55);
 fillLight.position.set(40, 45, -35);
 scene.add(fillLight);
+
+function postFactoryMapMessage(payload) {
+  const message = JSON.stringify(payload);
+  const nativeChannel = window.FactoryMapChannel;
+  if (nativeChannel && typeof nativeChannel.postMessage === 'function') {
+    nativeChannel.postMessage(message);
+  }
+  const bridge = factoryMapHost.querySelector('[data-factory-map-bridge]');
+  if (!bridge) {
+    return;
+  }
+  bridge.setAttribute('data-model-viewer-channel', 'FactoryMapChannel');
+  bridge.setAttribute('data-model-viewer-message', message);
+  bridge.dispatchEvent(new Event('model-viewer-plus-message', { bubbles: true }));
+}
+
+function selectableObjectFor(mesh, parser, fallbackIndex) {
+  let current = mesh;
+  while (current && current.parent) {
+    const association = parser.associations.get(current);
+    if (Number.isInteger(association?.nodes)) {
+      return {
+        id: `node:${association.nodes}`,
+        target: current,
+      };
+    }
+    current = current.parent;
+  }
+  return {
+    id: `mesh:${fallbackIndex}`,
+    target: mesh,
+  };
+}
+
+function registerSelectableObjects(root, parser) {
+  let fallbackIndex = 0;
+  root.traverse((object) => {
+    if (!object.isMesh && !object.isInstancedMesh) {
+      return;
+    }
+    const selectable = selectableObjectFor(object, parser, fallbackIndex++);
+    object.userData.factoryMapObjectId = selectable.id;
+    selectableMeshes.push(object);
+    if (!selectableObjectsById.has(selectable.id)) {
+      selectableObjectsById.set(selectable.id, selectable.target);
+    }
+  });
+}
+
+function selectObject(objectId, emitMessage = true) {
+  const target = selectableObjectsById.get(objectId);
+  if (!target) {
+    return;
+  }
+  if (selectionHelper) {
+    scene.remove(selectionHelper);
+    selectionHelper.geometry.dispose();
+    selectionHelper.material.dispose();
+  }
+  selectionHelper = new THREE.BoxHelper(target, 0xffd54f);
+  selectionHelper.material.depthTest = false;
+  selectionHelper.renderOrder = 1000;
+  scene.add(selectionHelper);
+  renderer.render(scene, camera);
+  if (emitMessage) {
+    postFactoryMapMessage({
+      type: 'object_tap',
+      objectId,
+      label: `3D obyekt · ${objectId}`,
+    });
+  }
+}
+
+function selectObjectAt(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) {
+    return;
+  }
+  pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hit = raycaster.intersectObjects(selectableMeshes, false)[0];
+  const objectId = hit?.object?.userData?.factoryMapObjectId;
+  if (objectId) {
+    selectObject(objectId);
+  }
+}
+
+canvas.addEventListener('pointerdown', (event) => {
+  pointerStart = {
+    id: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+    at: performance.now(),
+  };
+});
+
+canvas.addEventListener('pointerup', (event) => {
+  const start = pointerStart;
+  pointerStart = null;
+  if (!start || start.id !== event.pointerId) {
+    return;
+  }
+  const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+  if (distance <= 8 && performance.now() - start.at <= 700) {
+    selectObjectAt(event.clientX, event.clientY);
+  }
+});
+
+canvas.addEventListener('pointercancel', () => {
+  pointerStart = null;
+});
 
 function replaceUnlitMaterial(material) {
   if (!material?.isMeshBasicMaterial) {
@@ -166,12 +292,16 @@ async function loadModel() {
         (gltf) => {
           const root = gltf.scene;
           scene.add(root);
+          registerSelectableObjects(root, gltf.parser);
           const bounds = new THREE.Box3().setFromObject(root);
           enableRealShadows(root, bounds);
           renderer.shadowMap.needsUpdate = true;
           status.hidden = true;
           status.style.display = 'none';
           resize();
+          if (initialSelectedObjectId) {
+            selectObject(initialSelectedObjectId, false);
+          }
           resolve();
         },
         reject,

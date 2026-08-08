@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
@@ -20,6 +21,9 @@ import 'widgets/aparatchi_navigation_drawer.dart';
 
 typedef AparatchiDailyWorkHistoryLoader = Future<List<AdminProgressBatch>>
     Function();
+typedef AparatchiDailyWorkCorrectionSaver = Future<AdminProgressBatch> Function(
+  AdminProgressBatchCorrectionInput input,
+);
 
 DateTime _dailyWorkDateOnly(DateTime value) {
   final local = value.toLocal();
@@ -118,10 +122,12 @@ class AparatchiDailyWorkScreen extends StatefulWidget {
   const AparatchiDailyWorkScreen({
     super.key,
     this.historyLoader,
+    this.correctionSaver,
     this.initialDate,
   });
 
   final AparatchiDailyWorkHistoryLoader? historyLoader;
+  final AparatchiDailyWorkCorrectionSaver? correctionSaver;
   final DateTime? initialDate;
 
   @override
@@ -132,6 +138,8 @@ class AparatchiDailyWorkScreen extends StatefulWidget {
 class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
   late DateTime _selectedDate;
   late Future<List<AdminProgressBatch>> _future;
+  final Map<String, AdminProgressBatch> _correctedBatches = {};
+  final Set<String> _correctingBatchIds = {};
 
   @override
   void initState() {
@@ -197,7 +205,7 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => RpsQrReprintSheet(
+      builder: (sheetContext) => RpsQrReprintSheet(
         title: 'WIP QR',
         payload: payload,
         itemName: _dailyWorkFirstNotEmpty([
@@ -207,6 +215,7 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
         ]),
         previewKey: ValueKey('daily-work-wip-preview-${batch.batchId}'),
         reprintButtonKey: ValueKey('daily-work-wip-reprint-${batch.batchId}'),
+        editButtonKey: ValueKey('daily-work-wip-sheet-edit-${batch.batchId}'),
         details: [
           if (batch.orderId.trim().isNotEmpty)
             RpsQrDetail('Order', batch.orderId.trim()),
@@ -237,12 +246,77 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
             RpsQrDetail('Hozirgi joyi', batch.currentLocation.trim()),
         ],
         onReprint: () => _reprintWip(batch),
+        onEdit: _canCorrectWip(batch) && !_isCorrecting(batch)
+            ? () async {
+                Navigator.of(sheetContext).pop();
+                await Future<void>.delayed(Duration.zero);
+                if (mounted) {
+                  await _editWip(batch);
+                }
+              }
+            : null,
         errorMessage: (error) => error is MobileApiException
             ? error.message
             : _dailyWorkReprintError(error),
         successMessage: 'WIP QR qayta chop etildi',
       ),
     );
+  }
+
+  bool _isCorrecting(AdminProgressBatch batch) =>
+      _correctingBatchIds.contains(batch.batchId.trim());
+
+  Future<void> _editWip(AdminProgressBatch batch) async {
+    if (!_canCorrectWip(batch) || _isCorrecting(batch)) {
+      return;
+    }
+    final draft = await showDialog<_DailyWorkWipCorrectionDraft>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (_) => _DailyWorkWipEditDialog(batch: batch),
+    );
+    if (!mounted || draft == null) {
+      return;
+    }
+    final reason = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      builder: (_) => const _DailyWorkCorrectionReasonDialog(),
+    );
+    if (!mounted || reason == null) {
+      return;
+    }
+    final batchId = batch.batchId.trim();
+    setState(() => _correctingBatchIds.add(batchId));
+    try {
+      final input = draft.toInput(batch: batch, reason: reason);
+      final saver = widget.correctionSaver;
+      final corrected = saver == null
+          ? await MobileApi.instance.adminProgressBatchCorrect(input)
+          : await saver(input);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _correctedBatches[batchId] = corrected);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('WIP o‘zgartirildi va izoh saqlandi')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      final message = error is MobileApiException
+          ? error.message
+          : _dailyWorkCorrectionError(error);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _correctingBatchIds.remove(batchId));
+      }
+    }
   }
 
   Future<String?> _reprintWip(AdminProgressBatch batch) async {
@@ -326,7 +400,10 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
             message: 'Kunlik ish ma’lumoti yuklanmadi',
           );
         }
-        final allBatches = snapshot.data ?? const <AdminProgressBatch>[];
+        final allBatches = [
+          for (final batch in snapshot.data ?? const <AdminProgressBatch>[])
+            _correctedBatches[batch.batchId.trim()] ?? batch,
+        ];
         // The history endpoint is already scoped to the authenticated worker.
         final batches = adminProgressBatchesForLocalDay(
           allBatches,
@@ -367,6 +444,8 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
                       key: ValueKey('daily-work-order-group-${group.key}'),
                       group: group,
                       onLongPress: _showWip,
+                      onEdit: _editWip,
+                      isCorrecting: _isCorrecting,
                     ),
                   ),
             ],
@@ -382,10 +461,14 @@ class _DailyWorkOrderGroupCard extends StatefulWidget {
     super.key,
     required this.group,
     required this.onLongPress,
+    required this.onEdit,
+    required this.isCorrecting,
   });
 
   final _DailyWorkOrderGroup group;
   final ValueChanged<AdminProgressBatch> onLongPress;
+  final ValueChanged<AdminProgressBatch> onEdit;
+  final bool Function(AdminProgressBatch) isCorrecting;
 
   @override
   State<_DailyWorkOrderGroupCard> createState() =>
@@ -504,6 +587,12 @@ class _DailyWorkOrderGroupCardState extends State<_DailyWorkOrderGroupCard> {
                                 index: index,
                                 onLongPress: () =>
                                     widget.onLongPress(group.batches[index]),
+                                onEdit: _canCorrectWip(group.batches[index]) &&
+                                        !widget.isCorrecting(
+                                          group.batches[index],
+                                        )
+                                    ? () => widget.onEdit(group.batches[index])
+                                    : null,
                               ),
                             ),
                         ],
@@ -630,11 +719,13 @@ class _DailyWorkWipCard extends StatefulWidget {
     required this.batch,
     required this.index,
     required this.onLongPress,
+    this.onEdit,
   });
 
   final AdminProgressBatch batch;
   final int index;
   final VoidCallback onLongPress;
+  final VoidCallback? onEdit;
 
   @override
   State<_DailyWorkWipCard> createState() => _DailyWorkWipCardState();
@@ -710,6 +801,18 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
                         key: const ValueKey('daily-work-expanded-details'),
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (widget.onEdit != null)
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: IconButton.filledTonal(
+                                key: ValueKey(
+                                  'daily-work-wip-edit-${widget.batch.batchId}',
+                                ),
+                                onPressed: widget.onEdit,
+                                tooltip: 'WIPni o‘zgartirish',
+                                icon: const Icon(Icons.edit_rounded),
+                              ),
+                            ),
                           if (widget.batch.batchId.trim().isNotEmpty)
                             _DailyWorkInfoRow(
                               label: 'WIP ID',
@@ -840,6 +943,460 @@ class _DailyWorkCompactValue extends StatelessWidget {
   }
 }
 
+class _DailyWorkWipCorrectionDraft {
+  const _DailyWorkWipCorrectionDraft({
+    required this.producedQty,
+    required this.uom,
+    required this.returnInkKg,
+    required this.laminationPrintLeftoverRolls,
+    required this.laminationFilmLeftoverRolls,
+    required this.rezkaBosmaWaste,
+    required this.rezkaLaminationWaste,
+    required this.rezkaEdgeWaste,
+    required this.totalWaste,
+    required this.finishedGoodsKg,
+    required this.bobinaKg,
+    required this.finishedGoodsMeter,
+    required this.diameter,
+    required this.description,
+  });
+
+  final double producedQty;
+  final String uom;
+  final double? returnInkKg;
+  final double? laminationPrintLeftoverRolls;
+  final double? laminationFilmLeftoverRolls;
+  final double? rezkaBosmaWaste;
+  final double? rezkaLaminationWaste;
+  final double? rezkaEdgeWaste;
+  final double? totalWaste;
+  final double? finishedGoodsKg;
+  final double? bobinaKg;
+  final double? finishedGoodsMeter;
+  final double? diameter;
+  final String description;
+
+  AdminProgressBatchCorrectionInput toInput({
+    required AdminProgressBatch batch,
+    required String reason,
+  }) {
+    return AdminProgressBatchCorrectionInput(
+      batchId: batch.batchId,
+      expectedRevision: batch.revision,
+      producedQty: producedQty,
+      uom: uom,
+      returnInkKg: returnInkKg,
+      laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
+      laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
+      rezkaBosmaWaste: rezkaBosmaWaste,
+      rezkaLaminationWaste: rezkaLaminationWaste,
+      rezkaEdgeWaste: rezkaEdgeWaste,
+      totalWaste: totalWaste,
+      finishedGoodsKg: finishedGoodsKg,
+      bobinaKg: bobinaKg,
+      finishedGoodsMeter: finishedGoodsMeter,
+      diameter: diameter,
+      description: description,
+      reason: reason,
+    );
+  }
+}
+
+class _DailyWorkWipEditDialog extends StatefulWidget {
+  const _DailyWorkWipEditDialog({required this.batch});
+
+  final AdminProgressBatch batch;
+
+  @override
+  State<_DailyWorkWipEditDialog> createState() =>
+      _DailyWorkWipEditDialogState();
+}
+
+class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _meter;
+  late final TextEditingController _kg;
+  late final TextEditingController _bobina;
+  late final TextEditingController _diameter;
+  late final TextEditingController _returnInk;
+  late final TextEditingController _printLeftover;
+  late final TextEditingController _filmLeftover;
+  late final TextEditingController _rezkaBosmaWaste;
+  late final TextEditingController _rezkaLaminationWaste;
+  late final TextEditingController _rezkaEdgeWaste;
+  late final TextEditingController _totalWaste;
+  late final TextEditingController _description;
+
+  AdminProgressBatch get _batch => widget.batch;
+  bool get _isPechat => productionMapIsPechatApparatus(_batch.apparatus);
+  bool get _isLaminatsiya =>
+      productionMapIsLaminatsiyaApparatus(_batch.apparatus);
+  bool get _isRezka => productionMapIsRezkaApparatus(_batch.apparatus);
+  bool get _showStandardWeights => _isPechat || _isLaminatsiya || _isRezka;
+  bool get _showTotalWaste => _batch.totalWaste != null;
+  bool get _showRezkaWaste =>
+      _isRezka &&
+      [
+        _batch.totalWaste,
+        _batch.rezkaBosmaWaste,
+        _batch.rezkaLaminationWaste,
+        _batch.rezkaEdgeWaste,
+      ].any((value) => value != null);
+
+  @override
+  void initState() {
+    super.initState();
+    _meter = _numberController(_batch.finishedGoodsMeter ?? _batch.producedQty);
+    _kg = _numberController(_batch.finishedGoodsKg);
+    _bobina = _numberController(_batch.bobinaKg);
+    _diameter = _numberController(_batch.diameter);
+    _returnInk = _numberController(_batch.returnInkKg);
+    _printLeftover = _numberController(_batch.laminationPrintLeftoverRolls);
+    _filmLeftover = _numberController(_batch.laminationFilmLeftoverRolls);
+    _rezkaBosmaWaste = _numberController(_batch.rezkaBosmaWaste);
+    _rezkaLaminationWaste = _numberController(_batch.rezkaLaminationWaste);
+    _rezkaEdgeWaste = _numberController(_batch.rezkaEdgeWaste);
+    _totalWaste = _numberController(_batch.totalWaste);
+    _description = TextEditingController(text: _batch.description);
+  }
+
+  TextEditingController _numberController(double? value) =>
+      TextEditingController(
+          text: value == null ? '' : formatRawQuantity(value));
+
+  @override
+  void dispose() {
+    _description.dispose();
+    _totalWaste.dispose();
+    _rezkaEdgeWaste.dispose();
+    _rezkaLaminationWaste.dispose();
+    _rezkaBosmaWaste.dispose();
+    _filmLeftover.dispose();
+    _printLeftover.dispose();
+    _returnInk.dispose();
+    _diameter.dispose();
+    _bobina.dispose();
+    _kg.dispose();
+    _meter.dispose();
+    super.dispose();
+  }
+
+  double? _parse(TextEditingController controller) =>
+      double.tryParse(controller.text.trim().replaceAll(',', '.'));
+
+  Widget _quantityField({
+    required TextEditingController controller,
+    required String label,
+    required String suffix,
+    bool requiredField = false,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+      ],
+      decoration: InputDecoration(
+        labelText: label,
+        suffixText: suffix,
+        border: const OutlineInputBorder(),
+      ),
+      validator: (value) {
+        final text = value?.trim() ?? '';
+        if (text.isEmpty) {
+          return requiredField ? '$label kiriting' : null;
+        }
+        final parsed = double.tryParse(text.replaceAll(',', '.'));
+        if (parsed == null || !parsed.isFinite || parsed <= 0) {
+          return '0 dan katta raqam kiriting';
+        }
+        return null;
+      },
+    );
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    final meter = _parse(_meter)!;
+    Navigator.of(context).pop(
+      _DailyWorkWipCorrectionDraft(
+        producedQty: meter,
+        uom: _batch.uom.trim().isEmpty ? 'm' : _batch.uom.trim(),
+        returnInkKg: _parse(_returnInk),
+        laminationPrintLeftoverRolls: _parse(_printLeftover),
+        laminationFilmLeftoverRolls: _parse(_filmLeftover),
+        rezkaBosmaWaste: _parse(_rezkaBosmaWaste),
+        rezkaLaminationWaste: _parse(_rezkaLaminationWaste),
+        rezkaEdgeWaste: _parse(_rezkaEdgeWaste),
+        totalWaste: _parse(_totalWaste),
+        finishedGoodsKg: _parse(_kg),
+        bobinaKg: _parse(_bobina),
+        finishedGoodsMeter: meter,
+        diameter: _parse(_diameter),
+        description: _description.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+          maxWidth: 480,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.edit_rounded, color: scheme.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'WIPni o‘zgartirish',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          '${_batch.orderId} • ${_batch.batchId}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _quantityField(
+                          controller: _meter,
+                          label: _showStandardWeights ? 'Metraj' : 'Miqdor',
+                          suffix: _batch.uom.trim().isEmpty
+                              ? 'm'
+                              : _batch.uom.trim(),
+                          requiredField: true,
+                        ),
+                        if (_showStandardWeights) ...[
+                          const SizedBox(height: 10),
+                          _quantityField(
+                            controller: _kg,
+                            label: 'Og‘irlik',
+                            suffix: 'kg',
+                            requiredField: true,
+                          ),
+                          const SizedBox(height: 10),
+                          _quantityField(
+                            controller: _bobina,
+                            label: 'Babina',
+                            suffix: 'kg',
+                            requiredField: true,
+                          ),
+                        ],
+                        if (_isRezka) ...[
+                          const SizedBox(height: 10),
+                          _quantityField(
+                            controller: _diameter,
+                            label: 'Diametr',
+                            suffix: 'mm',
+                            requiredField: true,
+                          ),
+                        ],
+                        if (_isPechat && _batch.returnInkKg != null) ...[
+                          const SizedBox(height: 10),
+                          _quantityField(
+                            controller: _returnInk,
+                            label: 'Qaytarilgan bo‘yoq',
+                            suffix: 'kg',
+                            requiredField: true,
+                          ),
+                        ],
+                        if (_isLaminatsiya &&
+                            _batch.laminationPrintLeftoverRolls != null) ...[
+                          const SizedBox(height: 10),
+                          _quantityField(
+                            controller: _printLeftover,
+                            label: 'Bosmadan ortgan rulon',
+                            suffix: 'ta',
+                            requiredField: true,
+                          ),
+                        ],
+                        if (_isLaminatsiya &&
+                            _batch.laminationFilmLeftoverRolls != null) ...[
+                          const SizedBox(height: 10),
+                          _quantityField(
+                            controller: _filmLeftover,
+                            label: 'Plyonkadan ortgan rulon',
+                            suffix: 'ta',
+                            requiredField: true,
+                          ),
+                        ],
+                        if (_showTotalWaste) ...[
+                          const SizedBox(height: 10),
+                          _quantityField(
+                            controller: _totalWaste,
+                            label: 'Jami chiqindi',
+                            suffix: 'kg',
+                            requiredField: true,
+                          ),
+                        ],
+                        if (_showRezkaWaste) ...[
+                          const SizedBox(height: 10),
+                          _quantityField(
+                            controller: _rezkaBosmaWaste,
+                            label: 'Bosma chiqindisi',
+                            suffix: 'kg',
+                          ),
+                          const SizedBox(height: 10),
+                          _quantityField(
+                            controller: _rezkaLaminationWaste,
+                            label: 'Laminatsiya chiqindisi',
+                            suffix: 'kg',
+                          ),
+                          const SizedBox(height: 10),
+                          _quantityField(
+                            controller: _rezkaEdgeWaste,
+                            label: 'Chet chiqindisi',
+                            suffix: 'kg',
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: _description,
+                          minLines: 2,
+                          maxLines: 4,
+                          decoration: const InputDecoration(
+                            labelText: 'WIP izohi',
+                            alignLabelWithHint: true,
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Bekor qilish'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      key: const ValueKey('daily-work-wip-edit-save'),
+                      onPressed: _submit,
+                      child: const Text('Saqlash'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DailyWorkCorrectionReasonDialog extends StatefulWidget {
+  const _DailyWorkCorrectionReasonDialog();
+
+  @override
+  State<_DailyWorkCorrectionReasonDialog> createState() =>
+      _DailyWorkCorrectionReasonDialogState();
+}
+
+class _DailyWorkCorrectionReasonDialogState
+    extends State<_DailyWorkCorrectionReasonDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _reason = TextEditingController();
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    Navigator.of(context).pop(_reason.text.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      icon: const Icon(Icons.comment_rounded),
+      title: const Text('O‘zgartirish sababi'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              key: const ValueKey('daily-work-wip-correction-reason'),
+              controller: _reason,
+              autofocus: true,
+              minLines: 3,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                labelText: 'Izoh',
+                hintText: 'Nima uchun qiymat o‘zgartirilmoqda?',
+                alignLabelWithHint: true,
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) => value?.trim().isEmpty ?? true
+                  ? 'Izohsiz o‘zgartirib bo‘lmaydi'
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              key: const ValueKey('daily-work-wip-correction-confirm'),
+              onPressed: _save,
+              child: const Text('Saqlash'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Bekor qilish'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _DailyWorkStatusChip extends StatelessWidget {
   const _DailyWorkStatusChip({required this.batch});
 
@@ -963,6 +1520,9 @@ String _dailyWorkStatus(AdminProgressBatch batch) {
   return 'Kutmoqda';
 }
 
+bool _canCorrectWip(AdminProgressBatch batch) =>
+    batch.wipStatus.trim().toLowerCase() == 'waiting';
+
 String _dailyWorkFirstNotEmpty(Iterable<String> values) {
   for (final value in values) {
     if (value.trim().isNotEmpty) {
@@ -1004,4 +1564,9 @@ String _dailyWorkDateLabel(DateTime value) {
 String _dailyWorkReprintError(Object error) {
   final message = error.toString().replaceFirst('Exception: ', '').trim();
   return message.isEmpty ? 'WIP QR kodini qayta chop etib bo‘lmadi' : message;
+}
+
+String _dailyWorkCorrectionError(Object error) {
+  final message = error.toString().replaceFirst('Exception: ', '').trim();
+  return message.isEmpty ? 'WIPni o‘zgartirib bo‘lmadi' : message;
 }

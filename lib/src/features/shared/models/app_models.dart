@@ -301,6 +301,7 @@ class AdminApparatus {
     this.capabilities = const [],
     this.capabilityProfiles = const [],
     this.colorStations,
+    this.factoryMapObjectId = '',
     this.trainingEnabled = false,
   });
 
@@ -313,6 +314,7 @@ class AdminApparatus {
   final List<String> capabilities;
   final List<AdminApparatusCapabilityProfile> capabilityProfiles;
   final int? colorStations;
+  final String factoryMapObjectId;
   final bool trainingEnabled;
 
   bool get isDefault => source == 'default';
@@ -364,6 +366,8 @@ class AdminApparatus {
       capabilityProfiles: effectiveProfiles,
       colorStations:
           (json['color_stations'] as num?)?.toInt() ?? inferred.colorStations,
+      factoryMapObjectId:
+          (json['factory_map_object_id'] as String?)?.trim() ?? '',
       trainingEnabled: json['training_enabled'] as bool? ?? false,
     );
   }
@@ -381,6 +385,8 @@ class AdminApparatus {
         for (final profile in capabilityProfiles) profile.toJson(),
       ],
       if (colorStations != null) 'color_stations': colorStations,
+      if (factoryMapObjectId.trim().isNotEmpty)
+        'factory_map_object_id': factoryMapObjectId.trim(),
       'training_enabled': trainingEnabled,
     };
   }

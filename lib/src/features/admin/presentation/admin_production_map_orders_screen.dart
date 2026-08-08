@@ -99,6 +99,53 @@ enum _OrderLongPressAction {
 const double _openedOrderPanelCardGap = 4;
 const double _openedOrderPanelTopGap = 8;
 
+Future<void> showAdminProductionMapOrderReadOnlyDetail(
+  BuildContext context, {
+  required ProductionMapSaved order,
+  required AdminApparatus apparatus,
+  AdminApparatusQueueSnapshot? queueSnapshot,
+}) async {
+  final snapshot = queueSnapshot ??
+      await MobileApi.instance.adminProductionMapQueueSnapshot();
+  if (!context.mounted) {
+    return;
+  }
+  final visibleOrderIds = productionMapVisibleOrderIdsForStation(
+        visibleOrderIdsByApparatus: snapshot.visibleOrderIds,
+        station: apparatus.name,
+      ) ??
+      const <String>[];
+  final mapId = order.map.id.trim();
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (context) => _ReadOnlyOrderDetailSheet(
+      order: order,
+      apparatus: apparatus,
+      baseMetraj: order.map.baseLength,
+      orderKg: order.map.orderKg,
+      customerName: snapshot.orderCustomers[mapId] ?? order.map.customerName,
+      initialQueueStates: _queueStatesForApparatus(
+        apparatus,
+        queueStatesByApparatus: snapshot.queueStates,
+      ),
+      queueStatesByApparatus: snapshot.queueStates,
+      queuePolicy: _queuePolicyForApparatus(
+        apparatus,
+        queuePoliciesByApparatus: snapshot.queuePolicies,
+      ),
+      sequenceOrderIds: _sequenceOrderIdsForApparatus(
+        apparatus,
+        sequenceByApparatus: snapshot.sequences,
+      ),
+      visibleOrderIds: visibleOrderIds,
+      initialOrderControls: snapshot.orderControls,
+    ),
+  );
+}
+
 Future<bool> showProductionMapFreezePauseFlow(
   BuildContext context, {
   required String requestId,

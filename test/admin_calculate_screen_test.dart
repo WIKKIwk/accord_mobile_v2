@@ -181,7 +181,7 @@ void main() {
     expect(find.text('Hotlunch'), findsWidgets);
   });
 
-  testWidgets('calculation result shows razmer in millimeters', (
+  testWidgets('calculation result shows size and finished product GSM', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
@@ -195,6 +195,8 @@ void main() {
 
     expect(find.text('63 sm'), findsNothing);
     expect(find.text('630 mm'), findsWidgets);
+    expect(find.text('Tayyor mahsulot GSM'), findsOneWidget);
+    expect(find.text('46.9 g/m²'), findsOneWidget);
   });
 
   testWidgets('saved quick order opens zakaz from stored source map', (

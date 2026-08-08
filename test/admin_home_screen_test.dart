@@ -203,6 +203,41 @@ void main() {
     expect(find.text('Iroh transport test'), findsNothing);
   });
 
+  testWidgets('admin drawer shows telegram route for settings readers', (
+    tester,
+  ) async {
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['admin.settings.read'],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(AppThemeVariant.kalmar),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: AdminNavigationDrawer(selectedIndex: 0, onNavigate: (_) {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Telegram bot'), findsOneWidget);
+  });
+
   testWidgets('admin drawer labels follow selected language', (tester) async {
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(

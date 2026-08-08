@@ -33,6 +33,7 @@ import '../features/admin/presentation/admin_notifications_screen.dart';
 import '../features/admin/presentation/admin_settings_screen.dart';
 import '../features/admin/presentation/admin_roles_screen.dart';
 import '../features/admin/presentation/admin_training_screen.dart';
+import '../features/admin/telegram/presentation/admin_telegram_screen.dart';
 import '../features/admin/presentation/admin_progress_qr_scan_screen.dart';
 import '../features/admin/presentation/admin_raw_material_assignment_screen.dart';
 import '../features/admin/presentation/admin_production_map_test_screen.dart';
@@ -165,6 +166,7 @@ class AppRoutes {
   static const String adminCreateHub = '/admin-create-hub';
   static const String adminSettings = '/admin-settings';
   static const String adminTraining = '/admin-training';
+  static const String adminTelegram = '/admin-telegram';
   static const String adminRoles = '/admin-roles';
   static const String adminNotifications = '/admin-notifications';
   static const String adminProductionMapTest = '/admin-production-map-test';
@@ -236,8 +238,9 @@ class AppRouter {
     AppRoutes.adminCalculateOrders,
     AppRoutes.adminCreateHub,
     AppRoutes.adminSettings,
-    AppRoutes.adminRoles,
     AppRoutes.adminTraining,
+    AppRoutes.adminTelegram,
+    AppRoutes.adminRoles,
     AppRoutes.adminNotifications,
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
@@ -517,6 +520,8 @@ class AppRouter {
         return _buildAdminSettingsRoute(settings, const AdminSettingsScreen());
       case AppRoutes.adminTraining:
         return _buildRoute(settings, const AdminTrainingScreen());
+      case AppRoutes.adminTelegram:
+        return _buildRoute(settings, const AdminTelegramScreen());
       case AppRoutes.adminRoles:
         return _buildRoute(settings, const AdminRolesScreen());
       case AppRoutes.adminNotifications:
@@ -944,11 +949,12 @@ class AppRouter {
       'werka.code.manage',
       'role.capability.manage',
     },
+    AppRoutes.adminSettings: {'admin.settings.read'},
     AppRoutes.adminTraining: {
       'admin.access',
       'production.map.manage',
     },
-    AppRoutes.adminSettings: {'admin.settings.read'},
+    AppRoutes.adminTelegram: {'admin.settings.read'},
     AppRoutes.adminRoles: {'role.capability.read'},
     AppRoutes.adminNotifications: {'admin.access', 'production.map.manage'},
     AppRoutes.adminProductionMapTest: {'admin.access', 'production.map.manage'},

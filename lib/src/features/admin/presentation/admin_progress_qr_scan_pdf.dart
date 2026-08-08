@@ -3,65 +3,65 @@ import 'dart:convert';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../models/production_map_models.dart';
+import 'admin_progress_qr_passport.dart';
 
 class AdminProgressQrScanPdf {
   const AdminProgressQrScanPdf._();
 
   static List<int> buildProgress(AdminProgressQrReport report) {
-    final current = report.currentBatch ?? report.scannedBatch;
-    final order = report.order;
+    final passport = buildProgressQrPassport(report);
     final sections = <_PdfSection>[
-      _PdfSection(
-        'QR holati',
-        [
-          _field('Holat', report.isStale ? 'Eski QR' : 'Hozirgi oqimga mos'),
-          _field('Eski QR sababi', report.staleReason),
-          _field('Scan qilingan batch', report.scannedBatch.batchId),
-          _field('Scan qilingan QR', report.scannedBatch.qrPayload),
-          _field('Hozirgi batch', current.batchId),
-          _field('Hozirgi QR', current.qrPayload),
-        ],
-      ),
-      _PdfSection('Buyurtma ma’lumotlari', _orderLines(order)),
-      _PdfSection('Buyurtma holati', _orderStatusLines(report.orderStatus)),
-      _PdfSection('Joriy progress batch', _batchLines(current)),
-      if (report.progressBatches.isNotEmpty) ...[
-        for (var index = 0; index < report.progressBatches.length; index++)
-          _PdfSection(
-            'Progress batch ${index + 1}/${report.progressBatches.length}',
-            _batchLines(report.progressBatches[index]),
-          ),
-      ],
-      if (report.openedBy != null)
-        _PdfSection('QR ochilgan ma’lumot', _openedByLines(report.openedBy!)),
-      if (report.runSessions.isNotEmpty) ...[
-        for (var index = 0; index < report.runSessions.length; index++)
-          _PdfSection(
-            'Ish sessiyasi ${index + 1}/${report.runSessions.length}',
-            _sessionLines(report.runSessions[index]),
-          ),
-      ],
-      if (report.activeSessions.isNotEmpty)
+      _PdfSection('Mahsulot holati', [
+        _field('Holati', passport.status),
+        if (passport.isOldQr)
+          'Skan qilingan QR oldingi bosqichniki. Quyida mahsulotning hozirgi holati berilgan.',
+      ]),
+      if (passport.plan.isNotEmpty)
         _PdfSection(
-          'Hozir faol sessiyalar',
-          [
-            for (final session in report.activeSessions)
-              ..._sessionLines(session),
-          ],
+          'Buyurtma rejasi',
+          [for (final line in passport.plan) line.sentence],
         ),
-      if (report.queueStates.isNotEmpty)
-        _PdfSection('Aparat navbat holatlari', _queueStateLines(report)),
-      if (report.logs.isNotEmpty) ...[
-        for (var index = 0; index < report.logs.length; index++)
+      if (passport.stages.isNotEmpty) ...[
+        for (var index = 0; index < passport.stages.length; index++)
           _PdfSection(
-            'Jarayon hodisasi ${index + 1}/${report.logs.length}',
-            _logLines(report.logs[index]),
+            '${index + 1}. ${passport.stages[index].title}',
+            [
+              _field('Holati', passport.stages[index].status),
+              for (final line in passport.stages[index].lines) line.sentence,
+            ],
+          ),
+      ],
+      if (passport.corrections.isNotEmpty) ...[
+        for (var index = 0; index < passport.corrections.length; index++)
+          _PdfSection(
+            'Tahrir ${index + 1}: ${passport.corrections[index].stage}',
+            [
+              _field('Tahrir qilgan', passport.corrections[index].editor),
+              _field('Vaqt', passport.corrections[index].time),
+              _field('Sabab', passport.corrections[index].reason),
+              for (final change in passport.corrections[index].changes)
+                '${change.label}: ${change.before} -> ${change.after}',
+            ],
+          ),
+      ],
+      if (passport.issues.isNotEmpty) ...[
+        for (var index = 0; index < passport.issues.length; index++)
+          _PdfSection(
+            'Muammo yoki o‘zgarish ${index + 1}',
+            [
+              _field('Bosqich', passport.issues[index].title),
+              _field('Tafsilot', passport.issues[index].description),
+              _field('Vaqt', passport.issues[index].time),
+            ],
           ),
       ],
     ];
     return _PdfDocument(
-      title: 'Admin QR report',
-      subtitle: _progressSubtitle(report),
+      title: 'Mahsulot pasporti',
+      subtitle: [
+        if (passport.orderNumber.isNotEmpty) 'Zakaz ${passport.orderNumber}',
+        passport.productName,
+      ].where((value) => value.isNotEmpty).join(' • '),
       sections: sections,
     ).build();
   }
@@ -121,152 +121,17 @@ List<String> _orderLines(ProductionMapDefinition? order) {
     return [_field('Order', 'Order ma’lumotlari topilmadi')];
   }
   return [
-    _field('Order ID', order.id),
-    _field('Order raqami', order.orderNumber),
-    _field('Order code', order.code),
-    _field('Product code', order.productCode),
+    _field('Buyurtma raqami', order.orderNumber),
+    _field('Mahsulot kodi', order.productCode),
     _field('Mahsulot', order.title),
     _field('Mijoz', order.customerName),
     _field(
         'Rulon soni', order.rollCount == null ? '' : _number(order.rollCount!)),
     _field('Eni, mm', order.widthMm == null ? '' : _number(order.widthMm!)),
-    _field('Order og‘irligi, kg',
+    _field('Rejadagi og‘irlik, kg',
         order.orderKg == null ? '' : _number(order.orderKg!)),
-    _field('Asosiy uzunlik',
+    _field('Rejadagi uzunlik',
         order.baseLength == null ? '' : _number(order.baseLength!)),
-    _field('Map node soni', '${order.nodes.length}'),
-    _field('Map edge soni', '${order.edges.length}'),
-    if (order.nodes.isNotEmpty) ...[
-      'Ishlab chiqarish map node’lari:',
-      for (final node in order.nodes)
-        _joinNonEmpty([
-          node.title,
-          if (node.kind.trim().isNotEmpty) 'kind=${node.kind}',
-          if (node.roleCode.trim().isNotEmpty) 'role=${node.roleCode}',
-          if (node.itemCode.trim().isNotEmpty) 'item=${node.itemCode}',
-          if (node.fromLocation.trim().isNotEmpty) 'from=${node.fromLocation}',
-          if (node.toLocation.trim().isNotEmpty) 'to=${node.toLocation}',
-          if (node.alternativeGroupLabel.trim().isNotEmpty)
-            'alternative=${node.alternativeGroupLabel}',
-          if (node.formula != null &&
-              node.formula!.expression.trim().isNotEmpty)
-            'formula=${node.formula!.expression}',
-        ]),
-    ],
-    if (order.edges.isNotEmpty) ...[
-      'Map bog‘lanishlari:',
-      for (final edge in order.edges)
-        _joinNonEmpty([
-          '${edge.from} -> ${edge.to}',
-          if (edge.branch.trim().isNotEmpty) 'branch=${edge.branch}',
-        ]),
-    ],
-  ];
-}
-
-List<String> _orderStatusLines(AdminProductionOrderStatusDetail status) {
-  return [
-    _field('Order holati', status.orderStatus),
-    _field('Ish holati', status.workStatus),
-    _field('Flow holati', status.flowStatus),
-    _field('Stock holati', status.stockStatus),
-    _field('Jami WIP', '${status.totalWipCount}'),
-    _field('Waiting WIP', '${status.waitingWipCount}'),
-    _field('In-use WIP', '${status.inUseWipCount}'),
-    _field('Processed WIP', '${status.processedWipCount}'),
-    _field(
-        'Keyingi bosqichni kutayotgan WIP', '${status.waitingNextStageCount}'),
-    _field(
-        'Keyingi bosqich ishlatgan WIP', '${status.consumedByNextStageCount}'),
-    _field('Erkin WIP', '${status.freeWipCount}'),
-    _field('Omborga qabul qilingan WIP', '${status.acceptedWipCount}'),
-    _field('Faol sessiyalar', '${status.activeSessionCount}'),
-    _field('Pauzadagi sessiyalar', '${status.pausedSessionCount}'),
-    _field('Tugagan navbat ishlari', '${status.completedQueueCount}'),
-    _field('Muammo bilan tugagan ishlar', '${status.completedWithIssueCount}'),
-  ];
-}
-
-List<String> _batchLines(AdminProgressBatch batch) {
-  return [
-    _field('Batch ID', batch.batchId),
-    _field('Session ID', batch.sessionId),
-    _field('QR payload', batch.qrPayload),
-    _field('Order ID', batch.orderId),
-    _field('Aparat', batch.apparatus),
-    _field('Current apparatus', batch.currentApparatus),
-    _field('Current apparatus key', batch.currentApparatusKey),
-    _field('Current location', batch.currentLocation),
-    _field('Next apparatus', batch.nextApparatus),
-    _field('Action', batch.action),
-    _field('Batch status', batch.status),
-    _field('Work status', batch.statusDetail.workStatus),
-    _field('WIP status', batch.wipStatus),
-    _field('Flow status', batch.statusDetail.flowStatus),
-    _field('Stock status', batch.statusDetail.stockStatus),
-    _field('Produced quantity', _number(batch.producedQty)),
-    _field('UOM', batch.uom),
-    _field('Label item code', batch.labelItemCode),
-    _field('Label item name', batch.labelItemName),
-    _field('Executor', batch.executorName),
-    _field('Worker role', batch.workerRole),
-    _field('Worker ref', batch.workerRef),
-    _field('Worker name', batch.workerDisplayName),
-    _field('Started at', _unix(batch.startedAtUnix)),
-    _field('Completed at', _unix(batch.completedAtUnix)),
-    _field('Parent batch ID', batch.parentBatchId),
-    _field('Used by session', batch.usedBySessionId),
-    _field('Used by apparatus', batch.usedByApparatus),
-    _field('Processed by session', batch.processedBySessionId),
-    _field('Processed by apparatus', batch.processedByApparatus),
-    _field('Return ink, kg', _optionalNumber(batch.returnInkKg)),
-    _field('Lamination print leftover, rolls',
-        _optionalNumber(batch.laminationPrintLeftoverRolls)),
-    _field('Lamination film leftover, rolls',
-        _optionalNumber(batch.laminationFilmLeftoverRolls)),
-    _field('Rezka bosma waste, kg', _optionalNumber(batch.rezkaBosmaWaste)),
-    _field('Rezka lamination waste, kg',
-        _optionalNumber(batch.rezkaLaminationWaste)),
-    _field('Rezka edge waste, kg', _optionalNumber(batch.rezkaEdgeWaste)),
-    _field('Total waste, kg', _optionalNumber(batch.totalWaste)),
-    _field('Finished goods, kg', _optionalNumber(batch.finishedGoodsKg)),
-    _field('Finished goods, meter', _optionalNumber(batch.finishedGoodsMeter)),
-    _field('Description', batch.description),
-    ..._jsonLines('Payload JSON', batch.payloadJson),
-  ];
-}
-
-List<String> _sessionLines(AdminWorkerRunSession session) {
-  return [
-    _field('Session ID', session.sessionId),
-    _field('Order ID', session.orderId),
-    _field('Aparat', session.apparatus),
-    _field('Status', session.status),
-    _field('Worker role', session.workerRole),
-    _field('Worker ref', session.workerRef),
-    _field('Worker name', session.workerDisplayName),
-    _field('Started at', _unix(session.startedAtUnix)),
-    _field('Updated at', _unix(session.updatedAtUnix)),
-    ..._jsonLines('Payload JSON', session.payloadJson),
-  ];
-}
-
-List<String> _openedByLines(AdminProgressQrOpenedBy openedBy) {
-  return [
-    _field('Actor role', openedBy.actorRole),
-    _field('Actor ref', openedBy.actorRef),
-    _field('Actor name', openedBy.actorDisplayName),
-    _field('Opened at', _unix(openedBy.openedAtUnix)),
-  ];
-}
-
-List<String> _queueStateLines(AdminProgressQrReport report) {
-  return [
-    for (final entry in report.queueStates.entries) ...[
-      'Aparat: ${entry.key}',
-      for (final state in entry.value.entries)
-        _field('  ${state.key}', state.value),
-    ],
   ];
 }
 
@@ -342,28 +207,6 @@ List<String> _logLines(AdminProductionOrderLogEntry log) {
   ];
 }
 
-List<String> _jsonLines(String label, Map<String, dynamic> value) {
-  if (value.isEmpty) {
-    return const [];
-  }
-  final encoded = const JsonEncoder.withIndent('  ').convert(value);
-  return [label, ...encoded.split('\n')];
-}
-
-String _progressSubtitle(AdminProgressQrReport report) {
-  final order = report.order;
-  final title = order?.title.trim().isNotEmpty == true
-      ? order!.title
-      : report.scannedBatch.labelItemName;
-  final number = order?.orderNumber.trim() ?? '';
-  return [
-    if (number.isNotEmpty) 'Zakaz $number',
-    if (title.trim().isNotEmpty) title,
-    if (report.scannedBatch.qrPayload.trim().isNotEmpty)
-      'QR: ${report.scannedBatch.qrPayload}',
-  ].join(' • ');
-}
-
 String _field(String label, String value) {
   final cleanLabel = label.trim();
   final cleanValue = value.trim();
@@ -373,13 +216,6 @@ String _field(String label, String value) {
   return '$cleanLabel: $cleanValue';
 }
 
-String _joinNonEmpty(List<String> values) {
-  return values
-      .map((value) => value.trim())
-      .where((value) => value.isNotEmpty)
-      .join(' • ');
-}
-
 String _number(num value) {
   final asDouble = value.toDouble();
   if (asDouble == asDouble.roundToDouble()) {
@@ -387,8 +223,6 @@ String _number(num value) {
   }
   return asDouble.toString();
 }
-
-String _optionalNumber(num? value) => value == null ? '' : _number(value);
 
 String _unix(int value) {
   if (value <= 0) {
@@ -446,7 +280,8 @@ class _PdfDocument {
 
 class _PdfPage {
   _PdfPage({required String title, required String subtitle})
-      : _stream = StringBuffer() {
+      : _footerTitle = title,
+        _stream = StringBuffer() {
     _stream.write('q 0.29 0.22 0.39 rg 0 772 595 70 re f Q\n');
     _text(title, x: 34, y: 813, size: 18, font: 'F2', color: '1 1 1');
     _text(
@@ -460,6 +295,7 @@ class _PdfPage {
     _y = 748;
   }
 
+  final String _footerTitle;
   final StringBuffer _stream;
   double _y = 748;
 
@@ -484,7 +320,7 @@ class _PdfPage {
   void finish(int pageNumber, int pageCount) {
     _stream.write('0.82 0.78 0.86 RG 34 34 527 0.6 re S\n');
     _text(
-      'Accord Mobile • Admin QR report • $pageNumber/$pageCount',
+      'Accord Mobile • $_footerTitle • $pageNumber/$pageCount',
       x: 34,
       y: 23,
       size: 7.5,

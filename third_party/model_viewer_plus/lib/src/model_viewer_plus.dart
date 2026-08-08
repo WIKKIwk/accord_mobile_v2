@@ -87,6 +87,7 @@ class ModelViewer extends StatefulWidget {
     this.relatedJs,
     this.id,
     this.debugLogging = true,
+    this.interactionEnabled = true,
     this.javascriptChannels,
     this.onWebViewCreated,
     super.key,
@@ -578,6 +579,11 @@ class ModelViewer extends StatefulWidget {
   ///
   /// Defaults to true;
   final bool debugLogging;
+
+  /// Whether the underlying platform/web view should receive pointer input.
+  ///
+  /// This is useful when a Flutter modal is displayed above a platform view.
+  final bool interactionEnabled;
 
   /// Passthrough to `javascriptChannels` in the underlying `WebView`.
   final Set<JavascriptChannel>? javascriptChannels;

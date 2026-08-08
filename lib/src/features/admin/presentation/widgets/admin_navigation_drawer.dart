@@ -120,6 +120,12 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.adminRoles,
     ),
     RoleNavigationDrawerDestination(
+      icon: Icons.telegram_outlined,
+      selectedIcon: Icons.telegram,
+      label: l10n.adminTelegramTitle,
+      routeName: AppRoutes.adminTelegram,
+    ),
+    RoleNavigationDrawerDestination(
       icon: Icons.account_tree_outlined,
       selectedIcon: Icons.account_tree_rounded,
       label: l10n.adminProductGroupsNavTitle,

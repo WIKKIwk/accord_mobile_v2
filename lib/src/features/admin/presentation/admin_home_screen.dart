@@ -279,6 +279,11 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       routeName: AppRoutes.adminRoles,
     ),
     _AdminHomeAction(
+      title: l10n.adminTelegramTitle,
+      icon: Icons.telegram,
+      routeName: AppRoutes.adminTelegram,
+    ),
+    _AdminHomeAction(
       title: l10n.adminQuickOrdersTitle,
       icon: Icons.list_alt_rounded,
       routeName: AppRoutes.adminCalculateOrders,

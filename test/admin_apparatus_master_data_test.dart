@@ -59,6 +59,58 @@ void main() {
     );
   });
 
+  test('factory map object binding is saved and can be cleared', () async {
+    await TestModeController.instance.setEnabled(true);
+    final defaults = await MobileApi.instance.adminApparatus(limit: 500);
+    final apparatus = defaults.firstWhere(
+      (item) => item.id == 'apparatus:default:bosma_7',
+    );
+
+    final mapped = await MobileApi.instance.adminCreateApparatus(
+      apparatus.name,
+      id: apparatus.id,
+      family: apparatus.family,
+      kind: apparatus.kind,
+      capabilities: apparatus.capabilities,
+      capabilityProfiles: apparatus.capabilityProfiles,
+      colorStations: apparatus.colorStations,
+      factoryMapObjectId: 'node:73',
+    );
+
+    expect(mapped.isDefault, isTrue);
+    expect(mapped.factoryMapObjectId, 'node:73');
+    expect(
+      (await MobileApi.instance.adminApparatus(limit: 500))
+          .firstWhere((item) => item.id == apparatus.id)
+          .factoryMapObjectId,
+      'node:73',
+    );
+
+    final cleared = await MobileApi.instance.adminCreateApparatus(
+      mapped.name,
+      id: mapped.id,
+      family: mapped.family,
+      kind: mapped.kind,
+      capabilities: mapped.capabilities,
+      capabilityProfiles: mapped.capabilityProfiles,
+      colorStations: mapped.colorStations,
+      factoryMapObjectId: '',
+    );
+    expect(cleared.factoryMapObjectId, isEmpty);
+  });
+
+  test('apparatus JSON round-trips factory map object id', () {
+    const apparatus = AdminApparatus(
+      id: 'apparatus:test',
+      name: 'Test aparat',
+      factoryMapObjectId: 'node:18',
+    );
+
+    final decoded = AdminApparatus.fromJson(apparatus.toJson());
+
+    expect(decoded.factoryMapObjectId, 'node:18');
+  });
+
   test('apparatus training mode can be enabled and disabled', () async {
     await TestModeController.instance.setEnabled(true);
     final apparatus = (await MobileApi.instance.adminApparatus(limit: 500))

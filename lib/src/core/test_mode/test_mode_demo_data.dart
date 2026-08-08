@@ -1,4 +1,5 @@
 import '../../features/admin/models/admin_item_group_tree_entry.dart';
+import '../../features/admin/telegram/models/telegram_models.dart';
 import '../../features/shared/models/app_models.dart';
 
 class TestModeDemoData {
@@ -18,6 +19,49 @@ class TestModeDemoData {
     werkaCodeRetryAfterSec: 0,
     adminPhone: '+998900000000',
     adminName: 'Demo admin',
+  );
+
+  static const TelegramAdminOverview telegramAdminOverview =
+      TelegramAdminOverview(
+    bot: TelegramBotSettings(
+      botUsername: 'accord_order_demo_bot',
+      tokenConfigured: true,
+      tokenHint: '••••1234',
+    ),
+    users: [
+      TelegramUserAccount(
+        telegramUserId: 'demo-telegram-1001',
+        username: 'demo_admin',
+        displayName: 'Demo admin',
+        role: TelegramInviteRole.admin,
+        inviteToken: 'demo-invite-admin',
+        joinedAtUnix: 0,
+      ),
+      TelegramUserAccount(
+        telegramUserId: 'demo-telegram-1002',
+        username: 'demo_manager',
+        displayName: 'Demo sales manager',
+        role: TelegramInviteRole.salesManager,
+        inviteToken: 'demo-invite-manager',
+        joinedAtUnix: 0,
+        deliveryMode: TelegramDeliveryMode.userProfile,
+        userProfileConnected: true,
+        selectedChatId: '-1001234567890',
+        selectedChatTitle: 'Demo order group',
+        selectedChatType: 'supergroup',
+      ),
+    ],
+    chats: [
+      TelegramChat(
+        chatId: '-1001234567890',
+        title: 'Demo order group',
+        username: 'demo_orders',
+        chatType: 'supergroup',
+        threadId: null,
+        connectedAtUnix: 0,
+        lastSeenAtUnix: 0,
+      ),
+    ],
   );
 
   static const List<SupplierItem> items = [
