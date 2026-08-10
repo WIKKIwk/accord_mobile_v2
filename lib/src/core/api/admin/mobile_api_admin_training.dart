@@ -99,6 +99,66 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     }
   }
 
+  Future<void> adminRestartTraining({String apparatus = ''}) async {
+    final normalizedApparatus = apparatus.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      bool matchesApparatus(String candidate) {
+        return normalizedApparatus.isEmpty ||
+            productionMapWarehouseTitlesMatch(
+              candidate,
+              normalizedApparatus,
+            );
+      }
+
+      for (final entry in _testModeApparatusQueueStates.entries) {
+        if (!matchesApparatus(entry.key)) {
+          continue;
+        }
+        entry.value.removeWhere(
+          (orderId, _) => orderId.trim().startsWith('training-'),
+        );
+      }
+      _testModeCompletedQueueOrders.removeWhere(
+        (item) =>
+            item.order.orderId.trim().startsWith('training-') &&
+            matchesApparatus(item.order.apparatus),
+      );
+      _testModeProgressBatchesByQr.removeWhere(
+        (_, batch) =>
+            batch.orderId.trim().startsWith('training-') &&
+            matchesApparatus(batch.apparatus),
+      );
+      _testModeActiveProgressInputByQueue.removeWhere((key, _) {
+        final separator = key.indexOf('|');
+        if (separator < 0) {
+          return false;
+        }
+        final orderId = key.substring(separator + 1).trim();
+        final queueApparatus = key.substring(0, separator).trim();
+        return orderId.startsWith('training-') &&
+            matchesApparatus(queueApparatus);
+      });
+      _testModeOrderStartedAtUnix.removeWhere(
+        (orderId, _) => orderId.trim().startsWith('training-'),
+      );
+      _testModeOrderControls.removeWhere(
+        (orderId, _) => orderId.trim().startsWith('training-'),
+      );
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/training/restart'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'apparatus': normalizedApparatus}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'training_restart');
+    }
+  }
+
   Future<List<ProductionMapSaved>> adminTrainingProductionMaps({
     String id = '',
   }) async {

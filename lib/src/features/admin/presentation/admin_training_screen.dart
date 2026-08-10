@@ -11,6 +11,7 @@ import '../../../core/native_usb_printer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/display/app_info_row.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -46,6 +47,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   String? _linkingMaterialOrderId;
   String? _deletingOrderId;
   String? _expandedId;
+  bool _restarting = false;
 
   @override
   void initState() {
@@ -148,6 +150,54 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     } finally {
       if (mounted) {
         setState(() => _savingId = null);
+      }
+    }
+  }
+
+  Future<void> _restartTraining() async {
+    if (_restarting) {
+      return;
+    }
+    final confirmed = await showM3ConfirmDialog(
+      context: context,
+      title: 'Trainingni qayta boshlash',
+      message:
+          'Barcha training orderlar 0-holatga qaytariladi. Orderlar va ulangan '
+          'homashyolar saqlanadi. Production ma’lumotlari o‘zgarmaydi.',
+      cancelLabel: 'Bekor qilish',
+      confirmLabel: 'Qayta boshlash',
+    );
+    if (!mounted || confirmed != true) {
+      return;
+    }
+    setState(() => _restarting = true);
+    try {
+      await MobileApi.instance.adminRestartTraining();
+      if (!mounted) {
+        return;
+      }
+      await _load();
+      if (!mounted) {
+        return;
+      }
+      showAdminTopNotice(
+        context,
+        'Training qayta boshlandi: barcha natijalar 0 ga qaytarildi',
+        icon: Icons.restart_alt_rounded,
+      );
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : 'Training qayta boshlanmadi',
+          icon: Icons.error_outline,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _restarting = false);
       }
     }
   }
@@ -519,6 +569,19 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       title: 'Training',
       selectedRouteName: AppRoutes.adminTraining,
       activeTab: AdminDockTab.home,
+      actions: [
+        IconButton(
+          tooltip: 'Trainingni qayta boshlash',
+          onPressed: _restarting ? null : _restartTraining,
+          icon: _restarting
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.restart_alt_rounded),
+        ),
+      ],
       primaryFabActions: [
         AdminFabMenuAction(
           title: 'Training order qo‘shish',

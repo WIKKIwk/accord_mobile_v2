@@ -107,8 +107,9 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
   final activeOrders = visibleOrders
       .where(
         (order) =>
+            order.map.id.trim().startsWith('training-') ||
             apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]) !=
-            ApparatusQueueOrderState.completed,
+                ApparatusQueueOrderState.completed,
       )
       .toList(growable: false);
   final sequence = _sequenceOrderIdsForApparatus(

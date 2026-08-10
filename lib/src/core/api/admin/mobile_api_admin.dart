@@ -4043,6 +4043,7 @@ String _adminProductionMapUnknownErrorMessage({
     'training_map_delete' => 'Training order o‘chirilmadi',
     'training_apparatus_modes' => 'Training apparatlar rejimi olinmadi',
     'training_apparatus_mode_save' => 'Training aparat rejimi saqlanmadi',
+    'training_restart' => 'Training qayta boshlanmadi',
     'training_material_assignments' =>
       'Training homashyo biriktirmalari yuklanmadi',
     'training_material_assignment' => 'Training homashyo ulanmagan',
