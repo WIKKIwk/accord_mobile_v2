@@ -9230,11 +9230,25 @@ extension MobileApiAdmin on MobileApi {
     ];
     final requestRaw = payload['completion_request'];
     final printRaw = payload['print'];
-    final printJobs = <UsbRpsPrintRequest>[
+    final parsedPrintJobs = <UsbRpsPrintRequest>[
       if (payload['prints'] is List)
         for (final item in payload['prints'] as List)
           if (item is Map && item['ok'] == true)
             UsbRpsPrintRequest.fromPrintJson(item.cast<String, dynamic>()),
+    ];
+    final trainingLocalPrintJobs = orderId.trim().startsWith('training-') &&
+            printTransport.isLocal &&
+            parsedPrintJobs.isEmpty
+        ? _testModeProgressPrintJobs(
+            batches: progressBatches,
+            printer: printer,
+            printMode: printMode,
+            customerName: customerName,
+          )
+        : const <UsbRpsPrintRequest>[];
+    final printJobs = <UsbRpsPrintRequest>[
+      ...parsedPrintJobs,
+      ...trainingLocalPrintJobs,
     ];
     final legacyProgressBatch = progressRaw is Map
         ? AdminProgressBatch.fromJson(progressRaw.cast<String, dynamic>())

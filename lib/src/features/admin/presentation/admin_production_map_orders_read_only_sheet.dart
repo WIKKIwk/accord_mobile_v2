@@ -1144,7 +1144,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (!mounted || input == null) {
       return _ProgressActionOutcome.cancelled;
     }
-    if (input.isCompletionRequest) {
+    final isTrainingOrder = widget.order.map.id.trim().startsWith('training-');
+    if (input.isCompletionRequest && !isTrainingOrder) {
       final completed = await _runQueueAction(
         action,
         progressInput: input,
@@ -1157,7 +1158,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           ? _ProgressActionOutcome.completed
           : _ProgressActionOutcome.failed;
     }
-    if (workerHandoff || removeRollFromApparatus) {
+    if ((workerHandoff || removeRollFromApparatus) && !isTrainingOrder) {
       final completed = await _runQueueAction(
         action,
         progressInput: input,
@@ -1186,6 +1187,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       printMode: printerOption.printMode,
       offlinePrinter: printerOption.offlinePrinter,
       bluetoothPrinter: printerOption.bluetoothPrinter,
+      workerHandoff: workerHandoff,
+      removeRollFromApparatus: removeRollFromApparatus,
     );
     if (completed && action == 'complete') {
       await ReturnedPaintDraftStore.instance.clear(scope);
