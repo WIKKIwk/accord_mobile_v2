@@ -4,7 +4,10 @@ List<ProductionMapSaved> _productionMapZakazOrders(
   List<ProductionMapSaved> maps,
 ) {
   return maps
-      .where((item) => item.map.id.trim().startsWith('zakaz-'))
+      .where((item) {
+        final id = item.map.id.trim();
+        return id.startsWith('zakaz-') || id.startsWith('training-zakaz-');
+      })
       .toList(growable: false);
 }
 
