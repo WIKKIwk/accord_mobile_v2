@@ -59,11 +59,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final List<_LayerControllers> _layers = [_LayerControllers()];
   final _note = TextEditingController();
   List<CalculateMaterial> _materialCatalog = const <CalculateMaterial>[];
-  List<AdminApparatus> _trainingApparatus = const <AdminApparatus>[];
   bool _loadingMaterialCatalog = false;
 
   String _customerRef = '';
-  String _trainingApparatusName = '';
   String _itemCode = '';
   String _templateId = '';
   String _orderCode = '';
@@ -97,9 +95,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     _calculationListenersAttached = true;
     unawaited(_warmQuickOrderTemplates());
     unawaited(_loadMaterialCatalog());
-    if (widget.trainingMode) {
-      unawaited(_loadTrainingApparatus());
-    }
   }
 
   @override
@@ -264,28 +259,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       // The existing text values remain usable for legacy templates.
     } finally {
       _loadingMaterialCatalog = false;
-    }
-  }
-
-  Future<void> _loadTrainingApparatus() async {
-    try {
-      final apparatus = await MobileApi.instance.adminApparatus(limit: 10000);
-      final enabled = [...apparatus]
-        ..removeWhere(
-          (item) => !item.trainingEnabled || item.name.trim().isEmpty,
-        )
-        ..sort(
-          (left, right) => left.name.toLowerCase().compareTo(
-                right.name.toLowerCase(),
-              ),
-        );
-      if (mounted) {
-        setState(() => _trainingApparatus = enabled);
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _trainingApparatus = const <AdminApparatus>[]);
-      }
     }
   }
 
@@ -569,7 +542,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       itemCode: _itemCode,
       rollCount: _parseOptionalDouble(_rollCount.text),
       widthMm: _derivedWidthMm(),
-      apparatus: widget.trainingMode ? _trainingApparatusName : '',
       templateDraft: _buildTemplateDraft(),
     );
   }
@@ -899,49 +871,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     });
   }
 
-  Future<void> _openTrainingApparatusPicker() async {
-    if (_trainingApparatus.isEmpty) {
-      await _loadTrainingApparatus();
-    }
-    if (!mounted) {
-      return;
-    }
-    final picked = await showModalBottomSheet<AdminApparatus>(
-      context: context,
-      isDismissible: true,
-      enableDrag: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.32),
-      sheetAnimationStyle: kM3PickerSheetAnimation,
-      builder: (context) {
-        return M3AsyncPickerSheet<AdminApparatus>(
-          title: 'Training aparati',
-          hintText: 'Aparat qidiring',
-          pageSize: 50,
-          cacheKey: 'training:enabled-apparatus',
-          loadPage: (query, offset, limit) async {
-            final normalized = query.trim().toLowerCase();
-            final filtered = _trainingApparatus.where((item) {
-              return normalized.isEmpty ||
-                  item.name.toLowerCase().contains(normalized);
-            }).toList(growable: false);
-            return filtered.skip(offset).take(limit).toList(growable: false);
-          },
-          itemTitle: (item) => item.name,
-          itemSubtitle: (_) => 'Training rejimi yoqilgan',
-          itemKey: (item) => item.id,
-          onSelected: (item) => Navigator.of(context).pop(item),
-        );
-      },
-    );
-    if (picked == null || !mounted) {
-      return;
-    }
-    setState(() => _trainingApparatusName = picked.name);
-  }
-
   Future<void> _openProductPicker() async {
     final pickerCustomerName = _customer.text.trim();
     final picked = await showModalBottomSheet<SupplierItem>(
@@ -1059,7 +988,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   String? _templateValidationError() {
     final checks = <String?>[
-      if (widget.trainingMode) _requiredText(_trainingApparatusName),
       _requiredText(_product.text),
       _requiredPositiveNumber(_frameProductSizeMm.text),
       _requiredPositiveNumber(_frameCount.text),
@@ -1078,10 +1006,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   Future<void> _calculate() async {
     FocusManager.instance.primaryFocus?.unfocus();
-    if (widget.trainingMode && _trainingApparatusName.trim().isEmpty) {
-      showAdminTopNotice(context, 'Training aparatini tanlang');
-      return;
-    }
     if (_product.text.trim().isEmpty) {
       showAdminTopNotice(context, 'Mahsulot tanlang');
       return;
@@ -1203,15 +1127,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   List<Widget> _fullEditChildren() {
     return [
-      if (widget.trainingMode) ...[
-        const _SectionHeader(title: 'Training'),
-        _PickerInput(
-          label: 'Aparat',
-          value: _trainingApparatusName,
-          required: true,
-          onTap: _openTrainingApparatusPicker,
-        ),
-      ],
       const _SectionHeader(title: 'Buyurtma'),
       _PickerInput(
         label: 'Mijoz',

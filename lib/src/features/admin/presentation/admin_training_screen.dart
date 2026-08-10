@@ -1,14 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
-import '../../../core/native_usb_printer.dart';
-import '../../../core/print_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -16,13 +11,12 @@ import '../../admin/logic/production_map_pechat_rules.dart';
 import '../../admin/models/production_map_models.dart';
 import '../../shared/models/app_models.dart';
 import 'admin_calculate_screen.dart';
-import 'progress_printer_picker.dart';
+import 'admin_training_order_helpers.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_shell.dart';
 import 'widgets/admin_top_notice.dart';
 
-int _trainingBarcodeSequence = 0;
 const double _adminTrainingPanelGap = 4;
 
 class AdminTrainingScreen extends StatefulWidget {
@@ -34,13 +28,12 @@ class AdminTrainingScreen extends StatefulWidget {
 
 class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   List<AdminApparatus> _apparatus = const [];
-  List<CalculateMaterial> _materials = const [];
   List<ProductionMapSaved> _orders = const [];
   List<AdminRawMaterialAssignment> _assignments = const [];
   bool _loading = true;
   String? _error;
   String? _savingId;
-  String? _linkingId;
+  String? _linkingOrderId;
   String? _expandedId;
 
   @override
@@ -59,7 +52,6 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     try {
       final results = await Future.wait<Object>([
         MobileApi.instance.adminApparatus(limit: 10000),
-        MobileApi.instance.calculateMaterials(),
         MobileApi.instance.adminProductionMaps(),
         MobileApi.instance.adminRawMaterialAssignments(),
       ]);
@@ -71,12 +63,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                 right.name.toLowerCase(),
               ),
         );
-      final materials = [...results[1] as List<CalculateMaterial>]..sort(
-          (left, right) => left.name.toLowerCase().compareTo(
-                right.name.toLowerCase(),
-              ),
-        );
-      final orders = (results[2] as List<ProductionMapSaved>)
+      final orders = (results[1] as List<ProductionMapSaved>)
           .where(
             (order) =>
                 order.map.id.trim().startsWith('zakaz-') ||
@@ -90,10 +77,9 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         );
       setState(() {
         _apparatus = apparatus;
-        _materials = materials;
         _orders = orders;
         _assignments = [
-          ...results[3] as List<AdminRawMaterialAssignment>,
+          ...results[2] as List<AdminRawMaterialAssignment>,
         ];
         _loading = false;
       });
@@ -151,71 +137,67 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     }
   }
 
-  Future<void> _linkMaterial(AdminApparatus apparatus) async {
-    if (_linkingId != null) {
+  Future<void> _linkOrder(AdminApparatus apparatus) async {
+    if (_linkingOrderId != null) {
       return;
     }
-    setState(() => _linkingId = apparatus.id);
+    if (!isTrainingOrderApparatus(apparatus)) {
+      showAdminTopNotice(
+        context,
+        'Training order faqat 7 ta rangli bosma aparatga ulanadi',
+      );
+      return;
+    }
+    if (!apparatus.trainingEnabled) {
+      showAdminTopNotice(
+        context,
+        'Avval shu aparat uchun Training rejimini yoqing',
+      );
+      return;
+    }
+    final testModeEnabled = await TestModeController.instance.isEnabled();
+    if (!mounted) {
+      return;
+    }
+    if (!testModeEnabled) {
+      showAdminTopNotice(context, 'Training order faqat test rejimida ulanadi');
+      return;
+    }
+    final availableOrders = _orders
+        .where((order) => !trainingOrderHasApparatus(order.map))
+        .toList(growable: false);
+    setState(() => _linkingOrderId = apparatus.id);
     try {
-      final draft = await showModalBottomSheet<_TrainingMaterialLinkDraft>(
+      final draft = await showModalBottomSheet<_TrainingOrderLinkDraft>(
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
         showDragHandle: true,
-        builder: (context) => _TrainingMaterialLinkSheet(
+        builder: (context) => _TrainingOrderLinkSheet(
           apparatus: apparatus,
-          materials: [
-            for (final material in _materials)
-              if (material.active && material.name.trim().isNotEmpty) material,
-          ],
-          orders: _orders,
+          orders: availableOrders,
         ),
       );
       if (draft == null || !mounted) {
         return;
       }
-      final printer = await pickProgressPrinter(context);
+      final linkedMap = assignTrainingOrderToApparatus(
+        map: draft.order.map,
+        apparatus: apparatus.name,
+      );
+      final saved = await MobileApi.instance.adminSaveProductionMap(linkedMap);
       if (!mounted) {
         return;
       }
-      if (printer == null) {
-        showAdminTopNotice(context, 'Printer tanlanmadi');
-        return;
-      }
-      final barcode = _nextTrainingBarcode();
-      final itemCode = draft.material.id.trim().isEmpty
-          ? 'TRAINING-MATERIAL'
-          : draft.material.id.trim();
-      final itemName = '${draft.material.name.trim()} / ${draft.micron} mikron';
-      final request = UsbRpsPrintRequest(
-        epc: barcode,
-        itemCode: itemCode,
-        itemName: itemName,
-        apparatus: apparatus.name,
-        warehouse: 'Training: ${apparatus.name}',
-        printer: printer.printer.trim().isEmpty ? 'godex' : printer.printer,
-        printMode:
-            printer.printMode.trim().isEmpty ? 'label' : printer.printMode,
-        grossQty: 1,
-        unit: 'kg',
-        labelKind: 'material_product',
-      );
-      await _printTrainingLabel(printer, request);
-      final assignment = await MobileApi.instance.adminLinkTrainingRawMaterial(
-        orderId: draft.order.map.id,
-        apparatus: apparatus.name,
-        materialId: draft.material.id,
-        materialName: draft.material.name,
-        micron: draft.micron,
-        barcode: barcode,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() => _assignments = [..._assignments, assignment]);
+      setState(() {
+        _orders = [
+          for (final order in _orders)
+            if (order.map.id == saved.map.id) saved else order,
+        ];
+      });
       showAdminTopNotice(
         context,
-        'QR chop etildi va ${apparatus.name} oldidagi orderga ulandi',
+        '${_trainingOrderLabel(saved)} ${apparatus.name}ga ulandi',
         icon: Icons.link_rounded,
       );
     } catch (error) {
@@ -224,22 +206,24 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           context,
           error is MobileApiException
               ? error.message
-              : 'Training homashyosi ulanmagan yoki chop etilmadi',
+              : 'Training order ulanmagan',
           icon: Icons.error_outline,
         );
       }
     } finally {
       if (mounted) {
-        setState(() => _linkingId = null);
+        setState(() => _linkingOrderId = null);
       }
     }
   }
 
   Future<void> _openTrainingOrder() async {
-    if (!_apparatus.any((item) => item.trainingEnabled)) {
+    if (!_apparatus.any(
+      (item) => item.trainingEnabled && isTrainingOrderApparatus(item),
+    )) {
       showAdminTopNotice(
         context,
-        'Avval kamida bitta aparat uchun Training rejimini yoqing',
+        'Avval 7 ta rangli bosma aparat uchun Training rejimini yoqing',
         icon: Icons.school_outlined,
       );
       return;
@@ -254,43 +238,16 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     await _load();
   }
 
-  Future<void> _printTrainingLabel(
-    ProgressPrinterOption printer,
-    UsbRpsPrintRequest request,
-  ) async {
-    if (printer.transport.isLocal) {
-      final result = await PrintService.printRps(
-        request,
-        printerProfile: printer.offlinePrinter,
-        bluetoothPrinter: printer.bluetoothPrinter,
-        transport: printer.transport,
-      );
-      if (!result.ok) {
-        throw StateError('Printer training QR kodini chop etmadi');
-      }
-      return;
-    }
-    final server = printer.server;
-    if (server == null) {
-      throw StateError('Printer serveri topilmadi');
-    }
-    final response = await http
-        .post(
-          Uri.parse('${server.endpoint.baseUrl}/v1/mobile/driver/print'),
-          headers: const {'Content-Type': 'application/json'},
-          body: jsonEncode(request.toJson()),
-        )
-        .timeout(const Duration(seconds: 15));
-    final payload = jsonDecode(response.body);
-    final ok = payload is Map && payload['ok'] == true;
-    if (response.statusCode < 200 || response.statusCode > 299 || !ok) {
-      final detail = payload is Map
-          ? (payload['detail'] ?? payload['error'])?.toString().trim() ?? ''
-          : '';
-      throw StateError(
-        detail.isEmpty ? 'Printer training QR kodini chop etmadi' : detail,
-      );
-    }
+  List<ProductionMapSaved> _ordersFor(AdminApparatus apparatus) {
+    return [
+      for (final order in _orders)
+        if (order.map.nodes.any(
+          (node) =>
+              node.kind == 'apparatus' &&
+              productionMapWarehouseTitlesMatch(node.title, apparatus.name),
+        ))
+          order,
+    ];
   }
 
   List<AdminRawMaterialAssignment> _assignmentsFor(
@@ -353,8 +310,8 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                               Expanded(
                                 child: Text(
                                   'Training apparat bo‘yicha yoqiladi. Aparatni ochib, '
-                                  'rejimni almashtiring yoki zanjir orqali test '
-                                  'homashyosini orderga ulang.',
+                                  'rejimni almashtiring yoki 7 ta rangli aparat '
+                                  'ichidan Order ulash amalini bosing.',
                                 ),
                               ),
                             ],
@@ -376,9 +333,11 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                               _TrainingApparatusTile(
                                 apparatus: _apparatus[index],
                                 assignments: _assignmentsFor(_apparatus[index]),
+                                orders: _ordersFor(_apparatus[index]),
                                 expanded: _expandedId == _apparatus[index].id,
                                 saving: _savingId == _apparatus[index].id,
-                                linking: _linkingId == _apparatus[index].id,
+                                linking:
+                                    _linkingOrderId == _apparatus[index].id,
                                 onExpandedChanged: (expanded) {
                                   setState(() {
                                     _expandedId =
@@ -390,8 +349,8 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                                   _apparatus[index],
                                   enabled,
                                 ),
-                                onLinkMaterial: () =>
-                                    _linkMaterial(_apparatus[index]),
+                                onLinkOrder: () =>
+                                    _linkOrder(_apparatus[index]),
                                 slot: M3SegmentedListGeometry
                                     .standaloneListSlotForIndex(
                                   index,
@@ -411,23 +370,25 @@ class _TrainingApparatusTile extends StatelessWidget {
   const _TrainingApparatusTile({
     required this.apparatus,
     required this.assignments,
+    required this.orders,
     required this.expanded,
     required this.saving,
     required this.linking,
     required this.onExpandedChanged,
     required this.onTrainingChanged,
-    required this.onLinkMaterial,
+    required this.onLinkOrder,
     required this.slot,
   });
 
   final AdminApparatus apparatus;
   final List<AdminRawMaterialAssignment> assignments;
+  final List<ProductionMapSaved> orders;
   final bool expanded;
   final bool saving;
   final bool linking;
   final ValueChanged<bool> onExpandedChanged;
   final ValueChanged<bool> onTrainingChanged;
-  final VoidCallback onLinkMaterial;
+  final VoidCallback onLinkOrder;
   final M3SegmentVerticalSlot slot;
 
   @override
@@ -438,10 +399,12 @@ class _TrainingApparatusTile extends StatelessWidget {
       slot,
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
     );
-    final summary = assignments.isEmpty
-        ? (apparatus.trainingEnabled ? 'Training rejimi' : 'Production rejimi')
-        : '${apparatus.trainingEnabled ? 'Training rejimi' : 'Production rejimi'} · '
-            '${assignments.length} ta test homashyo';
+    final summaryParts = <String>[
+      apparatus.trainingEnabled ? 'Training rejimi' : 'Production rejimi',
+      if (orders.isNotEmpty) '${orders.length} ta test order',
+      if (assignments.isNotEmpty) '${assignments.length} ta test homashyo',
+    ];
+    final summary = summaryParts.join(' · ');
     return Material(
       key: ValueKey('admin-training-apparatus-card-${apparatus.id}'),
       color: scheme.surfaceContainerLowest,
@@ -564,23 +527,56 @@ class _TrainingApparatusTile extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: OutlinedButton.icon(
-                            onPressed: apparatus.trainingEnabled && !linking
-                                ? onLinkMaterial
-                                : null,
-                            icon: linking
-                                ? const SizedBox.square(
-                                    dimension: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.link_rounded),
-                            label: const Text('Homashyo ulash'),
+                        if (isTrainingOrderApparatus(apparatus))
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: OutlinedButton.icon(
+                              onPressed: apparatus.trainingEnabled && !linking
+                                  ? onLinkOrder
+                                  : null,
+                              icon: linking
+                                  ? const SizedBox.square(
+                                      dimension: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.link_rounded),
+                              label: const Text('Order ulash'),
+                            ),
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              'Training order faqat 7 ta rangli bosma aparatga ulanadi',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
                           ),
-                        ),
+                        if (orders.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          for (final order in orders)
+                            ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(
+                                Icons.receipt_long_outlined,
+                                size: 20,
+                              ),
+                              title: Text(
+                                _trainingOrderLabel(order),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                order.map.productCode,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
                         if (assignments.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           for (final assignment in assignments)
@@ -616,69 +612,45 @@ class _TrainingApparatusTile extends StatelessWidget {
   }
 }
 
-class _TrainingMaterialLinkDraft {
-  const _TrainingMaterialLinkDraft({
-    required this.material,
-    required this.micron,
-    required this.order,
-  });
+class _TrainingOrderLinkDraft {
+  const _TrainingOrderLinkDraft({required this.order});
 
-  final CalculateMaterial material;
-  final int micron;
   final ProductionMapSaved order;
 }
 
-class _TrainingMaterialLinkSheet extends StatefulWidget {
-  const _TrainingMaterialLinkSheet({
+class _TrainingOrderLinkSheet extends StatefulWidget {
+  const _TrainingOrderLinkSheet({
     required this.apparatus,
-    required this.materials,
     required this.orders,
   });
 
   final AdminApparatus apparatus;
-  final List<CalculateMaterial> materials;
   final List<ProductionMapSaved> orders;
 
   @override
-  State<_TrainingMaterialLinkSheet> createState() =>
-      _TrainingMaterialLinkSheetState();
+  State<_TrainingOrderLinkSheet> createState() =>
+      _TrainingOrderLinkSheetState();
 }
 
-class _TrainingMaterialLinkSheetState
-    extends State<_TrainingMaterialLinkSheet> {
-  late final TextEditingController _micronController;
-  CalculateMaterial? _material;
+class _TrainingOrderLinkSheetState extends State<_TrainingOrderLinkSheet> {
   ProductionMapSaved? _order;
   String? _validationMessage;
 
   @override
   void initState() {
     super.initState();
-    _micronController = TextEditingController();
-    _material = widget.materials.isEmpty ? null : widget.materials.first;
     _order = widget.orders.length == 1 ? widget.orders.first : null;
   }
 
-  @override
-  void dispose() {
-    _micronController.dispose();
-    super.dispose();
-  }
-
   void _submit() {
-    final micron = int.tryParse(_micronController.text.trim());
-    if (_material == null || _order == null || micron == null || micron <= 0) {
+    if (_order == null) {
       setState(() {
-        _validationMessage = 'Homashyo, order va musbat micronni kiriting';
+        _validationMessage = 'Ulash uchun orderni tanlang';
       });
       return;
     }
     Navigator.of(context).pop(
-      _TrainingMaterialLinkDraft(
-        material: _material!,
-        micron: micron,
-        order: _order!,
-      ),
+      _TrainingOrderLinkDraft(order: _order!),
     );
   }
 
@@ -697,7 +669,7 @@ class _TrainingMaterialLinkSheetState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Training homashyosini ulash',
+                'Training orderini ulash',
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -705,37 +677,11 @@ class _TrainingMaterialLinkSheetState
               const SizedBox(height: 6),
               Text('Aparat: ${widget.apparatus.name}'),
               const SizedBox(height: 18),
-              if (widget.materials.isEmpty)
-                const _TrainingSheetNotice(
-                  icon: Icons.inventory_2_outlined,
-                  text: 'Mikron materiallari sahifasida faol homashyo yo‘q.',
-                )
-              else
-                DropdownButtonFormField<CalculateMaterial>(
-                  initialValue: _material,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Homashyo nomi',
-                    prefixIcon: Icon(Icons.inventory_2_outlined),
-                  ),
-                  items: [
-                    for (final material in widget.materials)
-                      DropdownMenuItem<CalculateMaterial>(
-                        value: material,
-                        child: Text(
-                          material.name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: (value) => setState(() => _material = value),
-                ),
-              const SizedBox(height: 12),
               if (widget.orders.isEmpty)
                 const _TrainingSheetNotice(
                   icon: Icons.receipt_long_outlined,
                   text:
-                      'Avval training uchun order oching yoki mavjud orderni tanlang.',
+                      'Avval FAB orqali training order oching. U order bu yerda tanlanmagan holatda ko‘rinadi.',
                 )
               else
                 DropdownButtonFormField<ProductionMapSaved>(
@@ -758,22 +704,10 @@ class _TrainingMaterialLinkSheetState
                   onChanged: (value) => setState(() => _order = value),
                 ),
               const SizedBox(height: 12),
-              TextField(
-                controller: _micronController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  labelText: 'Mikron',
-                  hintText: 'Masalan, 50',
-                  prefixIcon: Icon(Icons.straighten_outlined),
-                  suffixText: 'µm',
-                ),
-              ),
-              const SizedBox(height: 12),
               const _TrainingSheetNotice(
-                icon: Icons.print_outlined,
-                text: 'Chop etilgach, shu QR test orderga va aparat oldidagi '
-                    'joylashuvga ulanadi.',
+                icon: Icons.link_rounded,
+                text: 'Tanlangan order shu 7 rangli aparatning navbatiga '
+                    'ulanadi. Keyin uning test homashyosi shu orderga qo‘shiladi.',
               ),
               if (_validationMessage != null) ...[
                 const SizedBox(height: 8),
@@ -784,12 +718,9 @@ class _TrainingMaterialLinkSheetState
               ],
               const SizedBox(height: 18),
               FilledButton.icon(
-                onPressed:
-                    widget.materials.isNotEmpty && widget.orders.isNotEmpty
-                        ? _submit
-                        : null,
-                icon: const Icon(Icons.print_rounded),
-                label: const Text('Mikronni yozib chop etish'),
+                onPressed: widget.orders.isNotEmpty ? _submit : null,
+                icon: const Icon(Icons.link_rounded),
+                label: const Text('Order ulash'),
               ),
             ],
           ),
@@ -826,11 +757,6 @@ class _TrainingSheetNotice extends StatelessWidget {
       ),
     );
   }
-}
-
-String _nextTrainingBarcode() {
-  _trainingBarcodeSequence += 1;
-  return 'TRN-${DateTime.now().toUtc().millisecondsSinceEpoch}-$_trainingBarcodeSequence';
 }
 
 String _trainingOrderLabel(ProductionMapSaved saved) {
