@@ -229,18 +229,33 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
             '“${_trainingOrderLabel(order)}” va unga ulangan test homashyolar '
             'o‘chiriladi. Davom etilsinmi?',
           ),
+          actionsPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Bekor qilish'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: scheme.error,
-                foregroundColor: scheme.onError,
+            SizedBox(
+              width: 240,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FilledButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: scheme.error,
+                      foregroundColor: scheme.onError,
+                      minimumSize: const Size.fromHeight(52),
+                    ),
+                    child: const Text('O‘chirish'),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.center,
+                    child: TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: const Text('Bekor qilish'),
+                    ),
+                  ),
+                ],
               ),
-              child: const Text('O‘chirish'),
             ),
           ],
         );
