@@ -1,8 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/native_usb_printer.dart';
+import '../../../core/print_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/display/app_info_row.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
@@ -13,6 +19,7 @@ import '../../admin/models/production_map_models.dart';
 import '../../shared/models/app_models.dart';
 import 'admin_calculate_screen.dart';
 import 'admin_training_order_helpers.dart';
+import 'progress_printer_picker.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_shell.dart';
@@ -29,12 +36,14 @@ class AdminTrainingScreen extends StatefulWidget {
 
 class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   List<AdminApparatus> _apparatus = const [];
+  List<CalculateMaterial> _materials = const [];
   List<ProductionMapSaved> _orders = const [];
   List<AdminRawMaterialAssignment> _assignments = const [];
   bool _loading = true;
   String? _error;
   String? _savingId;
   String? _linkingOrderId;
+  String? _linkingMaterialOrderId;
   String? _deletingOrderId;
   String? _expandedId;
 
@@ -56,6 +65,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         MobileApi.instance.adminTrainingApparatus(),
         MobileApi.instance.adminTrainingProductionMaps(),
         MobileApi.instance.adminTrainingRawMaterialAssignments(),
+        MobileApi.instance.calculateMaterials(),
       ]);
       if (!mounted) {
         return;
@@ -77,6 +87,14 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         );
       setState(() {
         _apparatus = apparatus;
+        _materials = [
+          ...(results[3] as List<CalculateMaterial>)
+              .where((material) => material.active),
+        ]..sort(
+            (left, right) => left.name.toLowerCase().compareTo(
+                  right.name.toLowerCase(),
+                ),
+          );
         _orders = orders;
         _assignments = [
           ...results[2] as List<AdminRawMaterialAssignment>,
@@ -310,8 +328,163 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (context) => _TrainingOrderDetailsSheet(order: order),
+      builder: (context) => _TrainingOrderDetailsSheet(
+        order: order,
+        assignments: [
+          for (final assignment in _assignments)
+            if (assignment.orderId.trim() == order.map.id.trim()) assignment,
+        ],
+        onLinkMaterial: () => _linkTrainingMaterial(order),
+      ),
     );
+  }
+
+  Future<AdminRawMaterialAssignment?> _linkTrainingMaterial(
+    ProductionMapSaved order,
+  ) async {
+    final orderId = order.map.id.trim();
+    if (_linkingMaterialOrderId != null) {
+      return null;
+    }
+    final apparatus = order.map.nodes
+        .where((node) => node.kind == 'apparatus')
+        .map((node) => node.title.trim())
+        .firstWhere((title) => title.isNotEmpty, orElse: () => '');
+    if (orderId.isEmpty || apparatus.isEmpty) {
+      showAdminTopNotice(context, 'Training order apparati topilmadi');
+      return null;
+    }
+    if (_materials.isEmpty) {
+      showAdminTopNotice(
+        context,
+        'Xomashyo mikronlari sahifasida faol homashyo yo‘q',
+        icon: Icons.inventory_2_outlined,
+      );
+      return null;
+    }
+    setState(() => _linkingMaterialOrderId = orderId);
+    try {
+      final draft = await showModalBottomSheet<_TrainingMaterialLinkDraft>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (context) => _TrainingMaterialLinkSheet(
+          apparatus: apparatus,
+          materials: _materials,
+        ),
+      );
+      if (draft == null || !mounted) {
+        return null;
+      }
+      final printer = await pickProgressPrinter(context);
+      if (!mounted || printer == null) {
+        if (mounted) {
+          showAdminTopNotice(context, 'Printer tanlanmadi');
+        }
+        return null;
+      }
+      final barcode = _nextTrainingBarcode();
+      final itemCode = draft.material.id.trim().isEmpty
+          ? 'TRAINING-MATERIAL'
+          : draft.material.id.trim();
+      final itemName = '${draft.material.name.trim()} / ${draft.micron} mikron';
+      final printRequest = UsbRpsPrintRequest(
+        epc: barcode,
+        itemCode: itemCode,
+        itemName: itemName,
+        apparatus: apparatus,
+        warehouse: 'Training: $apparatus',
+        printer: printer.printer.trim().isEmpty ? 'godex' : printer.printer,
+        printMode:
+            printer.printMode.trim().isEmpty ? 'label' : printer.printMode,
+        grossQty: 1,
+        unit: 'kg',
+        labelKind: 'material_product',
+      );
+      await _printTrainingLabel(printer, printRequest);
+      final assignment = await MobileApi.instance.adminLinkTrainingRawMaterial(
+        orderId: orderId,
+        apparatus: apparatus,
+        materialId: draft.material.id,
+        materialName: draft.material.name,
+        micron: draft.micron,
+        barcode: barcode,
+      );
+      if (!mounted) {
+        return assignment;
+      }
+      setState(() {
+        _assignments = [
+          assignment,
+          for (final item in _assignments)
+            if (item.orderId.trim() != assignment.orderId.trim() ||
+                item.barcode.trim().toUpperCase() !=
+                    assignment.barcode.trim().toUpperCase())
+              item,
+        ];
+      });
+      showAdminTopNotice(
+        context,
+        'QR chop etildi va homashyo training orderga ulandi',
+        icon: Icons.link_rounded,
+      );
+      return assignment;
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : 'Training homashyosi ulanmagan yoki chop etilmadi',
+          icon: Icons.error_outline,
+        );
+      }
+      return null;
+    } finally {
+      if (mounted) {
+        setState(() => _linkingMaterialOrderId = null);
+      }
+    }
+  }
+
+  Future<void> _printTrainingLabel(
+    ProgressPrinterOption printer,
+    UsbRpsPrintRequest request,
+  ) async {
+    if (printer.transport.isLocal) {
+      final result = await PrintService.printRps(
+        request,
+        printerProfile: printer.offlinePrinter,
+        bluetoothPrinter: printer.bluetoothPrinter,
+        transport: printer.transport,
+      );
+      if (!result.ok) {
+        throw StateError('Printer training QR kodini chop etmadi');
+      }
+      return;
+    }
+    final server = printer.server;
+    if (server == null) {
+      throw StateError('Printer serveri topilmadi');
+    }
+    final response = await http
+        .post(
+          Uri.parse('${server.endpoint.baseUrl}/v1/mobile/driver/print'),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode(request.toJson()),
+        )
+        .timeout(const Duration(seconds: 15));
+    final payload = jsonDecode(response.body);
+    final ok = payload is Map && payload['ok'] == true;
+    if (response.statusCode < 200 || response.statusCode > 299 || !ok) {
+      final detail = payload is Map
+          ? (payload['detail'] ?? payload['error'])?.toString().trim() ?? ''
+          : '';
+      throw StateError(
+        detail.isEmpty ? 'Printer training QR kodini chop etmadi' : detail,
+      );
+    }
   }
 
   List<ProductionMapSaved> _ordersFor(AdminApparatus apparatus) {
@@ -712,16 +885,64 @@ class _TrainingApparatusTile extends StatelessWidget {
   }
 }
 
-class _TrainingOrderDetailsSheet extends StatelessWidget {
-  const _TrainingOrderDetailsSheet({required this.order});
+class _TrainingOrderDetailsSheet extends StatefulWidget {
+  const _TrainingOrderDetailsSheet({
+    required this.order,
+    required this.assignments,
+    required this.onLinkMaterial,
+  });
 
   final ProductionMapSaved order;
+  final List<AdminRawMaterialAssignment> assignments;
+  final Future<AdminRawMaterialAssignment?> Function() onLinkMaterial;
+
+  @override
+  State<_TrainingOrderDetailsSheet> createState() =>
+      _TrainingOrderDetailsSheetState();
+}
+
+class _TrainingOrderDetailsSheetState
+    extends State<_TrainingOrderDetailsSheet> {
+  late List<AdminRawMaterialAssignment> _assignments;
+  bool _linking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _assignments = [...widget.assignments];
+  }
+
+  Future<void> _linkMaterial() async {
+    if (_linking) {
+      return;
+    }
+    setState(() => _linking = true);
+    try {
+      final assignment = await widget.onLinkMaterial();
+      if (!mounted || assignment == null) {
+        return;
+      }
+      setState(() {
+        _assignments = [
+          assignment,
+          for (final item in _assignments)
+            if (item.barcode.trim().toUpperCase() !=
+                assignment.barcode.trim().toUpperCase())
+              item,
+        ];
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _linking = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final map = order.map;
+    final map = widget.order.map;
     final apparatus = map.nodes
         .where(
             (node) => node.kind == 'apparatus' && node.title.trim().isNotEmpty)
@@ -731,7 +952,7 @@ class _TrainingOrderDetailsSheet extends StatelessWidget {
         .where((node) => node.kind == 'task' && node.title.trim().isNotEmpty)
         .toList(growable: false);
     final headerTitle = map.title.trim().isEmpty
-        ? _trainingOrderLabel(order)
+        ? _trainingOrderLabel(widget.order)
         : map.title.trim();
 
     return SafeArea(
@@ -830,6 +1051,36 @@ class _TrainingOrderDetailsSheet extends StatelessWidget {
                     ),
                 ],
               ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _linking ? null : _linkMaterial,
+                icon: _linking
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.link_rounded),
+                label: Text(
+                  _linking ? 'Ulanmoqda…' : 'Homashyo ulash va QR chiqarish',
+                ),
+              ),
+              if (_assignments.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _TrainingOrderDetailsSection(
+                  title: 'Ulangan test homashyolar',
+                  icon: Icons.inventory_2_outlined,
+                  children: [
+                    for (final assignment in _assignments)
+                      AppInfoRow(
+                        label: assignment.itemName.trim().isEmpty
+                            ? 'Homashyo'
+                            : assignment.itemName,
+                        value: assignment.barcode,
+                        selectable: true,
+                      ),
+                  ],
+                ),
+              ],
               if (apparatus.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 _TrainingOrderDetailsSection(
@@ -854,6 +1105,172 @@ class _TrainingOrderDetailsSheet extends StatelessWidget {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TrainingMaterialLinkDraft {
+  const _TrainingMaterialLinkDraft({
+    required this.material,
+    required this.micron,
+  });
+
+  final CalculateMaterial material;
+  final int micron;
+}
+
+class _TrainingMaterialLinkSheet extends StatefulWidget {
+  const _TrainingMaterialLinkSheet({
+    required this.apparatus,
+    required this.materials,
+  });
+
+  final String apparatus;
+  final List<CalculateMaterial> materials;
+
+  @override
+  State<_TrainingMaterialLinkSheet> createState() =>
+      _TrainingMaterialLinkSheetState();
+}
+
+class _TrainingMaterialLinkSheetState
+    extends State<_TrainingMaterialLinkSheet> {
+  late final TextEditingController _micronController;
+  CalculateMaterial? _material;
+  String? _validationMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _micronController = TextEditingController();
+    _material = widget.materials.isEmpty ? null : widget.materials.first;
+  }
+
+  @override
+  void dispose() {
+    _micronController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final micron = int.tryParse(_micronController.text.trim());
+    if (_material == null || micron == null || micron <= 0) {
+      setState(() {
+        _validationMessage = 'Homashyo va musbat micronni kiriting';
+      });
+      return;
+    }
+    Navigator.of(context).pop(
+      _TrainingMaterialLinkDraft(material: _material!, micron: micron),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + bottomInset),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Training homashyosini ulash',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text('Aparat: ${widget.apparatus}'),
+              const SizedBox(height: 18),
+              DropdownButtonFormField<CalculateMaterial>(
+                initialValue: _material,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Homashyo nomi',
+                  prefixIcon: Icon(Icons.inventory_2_outlined),
+                ),
+                items: [
+                  for (final material in widget.materials)
+                    DropdownMenuItem<CalculateMaterial>(
+                      value: material,
+                      child: Text(
+                        material.name,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (value) => setState(() => _material = value),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _micronController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Mikron',
+                  hintText: 'Masalan, 50',
+                  prefixIcon: Icon(Icons.straighten_outlined),
+                  suffixText: 'µm',
+                ),
+              ),
+              const SizedBox(height: 12),
+              const _TrainingSheetNotice(
+                icon: Icons.print_outlined,
+                text: 'Printer tanlangandan keyin shu homashyo uchun qayta '
+                    'ishlatiladigan QR chiqariladi va orderga biriktiriladi.',
+              ),
+              if (_validationMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _validationMessage!,
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              ],
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: widget.materials.isEmpty ? null : _submit,
+                icon: const Icon(Icons.print_rounded),
+                label: const Text('Mikronni yozib davom etish'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TrainingSheetNotice extends StatelessWidget {
+  const _TrainingSheetNotice({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(width: 10),
+            Expanded(child: Text(text)),
+          ],
         ),
       ),
     );
@@ -921,6 +1338,13 @@ String _trainingOrderShortLabel(String orderId) {
     return normalized;
   }
   return '${normalized.substring(0, 10)}…${normalized.substring(normalized.length - 8)}';
+}
+
+int _trainingBarcodeSequence = 0;
+
+String _nextTrainingBarcode() {
+  _trainingBarcodeSequence += 1;
+  return 'TRN-${DateTime.now().toUtc().millisecondsSinceEpoch}-$_trainingBarcodeSequence';
 }
 
 class _TrainingApparatusPicker extends StatelessWidget {
