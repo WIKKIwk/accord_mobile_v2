@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -51,9 +50,9 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     }
     try {
       final results = await Future.wait<Object>([
-        MobileApi.instance.adminApparatus(limit: 10000),
-        MobileApi.instance.adminProductionMaps(),
-        MobileApi.instance.adminRawMaterialAssignments(),
+        MobileApi.instance.adminTrainingApparatus(),
+        MobileApi.instance.adminTrainingProductionMaps(),
+        MobileApi.instance.adminTrainingRawMaterialAssignments(),
       ]);
       if (!mounted) {
         return;
@@ -65,9 +64,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         );
       final orders = (results[1] as List<ProductionMapSaved>)
           .where(
-            (order) =>
-                order.map.id.trim().startsWith('zakaz-') ||
-                order.map.orderNumber.trim().isNotEmpty,
+            (order) => order.map.id.trim().startsWith('training-'),
           )
           .toList()
         ..sort(
@@ -103,15 +100,9 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     }
     setState(() => _savingId = apparatus.id);
     try {
-      final saved = await MobileApi.instance.adminCreateApparatus(
-        apparatus.name,
-        id: apparatus.id,
-        family: apparatus.family,
-        kind: apparatus.kind,
-        capabilities: apparatus.capabilities,
-        capabilityProfiles: apparatus.capabilityProfiles,
-        colorStations: apparatus.colorStations,
-        trainingEnabled: enabled,
+      await MobileApi.instance.adminSetTrainingApparatusMode(
+        apparatus: apparatus.name,
+        enabled: enabled,
       );
       if (!mounted) {
         return;
@@ -119,7 +110,10 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       setState(() {
         _apparatus = [
           for (final item in _apparatus)
-            if (item.id == saved.id) saved else item,
+            if (item.id == apparatus.id)
+              item.copyWith(trainingEnabled: enabled)
+            else
+              item,
         ];
       });
       showAdminTopNotice(
@@ -155,14 +149,6 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       );
       return;
     }
-    final testModeEnabled = await TestModeController.instance.isEnabled();
-    if (!mounted) {
-      return;
-    }
-    if (!testModeEnabled) {
-      showAdminTopNotice(context, 'Training order faqat test rejimida ulanadi');
-      return;
-    }
     final availableOrders = _orders
         .where((order) => !trainingOrderHasApparatus(order.map))
         .toList(growable: false);
@@ -185,7 +171,8 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         map: draft.order.map,
         apparatus: apparatus.name,
       );
-      final saved = await MobileApi.instance.adminSaveProductionMap(linkedMap);
+      final saved =
+          await MobileApi.instance.adminSaveTrainingProductionMap(linkedMap);
       if (!mounted) {
         return;
       }

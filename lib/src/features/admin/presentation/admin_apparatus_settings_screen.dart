@@ -146,7 +146,7 @@ class _AdminApparatusSettingsScreenState
     try {
       final results = await Future.wait<Object>([
         MobileApi.instance.adminApparatusGroups(),
-        MobileApi.instance.adminApparatus(limit: 200),
+        MobileApi.instance.adminTrainingApparatus(),
         MobileApi.instance.adminApparatusMasterOptions(),
       ]);
       if (!mounted) {
@@ -579,15 +579,16 @@ class _AdminApparatusSettingsScreenState
         capabilityProfiles: apparatus.capabilityProfiles,
         colorStations: apparatus.colorStations,
         factoryMapObjectId: normalizedObjectId,
-        trainingEnabled: apparatus.trainingEnabled,
       );
       if (!mounted) {
         return null;
       }
+      final visibleSaved =
+          saved.copyWith(trainingEnabled: apparatus.trainingEnabled);
       setState(() {
         _apparatus = [
           for (final item in _apparatus)
-            if (item.id == saved.id) saved else item,
+            if (item.id == saved.id) visibleSaved else item,
         ];
       });
       _saveCache();
@@ -597,7 +598,7 @@ class _AdminApparatusSettingsScreenState
             ? '3D xarita bog‘lanishi olib tashlandi'
             : 'Aparat 3D xaritaga biriktirildi',
       );
-      return saved;
+      return visibleSaved;
     } catch (_) {
       if (mounted) {
         showAdminTopNotice(context, '3D xarita bog‘lanishi saqlanmadi');
@@ -618,17 +619,11 @@ class _AdminApparatusSettingsScreenState
       }
     }
     try {
-      final saved = await MobileApi.instance.adminCreateApparatus(
-        current.name,
-        id: current.id,
-        family: current.family,
-        kind: current.kind,
-        capabilities: current.capabilities,
-        capabilityProfiles: current.capabilityProfiles,
-        colorStations: current.colorStations,
-        factoryMapObjectId: current.factoryMapObjectId,
-        trainingEnabled: enabled,
+      await MobileApi.instance.adminSetTrainingApparatusMode(
+        apparatus: current.name,
+        enabled: enabled,
       );
+      final saved = current.copyWith(trainingEnabled: enabled);
       if (!mounted) {
         return null;
       }
@@ -764,11 +759,13 @@ class _AdminApparatusSettingsScreenState
         capabilityProfiles: capabilityProfiles,
         colorStations: colorStations,
         factoryMapObjectId: previous?.factoryMapObjectId,
-        trainingEnabled: previous?.trainingEnabled,
       );
       if (!mounted) {
         return;
       }
+      final visibleCreated = created.copyWith(
+        trainingEnabled: previous?.trainingEnabled ?? false,
+      );
       setState(() {
         final key = created.id.trim();
         final next = [
@@ -778,7 +775,7 @@ class _AdminApparatusSettingsScreenState
                 : item.id != key &&
                     item.name.toLowerCase() != created.name.toLowerCase())
               item,
-          created,
+          visibleCreated,
         ]..sort(
             (left, right) => left.name.toLowerCase().compareTo(
                   right.name.toLowerCase(),

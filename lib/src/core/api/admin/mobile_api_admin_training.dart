@@ -1,13 +1,286 @@
 part of '../mobile_api.dart';
 
+Future<List<AdminApparatus>> _trainingApparatusCatalog() {
+  return MobileApi.instance.adminApparatus(limit: 10000);
+}
+
+extension MobileApiAdminTrainingWorkspace on MobileApi {
+  Future<List<AdminApparatus>> adminTrainingApparatus() async {
+    final apparatus = await _trainingApparatusCatalog();
+    if (await TestModeController.instance.isEnabled()) {
+      return apparatus;
+    }
+    final modes = await adminTrainingApparatusModes();
+    return apparatus
+        .map(
+          (item) => item.copyWith(
+            trainingEnabled: modes[item.name.trim().toLowerCase()] ?? false,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<Map<String, bool>> adminTrainingApparatusModes() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return {
+        for (final item in _testModeApparatusCatalog())
+          item.name.trim().toLowerCase(): item.trainingEnabled,
+      };
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/training/apparatus'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'training_apparatus_modes',
+      );
+    }
+    final payload = await decodeJsonMapPayload(response.body);
+    final raw = payload['modes'];
+    if (raw is! Map) {
+      return const <String, bool>{};
+    }
+    return {
+      for (final entry in raw.entries)
+        entry.key.toString().trim().toLowerCase(): entry.value == true,
+    };
+  }
+
+  Future<void> adminSetTrainingApparatusMode({
+    required String apparatus,
+    required bool enabled,
+  }) async {
+    final normalized = apparatus.trim();
+    if (normalized.isEmpty) {
+      throw const MobileApiException(
+        code: 'training_apparatus_required',
+        message: 'Aparat tanlanmadi',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final catalog = await _trainingApparatusCatalog();
+      final current = catalog.firstWhere(
+        (item) => item.name.trim().toLowerCase() == normalized.toLowerCase(),
+        orElse: () => throw const MobileApiException(
+          code: 'training_apparatus_not_found',
+          message: 'Aparat topilmadi',
+        ),
+      );
+      await adminCreateApparatus(
+        current.name,
+        id: current.id,
+        family: current.family,
+        kind: current.kind,
+        capabilities: current.capabilities,
+        capabilityProfiles: current.capabilityProfiles,
+        colorStations: current.colorStations,
+        factoryMapObjectId: current.factoryMapObjectId,
+        trainingEnabled: enabled,
+      );
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/training/apparatus'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'apparatus': normalized, 'enabled': enabled}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'training_apparatus_mode_save',
+      );
+    }
+  }
+
+  Future<List<ProductionMapSaved>> adminTrainingProductionMaps({
+    String id = '',
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      if (id.trim().isEmpty) {
+        return List<ProductionMapSaved>.unmodifiable(_testModeProductionMaps);
+      }
+      return _testModeProductionMaps
+          .where((item) => item.map.id.trim() == id.trim())
+          .toList(growable: false);
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/training/production-maps',
+        ).replace(
+          queryParameters: {
+            if (id.trim().isNotEmpty) 'id': id.trim(),
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'training_maps_list');
+    }
+    final payload = await decodeJsonPayload(response.body);
+    if (payload is List) {
+      return payload
+          .map(
+            (item) => ProductionMapSaved.fromJson(
+              (item as Map).cast<String, dynamic>(),
+            ),
+          )
+          .toList(growable: false);
+    }
+    return [
+      ProductionMapSaved.fromJson((payload as Map).cast<String, dynamic>()),
+    ];
+  }
+
+  Future<ProductionMapSaved> adminSaveTrainingProductionMap(
+    ProductionMapDefinition map,
+  ) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return adminSaveProductionMap(map);
+    }
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/training/production-maps',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(map.toJson()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'training_map_save');
+    }
+    return ProductionMapSaved.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<AdminRawMaterialAssignment>> adminTrainingRawMaterialAssignments({
+    String orderId = '',
+    String apparatus = '',
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return adminRawMaterialAssignments(
+        orderId: orderId,
+        apparatus: apparatus,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/training/raw-material-assignments',
+        ).replace(
+          queryParameters: {
+            if (orderId.trim().isNotEmpty) 'order_id': orderId.trim(),
+            if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'training_material_assignments',
+      );
+    }
+    final payload = await decodeJsonListPayload(response.body);
+    return payload
+        .map(
+          (item) => AdminRawMaterialAssignment.fromJson(
+            (item as Map).cast<String, dynamic>(),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<ProductionMapSaveWithOrderResult>
+      adminSaveTrainingProductionMapWithOrder({
+    required ProductionMapDefinition map,
+    required CalculateOrderTemplate template,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return adminSaveProductionMapWithOrder(map: map, template: template);
+    }
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/training/production-maps/with-order',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'map': map.toJson(), 'template': template.toJson()}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'training_map_save_with_order',
+      );
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return ProductionMapSaveWithOrderResult(
+      saved: ProductionMapSaved.fromJson(
+        (payload['saved'] as Map).cast<String, dynamic>(),
+      ),
+      template: payload['template'] is Map
+          ? CalculateOrderTemplate.fromJson(
+              (payload['template'] as Map).cast<String, dynamic>(),
+            )
+          : null,
+    );
+  }
+
+  Future<CalculateOrderImage> uploadTrainingCalculateOrderImage({
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return CalculateOrderImage(
+        imageId: 'training-test-image-${DateTime.now().microsecondsSinceEpoch}',
+        imageName: filename.trim().isEmpty ? 'rang.jpg' : filename.trim(),
+        imageMime: 'image/jpeg',
+        imageSizeBytes: bytes.length,
+        imageUrl: '',
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/training/images'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'image/jpeg'
+          ..['x-file-name'] = filename,
+        body: bytes,
+      ),
+    );
+    final payload = await decodeJsonMapPayload(response.body);
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'training_image_save');
+    }
+    final raw = payload['image'];
+    return CalculateOrderImage.fromJson(
+      raw is Map ? raw.cast<String, dynamic>() : const <String, dynamic>{},
+    );
+  }
+}
+
 extension MobileApiAdminTraining on MobileApi {
   /// Creates the complete test-mode representation of a training material:
   /// order assignment, an inventory asset, and a state location in front of
   /// the selected apparatus.
   ///
-  /// Production persistence is intentionally left to the production training
-  /// contract. Failing explicitly here prevents a local-only assignment from
-  /// being mistaken for a server-backed one.
+  /// Production persistence uses the server-backed training workspace. The
+  /// local branch remains available only when the explicit client test mode is
+  /// enabled.
   Future<AdminRawMaterialAssignment> adminLinkTrainingRawMaterial({
     required String orderId,
     required String apparatus,
@@ -31,10 +304,49 @@ extension MobileApiAdminTraining on MobileApi {
         message: 'Order, aparat, homashyo va micronni to‘liq kiriting',
       );
     }
+    final displayName = '$normalizedMaterialName / $micron mikron';
+    final itemCode = normalizedMaterialId.isEmpty
+        ? 'TRAINING-MATERIAL'
+        : normalizedMaterialId;
+
     if (!await TestModeController.instance.isEnabled()) {
-      throw const MobileApiException(
-        code: 'training_material_test_mode_only',
-        message: 'Training homashyosi hozircha faqat test rejimida ulanadi',
+      final response = await _sendAuthorized(
+        () => _post(
+          Uri.parse(
+            '${MobileApi.baseUrl}/v1/mobile/admin/training/raw-material-assignments',
+          ),
+          headers: _headers(requireToken())
+            ..['Content-Type'] = 'application/json',
+          body: jsonEncode({
+            'order_id': normalizedOrderId,
+            'apparatus': normalizedApparatus,
+            'barcode': normalizedBarcode,
+            'material_id': normalizedMaterialId,
+            'material_name': normalizedMaterialName,
+            'micron': micron,
+            'item_code': itemCode,
+            'item_name': displayName,
+            'item_group': normalizedMaterialName,
+            'assigned_by_ref': AppSession.instance.profile?.ref ?? '',
+            'assigned_by_display_name':
+                AppSession.instance.profile?.displayName ?? '',
+            'assigned_at': DateTime.now().toUtc().toIso8601String(),
+            'stock_status': 'available',
+            'stock_warehouse': 'Training',
+            'stock_qty': 1,
+            'stock_uom': 'kg',
+            'remaining_qty': 1,
+          }),
+        ),
+      );
+      if (response.statusCode != 200) {
+        throw _adminProductionMapException(
+          response,
+          'training_material_assignment',
+        );
+      }
+      return AdminRawMaterialAssignment.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
       );
     }
 
@@ -49,19 +361,20 @@ extension MobileApiAdminTraining on MobileApi {
     }
     final duplicate = _testModeRawMaterialAssignments.any(
       (assignment) =>
+          assignment.orderId.trim() == normalizedOrderId &&
+          productionMapWarehouseTitlesMatch(
+            assignment.apparatus,
+            normalizedApparatus,
+          ) &&
           assignment.barcode.trim().toUpperCase() == normalizedBarcode,
     );
     if (duplicate) {
       throw const MobileApiException(
         code: 'training_material_barcode_exists',
-        message: 'Bu training QR kodi allaqachon ishlatilgan',
+        message: 'Bu QR kodi shu order uchun allaqachon ulangan',
       );
     }
 
-    final displayName = '$normalizedMaterialName / $micron mikron';
-    final itemCode = normalizedMaterialId.isEmpty
-        ? 'TRAINING-MATERIAL'
-        : normalizedMaterialId;
     final locationId =
         'training-apparatus:${_trainingStorageKey(normalizedApparatus)}';
     final locationName = 'Training: $normalizedApparatus';
@@ -96,7 +409,8 @@ extension MobileApiAdminTraining on MobileApi {
     _testModeInventoryAssets.add(
       InventoryAsset(
         kind: InventoryAssetKind.rawMaterial,
-        assetRef: 'training-raw-material:$normalizedBarcode',
+        assetRef:
+            'training-raw-material:$normalizedOrderId:$normalizedApparatus:$normalizedBarcode',
         custodyWarehouseId: 'training',
         custodyWarehouse: 'Training',
         itemCode: itemCode,

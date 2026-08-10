@@ -3967,6 +3967,14 @@ MobileApiException _adminProductionMapException(
       'method not allowed' => 'Bu amal bu usulda qo‘llanmaydi',
       'invalid json' => 'Yuborilgan ma’lumot noto‘g‘ri',
       'production maps fetch failed' => 'Production maplar yuklanmadi',
+      'training_order_number_exists' =>
+        'Bu training order raqami allaqachon mavjud',
+      'training_material_assignment_exists' =>
+        'Bu QR kodi shu training orderga allaqachon ulangan',
+      'training_order_not_found' => 'Tanlangan training order topilmadi',
+      'training_map_not_found' => 'Training order topilmadi',
+      'training_apparatus_required' => 'Training aparat tanlanmadi',
+      'training_apparatus_not_found' => 'Training aparat topilmadi',
       'map_id_required' => 'Production map ID sini kiriting',
       'map_product_code_required' => 'Mahsulot kodi kiritilmagan',
       'map_title_required' => 'Production map nomi kiritilmagan',
@@ -4029,6 +4037,15 @@ String _adminProductionMapUnknownErrorMessage({
 }) {
   final operation = switch (fallbackCode.trim().toLowerCase()) {
     'production_maps_list' => 'Production maplar yuklanmadi',
+    'training_maps_list' => 'Training orderlar yuklanmadi',
+    'training_map_save' => 'Training order saqlanmadi',
+    'training_map_save_with_order' => 'Training order va map saqlanmadi',
+    'training_apparatus_modes' => 'Training apparatlar rejimi olinmadi',
+    'training_apparatus_mode_save' => 'Training aparat rejimi saqlanmadi',
+    'training_material_assignments' =>
+      'Training homashyo biriktirmalari yuklanmadi',
+    'training_material_assignment' => 'Training homashyo ulanmagan',
+    'training_image_save' => 'Training order rasmi saqlanmadi',
     'production_map_audit' => 'Workflow audit yuklanmadi',
     'production_map_save' => 'Production map saqlanmadi',
     'production_map_save_with_order' => 'Zakaz va production map saqlanmadi',

@@ -5,7 +5,6 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
@@ -238,6 +237,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   }
 
   Future<void> _warmQuickOrderTemplates() async {
+    if (widget.trainingMode) {
+      return;
+    }
     try {
       await CalculateOrderTemplateStore.instance.load();
     } catch (_) {
@@ -322,7 +324,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   }
 
   Future<void> _openLayerMaterialPicker(int index) async {
-    if (index < 0 || index >= _layers.length ||
+    if (index < 0 ||
+        index >= _layers.length ||
         !await _ensureMaterialCatalog()) {
       return;
     }
@@ -370,7 +373,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   }
 
   Future<void> _openLayerMicronPicker(int index) async {
-    if (index < 0 || index >= _layers.length ||
+    if (index < 0 ||
+        index >= _layers.length ||
         !await _ensureMaterialCatalog()) {
       return;
     }
@@ -637,17 +641,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     if (_openingTrainingOrder || !widget.trainingMode) {
       return;
     }
-    final testModeEnabled = await TestModeController.instance.isEnabled();
-    if (!mounted) {
-      return;
-    }
-    if (!testModeEnabled) {
-      showAdminTopNotice(
-        context,
-        'Training order faqat test rejimida ochiladi',
-      );
-      return;
-    }
     if (!_hasFreshCalculation) {
       showAdminTopNotice(context, 'Avval hisoblash tugmasini bosing');
       return;
@@ -665,7 +658,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     try {
       final orderContext = _buildProductionMapOrderContext();
       final calculation = _result;
-      final saved = await MobileApi.instance.adminSaveProductionMapWithOrder(
+      final saved =
+          await MobileApi.instance.adminSaveTrainingProductionMapWithOrder(
         map: ProductionMapDefinition(
           id: 'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}',
           productCode: _firstNonEmpty([
@@ -690,7 +684,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         return;
       }
       final savedTemplate = saved.template;
-      if (savedTemplate != null) {
+      if (!widget.trainingMode && savedTemplate != null) {
         CalculateOrderTemplateStore.instance.remember(savedTemplate);
       }
       showAdminTopNotice(
@@ -1077,10 +1071,15 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       _error = '';
     });
     try {
-      final image = await MobileApi.instance.uploadCalculateOrderImage(
-        bytes: await picked.readAsBytes(),
-        filename: picked.name,
-      );
+      final image = await (widget.trainingMode
+          ? MobileApi.instance.uploadTrainingCalculateOrderImage(
+              bytes: await picked.readAsBytes(),
+              filename: picked.name,
+            )
+          : MobileApi.instance.uploadCalculateOrderImage(
+              bytes: await picked.readAsBytes(),
+              filename: picked.name,
+            ));
       if (!mounted) {
         return;
       }
@@ -2661,8 +2660,8 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
                           ? 'Material qo‘shish'
                           : 'Materialni tahrirlash',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                            fontWeight: FontWeight.w800,
+                          ),
                     ),
                   ),
                   IconButton(
@@ -2690,8 +2689,8 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
               Text(
                 'Mikron va koifisent',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+                      fontWeight: FontWeight.w800,
+                    ),
               ),
               const SizedBox(height: 8),
               for (var index = 0; index < _variants.length; index++) ...[
@@ -3017,8 +3016,5 @@ String _normalizeProductMapKey(String value) {
 }
 
 String _normalizeMaterialKey(String value) {
-  return value
-      .trim()
-      .toLowerCase()
-      .replaceAll(RegExp(r'[^a-z0-9]'), '');
+  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 }

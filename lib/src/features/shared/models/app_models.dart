@@ -317,6 +317,34 @@ class AdminApparatus {
   final String factoryMapObjectId;
   final bool trainingEnabled;
 
+  AdminApparatus copyWith({
+    String? id,
+    String? name,
+    String? source,
+    int? sortOrder,
+    String? family,
+    String? kind,
+    List<String>? capabilities,
+    List<AdminApparatusCapabilityProfile>? capabilityProfiles,
+    int? colorStations,
+    String? factoryMapObjectId,
+    bool? trainingEnabled,
+  }) {
+    return AdminApparatus(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      source: source ?? this.source,
+      sortOrder: sortOrder ?? this.sortOrder,
+      family: family ?? this.family,
+      kind: kind ?? this.kind,
+      capabilities: capabilities ?? this.capabilities,
+      capabilityProfiles: capabilityProfiles ?? this.capabilityProfiles,
+      colorStations: colorStations ?? this.colorStations,
+      factoryMapObjectId: factoryMapObjectId ?? this.factoryMapObjectId,
+      trainingEnabled: trainingEnabled ?? this.trainingEnabled,
+    );
+  }
+
   bool get isDefault => source == 'default';
   bool get isPechat =>
       family.trim().toLowerCase() == 'pechat' ||
