@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/display/app_info_row.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -302,6 +304,16 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     }
   }
 
+  void _showTrainingOrderDetails(ProductionMapSaved order) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _TrainingOrderDetailsSheet(order: order),
+    );
+  }
+
   List<ProductionMapSaved> _ordersFor(AdminApparatus apparatus) {
     return [
       for (final order in _orders)
@@ -404,6 +416,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                                     _linkingOrderId == _apparatus[index].id,
                                 deletingOrderId: _deletingOrderId,
                                 onDeleteOrder: _deleteTrainingOrder,
+                                onOrderTap: _showTrainingOrderDetails,
                                 onExpandedChanged: (expanded) {
                                   setState(() {
                                     _expandedId =
@@ -445,6 +458,7 @@ class _TrainingApparatusTile extends StatelessWidget {
     required this.onTrainingChanged,
     required this.onLinkOrder,
     required this.onDeleteOrder,
+    required this.onOrderTap,
     required this.slot,
   });
 
@@ -459,6 +473,7 @@ class _TrainingApparatusTile extends StatelessWidget {
   final ValueChanged<bool> onTrainingChanged;
   final VoidCallback onLinkOrder;
   final ValueChanged<ProductionMapSaved> onDeleteOrder;
+  final ValueChanged<ProductionMapSaved> onOrderTap;
   final M3SegmentVerticalSlot slot;
 
   @override
@@ -645,6 +660,7 @@ class _TrainingApparatusTile extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
+                              onTap: () => onOrderTap(order),
                               trailing: deletingOrderId == order.map.id.trim()
                                   ? const SizedBox.square(
                                       dimension: 20,
@@ -691,6 +707,200 @@ class _TrainingApparatusTile extends StatelessWidget {
                 : const SizedBox.shrink(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TrainingOrderDetailsSheet extends StatelessWidget {
+  const _TrainingOrderDetailsSheet({required this.order});
+
+  final ProductionMapSaved order;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final map = order.map;
+    final apparatus = map.nodes
+        .where(
+            (node) => node.kind == 'apparatus' && node.title.trim().isNotEmpty)
+        .map((node) => node.title.trim())
+        .join(', ');
+    final stages = map.nodes
+        .where((node) => node.kind == 'task' && node.title.trim().isNotEmpty)
+        .toList(growable: false);
+    final headerTitle = map.title.trim().isEmpty
+        ? _trainingOrderLabel(order)
+        : map.title.trim();
+
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.86,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Icon(
+                        Icons.receipt_long_rounded,
+                        color: scheme.onSecondaryContainer,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          headerTitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Training order ma’lumotlari',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _TrainingOrderDetailsSection(
+                title: 'Buyurtma ma’lumotlari',
+                icon: Icons.info_outline_rounded,
+                children: [
+                  if (map.orderNumber.trim().isNotEmpty)
+                    AppInfoRow(
+                      label: 'Buyurtma raqami',
+                      value: map.orderNumber,
+                      selectable: true,
+                    ),
+                  AppInfoRow(label: 'Mahsulot', value: map.title),
+                  if (map.productCode.trim().isNotEmpty)
+                    AppInfoRow(
+                      label: 'Mahsulot kodi',
+                      value: map.productCode,
+                      selectable: true,
+                    ),
+                  if (map.code.trim().isNotEmpty)
+                    AppInfoRow(label: 'Kod', value: map.code),
+                  if (map.customerName.trim().isNotEmpty)
+                    AppInfoRow(label: 'Mijoz', value: map.customerName),
+                  if (map.rollCount != null && map.rollCount! > 0)
+                    AppInfoRow(
+                      label: 'Rulon soni',
+                      value: '${formatRawQuantity(map.rollCount!)} ta',
+                    ),
+                  if (map.widthMm != null && map.widthMm! > 0)
+                    AppInfoRow(
+                      label: 'Eni',
+                      value: '${formatRawQuantity(map.widthMm!)} mm',
+                    ),
+                  if (map.orderKg != null && map.orderKg! > 0)
+                    AppInfoRow(
+                      label: 'Rejadagi og‘irlik',
+                      value: '${formatRawQuantity(map.orderKg!)} kg',
+                    ),
+                  if (map.baseLength != null && map.baseLength! > 0)
+                    AppInfoRow(
+                      label: 'Rejadagi uzunlik',
+                      value: '${formatRawQuantity(map.baseLength!)} metr',
+                    ),
+                ],
+              ),
+              if (apparatus.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _TrainingOrderDetailsSection(
+                  title: 'Ulangan aparat',
+                  icon: Icons.precision_manufacturing_outlined,
+                  children: [AppInfoRow(label: 'Apparat', value: apparatus)],
+                ),
+              ],
+              if (stages.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _TrainingOrderDetailsSection(
+                  title: 'Production map bosqichlari',
+                  icon: Icons.account_tree_outlined,
+                  children: [
+                    for (var index = 0; index < stages.length; index++)
+                      AppInfoRow(
+                        label: '${index + 1}-bosqich',
+                        value: stages[index].title,
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TrainingOrderDetailsSection extends StatelessWidget {
+  const _TrainingOrderDetailsSection({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 20, color: scheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...children,
+          ],
+        ),
       ),
     );
   }
