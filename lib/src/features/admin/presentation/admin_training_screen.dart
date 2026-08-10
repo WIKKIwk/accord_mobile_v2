@@ -47,7 +47,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   String? _linkingMaterialOrderId;
   String? _deletingOrderId;
   String? _expandedId;
-  bool _restarting = false;
+  String? _restartingId;
 
   @override
   void initState() {
@@ -154,25 +154,27 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     }
   }
 
-  Future<void> _restartTraining() async {
-    if (_restarting) {
+  Future<void> _restartTraining(AdminApparatus apparatus) async {
+    if (_restartingId != null) {
       return;
     }
     final confirmed = await showM3ConfirmDialog(
       context: context,
-      title: 'Trainingni qayta boshlash',
-      message:
-          'Barcha training orderlar 0-holatga qaytariladi. Orderlar va ulangan '
-          'homashyolar saqlanadi. Production ma’lumotlari o‘zgarmaydi.',
+      title: '${apparatus.name} trainingini qayta boshlash',
+      message: 'Faqat shu apparatdagi training orderlar 0-holatga qaytariladi. '
+          'Orderlar va ulangan homashyolar saqlanadi. Boshqa apparatlar va '
+          'production ma’lumotlari o‘zgarmaydi.',
       cancelLabel: 'Bekor qilish',
       confirmLabel: 'Qayta boshlash',
     );
     if (!mounted || confirmed != true) {
       return;
     }
-    setState(() => _restarting = true);
+    setState(() => _restartingId = apparatus.id);
     try {
-      await MobileApi.instance.adminRestartTraining();
+      await MobileApi.instance.adminRestartTraining(
+        apparatus: apparatus.name,
+      );
       if (!mounted) {
         return;
       }
@@ -182,7 +184,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       }
       showAdminTopNotice(
         context,
-        'Training qayta boshlandi: barcha natijalar 0 ga qaytarildi',
+        '${apparatus.name} trainingi qayta boshlandi',
         icon: Icons.restart_alt_rounded,
       );
     } catch (error) {
@@ -197,7 +199,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       }
     } finally {
       if (mounted) {
-        setState(() => _restarting = false);
+        setState(() => _restartingId = null);
       }
     }
   }
@@ -569,19 +571,6 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       title: 'Training',
       selectedRouteName: AppRoutes.adminTraining,
       activeTab: AdminDockTab.home,
-      actions: [
-        IconButton(
-          tooltip: 'Trainingni qayta boshlash',
-          onPressed: _restarting ? null : _restartTraining,
-          icon: _restarting
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.restart_alt_rounded),
-        ),
-      ],
       primaryFabActions: [
         AdminFabMenuAction(
           title: 'Training order qo‘shish',
@@ -650,6 +639,8 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                                 saving: _savingId == _apparatus[index].id,
                                 linking:
                                     _linkingOrderId == _apparatus[index].id,
+                                restarting:
+                                    _restartingId == _apparatus[index].id,
                                 deletingOrderId: _deletingOrderId,
                                 onDeleteOrder: _deleteTrainingOrder,
                                 onOrderTap: _showTrainingOrderDetails,
@@ -666,6 +657,8 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                                 ),
                                 onLinkOrder: () =>
                                     _openOrderForApparatus(_apparatus[index]),
+                                onRestart: () =>
+                                    _restartTraining(_apparatus[index]),
                                 slot: M3SegmentedListGeometry
                                     .standaloneListSlotForIndex(
                                   index,
@@ -689,12 +682,14 @@ class _TrainingApparatusTile extends StatelessWidget {
     required this.expanded,
     required this.saving,
     required this.linking,
+    required this.restarting,
     required this.deletingOrderId,
     required this.onExpandedChanged,
     required this.onTrainingChanged,
     required this.onLinkOrder,
     required this.onDeleteOrder,
     required this.onOrderTap,
+    required this.onRestart,
     required this.slot,
   });
 
@@ -704,12 +699,14 @@ class _TrainingApparatusTile extends StatelessWidget {
   final bool expanded;
   final bool saving;
   final bool linking;
+  final bool restarting;
   final String? deletingOrderId;
   final ValueChanged<bool> onExpandedChanged;
   final ValueChanged<bool> onTrainingChanged;
   final VoidCallback onLinkOrder;
   final ValueChanged<ProductionMapSaved> onDeleteOrder;
   final ValueChanged<ProductionMapSaved> onOrderTap;
+  final VoidCallback onRestart;
   final M3SegmentVerticalSlot slot;
 
   @override
@@ -848,6 +845,22 @@ class _TrainingApparatusTile extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: OutlinedButton.icon(
+                            onPressed: restarting ? null : onRestart,
+                            icon: restarting
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.restart_alt_rounded),
+                            label: const Text('Trainingni qayta boshlash'),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
                         if (isTrainingOrderApparatus(apparatus))
                           Align(
                             alignment: Alignment.centerRight,

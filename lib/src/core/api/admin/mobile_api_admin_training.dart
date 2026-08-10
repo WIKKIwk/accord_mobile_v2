@@ -110,6 +110,39 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
             );
       }
 
+      final trainingOrderIds = <String>{};
+      for (final entry in _testModeApparatusQueueStates.entries) {
+        if (!matchesApparatus(entry.key)) {
+          continue;
+        }
+        trainingOrderIds.addAll(
+          entry.value.keys.where(
+            (orderId) => orderId.trim().startsWith('training-'),
+          ),
+        );
+      }
+      for (final entry in _testModeApparatusSequences.entries) {
+        if (!matchesApparatus(entry.key)) {
+          continue;
+        }
+        trainingOrderIds.addAll(
+          entry.value.where(
+            (orderId) => orderId.trim().startsWith('training-'),
+          ),
+        );
+      }
+      for (final saved in _testModeProductionMaps) {
+        final orderId = saved.map.id.trim();
+        if (!orderId.startsWith('training-')) {
+          continue;
+        }
+        final belongsToApparatus = saved.map.nodes.any(
+          (node) => node.kind == 'apparatus' && matchesApparatus(node.title),
+        );
+        if (belongsToApparatus) {
+          trainingOrderIds.add(orderId);
+        }
+      }
       for (final entry in _testModeApparatusQueueStates.entries) {
         if (!matchesApparatus(entry.key)) {
           continue;
@@ -119,14 +152,10 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
         );
       }
       _testModeCompletedQueueOrders.removeWhere(
-        (item) =>
-            item.order.orderId.trim().startsWith('training-') &&
-            matchesApparatus(item.order.apparatus),
+        (item) => trainingOrderIds.contains(item.order.orderId.trim()),
       );
       _testModeProgressBatchesByQr.removeWhere(
-        (_, batch) =>
-            batch.orderId.trim().startsWith('training-') &&
-            matchesApparatus(batch.apparatus),
+        (_, batch) => trainingOrderIds.contains(batch.orderId.trim()),
       );
       _testModeActiveProgressInputByQueue.removeWhere((key, _) {
         final separator = key.indexOf('|');
@@ -134,15 +163,13 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
           return false;
         }
         final orderId = key.substring(separator + 1).trim();
-        final queueApparatus = key.substring(0, separator).trim();
-        return orderId.startsWith('training-') &&
-            matchesApparatus(queueApparatus);
+        return trainingOrderIds.contains(orderId);
       });
       _testModeOrderStartedAtUnix.removeWhere(
-        (orderId, _) => orderId.trim().startsWith('training-'),
+        (orderId, _) => trainingOrderIds.contains(orderId.trim()),
       );
       _testModeOrderControls.removeWhere(
-        (orderId, _) => orderId.trim().startsWith('training-'),
+        (orderId, _) => trainingOrderIds.contains(orderId.trim()),
       );
       return;
     }
