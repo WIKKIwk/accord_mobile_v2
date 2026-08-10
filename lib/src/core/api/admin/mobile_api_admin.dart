@@ -4040,6 +4040,7 @@ String _adminProductionMapUnknownErrorMessage({
     'training_maps_list' => 'Training orderlar yuklanmadi',
     'training_map_save' => 'Training order saqlanmadi',
     'training_map_save_with_order' => 'Training order va map saqlanmadi',
+    'training_map_delete' => 'Training order o‘chirilmadi',
     'training_apparatus_modes' => 'Training apparatlar rejimi olinmadi',
     'training_apparatus_mode_save' => 'Training aparat rejimi saqlanmadi',
     'training_material_assignments' =>

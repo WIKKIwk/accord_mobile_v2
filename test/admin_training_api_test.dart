@@ -21,7 +21,7 @@ void main() {
   test('training raw material is linked to order and apparatus state',
       () async {
     await TestModeController.instance.setEnabled(true);
-    const orderId = 'zakaz-training-1';
+    const orderId = 'training-zakaz-1';
     const apparatus = 'Training aparat';
     await MobileApi.instance.adminSaveProductionMap(
       const ProductionMapDefinition(
@@ -92,5 +92,25 @@ void main() {
     );
     expect(requirements.stagedBarcodes, contains('TRN-TRAINING-1'));
     expect(requirements.scanSatisfied, isTrue);
+
+    await MobileApi.instance.adminDeleteTrainingProductionMap(orderId);
+    expect(
+      await MobileApi.instance.adminTrainingProductionMaps(id: orderId),
+      isEmpty,
+    );
+    expect(
+      await MobileApi.instance.adminRawMaterialAssignments(
+        orderId: orderId,
+        apparatus: apparatus,
+      ),
+      isEmpty,
+    );
+    expect(
+      await MobileApi.instance.inventoryAssets(
+        assetKind: InventoryAssetKind.rawMaterial,
+        query: 'TRN-TRAINING-1',
+      ),
+      isEmpty,
+    );
   });
 }

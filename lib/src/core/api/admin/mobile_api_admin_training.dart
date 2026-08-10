@@ -164,6 +164,64 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     );
   }
 
+  Future<void> adminDeleteTrainingProductionMap(String orderId) async {
+    final normalized = orderId.trim();
+    if (normalized.isEmpty || !normalized.startsWith('training-')) {
+      throw const MobileApiException(
+        code: 'training_order_required',
+        message: 'Training order tanlanmadi',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final exists = _testModeProductionMaps.any(
+        (saved) => saved.map.id.trim() == normalized,
+      );
+      if (!exists) {
+        throw const MobileApiException(
+          code: 'training_map_not_found',
+          message: 'Training order topilmadi',
+        );
+      }
+      _testModeProductionMaps.removeWhere(
+        (saved) => saved.map.id.trim() == normalized,
+      );
+      _testModeRawMaterialAssignments.removeWhere(
+        (assignment) => assignment.orderId.trim() == normalized,
+      );
+      _testModeInventoryAssets.removeWhere(
+        (asset) =>
+            asset.assetRef.startsWith('training-raw-material:$normalized:'),
+      );
+      _testModeProgressBatchesByQr.removeWhere(
+        (_, batch) => batch.orderId.trim() == normalized,
+      );
+      _testModeCompletedQueueOrders.removeWhere(
+        (entry) => entry.order.orderId.trim() == normalized,
+      );
+      _testModeOrderStartedAtUnix.remove(normalized);
+      _testModeOrderControls.remove(normalized);
+      _testModeQolipOrderNotes.remove(normalized);
+      for (final sequence in _testModeApparatusSequences.values) {
+        sequence.removeWhere((id) => id.trim() == normalized);
+      }
+      for (final states in _testModeApparatusQueueStates.values) {
+        states.remove(normalized);
+      }
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => _delete(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/training/production-maps',
+        ).replace(queryParameters: {'id': normalized}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'training_map_delete');
+    }
+  }
+
   Future<List<AdminRawMaterialAssignment>> adminTrainingRawMaterialAssignments({
     String orderId = '',
     String apparatus = '',

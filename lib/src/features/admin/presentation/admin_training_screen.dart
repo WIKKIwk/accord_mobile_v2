@@ -33,6 +33,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   String? _error;
   String? _savingId;
   String? _linkingOrderId;
+  String? _deletingOrderId;
   String? _expandedId;
 
   @override
@@ -209,6 +210,83 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     await _openOrderForApparatus(apparatus);
   }
 
+  Future<void> _deleteTrainingOrder(ProductionMapSaved order) async {
+    if (_deletingOrderId != null) {
+      return;
+    }
+    final orderId = order.map.id.trim();
+    if (orderId.isEmpty) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final scheme = Theme.of(dialogContext).colorScheme;
+        return AlertDialog(
+          icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
+          title: const Text('Training orderni o‘chirish'),
+          content: Text(
+            '“${_trainingOrderLabel(order)}” va unga ulangan test homashyolar '
+            'o‘chiriladi. Davom etilsinmi?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.error,
+                foregroundColor: scheme.onError,
+              ),
+              child: const Text('O‘chirish'),
+            ),
+          ],
+        );
+      },
+    );
+    if (!mounted || confirmed != true) {
+      return;
+    }
+    setState(() => _deletingOrderId = orderId);
+    try {
+      await MobileApi.instance.adminDeleteTrainingProductionMap(orderId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _orders = [
+          for (final item in _orders)
+            if (item.map.id.trim() != orderId) item,
+        ];
+        _assignments = [
+          for (final item in _assignments)
+            if (item.orderId.trim() != orderId) item,
+        ];
+      });
+      showAdminTopNotice(
+        context,
+        'Training order o‘chirildi',
+        icon: Icons.check_circle_outline,
+      );
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : 'Training order o‘chirilmadi',
+          icon: Icons.error_outline,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _deletingOrderId = null);
+      }
+    }
+  }
+
   List<ProductionMapSaved> _ordersFor(AdminApparatus apparatus) {
     return [
       for (final order in _orders)
@@ -309,6 +387,8 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                                 saving: _savingId == _apparatus[index].id,
                                 linking:
                                     _linkingOrderId == _apparatus[index].id,
+                                deletingOrderId: _deletingOrderId,
+                                onDeleteOrder: _deleteTrainingOrder,
                                 onExpandedChanged: (expanded) {
                                   setState(() {
                                     _expandedId =
@@ -345,9 +425,11 @@ class _TrainingApparatusTile extends StatelessWidget {
     required this.expanded,
     required this.saving,
     required this.linking,
+    required this.deletingOrderId,
     required this.onExpandedChanged,
     required this.onTrainingChanged,
     required this.onLinkOrder,
+    required this.onDeleteOrder,
     required this.slot,
   });
 
@@ -357,9 +439,11 @@ class _TrainingApparatusTile extends StatelessWidget {
   final bool expanded;
   final bool saving;
   final bool linking;
+  final String? deletingOrderId;
   final ValueChanged<bool> onExpandedChanged;
   final ValueChanged<bool> onTrainingChanged;
   final VoidCallback onLinkOrder;
+  final ValueChanged<ProductionMapSaved> onDeleteOrder;
   final M3SegmentVerticalSlot slot;
 
   @override
@@ -546,6 +630,20 @@ class _TrainingApparatusTile extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
+                              trailing: deletingOrderId == order.map.id.trim()
+                                  ? const SizedBox.square(
+                                      dimension: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : IconButton(
+                                      tooltip: 'Training orderni o‘chirish',
+                                      onPressed: () => onDeleteOrder(order),
+                                      icon: const Icon(
+                                        Icons.delete_outline_rounded,
+                                      ),
+                                    ),
                             ),
                         ],
                         if (assignments.isNotEmpty) ...[
