@@ -131,7 +131,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     }
   }
 
-  Future<void> _linkOrder(AdminApparatus apparatus) async {
+  Future<void> _openOrderForApparatus(AdminApparatus apparatus) async {
     if (_linkingOrderId != null) {
       return;
     }
@@ -149,51 +149,26 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       );
       return;
     }
-    final availableOrders = _orders
-        .where((order) => !trainingOrderHasApparatus(order.map))
-        .toList(growable: false);
     setState(() => _linkingOrderId = apparatus.id);
     try {
-      final draft = await showModalBottomSheet<_TrainingOrderLinkDraft>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        showDragHandle: true,
-        builder: (context) => _TrainingOrderLinkSheet(
-          apparatus: apparatus,
-          orders: availableOrders,
+      final result = await Navigator.of(context).pushNamed(
+        AppRoutes.adminCalculate,
+        arguments: AdminCalculateArgs(
+          trainingMode: true,
+          trainingApparatus: apparatus.name,
         ),
       );
-      if (draft == null || !mounted) {
+      if (!mounted || result != true) {
         return;
       }
-      final linkedMap = assignTrainingOrderToApparatus(
-        map: draft.order.map,
-        apparatus: apparatus.name,
-      );
-      final saved =
-          await MobileApi.instance.adminSaveTrainingProductionMap(linkedMap);
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _orders = [
-          for (final order in _orders)
-            if (order.map.id == saved.map.id) saved else order,
-        ];
-      });
-      showAdminTopNotice(
-        context,
-        '${_trainingOrderLabel(saved)} ${apparatus.name}ga ulandi',
-        icon: Icons.link_rounded,
-      );
+      await _load();
     } catch (error) {
       if (mounted) {
         showAdminTopNotice(
           context,
           error is MobileApiException
               ? error.message
-              : 'Training order ulanmagan',
+              : 'Training order sahifasi ochilmadi',
           icon: Icons.error_outline,
         );
       }
@@ -205,9 +180,12 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   }
 
   Future<void> _openTrainingOrder() async {
-    if (!_apparatus.any(
-      (item) => item.trainingEnabled && isTrainingOrderApparatus(item),
-    )) {
+    final available = _apparatus
+        .where(
+          (item) => item.trainingEnabled && isTrainingOrderApparatus(item),
+        )
+        .toList(growable: false);
+    if (available.isEmpty) {
       showAdminTopNotice(
         context,
         'Avval 7 ta rangli bosma aparat uchun Training rejimini yoqing',
@@ -215,14 +193,20 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       );
       return;
     }
-    final result = await Navigator.of(context).pushNamed(
-      AppRoutes.adminCalculate,
-      arguments: const AdminCalculateArgs(trainingMode: true),
-    );
-    if (!mounted || result != true) {
+    final apparatus = available.length == 1
+        ? available.single
+        : await showModalBottomSheet<AdminApparatus>(
+            context: context,
+            showDragHandle: true,
+            useSafeArea: true,
+            builder: (context) => _TrainingApparatusPicker(
+              apparatus: available,
+            ),
+          );
+    if (!mounted || apparatus == null) {
       return;
     }
-    await _load();
+    await _openOrderForApparatus(apparatus);
   }
 
   List<ProductionMapSaved> _ordersFor(AdminApparatus apparatus) {
@@ -337,7 +321,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                                   enabled,
                                 ),
                                 onLinkOrder: () =>
-                                    _linkOrder(_apparatus[index]),
+                                    _openOrderForApparatus(_apparatus[index]),
                                 slot: M3SegmentedListGeometry
                                     .standaloneListSlotForIndex(
                                   index,
@@ -599,153 +583,6 @@ class _TrainingApparatusTile extends StatelessWidget {
   }
 }
 
-class _TrainingOrderLinkDraft {
-  const _TrainingOrderLinkDraft({required this.order});
-
-  final ProductionMapSaved order;
-}
-
-class _TrainingOrderLinkSheet extends StatefulWidget {
-  const _TrainingOrderLinkSheet({
-    required this.apparatus,
-    required this.orders,
-  });
-
-  final AdminApparatus apparatus;
-  final List<ProductionMapSaved> orders;
-
-  @override
-  State<_TrainingOrderLinkSheet> createState() =>
-      _TrainingOrderLinkSheetState();
-}
-
-class _TrainingOrderLinkSheetState extends State<_TrainingOrderLinkSheet> {
-  ProductionMapSaved? _order;
-  String? _validationMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _order = widget.orders.length == 1 ? widget.orders.first : null;
-  }
-
-  void _submit() {
-    if (_order == null) {
-      setState(() {
-        _validationMessage = 'Ulash uchun orderni tanlang';
-      });
-      return;
-    }
-    Navigator.of(context).pop(
-      _TrainingOrderLinkDraft(order: _order!),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + bottomInset),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Training orderini ulash',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text('Aparat: ${widget.apparatus.name}'),
-              const SizedBox(height: 18),
-              if (widget.orders.isEmpty)
-                const _TrainingSheetNotice(
-                  icon: Icons.receipt_long_outlined,
-                  text:
-                      'Avval FAB orqali training order oching. U order bu yerda tanlanmagan holatda ko‘rinadi.',
-                )
-              else
-                DropdownButtonFormField<ProductionMapSaved>(
-                  initialValue: _order,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Order',
-                    prefixIcon: Icon(Icons.receipt_long_outlined),
-                  ),
-                  items: [
-                    for (final order in widget.orders)
-                      DropdownMenuItem<ProductionMapSaved>(
-                        value: order,
-                        child: Text(
-                          _trainingOrderLabel(order),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: (value) => setState(() => _order = value),
-                ),
-              const SizedBox(height: 12),
-              const _TrainingSheetNotice(
-                icon: Icons.link_rounded,
-                text: 'Tanlangan order shu 7 rangli aparatning navbatiga '
-                    'ulanadi. Keyin uning test homashyosi shu orderga qo‘shiladi.',
-              ),
-              if (_validationMessage != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _validationMessage!,
-                  style: TextStyle(color: theme.colorScheme.error),
-                ),
-              ],
-              const SizedBox(height: 18),
-              FilledButton.icon(
-                onPressed: widget.orders.isNotEmpty ? _submit : null,
-                icon: const Icon(Icons.link_rounded),
-                label: const Text('Order ulash'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TrainingSheetNotice extends StatelessWidget {
-  const _TrainingSheetNotice({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 20),
-            const SizedBox(width: 10),
-            Expanded(child: Text(text)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 String _trainingOrderLabel(ProductionMapSaved saved) {
   final map = saved.map;
   final values = [map.title, map.orderNumber, map.customerName]
@@ -761,4 +598,39 @@ String _trainingOrderShortLabel(String orderId) {
     return normalized;
   }
   return '${normalized.substring(0, 10)}…${normalized.substring(normalized.length - 8)}';
+}
+
+class _TrainingApparatusPicker extends StatelessWidget {
+  const _TrainingApparatusPicker({required this.apparatus});
+
+  final List<AdminApparatus> apparatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Training apparatini tanlang',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (final item in apparatus)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.precision_manufacturing_outlined),
+              title: Text(item.name),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).pop(item),
+            ),
+        ],
+      ),
+    );
+  }
 }

@@ -508,6 +508,7 @@ class AppRouter {
           AdminCalculateScreen(
             template: template,
             trainingMode: calculateArgs?.trainingMode ?? false,
+            trainingApparatus: calculateArgs?.trainingApparatus ?? '',
           ),
         );
       case AppRoutes.adminCalculateMaterials:

@@ -24,10 +24,15 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 class AdminCalculateArgs {
-  const AdminCalculateArgs({this.template, this.trainingMode = false});
+  const AdminCalculateArgs({
+    this.template,
+    this.trainingMode = false,
+    this.trainingApparatus = '',
+  });
 
   final CalculateOrderTemplate? template;
   final bool trainingMode;
+  final String trainingApparatus;
 }
 
 class AdminCalculateScreen extends StatefulWidget {
@@ -35,10 +40,12 @@ class AdminCalculateScreen extends StatefulWidget {
     super.key,
     this.template,
     this.trainingMode = false,
+    this.trainingApparatus = '',
   });
 
   final CalculateOrderTemplate? template;
   final bool trainingMode;
+  final String trainingApparatus;
 
   @override
   State<AdminCalculateScreen> createState() => _AdminCalculateScreenState();
@@ -546,6 +553,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       itemCode: _itemCode,
       rollCount: _parseOptionalDouble(_rollCount.text),
       widthMm: _derivedWidthMm(),
+      apparatus: widget.trainingMode ? widget.trainingApparatus.trim() : '',
       templateDraft: _buildTemplateDraft(),
     );
   }
@@ -639,6 +647,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   Future<void> _openTrainingOrder() async {
     if (_openingTrainingOrder || !widget.trainingMode) {
+      return;
+    }
+    if (widget.trainingApparatus.trim().isEmpty) {
+      showAdminTopNotice(context, 'Training orderni aparat ichidan oching');
       return;
     }
     if (!_hasFreshCalculation) {
@@ -1311,7 +1323,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             ),
           ),
         ],
-        if (_editingAllFields) ...[
+        if (_editingAllFields && !widget.trainingMode) ...[
           const SizedBox(height: 18),
           OutlinedButton.icon(
             onPressed: _openProductionMap,
