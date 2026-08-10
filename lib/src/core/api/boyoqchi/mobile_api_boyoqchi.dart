@@ -83,6 +83,13 @@ extension MobileApiBoyoqchi on MobileApi {
       _testModeReturnedPaintImages[id] = image;
       return image;
     }
+    if (orderId.trim().startsWith('training-')) {
+      return uploadTrainingReturnedPaintImage(
+        bytes: bytes,
+        filename: filename,
+        mime: mime,
+      );
+    }
     final uri = Uri.parse(
       '${MobileApi.baseUrl}/v1/mobile/returned-paint/images',
     ).replace(
@@ -114,9 +121,16 @@ extension MobileApiBoyoqchi on MobileApi {
     );
   }
 
-  Future<void> deleteReturnedPaintImage(String imageId) async {
+  Future<void> deleteReturnedPaintImage(
+    String imageId, {
+    String orderId = '',
+  }) async {
     if (await TestModeController.instance.isEnabled()) {
       _testModeReturnedPaintImages.remove(imageId.trim());
+      return;
+    }
+    if (orderId.trim().startsWith('training-')) {
+      await deleteTrainingReturnedPaintImage(imageId);
       return;
     }
     final response = await _sendAuthorized(

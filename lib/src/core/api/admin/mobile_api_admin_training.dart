@@ -416,6 +416,51 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
       raw is Map ? raw.cast<String, dynamic>() : const <String, dynamic>{},
     );
   }
+
+  Future<ReturnedPaintImage> uploadTrainingReturnedPaintImage({
+    required List<int> bytes,
+    required String filename,
+    required String mime,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/training/images'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = mime
+          ..['x-file-name'] = filename,
+        body: bytes,
+      ),
+    );
+    final payload = await decodeJsonMapPayload(response.body);
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'training_returned_paint_image_save',
+      );
+    }
+    final raw = payload['image'];
+    return ReturnedPaintImage.fromJson(
+      raw is Map ? raw.cast<String, dynamic>() : const <String, dynamic>{},
+    );
+  }
+
+  Future<void> deleteTrainingReturnedPaintImage(String imageId) async {
+    final normalized = imageId.trim();
+    if (normalized.isEmpty) return;
+    final response = await _sendAuthorized(
+      () => _delete(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/training/images')
+            .replace(queryParameters: {'id': normalized}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'training_returned_paint_image_delete',
+      );
+    }
+  }
 }
 
 extension MobileApiAdminTraining on MobileApi {

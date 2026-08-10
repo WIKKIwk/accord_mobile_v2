@@ -622,7 +622,10 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
       widget.draft.setImage(image);
       if (previous != null && previous.imageId != image.imageId) {
         try {
-          await MobileApi.instance.deleteReturnedPaintImage(previous.imageId);
+          await MobileApi.instance.deleteReturnedPaintImage(
+            previous.imageId,
+            orderId: widget.orderId,
+          );
         } catch (_) {
           // The new order-bound image is already saved; an unattached old image
           // must not roll the user's replacement back.
@@ -643,7 +646,10 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
       _error = '';
     });
     try {
-      await MobileApi.instance.deleteReturnedPaintImage(image.imageId);
+      await MobileApi.instance.deleteReturnedPaintImage(
+        image.imageId,
+        orderId: widget.orderId,
+      );
       widget.draft.setImage(null);
     } catch (error) {
       if (mounted) _error = _errorText(error, 'Rasm olib tashlanmadi');
