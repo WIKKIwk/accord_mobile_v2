@@ -831,6 +831,14 @@ class _TrainingApparatusTile extends StatelessWidget {
           (order) => statuses[order.map.id.trim()]?.isCompleted == true,
         )
         .length;
+    final assignmentsByOrderId = <String, List<AdminRawMaterialAssignment>>{};
+    for (final assignment in assignments) {
+      final orderId = assignment.orderId.trim();
+      if (orderId.isEmpty) {
+        continue;
+      }
+      assignmentsByOrderId.putIfAbsent(orderId, () => []).add(assignment);
+    }
     final summaryParts = <String>[
       apparatus.trainingEnabled ? 'Training rejimi' : 'Production rejimi',
       if (orders.isNotEmpty) '${orders.length} ta test order',
@@ -925,7 +933,7 @@ class _TrainingApparatusTile extends StatelessWidget {
             alignment: Alignment.topCenter,
             child: expanded
                 ? Padding(
-                    padding: const EdgeInsets.fromLTRB(58, 0, 14, 14),
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -1006,92 +1014,16 @@ class _TrainingApparatusTile extends StatelessWidget {
                           ),
                         if (orders.isNotEmpty) ...[
                           const SizedBox(height: 4),
-                          for (final order in orders) ...[
-                            Builder(
-                              builder: (context) {
-                                final status = statuses[order.map.id.trim()];
-                                final color = _trainingOrderStatusColor(
-                                  context,
-                                  status,
-                                );
-                                final subtitleParts = <String>[
-                                  if (order.map.productCode.trim().isNotEmpty)
-                                    order.map.productCode.trim(),
-                                  if (status != null)
-                                    _trainingOrderStatusLabel(status),
-                                  if (status != null &&
-                                      status.actorDisplayName.trim().isNotEmpty)
-                                    status.actorDisplayName.trim(),
-                                ];
-                                return ListTile(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  tileColor: status == null
-                                      ? null
-                                      : color.withValues(alpha: 0.10),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  leading: Icon(
-                                    _trainingOrderStatusIcon(status),
-                                    size: 20,
-                                    color: color,
-                                  ),
-                                  title: Text(
-                                    _trainingOrderLabel(order),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  subtitle: Text(
-                                    subtitleParts.join(' · '),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  onTap: () => onOrderTap(order),
-                                  trailing:
-                                      deletingOrderId == order.map.id.trim()
-                                          ? const SizedBox.square(
-                                              dimension: 20,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : IconButton(
-                                              tooltip:
-                                                  'Training orderni o‘chirish',
-                                              onPressed: () =>
-                                                  onDeleteOrder(order),
-                                              icon: const Icon(
-                                                Icons.delete_outline_rounded,
-                                              ),
-                                            ),
-                                );
-                              },
-                            ),
-                          ],
-                        ],
-                        if (assignments.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          for (final assignment in assignments)
-                            ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: const Icon(
-                                Icons.qr_code_2_rounded,
-                                size: 20,
-                              ),
-                              title: Text(
-                                assignment.itemName.isEmpty
-                                    ? assignment.barcode
-                                    : assignment.itemName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                '${assignment.barcode} · ${_trainingOrderShortLabel(assignment.orderId)}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                          for (final order in orders)
+                            _TrainingOrderCard(
+                              order: order,
+                              status: statuses[order.map.id.trim()],
+                              assignments: assignmentsByOrderId[
+                                      order.map.id.trim()] ??
+                                  const [],
+                              deleting: deletingOrderId == order.map.id.trim(),
+                              onDelete: () => onDeleteOrder(order),
+                              onOpenDetails: () => onOrderTap(order),
                             ),
                         ],
                       ],
@@ -1100,6 +1032,172 @@ class _TrainingApparatusTile extends StatelessWidget {
                 : const SizedBox.shrink(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TrainingOrderCard extends StatefulWidget {
+  const _TrainingOrderCard({
+    required this.order,
+    required this.status,
+    required this.assignments,
+    required this.deleting,
+    required this.onDelete,
+    required this.onOpenDetails,
+  });
+
+  final ProductionMapSaved order;
+  final AdminTrainingOrderStatus? status;
+  final List<AdminRawMaterialAssignment> assignments;
+  final bool deleting;
+  final VoidCallback onDelete;
+  final VoidCallback onOpenDetails;
+
+  @override
+  State<_TrainingOrderCard> createState() => _TrainingOrderCardState();
+}
+
+class _TrainingOrderCardState extends State<_TrainingOrderCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final status = widget.status;
+    final color = _trainingOrderStatusColor(context, status);
+    final subtitleParts = <String>[
+      if (widget.order.map.productCode.trim().isNotEmpty)
+        widget.order.map.productCode.trim(),
+      if (status != null) _trainingOrderStatusLabel(status),
+      if (status != null && status.actorDisplayName.trim().isNotEmpty)
+        status.actorDisplayName.trim(),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Material(
+        color: status == null
+            ? scheme.surfaceContainerHighest.withValues(alpha: 0.32)
+            : color.withValues(alpha: 0.10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            InkWell(
+              onTap: () => setState(() => _expanded = !_expanded),
+              onLongPress: widget.onOpenDetails,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      _trainingOrderStatusIcon(status),
+                      size: 20,
+                      color: color,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _trainingOrderLabel(widget.order),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitleParts.isEmpty
+                                ? 'Test order'
+                                : subtitleParts.join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    widget.deleting
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : IconButton(
+                            visualDensity: VisualDensity.compact,
+                            tooltip: 'Training orderni o‘chirish',
+                            onPressed: widget.onDelete,
+                            icon: const Icon(Icons.delete_outline_rounded),
+                          ),
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: _expanded
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(40, 0, 12, 10),
+                      child: widget.assignments.isEmpty
+                          ? Align(
+                              alignment: Alignment.centerLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  'Bu orderga homashyo ulanmagan',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Divider(height: 1),
+                                const SizedBox(height: 4),
+                                for (final assignment in widget.assignments)
+                                  ListTile(
+                                    dense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: Icon(
+                                      Icons.qr_code_2_rounded,
+                                      size: 20,
+                                      color: color,
+                                    ),
+                                    title: Text(
+                                      assignment.itemName.isEmpty
+                                          ? assignment.barcode
+                                          : assignment.itemName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    subtitle: Text(
+                                      assignment.barcode,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
       ),
     );
   }
