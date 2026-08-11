@@ -3971,6 +3971,10 @@ MobileApiException _adminProductionMapException(
         'Bu training order raqami allaqachon mavjud',
       'training_material_assignment_exists' =>
         'Bu QR kodi shu training orderga allaqachon ulangan',
+      'training_material_assignment_not_found' =>
+        'Training homashyo topilmadi',
+      'training_material_assignment_required' =>
+        'Training homashyo tanlanmadi',
       'training_order_not_found' => 'Tanlangan training order topilmadi',
       'training_map_not_found' => 'Training order topilmadi',
       'training_apparatus_required' => 'Training aparat tanlanmadi',
@@ -4047,6 +4051,8 @@ String _adminProductionMapUnknownErrorMessage({
     'training_material_assignments' =>
       'Training homashyo biriktirmalari yuklanmadi',
     'training_material_assignment' => 'Training homashyo ulanmagan',
+    'training_material_assignment_delete' =>
+      'Training homashyo o‘chirilmadi',
     'training_image_save' => 'Training order rasmi saqlanmadi',
     'production_map_audit' => 'Workflow audit yuklanmadi',
     'production_map_save' => 'Production map saqlanmadi',

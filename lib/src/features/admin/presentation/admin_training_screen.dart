@@ -47,6 +47,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   String? _linkingOrderId;
   String? _linkingMaterialOrderId;
   String? _deletingOrderId;
+  String? _deletingMaterialKey;
   String? _expandedId;
   String? _restartingId;
   Map<String, AdminTrainingOrderStatus> _statuses = const {};
@@ -424,8 +425,69 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
             if (assignment.orderId.trim() == order.map.id.trim()) assignment,
         ],
         onLinkMaterial: () => _linkTrainingMaterial(order),
+        onDeleteMaterial: _deleteTrainingMaterial,
       ),
     );
+  }
+
+  Future<bool> _deleteTrainingMaterial(
+    AdminRawMaterialAssignment assignment,
+  ) async {
+    final materialKey = _trainingMaterialKey(assignment);
+    if (_deletingMaterialKey != null) {
+      return false;
+    }
+    final itemName = assignment.itemName.trim().isEmpty
+        ? assignment.barcode.trim()
+        : assignment.itemName.trim();
+    final confirmed = await showM3ConfirmDialog(
+      context: context,
+      title: 'Training homashyosini o‘chirish',
+      message: '“$itemName” homashyosini shu training orderdan uzasizmi?',
+      cancelLabel: 'Bekor qilish',
+      confirmLabel: 'O‘chirish',
+    );
+    if (!mounted || confirmed != true) {
+      return false;
+    }
+    setState(() => _deletingMaterialKey = materialKey);
+    try {
+      await MobileApi.instance.adminDeleteTrainingRawMaterial(
+        orderId: assignment.orderId,
+        apparatus: assignment.apparatus,
+        barcode: assignment.barcode,
+      );
+      if (!mounted) {
+        return true;
+      }
+      setState(() {
+        _assignments = [
+          for (final item in _assignments)
+            if (_trainingMaterialKey(item) != materialKey) item,
+        ];
+      });
+      showAdminTopNotice(
+        context,
+        'Training homashyo orderdan uzildi',
+        icon: Icons.link_off_rounded,
+      );
+      return true;
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : 'Training homashyo o‘chirilmadi',
+          icon: Icons.error_outline,
+        );
+      }
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() => _deletingMaterialKey = null);
+      }
+    }
   }
 
   void _showTrainingMaterialDetails(
@@ -763,7 +825,9 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                                 restarting:
                                     _restartingId == _apparatus[index].id,
                                 deletingOrderId: _deletingOrderId,
+                                deletingMaterialKey: _deletingMaterialKey,
                                 onDeleteOrder: _deleteTrainingOrder,
+                                onDeleteMaterial: _deleteTrainingMaterial,
                                 onOrderTap: _showTrainingOrderDetails,
                                 onAssignmentTap: _showTrainingMaterialDetails,
                                 onExpandedChanged: (expanded) {
@@ -882,10 +946,12 @@ class _TrainingApparatusTile extends StatelessWidget {
     required this.linking,
     required this.restarting,
     required this.deletingOrderId,
+    required this.deletingMaterialKey,
     required this.onExpandedChanged,
     required this.onTrainingChanged,
     required this.onLinkOrder,
     required this.onDeleteOrder,
+    required this.onDeleteMaterial,
     required this.onOrderTap,
     required this.onAssignmentTap,
     required this.onRestart,
@@ -901,10 +967,12 @@ class _TrainingApparatusTile extends StatelessWidget {
   final bool linking;
   final bool restarting;
   final String? deletingOrderId;
+  final String? deletingMaterialKey;
   final ValueChanged<bool> onExpandedChanged;
   final ValueChanged<bool> onTrainingChanged;
   final VoidCallback onLinkOrder;
   final ValueChanged<ProductionMapSaved> onDeleteOrder;
+  final Future<bool> Function(AdminRawMaterialAssignment) onDeleteMaterial;
   final ValueChanged<ProductionMapSaved> onOrderTap;
   final ValueChanged<AdminRawMaterialAssignment> onAssignmentTap;
   final VoidCallback onRestart;
@@ -1103,7 +1171,9 @@ class _TrainingApparatusTile extends StatelessWidget {
                                       order.map.id.trim()] ??
                                   const [],
                               deleting: deletingOrderId == order.map.id.trim(),
+                              deletingMaterialKey: deletingMaterialKey,
                               onDelete: () => onDeleteOrder(order),
+                              onDeleteMaterial: onDeleteMaterial,
                               onOpenDetails: () => onOrderTap(order),
                               onAssignmentTap: onAssignmentTap,
                             ),
@@ -1125,7 +1195,9 @@ class _TrainingOrderCard extends StatefulWidget {
     required this.status,
     required this.assignments,
     required this.deleting,
+    required this.deletingMaterialKey,
     required this.onDelete,
+    required this.onDeleteMaterial,
     required this.onOpenDetails,
     required this.onAssignmentTap,
   });
@@ -1134,7 +1206,9 @@ class _TrainingOrderCard extends StatefulWidget {
   final AdminTrainingOrderStatus? status;
   final List<AdminRawMaterialAssignment> assignments;
   final bool deleting;
+  final String? deletingMaterialKey;
   final VoidCallback onDelete;
+  final Future<bool> Function(AdminRawMaterialAssignment) onDeleteMaterial;
   final VoidCallback onOpenDetails;
   final ValueChanged<AdminRawMaterialAssignment> onAssignmentTap;
 
@@ -1254,32 +1328,72 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                                 const Divider(height: 1),
                                 const SizedBox(height: 4),
                                 for (final assignment in widget.assignments)
-                                  ListTile(
-                                    dense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: Icon(
-                                      Icons.qr_code_2_rounded,
-                                      size: 20,
-                                      color: color,
-                                    ),
-                                    title: Text(
-                                      assignment.itemName.isEmpty
-                                          ? assignment.barcode
-                                          : assignment.itemName,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    subtitle: Text(
-                                      assignment.barcode,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    trailing: const Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 20,
-                                    ),
-                                    onTap: () =>
-                                        widget.onAssignmentTap(assignment),
+                                  Builder(
+                                    builder: (context) {
+                                      final materialKey =
+                                          _trainingMaterialKey(assignment);
+                                      final deleting =
+                                          widget.deletingMaterialKey ==
+                                              materialKey;
+                                      return ListTile(
+                                        dense: true,
+                                        contentPadding: EdgeInsets.zero,
+                                        leading: Icon(
+                                          Icons.qr_code_2_rounded,
+                                          size: 20,
+                                          color: color,
+                                        ),
+                                        title: Text(
+                                          assignment.itemName.isEmpty
+                                              ? assignment.barcode
+                                              : assignment.itemName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        subtitle: Text(
+                                          assignment.barcode,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            deleting
+                                                ? const SizedBox.square(
+                                                    dimension: 20,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                                  )
+                                                : IconButton(
+                                                    visualDensity:
+                                                        VisualDensity.compact,
+                                                    tooltip:
+                                                        'Homashyoni o‘chirish',
+                                                    onPressed: () {
+                                                      unawaited(
+                                                        widget.onDeleteMaterial(
+                                                          assignment,
+                                                        ),
+                                                      );
+                                                    },
+                                                    icon: const Icon(
+                                                      Icons
+                                                          .delete_outline_rounded,
+                                                    ),
+                                                  ),
+                                            const Icon(
+                                              Icons.chevron_right_rounded,
+                                              size: 20,
+                                            ),
+                                          ],
+                                        ),
+                                        onTap: () => widget.onAssignmentTap(
+                                          assignment,
+                                        ),
+                                      );
+                                    },
                                   ),
                               ],
                             ),
@@ -1298,11 +1412,13 @@ class _TrainingOrderDetailsSheet extends StatefulWidget {
     required this.order,
     required this.assignments,
     required this.onLinkMaterial,
+    required this.onDeleteMaterial,
   });
 
   final ProductionMapSaved order;
   final List<AdminRawMaterialAssignment> assignments;
   final Future<AdminRawMaterialAssignment?> Function() onLinkMaterial;
+  final Future<bool> Function(AdminRawMaterialAssignment) onDeleteMaterial;
 
   @override
   State<_TrainingOrderDetailsSheet> createState() =>
@@ -1313,6 +1429,7 @@ class _TrainingOrderDetailsSheetState
     extends State<_TrainingOrderDetailsSheet> {
   late List<AdminRawMaterialAssignment> _assignments;
   bool _linking = false;
+  String? _deletingMaterialKey;
 
   @override
   void initState() {
@@ -1342,6 +1459,31 @@ class _TrainingOrderDetailsSheetState
     } finally {
       if (mounted) {
         setState(() => _linking = false);
+      }
+    }
+  }
+
+  Future<void> _deleteMaterial(
+    AdminRawMaterialAssignment assignment,
+  ) async {
+    final materialKey = _trainingMaterialKey(assignment);
+    if (_deletingMaterialKey != null) {
+      return;
+    }
+    setState(() => _deletingMaterialKey = materialKey);
+    try {
+      final deleted = await widget.onDeleteMaterial(assignment);
+      if (mounted && deleted) {
+        setState(() {
+          _assignments = [
+            for (final item in _assignments)
+              if (_trainingMaterialKey(item) != materialKey) item,
+          ];
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _deletingMaterialKey = null);
       }
     }
   }
@@ -1485,6 +1627,21 @@ class _TrainingOrderDetailsSheetState
                             : assignment.itemName,
                         value: assignment.barcode,
                         selectable: true,
+                        trailing: _deletingMaterialKey ==
+                                _trainingMaterialKey(assignment)
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : IconButton(
+                                tooltip: 'Homashyoni o‘chirish',
+                                onPressed: () {
+                                  unawaited(_deleteMaterial(assignment));
+                                },
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                ),
+                              ),
                       ),
                   ],
                 ),
@@ -1746,6 +1903,12 @@ String _trainingOrderShortLabel(String orderId) {
     return normalized;
   }
   return '${normalized.substring(0, 10)}…${normalized.substring(normalized.length - 8)}';
+}
+
+String _trainingMaterialKey(AdminRawMaterialAssignment assignment) {
+  return '${assignment.orderId.trim()}::'
+      '${assignment.apparatus.trim().toLowerCase()}::'
+      '${assignment.barcode.trim().toUpperCase()}';
 }
 
 int _trainingBarcodeSequence = 0;

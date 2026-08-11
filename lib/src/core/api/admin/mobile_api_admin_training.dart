@@ -458,6 +458,72 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
         .toList(growable: false);
   }
 
+  Future<void> adminDeleteTrainingRawMaterial({
+    required String orderId,
+    required String apparatus,
+    required String barcode,
+  }) async {
+    final normalizedOrderId = orderId.trim();
+    final normalizedApparatus = apparatus.trim();
+    final normalizedBarcode = barcode.trim().toUpperCase();
+    if (normalizedOrderId.isEmpty ||
+        !normalizedOrderId.startsWith('training-') ||
+        normalizedApparatus.isEmpty ||
+        normalizedBarcode.isEmpty) {
+      throw const MobileApiException(
+        code: 'training_material_assignment_required',
+        message: 'Training homashyo tanlanmadi',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final index = _testModeRawMaterialAssignments.indexWhere(
+        (assignment) =>
+            assignment.orderId.trim() == normalizedOrderId &&
+            productionMapWarehouseTitlesMatch(
+              assignment.apparatus,
+              normalizedApparatus,
+            ) &&
+            assignment.barcode.trim().toUpperCase() == normalizedBarcode,
+      );
+      if (index < 0) {
+        throw const MobileApiException(
+          code: 'training_material_assignment_not_found',
+          message: 'Training homashyo topilmadi',
+        );
+      }
+      final assignment = _testModeRawMaterialAssignments.removeAt(index);
+      _testModeInventoryAssets.removeWhere(
+        (asset) =>
+            asset.identifier.trim().toUpperCase() == normalizedBarcode &&
+            asset.assetRef ==
+                'training-raw-material:${normalizedOrderId}:'
+                    '${_trainingStorageKey(assignment.apparatus)}:'
+                    '$normalizedBarcode',
+      );
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => _delete(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/training/raw-material-assignments',
+        ).replace(
+          queryParameters: {
+            'order_id': normalizedOrderId,
+            'apparatus': normalizedApparatus,
+            'barcode': normalizedBarcode,
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'training_material_assignment_delete',
+      );
+    }
+  }
+
   Future<ProductionMapSaveWithOrderResult>
       adminSaveTrainingProductionMapWithOrder({
     required ProductionMapDefinition map,
