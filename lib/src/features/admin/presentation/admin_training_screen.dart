@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -48,11 +49,24 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   String? _deletingOrderId;
   String? _expandedId;
   String? _restartingId;
+  Map<String, AdminTrainingOrderStatus> _statuses = const {};
+  Timer? _statusRefreshTimer;
+  bool _statusRefreshInFlight = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _statusRefreshTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => unawaited(_refreshTrainingStatuses()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _statusRefreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -87,6 +101,10 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                 _trainingOrderLabel(right).toLowerCase(),
               ),
         );
+      final statuses = await _loadTrainingStatuses();
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _apparatus = apparatus;
         _materials = [
@@ -101,6 +119,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         _assignments = [
           ...results[2] as List<AdminRawMaterialAssignment>,
         ];
+        _statuses = statuses ?? const <String, AdminTrainingOrderStatus>{};
         _loading = false;
       });
     } catch (_) {
@@ -111,6 +130,33 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         _loading = false;
         _error = 'Training ma’lumotlari yuklanmadi';
       });
+    }
+  }
+
+  Future<Map<String, AdminTrainingOrderStatus>?>
+      _loadTrainingStatuses() async {
+    try {
+      return await MobileApi.instance.adminTrainingOrderStatuses();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _refreshTrainingStatuses() async {
+    if (!mounted || _statusRefreshInFlight) {
+      return;
+    }
+    _statusRefreshInFlight = true;
+    try {
+      final statuses = await _loadTrainingStatuses();
+      if (mounted) {
+        final nextStatuses = statuses;
+        if (nextStatuses != null) {
+          setState(() => _statuses = nextStatuses);
+        }
+      }
+    } finally {
+      _statusRefreshInFlight = false;
     }
   }
 
@@ -635,6 +681,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                                 apparatus: _apparatus[index],
                                 assignments: _assignmentsFor(_apparatus[index]),
                                 orders: _ordersFor(_apparatus[index]),
+                                statuses: _statuses,
                                 expanded: _expandedId == _apparatus[index].id,
                                 saving: _savingId == _apparatus[index].id,
                                 linking:
@@ -674,11 +721,72 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   }
 }
 
+enum _TrainingOrderStatusTone { pending, inProgress, paused, completed }
+
+_TrainingOrderStatusTone _trainingOrderStatusTone(
+  AdminTrainingOrderStatus? status,
+) {
+  switch (status?.state.trim().toLowerCase()) {
+    case 'completed':
+      return _TrainingOrderStatusTone.completed;
+    case 'in_progress':
+      return _TrainingOrderStatusTone.inProgress;
+    case 'paused':
+      return _TrainingOrderStatusTone.paused;
+    default:
+      return _TrainingOrderStatusTone.pending;
+  }
+}
+
+String _trainingOrderStatusLabel(AdminTrainingOrderStatus status) {
+  switch (_trainingOrderStatusTone(status)) {
+    case _TrainingOrderStatusTone.completed:
+      return 'Tugallangan';
+    case _TrainingOrderStatusTone.inProgress:
+      return 'Jarayonda';
+    case _TrainingOrderStatusTone.paused:
+      return 'Pauzada';
+    case _TrainingOrderStatusTone.pending:
+      return 'Kutilmoqda';
+  }
+}
+
+IconData _trainingOrderStatusIcon(AdminTrainingOrderStatus? status) {
+  switch (_trainingOrderStatusTone(status)) {
+    case _TrainingOrderStatusTone.completed:
+      return Icons.check_circle_rounded;
+    case _TrainingOrderStatusTone.inProgress:
+      return Icons.play_circle_outline_rounded;
+    case _TrainingOrderStatusTone.paused:
+      return Icons.pause_circle_outline_rounded;
+    case _TrainingOrderStatusTone.pending:
+      return Icons.receipt_long_outlined;
+  }
+}
+
+Color _trainingOrderStatusColor(
+  BuildContext context,
+  AdminTrainingOrderStatus? status,
+) {
+  final scheme = Theme.of(context).colorScheme;
+  switch (_trainingOrderStatusTone(status)) {
+    case _TrainingOrderStatusTone.completed:
+      return const Color(0xFF2E7D32);
+    case _TrainingOrderStatusTone.inProgress:
+      return scheme.primary;
+    case _TrainingOrderStatusTone.paused:
+      return scheme.tertiary;
+    case _TrainingOrderStatusTone.pending:
+      return scheme.onSurfaceVariant;
+  }
+}
+
 class _TrainingApparatusTile extends StatelessWidget {
   const _TrainingApparatusTile({
     required this.apparatus,
     required this.assignments,
     required this.orders,
+    required this.statuses,
     required this.expanded,
     required this.saving,
     required this.linking,
@@ -696,6 +804,7 @@ class _TrainingApparatusTile extends StatelessWidget {
   final AdminApparatus apparatus;
   final List<AdminRawMaterialAssignment> assignments;
   final List<ProductionMapSaved> orders;
+  final Map<String, AdminTrainingOrderStatus> statuses;
   final bool expanded;
   final bool saving;
   final bool linking;
@@ -717,9 +826,15 @@ class _TrainingApparatusTile extends StatelessWidget {
       slot,
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
     );
+    final completedCount = orders
+        .where(
+          (order) => statuses[order.map.id.trim()]?.isCompleted == true,
+        )
+        .length;
     final summaryParts = <String>[
       apparatus.trainingEnabled ? 'Training rejimi' : 'Production rejimi',
       if (orders.isNotEmpty) '${orders.length} ta test order',
+      if (completedCount > 0) '$completedCount ta tugagan',
       if (assignments.isNotEmpty) '${assignments.length} ta test homashyo',
     ];
     final summary = summaryParts.join(' · ');
@@ -891,40 +1006,69 @@ class _TrainingApparatusTile extends StatelessWidget {
                           ),
                         if (orders.isNotEmpty) ...[
                           const SizedBox(height: 4),
-                          for (final order in orders)
-                            ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: const Icon(
-                                Icons.receipt_long_outlined,
-                                size: 20,
-                              ),
-                              title: Text(
-                                _trainingOrderLabel(order),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                order.map.productCode,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              onTap: () => onOrderTap(order),
-                              trailing: deletingOrderId == order.map.id.trim()
-                                  ? const SizedBox.square(
-                                      dimension: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : IconButton(
-                                      tooltip: 'Training orderni o‘chirish',
-                                      onPressed: () => onDeleteOrder(order),
-                                      icon: const Icon(
-                                        Icons.delete_outline_rounded,
-                                      ),
-                                    ),
+                          for (final order in orders) ...[
+                            Builder(
+                              builder: (context) {
+                                final status = statuses[order.map.id.trim()];
+                                final color = _trainingOrderStatusColor(
+                                  context,
+                                  status,
+                                );
+                                final subtitleParts = <String>[
+                                  if (order.map.productCode.trim().isNotEmpty)
+                                    order.map.productCode.trim(),
+                                  if (status != null)
+                                    _trainingOrderStatusLabel(status),
+                                  if (status != null &&
+                                      status.actorDisplayName.trim().isNotEmpty)
+                                    status.actorDisplayName.trim(),
+                                ];
+                                return ListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  tileColor: status == null
+                                      ? null
+                                      : color.withValues(alpha: 0.10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  leading: Icon(
+                                    _trainingOrderStatusIcon(status),
+                                    size: 20,
+                                    color: color,
+                                  ),
+                                  title: Text(
+                                    _trainingOrderLabel(order),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Text(
+                                    subtitleParts.join(' · '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  onTap: () => onOrderTap(order),
+                                  trailing:
+                                      deletingOrderId == order.map.id.trim()
+                                          ? const SizedBox.square(
+                                              dimension: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : IconButton(
+                                              tooltip:
+                                                  'Training orderni o‘chirish',
+                                              onPressed: () =>
+                                                  onDeleteOrder(order),
+                                              icon: const Icon(
+                                                Icons.delete_outline_rounded,
+                                              ),
+                                            ),
+                                );
+                              },
                             ),
+                          ],
                         ],
                         if (assignments.isNotEmpty) ...[
                           const SizedBox(height: 4),

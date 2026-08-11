@@ -186,6 +186,116 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     }
   }
 
+  Future<List<AdminCompletedQueueOrder>>
+      adminTrainingCompletedProductionMapOrders() async {
+    if (await TestModeController.instance.isEnabled()) {
+      final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
+      return [
+        for (final item in _testModeCompletedQueueOrders)
+          if (item.actorRef == actorRef &&
+              item.order.orderId.trim().startsWith('training-'))
+            item.order,
+      ];
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/training/completed-orders',
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'training_completed_orders',
+      );
+    }
+    final payload = await decodeJsonMapPayload(response.body);
+    final raw = payload['completed_orders'];
+    return [
+      if (raw is List)
+        for (final item in raw)
+          if (item is Map)
+            AdminCompletedQueueOrder.fromJson(
+              item.cast<String, dynamic>(),
+            ),
+    ];
+  }
+
+  Future<Map<String, AdminTrainingOrderStatus>>
+      adminTrainingOrderStatuses() async {
+    if (await TestModeController.instance.isEnabled()) {
+      final completedByOrderId = <String, AdminCompletedQueueOrder>{
+        for (final item in _testModeCompletedQueueOrders)
+          if (item.order.orderId.trim().startsWith('training-'))
+            item.order.orderId.trim(): item.order,
+      };
+      final statuses = <String, AdminTrainingOrderStatus>{};
+      for (final saved in _testModeProductionMaps) {
+        final orderId = saved.map.id.trim();
+        if (!orderId.startsWith('training-')) {
+          continue;
+        }
+        final apparatus = saved.map.nodes
+            .where((node) => node.kind == 'apparatus')
+            .map((node) => node.title.trim())
+            .firstWhere((title) => title.isNotEmpty, orElse: () => '');
+        var state = 'pending';
+        for (final entry in _testModeApparatusQueueStates.entries) {
+          if (apparatus.isNotEmpty &&
+              !productionMapWarehouseTitlesMatch(entry.key, apparatus)) {
+            continue;
+          }
+          final candidate = entry.value[orderId]?.trim() ?? '';
+          if (candidate.isNotEmpty) {
+            state = candidate;
+            break;
+          }
+        }
+        final completed = completedByOrderId[orderId];
+        if (completed != null && state == 'pending') {
+          state = completed.status.trim().isEmpty
+              ? 'completed'
+              : completed.status.trim();
+        }
+        statuses[orderId] = AdminTrainingOrderStatus(
+          orderId: orderId,
+          apparatus: completed?.apparatus.trim().isNotEmpty == true
+              ? completed!.apparatus
+              : apparatus,
+          state: state,
+          updatedAtUnix: completed?.completedAtUnix ?? 0,
+          completedAtUnix: state == 'completed'
+              ? completed?.completedAtUnix ?? 0
+              : 0,
+        );
+      }
+      return statuses;
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/training/statuses'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'training_statuses');
+    }
+    final payload = await decodeJsonMapPayload(response.body);
+    final raw = payload['statuses'];
+    if (raw is! Map) {
+      return const <String, AdminTrainingOrderStatus>{};
+    }
+    return {
+      for (final entry in raw.entries)
+        if (entry.value is Map)
+          entry.key.toString().trim(): AdminTrainingOrderStatus.fromJson(
+            (entry.value as Map).cast<String, dynamic>(),
+          ),
+    };
+  }
+
   Future<List<ProductionMapSaved>> adminTrainingProductionMaps({
     String id = '',
   }) async {
@@ -460,6 +570,46 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
         'training_returned_paint_image_delete',
       );
     }
+  }
+}
+
+class AdminTrainingOrderStatus {
+  const AdminTrainingOrderStatus({
+    required this.orderId,
+    required this.apparatus,
+    required this.state,
+    this.action = '',
+    this.actorRef = '',
+    this.actorDisplayName = '',
+    this.updatedAtUnix = 0,
+    this.completedAtUnix = 0,
+  });
+
+  final String orderId;
+  final String apparatus;
+  final String state;
+  final String action;
+  final String actorRef;
+  final String actorDisplayName;
+  final int updatedAtUnix;
+  final int completedAtUnix;
+
+  bool get isCompleted => state.trim().toLowerCase() == 'completed';
+
+  factory AdminTrainingOrderStatus.fromJson(Map<String, dynamic> json) {
+    int readInt(Object? value) => value is num ? value.toInt() : 0;
+    return AdminTrainingOrderStatus(
+      orderId: json['order_id']?.toString().trim() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      state: json['state']?.toString().trim().isNotEmpty == true
+          ? json['state'].toString().trim()
+          : json['status']?.toString().trim() ?? 'pending',
+      action: json['action']?.toString() ?? '',
+      actorRef: json['actor_ref']?.toString() ?? '',
+      actorDisplayName: json['actor_display_name']?.toString() ?? '',
+      updatedAtUnix: readInt(json['updated_at_unix']),
+      completedAtUnix: readInt(json['completed_at_unix']),
+    );
   }
 }
 

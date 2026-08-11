@@ -43,8 +43,25 @@ bool _apparatusListsHaveSameNames(
       );
 }
 
-Future<List<AdminCompletedQueueOrder>> _loadCompletedProductionMapOrders() {
-  return MobileApi.instance.adminCompletedProductionMapOrders();
+Future<List<AdminCompletedQueueOrder>>
+    _loadCompletedProductionMapOrders() async {
+  final productionOrders =
+      await MobileApi.instance.adminCompletedProductionMapOrders();
+  List<AdminCompletedQueueOrder> trainingOrders = const [];
+  try {
+    trainingOrders =
+        await MobileApi.instance.adminTrainingCompletedProductionMapOrders();
+  } catch (_) {
+    // Training is an optional overlay; production completed orders remain
+    // available when the training workspace is unavailable.
+  }
+  final seenOrderIds = <String>{};
+  return [
+    for (final order in [...productionOrders, ...trainingOrders])
+      if (order.orderId.trim().isNotEmpty &&
+          seenOrderIds.add(order.orderId.trim()))
+        order,
+  ];
 }
 
 Future<List<AdminCompletionRequestDecisionNotification>>
