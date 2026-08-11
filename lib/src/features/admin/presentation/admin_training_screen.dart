@@ -21,7 +21,6 @@ import '../../admin/logic/production_map_pechat_rules.dart';
 import '../../admin/models/production_map_models.dart';
 import '../../shared/models/app_models.dart';
 import 'admin_calculate_screen.dart';
-import 'admin_training_order_helpers.dart';
 import 'progress_printer_picker.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
@@ -255,13 +254,6 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     if (_linkingOrderId != null) {
       return;
     }
-    if (!isTrainingOrderApparatus(apparatus)) {
-      showAdminTopNotice(
-        context,
-        'Training order faqat 7 ta rangli bosma aparatga ulanadi',
-      );
-      return;
-    }
     if (!apparatus.trainingEnabled) {
       showAdminTopNotice(
         context,
@@ -301,14 +293,12 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
 
   Future<void> _openTrainingOrder() async {
     final available = _apparatus
-        .where(
-          (item) => item.trainingEnabled && isTrainingOrderApparatus(item),
-        )
+        .where((item) => item.trainingEnabled)
         .toList(growable: false);
     if (available.isEmpty) {
       showAdminTopNotice(
         context,
-        'Avval 7 ta rangli bosma aparat uchun Training rejimini yoqing',
+        'Avval kamida bitta apparat uchun Training rejimini yoqing',
         icon: Icons.school_outlined,
       );
       return;
@@ -741,7 +731,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                               Expanded(
                                 child: Text(
                                   'Training apparat bo‘yicha yoqiladi. Aparatni ochib, '
-                                  'rejimni almashtiring yoki 7 ta rangli aparat '
+                                  'rejimni almashtiring yoki istalgan apparat '
                                   'ichidan Order ulash amalini bosing.',
                                 ),
                               ),
@@ -1086,34 +1076,23 @@ class _TrainingApparatusTile extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        if (isTrainingOrderApparatus(apparatus))
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: OutlinedButton.icon(
-                              onPressed: apparatus.trainingEnabled && !linking
-                                  ? onLinkOrder
-                                  : null,
-                              icon: linking
-                                  ? const SizedBox.square(
-                                      dimension: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.link_rounded),
-                              label: const Text('Order ulash'),
-                            ),
-                          )
-                        else
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              'Training order faqat 7 ta rangli bosma aparatga ulanadi',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: OutlinedButton.icon(
+                            onPressed: apparatus.trainingEnabled && !linking
+                                ? onLinkOrder
+                                : null,
+                            icon: linking
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.link_rounded),
+                            label: const Text('Order ulash'),
                           ),
+                        ),
                         if (orders.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           for (final order in orders)

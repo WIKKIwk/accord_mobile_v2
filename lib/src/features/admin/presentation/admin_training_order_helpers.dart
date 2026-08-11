@@ -1,11 +1,4 @@
-import '../../shared/models/app_models.dart';
-import '../logic/production_map_pechat_rules.dart';
 import '../models/production_map_models.dart';
-
-bool isTrainingOrderApparatus(AdminApparatus apparatus) {
-  return apparatus.colorStations == 7 ||
-      productionMapPechatColorCount(apparatus.name) == 7;
-}
 
 bool trainingOrderHasApparatus(ProductionMapDefinition map) {
   return map.nodes.any(

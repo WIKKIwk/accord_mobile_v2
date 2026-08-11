@@ -1,7 +1,6 @@
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_training_order_helpers.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
-import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -41,27 +40,6 @@ void main() {
     );
   });
 
-  test('training order can only be linked to the seven-color apparatus', () {
-    expect(
-      isTrainingOrderApparatus(
-        const AdminApparatus(
-          name: '7 ta rangli bosma aparat',
-          colorStations: 7,
-        ),
-      ),
-      isTrue,
-    );
-    expect(
-      isTrainingOrderApparatus(
-        const AdminApparatus(
-          name: '8 ta rangli bosma aparat',
-          colorStations: 8,
-        ),
-      ),
-      isFalse,
-    );
-  });
-
   test('linking a training order adds the selected apparatus stage', () {
     const map = ProductionMapDefinition(
       id: 'zakaz-0001',
@@ -95,6 +73,35 @@ void main() {
     expect(
       linked.edges.map((edge) => '${edge.from}->${edge.to}'),
       ['start->order', 'order->training-apparatus', 'training-apparatus->end'],
+    );
+  });
+
+  test('linking a training order supports a non-printing apparatus', () {
+    const map = ProductionMapDefinition(
+      id: 'training-laminatsiya-0001',
+      productCode: 'DEMO-001',
+      title: 'Training order',
+      nodes: [
+        ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+        ProductionMapNode(id: 'order', kind: 'task', title: 'Training order'),
+        ProductionMapNode(id: 'end', kind: 'end', title: 'Demo mahsulot'),
+      ],
+      edges: [
+        ProductionMapEdge(from: 'start', to: 'order'),
+        ProductionMapEdge(from: 'order', to: 'end'),
+      ],
+    );
+
+    final linked = assignTrainingOrderToApparatus(
+      map: map,
+      apparatus: 'Laminatsiya 1',
+    );
+
+    expect(
+      linked.nodes
+          .where((node) => node.kind == 'apparatus')
+          .map((node) => node.title),
+      ['Laminatsiya 1'],
     );
   });
 }
