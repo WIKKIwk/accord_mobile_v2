@@ -2,7 +2,7 @@ name: accord_mobile_v2
 description: Android-first operational app for supplier and warehouse workflows.
 publish_to: none
 
-version: 0.2.11+16
+version: 0.2.15+20
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -57,6 +57,8 @@ dependency_overrides:
 
 flutter:
   config:
+    # BLOCKER for all AI agents: iOS dependencies must use Swift Package Manager only.
+    # Never add or invoke CocoaPods, Podfile, or `pod install` for this project.
     enable-swift-package-manager: true
   uses-material-design: true
   assets:
