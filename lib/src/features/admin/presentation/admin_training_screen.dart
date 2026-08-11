@@ -450,9 +450,9 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         : '';
     showModalBottomSheet<void>(
       context: context,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       useSafeArea: true,
-      showDragHandle: true,
       builder: (context) => RpsQrReprintSheet(
         title: 'Training homashyo QR',
         payload: assignment.barcode,
