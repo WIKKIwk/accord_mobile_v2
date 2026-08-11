@@ -13,6 +13,7 @@ import '../../../core/print_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/display/app_info_row.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -437,6 +438,89 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     );
   }
 
+  void _showTrainingMaterialDetails(
+    AdminRawMaterialAssignment assignment,
+  ) {
+    final itemName = assignment.itemName.trim().isEmpty
+        ? 'Training homashyosi'
+        : assignment.itemName.trim();
+    final quantity = assignment.stockQty > 0
+        ? '${formatRawQuantity(assignment.stockQty)} ${assignment.stockUom}'
+              .trim()
+        : '';
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => RpsQrReprintSheet(
+        title: 'Training homashyo QR',
+        payload: assignment.barcode,
+        itemName: itemName,
+        previewKey: ValueKey('training-material-qr-${assignment.barcode}'),
+        reprintButtonKey:
+            ValueKey('training-material-qr-reprint-${assignment.barcode}'),
+        details: [
+          RpsQrDetail('Item code', assignment.itemCode),
+          RpsQrDetail('Guruh', assignment.itemGroup),
+          RpsQrDetail('Miqdor', quantity),
+          RpsQrDetail('Ombor', assignment.stockWarehouse),
+          RpsQrDetail('Apparat', assignment.apparatus),
+          RpsQrDetail('Holat', _trainingRawMaterialStatusLabel(
+            assignment.stockStatus,
+          )),
+          if (assignment.orderId.trim().isNotEmpty)
+            RpsQrDetail('Order', assignment.orderId),
+          if (assignment.assignedByName.trim().isNotEmpty)
+            RpsQrDetail('Ulagan', assignment.assignedByName),
+          if (assignment.assignedAt.trim().isNotEmpty)
+            RpsQrDetail('Vaqt', assignment.assignedAt),
+        ],
+        onReprint: () => _reprintTrainingMaterial(assignment),
+        errorMessage: (error) => error is MobileApiException
+            ? error.message
+            : error.toString().replaceFirst('Bad state: ', ''),
+      ),
+    );
+  }
+
+  Future<String?> _reprintTrainingMaterial(
+    AdminRawMaterialAssignment assignment,
+  ) async {
+    final barcode = assignment.barcode.trim();
+    if (barcode.isEmpty) {
+      throw StateError('Homashyo QR kodi topilmadi');
+    }
+    final printer = await pickProgressPrinter(context);
+    if (!mounted) {
+      return null;
+    }
+    if (printer == null) {
+      throw StateError('Printer tanlanmadi');
+    }
+    final printRequest = UsbRpsPrintRequest(
+      epc: barcode,
+      itemCode: assignment.itemCode.trim().isEmpty
+          ? 'TRAINING-MATERIAL'
+          : assignment.itemCode.trim(),
+      itemName: assignment.itemName.trim().isEmpty
+          ? 'Training homashyosi'
+          : assignment.itemName.trim(),
+      apparatus: assignment.apparatus.trim(),
+      warehouse: assignment.stockWarehouse.trim().isEmpty
+          ? 'Training'
+          : assignment.stockWarehouse.trim(),
+      printer: printer.printer.trim().isEmpty ? 'godex' : printer.printer,
+      printMode:
+          printer.printMode.trim().isEmpty ? 'label' : printer.printMode,
+      grossQty: assignment.stockQty > 0 ? assignment.stockQty : 1,
+      unit: assignment.stockUom.trim().isEmpty ? 'kg' : assignment.stockUom,
+      labelKind: 'material_product',
+    );
+    await _printTrainingLabel(printer, printRequest);
+    return null;
+  }
+
   Future<AdminRawMaterialAssignment?> _linkTrainingMaterial(
     ProductionMapSaved order,
   ) async {
@@ -691,6 +775,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                                 deletingOrderId: _deletingOrderId,
                                 onDeleteOrder: _deleteTrainingOrder,
                                 onOrderTap: _showTrainingOrderDetails,
+                                onAssignmentTap: _showTrainingMaterialDetails,
                                 onExpandedChanged: (expanded) {
                                   setState(() {
                                     _expandedId =
@@ -751,6 +836,21 @@ String _trainingOrderStatusLabel(AdminTrainingOrderStatus status) {
   }
 }
 
+String _trainingRawMaterialStatusLabel(String status) {
+  switch (status.trim().toLowerCase()) {
+    case 'available':
+      return 'Mavjud';
+    case 'reserved':
+      return 'Band';
+    case 'in_use':
+      return 'Ishlatilmoqda';
+    case 'consumed':
+      return 'Ishlatilgan';
+    default:
+      return status.trim().isEmpty ? 'Noma’lum' : status.trim();
+  }
+}
+
 IconData _trainingOrderStatusIcon(AdminTrainingOrderStatus? status) {
   switch (_trainingOrderStatusTone(status)) {
     case _TrainingOrderStatusTone.completed:
@@ -797,6 +897,7 @@ class _TrainingApparatusTile extends StatelessWidget {
     required this.onLinkOrder,
     required this.onDeleteOrder,
     required this.onOrderTap,
+    required this.onAssignmentTap,
     required this.onRestart,
     required this.slot,
   });
@@ -815,6 +916,7 @@ class _TrainingApparatusTile extends StatelessWidget {
   final VoidCallback onLinkOrder;
   final ValueChanged<ProductionMapSaved> onDeleteOrder;
   final ValueChanged<ProductionMapSaved> onOrderTap;
+  final ValueChanged<AdminRawMaterialAssignment> onAssignmentTap;
   final VoidCallback onRestart;
   final M3SegmentVerticalSlot slot;
 
@@ -1024,6 +1126,7 @@ class _TrainingApparatusTile extends StatelessWidget {
                               deleting: deletingOrderId == order.map.id.trim(),
                               onDelete: () => onDeleteOrder(order),
                               onOpenDetails: () => onOrderTap(order),
+                              onAssignmentTap: onAssignmentTap,
                             ),
                         ],
                       ],
@@ -1045,6 +1148,7 @@ class _TrainingOrderCard extends StatefulWidget {
     required this.deleting,
     required this.onDelete,
     required this.onOpenDetails,
+    required this.onAssignmentTap,
   });
 
   final ProductionMapSaved order;
@@ -1053,6 +1157,7 @@ class _TrainingOrderCard extends StatefulWidget {
   final bool deleting;
   final VoidCallback onDelete;
   final VoidCallback onOpenDetails;
+  final ValueChanged<AdminRawMaterialAssignment> onAssignmentTap;
 
   @override
   State<_TrainingOrderCard> createState() => _TrainingOrderCardState();
@@ -1190,6 +1295,12 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
+                                    trailing: const Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 20,
+                                    ),
+                                    onTap: () =>
+                                        widget.onAssignmentTap(assignment),
                                   ),
                               ],
                             ),
