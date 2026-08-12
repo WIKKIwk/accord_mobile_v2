@@ -1359,17 +1359,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (!mounted) {
         return;
       }
-      AdminProgressBatch? automaticTrainingBatch;
-      if (widget.order.map.id.trim().startsWith('training-') &&
-          productionMapIsLaminatsiyaApparatus(station)) {
-        for (final batch in batches) {
-          if (batch.payloadJson['training_input'] == true &&
-              _progressBatchCanBeScanned(batch)) {
-            automaticTrainingBatch = batch;
-            break;
-          }
-        }
-      }
       setState(() {
         _availableInputProgressBatches = batches;
         _inputProgressLoading = false;
@@ -1381,8 +1370,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
                 batches: batches,
                 batch: currentBatch,
               );
-        _startInputProgressBatch =
-            matchingCurrentBatch ?? automaticTrainingBatch;
+        _startInputProgressBatch = matchingCurrentBatch;
       });
     } catch (_) {
       if (!mounted) {

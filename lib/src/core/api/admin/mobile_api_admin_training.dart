@@ -4,6 +4,11 @@ const _trainingInputApparatus = 'Bosma aparat';
 const _trainingInputQrPrefix = 'TRAINING-INPUT:';
 final _trainingOrderNumberPattern =
     RegExp(r'^T-(\d{1,4})$', caseSensitive: false);
+final Set<String> _testModeTrainingInputBatchGeneratedOrderIds = {};
+
+void _resetTestModeTrainingInputBatches() {
+  _testModeTrainingInputBatchGeneratedOrderIds.clear();
+}
 
 ProductionMapDefinition _testModePrepareTrainingMapForSave(
   ProductionMapDefinition map,
@@ -131,11 +136,11 @@ AdminProgressBatch? _testModeTrainingInputProgressBatch({
     currentLocation: '$_trainingInputApparatus chiqim',
     nextApparatus: targetStation,
     finishedGoodsKg: producedQty,
-    description: 'Training uchun avtomatik Bosma input batch',
+    description: 'Training uchun generatsiya qilingan Bosma input batch',
     payloadJson: const {
       'training': true,
       'training_input': true,
-      'source': 'automatic_training_order_batch',
+      'source': 'generated_training_order_batch',
     },
   );
 }
@@ -153,6 +158,9 @@ void _ensureTestModeTrainingInputBatch(
     station: station,
   );
   if (batch == null) {
+    return;
+  }
+  if (!_testModeTrainingInputBatchGeneratedOrderIds.contains(batch.orderId)) {
     return;
   }
   if (reset || !_testModeProgressBatchesByQr.containsKey(batch.qrPayload)) {
@@ -508,6 +516,125 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     ];
   }
 
+  Future<List<AdminProgressBatch>> adminTrainingInputBatches({
+    String orderId = '',
+    String apparatus = '',
+  }) async {
+    final normalizedOrderId = orderId.trim();
+    final normalizedApparatus = apparatus.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      return [
+        for (final batch in _testModeProgressBatchesByQr.values)
+          if (batch.payloadJson['training_input'] == true &&
+              _testModeTrainingInputBatchGeneratedOrderIds.contains(
+                batch.orderId.trim(),
+              ) &&
+              (normalizedOrderId.isEmpty ||
+                  batch.orderId.trim() == normalizedOrderId) &&
+              (normalizedApparatus.isEmpty ||
+                  productionMapWarehouseTitlesMatch(
+                    batch.nextApparatus,
+                    normalizedApparatus,
+                  )))
+            batch,
+      ];
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/training/input-batches',
+        ).replace(
+          queryParameters: {
+            if (normalizedOrderId.isNotEmpty) 'order_id': normalizedOrderId,
+            if (normalizedApparatus.isNotEmpty)
+              'apparatus': normalizedApparatus,
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'training_input_batches');
+    }
+    final payload = await decodeJsonMapPayload(response.body);
+    final raw = payload['batches'];
+    return [
+      if (raw is List)
+        for (final item in raw)
+          if (item is Map)
+            AdminProgressBatch.fromJson(item.cast<String, dynamic>()),
+    ];
+  }
+
+  Future<AdminProgressBatch> adminGenerateTrainingInputBatch({
+    required String orderId,
+    String apparatus = '',
+  }) async {
+    final normalizedOrderId = orderId.trim();
+    if (normalizedOrderId.isEmpty ||
+        !normalizedOrderId.startsWith('training-')) {
+      throw const MobileApiException(
+        code: 'training_order_required',
+        message: 'Training order tanlanmadi',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final saved = _testModeProductionMaps.firstWhere(
+        (item) => item.map.id.trim() == normalizedOrderId,
+        orElse: () => throw const MobileApiException(
+          code: 'training_map_not_found',
+          message: 'Training order topilmadi',
+        ),
+      );
+      final station = apparatus.trim().isEmpty
+          ? _trainingLaminatsiyaStation(saved.map)
+          : apparatus.trim();
+      final batch = station == null
+          ? null
+          : _testModeTrainingInputProgressBatch(
+              map: saved.map,
+              station: station,
+            );
+      if (batch == null) {
+        throw const MobileApiException(
+          code: 'training_input_batch_not_applicable',
+          message: 'Bu order uchun training batch yaratib bo‘lmaydi',
+        );
+      }
+      _testModeTrainingInputBatchGeneratedOrderIds.add(normalizedOrderId);
+      _testModeProgressBatchesByQr[batch.qrPayload] = batch;
+      return batch;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/training/input-batches',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'order_id': normalizedOrderId,
+          if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'training_input_batch_generate',
+      );
+    }
+    final payload = await decodeJsonMapPayload(response.body);
+    final raw = payload['batch'];
+    if (raw is! Map) {
+      throw const MobileApiException(
+        code: 'training_input_batch_invalid_response',
+        message: 'Training batch javobi noto‘g‘ri',
+      );
+    }
+    return AdminProgressBatch.fromJson(raw.cast<String, dynamic>());
+  }
+
   Future<ProductionMapSaved> adminSaveTrainingProductionMap(
     ProductionMapDefinition map,
   ) async {
@@ -567,6 +694,7 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
       _testModeProgressBatchesByQr.removeWhere(
         (_, batch) => batch.orderId.trim() == normalized,
       );
+      _testModeTrainingInputBatchGeneratedOrderIds.remove(normalized);
       _testModeCompletedQueueOrders.removeWhere(
         (entry) => entry.order.orderId.trim() == normalized,
       );
@@ -671,7 +799,7 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
         (asset) =>
             asset.identifier.trim().toUpperCase() == normalizedBarcode &&
             asset.assetRef ==
-                'training-raw-material:${normalizedOrderId}:'
+                'training-raw-material:$normalizedOrderId:'
                     '${_trainingStorageKey(assignment.apparatus)}:'
                     '$normalizedBarcode',
       );

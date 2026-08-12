@@ -114,7 +114,7 @@ void main() {
     );
   });
 
-  test('training laminatsiya order gets an automatic Bosma input batch',
+  test('training laminatsiya order gets a Bosma input batch on generation',
       () async {
     await TestModeController.instance.setEnabled(true);
     const draftId = 'zakaz-draft-laminatsiya-input-1';
@@ -146,6 +146,35 @@ void main() {
       apparatus: apparatus,
       orderIds: [orderId],
     );
+
+    expect(
+      await MobileApi.instance.adminWipBatches(
+        status: 'all',
+        apparatus: 'Bosma aparat',
+        nextApparatus: apparatus,
+        orderId: orderId,
+      ),
+      isEmpty,
+    );
+    await expectLater(
+      () => MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: apparatus,
+        orderId: orderId,
+        action: 'start',
+      ),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'progress_qr_required',
+        ),
+      ),
+    );
+
+    final generated = await MobileApi.instance.adminGenerateTrainingInputBatch(
+      orderId: orderId,
+    );
+    expect(generated.qrPayload, 'TRAINING-INPUT:$orderId');
 
     final batches = await MobileApi.instance.adminWipBatches(
       status: 'all',

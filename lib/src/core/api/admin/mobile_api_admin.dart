@@ -146,6 +146,7 @@ void resetMobileApiTestModeData() {
   _testModeCompletionRequests.clear();
   _testModeCompletionRequestDecisions.clear();
   _testModeProgressBatchesByQr.clear();
+  _resetTestModeTrainingInputBatches();
   _testModeActiveProgressInputByQueue.clear();
   _testModeOrderStartedAtUnix.clear();
   _testModeLaminatsiyaAstatkaReports.clear();
@@ -875,14 +876,22 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
               map: order,
               station: apparatus,
             );
+      final usesVirtualTrainingInput = order != null &&
+          _testModeUsesVirtualTrainingInput(
+            map: order,
+            station: apparatus,
+          );
       final previousStageReady = order != null &&
-          (_testModeUsesVirtualTrainingInput(map: order, station: apparatus) ||
-              productionMapOrderReadyForStation(
-                map: order,
-                orderId: orderId,
-                station: apparatus,
-                queueStatesByApparatus: _testModeApparatusQueueStates,
-              ));
+          (usesVirtualTrainingInput
+              ? _testModeTrainingInputBatchGeneratedOrderIds.contains(
+                  orderId.trim(),
+                )
+              : productionMapOrderReadyForStation(
+                  map: order,
+                  orderId: orderId,
+                  station: apparatus,
+                  queueStatesByApparatus: _testModeApparatusQueueStates,
+                ));
       final queueActionable = state == ApparatusQueueOrderState.inProgress ||
           state == ApparatusQueueOrderState.paused ||
           actionableOrderId == orderId ||
@@ -3944,6 +3953,8 @@ MobileApiException _adminProductionMapException(
         'Bu homashyo sizga biriktirilgan guruhlarga kirmaydi',
       'progress_input_invalid' => 'Chiqarilgan miqdorni kiriting',
       'progress_qr_required' => 'Oldingi bosqich QR sini scan qiling',
+      'training_input_batch_required' =>
+        'Avval admin training batch QR sini generatsiya qilishi kerak',
       'progress_batch_not_found' => 'Progress QR topilmadi',
       'progress_batch_not_accepted' =>
         'Bu QR oldingi bosqich mahsulotiga mos emas',
@@ -4054,6 +4065,8 @@ String _adminProductionMapUnknownErrorMessage({
     'training_material_assignment' => 'Training homashyo ulanmagan',
     'training_material_assignment_delete' =>
       'Training homashyo o‘chirilmadi',
+    'training_input_batches' => 'Training batchlar yuklanmadi',
+    'training_input_batch_generate' => 'Training batch generatsiya qilinmadi',
     'training_image_save' => 'Training order rasmi saqlanmadi',
     'production_map_audit' => 'Workflow audit yuklanmadi',
     'production_map_save' => 'Production map saqlanmadi',
@@ -8197,23 +8210,28 @@ extension MobileApiAdmin on MobileApi {
               station: apparatus,
             );
       final hasPreviousStage = previousStage != null;
+      final usesVirtualTrainingInput = testModeOrderMap != null &&
+          _testModeUsesVirtualTrainingInput(
+            map: testModeOrderMap,
+            station: apparatus,
+          );
       final previousStageCompleted = hasPreviousStage &&
-          (_testModeUsesVirtualTrainingInput(
-                map: testModeOrderMap!,
-                station: apparatus,
-              ) ||
-              _testModeApparatusQueueStates.entries.any(
-                (entry) {
-                  final state = apparatusQueueOrderStateFromRaw(
-                    entry.value[orderId.trim()],
-                  );
-                  return productionMapWarehouseTitlesMatch(
-                        entry.key,
-                        previousStage,
-                      ) &&
-                      state == ApparatusQueueOrderState.completed;
-                },
-              ));
+          (usesVirtualTrainingInput
+              ? _testModeTrainingInputBatchGeneratedOrderIds.contains(
+                  orderId.trim(),
+                )
+              : _testModeApparatusQueueStates.entries.any(
+                  (entry) {
+                    final state = apparatusQueueOrderStateFromRaw(
+                      entry.value[orderId.trim()],
+                    );
+                    return productionMapWarehouseTitlesMatch(
+                          entry.key,
+                          previousStage,
+                        ) &&
+                        state == ApparatusQueueOrderState.completed;
+                  },
+                ));
       bool isPreviousStageBatch(AdminProgressBatch batch) {
         if (!hasPreviousStage ||
             batch.orderId.trim() != orderId.trim() ||

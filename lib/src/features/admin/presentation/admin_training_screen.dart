@@ -41,6 +41,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   List<CalculateMaterial> _materials = const [];
   List<ProductionMapSaved> _orders = const [];
   List<AdminRawMaterialAssignment> _assignments = const [];
+  List<AdminProgressBatch> _inputBatches = const [];
   bool _loading = true;
   String? _error;
   String? _savingId;
@@ -48,6 +49,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   String? _linkingMaterialOrderId;
   String? _deletingOrderId;
   String? _deletingMaterialKey;
+  String? _generatingInputBatchOrderId;
   String? _expandedId;
   String? _restartingId;
   Map<String, AdminTrainingOrderStatus> _statuses = const {};
@@ -83,6 +85,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         MobileApi.instance.adminTrainingProductionMaps(),
         MobileApi.instance.adminTrainingRawMaterialAssignments(),
         MobileApi.instance.calculateMaterials(),
+        MobileApi.instance.adminTrainingInputBatches(),
       ]);
       if (!mounted) {
         return;
@@ -119,6 +122,9 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         _orders = orders;
         _assignments = [
           ...results[2] as List<AdminRawMaterialAssignment>,
+        ];
+        _inputBatches = [
+          ...results[4] as List<AdminProgressBatch>,
         ];
         _statuses = statuses ?? const <String, AdminTrainingOrderStatus>{};
         _loading = false;
@@ -389,6 +395,10 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           for (final item in _assignments)
             if (item.orderId.trim() != orderId) item,
         ];
+        _inputBatches = [
+          for (final item in _inputBatches)
+            if (item.orderId.trim() != orderId) item,
+        ];
       });
       showAdminTopNotice(
         context,
@@ -424,10 +434,134 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           for (final assignment in _assignments)
             if (assignment.orderId.trim() == order.map.id.trim()) assignment,
         ],
+        inputBatches: _inputBatchesFor(order),
         onLinkMaterial: () => _linkTrainingMaterial(order),
         onDeleteMaterial: _deleteTrainingMaterial,
+        onGenerateInputBatch: () => _generateTrainingInputBatch(order),
+        onBatchTap: _showTrainingInputBatchDetails,
       ),
     );
+  }
+
+  Future<AdminProgressBatch?> _generateTrainingInputBatch(
+    ProductionMapSaved order,
+  ) async {
+    final orderId = order.map.id.trim();
+    if (_generatingInputBatchOrderId != null || orderId.isEmpty) {
+      return null;
+    }
+    setState(() => _generatingInputBatchOrderId = orderId);
+    try {
+      final batch = await MobileApi.instance.adminGenerateTrainingInputBatch(
+        orderId: orderId,
+      );
+      if (!mounted) {
+        return batch;
+      }
+      setState(() {
+        _inputBatches = [
+          batch,
+          for (final item in _inputBatches)
+            if (item.orderId.trim() != batch.orderId.trim()) item,
+        ];
+      });
+      showAdminTopNotice(
+        context,
+        'Test batch QR generatsiya qilindi va orderga ulandi',
+        icon: Icons.qr_code_2_rounded,
+      );
+      return batch;
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : 'Test batch generatsiya qilinmadi',
+          icon: Icons.error_outline,
+        );
+      }
+      return null;
+    } finally {
+      if (mounted) {
+        setState(() => _generatingInputBatchOrderId = null);
+      }
+    }
+  }
+
+  List<AdminProgressBatch> _inputBatchesFor(ProductionMapSaved order) {
+    final orderId = order.map.id.trim();
+    return [
+      for (final batch in _inputBatches)
+        if (batch.orderId.trim() == orderId) batch,
+    ];
+  }
+
+  void _showTrainingInputBatchDetails(AdminProgressBatch batch) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => RpsQrReprintSheet(
+        title: 'Training batch QR',
+        payload: batch.qrPayload,
+        itemName: batch.labelItemName,
+        previewKey: ValueKey('training-input-batch-qr-${batch.batchId}'),
+        reprintButtonKey:
+            ValueKey('training-input-batch-qr-reprint-${batch.batchId}'),
+        details: [
+          RpsQrDetail('Batch ID', batch.batchId),
+          RpsQrDetail('Order', batch.orderId),
+          RpsQrDetail('Bosqich', batch.apparatus),
+          RpsQrDetail('Keyingi apparat', batch.nextApparatus),
+          RpsQrDetail(
+              'Miqdor', '${formatRawQuantity(batch.producedQty)} ${batch.uom}'),
+          const RpsQrDetail('Holat', 'Generatsiya qilingan, scan kutilmoqda'),
+        ],
+        onReprint: () => _reprintTrainingInputBatch(batch),
+        errorMessage: (error) => error is MobileApiException
+            ? error.message
+            : error.toString().replaceFirst('Bad state: ', ''),
+      ),
+    );
+  }
+
+  Future<String?> _reprintTrainingInputBatch(
+    AdminProgressBatch batch,
+  ) async {
+    final qrPayload = batch.qrPayload.trim();
+    if (qrPayload.isEmpty) {
+      throw StateError('Training batch QR kodi topilmadi');
+    }
+    final printer = await pickProgressPrinter(context);
+    if (!mounted) {
+      return null;
+    }
+    if (printer == null) {
+      throw StateError('Printer tanlanmadi');
+    }
+    final printRequest = UsbRpsPrintRequest(
+      epc: qrPayload,
+      itemCode: batch.labelItemCode.trim().isEmpty
+          ? 'TRAINING-BATCH'
+          : batch.labelItemCode.trim(),
+      itemName: batch.labelItemName.trim().isEmpty
+          ? 'Training batch'
+          : batch.labelItemName.trim(),
+      apparatus: batch.apparatus.trim(),
+      warehouse: 'Training',
+      printer: printer.printer.trim().isEmpty ? 'godex' : printer.printer,
+      printMode: printer.printMode.trim().isEmpty ? 'label' : printer.printMode,
+      grossQty: batch.producedQty > 0 ? batch.producedQty : 1,
+      unit: batch.uom.trim().isEmpty ? 'kg' : batch.uom.trim(),
+      labelKind: 'progress',
+      executorName: batch.executorName,
+      progressQty: batch.producedQty,
+      progressUnit: batch.uom.trim().isEmpty ? 'kg' : batch.uom.trim(),
+    );
+    await _printTrainingLabel(printer, printRequest);
+    return null;
   }
 
   Future<bool> _deleteTrainingMaterial(
@@ -816,6 +950,12 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                               _TrainingApparatusTile(
                                 apparatus: _apparatus[index],
                                 assignments: _assignmentsFor(_apparatus[index]),
+                                inputBatchesByOrder: {
+                                  for (final order
+                                      in _ordersFor(_apparatus[index]))
+                                    order.map.id.trim():
+                                        _inputBatchesFor(order),
+                                },
                                 orders: _ordersFor(_apparatus[index]),
                                 statuses: _statuses,
                                 expanded: _expandedId == _apparatus[index].id,
@@ -826,10 +966,15 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                                     _restartingId == _apparatus[index].id,
                                 deletingOrderId: _deletingOrderId,
                                 deletingMaterialKey: _deletingMaterialKey,
+                                generatingInputBatchOrderId:
+                                    _generatingInputBatchOrderId,
                                 onDeleteOrder: _deleteTrainingOrder,
                                 onDeleteMaterial: _deleteTrainingMaterial,
                                 onOrderTap: _showTrainingOrderDetails,
                                 onAssignmentTap: _showTrainingMaterialDetails,
+                                onBatchTap: _showTrainingInputBatchDetails,
+                                onGenerateInputBatch:
+                                    _generateTrainingInputBatch,
                                 onExpandedChanged: (expanded) {
                                   setState(() {
                                     _expandedId =
@@ -939,6 +1084,7 @@ class _TrainingApparatusTile extends StatelessWidget {
   const _TrainingApparatusTile({
     required this.apparatus,
     required this.assignments,
+    required this.inputBatchesByOrder,
     required this.orders,
     required this.statuses,
     required this.expanded,
@@ -947,6 +1093,7 @@ class _TrainingApparatusTile extends StatelessWidget {
     required this.restarting,
     required this.deletingOrderId,
     required this.deletingMaterialKey,
+    required this.generatingInputBatchOrderId,
     required this.onExpandedChanged,
     required this.onTrainingChanged,
     required this.onLinkOrder,
@@ -954,12 +1101,15 @@ class _TrainingApparatusTile extends StatelessWidget {
     required this.onDeleteMaterial,
     required this.onOrderTap,
     required this.onAssignmentTap,
+    required this.onBatchTap,
+    required this.onGenerateInputBatch,
     required this.onRestart,
     required this.slot,
   });
 
   final AdminApparatus apparatus;
   final List<AdminRawMaterialAssignment> assignments;
+  final Map<String, List<AdminProgressBatch>> inputBatchesByOrder;
   final List<ProductionMapSaved> orders;
   final Map<String, AdminTrainingOrderStatus> statuses;
   final bool expanded;
@@ -968,6 +1118,7 @@ class _TrainingApparatusTile extends StatelessWidget {
   final bool restarting;
   final String? deletingOrderId;
   final String? deletingMaterialKey;
+  final String? generatingInputBatchOrderId;
   final ValueChanged<bool> onExpandedChanged;
   final ValueChanged<bool> onTrainingChanged;
   final VoidCallback onLinkOrder;
@@ -975,6 +1126,9 @@ class _TrainingApparatusTile extends StatelessWidget {
   final Future<bool> Function(AdminRawMaterialAssignment) onDeleteMaterial;
   final ValueChanged<ProductionMapSaved> onOrderTap;
   final ValueChanged<AdminRawMaterialAssignment> onAssignmentTap;
+  final ValueChanged<AdminProgressBatch> onBatchTap;
+  final Future<AdminProgressBatch?> Function(ProductionMapSaved)
+      onGenerateInputBatch;
   final VoidCallback onRestart;
   final M3SegmentVerticalSlot slot;
 
@@ -1167,15 +1321,24 @@ class _TrainingApparatusTile extends StatelessWidget {
                             _TrainingOrderCard(
                               order: order,
                               status: statuses[order.map.id.trim()],
-                              assignments: assignmentsByOrderId[
-                                      order.map.id.trim()] ??
-                                  const [],
+                              assignments:
+                                  assignmentsByOrderId[order.map.id.trim()] ??
+                                      const [],
+                              inputBatches:
+                                  inputBatchesByOrder[order.map.id.trim()] ??
+                                      const [],
                               deleting: deletingOrderId == order.map.id.trim(),
                               deletingMaterialKey: deletingMaterialKey,
+                              generatingInputBatch:
+                                  generatingInputBatchOrderId ==
+                                      order.map.id.trim(),
                               onDelete: () => onDeleteOrder(order),
                               onDeleteMaterial: onDeleteMaterial,
                               onOpenDetails: () => onOrderTap(order),
                               onAssignmentTap: onAssignmentTap,
+                              onBatchTap: onBatchTap,
+                              onGenerateInputBatch: () =>
+                                  onGenerateInputBatch(order),
                             ),
                         ],
                       ],
@@ -1194,23 +1357,31 @@ class _TrainingOrderCard extends StatefulWidget {
     required this.order,
     required this.status,
     required this.assignments,
+    required this.inputBatches,
     required this.deleting,
     required this.deletingMaterialKey,
+    required this.generatingInputBatch,
     required this.onDelete,
     required this.onDeleteMaterial,
     required this.onOpenDetails,
     required this.onAssignmentTap,
+    required this.onBatchTap,
+    required this.onGenerateInputBatch,
   });
 
   final ProductionMapSaved order;
   final AdminTrainingOrderStatus? status;
   final List<AdminRawMaterialAssignment> assignments;
+  final List<AdminProgressBatch> inputBatches;
   final bool deleting;
   final String? deletingMaterialKey;
+  final bool generatingInputBatch;
   final VoidCallback onDelete;
   final Future<bool> Function(AdminRawMaterialAssignment) onDeleteMaterial;
   final VoidCallback onOpenDetails;
   final ValueChanged<AdminRawMaterialAssignment> onAssignmentTap;
+  final ValueChanged<AdminProgressBatch> onBatchTap;
+  final Future<AdminProgressBatch?> Function() onGenerateInputBatch;
 
   @override
   State<_TrainingOrderCard> createState() => _TrainingOrderCardState();
@@ -1309,94 +1480,137 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
               child: _expanded
                   ? Padding(
                       padding: const EdgeInsets.fromLTRB(40, 0, 12, 10),
-                      child: widget.assignments.isEmpty
-                          ? Align(
-                              alignment: Alignment.centerLeft,
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(
-                                  'Bu orderga homashyo ulanmagan',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                  ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Divider(height: 1),
+                          const SizedBox(height: 4),
+                          if (widget.assignments.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                'Bu orderga homashyo ulanmagan',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
                                 ),
                               ),
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                const Divider(height: 1),
-                                const SizedBox(height: 4),
-                                for (final assignment in widget.assignments)
-                                  Builder(
-                                    builder: (context) {
-                                      final materialKey =
-                                          _trainingMaterialKey(assignment);
-                                      final deleting =
-                                          widget.deletingMaterialKey ==
-                                              materialKey;
-                                      return ListTile(
-                                        dense: true,
-                                        contentPadding: EdgeInsets.zero,
-                                        leading: Icon(
-                                          Icons.qr_code_2_rounded,
-                                          size: 20,
-                                          color: color,
-                                        ),
-                                        title: Text(
-                                          assignment.itemName.isEmpty
-                                              ? assignment.barcode
-                                              : assignment.itemName,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        subtitle: Text(
-                                          assignment.barcode,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        trailing: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            deleting
-                                                ? const SizedBox.square(
-                                                    dimension: 20,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
-                                                  )
-                                                : IconButton(
-                                                    visualDensity:
-                                                        VisualDensity.compact,
-                                                    tooltip:
-                                                        'Homashyoni o‘chirish',
-                                                    onPressed: () {
-                                                      unawaited(
-                                                        widget.onDeleteMaterial(
-                                                          assignment,
-                                                        ),
-                                                      );
-                                                    },
-                                                    icon: const Icon(
-                                                      Icons
-                                                          .delete_outline_rounded,
-                                                    ),
-                                                  ),
-                                            const Icon(
-                                              Icons.chevron_right_rounded,
-                                              size: 20,
-                                            ),
-                                          ],
-                                        ),
-                                        onTap: () => widget.onAssignmentTap(
-                                          assignment,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                              ],
                             ),
+                          for (final assignment in widget.assignments)
+                            Builder(
+                              builder: (context) {
+                                final materialKey =
+                                    _trainingMaterialKey(assignment);
+                                final deleting =
+                                    widget.deletingMaterialKey == materialKey;
+                                return ListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: Icon(
+                                    Icons.qr_code_2_rounded,
+                                    size: 20,
+                                    color: color,
+                                  ),
+                                  title: Text(
+                                    assignment.itemName.isEmpty
+                                        ? assignment.barcode
+                                        : assignment.itemName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Text(
+                                    assignment.barcode,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      deleting
+                                          ? const SizedBox.square(
+                                              dimension: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : IconButton(
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              tooltip: 'Homashyoni o‘chirish',
+                                              onPressed: () {
+                                                unawaited(
+                                                  widget.onDeleteMaterial(
+                                                    assignment,
+                                                  ),
+                                                );
+                                              },
+                                              icon: const Icon(
+                                                Icons.delete_outline_rounded,
+                                              ),
+                                            ),
+                                      const Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 20,
+                                      ),
+                                    ],
+                                  ),
+                                  onTap: () => widget.onAssignmentTap(
+                                    assignment,
+                                  ),
+                                );
+                              },
+                            ),
+                          if (_trainingOrderHasLaminatsiya(widget.order.map))
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, bottom: 4),
+                              child: OutlinedButton.icon(
+                                onPressed: widget.generatingInputBatch ||
+                                        widget.inputBatches.isNotEmpty
+                                    ? null
+                                    : () => unawaited(
+                                          widget.onGenerateInputBatch(),
+                                        ),
+                                icon: widget.generatingInputBatch
+                                    ? const SizedBox.square(
+                                        dimension: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.qr_code_2_rounded),
+                                label: Text(
+                                  widget.inputBatches.isNotEmpty
+                                      ? 'Batch QR generatsiya qilingan'
+                                      : 'Batch generatsiya qilish',
+                                ),
+                              ),
+                            ),
+                          for (final batch in widget.inputBatches)
+                            ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                Icons.qr_code_2_rounded,
+                                size: 20,
+                                color: color,
+                              ),
+                              title: const Text(
+                                'Test batch QR',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                batch.qrPayload,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: const Icon(
+                                Icons.chevron_right_rounded,
+                                size: 20,
+                              ),
+                              onTap: () => widget.onBatchTap(batch),
+                            ),
+                        ],
+                      ),
                     )
                   : const SizedBox.shrink(),
             ),
@@ -1411,14 +1625,20 @@ class _TrainingOrderDetailsSheet extends StatefulWidget {
   const _TrainingOrderDetailsSheet({
     required this.order,
     required this.assignments,
+    required this.inputBatches,
     required this.onLinkMaterial,
     required this.onDeleteMaterial,
+    required this.onGenerateInputBatch,
+    required this.onBatchTap,
   });
 
   final ProductionMapSaved order;
   final List<AdminRawMaterialAssignment> assignments;
+  final List<AdminProgressBatch> inputBatches;
   final Future<AdminRawMaterialAssignment?> Function() onLinkMaterial;
   final Future<bool> Function(AdminRawMaterialAssignment) onDeleteMaterial;
+  final Future<AdminProgressBatch?> Function() onGenerateInputBatch;
+  final ValueChanged<AdminProgressBatch> onBatchTap;
 
   @override
   State<_TrainingOrderDetailsSheet> createState() =>
@@ -1428,13 +1648,16 @@ class _TrainingOrderDetailsSheet extends StatefulWidget {
 class _TrainingOrderDetailsSheetState
     extends State<_TrainingOrderDetailsSheet> {
   late List<AdminRawMaterialAssignment> _assignments;
+  late List<AdminProgressBatch> _inputBatches;
   bool _linking = false;
+  bool _generatingInputBatch = false;
   String? _deletingMaterialKey;
 
   @override
   void initState() {
     super.initState();
     _assignments = [...widget.assignments];
+    _inputBatches = [...widget.inputBatches];
   }
 
   Future<void> _linkMaterial() async {
@@ -1459,6 +1682,24 @@ class _TrainingOrderDetailsSheetState
     } finally {
       if (mounted) {
         setState(() => _linking = false);
+      }
+    }
+  }
+
+  Future<void> _generateInputBatch() async {
+    if (_generatingInputBatch || _inputBatches.isNotEmpty) {
+      return;
+    }
+    setState(() => _generatingInputBatch = true);
+    try {
+      final batch = await widget.onGenerateInputBatch();
+      if (!mounted || batch == null) {
+        return;
+      }
+      setState(() => _inputBatches = [batch]);
+    } finally {
+      if (mounted) {
+        setState(() => _generatingInputBatch = false);
       }
     }
   }
@@ -1614,6 +1855,25 @@ class _TrainingOrderDetailsSheetState
                   _linking ? 'Ulanmoqda…' : 'Homashyo ulash va QR chiqarish',
                 ),
               ),
+              if (_trainingOrderHasLaminatsiya(map)) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _generatingInputBatch || _inputBatches.isNotEmpty
+                      ? null
+                      : _generateInputBatch,
+                  icon: _generatingInputBatch
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.qr_code_2_rounded),
+                  label: Text(
+                    _inputBatches.isNotEmpty
+                        ? 'Batch QR generatsiya qilingan'
+                        : 'Batch generatsiya qilish',
+                  ),
+                ),
+              ],
               if (_assignments.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 _TrainingOrderDetailsSection(
@@ -1631,7 +1891,8 @@ class _TrainingOrderDetailsSheetState
                                 _trainingMaterialKey(assignment)
                             ? const SizedBox.square(
                                 dimension: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               )
                             : IconButton(
                                 tooltip: 'Homashyoni o‘chirish',
@@ -1642,6 +1903,23 @@ class _TrainingOrderDetailsSheetState
                                   Icons.delete_outline_rounded,
                                 ),
                               ),
+                      ),
+                  ],
+                ),
+              ],
+              if (_inputBatches.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _TrainingOrderDetailsSection(
+                  title: 'Ulangan test batch QR',
+                  icon: Icons.qr_code_2_rounded,
+                  children: [
+                    for (final batch in _inputBatches)
+                      AppInfoRow(
+                        label: 'Batch QR',
+                        value: batch.qrPayload,
+                        selectable: true,
+                        onTap: () => widget.onBatchTap(batch),
+                        trailing: const Icon(Icons.chevron_right_rounded),
                       ),
                   ],
                 ),
@@ -1903,6 +2181,14 @@ String _trainingOrderShortLabel(String orderId) {
     return normalized;
   }
   return '${normalized.substring(0, 10)}…${normalized.substring(normalized.length - 8)}';
+}
+
+bool _trainingOrderHasLaminatsiya(ProductionMapDefinition map) {
+  return map.nodes.any(
+    (node) =>
+        node.kind == 'apparatus' &&
+        productionMapIsLaminatsiyaApparatus(node.title),
+  );
 }
 
 String _trainingMaterialKey(AdminRawMaterialAssignment assignment) {
