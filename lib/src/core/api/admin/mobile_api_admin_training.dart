@@ -2,6 +2,8 @@ part of '../mobile_api.dart';
 
 const _trainingInputApparatus = 'Bosma aparat';
 const _trainingInputQrPrefix = 'TRAINING-INPUT:';
+const _legacyTrainingInputBatchOrderIdsKey =
+    'admin_training_legacy_input_batch_order_ids';
 final _trainingOrderNumberPattern =
     RegExp(r'^T-(\d{1,4})$', caseSensitive: false);
 final Set<String> _testModeTrainingInputBatchGeneratedOrderIds = {};
@@ -551,14 +553,40 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
       );
     }
     _legacyTrainingInputBatchesByOrderId[orderId] = batch;
+    await _rememberLegacyTrainingInputBatchOrderId(orderId);
     return batch;
   }
 
-  List<AdminProgressBatch> _legacyTrainingInputBatches({
+  Future<void> _rememberLegacyTrainingInputBatchOrderId(String orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final orderIds = <String>{
+      ...(prefs.getStringList(_legacyTrainingInputBatchOrderIdsKey) ??
+          const <String>[]),
+      orderId,
+    };
+    await prefs.setStringList(
+      _legacyTrainingInputBatchOrderIdsKey,
+      orderIds.toList()..sort(),
+    );
+  }
+
+  Future<void> _forgetLegacyTrainingInputBatchOrderId(String orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final orderIds = <String>{
+      ...(prefs.getStringList(_legacyTrainingInputBatchOrderIdsKey) ??
+          const <String>[]),
+    }..remove(orderId);
+    await prefs.setStringList(
+      _legacyTrainingInputBatchOrderIdsKey,
+      orderIds.toList()..sort(),
+    );
+  }
+
+  Future<List<AdminProgressBatch>> _legacyTrainingInputBatches({
     required String orderId,
     required String apparatus,
-  }) {
-    return [
+  }) async {
+    final batches = <String, AdminProgressBatch>{
       for (final batch in _legacyTrainingInputBatchesByOrderId.values)
         if ((orderId.isEmpty || batch.orderId.trim() == orderId) &&
             (apparatus.isEmpty ||
@@ -566,8 +594,42 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
                   batch.nextApparatus,
                   apparatus,
                 )))
-          batch,
-    ];
+          batch.orderId.trim(): batch,
+    };
+    final prefs = await SharedPreferences.getInstance();
+    final persistedOrderIds = (prefs.getStringList(
+              _legacyTrainingInputBatchOrderIdsKey,
+            ) ??
+            const <String>[])
+        .map((item) => item.trim())
+        .where((item) => item.startsWith('training-'))
+        .where((item) => orderId.isEmpty || item == orderId)
+        .toSet();
+    if (persistedOrderIds.isEmpty) {
+      return batches.values.toList(growable: false);
+    }
+    final savedMaps = await adminTrainingProductionMaps();
+    for (final saved in savedMaps) {
+      final savedOrderId = saved.map.id.trim();
+      if (!persistedOrderIds.contains(savedOrderId) ||
+          batches.containsKey(savedOrderId)) {
+        continue;
+      }
+      final station = apparatus.isEmpty
+          ? _trainingLaminatsiyaStation(saved.map)
+          : apparatus;
+      final batch = station == null
+          ? null
+          : _testModeTrainingInputProgressBatch(
+              map: saved.map,
+              station: station,
+            );
+      if (batch != null) {
+        _legacyTrainingInputBatchesByOrderId[savedOrderId] = batch;
+        batches[savedOrderId] = batch;
+      }
+    }
+    return batches.values.toList(growable: false);
   }
 
   Future<List<AdminProgressBatch>> adminTrainingInputBatches({
@@ -764,6 +826,7 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
         (_, batch) => batch.orderId.trim() == normalized,
       );
       _legacyTrainingInputBatchesByOrderId.remove(normalized);
+      await _forgetLegacyTrainingInputBatchOrderId(normalized);
       _testModeTrainingInputBatchGeneratedOrderIds.remove(normalized);
       _testModeCompletedQueueOrders.removeWhere(
         (entry) => entry.order.orderId.trim() == normalized,
@@ -791,6 +854,7 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
       throw _adminProductionMapException(response, 'training_map_delete');
     }
     _legacyTrainingInputBatchesByOrderId.remove(normalized);
+    await _forgetLegacyTrainingInputBatchOrderId(normalized);
   }
 
   Future<List<AdminRawMaterialAssignment>> adminTrainingRawMaterialAssignments({

@@ -117,6 +117,13 @@ void main() {
     );
     expect(listed, hasLength(1));
     expect(listed.single.qrPayload, generated.qrPayload);
+    resetMobileApiTestModeData();
+    final listedAfterReload = await http.runWithClient(
+      () => MobileApi.instance.adminTrainingInputBatches(orderId: orderId),
+      () => client,
+    );
+    expect(listedAfterReload, hasLength(1));
+    expect(listedAfterReload.single.qrPayload, generated.qrPayload);
     expect(
       requests.map((request) => request.url.path),
       contains('/v1/mobile/admin/training/input-batches'),
