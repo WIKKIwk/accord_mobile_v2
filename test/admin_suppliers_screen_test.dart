@@ -7,6 +7,7 @@ import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/widgets/shell/app_retry_state.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_suppliers_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_user_create_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_worker_detail_screen.dart';
@@ -22,6 +23,18 @@ Future<void> _selectUserRole(WidgetTester tester, String role) async {
   await tester.pumpAndSettle();
   await tester.tap(find.text(role).last);
   await tester.pumpAndSettle();
+}
+
+Map<String, Object> _supplierUser(String id, String name) {
+  return <String, Object>{
+    'id': 'supplier:$id',
+    'source': 'supplier',
+    'entity_ref': id,
+    'name': name,
+    'phone': '',
+    'role_label': 'Supplier',
+    'blocked': false,
+  };
 }
 
 void main() {
@@ -604,6 +617,187 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
+  testWidgets('admin user search ignores a stale response from an old query', (
+    tester,
+  ) async {
+    final aliStarted = Completer<void>();
+    final releaseAli = Completer<void>();
+    final client = _AdminUsersHttpClient(
+      userListResponder: (url) async {
+        final query = url.queryParameters['q'] ?? '';
+        if (query == 'ali') {
+          if (!aliStarted.isCompleted) {
+            aliStarted.complete();
+          }
+          await releaseAli.future;
+          return _UserListResponse(items: [_supplierUser('ALI', 'Ali')]);
+        }
+        if (query == 'vali') {
+          return _UserListResponse(items: [_supplierUser('VALI', 'Vali')]);
+        }
+        return const _UserListResponse(items: []);
+      },
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminSuppliersScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _selectUserRole(tester, 'Ta’minotchi');
+
+      final search = find.byType(EditableText).first;
+      await tester.enterText(search, 'ali');
+      await tester.pump(const Duration(milliseconds: 221));
+      for (var i = 0; i < 20 && !aliStarted.isCompleted; i++) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(aliStarted.isCompleted, isTrue);
+
+      await tester.enterText(search, 'vali');
+      await tester.pump(const Duration(milliseconds: 221));
+      for (var i = 0; i < 20 && find.text('Vali').evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.text('Vali'), findsOneWidget);
+      expect(find.text('Ali'), findsNothing);
+
+      releaseAli.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('Vali'), findsOneWidget);
+      expect(find.text('Ali'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, createHttpClient: (_) => client);
+  });
+
+  testWidgets('admin user list shows retry instead of empty state on error', (
+    tester,
+  ) async {
+    var fail = true;
+    final client = _AdminUsersHttpClient(
+      userListResponder: (url) async {
+        if (fail) {
+          return const _UserListResponse(
+            items: [],
+            statusCode: HttpStatus.internalServerError,
+          );
+        }
+        return _UserListResponse(items: [_supplierUser('OK', 'Recovered')]);
+      },
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminSuppliersScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _selectUserRole(tester, 'Ta’minotchi');
+
+      expect(find.byType(AppRetryState), findsOneWidget);
+      expect(find.text('Userlar topilmadi'), findsNothing);
+
+      fail = false;
+      await tester.tap(find.text('Qayta urinish'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AppRetryState), findsNothing);
+      expect(find.text('Recovered'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, createHttpClient: (_) => client);
+  });
+
+  testWidgets('admin user search rejects stale load-more results', (
+    tester,
+  ) async {
+    final oldPageStarted = Completer<void>();
+    final releaseOldPage = Completer<void>();
+    final firstPage = List<Object>.generate(
+      50,
+      (index) => _supplierUser('OLD-$index', 'Old $index'),
+    );
+    final client = _AdminUsersHttpClient(
+      userListResponder: (url) async {
+        final query = url.queryParameters['q'] ?? '';
+        final offset = int.tryParse(url.queryParameters['offset'] ?? '') ?? 0;
+        if (query == 'new') {
+          return _UserListResponse(items: [_supplierUser('NEW', 'New user')]);
+        }
+        if (offset == 50) {
+          if (!oldPageStarted.isCompleted) {
+            oldPageStarted.complete();
+          }
+          await releaseOldPage.future;
+          return _UserListResponse(
+            items: [_supplierUser('STALE', 'Stale page user')],
+          );
+        }
+        return _UserListResponse(items: firstPage, hasMore: true);
+      },
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminSuppliersScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _selectUserRole(tester, 'Ta’minotchi');
+
+      await tester.fling(find.byType(ListView), const Offset(0, -5000), 5000);
+      for (var i = 0; i < 30 && !oldPageStarted.isCompleted; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(oldPageStarted.isCompleted, isTrue);
+
+      await tester.enterText(find.byType(EditableText).first, 'new');
+      await tester.pump(const Duration(milliseconds: 221));
+      for (var i = 0; i < 20 && find.text('New user').evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.text('New user'), findsOneWidget);
+
+      releaseOldPage.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('New user'), findsOneWidget);
+      expect(find.text('Stale page user'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, createHttpClient: (_) => client);
+  });
+
   testWidgets('admin qolipchi tab opens system user profile', (
     tester,
   ) async {
@@ -688,11 +882,13 @@ class _AdminUsersHttpClient implements HttpClient {
     this.users = const <Object>[],
     this.workers = const <Object>[],
     this.roleAssignments = const <Object>[],
+    this.userListResponder,
   });
 
   final List<Object> users;
   final List<Object> workers;
   final List<Object> roleAssignments;
+  final Future<_UserListResponse> Function(Uri url)? userListResponder;
   final List<String> requests = <String>[];
   bool createdCustomer = false;
   final Map<String, String> workerCodes = <String, String>{};
@@ -917,6 +1113,19 @@ class _AdminUsersHttpClient implements HttpClient {
       );
     }
     if (key.startsWith('GET /v1/mobile/admin/users/list')) {
+      final customResponse = await userListResponder?.call(url);
+      if (customResponse != null) {
+        body = {
+          'items': customResponse.items,
+          'has_more': customResponse.hasMore,
+        };
+        return _FakeHttpClientRequest(
+          response: _FakeHttpClientResponse(
+            body: jsonEncode(body),
+            statusCode: customResponse.statusCode,
+          ),
+        );
+      }
       final role = url.queryParameters['role'] ?? '';
       final profileItems = role == 'worker'
           ? workers.map((worker) {
@@ -1038,6 +1247,18 @@ class _AdminUsersHttpClient implements HttpClient {
 
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _UserListResponse {
+  const _UserListResponse({
+    required this.items,
+    this.hasMore = false,
+    this.statusCode = HttpStatus.ok,
+  });
+
+  final List<Object> items;
+  final bool hasMore;
+  final int statusCode;
 }
 
 class _FakeHttpClientRequest implements HttpClientRequest {
