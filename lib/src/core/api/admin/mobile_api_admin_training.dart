@@ -8,10 +8,14 @@ const _legacyTrainingInputBatchOrderIdsKey =
 final _trainingOrderNumberPattern =
     RegExp(r'^T-(\d{1,4})$', caseSensitive: false);
 final Set<String> _testModeTrainingInputBatchGeneratedOrderIds = {};
+final Set<String> _testModeTrainingInputBatchSetClosedOrderIds = {};
 final Map<String, AdminProgressBatch> _legacyTrainingInputBatchesByOrderId = {};
+int _testModeTrainingInputBatchSequence = 0;
 
 void _resetTestModeTrainingInputBatches() {
   _testModeTrainingInputBatchGeneratedOrderIds.clear();
+  _testModeTrainingInputBatchSetClosedOrderIds.clear();
+  _testModeTrainingInputBatchSequence = 0;
 }
 
 ProductionMapDefinition _testModePrepareTrainingMapForSave(
@@ -103,6 +107,7 @@ AdminProgressBatch? _testModeTrainingInputProgressBatch({
   required ProductionMapDefinition map,
   required String station,
   bool legacyIdentity = false,
+  bool forceNewIdentity = false,
 }) {
   final orderId = map.id.trim();
   final targetStation = station.trim();
@@ -131,7 +136,7 @@ AdminProgressBatch? _testModeTrainingInputProgressBatch({
     'next_apparatus': targetStation,
   });
   AdminProgressBatch? existingIdentity;
-  if (!legacyIdentity) {
+  if (!legacyIdentity && !forceNewIdentity) {
     for (final candidate in _testModeProgressBatchesByQr.values) {
       if (candidate.payloadJson['training_input'] == true &&
           candidate.orderId.trim() == orderId &&
@@ -145,14 +150,17 @@ AdminProgressBatch? _testModeTrainingInputProgressBatch({
       }
     }
   }
+  final generatedBatchId = _testModeProductionProgressBatchId(
+    apparatus: inputApparatus,
+    orderId: orderId,
+    action: action,
+  );
   final batchId = legacyIdentity
       ? 'training-input-batch-$orderId'
       : existingIdentity?.batchId ??
-          _testModeProductionProgressBatchId(
-            apparatus: inputApparatus,
-            orderId: orderId,
-            action: action,
-          );
+          (forceNewIdentity
+              ? '$generatedBatchId:training-input:${++_testModeTrainingInputBatchSequence}'
+              : generatedBatchId);
   final qrPayload = legacyIdentity
       ? '$_legacyTrainingInputQrPrefix$orderId'
       : existingIdentity?.qrPayload ??
@@ -745,9 +753,10 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     ];
   }
 
-  Future<AdminProgressBatch> adminGenerateTrainingInputBatch({
+  Future<List<AdminProgressBatch>> adminGenerateTrainingInputBatches({
     required String orderId,
     String apparatus = '',
+    int count = 1,
   }) async {
     final normalizedOrderId = orderId.trim();
     if (normalizedOrderId.isEmpty ||
@@ -755,6 +764,12 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
       throw const MobileApiException(
         code: 'training_order_required',
         message: 'Training order tanlanmadi',
+      );
+    }
+    if (count < 1 || count > 100) {
+      throw const MobileApiException(
+        code: 'training_input_batch_count_invalid',
+        message: 'Batch soni 1 dan 100 tagacha bo‘lishi kerak',
       );
     }
     if (await TestModeController.instance.isEnabled()) {
@@ -768,27 +783,47 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
       final station = apparatus.trim().isEmpty
           ? _trainingInputTargetStation(saved.map)
           : apparatus.trim();
-      final batch = station == null
-          ? null
-          : _testModeTrainingInputProgressBatch(
-              map: saved.map,
-              station: station,
-            );
-      if (batch == null) {
+      if (station == null) {
         throw const MobileApiException(
           code: 'training_input_batch_not_applicable',
           message: 'Bu order uchun training batch yaratib bo‘lmaydi',
         );
       }
-      _testModeTrainingInputBatchGeneratedOrderIds.add(normalizedOrderId);
-      _testModeProgressBatchesByQr.removeWhere(
-        (_, candidate) =>
-            candidate.payloadJson['training_input'] == true &&
-            candidate.orderId.trim() == normalizedOrderId &&
-            candidate.qrPayload != batch.qrPayload,
+      final knownKeys = <String>{
+        ..._testModeApparatusSequences.keys,
+        ..._testModeApparatusQueueStates.keys,
+      };
+      final storageKey = resolveApparatusStorageKey(station, knownKeys);
+      final queueState = apparatusQueueOrderStateFromRaw(
+        _testModeApparatusQueueStates[storageKey]?[normalizedOrderId],
       );
-      _testModeProgressBatchesByQr[batch.qrPayload] = batch;
-      return batch;
+      final inputSetStarted = _testModeTrainingInputBatchSetClosedOrderIds
+          .contains(normalizedOrderId);
+      if (queueState != ApparatusQueueOrderState.pending || inputSetStarted) {
+        throw const MobileApiException(
+          code: 'training_input_batch_set_closed',
+          message:
+              'Ish boshlanganidan keyin yangi training batch qo‘shib bo‘lmaydi',
+        );
+      }
+      final batches = <AdminProgressBatch>[];
+      for (var index = 0; index < count; index += 1) {
+        final batch = _testModeTrainingInputProgressBatch(
+          map: saved.map,
+          station: station,
+          forceNewIdentity: true,
+        );
+        if (batch == null) {
+          throw const MobileApiException(
+            code: 'training_input_batch_not_applicable',
+            message: 'Bu order uchun training batch yaratib bo‘lmaydi',
+          );
+        }
+        _testModeProgressBatchesByQr[batch.qrPayload] = batch;
+        batches.add(batch);
+      }
+      _testModeTrainingInputBatchGeneratedOrderIds.add(normalizedOrderId);
+      return List<AdminProgressBatch>.unmodifiable(batches);
     }
     final response = await _sendAuthorized(
       () => _post(
@@ -800,14 +835,24 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
         body: jsonEncode({
           'order_id': normalizedOrderId,
           if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
+          'count': count,
         }),
       ),
     );
     if (response.statusCode == 404) {
-      return _generateLegacyTrainingInputBatch(
-        orderId: normalizedOrderId,
-        apparatus: apparatus,
-      );
+      if (count != 1) {
+        throw const MobileApiException(
+          code: 'training_input_batch_count_not_supported',
+          message:
+              'Eski training server bir urinishda faqat bitta batch yaratadi',
+        );
+      }
+      return [
+        await _generateLegacyTrainingInputBatch(
+          orderId: normalizedOrderId,
+          apparatus: apparatus,
+        )
+      ];
     }
     if (response.statusCode != 200) {
       throw _adminProductionMapException(
@@ -816,14 +861,37 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
       );
     }
     final payload = await decodeJsonMapPayload(response.body);
-    final raw = payload['batch'];
-    if (raw is! Map) {
+    final raw = payload['batches'];
+    final batches = [
+      if (raw is List)
+        for (final item in raw)
+          if (item is Map)
+            AdminProgressBatch.fromJson(item.cast<String, dynamic>()),
+    ];
+    if (batches.isEmpty) {
+      final batch = payload['batch'];
+      if (batch is Map) {
+        batches.add(AdminProgressBatch.fromJson(batch.cast<String, dynamic>()));
+      }
+    }
+    if (batches.isEmpty) {
       throw const MobileApiException(
         code: 'training_input_batch_invalid_response',
         message: 'Training batch javobi noto‘g‘ri',
       );
     }
-    return AdminProgressBatch.fromJson(raw.cast<String, dynamic>());
+    return List<AdminProgressBatch>.unmodifiable(batches);
+  }
+
+  Future<AdminProgressBatch> adminGenerateTrainingInputBatch({
+    required String orderId,
+    String apparatus = '',
+  }) async {
+    final batches = await adminGenerateTrainingInputBatches(
+      orderId: orderId,
+      apparatus: apparatus,
+    );
+    return batches.first;
   }
 
   Future<void> adminDeleteTrainingInputBatch({
@@ -862,7 +930,14 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
                 batch.qrPayload.trim().toLowerCase() ==
                     qrPayload.trim().toLowerCase()),
       );
-      _testModeTrainingInputBatchGeneratedOrderIds.remove(normalizedOrderId);
+      final hasRemainingBatches = _testModeProgressBatchesByQr.values.any(
+        (batch) =>
+            batch.payloadJson['training_input'] == true &&
+            batch.orderId.trim() == normalizedOrderId,
+      );
+      if (!hasRemainingBatches) {
+        _testModeTrainingInputBatchGeneratedOrderIds.remove(normalizedOrderId);
+      }
       return;
     }
     final response = await _sendAuthorized(
@@ -955,6 +1030,7 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
       _legacyTrainingInputBatchesByOrderId.remove(normalized);
       await _forgetLegacyTrainingInputBatchOrderId(normalized);
       _testModeTrainingInputBatchGeneratedOrderIds.remove(normalized);
+      _testModeTrainingInputBatchSetClosedOrderIds.remove(normalized);
       _testModeCompletedQueueOrders.removeWhere(
         (entry) => entry.order.orderId.trim() == normalized,
       );

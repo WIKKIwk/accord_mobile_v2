@@ -4020,6 +4020,8 @@ MobileApiException _adminProductionMapException(
       'store_failed' ||
       'production_map_store_failed' =>
         'Production map ma’lumotlarini saqlashda server xatosi',
+      'training workspace store failed' =>
+        'Training server bazasi yangilanmagan yoki ulanmagan. Serverni restart qiling',
       'capacity_profile_invalid' => 'Aparat quvvati profili noto‘g‘ri',
       'capacity_profile_not_found' => 'Aparat quvvati profili topilmadi',
       'capability_not_supported' => 'Bu aparat kerakli ish turini qo‘llamaydi',
@@ -8505,6 +8507,9 @@ extension MobileApiAdmin on MobileApi {
               inputForStation;
           _testModeActiveProgressInputByQueue[queueInputKey] =
               inputForStation.qrPayload;
+          if (inputForStation.payloadJson['training_input'] == true) {
+            _testModeTrainingInputBatchSetClosedOrderIds.add(orderId.trim());
+          }
         }
         _testModeEnsureApparatusExecutionCapacity(
           apparatusId: '',
@@ -8647,7 +8652,7 @@ extension MobileApiAdmin on MobileApi {
             message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
           );
         }
-        final qty = producedQty ?? 1;
+        final qty = producedQty ?? finishedGoodsMeter ?? 1;
         final outputBatches = isRezka
             ? _testModeRezkaProgressBatches(
                 apparatus: storageKey,
@@ -8679,7 +8684,9 @@ extension MobileApiAdmin on MobileApi {
                   action: action,
                   status: action == 'detach_roll' ? 'roll_detached' : 'paused',
                   producedQty: qty,
-                  uom: uom.trim().isEmpty ? 'kg' : uom.trim(),
+                  uom: uom.trim().isEmpty && finishedGoodsMeter != null
+                      ? 'm'
+                      : (uom.trim().isEmpty ? 'kg' : uom.trim()),
                   parentBatchId: activeInputBatch?.batchId ?? '',
                   laminationPrintLeftoverRolls: null,
                   laminationFilmLeftoverRolls:
@@ -8738,7 +8745,7 @@ extension MobileApiAdmin on MobileApi {
           orderId: orderId.trim(),
           action: 'roll_complete',
           status: 'completed',
-          producedQty: producedQty ?? 1,
+          producedQty: producedQty ?? finishedGoodsMeter ?? 1,
           uom: uom.trim().isEmpty ? 'm' : uom.trim(),
           frameCount: _testModeRezkaKadrCount(
             orderId: orderId,

@@ -460,9 +460,9 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       }
       setState(() {
         _inputBatches = [
-          batch,
           for (final item in _inputBatches)
-            if (item.orderId.trim() != batch.orderId.trim()) item,
+            if (item.batchId.trim() != batch.batchId.trim()) item,
+          batch,
         ];
       });
       showAdminTopNotice(
@@ -1591,8 +1591,7 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                             Padding(
                               padding: const EdgeInsets.only(top: 4, bottom: 4),
                               child: OutlinedButton.icon(
-                                onPressed: widget.generatingInputBatch ||
-                                        widget.inputBatches.isNotEmpty
+                                onPressed: widget.generatingInputBatch
                                     ? null
                                     : () => unawaited(
                                           widget.onGenerateInputBatch(),
@@ -1607,8 +1606,8 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                                     : const Icon(Icons.qr_code_2_rounded),
                                 label: Text(
                                   widget.inputBatches.isNotEmpty
-                                      ? 'Batch QR generatsiya qilingan'
-                                      : 'Batch generatsiya qilish',
+                                      ? 'Yana batch QR generatsiya qilish (${widget.inputBatches.length})'
+                                      : 'Batch QR generatsiya qilish',
                                 ),
                               ),
                             ),
@@ -1715,7 +1714,7 @@ class _TrainingOrderDetailsSheetState
   }
 
   Future<void> _generateInputBatch() async {
-    if (_generatingInputBatch || _inputBatches.isNotEmpty) {
+    if (_generatingInputBatch) {
       return;
     }
     setState(() => _generatingInputBatch = true);
@@ -1724,7 +1723,13 @@ class _TrainingOrderDetailsSheetState
       if (!mounted || batch == null) {
         return;
       }
-      setState(() => _inputBatches = [batch]);
+      setState(() {
+        _inputBatches = [
+          for (final item in _inputBatches)
+            if (item.batchId.trim() != batch.batchId.trim()) item,
+          batch,
+        ];
+      });
     } finally {
       if (mounted) {
         setState(() => _generatingInputBatch = false);
@@ -1886,9 +1891,7 @@ class _TrainingOrderDetailsSheetState
               if (_trainingOrderNeedsGeneratedInputBatch(map)) ...[
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: _generatingInputBatch || _inputBatches.isNotEmpty
-                      ? null
-                      : _generateInputBatch,
+                  onPressed: _generatingInputBatch ? null : _generateInputBatch,
                   icon: _generatingInputBatch
                       ? const SizedBox.square(
                           dimension: 18,
@@ -1897,8 +1900,8 @@ class _TrainingOrderDetailsSheetState
                       : const Icon(Icons.qr_code_2_rounded),
                   label: Text(
                     _inputBatches.isNotEmpty
-                        ? 'Batch QR generatsiya qilingan'
-                        : 'Batch generatsiya qilish',
+                        ? 'Yana batch QR generatsiya qilish (${_inputBatches.length})'
+                        : 'Batch QR generatsiya qilish',
                   ),
                 ),
               ],

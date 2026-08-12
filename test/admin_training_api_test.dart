@@ -484,7 +484,6 @@ void main() {
       apparatus: apparatus,
       orderId: orderId,
       action: 'detach_roll',
-      producedQty: 450,
       grossQty: 52,
       finishedGoodsKg: 50,
       finishedGoodsMeter: 450,
@@ -499,6 +498,10 @@ void main() {
     expect(detached.states[orderId], 'paused');
     expect(detached.progressBatches, hasLength(4));
     expect(detached.printJobs, hasLength(4));
+    expect(
+      detached.progressBatches.every((batch) => batch.producedQty == 450),
+      isTrue,
+    );
     expect(detached.progressBatches.first.totalWaste, 3);
     expect(detached.progressBatches[1].totalWaste, isNull);
     for (var index = 0; index < detached.progressBatches.length; index += 1) {
@@ -588,6 +591,96 @@ void main() {
       ),
       hasLength(4),
     );
+  });
+
+  test('training input batch set keeps partial and final completion separate',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Laminatsiya batch set';
+    final saved = await MobileApi.instance.adminSaveTrainingProductionMap(
+      const ProductionMapDefinition(
+        id: 'zakaz-draft-laminatsiya-batch-set',
+        productCode: 'TRAINING-LAM-SET',
+        title: 'Training laminatsiya batch set',
+        orderKg: 10,
+        nodes: [
+          ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+          ProductionMapNode(
+            id: 'laminatsiya',
+            kind: 'apparatus',
+            title: apparatus,
+          ),
+          ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+        ],
+        edges: [
+          ProductionMapEdge(from: 'start', to: 'laminatsiya'),
+          ProductionMapEdge(from: 'laminatsiya', to: 'end'),
+        ],
+      ),
+    );
+    final orderId = saved.map.id;
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: [orderId],
+    );
+
+    final inputs = await MobileApi.instance.adminGenerateTrainingInputBatches(
+      orderId: orderId,
+      count: 2,
+    );
+    expect(inputs, hasLength(2));
+    expect(inputs.map((batch) => batch.batchId).toSet(), hasLength(2));
+    expect(inputs.map((batch) => batch.qrPayload).toSet(), hasLength(2));
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+      qrPayload: inputs.first.qrPayload,
+      progressBatchId: inputs.first.batchId,
+    );
+    var queue = await MobileApi.instance.adminProductionMapQueueSnapshot();
+    expect(
+      queue
+          .queueActionControls[apparatus]![orderId]!.completeRequiresFullReport,
+      isFalse,
+    );
+    final partial = await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'complete',
+      finishedGoodsKg: 5,
+      finishedGoodsMeter: 50,
+      bobinaKg: 1,
+      uom: 'm',
+    );
+    expect(partial.states[orderId], 'pending');
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+      qrPayload: inputs.last.qrPayload,
+      progressBatchId: inputs.last.batchId,
+    );
+    queue = await MobileApi.instance.adminProductionMapQueueSnapshot();
+    expect(
+      queue
+          .queueActionControls[apparatus]![orderId]!.completeRequiresFullReport,
+      isTrue,
+    );
+    final completed = await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'complete',
+      finishedGoodsKg: 5,
+      finishedGoodsMeter: 50,
+      bobinaKg: 1,
+      laminationPrintLeftoverRolls: 1,
+      totalWaste: 1,
+      uom: 'm',
+    );
+    expect(completed.states[orderId], 'completed');
   });
 }
 
