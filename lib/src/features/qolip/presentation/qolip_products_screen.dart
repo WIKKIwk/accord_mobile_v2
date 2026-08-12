@@ -271,9 +271,8 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   }
 
   Widget _selectionTitle(BuildContext context) {
-    final count = _selectionMode == _QolipSelectionMode.containers
-        ? _selectedContainerKeys.length
-        : _selectedQolipCodes.length;
+    final totalQolipCount = _cachedProducts?.length ?? 0;
+    final selectedQolipCount = _selectedQolipCodes.length;
     return Row(
       children: [
         IconButton(
@@ -283,7 +282,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
         ),
         Expanded(
           child: Text(
-            '$count ta tanlandi',
+            '$totalQolipCount/$selectedQolipCount ta tanlandi',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),

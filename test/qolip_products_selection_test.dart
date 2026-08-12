@@ -155,7 +155,7 @@ void main() {
 
     await tester.longPress(find.text('Q-FREE'));
     await tester.pumpAndSettle();
-    expect(find.text('1 ta tanlandi'), findsOneWidget);
+    expect(find.text('3/1 ta tanlandi'), findsOneWidget);
     await tester.tap(find.byTooltip('Tanlanganlarni o‘chirish'));
     await tester.pumpAndSettle();
     expect(find.text('Qoliplarni o‘chirasizmi?'), findsOneWidget);
@@ -166,7 +166,7 @@ void main() {
 
     await tester.longPress(find.text('Salat set'));
     await tester.pumpAndSettle();
-    expect(find.text('1 ta tanlandi'), findsOneWidget);
+    expect(find.text('2/1 ta tanlandi'), findsOneWidget);
     await tester.tap(find.byTooltip('Tanlanganlarni o‘chirish'));
     await tester.pumpAndSettle();
     expect(
