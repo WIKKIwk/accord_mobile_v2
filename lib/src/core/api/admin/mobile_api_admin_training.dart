@@ -553,6 +553,12 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
         headers: _headers(requireToken()),
       ),
     );
+    // Batch listing is an optional Training enhancement. If this route is
+    // unavailable on the configured server, the rest of Training must still
+    // open; generation will report its own backend error when requested.
+    if (response.statusCode == 404) {
+      return const <AdminProgressBatch>[];
+    }
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'training_input_batches');
     }

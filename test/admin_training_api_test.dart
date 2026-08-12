@@ -1,8 +1,11 @@
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/inventory_movement_models.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -16,6 +19,27 @@ void main() {
   tearDown(() async {
     resetMobileApiTestModeData();
     await TestModeController.instance.setEnabled(false);
+    AppSession.instance.token = null;
+  });
+
+  test('unavailable training batch list does not block the training page',
+      () async {
+    await TestModeController.instance.setEnabled(false);
+    AppSession.instance.token = 'token';
+    final requests = <http.Request>[];
+    final client = MockClient((request) async {
+      requests.add(request);
+      return http.Response('', 404);
+    });
+
+    final batches = await http.runWithClient(
+      () => MobileApi.instance.adminTrainingInputBatches(),
+      () => client,
+    );
+
+    expect(batches, isEmpty);
+    expect(requests.single.url.path,
+        endsWith('/v1/mobile/admin/training/input-batches'));
   });
 
   test('training raw material is linked to order and apparatus state',
