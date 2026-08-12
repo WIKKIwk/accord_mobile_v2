@@ -609,6 +609,64 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
+  testWidgets('item list cache is not reused after session changes', (
+    tester,
+  ) async {
+    var loadCalls = 0;
+    final oldItem = SupplierItem.fromJson({
+      ..._itemsPage(1, 1).single,
+      'code': 'ITEM-OLD',
+      'name': 'Old session item',
+    });
+    final newItem = SupplierItem.fromJson({
+      ..._itemsPage(1, 1).single,
+      'code': 'ITEM-NEW',
+      'name': 'New session item',
+    });
+
+    Future<void> pumpList() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: Scaffold(
+            body: AdminItemsListTab(
+              loadItemsPage: ({
+                required query,
+                required limit,
+                required offset,
+              }) async {
+                loadCalls += 1;
+                return [loadCalls == 1 ? oldItem : newItem];
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pumpList();
+    expect(find.text('Old session item'), findsOneWidget);
+    expect(loadCalls, 1);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin B',
+      legalName: 'Admin B',
+      ref: 'ADMIN-002',
+      phone: '',
+      avatarUrl: '',
+    );
+    AppSession.instance.revision.value++;
+
+    await pumpList();
+    expect(find.text('New session item'), findsOneWidget);
+    expect(find.text('Old session item'), findsNothing);
+    expect(loadCalls, 2);
+  });
+
   testWidgets('admin can open an item from the item list', (tester) async {
     RouteSettings? openedRoute;
     var loadCalls = 0;

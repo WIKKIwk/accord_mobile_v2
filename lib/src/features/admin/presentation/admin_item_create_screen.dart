@@ -941,6 +941,10 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
     if (cache == null) {
       return false;
     }
+    if (cache.sessionRevision != AppSession.instance.revision.value) {
+      _memoryCache = null;
+      return false;
+    }
     _query = cache.query;
     _searchController.text = cache.query;
     _items = cache.items;
@@ -951,8 +955,9 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
     return true;
   }
 
-  void _saveMemoryCache() {
+  void _saveMemoryCache(int sessionRevision) {
     _memoryCache = _AdminItemsMemoryCache(
+      sessionRevision: sessionRevision,
       query: _query,
       items: List<SupplierItem>.unmodifiable(_items),
       hasMore: _hasMore,
@@ -984,13 +989,16 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
 
   Future<void> _fetchPage({required int offset, required bool replace}) async {
     final query = _query;
+    final sessionRevision = AppSession.instance.revision.value;
     try {
       final page = await widget.loadItemsPage(
         query: query,
         limit: _pageSize,
         offset: offset,
       );
-      if (!mounted || query != _query) {
+      if (!mounted ||
+          query != _query ||
+          sessionRevision != AppSession.instance.revision.value) {
         return;
       }
       setState(() {
@@ -1000,9 +1008,11 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
         _hasMore = page.length == _pageSize;
         _error = null;
       });
-      _saveMemoryCache();
+      _saveMemoryCache(sessionRevision);
     } catch (error) {
-      if (!mounted || query != _query) {
+      if (!mounted ||
+          query != _query ||
+          sessionRevision != AppSession.instance.revision.value) {
         return;
       }
       setState(() {
@@ -1084,11 +1094,13 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
 
 class _AdminItemsMemoryCache {
   const _AdminItemsMemoryCache({
+    required this.sessionRevision,
     required this.query,
     required this.items,
     required this.hasMore,
   });
 
+  final int sessionRevision;
   final String query;
   final List<SupplierItem> items;
   final bool hasMore;

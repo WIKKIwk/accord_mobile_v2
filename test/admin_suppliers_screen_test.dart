@@ -202,6 +202,73 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
+  testWidgets('admin users cache is not reused after session changes', (
+    tester,
+  ) async {
+    var userListCalls = 0;
+    final client = _AdminUsersHttpClient(
+      userListResponder: (_) async {
+        userListCalls += 1;
+        return _UserListResponse(
+          items: [
+            _supplierUser(
+              userListCalls == 1 ? 'ADMIN-A' : 'ADMIN-B',
+              userListCalls == 1 ? 'Admin A supplier' : 'Admin B supplier',
+            ),
+          ],
+        );
+      },
+    );
+
+    Future<void> pumpScreen() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminSuppliersScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await HttpOverrides.runZoned(() async {
+      await pumpScreen();
+      await _selectUserRole(tester, 'Ta’minotchi');
+      expect(find.text('Admin A supplier'), findsOneWidget);
+      expect(userListCalls, 1);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      AppSession.instance.profile = const SessionProfile(
+        role: UserRole.admin,
+        displayName: 'Admin B',
+        legalName: 'Admin B',
+        ref: 'ADMIN-002',
+        phone: '',
+        avatarUrl: '',
+      );
+      AppSession.instance.revision.value++;
+
+      await pumpScreen();
+      expect(find.text('Admin A supplier'), findsNothing);
+      expect(find.text('Rollar tanlanmagan'), findsOneWidget);
+
+      await _selectUserRole(tester, 'Ta’minotchi');
+      expect(find.text('Admin B supplier'), findsOneWidget);
+      expect(find.text('Admin A supplier'), findsNothing);
+      expect(userListCalls, 2);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, createHttpClient: (_) => client);
+  });
+
   testWidgets('admin users list opens from one merged paged endpoint', (
     tester,
   ) async {

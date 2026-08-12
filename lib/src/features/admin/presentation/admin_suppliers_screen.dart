@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/session/session.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -135,7 +136,8 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
 
   Future<void> _bootstrap({bool forceRefresh = false}) async {
     final generation = ++_requestGeneration;
-    if (!forceRefresh && _restoreCache()) {
+    final sessionRevision = AppSession.instance.revision.value;
+    if (!forceRefresh && _restoreCache(sessionRevision)) {
       return;
     }
 
@@ -161,7 +163,12 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         _loadWorkers(query: query, selectedKind: selectedKind),
         _loadRoleAssignments(),
       ]);
-      if (!_isCurrentRequest(generation, query, selectedKind)) {
+      if (!_isCurrentRequest(
+        generation,
+        query,
+        selectedKind,
+        sessionRevision,
+      )) {
         return;
       }
       final page = results[0] as AdminUserListPage;
@@ -184,10 +191,15 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         _loadingMore = false;
         _loadError = null;
       });
-      _saveCache();
+      _saveCache(sessionRevision);
     } catch (error) {
       debugPrint('admin users bootstrap failed: $error');
-      if (!_isCurrentRequest(generation, query, selectedKind)) {
+      if (!_isCurrentRequest(
+        generation,
+        query,
+        selectedKind,
+        sessionRevision,
+      )) {
         return;
       }
       setState(() {
@@ -213,6 +225,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     final query = _searchQuery;
     final selectedKind = _selectedKind;
     final offset = _offset;
+    final sessionRevision = AppSession.instance.revision.value;
     setState(() => _loadingMore = true);
 
     try {
@@ -222,7 +235,12 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         limit: _pageSize,
         offset: offset,
       );
-      if (!_isCurrentRequest(generation, query, selectedKind) ||
+      if (!_isCurrentRequest(
+            generation,
+            query,
+            selectedKind,
+            sessionRevision,
+          ) ||
           _offset != offset) {
         return;
       }
@@ -231,10 +249,16 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         _offset += page.items.length;
         _hasMore = page.hasMore;
       });
-      _saveCache();
+      _saveCache(sessionRevision);
     } catch (error) {
       debugPrint('admin user list next page failed: $error');
-      if (!mounted || !_isCurrentRequest(generation, query, selectedKind)) {
+      if (!mounted ||
+          !_isCurrentRequest(
+            generation,
+            query,
+            selectedKind,
+            sessionRevision,
+          )) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -245,7 +269,12 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         ),
       );
     } finally {
-      if (_isCurrentRequest(generation, query, selectedKind)) {
+      if (_isCurrentRequest(
+        generation,
+        query,
+        selectedKind,
+        sessionRevision,
+      )) {
         setState(() => _loadingMore = false);
       }
     }
@@ -289,11 +318,13 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     int generation,
     String query,
     AdminUserKind? selectedKind,
+    int sessionRevision,
   ) {
     return mounted &&
         generation == _requestGeneration &&
         query == _searchQuery &&
-        selectedKind == _selectedKind;
+        selectedKind == _selectedKind &&
+        sessionRevision == AppSession.instance.revision.value;
   }
 
   Future<void> _openUser(AdminUserListEntry item) async {
@@ -327,9 +358,13 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     }
   }
 
-  bool _restoreCache() {
+  bool _restoreCache(int sessionRevision) {
     final cache = _cache;
     if (cache == null) {
+      return false;
+    }
+    if (cache.sessionRevision != sessionRevision) {
+      _cache = null;
       return false;
     }
     if (mounted) {
@@ -356,8 +391,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     return true;
   }
 
-  void _saveCache() {
+  void _saveCache(int sessionRevision) {
     _cache = _AdminSuppliersCache(
+      sessionRevision: sessionRevision,
       items: List<AdminUserListEntry>.unmodifiable(_items),
       workers: List<AdminWorker>.unmodifiable(_workers),
       assignments: List<AdminRoleAssignment>.unmodifiable(_assignments),
@@ -649,6 +685,7 @@ class _AdminUserRolePicker extends StatelessWidget {
 
 class _AdminSuppliersCache {
   const _AdminSuppliersCache({
+    required this.sessionRevision,
     required this.items,
     required this.workers,
     required this.assignments,
@@ -658,6 +695,7 @@ class _AdminSuppliersCache {
     required this.selectedKind,
   });
 
+  final int sessionRevision;
   final List<AdminUserListEntry> items;
   final List<AdminWorker> workers;
   final List<AdminRoleAssignment> assignments;
