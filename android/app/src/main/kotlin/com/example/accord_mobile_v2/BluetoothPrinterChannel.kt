@@ -57,12 +57,14 @@ class BluetoothPrinterChannel(
         private const val PROGRESS_BOLD_OFFSET_DOTS = 1
         private const val PROGRESS_FIELD_WIDTH_CHARS = 24
         // FNT_12_20 is rendered slightly wider by XP-P323B than its name
-        // suggests. Use a conservative advance so the value never touches
-        // the field label or its colon on the physical sticker.
+        // suggests. Use a conservative width estimate for wrapping. The
+        // actual field line is emitted as one string so the printer itself
+        // owns the single-space separation after the colon.
         private const val QOLIP_FIELD_CHAR_WIDTH_DOTS = 16
         private const val QOLIP_FIELD_LINE_HEIGHT_DOTS = 24
-        private const val QOLIP_FIELD_TOP_Y = 4
-        private const val QOLIP_FIELD_VALUE_GAP_DOTS = 8
+        private const val QOLIP_FIELD_TOP_Y = 24
+        private const val QOLIP_FIELD_ROW_GAP_DOTS = 8
+        private const val QOLIP_FIELD_QR_GAP_DOTS = 16
         private const val LARGE_QR_FOOTER_GAP_DOTS = 28
         private const val LARGE_QR_FOOTER_LEFT_SHIFT_DOTS = 16
         private const val LARGE_QR_FOOTER_HEIGHT_DOTS = 24
@@ -390,8 +392,18 @@ class BluetoothPrinterChannel(
             largeQrCellSize(payload)
         }
         val qrX = centeredQrX(payload, cellSize)
-        val qrY = centeredQrY(payload, cellSize)
         val qrSize = qrSymbolSizeDots(payload, cellSize)
+        val baseQrY = centeredQrY(payload, cellSize)
+        val qrY = if (label.isQolipProductCode) {
+            val latestQrY = (LABEL_HEIGHT_DOTS - qrSize -
+                LARGE_QR_FOOTER_GAP_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS)
+                .coerceAtLeast(baseQrY)
+            val requestedQrY = qolipFieldsEndY(label, rawTitle) +
+                QOLIP_FIELD_QR_GAP_DOTS
+            requestedQrY.coerceIn(baseQrY, latestQrY)
+        } else {
+            baseQrY
+        }
         if (label.isQolipProductCode) {
             var fieldY = QOLIP_FIELD_TOP_Y
             fieldY = printQolipField(
@@ -703,35 +715,27 @@ class BluetoothPrinterChannel(
         value: String,
     ): Int {
         val labelPart = "$fieldLabel: "
-        val valueX = LABEL_LEFT_MARGIN_DOTS +
-            labelPart.length * QOLIP_FIELD_CHAR_WIDTH_DOTS +
-            QOLIP_FIELD_VALUE_GAP_DOTS
-        val availableChars = ((LABEL_WIDTH_DOTS - LABEL_RIGHT_MARGIN_DOTS - valueX) /
-            QOLIP_FIELD_CHAR_WIDTH_DOTS).coerceAtLeast(1)
         val displayValue = cleanLabelText(value).ifBlank { "-" }
         val fullLineChars = ((LABEL_WIDTH_DOTS - LABEL_LEFT_MARGIN_DOTS -
             LABEL_RIGHT_MARGIN_DOTS) / QOLIP_FIELD_CHAR_WIDTH_DOTS).coerceAtLeast(1)
-        val valueLines = if (displayValue.length <= availableChars) {
-            listOf(displayValue)
-        } else {
-            wrapLabelText(displayValue, fullLineChars)
-        }
-        sdkText(
-            printer,
-            LABEL_LEFT_MARGIN_DOTS,
-            y,
-            TSPLConst.FNT_12_20,
-            labelPart,
-        )
-        if (valueLines.size == 1) {
-            sdkBoldText(
+        val inlineFits = displayValue.length + labelPart.length <= fullLineChars
+        val valueLines = wrapLabelText(displayValue, fullLineChars)
+        if (inlineFits) {
+            sdkText(
                 printer,
-                valueX,
+                LABEL_LEFT_MARGIN_DOTS,
                 y,
-                valueLines.single(),
-                font = TSPLConst.FNT_12_20,
+                TSPLConst.FNT_12_20,
+                "$labelPart$displayValue",
             )
         } else {
+            sdkText(
+                printer,
+                LABEL_LEFT_MARGIN_DOTS,
+                y,
+                TSPLConst.FNT_12_20,
+                labelPart,
+            )
             valueLines.forEachIndexed { index, line ->
                 sdkBoldText(
                     printer,
@@ -742,9 +746,38 @@ class BluetoothPrinterChannel(
                 )
             }
         }
-        return y + QOLIP_FIELD_LINE_HEIGHT_DOTS *
-            (if (valueLines.size == 1) 1 else valueLines.size + 1) +
-            QOLIP_FIELD_VALUE_GAP_DOTS
+        val lineCount = if (inlineFits) 1 else valueLines.size + 1
+        return y + QOLIP_FIELD_LINE_HEIGHT_DOTS * lineCount +
+            QOLIP_FIELD_ROW_GAP_DOTS
+    }
+
+    private fun qolipFieldsEndY(
+        label: BluetoothLabelRequest,
+        rawTitle: String,
+    ): Int {
+        var y = QOLIP_FIELD_TOP_Y
+        y = qolipFieldNextY(y, "MIJOZ", label.customerName)
+        y = qolipFieldNextY(y, "MAHSULOT NOMI", rawTitle)
+        return qolipFieldNextY(y, "QOLIP RANGI", label.qolipColor)
+    }
+
+    private fun qolipFieldNextY(
+        y: Int,
+        fieldLabel: String,
+        value: String,
+    ): Int {
+        val labelPart = "$fieldLabel: "
+        val displayValue = cleanLabelText(value).ifBlank { "-" }
+        val fullLineChars = ((LABEL_WIDTH_DOTS - LABEL_LEFT_MARGIN_DOTS -
+            LABEL_RIGHT_MARGIN_DOTS) / QOLIP_FIELD_CHAR_WIDTH_DOTS).coerceAtLeast(1)
+        val inlineFits = displayValue.length + labelPart.length <= fullLineChars
+        val valueLineCount = if (inlineFits) {
+            1
+        } else {
+            wrapLabelText(displayValue, fullLineChars).size + 1
+        }
+        return y + QOLIP_FIELD_LINE_HEIGHT_DOTS * valueLineCount +
+            QOLIP_FIELD_ROW_GAP_DOTS
     }
 
     private fun progressProductName(itemName: String, fallback: String): String {

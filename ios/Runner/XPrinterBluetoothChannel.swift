@@ -40,12 +40,14 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private static let progressBoldOffsetDots = 1
   private static let progressFieldWidthChars = 24
   // FNT_12_20 is rendered slightly wider by XP-P323B than its name
-  // suggests. Use a conservative advance so the value never touches
-  // the field label or its colon on the physical sticker.
+  // suggests. Use a conservative width estimate for wrapping. The
+  // actual field line is emitted as one string so the printer itself
+  // owns the single-space separation after the colon.
   private static let qolipFieldCharWidthDots = 16
   private static let qolipFieldLineHeightDots = 24
-  private static let qolipFieldTopY = 4
-  private static let qolipFieldValueGapDots = 8
+  private static let qolipFieldTopY = 24
+  private static let qolipFieldRowGapDots = 8
+  private static let qolipFieldQrGapDots = 16
   private static let largeQrFooterGapDots = 28
   private static let largeQrFooterLeftShiftDots = 16
   private static let largeQrFooterHeightDots = 24
@@ -513,8 +515,21 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       ? materialQrCellWidth(payload)
       : largeQrCellWidth(payload)
     let qrX = centeredQrX(payload, cellWidth: cellWidth)
-    let qrY = centeredQrY(payload, cellWidth: cellWidth)
     let qrSize = qrSymbolSizeDots(payload, cellWidth: cellWidth)
+    let baseQrY = centeredQrY(payload, cellWidth: cellWidth)
+    let qrY: Int
+    if label.labelKind == "qolip_code" {
+      let latestQrY = max(
+        baseQrY,
+        Self.labelHeightDots - qrSize - Self.largeQrFooterGapDots -
+          Self.largeQrFooterHeightDots
+      )
+      let requestedQrY = qolipFieldsEndY(label, rawTitle: rawTitle) +
+        Self.qolipFieldQrGapDots
+      qrY = min(max(requestedQrY, baseQrY), latestQrY)
+    } else {
+      qrY = baseQrY
+    }
 
     var result = command
     if label.labelKind == "qolip_code" {
@@ -843,14 +858,6 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     value: String
   ) -> (command: XTSPLCommand?, nextY: Int) {
     let labelPart = "\(fieldLabel): "
-    let valueX = Self.labelLeftMarginDots +
-      labelPart.count * Self.qolipFieldCharWidthDots +
-      Self.qolipFieldValueGapDots
-    let availableChars = max(
-      1,
-      (Self.labelWidthDots - Self.labelRightMarginDots - valueX) /
-        Self.qolipFieldCharWidthDots
-    )
     let normalizedValue = cleanLabelText(value)
     let displayValue = normalizedValue.isEmpty ? "-" : normalizedValue
     let fullLineChars = max(
@@ -858,25 +865,25 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       (Self.labelWidthDots - Self.labelLeftMarginDots - Self.labelRightMarginDots) /
         Self.qolipFieldCharWidthDots
     )
-    let valueLines = displayValue.count <= availableChars
-      ? [displayValue]
-      : wrapLabelText(displayValue, width: fullLineChars)
-    var result = text(
-      command,
-      x: Self.labelLeftMarginDots,
-      y: y,
-      font: kFNT_12_20,
-      value: labelPart
-    )
-    if valueLines.count == 1 {
-      result = appendBoldText(
+    let inlineFits = displayValue.count + labelPart.count <= fullLineChars
+    let valueLines = wrapLabelText(displayValue, width: fullLineChars)
+    var result = command
+    if inlineFits {
+      result = text(
         result,
-        x: valueX,
+        x: Self.labelLeftMarginDots,
         y: y,
-        value: valueLines[0],
-        font: kFNT_12_20
+        font: kFNT_12_20,
+        value: "\(labelPart)\(displayValue)"
       )
     } else {
+      result = text(
+        result,
+        x: Self.labelLeftMarginDots,
+        y: y,
+        font: kFNT_12_20,
+        value: labelPart
+      )
       for (index, line) in valueLines.enumerated() {
         result = appendBoldText(
           result,
@@ -887,12 +894,43 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
         )
       }
     }
-    let lineCount = valueLines.count == 1 ? 1 : valueLines.count + 1
+    let lineCount = inlineFits ? 1 : valueLines.count + 1
     return (
       command: result,
       nextY: y + Self.qolipFieldLineHeightDots * lineCount +
-        Self.qolipFieldValueGapDots
+        Self.qolipFieldRowGapDots
     )
+  }
+
+  private func qolipFieldsEndY(
+    _ label: BluetoothLabelRequest,
+    rawTitle: String
+  ) -> Int {
+    var y = Self.qolipFieldTopY
+    y = qolipFieldNextY(y, fieldLabel: "MIJOZ", value: label.customerName)
+    y = qolipFieldNextY(y, fieldLabel: "MAHSULOT NOMI", value: rawTitle)
+    return qolipFieldNextY(y, fieldLabel: "QOLIP RANGI", value: label.qolipColor)
+  }
+
+  private func qolipFieldNextY(
+    _ y: Int,
+    fieldLabel: String,
+    value: String
+  ) -> Int {
+    let labelPart = "\(fieldLabel): "
+    let normalizedValue = cleanLabelText(value)
+    let displayValue = normalizedValue.isEmpty ? "-" : normalizedValue
+    let fullLineChars = max(
+      1,
+      (Self.labelWidthDots - Self.labelLeftMarginDots - Self.labelRightMarginDots) /
+        Self.qolipFieldCharWidthDots
+    )
+    let inlineFits = displayValue.count + labelPart.count <= fullLineChars
+    let valueLineCount = inlineFits
+      ? 1
+      : wrapLabelText(displayValue, width: fullLineChars).count + 1
+    return y + Self.qolipFieldLineHeightDots * valueLineCount +
+      Self.qolipFieldRowGapDots
   }
 
   private func progressProductName(_ itemName: String, fallback: String) -> String {
