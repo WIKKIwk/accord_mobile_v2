@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
@@ -40,6 +42,85 @@ void main() {
     expect(batches, isEmpty);
     expect(requests.single.url.path,
         endsWith('/v1/mobile/admin/training/input-batches'));
+  });
+
+  test('legacy training server still generates a printable input batch',
+      () async {
+    await TestModeController.instance.setEnabled(false);
+    AppSession.instance.token = 'token';
+    const orderId = 'training-legacy-laminatsiya-1';
+    const apparatus = 'Laminatsiya 1';
+    final map = const ProductionMapDefinition(
+      id: orderId,
+      productCode: 'TRAINING-LEGACY-1',
+      title: 'Legacy training laminatsiya order',
+      orderKg: 10,
+      nodes: [
+        ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+        ProductionMapNode(
+          id: 'laminatsiya',
+          kind: 'apparatus',
+          title: apparatus,
+        ),
+        ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+      ],
+      edges: [
+        ProductionMapEdge(from: 'start', to: 'laminatsiya'),
+        ProductionMapEdge(from: 'laminatsiya', to: 'end'),
+      ],
+    );
+    final requests = <http.Request>[];
+    final client = MockClient((request) async {
+      requests.add(request);
+      if (request.method == 'POST' &&
+          request.url.path
+              .endsWith('/v1/mobile/admin/training/input-batches')) {
+        return http.Response('', 404);
+      }
+      if (request.method == 'GET' &&
+          request.url.path
+              .endsWith('/v1/mobile/admin/training/production-maps')) {
+        return http.Response(
+          jsonEncode({
+            'map': map.toJson(),
+            'program': {
+              'map_id': orderId,
+              'product_code': map.productCode,
+              'operations': const [],
+            },
+          }),
+          200,
+        );
+      }
+      if (request.method == 'GET' &&
+          request.url.path
+              .endsWith('/v1/mobile/admin/training/input-batches')) {
+        return http.Response('', 404);
+      }
+      return http.Response('unexpected request', 500);
+    });
+
+    final generated = await http.runWithClient(
+      () => MobileApi.instance.adminGenerateTrainingInputBatch(
+        orderId: orderId,
+        apparatus: apparatus,
+      ),
+      () => client,
+    );
+    expect(generated.qrPayload, 'TRAINING-INPUT:$orderId');
+    expect(generated.batchId, 'training-input-batch-$orderId');
+    expect(generated.nextApparatus, apparatus);
+
+    final listed = await http.runWithClient(
+      () => MobileApi.instance.adminTrainingInputBatches(orderId: orderId),
+      () => client,
+    );
+    expect(listed, hasLength(1));
+    expect(listed.single.qrPayload, generated.qrPayload);
+    expect(
+      requests.map((request) => request.url.path),
+      contains('/v1/mobile/admin/training/input-batches'),
+    );
   });
 
   test('training raw material is linked to order and apparatus state',

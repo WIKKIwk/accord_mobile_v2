@@ -5,6 +5,7 @@ const _trainingInputQrPrefix = 'TRAINING-INPUT:';
 final _trainingOrderNumberPattern =
     RegExp(r'^T-(\d{1,4})$', caseSensitive: false);
 final Set<String> _testModeTrainingInputBatchGeneratedOrderIds = {};
+final Map<String, AdminProgressBatch> _legacyTrainingInputBatchesByOrderId = {};
 
 void _resetTestModeTrainingInputBatches() {
   _testModeTrainingInputBatchGeneratedOrderIds.clear();
@@ -516,6 +517,59 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     ];
   }
 
+  Future<AdminProgressBatch> _generateLegacyTrainingInputBatch({
+    required String orderId,
+    required String apparatus,
+  }) async {
+    final savedMaps = await adminTrainingProductionMaps(id: orderId);
+    ProductionMapSaved? saved;
+    for (final candidate in savedMaps) {
+      if (candidate.map.id.trim() == orderId) {
+        saved = candidate;
+        break;
+      }
+    }
+    if (saved == null) {
+      throw const MobileApiException(
+        code: 'training_map_not_found',
+        message: 'Training order topilmadi',
+      );
+    }
+    final station = apparatus.trim().isEmpty
+        ? _trainingLaminatsiyaStation(saved.map)
+        : apparatus.trim();
+    final batch = station == null
+        ? null
+        : _testModeTrainingInputProgressBatch(
+            map: saved.map,
+            station: station,
+          );
+    if (batch == null) {
+      throw const MobileApiException(
+        code: 'training_input_batch_not_applicable',
+        message: 'Bu order uchun training batch yaratib bo‘lmaydi',
+      );
+    }
+    _legacyTrainingInputBatchesByOrderId[orderId] = batch;
+    return batch;
+  }
+
+  List<AdminProgressBatch> _legacyTrainingInputBatches({
+    required String orderId,
+    required String apparatus,
+  }) {
+    return [
+      for (final batch in _legacyTrainingInputBatchesByOrderId.values)
+        if ((orderId.isEmpty || batch.orderId.trim() == orderId) &&
+            (apparatus.isEmpty ||
+                productionMapWarehouseTitlesMatch(
+                  batch.nextApparatus,
+                  apparatus,
+                )))
+          batch,
+    ];
+  }
+
   Future<List<AdminProgressBatch>> adminTrainingInputBatches({
     String orderId = '',
     String apparatus = '',
@@ -553,11 +607,14 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
         headers: _headers(requireToken()),
       ),
     );
-    // Batch listing is an optional Training enhancement. If this route is
-    // unavailable on the configured server, the rest of Training must still
-    // open; generation will report its own backend error when requested.
+    // Older Training servers do not expose this optional route. Keep the
+    // locally generated compatibility batch visible without affecting the
+    // production API flow.
     if (response.statusCode == 404) {
-      return const <AdminProgressBatch>[];
+      return _legacyTrainingInputBatches(
+        orderId: normalizedOrderId,
+        apparatus: normalizedApparatus,
+      );
     }
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'training_input_batches');
@@ -624,6 +681,12 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
         }),
       ),
     );
+    if (response.statusCode == 404) {
+      return _generateLegacyTrainingInputBatch(
+        orderId: normalizedOrderId,
+        apparatus: apparatus,
+      );
+    }
     if (response.statusCode != 200) {
       throw _adminProductionMapException(
         response,
@@ -700,6 +763,7 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
       _testModeProgressBatchesByQr.removeWhere(
         (_, batch) => batch.orderId.trim() == normalized,
       );
+      _legacyTrainingInputBatchesByOrderId.remove(normalized);
       _testModeTrainingInputBatchGeneratedOrderIds.remove(normalized);
       _testModeCompletedQueueOrders.removeWhere(
         (entry) => entry.order.orderId.trim() == normalized,
@@ -726,6 +790,7 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'training_map_delete');
     }
+    _legacyTrainingInputBatchesByOrderId.remove(normalized);
   }
 
   Future<List<AdminRawMaterialAssignment>> adminTrainingRawMaterialAssignments({

@@ -146,6 +146,7 @@ void resetMobileApiTestModeData() {
   _testModeCompletionRequests.clear();
   _testModeCompletionRequestDecisions.clear();
   _testModeProgressBatchesByQr.clear();
+  _legacyTrainingInputBatchesByOrderId.clear();
   _resetTestModeTrainingInputBatches();
   _testModeActiveProgressInputByQueue.clear();
   _testModeOrderStartedAtUnix.clear();
