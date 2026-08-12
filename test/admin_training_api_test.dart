@@ -286,7 +286,27 @@ void main() {
     final generated = await MobileApi.instance.adminGenerateTrainingInputBatch(
       orderId: orderId,
     );
-    expect(generated.qrPayload, 'TRAINING-INPUT:$orderId');
+    expect(generated.qrPayload, matches(RegExp(r'^4001[0-9A-F]{20}$')));
+    expect(generated.batchId, startsWith('progress-batch:'));
+    expect(generated.qrPayload, _productionProgressQr(generated.batchId));
+
+    final scanned = await MobileApi.instance.adminProgressQrLookup(
+      generated.qrPayload.toUpperCase(),
+    );
+    expect(scanned.batchId, generated.batchId);
+    expect(scanned.qrPayload, generated.qrPayload);
+    final report = await MobileApi.instance.adminProgressQrReport(
+      generated.qrPayload.toUpperCase(),
+    );
+    expect(report.scannedBatch.batchId, generated.batchId);
+    final reprint = await MobileApi.instance.adminProgressQrReprint(
+      qrPayload: generated.qrPayload.toUpperCase(),
+    );
+    expect(reprint.batch.batchId, generated.batchId);
+    final scannedLegacyLabel = await MobileApi.instance.adminProgressQrLookup(
+      'TRAINING-INPUT:$orderId',
+    );
+    expect(scannedLegacyLabel.batchId, generated.batchId);
 
     final batches = await MobileApi.instance.adminWipBatches(
       status: 'all',
@@ -295,8 +315,8 @@ void main() {
       orderId: orderId,
     );
     expect(batches, hasLength(1));
-    expect(batches.single.qrPayload, 'TRAINING-INPUT:$orderId');
-    expect(batches.single.batchId, 'training-input-batch-$orderId');
+    expect(batches.single.qrPayload, generated.qrPayload);
+    expect(batches.single.batchId, generated.batchId);
     expect(batches.single.payloadJson['training_input'], isTrue);
     expect(batches.single.wipStatus, 'waiting');
 
@@ -322,5 +342,266 @@ void main() {
       uom: 'm',
     );
     expect(completed.states[orderId], 'completed');
+
+    await MobileApi.instance.adminDeleteTrainingInputBatch(
+      orderId: orderId,
+      apparatus: apparatus,
+      qrPayload: generated.qrPayload,
+    );
+    expect(
+      await MobileApi.instance.adminTrainingInputBatches(orderId: orderId),
+      isEmpty,
+    );
+    await expectLater(
+      () => MobileApi.instance.adminProgressQrLookup(generated.qrPayload),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'progress_batch_not_found',
+        ),
+      ),
+    );
   });
+
+  test('training rezka order gets a Laminatsiya input batch on generation',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Rezka 1';
+    final result =
+        await MobileApi.instance.adminSaveTrainingProductionMapWithOrder(
+      map: const ProductionMapDefinition(
+        id: 'zakaz-draft-rezka-input-1',
+        productCode: 'TRAINING-REZKA-1',
+        title: 'Training rezka order',
+        orderKg: 10,
+        nodes: [
+          ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+          ProductionMapNode(
+            id: 'rezka',
+            kind: 'apparatus',
+            title: apparatus,
+          ),
+          ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+        ],
+        edges: [
+          ProductionMapEdge(from: 'start', to: 'rezka'),
+          ProductionMapEdge(from: 'rezka', to: 'end'),
+        ],
+      ),
+      template: CalculateOrderTemplate.fromJson(const {
+        'name': 'Training rezka order',
+        'product': 'Training rezka order',
+        'frame_product_size_mm': 200,
+        'frame_count': 4,
+        'width_mm': 810,
+        'waste_percent': 5,
+      }),
+    );
+    final saved = result.saved;
+    expect(
+      saved.map.nodes.firstWhere((node) => node.id == 'rezka').rezkaKadrCount,
+      4,
+    );
+    final orderId = saved.map.id;
+    final legacyMap = saved.map.copyWith(
+      nodes: saved.map.nodes
+          .map(
+            (node) => node.id == 'rezka'
+                ? const ProductionMapNode(
+                    id: 'rezka',
+                    kind: 'apparatus',
+                    title: apparatus,
+                  )
+                : node,
+          )
+          .toList(growable: false),
+    );
+    await MobileApi.instance.adminSaveTrainingProductionMap(legacyMap);
+    expect(
+      (await MobileApi.instance.adminTrainingProductionMaps(id: orderId))
+          .single
+          .map
+          .nodes
+          .firstWhere((node) => node.id == 'rezka')
+          .rezkaKadrCount,
+      isNull,
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: [orderId],
+    );
+
+    await expectLater(
+      () => MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: apparatus,
+        orderId: orderId,
+        action: 'start',
+      ),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'progress_qr_required',
+        ),
+      ),
+    );
+
+    final generated = await MobileApi.instance.adminGenerateTrainingInputBatch(
+      orderId: orderId,
+    );
+    expect(generated.apparatus, 'Laminatsiya aparat');
+    expect(generated.nextApparatus, apparatus);
+    expect(generated.qrPayload, matches(RegExp(r'^4001[0-9A-F]{20}$')));
+    expect(generated.qrPayload, _productionProgressQr(generated.batchId));
+
+    final scanned = await MobileApi.instance.adminProgressQrLookup(
+      generated.qrPayload,
+    );
+    expect(scanned.batchId, generated.batchId);
+    expect(scanned.apparatus, 'Laminatsiya aparat');
+    expect(scanned.nextApparatus, apparatus);
+
+    final batches = await MobileApi.instance.adminWipBatches(
+      status: 'all',
+      apparatus: 'Laminatsiya aparat',
+      nextApparatus: apparatus,
+      orderId: orderId,
+    );
+    expect(batches, hasLength(1));
+    expect(batches.single.qrPayload, generated.qrPayload);
+
+    final started = await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+      qrPayload: generated.qrPayload,
+      progressBatchId: generated.batchId,
+    );
+    expect(started.states[orderId], 'in_progress');
+
+    final detached = await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'detach_roll',
+      producedQty: 450,
+      grossQty: 52,
+      finishedGoodsKg: 50,
+      finishedGoodsMeter: 450,
+      bobinaKg: 2,
+      diameter: 30,
+      rezkaBosmaWaste: 0.5,
+      rezkaLaminationWaste: 1,
+      rezkaEdgeWaste: 1.5,
+      totalWaste: 3,
+      uom: 'm',
+    );
+    expect(detached.states[orderId], 'paused');
+    expect(detached.progressBatches, hasLength(4));
+    expect(detached.printJobs, hasLength(4));
+    expect(detached.progressBatches.first.totalWaste, 3);
+    expect(detached.progressBatches[1].totalWaste, isNull);
+    for (var index = 0; index < detached.progressBatches.length; index += 1) {
+      final batch = detached.progressBatches[index];
+      expect(batch.action, 'detach_roll');
+      expect(batch.status, 'roll_detached');
+      expect(batch.batchId, endsWith(':frame:${index + 1}'));
+      expect(batch.qrPayload, _productionProgressQr(batch.batchId));
+      expect(detached.printJobs[index].epc, batch.qrPayload);
+    }
+
+    final resumed = await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'resume',
+      qrPayload: detached.progressBatches.first.qrPayload,
+      progressBatchId: detached.progressBatches.first.batchId,
+    );
+    expect(resumed.states[orderId], 'in_progress');
+    expect(resumed.progressBatches, hasLength(4));
+    expect(
+      resumed.progressBatches.every((batch) => batch.status == 'resumed'),
+      isTrue,
+    );
+
+    final completed = await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'complete',
+      producedQty: 900,
+      grossQty: 104,
+      finishedGoodsKg: 100,
+      finishedGoodsMeter: 900,
+      bobinaKg: 4,
+      diameter: 42,
+      rezkaBosmaWaste: 1,
+      rezkaLaminationWaste: 2,
+      rezkaEdgeWaste: 3,
+      totalWaste: 6,
+      uom: 'm',
+    );
+    expect(completed.states[orderId], 'completed');
+    expect(completed.progressBatches, hasLength(4));
+    expect(completed.printJobs, hasLength(4));
+    expect(
+      completed.progressBatch?.batchId,
+      completed.progressBatches.first.batchId,
+    );
+    expect(completed.printJob?.epc, completed.printJobs.first.epc);
+    expect(
+      completed.progressBatches.map((batch) => batch.batchId).toSet(),
+      hasLength(4),
+    );
+    expect(
+      completed.progressBatches.map((batch) => batch.qrPayload).toSet(),
+      hasLength(4),
+    );
+    for (var index = 0; index < completed.progressBatches.length; index += 1) {
+      final batch = completed.progressBatches[index];
+      expect(batch.batchId, endsWith(':frame:${index + 1}'));
+      expect(batch.qrPayload, _productionProgressQr(batch.batchId));
+      expect(batch.parentBatchId, generated.batchId);
+      expect(batch.payloadJson['rezka_frame_index'], index + 1);
+      expect(batch.payloadJson['rezka_frame_count'], 4);
+      expect(batch.payloadJson['rezka_output_kind'], 'frame');
+      expect(batch.payloadJson['rezka_metrics_owner'], index == 0);
+      expect(completed.printJobs[index].epc, batch.qrPayload);
+      final lookedUp = await MobileApi.instance.adminProgressQrLookup(
+        batch.qrPayload,
+      );
+      expect(lookedUp.batchId, batch.batchId);
+    }
+    expect(completed.progressBatches.first.diameter, 42);
+    expect(completed.progressBatches.first.totalWaste, 6);
+    expect(completed.progressBatches.first.bobinaKg, 4);
+    expect(completed.progressBatches[1].diameter, isNull);
+    expect(completed.progressBatches[1].totalWaste, isNull);
+    expect(completed.progressBatches[1].bobinaKg, isNull);
+    final report = await MobileApi.instance.adminProgressQrReport(
+      completed.progressBatches.last.qrPayload,
+    );
+    expect(
+      report.progressBatches.where(
+        (batch) =>
+            batch.action == 'complete' &&
+            batch.payloadJson['rezka_output_kind'] == 'frame',
+      ),
+      hasLength(4),
+    );
+  });
+}
+
+String _productionProgressQr(String batchId) {
+  final stamp = BigInt.parse(batchId.split(':')[1]);
+  var hash = BigInt.parse('cbf29ce484222325', radix: 16);
+  final prime = BigInt.parse('100000001b3', radix: 16);
+  final mask = BigInt.parse('ffffffffffffffff', radix: 16);
+  for (final byte in utf8.encode(batchId.trim())) {
+    hash = hash ^ BigInt.from(byte);
+    hash = (hash * prime) & mask;
+  }
+  final checksum =
+      (hash & BigInt.from(0xffff)).toRadixString(16).padLeft(4, '0');
+  return '4001${(stamp & mask).toRadixString(16).padLeft(16, '0')}$checksum'
+      .toUpperCase();
 }

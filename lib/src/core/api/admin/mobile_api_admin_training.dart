@@ -1,7 +1,8 @@
 part of '../mobile_api.dart';
 
 const _trainingInputApparatus = 'Bosma aparat';
-const _trainingInputQrPrefix = 'TRAINING-INPUT:';
+const _trainingRezkaInputApparatus = 'Laminatsiya aparat';
+const _legacyTrainingInputQrPrefix = 'TRAINING-INPUT:';
 const _legacyTrainingInputBatchOrderIdsKey =
     'admin_training_legacy_input_batch_order_ids';
 final _trainingOrderNumberPattern =
@@ -56,9 +57,23 @@ String? _testModeTrainingPreviousStage({
   if (previousStage != null) {
     return previousStage;
   }
-  if (_isTrainingOrderMap(map) &&
-      productionMapIsLaminatsiyaApparatus(station)) {
+  return _testModeVirtualTrainingInputStage(map: map, station: station);
+}
+
+String? _testModeVirtualTrainingInputStage({
+  required ProductionMapDefinition map,
+  required String station,
+}) {
+  if (!_isTrainingOrderMap(map) ||
+      productionMapPreviousWorkStageStation(map: map, station: station) !=
+          null) {
+    return null;
+  }
+  if (productionMapIsLaminatsiyaApparatus(station)) {
     return _trainingInputApparatus;
+  }
+  if (productionMapIsRezkaApparatus(station)) {
+    return _trainingRezkaInputApparatus;
   }
   return null;
 }
@@ -67,15 +82,14 @@ bool _testModeUsesVirtualTrainingInput({
   required ProductionMapDefinition map,
   required String station,
 }) {
-  return _isTrainingOrderMap(map) &&
-      productionMapIsLaminatsiyaApparatus(station) &&
-      productionMapPreviousWorkStageStation(map: map, station: station) == null;
+  return _testModeVirtualTrainingInputStage(map: map, station: station) != null;
 }
 
-String? _trainingLaminatsiyaStation(ProductionMapDefinition map) {
+String? _trainingInputTargetStation(ProductionMapDefinition map) {
   for (final node in map.nodes) {
     if (node.kind == 'apparatus' &&
-        productionMapIsLaminatsiyaApparatus(node.title)) {
+        _testModeVirtualTrainingInputStage(map: map, station: node.title) !=
+            null) {
       final station = node.title.trim();
       if (station.isNotEmpty) {
         return station;
@@ -88,15 +102,15 @@ String? _trainingLaminatsiyaStation(ProductionMapDefinition map) {
 AdminProgressBatch? _testModeTrainingInputProgressBatch({
   required ProductionMapDefinition map,
   required String station,
+  bool legacyIdentity = false,
 }) {
   final orderId = map.id.trim();
   final targetStation = station.trim();
-  if (orderId.isEmpty ||
-      targetStation.isEmpty ||
-      !_testModeUsesVirtualTrainingInput(
-        map: map,
-        station: targetStation,
-      )) {
+  final inputApparatus = _testModeVirtualTrainingInputStage(
+    map: map,
+    station: targetStation,
+  );
+  if (orderId.isEmpty || targetStation.isEmpty || inputApparatus == null) {
     return null;
   }
   final itemCode = map.productCode.trim().isNotEmpty
@@ -116,34 +130,65 @@ AdminProgressBatch? _testModeTrainingInputProgressBatch({
     'wip_status': wipStatus,
     'next_apparatus': targetStation,
   });
+  AdminProgressBatch? existingIdentity;
+  if (!legacyIdentity) {
+    for (final candidate in _testModeProgressBatchesByQr.values) {
+      if (candidate.payloadJson['training_input'] == true &&
+          candidate.orderId.trim() == orderId &&
+          productionMapWarehouseTitlesMatch(
+            candidate.nextApparatus,
+            targetStation,
+          ) &&
+          _isProductionProgressQrPayload(candidate.qrPayload)) {
+        existingIdentity = candidate;
+        break;
+      }
+    }
+  }
+  final batchId = legacyIdentity
+      ? 'training-input-batch-$orderId'
+      : existingIdentity?.batchId ??
+          _testModeProductionProgressBatchId(
+            apparatus: inputApparatus,
+            orderId: orderId,
+            action: action,
+          );
+  final qrPayload = legacyIdentity
+      ? '$_legacyTrainingInputQrPrefix$orderId'
+      : existingIdentity?.qrPayload ??
+          _testModeProductionProgressQrPayload(batchId);
   return AdminProgressBatch(
-    batchId: 'training-input-batch-$orderId',
-    sessionId: 'training-input-session-$orderId',
-    apparatus: _trainingInputApparatus,
+    batchId: batchId,
+    sessionId: legacyIdentity
+        ? 'training-input-session-$orderId'
+        : existingIdentity?.sessionId ?? 'training-input-session:$batchId',
+    apparatus: inputApparatus,
     orderId: orderId,
     action: action,
     status: status,
     producedQty: producedQty,
     uom: 'kg',
-    qrPayload: '$_trainingInputQrPrefix$orderId',
+    qrPayload: qrPayload,
     labelItemCode: itemCode,
-    labelItemName: '$title, apparat: $_trainingInputApparatus, training input',
-    executorName: 'Training bosma',
+    labelItemName: '$title, apparat: $inputApparatus, training input',
+    executorName: 'Training $inputApparatus',
     workerRole: 'training',
     workerRef: 'training-input',
-    workerDisplayName: 'Training bosma',
+    workerDisplayName: 'Training $inputApparatus',
     wipStatus: wipStatus,
     statusDetail: statusDetail,
-    currentApparatus: _trainingInputApparatus,
-    currentApparatusKey: _trainingInputApparatus.toLowerCase(),
-    currentLocation: '$_trainingInputApparatus chiqim',
+    currentApparatus: inputApparatus,
+    currentApparatusKey: inputApparatus.toLowerCase(),
+    currentLocation: '$inputApparatus chiqim',
     nextApparatus: targetStation,
     finishedGoodsKg: producedQty,
-    description: 'Training uchun generatsiya qilingan Bosma input batch',
-    payloadJson: const {
+    description:
+        'Training uchun generatsiya qilingan $inputApparatus input batch',
+    payloadJson: {
       'training': true,
       'training_input': true,
       'source': 'generated_training_order_batch',
+      'source_apparatus': inputApparatus,
     },
   );
 }
@@ -152,9 +197,16 @@ void _ensureTestModeTrainingInputBatch(
   ProductionMapDefinition map, {
   bool reset = false,
 }) {
-  final station = _trainingLaminatsiyaStation(map);
+  final station = _trainingInputTargetStation(map);
   if (station == null) {
     return;
+  }
+  if (reset) {
+    _testModeProgressBatchesByQr.removeWhere(
+      (_, batch) =>
+          batch.payloadJson['training_input'] == true &&
+          batch.orderId.trim() == map.id.trim(),
+    );
   }
   final batch = _testModeTrainingInputProgressBatch(
     map: map,
@@ -166,7 +218,7 @@ void _ensureTestModeTrainingInputBatch(
   if (!_testModeTrainingInputBatchGeneratedOrderIds.contains(batch.orderId)) {
     return;
   }
-  if (reset || !_testModeProgressBatchesByQr.containsKey(batch.qrPayload)) {
+  if (!_testModeProgressBatchesByQr.containsKey(batch.qrPayload)) {
     _testModeProgressBatchesByQr[batch.qrPayload] = batch;
   }
 }
@@ -538,13 +590,14 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
       );
     }
     final station = apparatus.trim().isEmpty
-        ? _trainingLaminatsiyaStation(saved.map)
+        ? _trainingInputTargetStation(saved.map)
         : apparatus.trim();
     final batch = station == null
         ? null
         : _testModeTrainingInputProgressBatch(
             map: saved.map,
             station: station,
+            legacyIdentity: true,
           );
     if (batch == null) {
       throw const MobileApiException(
@@ -616,13 +669,14 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
         continue;
       }
       final station = apparatus.isEmpty
-          ? _trainingLaminatsiyaStation(saved.map)
+          ? _trainingInputTargetStation(saved.map)
           : apparatus;
       final batch = station == null
           ? null
           : _testModeTrainingInputProgressBatch(
               map: saved.map,
               station: station,
+              legacyIdentity: true,
             );
       if (batch != null) {
         _legacyTrainingInputBatchesByOrderId[savedOrderId] = batch;
@@ -712,7 +766,7 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
         ),
       );
       final station = apparatus.trim().isEmpty
-          ? _trainingLaminatsiyaStation(saved.map)
+          ? _trainingInputTargetStation(saved.map)
           : apparatus.trim();
       final batch = station == null
           ? null
@@ -727,6 +781,12 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
         );
       }
       _testModeTrainingInputBatchGeneratedOrderIds.add(normalizedOrderId);
+      _testModeProgressBatchesByQr.removeWhere(
+        (_, candidate) =>
+            candidate.payloadJson['training_input'] == true &&
+            candidate.orderId.trim() == normalizedOrderId &&
+            candidate.qrPayload != batch.qrPayload,
+      );
       _testModeProgressBatchesByQr[batch.qrPayload] = batch;
       return batch;
     }
@@ -764,6 +824,73 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
       );
     }
     return AdminProgressBatch.fromJson(raw.cast<String, dynamic>());
+  }
+
+  Future<void> adminDeleteTrainingInputBatch({
+    required String orderId,
+    String apparatus = '',
+    String qrPayload = '',
+  }) async {
+    final normalizedOrderId = orderId.trim();
+    if (normalizedOrderId.isEmpty ||
+        !normalizedOrderId.startsWith('training-')) {
+      throw const MobileApiException(
+        code: 'training_order_required',
+        message: 'Training order tanlanmadi',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final removed = _testModeProgressBatchesByQr.values.any(
+        (batch) =>
+            batch.payloadJson['training_input'] == true &&
+            batch.orderId.trim() == normalizedOrderId &&
+            (qrPayload.trim().isEmpty ||
+                batch.qrPayload.trim().toLowerCase() ==
+                    qrPayload.trim().toLowerCase()),
+      );
+      if (!removed) {
+        throw const MobileApiException(
+          code: 'training_input_batch_not_found',
+          message: 'Training batch topilmadi',
+        );
+      }
+      _testModeProgressBatchesByQr.removeWhere(
+        (_, batch) =>
+            batch.payloadJson['training_input'] == true &&
+            batch.orderId.trim() == normalizedOrderId &&
+            (qrPayload.trim().isEmpty ||
+                batch.qrPayload.trim().toLowerCase() ==
+                    qrPayload.trim().toLowerCase()),
+      );
+      _testModeTrainingInputBatchGeneratedOrderIds.remove(normalizedOrderId);
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => _delete(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/training/input-batches',
+        ).replace(
+          queryParameters: {
+            'order_id': normalizedOrderId,
+            if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
+            if (qrPayload.trim().isNotEmpty) 'qr_payload': qrPayload.trim(),
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode == 404 &&
+        _legacyTrainingInputBatchesByOrderId.remove(normalizedOrderId) !=
+            null) {
+      await _forgetLegacyTrainingInputBatchOrderId(normalizedOrderId);
+      return;
+    }
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'training_input_batch_delete',
+      );
+    }
   }
 
   Future<ProductionMapSaved> adminSaveTrainingProductionMap(

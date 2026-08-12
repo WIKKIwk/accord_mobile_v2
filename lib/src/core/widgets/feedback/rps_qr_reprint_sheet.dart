@@ -23,6 +23,9 @@ class RpsQrReprintSheet extends StatefulWidget {
     this.reprintButtonKey = const ValueKey('rps-qr-reprint'),
     this.onEdit,
     this.editButtonKey,
+    this.onDelete,
+    this.deleteButtonKey,
+    this.deleteButtonLabel = 'QRni o‘chirish',
   });
 
   final String title;
@@ -36,6 +39,9 @@ class RpsQrReprintSheet extends StatefulWidget {
   final Key reprintButtonKey;
   final Future<void> Function()? onEdit;
   final Key? editButtonKey;
+  final Future<void> Function()? onDelete;
+  final Key? deleteButtonKey;
+  final String deleteButtonLabel;
 
   @override
   State<RpsQrReprintSheet> createState() => _RpsQrReprintSheetState();
@@ -43,6 +49,7 @@ class RpsQrReprintSheet extends StatefulWidget {
 
 class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
   bool _printing = false;
+  bool _deleting = false;
   String? _errorText;
 
   Future<void> _reprint() async {
@@ -69,6 +76,51 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
       if (mounted) {
         setState(() {
           _printing = false;
+          _errorText = widget.errorMessage(error);
+        });
+      }
+    }
+  }
+
+  Future<void> _delete() async {
+    if (_printing || _deleting || widget.onDelete == null) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Batch QRni o‘chirish'),
+        content: const Text(
+          'Bu QR Laminatsiya ishini boshlash uchun ishlatilmaydi. Keyin yana generatsiya qilish mumkin.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('O‘chirish'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    setState(() {
+      _deleting = true;
+      _errorText = null;
+    });
+    try {
+      await widget.onDelete!();
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _deleting = false;
           _errorText = widget.errorMessage(error);
         });
       }
@@ -115,12 +167,14 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
                   if (widget.onEdit != null)
                     IconButton(
                       key: widget.editButtonKey,
-                      onPressed: _printing ? null : widget.onEdit,
+                      onPressed: _printing || _deleting ? null : widget.onEdit,
                       tooltip: 'WIPni o‘zgartirish',
                       icon: const Icon(Icons.edit_rounded),
                     ),
                   IconButton(
-                    onPressed: _printing ? null : () => Navigator.pop(context),
+                    onPressed: _printing || _deleting
+                        ? null
+                        : () => Navigator.pop(context),
                     tooltip: 'Yopish',
                     icon: const Icon(Icons.close_rounded),
                   ),
@@ -168,7 +222,7 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
               const SizedBox(height: 20),
               FilledButton.icon(
                 key: widget.reprintButtonKey,
-                onPressed: _printing ? null : _reprint,
+                onPressed: _printing || _deleting ? null : _reprint,
                 icon: _printing
                     ? const SizedBox.square(
                         dimension: 18,
@@ -177,6 +231,25 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
                     : const Icon(Icons.print_rounded),
                 label: Text(_printing ? 'Chop etilmoqda…' : 'Qayta chop etish'),
               ),
+              if (widget.onDelete != null) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  key: widget.deleteButtonKey,
+                  onPressed: _printing || _deleting ? null : _delete,
+                  icon: _deleting
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.delete_outline_rounded),
+                  label: Text(
+                    _deleting ? 'O‘chirilmoqda…' : widget.deleteButtonLabel,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: scheme.error,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

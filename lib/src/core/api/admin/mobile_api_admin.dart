@@ -3956,6 +3956,7 @@ MobileApiException _adminProductionMapException(
       'progress_qr_required' => 'Oldingi bosqich QR sini scan qiling',
       'training_input_batch_required' =>
         'Avval admin training batch QR sini generatsiya qilishi kerak',
+      'training_input_batch_not_found' => 'Training batch topilmadi',
       'progress_batch_not_found' => 'Progress QR topilmadi',
       'progress_batch_not_accepted' =>
         'Bu QR oldingi bosqich mahsulotiga mos emas',
@@ -3984,10 +3985,8 @@ MobileApiException _adminProductionMapException(
         'Bu training order raqami allaqachon mavjud',
       'training_material_assignment_exists' =>
         'Bu QR kodi shu training orderga allaqachon ulangan',
-      'training_material_assignment_not_found' =>
-        'Training homashyo topilmadi',
-      'training_material_assignment_required' =>
-        'Training homashyo tanlanmadi',
+      'training_material_assignment_not_found' => 'Training homashyo topilmadi',
+      'training_material_assignment_required' => 'Training homashyo tanlanmadi',
       'training_order_not_found' => 'Tanlangan training order topilmadi',
       'training_map_not_found' => 'Training order topilmadi',
       'training_apparatus_required' => 'Training aparat tanlanmadi',
@@ -4064,10 +4063,10 @@ String _adminProductionMapUnknownErrorMessage({
     'training_material_assignments' =>
       'Training homashyo biriktirmalari yuklanmadi',
     'training_material_assignment' => 'Training homashyo ulanmagan',
-    'training_material_assignment_delete' =>
-      'Training homashyo o‘chirilmadi',
+    'training_material_assignment_delete' => 'Training homashyo o‘chirilmadi',
     'training_input_batches' => 'Training batchlar yuklanmadi',
     'training_input_batch_generate' => 'Training batch generatsiya qilinmadi',
+    'training_input_batch_delete' => 'Training batch o‘chirilmadi',
     'training_image_save' => 'Training order rasmi saqlanmadi',
     'production_map_audit' => 'Workflow audit yuklanmadi',
     'production_map_save' => 'Production map saqlanmadi',
@@ -8663,12 +8662,12 @@ extension MobileApiAdmin on MobileApi {
                 )!,
                 inputBatch: activeInputBatch,
                 diameter: diameter,
-                laminationPrintLeftoverRolls: null,
+                laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
                 laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
-                rezkaBosmaWaste: null,
-                rezkaLaminationWaste: null,
-                rezkaEdgeWaste: null,
-                totalWaste: null,
+                rezkaBosmaWaste: rezkaBosmaWaste,
+                rezkaLaminationWaste: rezkaLaminationWaste,
+                rezkaEdgeWaste: rezkaEdgeWaste,
+                totalWaste: totalWaste,
                 finishedGoodsKg: finishedGoodsKg ?? grossQty,
                 finishedGoodsMeter: finishedGoodsMeter ?? producedQty,
                 bobinaKg: bobinaKg,
@@ -9309,7 +9308,7 @@ extension MobileApiAdmin on MobileApi {
   Future<AdminProgressBatch> adminProgressQrLookup(String qrPayload) async {
     final normalized = qrPayload.trim();
     if (await TestModeController.instance.isEnabled()) {
-      final batch = _testModeProgressBatchesByQr[normalized];
+      final batch = _testModeProgressBatchForKey(normalized);
       if (batch == null) {
         throw const MobileApiException(
           code: 'progress_batch_not_found',
@@ -9523,17 +9522,11 @@ extension MobileApiAdmin on MobileApi {
     final normalizedPrintMode = printMode.trim();
 
     if (await TestModeController.instance.isEnabled()) {
-      AdminProgressBatch? batch;
-      if (normalizedQrPayload.isNotEmpty) {
-        batch = _testModeProgressBatchesByQr[normalizedQrPayload];
-      } else {
-        for (final candidate in _testModeProgressBatchesByQr.values) {
-          if (candidate.batchId.trim() == normalizedBatchId) {
-            batch = candidate;
-            break;
-          }
-        }
-      }
+      final batch = _testModeProgressBatchForKey(
+        normalizedQrPayload.isNotEmpty
+            ? normalizedQrPayload
+            : normalizedBatchId,
+      );
       if (batch == null) {
         throw const MobileApiException(
           code: 'progress_batch_not_found',
@@ -9615,13 +9608,16 @@ extension MobileApiAdmin on MobileApi {
   Future<AdminProgressQrReport> adminProgressQrReport(String qrPayload) async {
     final normalized = qrPayload.trim();
     if (await TestModeController.instance.isEnabled()) {
-      final batch = _testModeProgressBatchesByQr[normalized];
+      final batch = _testModeProgressBatchForKey(normalized);
       if (batch == null) {
         throw const MobileApiException(
           code: 'progress_batch_not_found',
           message: 'Progress QR topilmadi',
         );
       }
+      final progressBatches = _testModeProgressBatchesByQr.values
+          .where((item) => item.orderId.trim() == batch.orderId.trim())
+          .toList(growable: false);
       return AdminProgressQrReport(
         scannedBatch: batch,
         currentBatch: batch,
@@ -9629,7 +9625,7 @@ extension MobileApiAdmin on MobileApi {
         staleReason: '',
         queueStates: const {},
         logs: const [],
-        progressBatches: [batch],
+        progressBatches: progressBatches.isEmpty ? [batch] : progressBatches,
         runSessions: const [],
         activeSessions: const [],
       );
@@ -11214,7 +11210,7 @@ ProductionMapDefinition _orderMapWithTemplateRezkaKadrCount(
   ProductionMapDefinition map,
   CalculateOrderTemplate template,
 ) {
-  if (!_isSheetOrderMap(map) ||
+  if ((!_isSheetOrderMap(map) && !_isTrainingOrderMap(map)) ||
       !template.frameCount.isFinite ||
       template.frameCount <= 0) {
     return map;
@@ -11408,13 +11404,16 @@ AdminProgressBatch _testModeProgressBatch({
   double? bobinaKg,
 }) {
   final nowUnix = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-  final stamp = DateTime.now().microsecondsSinceEpoch;
   final batchId = batchIdOverride?.trim().isNotEmpty == true
       ? batchIdOverride!.trim()
-      : 'test-progress-$stamp-$orderId-$action';
+      : _testModeProductionProgressBatchId(
+          apparatus: apparatus,
+          orderId: orderId,
+          action: action,
+        );
   final qrPayload = qrPayloadOverride?.trim().isNotEmpty == true
       ? qrPayloadOverride!.trim()
-      : 'GSP:$batchId'.toUpperCase();
+      : _testModeProductionProgressQrPayload(batchId);
   final executor = AppSession.instance.profile?.displayName.trim() ?? '';
   final orderMap = _testModeOrderById(orderId)?.map;
   final nextApparatus = orderMap == null
@@ -11486,6 +11485,64 @@ AdminProgressBatch _testModeProgressBatch({
   );
 }
 
+String _testModeProductionProgressBatchId({
+  required String apparatus,
+  required String orderId,
+  required String action,
+}) {
+  final stamp =
+      BigInt.from(DateTime.now().microsecondsSinceEpoch) * BigInt.from(1000);
+  return 'progress-batch:$stamp:'
+      '${_testModeProgressSanitizeId(apparatus)}:'
+      '${_testModeProgressSanitizeId(orderId)}:'
+      '${action.trim().toLowerCase()}';
+}
+
+String _testModeProductionProgressQrPayload(String batchId) {
+  final parts = batchId.split(':');
+  final stamp = parts.length > 1
+      ? BigInt.tryParse(parts[1]) ??
+          BigInt.from(DateTime.now().microsecondsSinceEpoch) * BigInt.from(1000)
+      : BigInt.from(DateTime.now().microsecondsSinceEpoch) * BigInt.from(1000);
+  final stampHex = (stamp & BigInt.parse('ffffffffffffffff', radix: 16))
+      .toRadixString(16)
+      .padLeft(16, '0');
+  final hashHex = _testModeProductionProgressQrHash(batchId)
+      .toRadixString(16)
+      .padLeft(4, '0');
+  return '4001$stampHex$hashHex'.toUpperCase();
+}
+
+bool _isProductionProgressQrPayload(String value) =>
+    RegExp(r'^4001[0-9A-F]{20}$', caseSensitive: false).hasMatch(value.trim());
+
+int _testModeProductionProgressQrHash(String value) {
+  var hash = BigInt.parse('cbf29ce484222325', radix: 16);
+  final prime = BigInt.parse('100000001b3', radix: 16);
+  final mask = BigInt.parse('ffffffffffffffff', radix: 16);
+  for (final byte in utf8.encode(value.trim())) {
+    hash = hash ^ BigInt.from(byte);
+    hash = (hash * prime) & mask;
+  }
+  return (hash & BigInt.from(0xffff)).toInt();
+}
+
+String _testModeProgressSanitizeId(String value) {
+  final out = StringBuffer();
+  for (final rune in value.trim().runes) {
+    final isAsciiNumber = rune >= 0x30 && rune <= 0x39;
+    final isAsciiUpper = rune >= 0x41 && rune <= 0x5a;
+    final isAsciiLower = rune >= 0x61 && rune <= 0x7a;
+    if (isAsciiNumber || isAsciiUpper || isAsciiLower) {
+      out.writeCharCode(isAsciiUpper ? rune + 0x20 : rune);
+    } else {
+      out.write('-');
+    }
+  }
+  final sanitized = out.toString().replaceAll(RegExp(r'^-+|-+$'), '');
+  return sanitized.isEmpty ? 'blank' : sanitized;
+}
+
 String _testModeProgressQueueKey(String apparatus, String orderId) =>
     '${apparatus.trim().toLowerCase()}|${orderId.trim().toLowerCase()}';
 
@@ -11496,6 +11553,21 @@ AdminProgressBatch? _testModeProgressBatchForKey(String key) {
     if (batch.qrPayload.trim().toLowerCase() == normalized.toLowerCase() ||
         batch.batchId.trim().toLowerCase() == normalized.toLowerCase()) {
       return batch;
+    }
+  }
+  final separator = normalized.indexOf(':');
+  if (separator > 0 &&
+      normalized.substring(0, separator).trim().toUpperCase() ==
+          _legacyTrainingInputQrPrefix.substring(
+            0,
+            _legacyTrainingInputQrPrefix.length - 1,
+          )) {
+    final orderId = normalized.substring(separator + 1).trim().toLowerCase();
+    for (final batch in _testModeProgressBatchesByQr.values) {
+      if (batch.payloadJson['training_input'] == true &&
+          batch.orderId.trim().toLowerCase() == orderId) {
+        return batch;
+      }
     }
   }
   return null;
@@ -11523,6 +11595,20 @@ int? _testModeRezkaKadrCount({
         node.rezkaKadrCount != null &&
         node.rezkaKadrCount! > 0) {
       return node.rezkaKadrCount;
+    }
+  }
+  for (final template in _testModeCalculateOrderTemplates) {
+    final matchesOrder = template.sourceMapId.trim() == map.id.trim() ||
+        (map.orderNumber.trim().isNotEmpty &&
+            template.orderNumber.trim() == map.orderNumber.trim());
+    if (!matchesOrder ||
+        !template.frameCount.isFinite ||
+        template.frameCount <= 0) {
+      continue;
+    }
+    final frameCount = template.frameCount.round();
+    if (frameCount > 0) {
+      return frameCount;
     }
   }
   return null;
@@ -11575,7 +11661,11 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
   double? finishedGoodsMeter,
   double? bobinaKg,
 }) {
-  final baseStamp = DateTime.now().microsecondsSinceEpoch;
+  final baseBatchId = _testModeProductionProgressBatchId(
+    apparatus: apparatus,
+    orderId: orderId,
+    action: action,
+  );
   final parentBatchId = inputBatch?.batchId.trim() ?? '';
   final map = _testModeOrderById(orderId)?.map;
   double? labelLength;
@@ -11602,8 +11692,7 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
         status: status,
         producedQty: producedQty,
         uom: uom,
-        batchIdOverride:
-            'test-progress-$baseStamp-$orderId-$action:frame:${index + 1}',
+        batchIdOverride: '$baseBatchId:frame:${index + 1}',
         parentBatchId: parentBatchId,
         diameter: index == 0 ? diameter : null,
         returnInkKg: index == 0 ? returnInkKg : null,

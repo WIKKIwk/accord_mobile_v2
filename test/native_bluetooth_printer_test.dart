@@ -96,6 +96,45 @@ void main() {
     expect(captured?.arguments, isNot(contains('bytes')));
   });
 
+  test('passes production-style training progress QR unchanged over Bluetooth',
+      () async {
+    MethodCall? captured;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      captured = call;
+      return <String, Object?>{
+        'ok': true,
+        'status': 'done',
+        'printer_status': 'Bluetooth OK',
+      };
+    });
+    const printer = BluetoothPrinterProfile(
+      name: 'XP-P323B',
+      address: '00:11:22:33:44:55',
+    );
+
+    await PrintService.printRps(
+      const UsbRpsPrintRequest(
+        epc: '40011890022F235A0000A1B2',
+        itemCode: 'T-0004',
+        itemName: 'Training input',
+        warehouse: 'Training',
+        printer: 'xp-p323b',
+        printMode: 'label',
+        grossQty: 200,
+        labelKind: 'progress',
+      ),
+      bluetoothPrinter: printer,
+      transport: PrintTransport.bluetooth,
+    );
+
+    expect(captured?.method, 'printLabel');
+    expect(
+      captured?.arguments,
+      containsPair('epc', '40011890022F235A0000A1B2'),
+    );
+  });
+
   test('transliterates Cyrillic text for XP-P323B built-in fonts', () {
     expect(
       bluetoothPrinterText('Қизил Ғишт Ўзбекистон Ҳисоб Чоп Шакли'),

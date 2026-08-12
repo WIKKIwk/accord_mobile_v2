@@ -17,6 +17,7 @@ import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
+import '../../admin/logic/production_map_chain.dart';
 import '../../admin/logic/production_map_pechat_rules.dart';
 import '../../admin/models/production_map_models.dart';
 import '../../shared/models/app_models.dart';
@@ -140,8 +141,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     }
   }
 
-  Future<Map<String, AdminTrainingOrderStatus>?>
-      _loadTrainingStatuses() async {
+  Future<Map<String, AdminTrainingOrderStatus>?> _loadTrainingStatuses() async {
     try {
       return await MobileApi.instance.adminTrainingOrderStatuses();
     } catch (_) {
@@ -520,10 +520,35 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           const RpsQrDetail('Holat', 'Generatsiya qilingan, scan kutilmoqda'),
         ],
         onReprint: () => _reprintTrainingInputBatch(batch),
+        onDelete: () => _deleteTrainingInputBatch(batch),
+        deleteButtonKey:
+            ValueKey('training-input-batch-qr-delete-${batch.batchId}'),
         errorMessage: (error) => error is MobileApiException
             ? error.message
             : error.toString().replaceFirst('Bad state: ', ''),
       ),
+    );
+  }
+
+  Future<void> _deleteTrainingInputBatch(AdminProgressBatch batch) async {
+    await MobileApi.instance.adminDeleteTrainingInputBatch(
+      orderId: batch.orderId,
+      apparatus: batch.nextApparatus,
+      qrPayload: batch.qrPayload,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _inputBatches = [
+        for (final item in _inputBatches)
+          if (item.batchId.trim() != batch.batchId.trim()) item,
+      ];
+    });
+    showAdminTopNotice(
+      context,
+      'Test batch QR o‘chirildi',
+      icon: Icons.delete_outline_rounded,
     );
   }
 
@@ -632,7 +657,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         : assignment.itemName.trim();
     final quantity = assignment.stockQty > 0
         ? '${formatRawQuantity(assignment.stockQty)} ${assignment.stockUom}'
-              .trim()
+            .trim()
         : '';
     showModalBottomSheet<void>(
       context: context,
@@ -652,9 +677,11 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           RpsQrDetail('Miqdor', quantity),
           RpsQrDetail('Ombor', assignment.stockWarehouse),
           RpsQrDetail('Apparat', assignment.apparatus),
-          RpsQrDetail('Holat', _trainingRawMaterialStatusLabel(
-            assignment.stockStatus,
-          )),
+          RpsQrDetail(
+              'Holat',
+              _trainingRawMaterialStatusLabel(
+                assignment.stockStatus,
+              )),
           if (assignment.orderId.trim().isNotEmpty)
             RpsQrDetail('Order', assignment.orderId),
           if (assignment.assignedByName.trim().isNotEmpty)
@@ -697,8 +724,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           ? 'Training'
           : assignment.stockWarehouse.trim(),
       printer: printer.printer.trim().isEmpty ? 'godex' : printer.printer,
-      printMode:
-          printer.printMode.trim().isEmpty ? 'label' : printer.printMode,
+      printMode: printer.printMode.trim().isEmpty ? 'label' : printer.printMode,
       grossQty: assignment.stockQty > 0 ? assignment.stockQty : 1,
       unit: assignment.stockUom.trim().isEmpty ? 'kg' : assignment.stockUom,
       labelKind: 'material_product',
@@ -1559,7 +1585,9 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                                 );
                               },
                             ),
-                          if (_trainingOrderHasLaminatsiya(widget.order.map))
+                          if (_trainingOrderNeedsGeneratedInputBatch(
+                            widget.order.map,
+                          ))
                             Padding(
                               padding: const EdgeInsets.only(top: 4, bottom: 4),
                               child: OutlinedButton.icon(
@@ -1855,7 +1883,7 @@ class _TrainingOrderDetailsSheetState
                   _linking ? 'Ulanmoqda…' : 'Homashyo ulash va QR chiqarish',
                 ),
               ),
-              if (_trainingOrderHasLaminatsiya(map)) ...[
+              if (_trainingOrderNeedsGeneratedInputBatch(map)) ...[
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: _generatingInputBatch || _inputBatches.isNotEmpty
@@ -2183,12 +2211,19 @@ String _trainingOrderShortLabel(String orderId) {
   return '${normalized.substring(0, 10)}…${normalized.substring(normalized.length - 8)}';
 }
 
-bool _trainingOrderHasLaminatsiya(ProductionMapDefinition map) {
-  return map.nodes.any(
-    (node) =>
-        node.kind == 'apparatus' &&
-        productionMapIsLaminatsiyaApparatus(node.title),
-  );
+bool _trainingOrderNeedsGeneratedInputBatch(ProductionMapDefinition map) {
+  return map.nodes.any((node) {
+    if (node.kind != 'apparatus' ||
+        (!productionMapIsLaminatsiyaApparatus(node.title) &&
+            !productionMapIsRezkaApparatus(node.title))) {
+      return false;
+    }
+    return productionMapPreviousWorkStageStation(
+          map: map,
+          station: node.title,
+        ) ==
+        null;
+  });
 }
 
 String _trainingMaterialKey(AdminRawMaterialAssignment assignment) {
