@@ -360,6 +360,36 @@ void main() {
     expect(find.text('Tanlash uchun bosing'), findsNothing);
   });
 
+  testWidgets('warehouse assignee picker loads users after the first page', (
+    tester,
+  ) async {
+    for (var index = 0; index < 55; index++) {
+      await MobileApi.instance.adminCreateSystemUser(
+        role: UserRole.qolipchi,
+        name: 'Paged Qolipchi ${index.toString().padLeft(2, '0')}',
+        phone: '+9987700${index.toString().padLeft(6, '0')}',
+      );
+    }
+
+    await _pumpWarehousesScreen(tester);
+    await tester.tap(find.byKey(_primaryNavigationButtonKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ombor yaratish'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tanlash uchun bosing'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, 'Paged Qolipchi 54');
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Text && widget.data == 'Paged Qolipchi 54',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('warehouse assignee picker shows only allowed user types', (
     tester,
   ) async {

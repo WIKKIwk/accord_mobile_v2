@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/session/session.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
+import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_catalog_search_field.dart';
@@ -94,6 +96,8 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   String _searchQuery = '';
   AdminUserKind? _selectedKind;
   bool _roleMenuOpen = false;
+  Object? _loadError;
+  int _requestGeneration = 0;
 
   @override
   void initState() {
@@ -131,50 +135,79 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   }
 
   Future<void> _bootstrap({bool forceRefresh = false}) async {
-    if (!forceRefresh && _restoreCache()) {
+    final generation = ++_requestGeneration;
+    final sessionRevision = AppSession.instance.revision.value;
+    if (!forceRefresh && _restoreCache(sessionRevision)) {
       return;
     }
+
+    final query = _searchQuery;
+    final selectedKind = _selectedKind;
 
     if (mounted) {
       setState(() {
         _initialLoading = true;
         _loadingMore = false;
-        _hasMore = true;
-        _offset = 0;
-        _items.clear();
-        _workers.clear();
-        _assignments.clear();
+        _loadError = null;
       });
     }
 
-    final results = await Future.wait([
-      _safeLoadAdminUserList(limit: _pageSize, offset: 0),
-      _safeLoadWorkers(),
-      _safeLoadRoleAssignments(),
-    ]);
-    final page = results[0] as AdminUserListPage;
-    final workers = results[1] as List<AdminWorker>;
-    final assignments = results[2] as List<AdminRoleAssignment>;
+    try {
+      final results = await Future.wait<Object>([
+        _loadAdminUserList(
+          query: query,
+          selectedKind: selectedKind,
+          limit: _pageSize,
+          offset: 0,
+        ),
+        _loadWorkers(query: query, selectedKind: selectedKind),
+        _loadRoleAssignments(),
+      ]);
+      if (!_isCurrentRequest(
+        generation,
+        query,
+        selectedKind,
+        sessionRevision,
+      )) {
+        return;
+      }
+      final page = results[0] as AdminUserListPage;
+      final workers = results[1] as List<AdminWorker>;
+      final assignments = results[2] as List<AdminRoleAssignment>;
 
-    if (!mounted) {
-      return;
+      setState(() {
+        _items
+          ..clear()
+          ..addAll(page.items);
+        _workers
+          ..clear()
+          ..addAll(workers);
+        _assignments
+          ..clear()
+          ..addAll(assignments);
+        _hasMore = page.hasMore;
+        _offset = page.items.length;
+        _initialLoading = false;
+        _loadingMore = false;
+        _loadError = null;
+      });
+      _saveCache(sessionRevision);
+    } catch (error) {
+      debugPrint('admin users bootstrap failed: $error');
+      if (!_isCurrentRequest(
+        generation,
+        query,
+        selectedKind,
+        sessionRevision,
+      )) {
+        return;
+      }
+      setState(() {
+        _initialLoading = false;
+        _loadingMore = false;
+        _loadError = error;
+      });
     }
-    setState(() {
-      _items
-        ..clear()
-        ..addAll(page.items);
-      _workers
-        ..clear()
-        ..addAll(workers);
-      _assignments
-        ..clear()
-        ..addAll(assignments);
-      _hasMore = page.hasMore;
-      _offset = page.items.length;
-      _initialLoading = false;
-      _loadingMore = false;
-    });
-    _saveCache();
   }
 
   Future<void> _loadMore() async {
@@ -188,78 +221,110 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       return;
     }
 
-    if (mounted) {
-      setState(() => _loadingMore = true);
-    }
+    final generation = _requestGeneration;
+    final query = _searchQuery;
+    final selectedKind = _selectedKind;
+    final offset = _offset;
+    final sessionRevision = AppSession.instance.revision.value;
+    setState(() => _loadingMore = true);
 
     try {
-      await _loadNextPages();
+      final page = await _loadAdminUserList(
+        query: query,
+        selectedKind: selectedKind,
+        limit: _pageSize,
+        offset: offset,
+      );
+      if (!_isCurrentRequest(
+            generation,
+            query,
+            selectedKind,
+            sessionRevision,
+          ) ||
+          _offset != offset) {
+        return;
+      }
+      setState(() {
+        _items.addAll(page.items);
+        _offset += page.items.length;
+        _hasMore = page.hasMore;
+      });
+      _saveCache(sessionRevision);
+    } catch (error) {
+      debugPrint('admin user list next page failed: $error');
+      if (!mounted ||
+          !_isCurrentRequest(
+            generation,
+            query,
+            selectedKind,
+            sessionRevision,
+          )) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Userlarning keyingi qismi yuklanmadi. Qayta urinib ko‘ring.',
+          ),
+        ),
+      );
     } finally {
-      if (mounted) {
+      if (_isCurrentRequest(
+        generation,
+        query,
+        selectedKind,
+        sessionRevision,
+      )) {
         setState(() => _loadingMore = false);
       }
     }
   }
 
-  Future<void> _loadNextPages() async {
-    final page =
-        await _safeLoadAdminUserList(limit: _pageSize, offset: _offset);
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _items.addAll(page.items);
-      _offset += page.items.length;
-      _hasMore = page.hasMore;
-    });
-    _saveCache();
-  }
-
-  Future<AdminUserListPage> _safeLoadAdminUserList({
+  Future<AdminUserListPage> _loadAdminUserList({
+    required String query,
+    required AdminUserKind? selectedKind,
     required int limit,
     required int offset,
   }) async {
-    final selectedKind = _selectedKind;
     if (selectedKind == null || _adminUserKindUsesWorkers(selectedKind)) {
       return const AdminUserListPage(items: [], hasMore: false);
     }
-    try {
-      return await MobileApi.instance.adminUserList(
-        query: _searchQuery,
-        limit: limit,
-        offset: offset,
-        role: _adminUserKindRoleQuery(selectedKind),
-      );
-    } catch (error) {
-      debugPrint('admin user list failed: $error');
-      return const AdminUserListPage(items: [], hasMore: false);
-    }
+    return MobileApi.instance.adminUserList(
+      query: query,
+      limit: limit,
+      offset: offset,
+      role: _adminUserKindRoleQuery(selectedKind),
+    );
   }
 
-  Future<List<AdminWorker>> _safeLoadWorkers() async {
-    final selectedKind = _selectedKind;
+  Future<List<AdminWorker>> _loadWorkers({
+    required String query,
+    required AdminUserKind? selectedKind,
+  }) async {
     if (!_adminUserKindUsesWorkers(selectedKind)) {
       return const <AdminWorker>[];
     }
-    try {
-      return await MobileApi.instance.adminWorkers(
-        query: _searchQuery,
-        role: _adminUserKindRoleQuery(selectedKind!),
-      );
-    } catch (error) {
-      debugPrint('admin workers failed: $error');
-      return const <AdminWorker>[];
-    }
+    return MobileApi.instance.adminWorkers(
+      query: query,
+      role: _adminUserKindRoleQuery(selectedKind!),
+    );
   }
 
-  Future<List<AdminRoleAssignment>> _safeLoadRoleAssignments() async {
-    try {
-      return await MobileApi.instance.adminRoleAssignments();
-    } catch (error) {
-      debugPrint('admin role assignments failed: $error');
-      return const <AdminRoleAssignment>[];
-    }
+  Future<List<AdminRoleAssignment>> _loadRoleAssignments() {
+    return MobileApi.instance.adminRoleAssignments();
+  }
+
+  bool _isCurrentRequest(
+    int generation,
+    String query,
+    AdminUserKind? selectedKind,
+    int sessionRevision,
+  ) {
+    return mounted &&
+        generation == _requestGeneration &&
+        query == _searchQuery &&
+        selectedKind == _selectedKind &&
+        sessionRevision == AppSession.instance.revision.value;
   }
 
   Future<void> _openUser(AdminUserListEntry item) async {
@@ -293,9 +358,13 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     }
   }
 
-  bool _restoreCache() {
+  bool _restoreCache(int sessionRevision) {
     final cache = _cache;
     if (cache == null) {
+      return false;
+    }
+    if (cache.sessionRevision != sessionRevision) {
+      _cache = null;
       return false;
     }
     if (mounted) {
@@ -316,13 +385,15 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         _searchController.text = cache.query;
         _initialLoading = false;
         _loadingMore = false;
+        _loadError = null;
       });
     }
     return true;
   }
 
-  void _saveCache() {
+  void _saveCache(int sessionRevision) {
     _cache = _AdminSuppliersCache(
+      sessionRevision: sessionRevision,
       items: List<AdminUserListEntry>.unmodifiable(_items),
       workers: List<AdminWorker>.unmodifiable(_workers),
       assignments: List<AdminRoleAssignment>.unmodifiable(_assignments),
@@ -335,8 +406,18 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
 
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
+    final query = value.trim();
+    if (query == _searchQuery) {
+      return;
+    }
+    _requestGeneration++;
+    setState(() {
+      _searchQuery = query;
+      _initialLoading = true;
+      _loadingMore = false;
+      _loadError = null;
+    });
     _searchDebounce = Timer(const Duration(milliseconds: 220), () {
-      _searchQuery = value.trim();
       unawaited(_bootstrap(forceRefresh: true));
     });
   }
@@ -354,9 +435,13 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       setState(() => _roleMenuOpen = false);
       return;
     }
+    _requestGeneration++;
     setState(() {
       _selectedKind = kind;
       _roleMenuOpen = false;
+      _initialLoading = true;
+      _loadingMore = false;
+      _loadError = null;
     });
     unawaited(_bootstrap(forceRefresh: true));
   }
@@ -452,6 +537,12 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         (_loadingMore || _hasMore);
     if (_initialLoading) {
       return const Center(child: AppLoadingIndicator());
+    }
+    if (_loadError != null) {
+      return AppRetryState(
+        onRetry: _reload,
+        message: 'Userlar yuklanmadi. Qayta urinib ko‘ring.',
+      );
     }
     return AppRefreshIndicator(
       onRefresh: _reload,
@@ -594,6 +685,7 @@ class _AdminUserRolePicker extends StatelessWidget {
 
 class _AdminSuppliersCache {
   const _AdminSuppliersCache({
+    required this.sessionRevision,
     required this.items,
     required this.workers,
     required this.assignments,
@@ -603,6 +695,7 @@ class _AdminSuppliersCache {
     required this.selectedKind,
   });
 
+  final int sessionRevision;
   final List<AdminUserListEntry> items;
   final List<AdminWorker> workers;
   final List<AdminRoleAssignment> assignments;

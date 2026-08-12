@@ -552,21 +552,42 @@ class _WarehouseInventorySection {
   final List<AdminRawMaterialAssignment> reservations;
 }
 
+const int _warehouseAssigneePageSize = 50;
+
+Future<List<AdminUserListEntry>> _loadWarehouseUserPages({
+  required String role,
+}) async {
+  final items = <AdminUserListEntry>[];
+  var offset = 0;
+  while (true) {
+    final page = await MobileApi.instance.adminUserList(
+      role: role,
+      limit: _warehouseAssigneePageSize,
+      offset: offset,
+    );
+    items.addAll(page.items);
+    if (!page.hasMore) {
+      return items;
+    }
+    if (page.items.isEmpty) {
+      throw StateError('Warehouse assignee pagination did not advance');
+    }
+    offset += page.items.length;
+  }
+}
+
 Future<List<AdminUserListEntry>> _loadWarehouseAssigneeUsers() async {
-  final results = await Future.wait([
-    MobileApi.instance.adminUserList(limit: 500),
-    MobileApi.instance.adminUserList(role: 'qolipchi', limit: 500),
-    MobileApi.instance.adminUserList(
-      role: 'material_taminotchi',
-      limit: 500,
-    ),
-    MobileApi.instance.adminWorkers(),
+  final results = await Future.wait<Object>([
+    _loadWarehouseUserPages(role: 'werka'),
+    _loadWarehouseUserPages(role: 'qolipchi'),
+    _loadWarehouseUserPages(role: 'material_taminotchi'),
+    _loadWarehouseUserPages(role: 'worker'),
     MobileApi.instance.adminRoleAssignments(),
   ]);
-  final page = results[0] as AdminUserListPage;
-  final qolipchiPage = results[1] as AdminUserListPage;
-  final materialPage = results[2] as AdminUserListPage;
-  final workers = results[3] as List<AdminWorker>;
+  final generalUsers = results[0] as List<AdminUserListEntry>;
+  final qolipchiUsers = results[1] as List<AdminUserListEntry>;
+  final materialUsers = results[2] as List<AdminUserListEntry>;
+  final workers = results[3] as List<AdminUserListEntry>;
   final assignments = results[4] as List<AdminRoleAssignment>;
   final workerEntries = <AdminUserListEntry>[];
   for (final worker in workers) {
@@ -579,7 +600,7 @@ Future<List<AdminUserListEntry>> _loadWarehouseAssigneeUsers() async {
         .firstWhere((item) => item != null, orElse: () => null);
     final isQolipchi = assignment?.principalRole == UserRole.qolipchi ||
         assignment?.roleId.trim() == 'qolipchi';
-    final isBrigader = worker.level.trim().toLowerCase() == 'brigader';
+    final isBrigader = worker.roleLabel.trim().toLowerCase() == 'brigader';
     if (!isQolipchi && !isBrigader) {
       continue;
     }
@@ -591,15 +612,17 @@ Future<List<AdminUserListEntry>> _loadWarehouseAssigneeUsers() async {
       kind: role == UserRole.qolipchi
           ? AdminUserKind.qolipchi
           : AdminUserKind.worker,
+      avatarUrl: worker.avatarUrl,
       principalRole: role,
+      blocked: worker.blocked,
       roleLabelOverride: isQolipchi ? userRoleLabel(role) : 'Brigader',
     ));
   }
   final byKey = <String, AdminUserListEntry>{};
   for (final item in [
-    ...page.items,
-    ...qolipchiPage.items,
-    ...materialPage.items,
+    ...generalUsers,
+    ...qolipchiUsers,
+    ...materialUsers,
     ...workerEntries,
   ].where((item) => !item.blocked).where(_isWarehouseAssigneeCandidate)) {
     final key = '${item.kind.name}:${item.id.trim().toLowerCase()}';
