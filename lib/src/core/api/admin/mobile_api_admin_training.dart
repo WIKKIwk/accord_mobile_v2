@@ -2,6 +2,36 @@ part of '../mobile_api.dart';
 
 const _trainingInputApparatus = 'Bosma aparat';
 const _trainingInputQrPrefix = 'TRAINING-INPUT:';
+final _trainingOrderNumberPattern =
+    RegExp(r'^T-(\d{1,4})$', caseSensitive: false);
+
+ProductionMapDefinition _testModePrepareTrainingMapForSave(
+  ProductionMapDefinition map,
+) {
+  final mapId = map.id.trim().toLowerCase();
+  if (!mapId.startsWith('zakaz-draft-')) {
+    return map;
+  }
+  var maxOrderNumber = 0;
+  for (final saved in _testModeProductionMaps) {
+    final match = _trainingOrderNumberPattern.firstMatch(
+      saved.map.orderNumber.trim(),
+    );
+    final value = int.tryParse(match?.group(1) ?? '');
+    if (value != null && value > maxOrderNumber) {
+      maxOrderNumber = value;
+    }
+  }
+  final orderNumber = map.orderNumber.trim().isEmpty
+      ? 'T-${(maxOrderNumber + 1).toString().padLeft(4, '0')}'
+      : map.orderNumber.trim();
+  final suffix = (maxOrderNumber + 1).toString().padLeft(4, '0');
+  return map.copyWith(
+    id: 'training-zakaz-$suffix',
+    code: map.code.trim().isEmpty ? orderNumber : map.code,
+    orderNumber: orderNumber,
+  );
+}
 
 bool _isTrainingOrderMap(ProductionMapDefinition map) {
   return map.id.trim().startsWith('training-');
@@ -31,8 +61,7 @@ bool _testModeUsesVirtualTrainingInput({
 }) {
   return _isTrainingOrderMap(map) &&
       productionMapIsLaminatsiyaApparatus(station) &&
-      productionMapPreviousWorkStageStation(map: map, station: station) ==
-          null;
+      productionMapPreviousWorkStageStation(map: map, station: station) == null;
 }
 
 String? _trainingLaminatsiyaStation(ProductionMapDefinition map) {
@@ -66,11 +95,10 @@ AdminProgressBatch? _testModeTrainingInputProgressBatch({
       ? map.productCode.trim()
       : (map.orderNumber.trim().isNotEmpty ? map.orderNumber.trim() : orderId);
   final title = map.title.trim().isNotEmpty ? map.title.trim() : itemCode;
-  final producedQty = map.orderKg != null &&
-          map.orderKg!.isFinite &&
-          map.orderKg! > 0
-      ? map.orderKg!
-      : 1.0;
+  final producedQty =
+      map.orderKg != null && map.orderKg!.isFinite && map.orderKg! > 0
+          ? map.orderKg!
+          : 1.0;
   const status = 'completed';
   const action = 'complete';
   const wipStatus = 'waiting';
@@ -91,8 +119,7 @@ AdminProgressBatch? _testModeTrainingInputProgressBatch({
     uom: 'kg',
     qrPayload: '$_trainingInputQrPrefix$orderId',
     labelItemCode: itemCode,
-    labelItemName:
-        '$title, apparat: $_trainingInputApparatus, training input',
+    labelItemName: '$title, apparat: $_trainingInputApparatus, training input',
     executorName: 'Training bosma',
     workerRole: 'training',
     workerRef: 'training-input',
@@ -404,9 +431,8 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
               : apparatus,
           state: state,
           updatedAtUnix: completed?.completedAtUnix ?? 0,
-          completedAtUnix: state == 'completed'
-              ? completed?.completedAtUnix ?? 0
-              : 0,
+          completedAtUnix:
+              state == 'completed' ? completed?.completedAtUnix ?? 0 : 0,
         );
       }
       return statuses;
@@ -486,7 +512,9 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     ProductionMapDefinition map,
   ) async {
     if (await TestModeController.instance.isEnabled()) {
-      final saved = await adminSaveProductionMap(map);
+      final saved = await adminSaveProductionMap(
+        _testModePrepareTrainingMapForSave(map),
+      );
       _ensureTestModeTrainingInputBatch(saved.map);
       return saved;
     }
@@ -677,8 +705,9 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     required CalculateOrderTemplate template,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
+      final trainingMap = _testModePrepareTrainingMapForSave(map);
       final saved = await adminSaveProductionMapWithOrder(
-        map: map,
+        map: trainingMap,
         template: template,
       );
       _ensureTestModeTrainingInputBatch(saved.saved.map);

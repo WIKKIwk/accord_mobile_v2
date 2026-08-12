@@ -117,11 +117,11 @@ void main() {
   test('training laminatsiya order gets an automatic Bosma input batch',
       () async {
     await TestModeController.instance.setEnabled(true);
-    const orderId = 'training-laminatsiya-input-1';
+    const draftId = 'zakaz-draft-laminatsiya-input-1';
     const apparatus = 'Laminatsiya 1';
-    await MobileApi.instance.adminSaveTrainingProductionMap(
+    final saved = await MobileApi.instance.adminSaveTrainingProductionMap(
       const ProductionMapDefinition(
-        id: orderId,
+        id: draftId,
         productCode: 'TRAINING-LAM-1',
         title: 'Training laminatsiya order',
         orderKg: 10,
@@ -140,9 +140,11 @@ void main() {
         ],
       ),
     );
+    expect(saved.map.id, startsWith('training-'));
+    final orderId = saved.map.id;
     await MobileApi.instance.adminSaveProductionMapSequence(
       apparatus: apparatus,
-      orderIds: const [orderId],
+      orderIds: [orderId],
     );
 
     final batches = await MobileApi.instance.adminWipBatches(
