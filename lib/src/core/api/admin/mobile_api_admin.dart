@@ -10477,7 +10477,9 @@ extension MobileApiAdmin on MobileApi {
     String role = '',
   }) async {
     if (await TestModeController.instance.isEnabled()) {
-      final systemRole = switch (role.trim().toLowerCase()) {
+      final pageLimit = limit <= 0 ? 20 : limit.clamp(1, 50);
+      final normalizedRole = role.trim().toLowerCase();
+      final systemRole = switch (normalizedRole) {
         'qolipchi' => UserRole.qolipchi,
         'boyoqchi' => UserRole.boyoqchi,
         'material_taminotchi' ||
@@ -10512,13 +10514,56 @@ extension MobileApiAdmin on MobileApi {
             )
             .toList(growable: false);
         return AdminUserListPage(
-          items: items.skip(offset).take(limit).toList(growable: false),
-          hasMore: items.length > offset + limit,
+          items: items.skip(offset).take(pageLimit).toList(growable: false),
+          hasMore: items.length > offset + pageLimit,
         );
+      }
+      if (normalizedRole == 'worker' ||
+          normalizedRole == 'ishchi' ||
+          normalizedRole == 'aparatchi') {
+        final needle = query.trim().toLowerCase();
+        final items = _testModeWorkers
+            .where(
+              (worker) =>
+                  needle.isEmpty ||
+                  worker.name.toLowerCase().contains(needle) ||
+                  worker.phone.toLowerCase().contains(needle) ||
+                  worker.level.toLowerCase().contains(needle),
+            )
+            .map(
+              (worker) => AdminUserListEntry(
+                id: worker.id,
+                name: worker.name,
+                phone: worker.phone,
+                kind: AdminUserKind.worker,
+                principalRole: UserRole.aparatchi,
+                roleLabelOverride: worker.level,
+              ),
+            )
+            .toList(growable: false);
+        return AdminUserListPage(
+          items: items.skip(offset).take(pageLimit).toList(growable: false),
+          hasMore: items.length > offset + pageLimit,
+        );
+      }
+      if (normalizedRole == 'werka') {
+        final page = TestModeDemoData.userListPage(
+          query: query,
+          limit: pageLimit,
+          offset: offset,
+        );
+        final items = page.items
+            .where(
+              (item) =>
+                  item.kind == AdminUserKind.werka ||
+                  item.principalRole == UserRole.werka,
+            )
+            .toList(growable: false);
+        return AdminUserListPage(items: items, hasMore: false);
       }
       return TestModeDemoData.userListPage(
         query: query,
-        limit: limit,
+        limit: pageLimit,
         offset: offset,
       );
     }
