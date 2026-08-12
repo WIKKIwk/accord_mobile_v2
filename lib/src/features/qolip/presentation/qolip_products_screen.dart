@@ -271,6 +271,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   }
 
   Widget _selectionTitle(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final totalQolipCount = _cachedProducts?.length ?? 0;
     final selectedQolipCount = _selectedQolipCodes.length;
     return Row(
@@ -290,6 +291,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
         ),
         IconButton.filled(
           onPressed: _deleting ? null : _deleteSelection,
+          style: IconButton.styleFrom(foregroundColor: scheme.onPrimary),
           icon: _deleting
               ? const SizedBox.square(
                   dimension: 18,
