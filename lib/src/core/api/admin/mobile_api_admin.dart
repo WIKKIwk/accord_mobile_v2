@@ -871,17 +871,18 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
           _testModeOrderControls[orderId] ?? AdminOrderControlState.active;
       final previousStage = order == null
           ? null
-          : productionMapPreviousWorkStageStation(
+          : _testModeTrainingPreviousStage(
               map: order,
               station: apparatus,
             );
       final previousStageReady = order != null &&
-          productionMapOrderReadyForStation(
-            map: order,
-            orderId: orderId,
-            station: apparatus,
-            queueStatesByApparatus: _testModeApparatusQueueStates,
-          );
+          (_testModeUsesVirtualTrainingInput(map: order, station: apparatus) ||
+              productionMapOrderReadyForStation(
+                map: order,
+                orderId: orderId,
+                station: apparatus,
+                queueStatesByApparatus: _testModeApparatusQueueStates,
+              ));
       final queueActionable = state == ApparatusQueueOrderState.inProgress ||
           state == ApparatusQueueOrderState.paused ||
           actionableOrderId == orderId ||
@@ -8191,24 +8192,28 @@ extension MobileApiAdmin on MobileApi {
       final testModeOrderMap = _testModeOrderById(orderId)?.map;
       final previousStage = testModeOrderMap == null
           ? null
-          : productionMapPreviousWorkStageStation(
+          : _testModeTrainingPreviousStage(
               map: testModeOrderMap,
               station: apparatus,
             );
       final hasPreviousStage = previousStage != null;
       final previousStageCompleted = hasPreviousStage &&
-          _testModeApparatusQueueStates.entries.any(
-            (entry) {
-              final state = apparatusQueueOrderStateFromRaw(
-                entry.value[orderId.trim()],
-              );
-              return productionMapWarehouseTitlesMatch(
-                    entry.key,
-                    previousStage,
-                  ) &&
-                  state == ApparatusQueueOrderState.completed;
-            },
-          );
+          (_testModeUsesVirtualTrainingInput(
+                map: testModeOrderMap!,
+                station: apparatus,
+              ) ||
+              _testModeApparatusQueueStates.entries.any(
+                (entry) {
+                  final state = apparatusQueueOrderStateFromRaw(
+                    entry.value[orderId.trim()],
+                  );
+                  return productionMapWarehouseTitlesMatch(
+                        entry.key,
+                        previousStage,
+                      ) &&
+                      state == ApparatusQueueOrderState.completed;
+                },
+              ));
       bool isPreviousStageBatch(AdminProgressBatch batch) {
         if (!hasPreviousStage ||
             batch.orderId.trim() != orderId.trim() ||

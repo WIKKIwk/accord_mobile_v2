@@ -1359,18 +1359,30 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (!mounted) {
         return;
       }
+      AdminProgressBatch? automaticTrainingBatch;
+      if (widget.order.map.id.trim().startsWith('training-') &&
+          productionMapIsLaminatsiyaApparatus(station)) {
+        for (final batch in batches) {
+          if (batch.payloadJson['training_input'] == true &&
+              _progressBatchCanBeScanned(batch)) {
+            automaticTrainingBatch = batch;
+            break;
+          }
+        }
+      }
       setState(() {
         _availableInputProgressBatches = batches;
         _inputProgressLoading = false;
         _inputProgressError = '';
-        if (_startInputProgressBatch != null &&
-            _matchingInputProgressBatch(
-                  batches: batches,
-                  batch: _startInputProgressBatch!,
-                ) ==
-                null) {
-          _startInputProgressBatch = null;
-        }
+        final currentBatch = _startInputProgressBatch;
+        final matchingCurrentBatch = currentBatch == null
+            ? null
+            : _matchingInputProgressBatch(
+                batches: batches,
+                batch: currentBatch,
+              );
+        _startInputProgressBatch =
+            matchingCurrentBatch ?? automaticTrainingBatch;
       });
     } catch (_) {
       if (!mounted) {

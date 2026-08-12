@@ -113,4 +113,71 @@ void main() {
       isEmpty,
     );
   });
+
+  test('training laminatsiya order gets an automatic Bosma input batch',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    const orderId = 'training-laminatsiya-input-1';
+    const apparatus = 'Laminatsiya 1';
+    await MobileApi.instance.adminSaveTrainingProductionMap(
+      const ProductionMapDefinition(
+        id: orderId,
+        productCode: 'TRAINING-LAM-1',
+        title: 'Training laminatsiya order',
+        orderKg: 10,
+        nodes: [
+          ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+          ProductionMapNode(
+            id: 'laminatsiya',
+            kind: 'apparatus',
+            title: apparatus,
+          ),
+          ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+        ],
+        edges: [
+          ProductionMapEdge(from: 'start', to: 'laminatsiya'),
+          ProductionMapEdge(from: 'laminatsiya', to: 'end'),
+        ],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+
+    final batches = await MobileApi.instance.adminWipBatches(
+      status: 'all',
+      apparatus: 'Bosma aparat',
+      nextApparatus: apparatus,
+      orderId: orderId,
+    );
+    expect(batches, hasLength(1));
+    expect(batches.single.qrPayload, 'TRAINING-INPUT:$orderId');
+    expect(batches.single.batchId, 'training-input-batch-$orderId');
+    expect(batches.single.payloadJson['training_input'], isTrue);
+    expect(batches.single.wipStatus, 'waiting');
+
+    final started = await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+      qrPayload: batches.single.qrPayload,
+      progressBatchId: batches.single.batchId,
+    );
+    expect(started.states[orderId], 'in_progress');
+
+    final completed = await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'complete',
+      producedQty: 100,
+      grossQty: 10,
+      laminationFilmLeftoverRolls: 1,
+      totalWaste: 1,
+      finishedGoodsKg: 10,
+      finishedGoodsMeter: 100,
+      uom: 'm',
+    );
+    expect(completed.states[orderId], 'completed');
+  });
 }

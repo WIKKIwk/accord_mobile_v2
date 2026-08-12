@@ -1,5 +1,138 @@
 part of '../mobile_api.dart';
 
+const _trainingInputApparatus = 'Bosma aparat';
+const _trainingInputQrPrefix = 'TRAINING-INPUT:';
+
+bool _isTrainingOrderMap(ProductionMapDefinition map) {
+  return map.id.trim().startsWith('training-');
+}
+
+String? _testModeTrainingPreviousStage({
+  required ProductionMapDefinition map,
+  required String station,
+}) {
+  final previousStage = productionMapPreviousWorkStageStation(
+    map: map,
+    station: station,
+  );
+  if (previousStage != null) {
+    return previousStage;
+  }
+  if (_isTrainingOrderMap(map) &&
+      productionMapIsLaminatsiyaApparatus(station)) {
+    return _trainingInputApparatus;
+  }
+  return null;
+}
+
+bool _testModeUsesVirtualTrainingInput({
+  required ProductionMapDefinition map,
+  required String station,
+}) {
+  return _isTrainingOrderMap(map) &&
+      productionMapIsLaminatsiyaApparatus(station) &&
+      productionMapPreviousWorkStageStation(map: map, station: station) ==
+          null;
+}
+
+String? _trainingLaminatsiyaStation(ProductionMapDefinition map) {
+  for (final node in map.nodes) {
+    if (node.kind == 'apparatus' &&
+        productionMapIsLaminatsiyaApparatus(node.title)) {
+      final station = node.title.trim();
+      if (station.isNotEmpty) {
+        return station;
+      }
+    }
+  }
+  return null;
+}
+
+AdminProgressBatch? _testModeTrainingInputProgressBatch({
+  required ProductionMapDefinition map,
+  required String station,
+}) {
+  final orderId = map.id.trim();
+  final targetStation = station.trim();
+  if (orderId.isEmpty ||
+      targetStation.isEmpty ||
+      !_testModeUsesVirtualTrainingInput(
+        map: map,
+        station: targetStation,
+      )) {
+    return null;
+  }
+  final itemCode = map.productCode.trim().isNotEmpty
+      ? map.productCode.trim()
+      : (map.orderNumber.trim().isNotEmpty ? map.orderNumber.trim() : orderId);
+  final title = map.title.trim().isNotEmpty ? map.title.trim() : itemCode;
+  final producedQty = map.orderKg != null &&
+          map.orderKg!.isFinite &&
+          map.orderKg! > 0
+      ? map.orderKg!
+      : 1.0;
+  const status = 'completed';
+  const action = 'complete';
+  const wipStatus = 'waiting';
+  final statusDetail = AdminProgressBatchStatusDetail.fromJsonOrBatchJson({
+    'action': action,
+    'status': status,
+    'wip_status': wipStatus,
+    'next_apparatus': targetStation,
+  });
+  return AdminProgressBatch(
+    batchId: 'training-input-batch-$orderId',
+    sessionId: 'training-input-session-$orderId',
+    apparatus: _trainingInputApparatus,
+    orderId: orderId,
+    action: action,
+    status: status,
+    producedQty: producedQty,
+    uom: 'kg',
+    qrPayload: '$_trainingInputQrPrefix$orderId',
+    labelItemCode: itemCode,
+    labelItemName:
+        '$title, apparat: $_trainingInputApparatus, training input',
+    executorName: 'Training bosma',
+    workerRole: 'training',
+    workerRef: 'training-input',
+    workerDisplayName: 'Training bosma',
+    wipStatus: wipStatus,
+    statusDetail: statusDetail,
+    currentApparatus: _trainingInputApparatus,
+    currentApparatusKey: _trainingInputApparatus.toLowerCase(),
+    currentLocation: '$_trainingInputApparatus chiqim',
+    nextApparatus: targetStation,
+    finishedGoodsKg: producedQty,
+    description: 'Training uchun avtomatik Bosma input batch',
+    payloadJson: const {
+      'training': true,
+      'training_input': true,
+      'source': 'automatic_training_order_batch',
+    },
+  );
+}
+
+void _ensureTestModeTrainingInputBatch(
+  ProductionMapDefinition map, {
+  bool reset = false,
+}) {
+  final station = _trainingLaminatsiyaStation(map);
+  if (station == null) {
+    return;
+  }
+  final batch = _testModeTrainingInputProgressBatch(
+    map: map,
+    station: station,
+  );
+  if (batch == null) {
+    return;
+  }
+  if (reset || !_testModeProgressBatchesByQr.containsKey(batch.qrPayload)) {
+    _testModeProgressBatchesByQr[batch.qrPayload] = batch;
+  }
+}
+
 Future<List<AdminApparatus>> _trainingApparatusCatalog() {
   return MobileApi.instance.adminApparatus(limit: 10000);
 }
@@ -157,6 +290,11 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
       _testModeProgressBatchesByQr.removeWhere(
         (_, batch) => trainingOrderIds.contains(batch.orderId.trim()),
       );
+      for (final saved in _testModeProductionMaps) {
+        if (trainingOrderIds.contains(saved.map.id.trim())) {
+          _ensureTestModeTrainingInputBatch(saved.map, reset: true);
+        }
+      }
       _testModeActiveProgressInputByQueue.removeWhere((key, _) {
         final separator = key.indexOf('|');
         if (separator < 0) {
@@ -301,11 +439,18 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       if (id.trim().isEmpty) {
+        for (final saved in _testModeProductionMaps) {
+          _ensureTestModeTrainingInputBatch(saved.map);
+        }
         return List<ProductionMapSaved>.unmodifiable(_testModeProductionMaps);
       }
-      return _testModeProductionMaps
+      final matches = _testModeProductionMaps
           .where((item) => item.map.id.trim() == id.trim())
           .toList(growable: false);
+      for (final saved in matches) {
+        _ensureTestModeTrainingInputBatch(saved.map);
+      }
+      return matches;
     }
     final response = await _sendAuthorized(
       () => _get(
@@ -341,7 +486,9 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     ProductionMapDefinition map,
   ) async {
     if (await TestModeController.instance.isEnabled()) {
-      return adminSaveProductionMap(map);
+      final saved = await adminSaveProductionMap(map);
+      _ensureTestModeTrainingInputBatch(saved.map);
+      return saved;
     }
     final response = await _sendAuthorized(
       () => _put(
@@ -530,7 +677,12 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     required CalculateOrderTemplate template,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
-      return adminSaveProductionMapWithOrder(map: map, template: template);
+      final saved = await adminSaveProductionMapWithOrder(
+        map: map,
+        template: template,
+      );
+      _ensureTestModeTrainingInputBatch(saved.saved.map);
+      return saved;
     }
     final response = await _sendAuthorized(
       () => _put(
