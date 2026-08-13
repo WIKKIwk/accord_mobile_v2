@@ -47,7 +47,7 @@ class _OrderMapProgressCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Mapni ko‘rish',
+                          context.l10n.productionText('worker.action.view_map'),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -55,6 +55,7 @@ class _OrderMapProgressCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           _orderMapProgressSummary(
+                            l10n: context.l10n,
                             steps: steps,
                             orderId: orderId,
                             currentStation: currentStation,
@@ -209,6 +210,7 @@ bool _orderMapStepIsDone({
 }
 
 String _orderMapProgressSummary({
+  required AppLocalizations l10n,
   required List<ProductionMapNode> steps,
   required String orderId,
   required String currentStation,
@@ -228,7 +230,10 @@ String _orderMapProgressSummary({
       completed++;
     }
   }
-  return '$completed / ${steps.length} bosqich';
+  return l10n.productionText(
+    'worker.map.progress',
+    values: {'completed': completed, 'total': steps.length},
+  );
 }
 
 String _orderMapNodeStationTitle(ProductionMapNode node) {
@@ -237,12 +242,4 @@ String _orderMapNodeStationTitle(ProductionMapNode node) {
     return assigned;
   }
   return node.title.trim();
-}
-
-String _apparatusDetailLabel(String apparatus) {
-  return productionMapIsLaminatsiyaApparatus(apparatus)
-      ? 'Laminatsiya mashinasi'
-      : productionMapIsRezkaApparatus(apparatus)
-          ? 'Rezka mashinasi'
-          : 'Aparat';
 }

@@ -20,7 +20,10 @@ String _openedOrderDisplayCode(ProductionMapDefinition map) {
   return '';
 }
 
-String _openedOrderPrimaryTitle(ProductionMapDefinition map) {
+String _openedOrderPrimaryTitle(
+  ProductionMapDefinition map, {
+  AppLocalizations? l10n,
+}) {
   final title = map.title.trim();
   if (title.isNotEmpty) {
     return title;
@@ -29,7 +32,7 @@ String _openedOrderPrimaryTitle(ProductionMapDefinition map) {
   if (product.isNotEmpty) {
     return product;
   }
-  return 'Zakaz';
+  return l10n?.productionText('worker.order.fallback') ?? 'Zakaz';
 }
 
 String _openedOrderProductTitle(ProductionMapDefinition map) {
@@ -46,6 +49,7 @@ String _openedOrderSubtitle(
   ProductionMapDefinition map, {
   String customerName = '',
   bool includeApparatusCount = false,
+  AppLocalizations? l10n,
 }) {
   final productTitle = _openedOrderProductTitle(map);
   final customer = customerName.trim();
@@ -59,7 +63,11 @@ String _openedOrderSubtitle(
   return [
     if (secondaryLabel.isNotEmpty) secondaryLabel,
     if (includeApparatusCount && apparatusCount > 0)
-      '$apparatusCount ta aparat',
+      l10n?.productionText(
+            'worker.queue.apparatus_count',
+            values: {'count': apparatusCount},
+          ) ??
+          '$apparatusCount ta aparat',
   ].join(' • ');
 }
 

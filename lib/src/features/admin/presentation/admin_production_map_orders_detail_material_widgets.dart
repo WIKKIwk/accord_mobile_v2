@@ -67,8 +67,12 @@ class _PreviousProgressQrTile extends StatelessWidget {
                   children: [
                     Text(
                       ready
-                          ? 'Oldingi bosqich tasdiqlandi'
-                          : 'Oldingi bosqich QR',
+                          ? context.l10n.productionText(
+                              'worker.progress.previous.confirmed',
+                            )
+                          : context.l10n.productionText(
+                              'worker.progress.previous.qr',
+                            ),
                       style: theme.textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -76,8 +80,8 @@ class _PreviousProgressQrTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       ready && progressBatch != null
-                          ? '${progressBatch.apparatus} • $batchQty ${progressBatch.uom}'
-                          : previousStage,
+                          ? '${context.l10n.productionApparatusName(progressBatch.apparatus)} • $batchQty ${progressBatch.uom}'
+                          : context.l10n.productionApparatusName(previousStage),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -97,7 +101,13 @@ class _PreviousProgressQrTile extends StatelessWidget {
               icon: Icon(
                 ready ? Icons.refresh_rounded : Icons.qr_code_scanner_rounded,
               ),
-              label: Text(ready ? 'Qayta scan' : 'Scan'),
+              label: Text(
+                ready
+                    ? context.l10n.productionText(
+                        'worker.action.scan_again',
+                      )
+                    : context.l10n.productionText('worker.action.scan'),
+              ),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(44),
                 shape: RoundedRectangleBorder(
@@ -150,7 +160,7 @@ class _InputProgressBatchList extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Oldingi bosqichdan kelgan mahsulotlar',
+            context.l10n.productionText('worker.progress.products'),
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w800,
             ),
@@ -158,6 +168,7 @@ class _InputProgressBatchList extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             _inputProgressSummaryText(
+              l10n: context.l10n,
               previousStage: previousStage,
               total: batches.length,
               open: openCount,
@@ -185,7 +196,12 @@ class _InputProgressBatchList extends StatelessWidget {
           ] else if (batches.isEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              '$previousStage hali bu order uchun mahsulot chiqarmagan.',
+              context.l10n.productionText(
+                'worker.progress.none',
+                values: {
+                  'stage': context.l10n.productionApparatusName(previousStage),
+                },
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
@@ -226,9 +242,11 @@ class _InputProgressBatchTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     final qty = _productionMapQtyLabel(batch.producedQty);
     final canScan = _progressBatchCanBeScanned(batch);
-    final statusLabel = canScan ? 'Scan qilish kerak' : 'Ishlatilgan';
+    final statusLabel = canScan
+        ? context.l10n.productionText('worker.progress.scan_required')
+        : context.l10n.productionText('worker.progress.used');
     final statusColor = canScan ? scheme.primary : scheme.onSurfaceVariant;
-    final title = _inputProgressBatchTitle(batch);
+    final title = _inputProgressBatchTitle(batch, context.l10n);
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       decoration: BoxDecoration(
@@ -279,7 +297,14 @@ class _InputProgressBatchTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '$statusLabel • Miqdor: $qty ${batch.uom}',
+                  context.l10n.productionText(
+                    'worker.progress.batch_status',
+                    values: {
+                      'status': statusLabel,
+                      'qty': qty,
+                      'uom': batch.uom,
+                    },
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -289,7 +314,10 @@ class _InputProgressBatchTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'QR: ${batch.qrPayload}',
+                  context.l10n.productionText(
+                    'worker.progress.qr',
+                    values: {'qr': batch.qrPayload},
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -307,39 +335,77 @@ class _InputProgressBatchTile extends StatelessWidget {
 }
 
 String _inputProgressSummaryText({
+  required AppLocalizations l10n,
   required String previousStage,
   required int total,
   required int open,
   required int used,
 }) {
   if (total == 0) {
-    return '$previousStage chiqargan mahsulotlar shu yerda ko‘rinadi.';
+    return l10n.productionText(
+      'worker.progress.summary.empty',
+      values: {'stage': l10n.productionApparatusName(previousStage)},
+    );
   }
   if (used == 0) {
-    return '$previousStage chiqargan $total ta mahsulot bor. $open tasini scan qilish kerak.';
+    return l10n.productionText(
+      'worker.progress.summary.unused',
+      values: {
+        'stage': l10n.productionApparatusName(previousStage),
+        'total': total,
+        'open': open,
+      },
+    );
   }
   if (open == 0) {
-    return '$previousStage chiqargan $total ta mahsulotning hammasi ishlatilgan.';
+    return l10n.productionText(
+      'worker.progress.summary.used_all',
+      values: {
+        'stage': l10n.productionApparatusName(previousStage),
+        'total': total,
+      },
+    );
   }
-  return '$previousStage chiqargan $total ta mahsulot bor: $open tasi scan qilinadi, $used tasi ishlatilgan.';
+  return l10n.productionText(
+    'worker.progress.summary.mixed',
+    values: {
+      'stage': l10n.productionApparatusName(previousStage),
+      'total': total,
+      'open': open,
+      'used': used,
+    },
+  );
 }
 
-String _inputProgressBatchTitle(AdminProgressBatch batch) {
+String _inputProgressBatchTitle(
+  AdminProgressBatch batch,
+  AppLocalizations l10n,
+) {
   final itemName = batch.labelItemName.trim();
   final action = batch.action.trim().toLowerCase();
   final source = batch.apparatus.trim();
   final actionText = switch (action) {
-    'complete' => 'tugatib chiqargan',
-    'pause' => 'pauzada chiqargan',
-    'detach_roll' => 'rulonni yechib chiqargan',
-    'roll_complete' => 'rulonni tugatib chiqargan',
-    _ => 'chiqargan',
+    'complete' => l10n.productionText('worker.progress.action.complete'),
+    'pause' => l10n.productionText('worker.progress.action.pause'),
+    'detach_roll' => l10n.productionText(
+        'worker.progress.action.detach_roll',
+      ),
+    'roll_complete' => l10n.productionText(
+        'worker.progress.action.roll_complete',
+      ),
+    _ => l10n.productionText('worker.progress.action.output'),
   };
   final base = itemName.isEmpty ? batch.orderId.trim() : itemName;
   if (source.isEmpty) {
     return base.isEmpty ? batch.batchId : base;
   }
-  return '$source $actionText mahsulot';
+  return l10n.productionText(
+    'worker.progress.batch_title',
+    values: {
+      'source': l10n.productionApparatusName(source),
+      'action': actionText,
+    },
+  );
 }
 
 class _ScannedItemsExpansionHeader extends StatelessWidget {
@@ -467,7 +533,10 @@ class _ScannedQolipTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Qolip kodi: $code',
+                  context.l10n.productionText(
+                    'worker.mold.code',
+                    values: {'code': code},
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -492,8 +561,13 @@ class _ScannedQolipTile extends StatelessWidget {
                     Expanded(
                       child: Text(
                         qolip.color.isEmpty
-                            ? 'Rang: kiritilmagan'
-                            : 'Rang: ${qolip.color}',
+                            ? context.l10n.productionText(
+                                'worker.mold.color.missing',
+                              )
+                            : context.l10n.productionText(
+                                'worker.mold.color',
+                                values: {'color': qolip.color},
+                              ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
@@ -540,7 +614,7 @@ class _RawMaterialBalanceSummary extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Homashyo balansi',
+            context.l10n.productionText('worker.material.balance'),
             style: theme.textTheme.labelLarge?.copyWith(
               color: scheme.onSecondaryContainer,
               fontWeight: FontWeight.w800,
@@ -550,12 +624,17 @@ class _RawMaterialBalanceSummary extends StatelessWidget {
           for (var index = 0; index < balances.length; index++) ...[
             if (index > 0) const SizedBox(height: 4),
             Text(
-              'Qabul: ${formatRawQuantity(balances[index].receivedQty)} '
-              '${balances[index].uom}  •  Sarf: '
-              '${formatRawQuantity(balances[index].consumedQty)} '
-              '${balances[index].uom}  •  Qoldiq: '
-              '${formatRawQuantity(balances[index].remainingQty)} '
-              '${balances[index].uom}',
+              context.l10n.productionText(
+                'worker.material.balance.summary',
+                values: {
+                  'received':
+                      '${formatRawQuantity(balances[index].receivedQty)} ${balances[index].uom}',
+                  'used':
+                      '${formatRawQuantity(balances[index].consumedQty)} ${balances[index].uom}',
+                  'remaining':
+                      '${formatRawQuantity(balances[index].remainingQty)} ${balances[index].uom}',
+                },
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSecondaryContainer,
                 fontWeight: FontWeight.w700,
@@ -615,7 +694,7 @@ class _AssignedMaterialTile extends StatelessWidget {
     addDetail(assignment.barcode);
     final materialStateVisible = allowUnlink;
     final statusText = materialStateVisible
-        ? _rawMaterialAssignmentStatusText(assignment)
+        ? _rawMaterialAssignmentStatusText(assignment, context.l10n)
         : '';
 
     var primary = title;
@@ -721,8 +800,17 @@ class _AssignedMaterialTile extends StatelessWidget {
             IconButton(
               key: ValueKey('raw-material-unlink-$normalizedBarcode'),
               tooltip: canUnlink
-                  ? 'Ulanishni uzish'
-                  : '${statusText.isEmpty ? 'Homashyo' : statusText}: uzib bo‘lmaydi',
+                  ? context.l10n.productionText('worker.material.unlink')
+                  : context.l10n.productionText(
+                      'worker.material.unlink.disabled',
+                      values: {
+                        'status': statusText.isEmpty
+                            ? context.l10n.productionText(
+                                'worker.materials.attached',
+                              )
+                            : statusText,
+                      },
+                    ),
               onPressed: canUnlink && !unlinking ? onUnlink : null,
               icon: unlinking
                   ? const SizedBox.square(

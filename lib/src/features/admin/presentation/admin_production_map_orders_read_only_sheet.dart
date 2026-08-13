@@ -77,8 +77,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   final Map<String, AdminProductionMapRequiredQolip> _requiredQolips = {};
   bool _qolipRequirementsLoading = false;
   String _qolipRequirementsError = '';
-  String _quickScanStatus =
-      'Qolip yoki homashyo QR kodini tirqishga olib keling';
+  String _quickScanStatus = '';
+  String _quickScanLocaleCode = '';
   bool _quickScanInFlight = false;
   String _lastQuickScanValue = '';
   DateTime? _lastQuickScanAt;
@@ -143,6 +143,22 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final localeCode = context.l10n.locale.languageCode;
+    if (_quickScanLocaleCode.isNotEmpty && _quickScanLocaleCode != localeCode) {
+      _quickScanStatus = context.l10n.productionText('worker.scanner.prompt');
+      _qolipRequirementsError = '';
+      _materialsError = '';
+      _inputProgressError = '';
+    }
+    _quickScanLocaleCode = localeCode;
+    if (_quickScanStatus.isEmpty) {
+      _quickScanStatus = context.l10n.productionText('worker.scanner.prompt');
+    }
+  }
+
+  @override
   void dispose() {
     dismissAdminTopNotice();
     super.dispose();
@@ -164,7 +180,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _startMaterialsExpanded = false;
       _intakeCandidatesExpanded = false;
       _qolipsExpanded = false;
-      _quickScanStatus = 'Qolip yoki homashyo QR kodini tirqishga olib keling';
+      _quickScanStatus = context.l10n.productionText('worker.scanner.prompt');
       _materialIntakeMode = false;
       _lastQuickScanValue = '';
       _lastQuickScanAt = null;
@@ -298,7 +314,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _materialsLoading = false;
         _materialsError = error is MobileApiException
             ? error.message
-            : 'Homashyo qoidasi yuklanmadi';
+            : context.l10n.productionText('worker.error.rule_failed');
       });
       return false;
     }
@@ -319,10 +335,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     final confirmed = await showM3ConfirmDialog(
           context: context,
-          title: 'Homashyoni uzish',
-          message: 'Bu homashyoni zakazdan uzasizmi?',
-          cancelLabel: 'Bekor qilish',
-          confirmLabel: 'Uzish',
+          title: context.l10n.productionText('worker.material.unlink.title'),
+          message: context.l10n.productionText(
+            'worker.material.unlink.message',
+          ),
+          cancelLabel: context.l10n.productionText('worker.action.cancel'),
+          confirmLabel: context.l10n.productionText(
+            'worker.material.unlink.confirm',
+          ),
           destructive: true,
           verticalActions: true,
           confirmButtonKey:
@@ -341,7 +361,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       );
       await _loadMaterialAssignments(showLoading: false);
       if (mounted) {
-        _showSheetNotice('Homashyo zakazdan uzildi');
+        _showSheetNotice(
+          context.l10n.productionText('worker.material.unlink.success'),
+        );
       }
     } on MobileApiException catch (error) {
       if (mounted) {
@@ -349,7 +371,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
     } catch (_) {
       if (mounted) {
-        _showSheetNotice('Homashyoni zakazdan uzib bo‘lmaydi');
+        _showSheetNotice(
+          context.l10n.productionText('worker.material.unlink.failed'),
+        );
       }
     } finally {
       if (mounted) {
@@ -395,7 +419,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       setState(() {
         _requiredQolips.clear();
         _qolipRequirementsLoading = false;
-        _qolipRequirementsError = _readOnlyQueueActionErrorText(error);
+        _qolipRequirementsError = _readOnlyQueueActionErrorText(
+          error,
+          context.l10n,
+        );
       });
     }
   }
@@ -445,13 +472,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   String get _qolipRequirementsStatusText {
     if (_qolipRequirementsLoading) {
-      return 'Mahsulot qoliplari yuklanmoqda';
+      return context.l10n.productionText('worker.mold.requirements.loading');
     }
     if (_qolipRequirementsError.isNotEmpty) {
       return _qolipRequirementsError;
     }
     if (_requiredQolips.isEmpty) {
-      return 'Mahsulotga qolip biriktirilmagan';
+      return context.l10n.productionText('worker.mold.requirements.empty');
     }
     return '';
   }
@@ -496,7 +523,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (mounted) {
         _showSheetNotice(
           _materialsError.isEmpty
-              ? 'Homashyo qoidasi yuklanmadi'
+              ? context.l10n.productionText('worker.error.rule_failed')
               : _materialsError,
         );
       }
@@ -516,6 +543,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       startInputProgressBatch: _startInputProgressBatch,
       qolipScanned: _allRequiredQolipsScanned,
       skipStartMaterialScan: _laminatsiyaWipMaterialScanCanBeSkipped,
+      l10n: context.l10n,
     );
     if (prepared == null) {
       return false;
@@ -622,7 +650,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           }
         } catch (_) {
           if (mounted) {
-            _showSheetNotice('Amal bajarildi, local printer chop etmadi');
+            _showSheetNotice(
+              context.l10n.productionText(
+                'worker.notice.action_print_failed',
+              ),
+            );
           }
         }
       }
@@ -648,8 +680,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
       _showSheetNotice(
         error is TimeoutException
-            ? 'Amal serverga yuborildi. Holat avtomatik yangilanadi'
-            : _readOnlyQueueActionErrorText(error),
+            ? context.l10n.productionText('worker.notice.action_sent')
+            : _readOnlyQueueActionErrorText(error, context.l10n),
       );
       return false;
     } finally {
@@ -672,13 +704,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         return _scannedQolipCodes.values.toList(growable: false);
       }
       _showSheetNotice(
-        'Barcha qoliplarni scan qiling '
-        '(${_scannedQolipCodes.length}/${_requiredQolips.length} ta)',
+        context.l10n.productionText(
+          'worker.error.scan_molds_count',
+          values: {
+            'scanned': _scannedQolipCodes.length,
+            'required': _requiredQolips.length,
+          },
+        ),
       );
       return null;
     }
     _showSheetNotice(
-      'Avval yuqoridagi embedded scanner orqali qolip QR scan qiling',
+      context.l10n.productionText('worker.error.scan_embedded_mold'),
     );
     return null;
   }
@@ -686,8 +723,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   Future<void> _scanQolip() async {
     final code = await showRawMaterialScanDialog(
       context,
-      title: 'Qolip QR',
-      manualLabel: 'Qolip kodi',
+      title: context.l10n.productionText('worker.mold.qr_title'),
+      manualLabel: context.l10n.productionText('worker.mold.code_label'),
     );
     if (!mounted || code == null || code.trim().isEmpty) {
       return;
@@ -713,14 +750,26 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       final requiredCount = _requiredQolips.length;
       _showSheetNotice(
         alreadyScanned
-            ? 'Bu qolip avval scan qilingan ($scannedCount/$requiredCount ta)'
-            : 'Qolip qo‘shildi ($scannedCount/$requiredCount ta)',
+            ? context.l10n.productionText(
+                'worker.mold.already_scanned',
+                values: {
+                  'scanned': scannedCount,
+                  'required': requiredCount,
+                },
+              )
+            : context.l10n.productionText(
+                'worker.mold.added',
+                values: {
+                  'scanned': scannedCount,
+                  'required': requiredCount,
+                },
+              ),
       );
     } catch (error) {
       if (!mounted) {
         return;
       }
-      _showSheetNotice(_readOnlyQueueActionErrorText(error));
+      _showSheetNotice(_readOnlyQueueActionErrorText(error, context.l10n));
     }
   }
 
@@ -744,7 +793,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (mounted) {
       setState(() {
         _quickScanInFlight = true;
-        _quickScanStatus = 'QR tekshirilmoqda...';
+        _quickScanStatus = context.l10n.productionText(
+          'worker.scanner.checking',
+        );
       });
     }
 
@@ -769,8 +820,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           final complete = _materialStartRequirements?.scanSatisfied == true;
           setState(() {
             _quickScanStatus = complete
-                ? 'Ish boshlash uchun homashyolar tasdiqlandi'
-                : '${material.itemName.trim().isEmpty ? material.itemCode : material.itemName} tasdiqlandi';
+                ? context.l10n.productionText(
+                    'worker.notice.materials_confirmed',
+                  )
+                : context.l10n.productionText(
+                    'worker.notice.material_confirmed_item',
+                    values: {
+                      'item': material.itemName.trim().isEmpty
+                          ? material.itemCode
+                          : material.itemName,
+                    },
+                  );
           });
         }
         return;
@@ -793,10 +853,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               _replaceRequiredQolips(validation.requiredQolips);
               _scannedQolipCodes[key] = validatedCode.trim();
               _quickScanStatus = alreadyScanned
-                  ? 'Bu qolip avval scan qilingan '
-                      '(${_scannedQolipCodes.length}/${_requiredQolips.length} ta)'
-                  : 'Qolip qo‘shildi '
-                      '(${_scannedQolipCodes.length}/${_requiredQolips.length} ta)';
+                  ? context.l10n.productionText(
+                      'worker.mold.already_scanned',
+                      values: {
+                        'scanned': _scannedQolipCodes.length,
+                        'required': _requiredQolips.length,
+                      },
+                    )
+                  : context.l10n.productionText(
+                      'worker.mold.added',
+                      values: {
+                        'scanned': _scannedQolipCodes.length,
+                        'required': _requiredQolips.length,
+                      },
+                    );
             });
           }
           return;
@@ -826,8 +896,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (mounted) {
         setState(() {
           _quickScanStatus = scanError == null
-              ? 'Bu QR ushbu order uchun mos emas'
-              : _readOnlyQueueActionErrorText(scanError);
+              ? context.l10n.productionText('worker.error.machine_flow')
+              : _readOnlyQueueActionErrorText(scanError, context.l10n);
         });
       }
     } finally {
@@ -847,7 +917,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       previousStage: previousStage,
     )) {
       if (mounted) {
-        setState(() => _quickScanStatus = 'Bu QR oldingi bosqichga mos emas');
+        setState(
+          () => _quickScanStatus = context.l10n.productionText(
+            'worker.error.previous_stage_qr',
+          ),
+        );
       }
       return false;
     }
@@ -861,7 +935,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _availableInputProgressBatches = latest;
         _inputProgressLoading = false;
         _inputProgressError = '';
-        _quickScanStatus = 'Bu WIP QR ushbu order ro‘yxatida topilmadi';
+        _quickScanStatus = context.l10n.productionText(
+          'worker.error.wip_not_in_order',
+        );
       });
       return false;
     }
@@ -870,7 +946,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _startInputProgressBatch = match;
       _inputProgressLoading = false;
       _inputProgressError = '';
-      _quickScanStatus = 'Oldingi bosqich QR tasdiqlandi';
+      _quickScanStatus = context.l10n.productionText(
+        'worker.progress.previous.confirmed',
+      );
     });
     return true;
   }
@@ -911,7 +989,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       station: station,
     )) {
       if (mounted) {
-        setState(() => _quickScanStatus = 'Bu WIP QR ushbu aparatga mos emas');
+        setState(
+          () => _quickScanStatus = context.l10n.productionText(
+            'worker.error.wip_machine_mismatch',
+          ),
+        );
       }
       return false;
     }
@@ -925,17 +1007,22 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     );
     final confirmed = await showM3ConfirmDialog(
           context: context,
-          title: 'Boshqa order aniqlandi',
+          title: context.l10n.productionText('worker.order.switch.title'),
           message: currentState == ApparatusQueueOrderState.inProgress
-              ? 'Bu QR boshqa orderga tegishli. Hozirgi ishni to‘liq tugatib, '
-                  'yangi orderni boshlaysizmi?'
+              ? context.l10n.productionText(
+                  'worker.order.switch.complete_current',
+                )
               : usesTimelineAstatka
-                  ? 'Bu QR boshqa orderga tegishli. Hozirgi ish uchun astatka '
-                      'qayd qilib, yangi orderni boshlaysizmi?'
-                  : 'Bu QR boshqa orderga tegishli. Hozirgi ishni to‘xtatib, '
-                      'yangi orderni boshlaysizmi?',
-          cancelLabel: 'Yo‘q',
-          confirmLabel: 'Ha, boshlash',
+                  ? context.l10n.productionText(
+                      'worker.order.switch.report_current',
+                    )
+                  : context.l10n.productionText(
+                      'worker.order.switch.stop_current',
+                    ),
+          cancelLabel: context.l10n.productionText('worker.action.no'),
+          confirmLabel: context.l10n.productionText(
+            'worker.order.switch.confirm',
+          ),
           confirmButtonKey: const ValueKey('production-switch-order-confirm'),
         ) ??
         false;
@@ -960,7 +1047,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     setState(() {
       _quickScanInFlight = true;
-      _quickScanStatus = 'Yangi order boshlanmoqda...';
+      _quickScanStatus = context.l10n.productionText(
+        'worker.order.switch.starting',
+      );
     });
     try {
       await MobileApi.instance.adminApparatusQueueActionResult(
@@ -973,16 +1062,26 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       );
       if (mounted) {
         setState(() {
-          _quickScanStatus = 'Yangi order boshlandi: $targetOrderId';
+          _quickScanStatus = context.l10n.productionText(
+            'worker.order.switch.started_with_id',
+            values: {'order': targetOrderId},
+          );
           _startInputProgressBatch = null;
         });
-        _showSheetNotice('Yangi order boshlandi');
+        _showSheetNotice(
+          context.l10n.productionText('worker.order.switch.started'),
+        );
       }
       return true;
     } catch (error) {
       if (mounted) {
-        setState(() => _quickScanStatus = _readOnlyQueueActionErrorText(error));
-        _showSheetNotice(_readOnlyQueueActionErrorText(error));
+        setState(
+          () => _quickScanStatus = _readOnlyQueueActionErrorText(
+            error,
+            context.l10n,
+          ),
+        );
+        _showSheetNotice(_readOnlyQueueActionErrorText(error, context.l10n));
       }
       return false;
     } finally {
@@ -1054,13 +1153,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
       if (mounted) {
         setState(() => _actionInFlight = false);
-        _showSheetNotice('Order astatkasi qayd qilindi');
+        _showSheetNotice(
+          context.l10n.productionText('worker.notice.astatka_recorded'),
+        );
       }
       return _ProgressActionOutcome.completed;
     } catch (error) {
       if (mounted) {
         setState(() => _actionInFlight = false);
-        _showSheetNotice(_readOnlyQueueActionErrorText(error));
+        _showSheetNotice(_readOnlyQueueActionErrorText(error, context.l10n));
       }
       return _ProgressActionOutcome.failed;
     }
@@ -1204,7 +1305,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (!await _loadMaterialAssignments(showLoading: false) || !mounted) {
       _showSheetNotice(
         _materialsError.isEmpty
-            ? 'Homashyo qoidasi yuklanmadi'
+            ? context.l10n.productionText('worker.error.rule_failed')
             : _materialsError,
       );
       return;
@@ -1223,7 +1324,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     final match = scan.assignment;
     if (match == null) {
-      _showSheetNotice('Bu homashyo zakazga mos emas');
+      _showSheetNotice(
+        context.l10n.productionText('worker.error.material_order_mismatch'),
+      );
       return;
     }
     setState(() {
@@ -1231,7 +1334,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     });
     await _loadMaterialAssignments(showLoading: false);
     if (mounted && _materialStartRequirements?.scanSatisfied == true) {
-      _showSheetNotice('Ish boshlash uchun homashyolar tasdiqlandi');
+      _showSheetNotice(
+        context.l10n.productionText('worker.notice.materials_confirmed'),
+      );
     }
   }
 
@@ -1239,8 +1344,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (_materialIntakeMode) {
       setState(() {
         _materialIntakeMode = false;
-        _quickScanStatus =
-            'Qolip yoki homashyo QR kodini tirqishga olib keling';
+        _quickScanStatus = context.l10n.productionText(
+          'worker.scanner.prompt',
+        );
       });
       return;
     }
@@ -1250,16 +1356,21 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     if (_intakeCandidateAssignments.isEmpty) {
       setState(() {
-        _quickScanStatus = 'Hali qabul qilinmagan homashyo yo‘q';
+        _quickScanStatus = context.l10n.productionText(
+          'worker.error.no_pending_material',
+        );
       });
-      _showSheetNotice('Hali qabul qilinmagan homashyo yo‘q');
+      _showSheetNotice(
+        context.l10n.productionText('worker.error.no_pending_material'),
+      );
       return;
     }
     setState(() {
       _materialIntakeMode = true;
       _intakeCandidatesExpanded = true;
-      _quickScanStatus =
-          'Qo‘shimcha homashyo QR kodini yuqoridagi tirqishga olib keling';
+      _quickScanStatus = context.l10n.productionText(
+        'worker.scanner.additional_material_prompt',
+      );
     });
   }
 
@@ -1268,14 +1379,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final orderId = widget.order.map.id.trim();
     final apparatus = widget.apparatus?.name.trim() ?? '';
     if (orderId.isEmpty || apparatus.isEmpty) {
-      _showSheetNotice('Zakaz yoki aparat topilmadi');
+      _showSheetNotice(
+        context.l10n.productionText('worker.error.order_machine_missing'),
+      );
       return;
     }
     if (mounted) {
       setState(() {
         _quickScanInFlight = true;
         _materialIntakeInFlight = true;
-        _quickScanStatus = 'Qo‘shimcha homashyo qabul qilinmoqda...';
+        _quickScanStatus = context.l10n.productionText(
+          'worker.scanner.receiving_material',
+        );
       });
     }
     try {
@@ -1297,16 +1412,29 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _intakeCandidatesExpanded = true;
         _materialIntakeMode = hasRemainingCandidates;
         _quickScanStatus = hasRemainingCandidates
-            ? 'Homashyo qabul qilindi$quantityLabel. Yana QR scan qiling'
-            : 'Barcha kutilayotgan homashyolar qabul qilindi';
+            ? context.l10n.productionText(
+                'worker.notice.material_received',
+                values: {'qty': quantityLabel},
+              )
+            : context.l10n.productionText(
+                'worker.notice.all_materials_received',
+              );
       });
-      _showSheetNotice('Homashyo qabul qilindi$quantityLabel');
+      _showSheetNotice(
+        context.l10n.productionText(
+          'worker.notice.material_received_short',
+          values: {'qty': quantityLabel},
+        ),
+      );
     } catch (error) {
       if (mounted) {
         setState(() {
-          _quickScanStatus = _readOnlyQueueActionErrorText(error);
+          _quickScanStatus = _readOnlyQueueActionErrorText(
+            error,
+            context.l10n,
+          );
         });
-        _showSheetNotice(_readOnlyQueueActionErrorText(error));
+        _showSheetNotice(_readOnlyQueueActionErrorText(error, context.l10n));
       }
     } finally {
       if (mounted) {
@@ -1329,7 +1457,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
       final accepted = await _acceptProgressBatch(batch, previousStage);
       if (accepted && mounted) {
-        _showSheetNotice('Oldingi bosqich QR tasdiqlandi');
+        _showSheetNotice(
+          context.l10n.productionText('worker.progress.previous.confirmed'),
+        );
       } else if (mounted) {
         _showSheetNotice(_quickScanStatus);
       }
@@ -1337,7 +1467,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (!mounted) {
         return;
       }
-      _showSheetNotice(_progressQrLookupErrorText(error));
+      _showSheetNotice(_progressQrLookupErrorText(error, context.l10n));
     }
   }
 
@@ -1379,7 +1509,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       setState(() {
         _availableInputProgressBatches = const [];
         _inputProgressLoading = false;
-        _inputProgressError = 'WIP ro‘yxati yuklanmadi';
+        _inputProgressError = context.l10n.productionText(
+          'worker.wip.load_failed',
+        );
       });
     }
   }
@@ -1436,7 +1568,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       customerName: widget.customerName,
       steps: steps,
       uiState: uiState,
-      pauseLabel: widget.workerMode ? 'Rulonni yechish' : 'Pauza',
+      pauseLabel: widget.workerMode
+          ? context.l10n.productionText('worker.action.detach_roll')
+          : context.l10n.productionText('worker.action.pause'),
       queueStates: _queueStates,
       queueStatesByApparatus: widget.queueStatesByApparatus,
       materialsLoading: _materialsLoading,

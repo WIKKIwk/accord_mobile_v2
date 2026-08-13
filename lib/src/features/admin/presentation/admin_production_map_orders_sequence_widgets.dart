@@ -220,10 +220,21 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
             },
           ),
           if (selected == null)
-            const _EmptyOpenedOrders(message: 'Avval aparat tanlang')
+            _EmptyOpenedOrders(
+              message: context.l10n.productionText(
+                'worker.queue.empty.select_apparatus',
+              ),
+            )
           else if (orders.isEmpty)
             _EmptyOpenedOrders(
-              message: '${selected.name} uchun zakaz yo‘q',
+              message: context.l10n.productionText(
+                'worker.queue.empty.for_apparatus',
+                values: {
+                  'apparatus': context.l10n.productionApparatusName(
+                    selected.name,
+                  ),
+                },
+              ),
             )
           else
             M3SegmentSpacedColumn(
@@ -277,8 +288,10 @@ class _SequenceHeaderSelectors extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AdminExpandableFilterChip<String>(
-          label: 'Aparat',
-          emptyLabel: 'Tanlanmagan',
+          label: context.l10n.productionText('worker.queue.filter.apparatus'),
+          emptyLabel: context.l10n.productionText(
+            'worker.queue.filter.unselected',
+          ),
           icon: Icons.precision_manufacturing_rounded,
           selectedValue: selectedValue?.isEmpty == true ? null : selectedValue,
           options: [
@@ -286,7 +299,7 @@ class _SequenceHeaderSelectors extends StatelessWidget {
               if (item.name.trim().isNotEmpty)
                 AdminFilterChipOption(
                   value: item.name.trim(),
-                  label: item.name.trim(),
+                  label: context.l10n.productionApparatusName(item.name),
                 ),
           ],
           expanded: expanded,
@@ -305,7 +318,10 @@ class _SequenceHeaderSelectors extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
             child: Text(
-              '$orderCount ta zakaz',
+              context.l10n.productionText(
+                'worker.queue.orders_count',
+                values: {'count': orderCount},
+              ),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     height: 1.05,
@@ -317,7 +333,7 @@ class _SequenceHeaderSelectors extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text(
-              'Tartibni o‘zgartirish uchun zakazni ushlab torting',
+              context.l10n.productionText('worker.queue.reorder_hint'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -329,7 +345,9 @@ class _SequenceHeaderSelectors extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text(
               interactionHint ??
-                  'Bir marta bosing — ma’lumot. Uzoq bosing — homashyo ulash.',
+                  context.l10n.productionText(
+                    'worker.queue.interaction_hint',
+                  ),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -386,6 +404,7 @@ class _SequenceOrderRow extends StatelessWidget {
       map,
       customerName: customerName,
       includeApparatusCount: true,
+      l10n: context.l10n,
     );
     final resolvedStatusLabel = statusLabel?.trim();
     final radius = M3SegmentedListGeometry.borderRadius(
@@ -446,8 +465,8 @@ class _SequenceOrderRow extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 8),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: statusBackgroundColor ??
-                            scheme.secondaryContainer,
+                        color:
+                            statusBackgroundColor ?? scheme.secondaryContainer,
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Padding(
@@ -481,7 +500,7 @@ class _SequenceOrderRow extends StatelessWidget {
                   ),
                 if (onInfo != null)
                   IconButton(
-                    tooltip: 'Buyurtma ma’lumotlari',
+                    tooltip: context.l10n.productionText('worker.order.info'),
                     onPressed: onInfo,
                     icon: Icon(
                       Icons.info_outline_rounded,

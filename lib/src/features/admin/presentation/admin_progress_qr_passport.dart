@@ -1,6 +1,7 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 
 class ProgressQrPassportLine {
   const ProgressQrPassportLine(this.label, this.value);
@@ -151,7 +152,10 @@ class ProgressQrPassport {
   }
 }
 
-ProgressQrPassport buildProgressQrPassport(AdminProgressQrReport report) {
+ProgressQrPassport buildProgressQrPassport(
+  AdminProgressQrReport report, {
+  AppLocalizations? l10n,
+}) {
   final current = report.currentBatch ?? report.scannedBatch;
   final order = report.order;
   final rollCount = order?.rollCount;
@@ -184,29 +188,37 @@ ProgressQrPassport buildProgressQrPassport(AdminProgressQrReport report) {
           : current.status,
       flowStatus: current.statusDetail.flowStatus,
       wipStatus: current.wipStatus,
+      l10n: l10n,
     ),
     isOldQr: report.isStale,
     plan: [
       if (order?.customerName.trim().isNotEmpty == true)
-        ProgressQrPassportLine('Mijoz', order!.customerName.trim()),
+        ProgressQrPassportLine(
+          _passportText(l10n, 'worker.qr.report.customer', 'Mijoz'),
+          order!.customerName.trim(),
+        ),
       if (rollCount != null && rollCount > 0)
         ProgressQrPassportLine(
-          'Rejadagi rulonlar',
+          _passportText(
+              l10n, 'worker.qr.passport.planned_rolls', 'Rejadagi rulonlar'),
           progressQrReadableQuantity(rollCount, 'ta'),
         ),
       if (widthMm != null && widthMm > 0)
         ProgressQrPassportLine(
-          'Mahsulot eni',
+          _passportText(
+              l10n, 'worker.qr.passport.product_width', 'Mahsulot eni'),
           progressQrReadableQuantity(widthMm, 'mm'),
         ),
       if (orderKg != null && orderKg > 0)
         ProgressQrPassportLine(
-          'Rejadagi og‘irlik',
+          _passportText(
+              l10n, 'worker.qr.report.planned_weight', 'Rejadagi og‘irlik'),
           progressQrReadableQuantity(orderKg, 'kg'),
         ),
       if (baseLength != null && baseLength > 0)
         ProgressQrPassportLine(
-          'Rejadagi metraj',
+          _passportText(
+              l10n, 'worker.qr.passport.planned_length', 'Rejadagi metraj'),
           progressQrReadableQuantity(baseLength, 'metr'),
         ),
     ],
@@ -215,6 +227,7 @@ ProgressQrPassport buildProgressQrPassport(AdminProgressQrReport report) {
         _passportStage(
           batch,
           isCurrent: batch.batchId.trim() == current.batchId.trim(),
+          l10n: l10n,
         ),
     ],
     corrections: [
@@ -222,9 +235,10 @@ ProgressQrPassport buildProgressQrPassport(AdminProgressQrReport report) {
         _passportCorrection(
           correction,
           batch: batchesById[correction.batchId.trim()],
+          l10n: l10n,
         ),
     ],
-    issues: _passportIssues(report.logs),
+    issues: _passportIssues(report.logs, l10n: l10n),
   );
 }
 
@@ -238,16 +252,19 @@ int _batchTime(AdminProgressBatch batch) {
 ProgressQrPassportStage _passportStage(
   AdminProgressBatch batch, {
   required bool isCurrent,
+  AppLocalizations? l10n,
 }) {
   final worker = batch.executorName.trim().isNotEmpty
       ? batch.executorName.trim()
       : batch.workerDisplayName.trim();
   final title = batch.apparatus.trim().isNotEmpty
-      ? batch.apparatus.trim()
-      : 'Ishlab chiqarish bosqichi';
+      ? (l10n?.productionApparatusName(batch.apparatus) ??
+          batch.apparatus.trim())
+      : _passportText(l10n, 'worker.qr.passport.production_stage',
+          'Ishlab chiqarish bosqichi');
   return ProgressQrPassportStage(
     title: batch.action.trim() == 'roll_complete'
-        ? '$title — rulon yakuni'
+        ? '$title — ${_passportText(l10n, 'worker.qr.passport.roll_complete', 'rulon yakuni')}'
         : title,
     status: progressQrPassportStatus(
       workStatus: batch.statusDetail.workStatus.isNotEmpty
@@ -255,46 +272,64 @@ ProgressQrPassportStage _passportStage(
           : batch.status,
       flowStatus: batch.statusDetail.flowStatus,
       wipStatus: batch.wipStatus,
+      l10n: l10n,
     ),
     isCurrent: isCurrent,
     lines: [
-      if (worker.isNotEmpty) ProgressQrPassportLine('Bajargan', worker),
+      if (worker.isNotEmpty)
+        ProgressQrPassportLine(
+          _passportText(l10n, 'worker.wip.info.worker', 'Bajargan'),
+          worker,
+        ),
       if (batch.startedAtUnix > 0)
         ProgressQrPassportLine(
-          'Boshlangan',
+          _passportText(l10n, 'worker.wip.info.started', 'Boshlangan'),
           formatUnixSecondsLocalDateTime(batch.startedAtUnix),
         ),
       if (batch.completedAtUnix > 0)
         ProgressQrPassportLine(
-          'Tugagan',
+          _passportText(l10n, 'worker.wip.info.finished', 'Tugagan'),
           formatUnixSecondsLocalDateTime(batch.completedAtUnix),
         ),
       ProgressQrPassportLine(
-        'Natija',
+        _passportText(l10n, 'worker.qr.passport.result', 'Natija'),
         progressQrReadableQuantity(batch.producedQty, batch.uom),
       ),
-      ..._metricLines(batch),
+      ..._metricLines(batch, l10n: l10n),
       if (batch.nextApparatus.trim().isNotEmpty)
         ProgressQrPassportLine(
-          'Keyingi bosqich',
-          batch.nextApparatus.trim(),
+          _passportText(
+              l10n, 'worker.wip.info.next_machine', 'Keyingi bosqich'),
+          l10n?.productionApparatusName(batch.nextApparatus) ??
+              batch.nextApparatus.trim(),
         ),
       if (batch.description.trim().isNotEmpty)
-        ProgressQrPassportLine('Izoh', batch.description.trim()),
+        ProgressQrPassportLine(
+          _passportText(l10n, 'worker.wip.info.note', 'Izoh'),
+          batch.description.trim(),
+        ),
     ],
   );
 }
 
-List<ProgressQrPassportLine> _metricLines(AdminProgressBatch batch) {
+List<ProgressQrPassportLine> _metricLines(
+  AdminProgressBatch batch, {
+  AppLocalizations? l10n,
+}) {
   return [
     if (batch.returnInkKg != null)
       ProgressQrPassportLine(
-        'Qaytgan bo‘yoq',
+        _passportText(
+            l10n, 'worker.qr.passport.returned_ink', 'Qaytgan bo‘yoq'),
         progressQrReadableQuantity(batch.returnInkKg!, 'kg'),
       ),
     if (batch.laminationPrintLeftoverRolls != null)
       ProgressQrPassportLine(
-        'Qaytgan bosma rulon',
+        _passportText(
+          l10n,
+          'worker.qr.passport.returned_print_rolls',
+          'Qaytgan bosma rulon',
+        ),
         progressQrReadableQuantity(
           batch.laminationPrintLeftoverRolls!,
           'ta',
@@ -302,7 +337,11 @@ List<ProgressQrPassportLine> _metricLines(AdminProgressBatch batch) {
       ),
     if (batch.laminationFilmLeftoverRolls != null)
       ProgressQrPassportLine(
-        'Qaytgan plyonka rulon',
+        _passportText(
+          l10n,
+          'worker.qr.passport.returned_film_rolls',
+          'Qaytgan plyonka rulon',
+        ),
         progressQrReadableQuantity(
           batch.laminationFilmLeftoverRolls!,
           'ta',
@@ -310,42 +349,56 @@ List<ProgressQrPassportLine> _metricLines(AdminProgressBatch batch) {
       ),
     if (batch.rezkaBosmaWaste != null)
       ProgressQrPassportLine(
-        'Bosma chiqindisi',
+        _passportText(
+            l10n, 'worker.qr.passport.print_waste', 'Bosma chiqindisi'),
         progressQrReadableQuantity(batch.rezkaBosmaWaste!, 'kg'),
       ),
     if (batch.rezkaLaminationWaste != null)
       ProgressQrPassportLine(
-        'Laminatsiya chiqindisi',
+        _passportText(
+          l10n,
+          'worker.qr.passport.lamination_waste',
+          'Laminatsiya chiqindisi',
+        ),
         progressQrReadableQuantity(batch.rezkaLaminationWaste!, 'kg'),
       ),
     if (batch.rezkaEdgeWaste != null)
       ProgressQrPassportLine(
-        'Chet chiqindisi',
+        _passportText(l10n, 'worker.qr.passport.edge_waste', 'Chet chiqindisi'),
         progressQrReadableQuantity(batch.rezkaEdgeWaste!, 'kg'),
       ),
     if (batch.totalWaste != null)
       ProgressQrPassportLine(
-        'Jami chiqindi',
+        _passportText(l10n, 'worker.progress.qty.waste', 'Jami chiqindi'),
         progressQrReadableQuantity(batch.totalWaste!, 'kg'),
       ),
     if (batch.finishedGoodsKg != null)
       ProgressQrPassportLine(
-        'Tayyor mahsulot',
+        _passportText(
+          l10n,
+          'worker.qr.status.product_ready',
+          'Tayyor mahsulot',
+        ),
         progressQrReadableQuantity(batch.finishedGoodsKg!, 'kg'),
       ),
     if (batch.bobinaKg != null)
       ProgressQrPassportLine(
-        'Babina og‘irligi',
+        _passportText(
+            l10n, 'worker.qr.passport.bobbin_weight', 'Babina og‘irligi'),
         progressQrReadableQuantity(batch.bobinaKg!, 'kg'),
       ),
     if (batch.finishedGoodsMeter != null)
       ProgressQrPassportLine(
-        'Tayyor mahsulot metraji',
+        _passportText(
+          l10n,
+          'worker.qr.passport.finished_length',
+          'Tayyor mahsulot metraji',
+        ),
         progressQrReadableQuantity(batch.finishedGoodsMeter!, 'metr'),
       ),
     if (batch.diameter != null)
       ProgressQrPassportLine(
-        'Diametr',
+        _passportText(l10n, 'worker.qr.passport.diameter', 'Diametr'),
         progressQrReadableQuantity(batch.diameter!, 'mm'),
       ),
   ];
@@ -354,27 +407,35 @@ List<ProgressQrPassportLine> _metricLines(AdminProgressBatch batch) {
 ProgressQrPassportCorrection _passportCorrection(
   AdminProgressBatchCorrectionRecord correction, {
   required AdminProgressBatch? batch,
+  AppLocalizations? l10n,
 }) {
   return ProgressQrPassportCorrection(
     stage: batch?.apparatus.trim().isNotEmpty == true
-        ? batch!.apparatus.trim()
-        : 'Ishlab chiqarish ma’lumoti',
+        ? (l10n?.productionApparatusName(batch!.apparatus) ??
+            batch!.apparatus.trim())
+        : _passportText(
+            l10n,
+            'worker.qr.passport.production_data',
+            'Ishlab chiqarish ma’lumoti',
+          ),
     editor: correction.actorDisplayName.trim().isNotEmpty
         ? correction.actorDisplayName.trim()
-        : 'Mas’ul xodim',
+        : _passportText(l10n, 'worker.wip.info.worker', 'Mas’ul xodim'),
     time: correction.createdAtUnix > 0
         ? formatUnixSecondsLocalDateTime(correction.createdAtUnix)
         : '',
     reason: correction.reason.trim().isNotEmpty
         ? correction.reason.trim()
-        : 'Sabab ko‘rsatilmagan',
-    changes: progressQrCorrectionChanges(correction),
+        : _passportText(
+            l10n, 'worker.qr.passport.reason_missing', 'Sabab ko‘rsatilmagan'),
+    changes: progressQrCorrectionChanges(correction, l10n: l10n),
   );
 }
 
 List<ProgressQrPassportChange> progressQrCorrectionChanges(
-  AdminProgressBatchCorrectionRecord correction,
-) {
+  AdminProgressBatchCorrectionRecord correction, {
+  AppLocalizations? l10n,
+}) {
   const fields = <String>[
     'produced_qty',
     'uom',
@@ -398,24 +459,27 @@ List<ProgressQrPassportChange> progressQrCorrectionChanges(
         correction.newValues[field],
       ))
         ProgressQrPassportChange(
-          label: _fieldLabel(field),
+          label: _fieldLabel(field, l10n: l10n),
           before: _correctionValue(
             field,
             correction.oldValues[field],
             correction.oldValues,
+            l10n: l10n,
           ),
           after: _correctionValue(
             field,
             correction.newValues[field],
             correction.newValues,
+            l10n: l10n,
           ),
         ),
   ];
 }
 
 List<ProgressQrPassportIssue> _passportIssues(
-  List<AdminProductionOrderLogEntry> logs,
-) {
+  List<AdminProductionOrderLogEntry> logs, {
+  AppLocalizations? l10n,
+}) {
   final issues = <ProgressQrPassportIssue>[];
   for (final log in logs) {
     final time = log.createdAtUnix > 0
@@ -425,8 +489,10 @@ List<ProgressQrPassportIssue> _passportIssues(
       issues.add(
         ProgressQrPassportIssue(
           title: log.apparatus.trim().isNotEmpty
-              ? log.apparatus.trim()
-              : 'Ishlab chiqarish',
+              ? (l10n?.productionApparatusName(log.apparatus) ??
+                  log.apparatus.trim())
+              : _passportText(
+                  l10n, 'worker.qr.passport.production', 'Ishlab chiqarish'),
           description: log.issueNote.trim(),
           time: time,
         ),
@@ -436,8 +502,9 @@ List<ProgressQrPassportIssue> _passportIssues(
     if (transfer != null && transfer.reason.trim().isNotEmpty) {
       issues.add(
         ProgressQrPassportIssue(
-          title: '${transfer.fromApparatus} → ${transfer.toApparatus}',
-          description: _humanReason(transfer.reason),
+          title:
+              '${l10n?.productionApparatusName(transfer.fromApparatus) ?? transfer.fromApparatus} → ${l10n?.productionApparatusName(transfer.toApparatus) ?? transfer.toApparatus}',
+          description: _humanReason(transfer.reason, l10n: l10n),
           time: time,
         ),
       );
@@ -450,28 +517,34 @@ String progressQrPassportStatus({
   required String workStatus,
   required String flowStatus,
   required String wipStatus,
+  AppLocalizations? l10n,
 }) {
-  return switch (flowStatus.trim()) {
+  final key = switch (flowStatus.trim()) {
     'free_wip' ||
     'finished_pending_acceptance' =>
-      'Ishlab chiqarish tugagan, omborga topshirishni kutmoqda',
-    'accepted_to_stock' => 'Omborga qabul qilingan',
-    'waiting_next_stage' => 'Keyingi bosqichni kutmoqda',
-    'consumed_by_next_stage' => 'Keyingi bosqichda ishlatilgan',
-    'in_progress' => 'Ish jarayonida',
+      'worker.qr.status.completed_pending_stock',
+    'accepted_to_stock' => 'worker.qr.status.accepted_stock',
+    'waiting_next_stage' => 'worker.qr.status.waiting_next',
+    'consumed_by_next_stage' => 'worker.qr.status.consumed_next',
+    'in_progress' => 'worker.qr.status.in_progress',
     _ => switch (workStatus.trim()) {
-        'completed' || 'complete' => 'Ish tugagan',
-        'paused' || 'pause' => 'Ish vaqtincha to‘xtatilgan',
-        'active' || 'in_progress' || 'start' || 'resume' => 'Ish jarayonida',
-        'pending' || 'waiting' => 'Ish boshlanishini kutmoqda',
+        'completed' || 'complete' => 'worker.qr.status.completed',
+        'paused' || 'pause' => 'worker.qr.status.paused',
+        'active' ||
+        'in_progress' ||
+        'start' ||
+        'resume' =>
+          'worker.qr.status.in_progress',
+        'pending' || 'waiting' => 'worker.qr.status.waiting_start',
         _ => switch (wipStatus.trim()) {
-            'waiting' => 'Keyingi ishni kutmoqda',
-            'in_use' => 'Ish jarayonida',
-            'processed' => 'Keyingi bosqichda ishlatilgan',
-            _ => 'Holat ko‘rsatilmagan',
+            'waiting' => 'worker.qr.status.waiting_work',
+            'in_use' => 'worker.qr.status.in_progress',
+            'processed' => 'worker.qr.status.used',
+            _ => 'worker.qr.passport.status_missing',
           },
       },
   };
+  return _passportText(l10n, key, _passportStatusFallback(key));
 }
 
 String progressQrReadableQuantity(double value, String unit) {
@@ -497,33 +570,44 @@ bool _sameValue(Object? before, Object? after) {
   return before?.toString().trim() == after?.toString().trim();
 }
 
-String _fieldLabel(String field) {
-  return switch (field) {
-    'produced_qty' => 'Ishlab chiqarilgan miqdor',
-    'uom' => 'O‘lchov birligi',
-    'diameter' => 'Diametr',
-    'return_ink_kg' => 'Qaytgan bo‘yoq',
-    'lamination_print_leftover_rolls' => 'Qaytgan bosma rulon',
-    'lamination_film_leftover_rolls' => 'Qaytgan plyonka rulon',
-    'rezka_bosma_waste' => 'Bosma chiqindisi',
-    'rezka_lamination_waste' => 'Laminatsiya chiqindisi',
-    'rezka_edge_waste' => 'Chet chiqindisi',
-    'total_waste' => 'Jami chiqindi',
-    'finished_goods_kg' => 'Tayyor mahsulot og‘irligi',
-    'bobina_kg' => 'Babina og‘irligi',
-    'finished_goods_meter' => 'Tayyor mahsulot metraji',
-    'description' => 'Izoh',
-    _ => field,
+String _fieldLabel(String field, {AppLocalizations? l10n}) {
+  final key = switch (field) {
+    'produced_qty' => 'worker.qr.passport.produced_quantity',
+    'uom' => 'worker.qr.passport.unit',
+    'diameter' => 'worker.qr.passport.diameter',
+    'return_ink_kg' => 'worker.qr.passport.returned_ink',
+    'lamination_print_leftover_rolls' =>
+      'worker.qr.passport.returned_print_rolls',
+    'lamination_film_leftover_rolls' =>
+      'worker.qr.passport.returned_film_rolls',
+    'rezka_bosma_waste' => 'worker.qr.passport.print_waste',
+    'rezka_lamination_waste' => 'worker.qr.passport.lamination_waste',
+    'rezka_edge_waste' => 'worker.qr.passport.edge_waste',
+    'total_waste' => 'worker.progress.qty.waste',
+    'finished_goods_kg' => 'worker.qr.passport.finished_weight',
+    'bobina_kg' => 'worker.qr.passport.bobbin_weight',
+    'finished_goods_meter' => 'worker.qr.passport.finished_length',
+    'description' => 'worker.wip.info.note',
+    _ => null,
   };
+  if (key == null) {
+    return field;
+  }
+  return _passportText(l10n, key, _fieldLabelFallback(field));
 }
 
 String _correctionValue(
   String field,
   Object? value,
-  Map<String, dynamic> values,
-) {
+  Map<String, dynamic> values, {
+  AppLocalizations? l10n,
+}) {
   if (value == null || value.toString().trim().isEmpty) {
-    return 'kiritilmagan';
+    return _passportText(
+      l10n,
+      'worker.qr.report.not_entered',
+      'kiritilmagan',
+    );
   }
   if (value is num) {
     final unit = switch (field) {
@@ -548,8 +632,69 @@ String _correctionValue(
   return value.toString().trim();
 }
 
-String _humanReason(String value) {
+String _humanReason(String value, {AppLocalizations? l10n}) {
   final reason = value.trim();
+  final key = switch (reason) {
+    'apparatus_issue' => 'worker.qr.reason.apparatus_issue',
+    'worker_issue' => 'worker.qr.reason.worker_issue',
+    'material_issue' => 'worker.qr.reason.material_issue',
+    'quality_issue' => 'worker.qr.reason.quality_issue',
+    'other' => 'worker.qr.reason.other',
+    _ => null,
+  };
+  if (key != null) {
+    return _passportText(l10n, key, _humanReasonFallback(reason));
+  }
+  return reason.replaceAll('_', ' ');
+}
+
+String _passportText(
+  AppLocalizations? l10n,
+  String key,
+  String fallback, {
+  Map<String, Object?> values = const {},
+}) {
+  return l10n?.productionText(key, values: values) ?? fallback;
+}
+
+String _passportStatusFallback(String key) {
+  return switch (key) {
+    'worker.qr.status.completed_pending_stock' =>
+      'Ishlab chiqarish tugagan, omborga topshirishni kutmoqda',
+    'worker.qr.status.accepted_stock' => 'Omborga qabul qilingan',
+    'worker.qr.status.waiting_next' => 'Keyingi bosqichni kutmoqda',
+    'worker.qr.status.consumed_next' => 'Keyingi bosqichda ishlatilgan',
+    'worker.qr.status.in_progress' => 'Ish jarayonida',
+    'worker.qr.status.completed' => 'Ish tugagan',
+    'worker.qr.status.paused' => 'Ish vaqtincha to‘xtatilgan',
+    'worker.qr.status.waiting_start' => 'Ish boshlanishini kutmoqda',
+    'worker.qr.status.waiting_work' => 'Keyingi ishni kutmoqda',
+    'worker.qr.status.used' => 'Keyingi bosqichda ishlatilgan',
+    _ => 'Holat ko‘rsatilmagan',
+  };
+}
+
+String _fieldLabelFallback(String field) {
+  return switch (field) {
+    'produced_qty' => 'Ishlab chiqarilgan miqdor',
+    'uom' => 'O‘lchov birligi',
+    'diameter' => 'Diametr',
+    'return_ink_kg' => 'Qaytgan bo‘yoq',
+    'lamination_print_leftover_rolls' => 'Qaytgan bosma rulon',
+    'lamination_film_leftover_rolls' => 'Qaytgan plyonka rulon',
+    'rezka_bosma_waste' => 'Bosma chiqindisi',
+    'rezka_lamination_waste' => 'Laminatsiya chiqindisi',
+    'rezka_edge_waste' => 'Chet chiqindisi',
+    'total_waste' => 'Jami chiqindi',
+    'finished_goods_kg' => 'Tayyor mahsulot og‘irligi',
+    'bobina_kg' => 'Babina og‘irligi',
+    'finished_goods_meter' => 'Tayyor mahsulot metraji',
+    'description' => 'Izoh',
+    _ => field,
+  };
+}
+
+String _humanReasonFallback(String reason) {
   return switch (reason) {
     'apparatus_issue' =>
       'Aparatdagi nosozlik sababli boshqa apparatga o‘tkazilgan',

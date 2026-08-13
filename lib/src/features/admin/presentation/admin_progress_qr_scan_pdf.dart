@@ -2,23 +2,37 @@ import 'dart:convert';
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../models/production_map_models.dart';
 import 'admin_progress_qr_passport.dart';
 
 class AdminProgressQrScanPdf {
   const AdminProgressQrScanPdf._();
 
-  static List<int> buildProgress(AdminProgressQrReport report) {
-    final passport = buildProgressQrPassport(report);
+  static List<int> buildProgress(
+    AdminProgressQrReport report, {
+    AppLocalizations? l10n,
+  }) {
+    final passport = buildProgressQrPassport(report, l10n: l10n);
     final sections = <_PdfSection>[
-      _PdfSection('Mahsulot holati', [
-        _field('Holati', passport.status),
-        if (passport.isOldQr)
-          'Skan qilingan QR oldingi bosqichniki. Quyida mahsulotning hozirgi holati berilgan.',
-      ]),
+      _PdfSection(
+        _pdfText(l10n, 'worker.qr.report.product_status', 'Mahsulot holati'),
+        [
+          _field(
+            _pdfText(l10n, 'worker.qr.report.status', 'Holati'),
+            passport.status,
+          ),
+          if (passport.isOldQr)
+            _pdfText(
+              l10n,
+              'worker.qr.report.old_qr_notice',
+              'Skan qilingan QR oldingi bosqichniki. Quyida mahsulotning hozirgi holati berilgan.',
+            ),
+        ],
+      ),
       if (passport.plan.isNotEmpty)
         _PdfSection(
-          'Buyurtma rejasi',
+          _pdfText(l10n, 'worker.qr.report.share_plan', 'Buyurtma rejasi'),
           [for (final line in passport.plan) line.sentence],
         ),
       if (passport.stages.isNotEmpty) ...[
@@ -26,7 +40,10 @@ class AdminProgressQrScanPdf {
           _PdfSection(
             '${index + 1}. ${passport.stages[index].title}',
             [
-              _field('Holati', passport.stages[index].status),
+              _field(
+                _pdfText(l10n, 'worker.qr.report.status', 'Holati'),
+                passport.stages[index].status,
+              ),
               for (final line in passport.stages[index].lines) line.sentence,
             ],
           ),
@@ -34,11 +51,28 @@ class AdminProgressQrScanPdf {
       if (passport.corrections.isNotEmpty) ...[
         for (var index = 0; index < passport.corrections.length; index++)
           _PdfSection(
-            'Tahrir ${index + 1}: ${passport.corrections[index].stage}',
+            _pdfText(
+              l10n,
+              'worker.qr.report.correction_item',
+              'Tahrir ${index + 1}: ${passport.corrections[index].stage}',
+              values: {
+                'index': index + 1,
+                'stage': passport.corrections[index].stage,
+              },
+            ),
             [
-              _field('Tahrir qilgan', passport.corrections[index].editor),
-              _field('Vaqt', passport.corrections[index].time),
-              _field('Sabab', passport.corrections[index].reason),
+              _field(
+                _pdfText(l10n, 'worker.qr.report.editor', 'Tahrir qilgan'),
+                passport.corrections[index].editor,
+              ),
+              _field(
+                _pdfText(l10n, 'worker.qr.report.time', 'Vaqt'),
+                passport.corrections[index].time,
+              ),
+              _field(
+                _pdfText(l10n, 'worker.qr.report.reason', 'Sabab'),
+                passport.corrections[index].reason,
+              ),
               for (final change in passport.corrections[index].changes)
                 '${change.label}: ${change.before} -> ${change.after}',
             ],
@@ -47,64 +81,149 @@ class AdminProgressQrScanPdf {
       if (passport.issues.isNotEmpty) ...[
         for (var index = 0; index < passport.issues.length; index++)
           _PdfSection(
-            'Muammo yoki o‘zgarish ${index + 1}',
+            _pdfText(
+              l10n,
+              'worker.qr.report.issue_item',
+              'Muammo yoki o‘zgarish ${index + 1}',
+              values: {'index': index + 1},
+            ),
             [
-              _field('Bosqich', passport.issues[index].title),
-              _field('Tafsilot', passport.issues[index].description),
-              _field('Vaqt', passport.issues[index].time),
+              _field(
+                _pdfText(l10n, 'worker.qr.report.stage', 'Bosqich'),
+                passport.issues[index].title,
+              ),
+              _field(
+                _pdfText(l10n, 'worker.qr.report.details', 'Tafsilot'),
+                passport.issues[index].description,
+              ),
+              _field(
+                _pdfText(l10n, 'worker.qr.report.time', 'Vaqt'),
+                passport.issues[index].time,
+              ),
             ],
           ),
       ],
     ];
     return _PdfDocument(
-      title: 'Mahsulot pasporti',
+      title: _pdfText(
+        l10n,
+        'worker.qr.report.product_passport',
+        'Mahsulot pasporti',
+      ),
       subtitle: [
-        if (passport.orderNumber.isNotEmpty) 'Zakaz ${passport.orderNumber}',
+        if (passport.orderNumber.isNotEmpty)
+          '${_pdfText(l10n, 'worker.qr.report.order', 'Zakaz')} ${passport.orderNumber}',
         passport.productName,
       ].where((value) => value.isNotEmpty).join(' • '),
       sections: sections,
+      continuationLabel: _pdfText(l10n, 'worker.qr.report.continued', 'davomi'),
     ).build();
   }
 
-  static List<int> buildRawMaterial(AdminRawMaterialLookup report) {
+  static List<int> buildRawMaterial(
+    AdminRawMaterialLookup report, {
+    AppLocalizations? l10n,
+  }) {
     final sections = <_PdfSection>[
-      _PdfSection('Homashyo ma’lumotlari', [
-        _field('Barcode / QR', report.barcode),
-        _field('Ombor', report.warehouse),
-        _field('Item code', report.itemCode),
-        _field('Item nomi', report.itemName),
-        _field('Guruh', report.itemGroup),
-        _field('Miqdor', _number(report.qty)),
-        _field('O‘lchov birligi', report.uom),
-        _field('Holat', report.status),
-        _field('Reserved order', report.reservedOrderId),
-        _field('Source receipt', report.sourceReceiptId),
-      ]),
+      _PdfSection(
+        _pdfText(
+          l10n,
+          'worker.qr.report.material_about',
+          'Homashyo ma’lumotlari',
+        ),
+        [
+          _field(
+            _pdfText(l10n, 'worker.qr.report.barcode', 'Barcode / QR'),
+            report.barcode,
+          ),
+          _field(
+            _pdfText(l10n, 'worker.qr.report.warehouse', 'Ombor'),
+            report.warehouse,
+          ),
+          _field(
+            _pdfText(l10n, 'worker.qr.report.item_code', 'Item code'),
+            report.itemCode,
+          ),
+          _field(
+            _pdfText(l10n, 'worker.qr.report.item_name', 'Item nomi'),
+            report.itemName,
+          ),
+          _field(
+            _pdfText(l10n, 'worker.qr.report.item_group', 'Guruh'),
+            report.itemGroup,
+          ),
+          _field(
+            _pdfText(l10n, 'worker.wip.info.quantity', 'Miqdor'),
+            _number(report.qty),
+          ),
+          _field(
+            _pdfText(l10n, 'worker.qr.passport.unit', 'O‘lchov birligi'),
+            report.uom,
+          ),
+          _field(
+            _pdfText(l10n, 'worker.qr.report.status', 'Holat'),
+            _pdfRawMaterialStatusLabel(report.status, l10n),
+          ),
+          _field(
+            _pdfText(l10n, 'worker.qr.report.reserved_order', 'Reserved order'),
+            report.reservedOrderId,
+          ),
+          _field(
+            _pdfText(l10n, 'worker.qr.report.receipt', 'Source receipt'),
+            report.sourceReceiptId,
+          ),
+        ],
+      ),
       if (report.assignment != null)
         _PdfSection(
-          'Orderga biriktirish',
-          _assignmentLines(report.assignment!),
+          _pdfText(
+            l10n,
+            'worker.qr.report.assignment_section',
+            'Orderga biriktirish',
+          ),
+          _assignmentLines(report.assignment!, l10n: l10n),
         ),
       if (report.order != null)
-        _PdfSection('Biriktirilgan order', _orderLines(report.order)),
+        _PdfSection(
+          _pdfText(
+            l10n,
+            'worker.qr.report.assigned_order',
+            'Biriktirilgan order',
+          ),
+          _orderLines(report.order, l10n: l10n),
+        ),
       if (report.queueStates.isNotEmpty)
         _PdfSection(
-          'Aparat navbat holatlari',
-          _queueStateLinesForRaw(report),
+          _pdfText(
+            l10n,
+            'worker.qr.report.queue_status',
+            'Aparat navbat holatlari',
+          ),
+          _queueStateLinesForRaw(report, l10n: l10n),
         ),
       if (report.logs.isNotEmpty) ...[
         for (var index = 0; index < report.logs.length; index++)
           _PdfSection(
-            'Jarayon hodisasi ${index + 1}/${report.logs.length}',
-            _logLines(report.logs[index]),
+            _pdfText(
+              l10n,
+              'worker.qr.report.event_count',
+              'Jarayon hodisasi ${index + 1}/${report.logs.length}',
+              values: {'index': index + 1, 'count': report.logs.length},
+            ),
+            _logLines(report.logs[index], l10n: l10n),
           ),
       ],
     ];
     return _PdfDocument(
-      title: 'Admin homashyo QR report',
+      title: _pdfText(
+        l10n,
+        'worker.qr.report.material_pdf_title',
+        'Admin homashyo QR report',
+      ),
       subtitle:
           report.itemName.trim().isNotEmpty ? report.itemName : report.itemCode,
       sections: sections,
+      continuationLabel: _pdfText(l10n, 'worker.qr.report.continued', 'davomi'),
     ).build();
   }
 }
@@ -116,95 +235,371 @@ class _PdfSection {
   final List<String> lines;
 }
 
-List<String> _orderLines(ProductionMapDefinition? order) {
+List<String> _orderLines(
+  ProductionMapDefinition? order, {
+  AppLocalizations? l10n,
+}) {
   if (order == null) {
-    return [_field('Order', 'Order ma’lumotlari topilmadi')];
+    return [
+      _field(
+        _pdfText(l10n, 'worker.qr.report.order', 'Order'),
+        'Order ma’lumotlari topilmadi',
+      ),
+    ];
   }
   return [
-    _field('Buyurtma raqami', order.orderNumber),
-    _field('Mahsulot kodi', order.productCode),
-    _field('Mahsulot', order.title),
-    _field('Mijoz', order.customerName),
     _field(
-        'Rulon soni', order.rollCount == null ? '' : _number(order.rollCount!)),
-    _field('Eni, mm', order.widthMm == null ? '' : _number(order.widthMm!)),
-    _field('Rejadagi og‘irlik, kg',
-        order.orderKg == null ? '' : _number(order.orderKg!)),
-    _field('Rejadagi uzunlik',
-        order.baseLength == null ? '' : _number(order.baseLength!)),
+      _pdfText(l10n, 'worker.qr.report.order_number', 'Buyurtma raqami'),
+      order.orderNumber,
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.product_code', 'Mahsulot kodi'),
+      order.productCode,
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.product', 'Mahsulot'),
+      order.title,
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.customer', 'Mijoz'),
+      order.customerName,
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.roll_count', 'Rulon soni'),
+      order.rollCount == null ? '' : _number(order.rollCount!),
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.width', 'Eni, mm'),
+      order.widthMm == null ? '' : _number(order.widthMm!),
+    ),
+    _field(
+      _pdfText(
+        l10n,
+        'worker.qr.report.planned_weight',
+        'Rejadagi og‘irlik, kg',
+      ),
+      order.orderKg == null ? '' : _number(order.orderKg!),
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.planned_length', 'Rejadagi uzunlik'),
+      order.baseLength == null ? '' : _number(order.baseLength!),
+    ),
   ];
 }
 
-List<String> _queueStateLinesForRaw(AdminRawMaterialLookup report) {
+List<String> _queueStateLinesForRaw(
+  AdminRawMaterialLookup report, {
+  AppLocalizations? l10n,
+}) {
   return [
     for (final entry in report.queueStates.entries) ...[
-      'Aparat: ${entry.key}',
+      _field(
+        _pdfText(l10n, 'worker.qr.report.assigned_machine', 'Aparat'),
+        l10n?.productionApparatusName(entry.key) ?? entry.key,
+      ),
       for (final state in entry.value.entries)
-        _field('  ${state.key}', state.value),
+        _field('  ${state.key}', _pdfStateLabel(state.value, l10n)),
     ],
   ];
 }
 
-List<String> _assignmentLines(AdminRawMaterialAssignment assignment) {
+List<String> _assignmentLines(
+  AdminRawMaterialAssignment assignment, {
+  AppLocalizations? l10n,
+}) {
   return [
-    _field('Order ID', assignment.orderId),
-    _field('Aparat', assignment.apparatus),
-    _field('Barcode', assignment.barcode),
-    _field('Item code', assignment.itemCode),
-    _field('Item nomi', assignment.itemName),
-    _field('Guruh', assignment.itemGroup),
-    _field('Biriktirgan ref', assignment.assignedByRef),
-    _field('Biriktirgan name', assignment.assignedByName),
-    _field('Biriktirilgan vaqt', assignment.assignedAt),
-    _field('Stock status', assignment.stockStatus),
-    _field('Reserved order', assignment.reservedOrderId),
-    _field('Stock warehouse', assignment.stockWarehouse),
-    _field('Stock quantity', _number(assignment.stockQty)),
-    _field('Stock UOM', assignment.stockUom),
-    _field('Received quantity', _number(assignment.receivedQty)),
-    _field('Consumed quantity', _number(assignment.consumedQty)),
-    _field('Remaining quantity', _number(assignment.remainingQty)),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.order_id', 'Order ID'),
+      assignment.orderId,
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.assigned_machine', 'Aparat'),
+      l10n?.productionApparatusName(assignment.apparatus) ??
+          assignment.apparatus,
+    ),
+    _field(_pdfText(l10n, 'worker.qr.report.barcode', 'Barcode'),
+        assignment.barcode),
+    _field(_pdfText(l10n, 'worker.qr.report.item_code', 'Item code'),
+        assignment.itemCode),
+    _field(_pdfText(l10n, 'worker.qr.report.item_name', 'Item nomi'),
+        assignment.itemName),
+    _field(_pdfText(l10n, 'worker.qr.report.item_group', 'Guruh'),
+        assignment.itemGroup),
+    _field(
+        _pdfText(l10n, 'worker.qr.report.assigned_by_ref', 'Biriktirgan ref'),
+        assignment.assignedByRef),
+    _field(
+        _pdfText(l10n, 'worker.qr.report.assigned_by_name', 'Biriktirgan name'),
+        assignment.assignedByName),
+    _field(_pdfText(l10n, 'worker.qr.report.assigned_at', 'Biriktirilgan vaqt'),
+        assignment.assignedAt),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.stock_status', 'Stock status'),
+      _pdfRawMaterialStatusLabel(assignment.stockStatus, l10n),
+    ),
+    _field(_pdfText(l10n, 'worker.qr.report.reserved_order', 'Reserved order'),
+        assignment.reservedOrderId),
+    _field(
+        _pdfText(l10n, 'worker.qr.report.stock_warehouse', 'Stock warehouse'),
+        assignment.stockWarehouse),
+    _field(_pdfText(l10n, 'worker.qr.report.stock_quantity', 'Stock quantity'),
+        _number(assignment.stockQty)),
+    _field(_pdfText(l10n, 'worker.qr.passport.unit', 'Stock UOM'),
+        assignment.stockUom),
+    _field(
+        _pdfText(
+            l10n, 'worker.qr.report.received_quantity', 'Received quantity'),
+        _number(assignment.receivedQty)),
+    _field(
+        _pdfText(
+            l10n, 'worker.qr.report.consumed_quantity', 'Consumed quantity'),
+        _number(assignment.consumedQty)),
+    _field(
+        _pdfText(
+            l10n, 'worker.qr.report.remaining_quantity', 'Remaining quantity'),
+        _number(assignment.remainingQty)),
   ];
 }
 
-List<String> _logLines(AdminProductionOrderLogEntry log) {
+List<String> _logLines(
+  AdminProductionOrderLogEntry log, {
+  AppLocalizations? l10n,
+}) {
   final transfer = log.transfer;
   final freeze = log.freeze;
   return [
-    _field('Event ID', log.eventId),
-    _field('Order ID', log.orderId),
-    _field('Aparat', log.apparatus),
-    _field('Action', log.action),
-    _field('Holat o‘zgarishi', '${log.fromState} -> ${log.toState}'),
-    _field('Actor role', log.actorRole),
-    _field('Actor ref', log.actorRef),
-    _field('Actor name', log.actorDisplayName),
-    _field('Vaqt', _unix(log.createdAtUnix)),
-    _field('Muammo bilan tugagan', log.completedWithIssue ? 'Ha' : 'Yo‘q'),
-    _field('Muammo izohi', log.issueNote),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.event_id', 'Event ID'),
+      log.eventId,
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.order_id', 'Order ID'),
+      log.orderId,
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.assigned_machine', 'Aparat'),
+      l10n?.productionApparatusName(log.apparatus) ?? log.apparatus,
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.action', 'Action'),
+      _pdfActionLabel(log.action, l10n),
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.state_change', 'Holat o‘zgarishi'),
+      '${_pdfStateLabel(log.fromState, l10n)} -> ${_pdfStateLabel(log.toState, l10n)}',
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.actor_role', 'Actor role'),
+      log.actorRole,
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.actor_ref', 'Actor ref'),
+      log.actorRef,
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.actor_name', 'Actor name'),
+      log.actorDisplayName,
+    ),
+    _field(_pdfText(l10n, 'worker.qr.report.time', 'Vaqt'),
+        _unix(log.createdAtUnix)),
+    _field(
+      _pdfText(
+        l10n,
+        'worker.qr.report.completed_with_issue',
+        'Muammo bilan tugagan',
+      ),
+      log.completedWithIssue ? (l10n?.yes ?? 'Ha') : (l10n?.no ?? 'Yo‘q'),
+    ),
+    _field(
+      _pdfText(l10n, 'worker.qr.report.issue_note', 'Muammo izohi'),
+      log.issueNote,
+    ),
     if (transfer != null) ...[
-      'Apparat almashtirish ma’lumotlari:',
-      _field('Transfer ID', transfer.transferId),
-      _field('Qayerdan', transfer.fromApparatus),
-      _field('Qayerga', transfer.toApparatus),
-      _field('Sabab', transfer.reason),
-      _field('Session ID', transfer.sessionId),
-      _field('Progress batch ID', transfer.progressBatchId),
-      _field('Material barcode’lari', transfer.materialBarcodes.join(', ')),
+      '${_pdfText(l10n, 'worker.qr.report.transfer_details', 'Apparat almashtirish ma’lumotlari')}:',
+      _field(
+        _pdfText(l10n, 'worker.qr.report.transfer_id', 'Transfer ID'),
+        transfer.transferId,
+      ),
+      _field(
+        _pdfText(l10n, 'worker.qr.report.from', 'Qayerdan'),
+        l10n?.productionApparatusName(transfer.fromApparatus) ??
+            transfer.fromApparatus,
+      ),
+      _field(
+        _pdfText(l10n, 'worker.qr.report.to', 'Qayerga'),
+        l10n?.productionApparatusName(transfer.toApparatus) ??
+            transfer.toApparatus,
+      ),
+      _field(
+          _pdfText(l10n, 'worker.qr.report.reason', 'Sabab'), transfer.reason),
+      _field(
+        _pdfText(l10n, 'worker.qr.report.session_id', 'Session ID'),
+        transfer.sessionId,
+      ),
+      _field(
+        _pdfText(
+            l10n, 'worker.qr.report.progress_batch_id', 'Progress batch ID'),
+        transfer.progressBatchId,
+      ),
+      _field(
+        _pdfText(
+            l10n, 'worker.qr.report.material_barcodes', 'Material barcodes'),
+        transfer.materialBarcodes.join(', '),
+      ),
     ],
     if (freeze != null) ...[
-      'Muzlatish ma’lumotlari:',
-      _field('Request ID', freeze.requestId),
-      _field('Freeze status', freeze.status),
-      _field('Target session', freeze.targetSessionId),
-      _field('Target apparatus', freeze.targetApparatus),
-      _field('Target worker role', freeze.targetWorkerRole),
-      _field('Target worker ref', freeze.targetWorkerRef),
-      _field('Target worker name', freeze.targetWorkerDisplayName),
-      _field('Requested at', _unix(freeze.requestedAtUnix)),
-      _field('Transitioned at', _unix(freeze.transitionedAtUnix)),
+      '${_pdfText(l10n, 'worker.qr.report.freeze_details', 'Muzlatish ma’lumotlari')}:',
+      _field(
+        _pdfText(l10n, 'worker.qr.report.request_id', 'Request ID'),
+        freeze.requestId,
+      ),
+      _field(
+        _pdfText(l10n, 'worker.qr.report.freeze_status', 'Freeze status'),
+        freeze.status,
+      ),
+      _field(
+        _pdfText(l10n, 'worker.qr.report.target_session', 'Target session'),
+        freeze.targetSessionId,
+      ),
+      _field(
+        _pdfText(l10n, 'worker.qr.report.target_apparatus', 'Target apparatus'),
+        l10n?.productionApparatusName(freeze.targetApparatus) ??
+            freeze.targetApparatus,
+      ),
+      _field(
+        _pdfText(
+            l10n, 'worker.qr.report.target_worker_role', 'Target worker role'),
+        freeze.targetWorkerRole,
+      ),
+      _field(
+        _pdfText(
+            l10n, 'worker.qr.report.target_worker_ref', 'Target worker ref'),
+        freeze.targetWorkerRef,
+      ),
+      _field(
+        _pdfText(
+            l10n, 'worker.qr.report.target_worker_name', 'Target worker name'),
+        freeze.targetWorkerDisplayName,
+      ),
+      _field(
+        _pdfText(l10n, 'worker.qr.report.requested_at', 'Requested at'),
+        _unix(freeze.requestedAtUnix),
+      ),
+      _field(
+        _pdfText(l10n, 'worker.qr.report.transitioned_at', 'Transitioned at'),
+        _unix(freeze.transitionedAtUnix),
+      ),
     ],
   ];
+}
+
+String _pdfText(
+  AppLocalizations? l10n,
+  String key,
+  String fallback, {
+  Map<String, Object?> values = const <String, Object?>{},
+}) {
+  return l10n?.productionText(key, values: values) ?? fallback;
+}
+
+String _pdfStateLabel(String value, AppLocalizations? l10n) {
+  final normalized = value.trim();
+  final translation = switch (normalized) {
+    'start' => ('worker.qr.status.started', 'Boshlandi'),
+    'pause' => ('worker.action.pause', 'Pauza'),
+    'detach_roll' || 'roll_detached' => (
+        'worker.qr.status.roll_removed',
+        'Rulon yechildi',
+      ),
+    'resume' => ('worker.qr.status.resumed', 'Davom etdi'),
+    'complete' => ('worker.qr.status.finished', 'Tugadi'),
+    'completed' => ('worker.qr.status.completed', 'Tugagan'),
+    'pending' => ('worker.qr.status.waiting_start', 'Kutilmoqda'),
+    'waiting' => ('worker.qr.status.waiting_work', 'Keyingi ishni kutmoqda'),
+    'in_progress' || 'active' || 'in_use' => (
+        'worker.qr.status.in_progress',
+        'Jarayonda',
+      ),
+    'paused' => ('worker.qr.status.paused', 'Pauzada'),
+    'processed' || 'consumed_by_next_stage' => (
+        'worker.qr.status.used',
+        'Keyingi bosqichda ishlatilgan',
+      ),
+    'free_wip' || 'finished_pending_acceptance' => (
+        'worker.qr.status.waiting_stock',
+        'Omborga topshirishni kutmoqda',
+      ),
+    'accepted_to_stock' => (
+        'worker.qr.status.accepted_stock',
+        'Omborga qabul qilingan',
+      ),
+    'waiting_next_stage' => (
+        'worker.qr.status.waiting_next',
+        'Keyingi bosqichni kutmoqda',
+      ),
+    _ => null,
+  };
+  if (translation == null) {
+    return value;
+  }
+  return _pdfText(l10n, translation.$1, translation.$2);
+}
+
+String _pdfActionLabel(String value, AppLocalizations? l10n) {
+  final translation = switch (value.trim()) {
+    'start' => ('worker.qr.timeline.action.start', 'Bosqichdagi ish boshlandi'),
+    'pause' => (
+        'worker.qr.timeline.action.pause',
+        'Bosqichdagi ish vaqtincha to‘xtatildi',
+      ),
+    'detach_roll' => (
+        'worker.qr.timeline.action.detach_roll',
+        'Rulon bosqichdan yechildi',
+      ),
+    'resume' => (
+        'worker.qr.timeline.action.resume',
+        'Bosqichdagi ish davom ettirildi',
+      ),
+    'roll_complete' => (
+        'worker.qr.timeline.action.roll_complete',
+        'Rulon yakunlandi',
+      ),
+    'complete' => (
+        'worker.qr.timeline.action.complete',
+        'Bosqichdagi ish yakunlandi',
+      ),
+    _ => null,
+  };
+  if (translation == null) {
+    return value;
+  }
+  return _pdfText(l10n, translation.$1, translation.$2);
+}
+
+String _pdfRawMaterialStatusLabel(String value, AppLocalizations? l10n) {
+  final translation = switch (value.trim()) {
+    'available' => (
+        'worker.qr.material.status_available',
+        'Bu homashyo omborda mavjud',
+      ),
+    'in_use' => (
+        'worker.qr.material.status_in_use',
+        'Bu homashyo ishlab chiqarishda ishlatilmoqda',
+      ),
+    'consumed' => (
+        'worker.qr.material.status_consumed',
+        'Bu homashyo ishlatib bo‘lingan',
+      ),
+    'reserved' => (
+        'worker.qr.material.status_reserved',
+        'Bu homashyo order uchun band qilingan',
+      ),
+    _ => null,
+  };
+  if (translation == null) {
+    return value;
+  }
+  return _pdfText(l10n, translation.$1, translation.$2);
 }
 
 String _field(String label, String value) {
@@ -236,11 +631,13 @@ class _PdfDocument {
     required this.title,
     required this.subtitle,
     required this.sections,
+    required this.continuationLabel,
   });
 
   final String title;
   final String subtitle;
   final List<_PdfSection> sections;
+  final String continuationLabel;
 
   List<int> build() {
     final pages = <_PdfPage>[];
@@ -264,7 +661,9 @@ class _PdfDocument {
         if (!page.canFit(14)) {
           page = _PdfPage(title: title, subtitle: subtitle);
           pages.add(page);
-          page.addSectionTitle('${_asciiText(section.title)} (davomi)');
+          page.addSectionTitle(
+            '${_asciiText(section.title)} (${_asciiText(continuationLabel)})',
+          );
         }
         page.addLine(line);
       }

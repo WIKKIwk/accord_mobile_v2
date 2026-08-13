@@ -83,14 +83,17 @@ bool _rawMaterialAssignmentCanBeUnlinked(
   return !_rawMaterialAssignmentIsLocked(assignment);
 }
 
-String _rawMaterialAssignmentStatusText(AdminRawMaterialAssignment assignment) {
+String _rawMaterialAssignmentStatusText(
+  AdminRawMaterialAssignment assignment,
+  AppLocalizations l10n,
+) {
   if (_rawMaterialAssignmentIsConsumed(assignment)) {
-    return 'Sarf qilingan';
+    return l10n.productionText('worker.material.status.consumed');
   }
   return switch (assignment.stockStatus.trim().toLowerCase()) {
-    'in_use' => 'Ishlatilmoqda',
+    'in_use' => l10n.productionText('worker.material.status.in_use'),
     'available' || '' => '',
-    _ => 'Band',
+    _ => l10n.productionText('worker.material.status.attached'),
   };
 }
 
@@ -269,10 +272,13 @@ Future<AdminProgressBatch?> _scanProgressBatchFromQrDialog(
       .adminProgressQrLookup(rawMaterialBarcodeFromQr(raw));
 }
 
-String _progressQrLookupErrorText(Object error) {
+String _progressQrLookupErrorText(
+  Object error,
+  AppLocalizations l10n,
+) {
   return error is MobileApiException
-      ? error.message
-      : 'Progress QR tekshirilmadi';
+      ? l10n.productionErrorMessage(error.code, fallback: error.message)
+      : l10n.productionText('worker.error.progress_qr');
 }
 
 List<String> _queueActionMaterialBarcodes({
@@ -414,6 +420,7 @@ String? _queueActionStartBlockReason({
   required bool qolipScanRequired,
   required bool qolipScanned,
   required bool skipStartMaterialScan,
+  required AppLocalizations l10n,
 }) {
   if (action != 'start') {
     return null;
@@ -425,46 +432,56 @@ String? _queueActionStartBlockReason({
   );
   if (!bypassMaterialGate) {
     if (materialsLoading) {
-      return 'Homashyo qoidasi yuklanmoqda';
+      return l10n.productionText('worker.error.rule_loading');
     }
     if (materialsError.trim().isNotEmpty || materialRequirements == null) {
       return materialsError.trim().isEmpty
-          ? 'Homashyo qoidasi yuklanmadi'
+          ? l10n.productionText('worker.error.rule_failed')
           : materialsError.trim();
     }
     if (materialRequirements.requiresMaterial &&
         materialRequirements.normalizedAssignedBarcodes.isEmpty) {
-      return 'Ish boshlash uchun homashyo biriktirilmagan';
+      return l10n.productionText('worker.error.no_materials');
     }
     if (!materialRequirements.assignmentsSatisfied) {
-      return 'Majburiy homashyo guruhlari to‘liq biriktirilmagan';
+      return l10n.productionText(
+        'worker.error.incomplete_material_groups',
+      );
     }
     if (materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll &&
         materialRequirements.normalizedAssignedBarcodes.isNotEmpty &&
         materialRequirements.normalizedStagedBarcodes.isEmpty) {
-      return 'Apparat oldiga homashyo olib kelinmagan';
+      return l10n.productionText('worker.error.material_not_at_machine');
     }
     if (materialRequirements.normalizedAssignedBarcodes.isNotEmpty &&
         !materialRequirements.scanSatisfied) {
       return materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll
-          ? 'Avval state’dagi barcha homashyolarni QR scan qiling'
-          : 'Avval har bir majburiy guruhdan minimum homashyo QR scan qiling';
+          ? l10n.productionText('worker.error.scan_all_materials')
+          : l10n.productionText('worker.error.scan_required_materials');
     }
   }
   if (qolipScanRequired && !qolipScanned) {
-    return 'Avval qolip QR scan qiling';
+    return l10n.productionText('worker.error.scan_molds');
   }
   final previousStage = station.isEmpty
       ? null
       : productionMapPreviousWorkStageStation(map: map, station: station);
   if (previousStage != null && startInputProgressBatch == null) {
-    return 'Oldingi bosqich QR sini scan qiling';
+    return l10n.productionText('worker.error.scan_previous');
   }
   return null;
 }
 
-String _readOnlyQueueActionErrorText(Object error) {
-  return error is MobileApiException ? error.message : 'Amal bajarilmadi';
+String _readOnlyQueueActionErrorText(
+  Object error,
+  AppLocalizations l10n,
+) {
+  return error is MobileApiException
+      ? l10n.productionErrorMessage(
+          error.code,
+          fallback: error.message,
+        )
+      : l10n.productionText('worker.error.action_failed');
 }
 
 bool _queueActionShouldClearQolipScan(Object error) {
@@ -494,6 +511,7 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   required AdminProgressBatch? startInputProgressBatch,
   required bool qolipScanned,
   required bool skipStartMaterialScan,
+  required AppLocalizations l10n,
 }) {
   if (apparatus == null || onQueueAction == null || actionInFlight) {
     return null;
@@ -529,6 +547,7 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
       qolipScanRequired: _apparatusRequiresQolipScan(station),
       qolipScanned: qolipScanned,
       skipStartMaterialScan: skipStartMaterialScan,
+      l10n: l10n,
     ),
   );
 }
@@ -685,6 +704,7 @@ bool _rezkaNodeMatchesStation(ProductionMapNode node, String station) {
 List<String> _rezkaWipSplitInstructionLines({
   required ProductionMapDefinition map,
   required String station,
+  required AppLocalizations l10n,
 }) {
   final node = _rezkaNodeForStation(map: map, station: station);
   if (node == null) {
@@ -693,13 +713,21 @@ List<String> _rezkaWipSplitInstructionLines({
   final kadrCount = node.rezkaKadrCount;
   if (kadrCount != null && kadrCount > 0) {
     final lines = <String>[
-      'Rulon $kadrCount ta alohida WIP ga bo‘linadi',
-      'Har bir WIP uchun alohida QR chiqadi',
-      'Har bir WIPning metraj va kg miqdori bir xil bo‘ladi',
+      l10n.productionText(
+        'worker.split.rolls',
+        values: {'frames': kadrCount},
+      ),
+      l10n.productionText('worker.split.qr'),
+      l10n.productionText('worker.split.same'),
     ];
     final labelLength = node.rezkaLabelLength;
     if (labelLength != null && labelLength > 0) {
-      lines.add('Etiketka uzunligi: ${formatRawQuantity(labelLength)} mm');
+      lines.add(
+        l10n.productionText(
+          'worker.split.label_length',
+          values: {'length': formatRawQuantity(labelLength)},
+        ),
+      );
     }
     return lines;
   }
@@ -708,16 +736,31 @@ List<String> _rezkaWipSplitInstructionLines({
   if (groups.isNotEmpty) {
     final totalFrames = groups.fold<int>(0, (sum, group) => sum + group);
     return [
-      'WIP ${groups.length} bo‘lakka bo‘linadi',
+      l10n.productionText(
+        'worker.split.summary',
+        values: {'count': groups.length},
+      ),
       for (var index = 0; index < groups.length; index++)
-        '${index + 1}-bo‘lak: ${groups[index]} kadr',
-      if (totalFrames > 0) 'Jami: $totalFrames kadr',
+        l10n.productionText(
+          'worker.split.part',
+          values: {'index': index + 1, 'frames': groups[index]},
+        ),
+      if (totalFrames > 0)
+        l10n.productionText(
+          'worker.split.total',
+          values: {'frames': totalFrames},
+        ),
     ];
   }
   final lines = <String>[];
   final labelLength = node.rezkaLabelLength;
   if (labelLength != null && labelLength > 0) {
-    lines.add('Etiketka uzunligi: ${formatRawQuantity(labelLength)} mm');
+    lines.add(
+      l10n.productionText(
+        'worker.split.label_length',
+        values: {'length': formatRawQuantity(labelLength)},
+      ),
+    );
   }
   return lines;
 }

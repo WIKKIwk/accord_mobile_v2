@@ -5,6 +5,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/print_service.dart';
 import '../../../core/session/state/app_session.dart';
 import '../../../core/theme/app_theme.dart';
@@ -169,9 +170,9 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
       initialDate: _selectedDate.isAfter(today) ? today : _selectedDate,
       firstDate: DateTime(2020),
       lastDate: today,
-      helpText: 'Kunlik ish kunini tanlang',
-      cancelText: 'Bekor qilish',
-      confirmText: 'Tanlash',
+      helpText: context.l10n.productionText('worker.daily.choose_date.title'),
+      cancelText: context.l10n.productionText('worker.action.cancel'),
+      confirmText: context.l10n.productionText('worker.action.select'),
     );
     if (!mounted || selected == null) {
       return;
@@ -185,15 +186,16 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('WIP QR topilmadi'),
-          content: const Text(
-            'Bu WIP uchun qayta chop qilishga kerak bo‘ladigan QR payload '
-            'serverdan kelmadi.',
+          title: Text(
+            context.l10n.productionText('worker.daily.wip_qr_missing'),
+          ),
+          content: Text(
+            context.l10n.productionText('worker.daily.wip_qr_missing.body'),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Yopish'),
+              child: Text(context.l10n.productionText('worker.action.close')),
             ),
           ],
         ),
@@ -206,7 +208,7 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => RpsQrReprintSheet(
-        title: 'WIP QR',
+        title: context.l10n.productionText('worker.daily.wip_qr'),
         payload: payload,
         itemName: _dailyWorkFirstNotEmpty([
           batch.labelItemName,
@@ -218,32 +220,47 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
         editButtonKey: ValueKey('daily-work-wip-sheet-edit-${batch.batchId}'),
         details: [
           if (batch.orderId.trim().isNotEmpty)
-            RpsQrDetail('Order', batch.orderId.trim()),
+            RpsQrDetail(
+              context.l10n.productionText('worker.daily.order'),
+              batch.orderId.trim(),
+            ),
           if (batch.batchId.trim().isNotEmpty)
-            RpsQrDetail('WIP ID', batch.batchId.trim()),
+            RpsQrDetail(
+              context.l10n.productionText('worker.wip.info.id'),
+              batch.batchId.trim(),
+            ),
           RpsQrDetail(
-            'Miqdor',
+            context.l10n.productionText('worker.wip.info.quantity'),
             formatQuantityWithUnit(
               batch.producedQty,
               batch.uom,
               trimTrailingZeros: true,
             ),
           ),
-          RpsQrDetail('Holat', _dailyWorkStatus(batch)),
+          RpsQrDetail(
+            context.l10n.productionText('worker.daily.status'),
+            _dailyWorkStatusLabel(context, batch),
+          ),
           if (batch.startedAtUnix > 0)
             RpsQrDetail(
-              'Boshlangan',
+              context.l10n.productionText('worker.wip.info.started'),
               formatUnixSecondsLocalDateTime(batch.startedAtUnix),
             ),
           if (batch.completedAtUnix > 0)
             RpsQrDetail(
-              'Tugagan',
+              context.l10n.productionText('worker.wip.info.finished'),
               formatUnixSecondsLocalDateTime(batch.completedAtUnix),
             ),
           if (batch.apparatus.trim().isNotEmpty)
-            RpsQrDetail('Aparat', batch.apparatus.trim()),
+            RpsQrDetail(
+              context.l10n.productionText('worker.detail.kind.machine'),
+              context.l10n.productionApparatusName(batch.apparatus),
+            ),
           if (batch.currentLocation.trim().isNotEmpty)
-            RpsQrDetail('Hozirgi joyi', batch.currentLocation.trim()),
+            RpsQrDetail(
+              context.l10n.productionText('worker.wip.info.location'),
+              context.l10n.productionApparatusName(batch.currentLocation),
+            ),
         ],
         onReprint: () => _reprintWip(batch),
         onEdit: _canCorrectWip(batch) && !_isCorrecting(batch)
@@ -255,10 +272,10 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
                 }
               }
             : null,
-        errorMessage: (error) => error is MobileApiException
-            ? error.message
-            : _dailyWorkReprintError(error),
-        successMessage: 'WIP QR qayta chop etildi',
+        errorMessage: (error) => _dailyWorkReprintError(error, context.l10n),
+        successMessage: context.l10n.productionText(
+          'worker.daily.wip_qr.reprinted',
+        ),
       ),
     );
   }
@@ -300,15 +317,17 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
       }
       setState(() => _correctedBatches[batchId] = corrected);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('WIP o‘zgartirildi va izoh saqlandi')),
+        SnackBar(
+          content: Text(
+            context.l10n.productionText('worker.daily.wip_updated'),
+          ),
+        ),
       );
     } catch (error) {
       if (!mounted) {
         return;
       }
-      final message = error is MobileApiException
-          ? error.message
-          : _dailyWorkCorrectionError(error);
+      final message = _dailyWorkCorrectionError(error, context.l10n);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
@@ -361,6 +380,7 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
     final profile = AppSession.instance.profile;
     final apparatusLabel = _dailyWorkApparatusLabel(
       profile?.assignedApparatus ?? const <String>[],
+      context.l10n,
     );
     final workerName = _dailyWorkFirstNotEmpty([
       profile?.displayName ?? '',
@@ -368,8 +388,11 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
       apparatusLabel,
     ]);
     return AppShell(
-      title: 'Kunlik ish',
-      subtitle: '$apparatusLabel tomonidan chiqarilgan WIP va orderlar',
+      title: context.l10n.productionText('worker.daily'),
+      subtitle: context.l10n.productionText(
+        'worker.daily.subtitle',
+        values: {'apparatus': apparatusLabel},
+      ),
       nativeTopBar: true,
       drawer: AparatchiNavigationDrawer(
         selectedIndex: 1,
@@ -397,7 +420,7 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
         if (snapshot.hasError && !snapshot.hasData) {
           return AppRetryState(
             onRetry: _retry,
-            message: 'Kunlik ish ma’lumoti yuklanmadi',
+            message: context.l10n.productionText('worker.daily.load_failed'),
           );
         }
         final allBatches = [
@@ -428,7 +451,7 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Chop etilgan WIPlar',
+                context.l10n.productionText('worker.daily.produced_wips'),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -516,7 +539,7 @@ class _DailyWorkOrderGroupCardState extends State<_DailyWorkOrderGroupCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Order',
+                              context.l10n.productionText('worker.daily.order'),
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: scheme.onSurfaceVariant,
                               ),
@@ -545,7 +568,7 @@ class _DailyWorkOrderGroupCardState extends State<_DailyWorkOrderGroupCard> {
                             vertical: 5,
                           ),
                           child: Text(
-                            '${group.batches.length} ta WIP',
+                            '${group.batches.length} ${context.l10n.productionText('worker.daily.wip')}',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: scheme.onSecondaryContainer,
                               fontWeight: FontWeight.w800,
@@ -639,7 +662,7 @@ class _DailyWorkSummary extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Kunlik ish',
+                    context.l10n.productionText('worker.daily'),
                     style: theme.textTheme.titleLarge?.copyWith(
                       color: scheme.onPrimaryContainer,
                       fontWeight: FontWeight.w800,
@@ -648,7 +671,9 @@ class _DailyWorkSummary extends StatelessWidget {
                 ),
                 IconButton.filledTonal(
                   onPressed: onChooseDate,
-                  tooltip: 'Kun tanlash',
+                  tooltip: context.l10n.productionText(
+                    'worker.daily.choose_date',
+                  ),
                   icon: const Icon(Icons.calendar_month_rounded),
                 ),
               ],
@@ -665,7 +690,7 @@ class _DailyWorkSummary extends StatelessWidget {
               runSpacing: 8,
               children: [
                 _DailyWorkMetric(
-                  label: 'Order',
+                  label: context.l10n.productionText('worker.daily.order'),
                   value: '${adminProgressBatchOrderCount(batches)}',
                 ),
                 _DailyWorkMetric(
@@ -673,7 +698,7 @@ class _DailyWorkSummary extends StatelessWidget {
                   value: '${batches.length}',
                 ),
                 _DailyWorkMetric(
-                  label: 'Ishlatilgan',
+                  label: context.l10n.productionText('worker.daily.used'),
                   value: '$processedCount',
                 ),
               ],
@@ -809,17 +834,23 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
                                   'daily-work-wip-edit-${widget.batch.batchId}',
                                 ),
                                 onPressed: widget.onEdit,
-                                tooltip: 'WIPni o‘zgartirish',
+                                tooltip: context.l10n.productionText(
+                                  'worker.daily.edit_wip',
+                                ),
                                 icon: const Icon(Icons.edit_rounded),
                               ),
                             ),
                           if (widget.batch.batchId.trim().isNotEmpty)
                             _DailyWorkInfoRow(
-                              label: 'WIP ID',
+                              label: context.l10n.productionText(
+                                'worker.wip.info.id',
+                              ),
                               value: widget.batch.batchId.trim(),
                             ),
                           _DailyWorkInfoRow(
-                            label: 'Miqdor',
+                            label: context.l10n.productionText(
+                              'worker.wip.info.quantity',
+                            ),
                             value: formatQuantityWithUnit(
                               widget.batch.producedQty,
                               widget.batch.uom,
@@ -828,34 +859,51 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
                           ),
                           if (widget.batch.startedAtUnix > 0)
                             _DailyWorkInfoRow(
-                              label: 'Boshlangan',
+                              label: context.l10n.productionText(
+                                'worker.wip.info.started',
+                              ),
                               value: formatUnixSecondsLocalDateTime(
                                 widget.batch.startedAtUnix,
                               ),
                             ),
                           if (widget.batch.completedAtUnix > 0)
                             _DailyWorkInfoRow(
-                              label: 'Tugagan',
+                              label: context.l10n.productionText(
+                                'worker.wip.info.finished',
+                              ),
                               value: formatUnixSecondsLocalDateTime(
                                 widget.batch.completedAtUnix,
                               ),
                             ),
                           _DailyWorkInfoRow(
-                            label: 'Aparat',
-                            value: _dailyWorkValue(widget.batch.apparatus),
+                            label: context.l10n.productionText(
+                              'worker.detail.kind.machine',
+                            ),
+                            value: context.l10n.productionApparatusName(
+                              _dailyWorkValue(widget.batch.apparatus),
+                            ),
                           ),
                           _DailyWorkInfoRow(
-                            label: 'Hozirgi joyi',
-                            value: current,
+                            label: context.l10n.productionText(
+                              'worker.wip.info.location',
+                            ),
+                            value:
+                                context.l10n.productionApparatusName(current),
                           ),
                           if (widget.batch.nextApparatus.trim().isNotEmpty)
                             _DailyWorkInfoRow(
-                              label: 'Keyingi aparat',
-                              value: widget.batch.nextApparatus.trim(),
+                              label: context.l10n.productionText(
+                                'worker.wip.info.next_machine',
+                              ),
+                              value: context.l10n.productionApparatusName(
+                                widget.batch.nextApparatus,
+                              ),
                             ),
                           if (widget.batch.description.trim().isNotEmpty)
                             _DailyWorkInfoRow(
-                              label: 'Izoh',
+                              label: context.l10n.productionText(
+                                'worker.wip.info.note',
+                              ),
                               value: widget.batch.description.trim(),
                             ),
                         ],
@@ -865,8 +913,12 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
               const SizedBox(height: 8),
               Text(
                 _expanded
-                    ? 'Yopish uchun bosing • QR uchun uzoq bosing'
-                    : 'Batafsil uchun bosing • QR uchun uzoq bosing',
+                    ? context.l10n.productionText(
+                        'worker.daily.card.collapse_hint',
+                      )
+                    : context.l10n.productionText(
+                        'worker.daily.card.expand_hint',
+                      ),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -897,7 +949,7 @@ class _DailyWorkCompactDetails extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: _DailyWorkCompactValue(
-            label: 'Miqdor',
+            label: context.l10n.productionText('worker.wip.info.quantity'),
             value: formatQuantityWithUnit(
               batch.producedQty,
               batch.uom,
@@ -1104,11 +1156,18 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
       validator: (value) {
         final text = value?.trim() ?? '';
         if (text.isEmpty) {
-          return requiredField ? '$label kiriting' : null;
+          return requiredField
+              ? context.l10n.productionText(
+                  'worker.daily.required_field',
+                  values: {'label': label},
+                )
+              : null;
         }
         final parsed = double.tryParse(text.replaceAll(',', '.'));
         if (parsed == null || !parsed.isFinite || parsed <= 0) {
-          return '0 dan katta raqam kiriting';
+          return context.l10n.productionText(
+            'worker.daily.positive_number',
+          );
         }
         return null;
       },
@@ -1167,7 +1226,8 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'WIPni o‘zgartirish',
+                          context.l10n
+                              .productionText('worker.daily.edit.title'),
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -1195,7 +1255,11 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                       children: [
                         _quantityField(
                           controller: _meter,
-                          label: _showStandardWeights ? 'Metraj' : 'Miqdor',
+                          label: context.l10n.productionText(
+                            _showStandardWeights
+                                ? 'worker.daily.field.length'
+                                : 'worker.daily.field.quantity',
+                          ),
                           suffix: _batch.uom.trim().isEmpty
                               ? 'm'
                               : _batch.uom.trim(),
@@ -1205,14 +1269,18 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                           const SizedBox(height: 10),
                           _quantityField(
                             controller: _kg,
-                            label: 'Og‘irlik',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.weight',
+                            ),
                             suffix: 'kg',
                             requiredField: true,
                           ),
                           const SizedBox(height: 10),
                           _quantityField(
                             controller: _bobina,
-                            label: 'Babina',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.roll',
+                            ),
                             suffix: 'kg',
                             requiredField: true,
                           ),
@@ -1221,7 +1289,9 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                           const SizedBox(height: 10),
                           _quantityField(
                             controller: _diameter,
-                            label: 'Diametr',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.diameter',
+                            ),
                             suffix: 'mm',
                             requiredField: true,
                           ),
@@ -1230,7 +1300,9 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                           const SizedBox(height: 10),
                           _quantityField(
                             controller: _returnInk,
-                            label: 'Qaytarilgan bo‘yoq',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.returned_ink',
+                            ),
                             suffix: 'kg',
                             requiredField: true,
                           ),
@@ -1240,7 +1312,9 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                           const SizedBox(height: 10),
                           _quantityField(
                             controller: _printLeftover,
-                            label: 'Bosmadan ortgan rulon',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.print_leftover',
+                            ),
                             suffix: 'ta',
                             requiredField: true,
                           ),
@@ -1250,7 +1324,9 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                           const SizedBox(height: 10),
                           _quantityField(
                             controller: _filmLeftover,
-                            label: 'Plyonkadan ortgan rulon',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.film_leftover',
+                            ),
                             suffix: 'ta',
                             requiredField: true,
                           ),
@@ -1259,7 +1335,9 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                           const SizedBox(height: 10),
                           _quantityField(
                             controller: _totalWaste,
-                            label: 'Jami chiqindi',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.total_waste',
+                            ),
                             suffix: 'kg',
                             requiredField: true,
                           ),
@@ -1268,19 +1346,25 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                           const SizedBox(height: 10),
                           _quantityField(
                             controller: _rezkaBosmaWaste,
-                            label: 'Bosma chiqindisi',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.print_waste',
+                            ),
                             suffix: 'kg',
                           ),
                           const SizedBox(height: 10),
                           _quantityField(
                             controller: _rezkaLaminationWaste,
-                            label: 'Laminatsiya chiqindisi',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.lamination_waste',
+                            ),
                             suffix: 'kg',
                           ),
                           const SizedBox(height: 10),
                           _quantityField(
                             controller: _rezkaEdgeWaste,
-                            label: 'Chet chiqindisi',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.edge_waste',
+                            ),
                             suffix: 'kg',
                           ),
                         ],
@@ -1289,8 +1373,10 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                           controller: _description,
                           minLines: 2,
                           maxLines: 4,
-                          decoration: const InputDecoration(
-                            labelText: 'WIP izohi',
+                          decoration: InputDecoration(
+                            labelText: context.l10n.productionText(
+                              'worker.daily.field.note',
+                            ),
                             alignLabelWithHint: true,
                             border: OutlineInputBorder(),
                           ),
@@ -1306,7 +1392,9 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Bekor qilish'),
+                      child: Text(
+                        context.l10n.productionText('worker.action.cancel'),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -1314,7 +1402,7 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                     child: FilledButton(
                       key: const ValueKey('daily-work-wip-edit-save'),
                       onPressed: _submit,
-                      child: const Text('Saqlash'),
+                      child: Text(context.l10n.save),
                     ),
                   ),
                 ],
@@ -1357,7 +1445,9 @@ class _DailyWorkCorrectionReasonDialogState
   Widget build(BuildContext context) {
     return AlertDialog(
       icon: const Icon(Icons.comment_rounded),
-      title: const Text('O‘zgartirish sababi'),
+      title: Text(
+        context.l10n.productionText('worker.daily.correction.title'),
+      ),
       content: Form(
         key: _formKey,
         child: Column(
@@ -1370,25 +1460,29 @@ class _DailyWorkCorrectionReasonDialogState
               autofocus: true,
               minLines: 3,
               maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: 'Izoh',
-                hintText: 'Nima uchun qiymat o‘zgartirilmoqda?',
+              decoration: InputDecoration(
+                labelText: context.l10n.noteTitle,
+                hintText: context.l10n.productionText(
+                  'worker.daily.correction.hint',
+                ),
                 alignLabelWithHint: true,
                 border: OutlineInputBorder(),
               ),
               validator: (value) => value?.trim().isEmpty ?? true
-                  ? 'Izohsiz o‘zgartirib bo‘lmaydi'
+                  ? context.l10n.productionText(
+                      'worker.daily.correction.required',
+                    )
                   : null,
             ),
             const SizedBox(height: 16),
             FilledButton(
               key: const ValueKey('daily-work-wip-correction-confirm'),
               onPressed: _save,
-              child: const Text('Saqlash'),
+              child: Text(context.l10n.save),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Bekor qilish'),
+              child: Text(context.l10n.productionText('worker.action.cancel')),
             ),
           ],
         ),
@@ -1424,7 +1518,7 @@ class _DailyWorkStatusChip extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         child: Text(
-          status,
+          _dailyWorkStatusLabel(context, batch),
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: foreground,
                 fontWeight: FontWeight.w800,
@@ -1450,7 +1544,7 @@ class _DailyWorkInfoRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 104,
+            width: 124,
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1490,8 +1584,8 @@ class _DailyWorkEmpty extends StatelessWidget {
               color: scheme.onSurfaceVariant,
             ),
             const SizedBox(height: 10),
-            const Text(
-              'Bu kunda WIP chiqarilmagan',
+            Text(
+              context.l10n.productionText('worker.daily.empty'),
               textAlign: TextAlign.center,
             ),
           ],
@@ -1520,6 +1614,19 @@ String _dailyWorkStatus(AdminProgressBatch batch) {
   return 'Kutmoqda';
 }
 
+String _dailyWorkStatusLabel(
+  BuildContext context,
+  AdminProgressBatch batch,
+) {
+  return switch (_dailyWorkStatus(batch)) {
+    'Ishlatilgan' => context.l10n.productionText('worker.daily.used'),
+    'Jarayonda' => context.l10n.productionText(
+        'worker.queue.status.in_progress',
+      ),
+    _ => context.l10n.productionText('worker.wip.waiting'),
+  };
+}
+
 bool _canCorrectWip(AdminProgressBatch batch) =>
     batch.wipStatus.trim().toLowerCase() == 'waiting';
 
@@ -1532,23 +1639,26 @@ String _dailyWorkFirstNotEmpty(Iterable<String> values) {
   return '—';
 }
 
-String _dailyWorkApparatusLabel(Iterable<String> assignedApparatus) {
+String _dailyWorkApparatusLabel(
+  Iterable<String> assignedApparatus,
+  AppLocalizations l10n,
+) {
   if (assignedApparatus.any(productionMapIsPechatApparatus)) {
-    return 'Pechatchi';
+    return l10n.productionText('worker.daily.apparatus.print');
   }
   if (assignedApparatus.any(productionMapIsRezkaApparatus)) {
-    return 'Rezka';
+    return l10n.productionText('worker.daily.apparatus.cutting');
   }
   if (assignedApparatus.any(productionMapIsLaminatsiyaApparatus)) {
-    return 'Laminatsiya';
+    return l10n.productionText('worker.daily.apparatus.lamination');
   }
   for (final apparatus in assignedApparatus) {
     final label = productionMapWarehouseBaseTitle(apparatus);
     if (label.trim().isNotEmpty) {
-      return label;
+      return l10n.productionApparatusName(label);
     }
   }
-  return 'Aparatchi';
+  return l10n.productionText('worker.daily.apparatus.worker');
 }
 
 String _dailyWorkValue(String value) {
@@ -1561,12 +1671,22 @@ String _dailyWorkDateLabel(DateTime value) {
       '${value.month.toString().padLeft(2, '0')}. ${value.year}';
 }
 
-String _dailyWorkReprintError(Object error) {
-  final message = error.toString().replaceFirst('Exception: ', '').trim();
-  return message.isEmpty ? 'WIP QR kodini qayta chop etib bo‘lmadi' : message;
+String _dailyWorkReprintError(Object error, AppLocalizations l10n) {
+  if (error is MobileApiException) {
+    return l10n.productionErrorMessage(
+      error.code,
+      fallback: l10n.productionText('worker.daily.reprint_failed'),
+    );
+  }
+  return l10n.productionText('worker.daily.reprint_failed');
 }
 
-String _dailyWorkCorrectionError(Object error) {
-  final message = error.toString().replaceFirst('Exception: ', '').trim();
-  return message.isEmpty ? 'WIPni o‘zgartirib bo‘lmadi' : message;
+String _dailyWorkCorrectionError(Object error, AppLocalizations l10n) {
+  if (error is MobileApiException) {
+    return l10n.productionErrorMessage(
+      error.code,
+      fallback: l10n.productionText('worker.daily.correction_failed'),
+    );
+  }
+  return l10n.productionText('worker.daily.correction_failed');
 }

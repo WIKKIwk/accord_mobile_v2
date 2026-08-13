@@ -621,11 +621,11 @@ class _WorkerWatchBody extends StatelessWidget {
     required ProductionMapSaved order,
   }) onLongPressWatchOrder;
 
-  String _tabLabel(_WorkerWatchTab tab) {
+  String _tabLabel(BuildContext context, _WorkerWatchTab tab) {
     if (tab.isCompleted) {
-      return 'Tugallangan';
+      return context.l10n.productionText('worker.queue.tab.completed');
     }
-    return productionMapPechatTabLabel(tab.apparatus!.name);
+    return context.l10n.productionApparatusName(tab.apparatus!.name);
   }
 
   List<ProductionMapSaved> _ordersForApparatus(AdminApparatus item) {
@@ -643,8 +643,10 @@ class _WorkerWatchBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (apparatus.isEmpty) {
-      return const Center(
-        child: _EmptyOpenedOrders(message: 'Aparatlar topilmadi'),
+      return Center(
+        child: _EmptyOpenedOrders(
+          message: context.l10n.productionText('worker.queue.empty.apparatus'),
+        ),
       );
     }
     final tabs = _workerWatchTabs(
@@ -662,7 +664,8 @@ class _WorkerWatchBody extends StatelessWidget {
             tabAlignment: TabAlignment.start,
             labelPadding: const EdgeInsets.symmetric(horizontal: 16),
             tabs: [
-              for (final tab in tabs) Tab(height: 38, text: _tabLabel(tab)),
+              for (final tab in tabs)
+                Tab(height: 38, text: _tabLabel(context, tab)),
             ],
           ),
         ),
@@ -757,7 +760,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
               child: Text(
-                'Sizning aparatingiz',
+                context.l10n.productionText('worker.queue.your.apparatus'),
                 style: theme.textTheme.labelLarge?.copyWith(
                   color: scheme.primary,
                   fontWeight: FontWeight.w700,
@@ -765,7 +768,16 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
               ),
             ),
           if (orders.isEmpty)
-            _EmptyOpenedOrders(message: '${apparatus.name} uchun zakaz yo‘q')
+            _EmptyOpenedOrders(
+              message: context.l10n.productionText(
+                'worker.queue.empty.orders',
+                values: {
+                  'apparatus': context.l10n.productionApparatusName(
+                    apparatus.name,
+                  ),
+                },
+              ),
+            )
           else
             M3SegmentSpacedColumn(
               padding: EdgeInsets.zero,
@@ -824,14 +836,14 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Ishimni tugatish',
+              context.l10n.productionText('worker.finish.title'),
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Bu amal faqat order astatkasini qayd qiladi. Pauza ham, Tugatish ham bosilmaydi; queue va WIP holati o‘zgarmaydi.',
+              context.l10n.productionText('worker.finish.description'),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
                 height: 1.35,
@@ -843,7 +855,9 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
                 _LaminatsiyaWorkerLongPressChoice.finishWork,
               ),
               icon: const Icon(Icons.logout_rounded),
-              label: const Text('Ishimni tugatish'),
+              label: Text(
+                context.l10n.productionText('worker.finish.title'),
+              ),
             ),
           ],
         ),
@@ -867,14 +881,14 @@ class _LaminatsiyaWorkerHandoffSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Apparatdagi rulon',
+              context.l10n.productionText('worker.handoff.title'),
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Hozir apparatda rulon bor, u oxirigacha urilmagan. Uni davom ettirish yoki apparatdan yechib, metraj va kg bilan qayd qilish mumkin.',
+              context.l10n.productionText('worker.handoff.description'),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
                 height: 1.35,
@@ -886,7 +900,9 @@ class _LaminatsiyaWorkerHandoffSheet extends StatelessWidget {
                 _LaminatsiyaWorkerLongPressChoice.continueRoll,
               ),
               icon: const Icon(Icons.play_arrow_rounded),
-              label: const Text('Davom ettirish'),
+              label: Text(
+                context.l10n.productionText('worker.handoff.continue'),
+              ),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
@@ -894,7 +910,9 @@ class _LaminatsiyaWorkerHandoffSheet extends StatelessWidget {
                 _LaminatsiyaWorkerLongPressChoice.removeRoll,
               ),
               icon: const Icon(Icons.unarchive_rounded),
-              label: const Text('Rulonni yechish'),
+              label: Text(
+                context.l10n.productionText('worker.handoff.detach'),
+              ),
             ),
           ],
         ),
@@ -931,7 +949,7 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
             child: Text(
-              'Ish yakunlari',
+              context.l10n.productionText('worker.queue.completed.heading'),
               style: theme.textTheme.labelLarge?.copyWith(
                 color: scheme.primary,
                 fontWeight: FontWeight.w700,
@@ -939,7 +957,11 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
             ),
           ),
           if (orders.isEmpty)
-            const _EmptyOpenedOrders(message: 'Yakunlangan ishlar yo‘q')
+            _EmptyOpenedOrders(
+              message: context.l10n.productionText(
+                'worker.queue.completed.empty',
+              ),
+            )
           else
             M3SegmentSpacedColumn(
               padding: EdgeInsets.zero,
@@ -967,7 +989,13 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
                         secondaryColor: partial
                             ? const Color(0xFF8A6A00)
                             : const Color(0xFF3F6042),
-                        statusLabel: partial ? 'Tugallanmoqda' : 'Tugallangan',
+                        statusLabel: partial
+                            ? context.l10n.productionText(
+                                'worker.queue.status.completed_partial',
+                              )
+                            : context.l10n.productionText(
+                                'worker.queue.status.completed',
+                              ),
                         statusBackgroundColor: partial
                             ? const Color(0xFFFFD54F)
                             : const Color(0xFFA5D6A7),

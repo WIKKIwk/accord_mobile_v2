@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../models/production_map_models.dart';
 import 'admin_progress_qr_passport.dart';
@@ -17,6 +18,17 @@ class AdminProgressQrScanArgs {
   const AdminProgressQrScanArgs({this.scanOnly = false});
 
   final bool scanOnly;
+}
+
+enum _QrScanStatus {
+  prompt,
+  cameraFailed,
+  invalidQr,
+  loading,
+  reportReady,
+  paddonReady,
+  materialReady,
+  error,
 }
 
 class AdminProgressQrScanScreen extends StatefulWidget {
@@ -37,11 +49,11 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
   final _manualQrController = TextEditingController();
   MobileScannerController? _controller;
   bool _processing = false;
-  String _statusText = 'Progress QR kodni ramkaga keltiring';
+  _QrScanStatus _scanStatus = _QrScanStatus.prompt;
+  String? _scanErrorCode;
   AdminProgressQrReport? _report;
   AdminPaddonSnapshot? _paddonReport;
   AdminRawMaterialLookup? _rawMaterialReport;
-  String? _errorText;
   bool _sharing = false;
 
   @override
@@ -76,6 +88,43 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
         defaultTargetPlatform == TargetPlatform.macOS;
   }
 
+  String _statusText(AppLocalizations l10n) {
+    return switch (_scanStatus) {
+      _QrScanStatus.prompt => l10n.productionText(
+          'worker.scanner.progress_prompt',
+        ),
+      _QrScanStatus.cameraFailed => l10n.productionText(
+          'worker.scanner.camera_failed',
+        ),
+      _QrScanStatus.invalidQr => l10n.productionText(
+          'worker.scanner.invalid_qr',
+        ),
+      _QrScanStatus.loading => l10n.productionText('worker.scanner.lookup'),
+      _QrScanStatus.reportReady => l10n.productionText(
+          'worker.scanner.report_ready',
+        ),
+      _QrScanStatus.paddonReady => l10n.productionText(
+          'worker.scanner.paddon_ready',
+        ),
+      _QrScanStatus.materialReady => l10n.productionText(
+          'worker.scanner.material_ready',
+        ),
+      _QrScanStatus.error => _errorText(l10n),
+    };
+  }
+
+  String _errorText(AppLocalizations l10n) {
+    final code = _scanErrorCode;
+    if (code == 'progress_batch_not_found' ||
+        code == 'progress_batch_not_accepted') {
+      return l10n.productionErrorMessage(
+        code!,
+        fallback: l10n.productionText('worker.scanner.report_failed'),
+      );
+    }
+    return l10n.productionText('worker.scanner.report_failed');
+  }
+
   Future<void> _startScanner() async {
     final controller = _controller;
     if (!mounted || controller == null) {
@@ -88,8 +137,8 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
       }
       setState(() {
         _processing = false;
-        _errorText = null;
-        _statusText = 'Progress QR kodni ramkaga keltiring';
+        _scanErrorCode = null;
+        _scanStatus = _QrScanStatus.prompt;
       });
     } catch (_) {
       if (!mounted) {
@@ -97,8 +146,8 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
       }
       setState(() {
         _processing = false;
-        _errorText = 'Kamera ochilmadi';
-        _statusText = 'Kamera ochilmadi';
+        _scanErrorCode = 'camera_failed';
+        _scanStatus = _QrScanStatus.cameraFailed;
       });
     }
   }
@@ -124,7 +173,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
     }
     final qrPayload = _extractQrPayload(_firstBarcodeValue(capture));
     if (qrPayload.isEmpty) {
-      setState(() => _statusText = 'QR bo‘sh yoki noto‘g‘ri');
+      setState(() => _scanStatus = _QrScanStatus.invalidQr);
       return;
     }
     await _handleQrPayload(qrPayload);
@@ -134,7 +183,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
     final normalized = qrPayload.trim();
     if (normalized.isEmpty) {
       if (mounted) {
-        setState(() => _statusText = 'QR bo‘sh yoki noto‘g‘ri');
+        setState(() => _scanStatus = _QrScanStatus.invalidQr);
       }
       return;
     }
@@ -157,13 +206,13 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
     }
     final normalized = qrPayload.trim();
     if (normalized.isEmpty) {
-      setState(() => _statusText = 'QR bo‘sh yoki noto‘g‘ri');
+      setState(() => _scanStatus = _QrScanStatus.invalidQr);
       return;
     }
     setState(() {
       _processing = true;
-      _statusText = 'Order flow yig‘ilmoqda...';
-      _errorText = null;
+      _scanStatus = _QrScanStatus.loading;
+      _scanErrorCode = null;
     });
     await _stopScanner();
     try {
@@ -174,7 +223,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
       setState(() {
         _report = report;
         _processing = false;
-        _statusText = 'Report tayyor';
+        _scanStatus = _QrScanStatus.reportReady;
       });
     } catch (error) {
       if (_shouldTryPaddonLookup(normalized)) {
@@ -188,7 +237,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
           setState(() {
             _paddonReport = paddonReport;
             _processing = false;
-            _statusText = 'Paddon report tayyor';
+            _scanStatus = _QrScanStatus.paddonReady;
           });
           return;
         } catch (_) {
@@ -206,7 +255,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
           setState(() {
             _rawMaterialReport = rawReport;
             _processing = false;
-            _statusText = 'Homashyo report tayyor';
+            _scanStatus = _QrScanStatus.materialReady;
           });
           return;
         } catch (_) {
@@ -216,11 +265,10 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
       if (!mounted) {
         return;
       }
-      final message = _messageForError(error);
       setState(() {
         _processing = false;
-        _errorText = message;
-        _statusText = message;
+        _scanStatus = _QrScanStatus.error;
+        _scanErrorCode = error is MobileApiException ? error.code : null;
       });
       await _startScanner();
     }
@@ -231,12 +279,16 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('QR ni qo‘lda kiritish'),
+          title: Text(
+            context.l10n.productionText('worker.scanner.manual.title'),
+          ),
           content: TextField(
             controller: _manualQrController,
             autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'QR payload',
+            decoration: InputDecoration(
+              labelText: context.l10n.productionText(
+                'worker.scanner.manual.payload',
+              ),
               hintText: '4001...',
             ),
             textInputAction: TextInputAction.done,
@@ -245,12 +297,14 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Bekor qilish'),
+              child: Text(context.l10n.productionText('worker.action.cancel')),
             ),
             FilledButton(
               onPressed: () =>
                   Navigator.of(context).pop(_manualQrController.text),
-              child: const Text('Tekshirish'),
+              child: Text(
+                context.l10n.productionText('worker.scanner.manual.verify'),
+              ),
             ),
           ],
         );
@@ -267,8 +321,8 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
       _report = null;
       _paddonReport = null;
       _rawMaterialReport = null;
-      _errorText = null;
-      _statusText = 'Progress QR kodni ramkaga keltiring';
+      _scanErrorCode = null;
+      _scanStatus = _QrScanStatus.prompt;
     });
     unawaited(_startScanner());
   }
@@ -285,8 +339,14 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
     setState(() => _sharing = true);
     try {
       final bytes = report != null
-          ? AdminProgressQrScanPdf.buildProgress(report)
-          : AdminProgressQrScanPdf.buildRawMaterial(rawMaterialReport!);
+          ? AdminProgressQrScanPdf.buildProgress(
+              report,
+              l10n: context.l10n,
+            )
+          : AdminProgressQrScanPdf.buildRawMaterial(
+              rawMaterialReport!,
+              l10n: context.l10n,
+            );
       final filename = report != null
           ? _qrPdfFilename(
               'admin-qr-report',
@@ -317,8 +377,11 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('PDF tayyorlash yoki ulashishda xatolik')),
+          SnackBar(
+            content: Text(
+              context.l10n.productionText('worker.scanner.pdf_error'),
+            ),
+          ),
         );
       }
     } finally {
@@ -338,17 +401,6 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
 
   bool _shouldTryPaddonLookup(String qrPayload) {
     return RegExp(r'^\d{5}$').hasMatch(qrPayload.trim());
-  }
-
-  String _messageForError(Object error) {
-    if (error is MobileApiException) {
-      return switch (error.code) {
-        'progress_batch_not_found' => 'Progress QR topilmadi',
-        'progress_batch_not_accepted' => 'Bu QR order oqimiga mos emas',
-        _ => error.message.isEmpty ? 'QR report olinmadi' : error.message,
-      };
-    }
-    return 'QR report olinmadi';
   }
 
   String _extractQrPayload(String rawValue) {
@@ -410,7 +462,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
     return Theme(
       data: theme.copyWith(appBarTheme: appBarTheme),
       child: AppShell(
-        title: 'QR scan',
+        title: context.l10n.productionText('worker.action.scan'),
         subtitle: '',
         nativeTopBar: true,
         backgroundColor: backgroundColor,
@@ -437,9 +489,12 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
                     : scannerMode
                         ? _ScannerView(
                             controller: _controller,
-                            statusText: _statusText,
+                            statusText: _statusText(context.l10n),
                             processing: _processing,
-                            errorText: _errorText,
+                            errorText: _scanStatus == _QrScanStatus.error ||
+                                    _scanStatus == _QrScanStatus.cameraFailed
+                                ? _statusText(context.l10n)
+                                : null,
                             onDetect: _handleDetect,
                             onRetry: _startScanner,
                             onManualEntry: _showManualQrDialog,
@@ -488,7 +543,9 @@ class _ScannerView extends StatelessWidget {
             onDetect: onDetect,
             errorBuilder: (context, error) {
               return _ScannerErrorView(
-                message: 'Kamera ochilmadi. Ruxsatlarni tekshiring.',
+                message: context.l10n.productionText(
+                  'worker.scanner.camera_permission',
+                ),
                 onRetry: onRetry,
               );
             },
@@ -564,7 +621,9 @@ class _ScannerView extends StatelessWidget {
                 TextButton.icon(
                   onPressed: processing ? null : onManualEntry,
                   icon: const Icon(Icons.keyboard_alt_outlined),
-                  label: const Text('QR ni qo‘lda kiritish'),
+                  label: Text(
+                    context.l10n.productionText('worker.scanner.manual.title'),
+                  ),
                 ),
               ],
             ),
@@ -592,7 +651,7 @@ class _QrReportView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final passport = buildProgressQrPassport(report);
+    final passport = buildProgressQrPassport(report, l10n: context.l10n);
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
       children: [
@@ -618,8 +677,12 @@ class _QrReportView extends StatelessWidget {
                     Expanded(
                       child: Text(
                         report.isStale
-                            ? 'Bu eski QR. Hozirgi holat quyida.'
-                            : 'QR hozirgi oqimga mos.',
+                            ? context.l10n.productionText(
+                                'worker.qr.report.stale',
+                              )
+                            : context.l10n.productionText(
+                                'worker.qr.report.current',
+                              ),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
                           color: report.isStale
@@ -641,7 +704,7 @@ class _QrReportView extends StatelessWidget {
                 Text(
                   [
                     if (passport.orderNumber.isNotEmpty)
-                      'Zakaz ${passport.orderNumber}',
+                      '${context.l10n.productionText('worker.qr.report.order')} ${passport.orderNumber}',
                     passport.status,
                   ].where((item) => item.trim().isNotEmpty).join(' • '),
                 ),
@@ -664,7 +727,9 @@ class _QrReportView extends StatelessWidget {
         FilledButton.icon(
           onPressed: onScanAgain,
           icon: const Icon(Icons.qr_code_scanner_rounded),
-          label: const Text('Yana scan qilish'),
+          label: Text(
+            context.l10n.productionText('worker.scanner.scan_again'),
+          ),
         ),
       ],
     );
@@ -716,7 +781,9 @@ class _RawMaterialReportView extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Bu homashyo QR.',
+                        context.l10n.productionText(
+                          'worker.qr.report.material_title',
+                        ),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
                           color: scheme.onTertiaryContainer,
@@ -739,7 +806,7 @@ class _RawMaterialReportView extends StatelessWidget {
                   [
                     report.itemGroup,
                     _quantityTextFromParts(report.qty, report.uom),
-                    _rawMaterialStatusLabel(report.status),
+                    _rawMaterialStatusLabel(report.status, context.l10n),
                   ].where((item) => item.trim().isNotEmpty).join(' • '),
                 ),
               ],
@@ -753,10 +820,10 @@ class _RawMaterialReportView extends StatelessWidget {
         if (report.queueStates.isNotEmpty)
           _QueueStatesSection(queueStates: report.queueStates),
         _InfoSection(
-          title: 'Homashyo haqida',
+          title: context.l10n.productionText('worker.qr.report.material_about'),
           children: [
             Text(
-              _rawMaterialSummary(report, queueState),
+              _rawMaterialSummary(report, queueState, context.l10n),
               style: theme.textTheme.bodyLarge?.copyWith(
                 fontWeight: FontWeight.w800,
                 height: 1.35,
@@ -777,7 +844,9 @@ class _RawMaterialReportView extends StatelessWidget {
         FilledButton.icon(
           onPressed: onScanAgain,
           icon: const Icon(Icons.qr_code_scanner_rounded),
-          label: const Text('Yana scan qilish'),
+          label: Text(
+            context.l10n.productionText('worker.scanner.scan_again'),
+          ),
         ),
       ],
     );
@@ -817,7 +886,9 @@ class _PaddonQrReportView extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Paddon QR',
+                        context.l10n.productionText(
+                          'worker.qr.report.paddon_title',
+                        ),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
                           color: scheme.onPrimaryContainer,
@@ -835,18 +906,25 @@ class _PaddonQrReportView extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${report.items.length} ta WIP shu package ichida',
+                  context.l10n.productionText(
+                    'worker.qr.report.paddon_count',
+                    values: {'count': report.items.length},
+                  ),
                   style: theme.textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 if (paddon.location.trim().isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Text('Joylashuv: ${paddon.location}'),
+                  Text(
+                    '${context.l10n.productionText('worker.qr.report.location')}: ${paddon.location}',
+                  ),
                 ],
                 if (paddon.note.trim().isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Text('Izoh: ${paddon.note}'),
+                  Text(
+                    '${context.l10n.productionText('worker.qr.report.note')}: ${paddon.note}',
+                  ),
                 ],
               ],
             ),
@@ -854,10 +932,17 @@ class _PaddonQrReportView extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _InfoSection(
-          title: 'Paddon ichidagi WIP lar (${report.items.length})',
+          title: context.l10n.productionText(
+            'worker.qr.report.paddon_wips',
+            values: {'count': report.items.length},
+          ),
           children: report.items.isEmpty
-              ? const [
-                  _SentenceLine(text: 'Bu package ichida hozircha WIP yo‘q.'),
+              ? [
+                  _SentenceLine(
+                    text: context.l10n.productionText(
+                      'worker.qr.report.paddon_empty',
+                    ),
+                  ),
                 ]
               : [
                   for (var index = 0; index < report.items.length; index++)
@@ -871,7 +956,9 @@ class _PaddonQrReportView extends StatelessWidget {
         FilledButton.icon(
           onPressed: onScanAgain,
           icon: const Icon(Icons.qr_code_scanner_rounded),
-          label: const Text('Yana scan qilish'),
+          label: Text(
+            context.l10n.productionText('worker.scanner.scan_again'),
+          ),
         ),
       ],
     );
@@ -898,12 +985,13 @@ class _PaddonScannedWipCard extends StatelessWidget {
       workStatus: batch.statusDetail.workStatus,
       flowStatus: batch.statusDetail.flowStatus,
       wipStatus: batch.wipStatus,
+      l10n: context.l10n,
     );
     final location = [
       batch.currentLocation.trim(),
       batch.currentApparatus.trim().isNotEmpty
-          ? batch.currentApparatus.trim()
-          : batch.apparatus.trim(),
+          ? context.l10n.productionApparatusName(batch.currentApparatus)
+          : context.l10n.productionApparatusName(batch.apparatus),
     ].where((item) => item.isNotEmpty).join(' • ');
     return Card.outlined(
       margin: const EdgeInsets.only(bottom: 10),
@@ -913,18 +1001,32 @@ class _PaddonScannedWipCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '$index. ${title.isEmpty ? 'WIP' : title}',
+              '$index. ${title.isEmpty ? context.l10n.productionText('worker.daily.wip') : title}',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w900,
                   ),
             ),
             const SizedBox(height: 8),
-            _InfoRow(label: 'Order', value: batch.orderId),
-            _InfoRow(label: 'EPC / QR', value: batch.qrPayload),
-            _InfoRow(label: 'Batch ID', value: batch.batchId),
             _InfoRow(
-                label: 'Holati', value: status.isEmpty ? batch.status : status),
-            _InfoRow(label: 'Joylashuv', value: location),
+              label: context.l10n.productionText('worker.qr.report.order'),
+              value: batch.orderId,
+            ),
+            _InfoRow(
+              label: context.l10n.productionText('worker.qr.report.epc'),
+              value: batch.qrPayload,
+            ),
+            _InfoRow(
+              label: context.l10n.productionText('worker.qr.report.batch_id'),
+              value: batch.batchId,
+            ),
+            _InfoRow(
+              label: context.l10n.productionText('worker.qr.report.status'),
+              value: status.isEmpty ? batch.status : status,
+            ),
+            _InfoRow(
+              label: context.l10n.productionText('worker.qr.report.location'),
+              value: location,
+            ),
           ],
         ),
       ),
@@ -950,7 +1052,11 @@ class _ReportShareButton extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Icon(Icons.ios_share_rounded),
-        label: Text(isBusy ? 'PDF tayyorlanmoqda...' : 'PDF ulashish'),
+        label: Text(
+          isBusy
+              ? context.l10n.productionText('worker.scanner.pdf_preparing')
+              : context.l10n.productionText('worker.scanner.share_pdf'),
+        ),
       ),
     );
   }
@@ -964,7 +1070,7 @@ class _PassportPlanSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _InfoSection(
-      title: 'Buyurtma rejasi',
+      title: context.l10n.productionText('worker.qr.report.share_plan'),
       children: [
         for (final line in lines)
           _InfoRow(label: line.label, value: line.value),
@@ -981,7 +1087,7 @@ class _PassportStagesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _InfoSection(
-      title: 'Ishlab chiqarish bosqichlari',
+      title: context.l10n.productionText('worker.qr.report.stages'),
       children: [
         for (var index = 0; index < stages.length; index++)
           _PassportStageCard(index: index + 1, stage: stages[index]),
@@ -1026,9 +1132,13 @@ class _PassportStageCard extends StatelessWidget {
                   ),
                 ),
                 if (stage.isCurrent)
-                  const Chip(
+                  Chip(
                     visualDensity: VisualDensity.compact,
-                    label: Text('Hozirgi'),
+                    label: Text(
+                      context.l10n.productionText(
+                        'worker.qr.report.current_label',
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -1061,7 +1171,7 @@ class _PassportCorrectionsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return _InfoSection(
-      title: 'Tahrirlar',
+      title: context.l10n.productionText('worker.qr.report.corrections'),
       children: [
         for (var index = 0; index < corrections.length; index++)
           Card.outlined(
@@ -1079,11 +1189,21 @@ class _PassportCorrectionsSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   _InfoRow(
-                    label: 'Tahrir qilgan',
+                    label: context.l10n.productionText(
+                      'worker.qr.report.editor',
+                    ),
                     value: corrections[index].editor,
                   ),
-                  _InfoRow(label: 'Vaqt', value: corrections[index].time),
-                  _InfoRow(label: 'Sabab', value: corrections[index].reason),
+                  _InfoRow(
+                    label: context.l10n.productionText('worker.qr.report.time'),
+                    value: corrections[index].time,
+                  ),
+                  _InfoRow(
+                    label: context.l10n.productionText(
+                      'worker.qr.report.reason',
+                    ),
+                    value: corrections[index].reason,
+                  ),
                   for (final change in corrections[index].changes)
                     _InfoRow(
                       label: change.label,
@@ -1106,11 +1226,15 @@ class _PassportIssuesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _InfoSection(
-      title: 'Muammolar va o‘zgarishlar',
+      title: context.l10n.productionText('worker.qr.report.issues'),
       children: [
         for (final issue in issues) ...[
           _InfoRow(label: issue.title, value: issue.description),
-          if (issue.time.isNotEmpty) _InfoRow(label: 'Vaqt', value: issue.time),
+          if (issue.time.isNotEmpty)
+            _InfoRow(
+              label: context.l10n.productionText('worker.qr.report.time'),
+              value: issue.time,
+            ),
         ],
       ],
     );
@@ -1129,27 +1253,43 @@ class _OrderDetailsSection extends StatelessWidget {
       return const SizedBox.shrink();
     }
     return _InfoSection(
-      title: 'Mahsulot va buyurtma',
+      title: context.l10n.productionText('worker.qr.report.product_order'),
       children: [
-        _InfoRow(label: 'Buyurtma raqami', value: order.orderNumber),
-        _InfoRow(label: 'Mahsulot', value: order.title),
-        _InfoRow(label: 'Mahsulot kodi', value: order.productCode),
-        _InfoRow(label: 'Mijoz', value: order.customerName),
         _InfoRow(
-          label: 'Rulon soni',
+          label: context.l10n.productionText('worker.qr.report.order_number'),
+          value: order.orderNumber,
+        ),
+        _InfoRow(
+          label: context.l10n.productionText('worker.qr.report.product'),
+          value: order.title,
+        ),
+        _InfoRow(
+          label: context.l10n.productionText('worker.qr.report.product_code'),
+          value: order.productCode,
+        ),
+        _InfoRow(
+          label: context.l10n.productionText('worker.qr.report.customer'),
+          value: order.customerName,
+        ),
+        _InfoRow(
+          label: context.l10n.productionText('worker.qr.report.roll_count'),
           value:
               order.rollCount == null ? '' : _displayNumber(order.rollCount!),
         ),
         _InfoRow(
-          label: 'Eni, mm',
+          label: context.l10n.productionText('worker.qr.report.width'),
           value: order.widthMm == null ? '' : _displayNumber(order.widthMm!),
         ),
         _InfoRow(
-          label: 'Rejadagi og‘irlik, kg',
+          label: context.l10n.productionText(
+            'worker.qr.report.planned_weight',
+          ),
           value: order.orderKg == null ? '' : _displayNumber(order.orderKg!),
         ),
         _InfoRow(
-          label: 'Rejadagi uzunlik',
+          label: context.l10n.productionText(
+            'worker.qr.report.planned_length',
+          ),
           value:
               order.baseLength == null ? '' : _displayNumber(order.baseLength!),
         ),
@@ -1166,13 +1306,14 @@ class _QueueStatesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _InfoSection(
-      title: 'Aparat navbatlarining holati',
+      title: context.l10n.productionText('worker.qr.report.queue_status'),
       children: [
         for (final apparatus in queueStates.entries)
           for (final order in apparatus.value.entries)
             _InfoRow(
-              label: '${apparatus.key} • ${order.key}',
-              value: order.value,
+              label:
+                  '${context.l10n.productionApparatusName(apparatus.key)} • ${order.key}',
+              value: _stateLabel(order.value, l10n: context.l10n),
             ),
       ],
     );
@@ -1192,17 +1333,34 @@ class _RawMaterialStatusSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final materialName = _rawMaterialName(report);
     final lines = [
-      '$materialName ${_quantityTextFromParts(report.qty, report.uom)} miqdorda qayd qilingan.',
+      context.l10n.productionText(
+        'worker.qr.material.recorded',
+        values: {
+          'name': materialName,
+          'quantity': _quantityTextFromParts(report.qty, report.uom),
+        },
+      ),
       if (report.itemGroup.trim().isNotEmpty)
-        'Bu homashyo ${report.itemGroup.trim()} guruhiga kiradi.',
+        context.l10n.productionText(
+          'worker.qr.material.group',
+          values: {'group': report.itemGroup.trim()},
+        ),
       if (report.warehouse.trim().isNotEmpty)
-        'Hozirgi ombor: ${report.warehouse.trim()}.',
-      _rawMaterialStatusSentence(report.status),
+        context.l10n.productionText(
+          'worker.qr.material.warehouse',
+          values: {'warehouse': report.warehouse.trim()},
+        ),
+      _rawMaterialStatusSentence(report.status, context.l10n),
       if (queueState.trim().isNotEmpty)
-        'Ulangan order hozir ${_stateDescription(queueState)}.',
+        context.l10n.productionText(
+          'worker.qr.material.queue_state',
+          values: {
+            'state': _stateDescription(queueState, l10n: context.l10n),
+          },
+        ),
     ].where((item) => item.trim().isNotEmpty).toList();
     return _InfoSection(
-      title: 'Homashyo holati',
+      title: context.l10n.productionText('worker.qr.report.material_status'),
       children: [
         for (final line in lines) _SentenceLine(text: line),
       ],
@@ -1227,12 +1385,11 @@ class _RawMaterialAssignmentSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final assignment = this.assignment;
     if (assignment == null) {
-      return const _InfoSection(
-        title: 'Qayerga ishlatiladi',
+      return _InfoSection(
+        title: context.l10n.productionText('worker.qr.report.where_used'),
         children: [
           _SentenceLine(
-            text:
-                'Bu homashyo hali hech qaysi orderga ulanmagan. Uni scan qilgan odam hozircha faqat ombordagi homashyo ma’lumotini ko‘radi.',
+            text: context.l10n.productionText('worker.qr.material.unassigned'),
           ),
         ],
       );
@@ -1243,19 +1400,43 @@ class _RawMaterialAssignmentSection extends StatelessWidget {
     final number = orderNumber.trim();
     final lines = [
       if (number.isNotEmpty)
-        'Bu homashyo Zakaz $number bo‘yicha $title orderiga ulangan.',
-      if (number.isEmpty) 'Bu homashyo $title orderiga ulangan.',
-      'Homashyo ${assignment.apparatus} aparatida ishlatilishi kerak.',
-      _apparatusPurposeSentence(assignment.apparatus),
+        context.l10n.productionText(
+          'worker.qr.material.assigned_order_number',
+          values: {'number': number, 'order': title},
+        ),
+      if (number.isEmpty)
+        context.l10n.productionText(
+          'worker.qr.material.assigned_order',
+          values: {'order': title},
+        ),
+      context.l10n.productionText(
+        'worker.qr.material.assigned_apparatus',
+        values: {
+          'apparatus':
+              context.l10n.productionApparatusName(assignment.apparatus),
+        },
+      ),
+      _apparatusPurposeSentence(assignment.apparatus, context.l10n),
       if (queueState.trim().isNotEmpty)
-        'Orderning shu aparatdagi holati: ${_stateDescription(queueState)}.',
+        context.l10n.productionText(
+          'worker.qr.material.queue_state',
+          values: {
+            'state': _stateDescription(queueState, l10n: context.l10n),
+          },
+        ),
       if (assignment.assignedByName.trim().isNotEmpty)
-        '${assignment.assignedByName.trim()} bu homashyoni orderga ulagan.',
+        context.l10n.productionText(
+          'worker.qr.material.assigned_by',
+          values: {'name': assignment.assignedByName.trim()},
+        ),
       if (assignment.assignedAt.trim().isNotEmpty)
-        'Ulangan vaqt: ${assignment.assignedAt.trim()}.',
+        context.l10n.productionText(
+          'worker.qr.material.assigned_at',
+          values: {'time': assignment.assignedAt.trim()},
+        ),
     ].where((item) => item.trim().isNotEmpty).toList();
     return _InfoSection(
-      title: 'Qayerga ishlatiladi',
+      title: context.l10n.productionText('worker.qr.report.where_used'),
       children: [
         for (final line in lines) _SentenceLine(text: line),
       ],
@@ -1277,8 +1458,9 @@ class ProgressQrPassportChange {
 
 @visibleForTesting
 List<ProgressQrPassportChange> progressQrCorrectionChanges(
-  AdminProgressBatchCorrectionRecord correction,
-) {
+  AdminProgressBatchCorrectionRecord correction, {
+  AppLocalizations? l10n,
+}) {
   const fields = <String>[
     'produced_qty',
     'uom',
@@ -1304,16 +1486,18 @@ List<ProgressQrPassportChange> progressQrCorrectionChanges(
     }
     changes.add(
       ProgressQrPassportChange(
-        label: _passportFieldLabel(field),
+        label: _passportFieldLabel(field, l10n: l10n),
         before: _passportCorrectionValue(
           field,
           before,
           correction.oldValues,
+          l10n: l10n,
         ),
         after: _passportCorrectionValue(
           field,
           after,
           correction.newValues,
+          l10n: l10n,
         ),
       ),
     );
@@ -1328,33 +1512,41 @@ bool _passportValuesEqual(Object? before, Object? after) {
   return before?.toString().trim() == after?.toString().trim();
 }
 
-String _passportFieldLabel(String field) {
-  return switch (field) {
-    'produced_qty' => 'Ishlab chiqarilgan miqdor',
-    'uom' => 'O‘lchov birligi',
-    'diameter' => 'Diametr',
-    'return_ink_kg' => 'Qaytgan bo‘yoq',
-    'lamination_print_leftover_rolls' => 'Qaytgan bosma rulon',
-    'lamination_film_leftover_rolls' => 'Qaytgan plyonka rulon',
-    'rezka_bosma_waste' => 'Rezka bosma chiqindisi',
-    'rezka_lamination_waste' => 'Rezka laminatsiya chiqindisi',
-    'rezka_edge_waste' => 'Rezka chet chiqindisi',
-    'total_waste' => 'Jami chiqindi',
-    'finished_goods_kg' => 'Tayyor mahsulot og‘irligi',
-    'bobina_kg' => 'Bobina og‘irligi',
-    'finished_goods_meter' => 'Tayyor mahsulot uzunligi',
-    'description' => 'Izoh',
-    _ => field,
+String _passportFieldLabel(String field, {AppLocalizations? l10n}) {
+  final key = switch (field) {
+    'produced_qty' => 'worker.qr.passport.produced_quantity',
+    'uom' => 'worker.qr.passport.unit',
+    'diameter' => 'worker.qr.passport.diameter',
+    'return_ink_kg' => 'worker.qr.passport.returned_ink',
+    'lamination_print_leftover_rolls' =>
+      'worker.qr.passport.returned_print_rolls',
+    'lamination_film_leftover_rolls' =>
+      'worker.qr.passport.returned_film_rolls',
+    'rezka_bosma_waste' => 'worker.qr.passport.print_waste',
+    'rezka_lamination_waste' => 'worker.qr.passport.lamination_waste',
+    'rezka_edge_waste' => 'worker.qr.passport.edge_waste',
+    'total_waste' => 'worker.progress.qty.waste',
+    'finished_goods_kg' => 'worker.qr.passport.finished_weight',
+    'bobina_kg' => 'worker.qr.passport.bobbin_weight',
+    'finished_goods_meter' => 'worker.qr.passport.finished_length',
+    'description' => 'worker.wip.info.note',
+    _ => null,
   };
+  if (key == null) {
+    return field;
+  }
+  return l10n?.productionText(key) ?? _passportFieldLabelFallback(field);
 }
 
 String _passportCorrectionValue(
   String field,
   Object? value,
-  Map<String, dynamic> values,
-) {
+  Map<String, dynamic> values, {
+  AppLocalizations? l10n,
+}) {
   if (value == null || value.toString().trim().isEmpty) {
-    return 'kiritilmagan';
+    return l10n?.productionText('worker.qr.report.not_entered') ??
+        'kiritilmagan';
   }
   if (value is num) {
     final unit = switch (field) {
@@ -1381,6 +1573,26 @@ String _passportCorrectionValue(
     );
   }
   return value.toString().trim();
+}
+
+String _passportFieldLabelFallback(String field) {
+  return switch (field) {
+    'produced_qty' => 'Ishlab chiqarilgan miqdor',
+    'uom' => 'O‘lchov birligi',
+    'diameter' => 'Diametr',
+    'return_ink_kg' => 'Qaytgan bo‘yoq',
+    'lamination_print_leftover_rolls' => 'Qaytgan bosma rulon',
+    'lamination_film_leftover_rolls' => 'Qaytgan plyonka rulon',
+    'rezka_bosma_waste' => 'Rezka bosma chiqindisi',
+    'rezka_lamination_waste' => 'Rezka laminatsiya chiqindisi',
+    'rezka_edge_waste' => 'Rezka chet chiqindisi',
+    'total_waste' => 'Jami chiqindi',
+    'finished_goods_kg' => 'Tayyor mahsulot og‘irligi',
+    'bobina_kg' => 'Bobina og‘irligi',
+    'finished_goods_meter' => 'Tayyor mahsulot uzunligi',
+    'description' => 'Izoh',
+    _ => field,
+  };
 }
 
 class _PassportTimelineEntry {
@@ -1425,7 +1637,7 @@ class _TimelineSection extends StatelessWidget {
       return const SizedBox.shrink();
     }
     return _InfoSection(
-      title: 'Mahsulot tarixi',
+      title: context.l10n.productionText('worker.qr.report.history'),
       children: [
         for (var index = 0; index < entries.length; index++)
           if (entries[index].log != null)
@@ -1475,14 +1687,14 @@ class _TimelineStep extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  progressQrTimelineTitle(log.action),
+                  progressQrTimelineTitle(log.action, l10n: context.l10n),
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _logSentence(log, time),
+                  _logSentence(log, time, context.l10n),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w700,
@@ -1492,13 +1704,14 @@ class _TimelineStep extends StatelessWidget {
                     log.transfer!.reason.trim().isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
-                      'O‘tkazish sababi: ${_humanReason(log.transfer!.reason)}'),
+                    '${context.l10n.productionText('worker.qr.report.transfer_reason')}: ${_humanReason(log.transfer!.reason, context.l10n)}',
+                  ),
                 ],
                 if (log.completedWithIssue &&
                     log.issueNote.trim().isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'Izoh: ${log.issueNote.trim()}',
+                    '${context.l10n.productionText('worker.qr.report.completed_note')}: ${log.issueNote.trim()}',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -1528,11 +1741,11 @@ class _CorrectionTimelineStep extends StatelessWidget {
     final scheme = theme.colorScheme;
     final actor = correction.actorDisplayName.trim().isNotEmpty
         ? correction.actorDisplayName.trim()
-        : 'Mas’ul xodim';
+        : context.l10n.productionText('worker.wip.info.worker');
     final time = correction.createdAtUnix > 0
         ? formatUnixSecondsLocalDateTime(correction.createdAtUnix)
         : '';
-    final changes = progressQrCorrectionChanges(correction);
+    final changes = progressQrCorrectionChanges(correction, l10n: context.l10n);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
@@ -1555,7 +1768,7 @@ class _CorrectionTimelineStep extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Ma’lumot tahrirlandi',
+                  context.l10n.productionText('worker.qr.report.corrections'),
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w900,
                   ),
@@ -1563,10 +1776,11 @@ class _CorrectionTimelineStep extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   [
-                    '$actor ma’lumotni tahrirladi.',
-                    if (time.isNotEmpty) 'Vaqt: $time.',
+                    '$actor ${context.l10n.productionText('worker.qr.report.corrections').toLowerCase()}.',
+                    if (time.isNotEmpty)
+                      '${context.l10n.productionText('worker.qr.report.time')}: $time.',
                     if (correction.reason.trim().isNotEmpty)
-                      'Sabab: ${correction.reason.trim()}.',
+                      '${context.l10n.productionText('worker.qr.report.reason')}: ${correction.reason.trim()}.',
                   ].join(' '),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
@@ -1600,67 +1814,117 @@ class _TechnicalRawMaterialSection extends StatelessWidget {
     return Card.filled(
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
-        title: const Text(
-          'Texnik homashyo ma’lumot',
-          style: TextStyle(fontWeight: FontWeight.w900),
+        title: Text(
+          context.l10n.productionText('worker.qr.report.technical'),
+          style: const TextStyle(fontWeight: FontWeight.w900),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
-          _InfoRow(label: 'QR / barcode', value: report.barcode),
-          _InfoRow(label: 'Ombor', value: report.warehouse),
-          _InfoRow(label: 'Item code', value: report.itemCode),
-          _InfoRow(label: 'Item nomi', value: report.itemName),
-          _InfoRow(label: 'Item group', value: report.itemGroup),
           _InfoRow(
-            label: 'Miqdor',
+            label: context.l10n.productionText('worker.qr.report.barcode'),
+            value: report.barcode,
+          ),
+          _InfoRow(
+            label: context.l10n.productionText('worker.qr.report.warehouse'),
+            value: report.warehouse,
+          ),
+          _InfoRow(
+            label: context.l10n.productionText('worker.qr.report.item_code'),
+            value: report.itemCode,
+          ),
+          _InfoRow(
+            label: context.l10n.productionText('worker.qr.report.item_name'),
+            value: report.itemName,
+          ),
+          _InfoRow(
+            label: context.l10n.productionText('worker.qr.report.item_group'),
+            value: report.itemGroup,
+          ),
+          _InfoRow(
+            label: context.l10n.productionText('worker.wip.info.quantity'),
             value: _quantityTextFromParts(report.qty, report.uom),
           ),
-          _InfoRow(label: 'Holat', value: report.status),
-          _InfoRow(label: 'Receipt', value: report.sourceReceiptId),
-          _InfoRow(label: 'Reserved order', value: report.reservedOrderId),
+          _InfoRow(
+            label: context.l10n.productionText('worker.qr.report.status'),
+            value: _rawMaterialStatusLabel(report.status, context.l10n),
+          ),
+          _InfoRow(
+            label: context.l10n.productionText('worker.qr.report.receipt'),
+            value: report.sourceReceiptId,
+          ),
+          _InfoRow(
+            label: context.l10n.productionText(
+              'worker.qr.report.reserved_order',
+            ),
+            value: report.reservedOrderId,
+          ),
           if (report.assignment != null) ...[
             _InfoRow(
-              label: 'Assigned order',
+              label: context.l10n.productionText(
+                'worker.qr.report.assigned_order',
+              ),
               value: report.assignment!.orderId,
             ),
             _InfoRow(
-              label: 'Assigned apparatus',
-              value: report.assignment!.apparatus,
+              label: context.l10n.productionText(
+                'worker.qr.report.assigned_machine',
+              ),
+              value: context.l10n.productionApparatusName(
+                report.assignment!.apparatus,
+              ),
             ),
             _InfoRow(
-              label: 'Assigned by ref',
+              label: context.l10n.productionText(
+                'worker.qr.report.assigned_by_ref',
+              ),
               value: report.assignment!.assignedByRef,
             ),
             _InfoRow(
-              label: 'Assigned by name',
+              label: context.l10n.productionText(
+                'worker.qr.report.assigned_by_name',
+              ),
               value: report.assignment!.assignedByName,
             ),
             _InfoRow(
-              label: 'Assigned at',
+              label: context.l10n.productionText(
+                'worker.qr.report.assigned_at',
+              ),
               value: report.assignment!.assignedAt,
             ),
             _InfoRow(
-              label: 'Stock status',
+              label: context.l10n.productionText(
+                'worker.qr.report.stock_status',
+              ),
               value: report.assignment!.stockStatus,
             ),
             _InfoRow(
-              label: 'Stock warehouse',
+              label: context.l10n.productionText(
+                'worker.qr.report.stock_warehouse',
+              ),
               value: report.assignment!.stockWarehouse,
             ),
             _InfoRow(
-              label: 'Stock quantity',
+              label: context.l10n.productionText(
+                'worker.qr.report.stock_quantity',
+              ),
               value: _displayNumber(report.assignment!.stockQty),
             ),
             _InfoRow(
-              label: 'Received quantity',
+              label: context.l10n.productionText(
+                'worker.qr.report.received_quantity',
+              ),
               value: _displayNumber(report.assignment!.receivedQty),
             ),
             _InfoRow(
-              label: 'Consumed quantity',
+              label: context.l10n.productionText(
+                'worker.qr.report.consumed_quantity',
+              ),
               value: _displayNumber(report.assignment!.consumedQty),
             ),
             _InfoRow(
-              label: 'Remaining quantity',
+              label: context.l10n.productionText(
+                'worker.qr.report.remaining_quantity',
+              ),
               value: _displayNumber(report.assignment!.remainingQty),
             ),
           ],
@@ -1891,7 +2155,9 @@ class _ScannerErrorView extends StatelessWidget {
             FilledButton.icon(
               onPressed: () => unawaited(onRetry()),
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Qayta urinish'),
+              label: Text(
+                context.l10n.productionText('worker.action.retry'),
+              ),
             ),
           ],
         ),
@@ -1919,20 +2185,24 @@ class _UnsupportedScannerView extends StatelessWidget {
           children: [
             const Icon(Icons.no_photography_outlined, size: 48),
             const SizedBox(height: 12),
-            const Text(
-              'Bu qurilmada kamera orqali QR scan qo‘llab-quvvatlanmaydi.',
+            Text(
+              context.l10n.productionText('worker.scanner.unsupported'),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: onManualEntry,
               icon: const Icon(Icons.keyboard_alt_outlined),
-              label: const Text('QR ni qo‘lda kiritish'),
+              label: Text(
+                context.l10n.productionText('worker.scanner.manual.title'),
+              ),
             ),
             const SizedBox(height: 8),
             FilledButton(
               onPressed: onBack,
-              child: const Text('Orqaga'),
+              child: Text(
+                context.l10n.productionText('worker.scanner.back'),
+              ),
             ),
           ],
         ),
@@ -1941,54 +2211,88 @@ class _UnsupportedScannerView extends StatelessWidget {
   }
 }
 
-String _stateLabel(String value) {
-  return switch (value.trim()) {
-    'start' => 'Boshlandi',
-    'pause' => 'Pauza',
-    'detach_roll' => 'Rulon yechildi',
-    'resume' => 'Davom etdi',
-    'complete' => 'Tugadi',
-    'pending' => 'Kutilmoqda',
-    'in_progress' => 'Jarayonda',
-    'paused' => 'Pauzada',
-    'roll_detached' => 'Rulon yechilgan',
-    'completed' => 'Tugagan',
-    'waiting' => 'Keyingi ishni kutmoqda',
-    'in_use' => 'Ish jarayonida',
-    'processed' => 'Keyingi bosqichda ishlatilgan',
-    'free_wip' ||
-    'finished_pending_acceptance' =>
-      'Omborga topshirishni kutmoqda',
-    'accepted_to_stock' => 'Omborga qabul qilingan',
-    'waiting_next_stage' => 'Keyingi bosqichni kutmoqda',
-    'consumed_by_next_stage' => 'Keyingi bosqichda ishlatilgan',
-    'active' => 'Jarayonda',
-    _ => value,
+String _stateLabel(String value, {AppLocalizations? l10n}) {
+  final normalized = value.trim();
+  final translation = switch (normalized) {
+    'start' => ('worker.qr.status.started', 'Boshlandi'),
+    'pause' => ('worker.action.pause', 'Pauza'),
+    'detach_roll' => ('worker.qr.status.roll_removed', 'Rulon yechildi'),
+    'resume' => ('worker.qr.status.resumed', 'Davom etdi'),
+    'complete' => ('worker.qr.status.finished', 'Tugadi'),
+    'pending' => ('worker.qr.status.waiting_start', 'Kutilmoqda'),
+    'in_progress' || 'active' => ('worker.qr.status.in_progress', 'Jarayonda'),
+    'paused' => ('worker.qr.status.paused', 'Pauzada'),
+    'roll_detached' => ('worker.qr.status.roll_removed', 'Rulon yechilgan'),
+    'completed' => ('worker.qr.status.completed', 'Tugagan'),
+    'waiting' => ('worker.qr.status.waiting_work', 'Keyingi ishni kutmoqda'),
+    'in_use' => ('worker.qr.status.in_progress', 'Ish jarayonida'),
+    'processed' || 'consumed_by_next_stage' => (
+        'worker.qr.status.used',
+        'Keyingi bosqichda ishlatilgan'
+      ),
+    'free_wip' || 'finished_pending_acceptance' => (
+        'worker.qr.status.waiting_stock',
+        'Omborga topshirishni kutmoqda'
+      ),
+    'accepted_to_stock' => (
+        'worker.qr.status.accepted_stock',
+        'Omborga qabul qilingan'
+      ),
+    'waiting_next_stage' => (
+        'worker.qr.status.waiting_next',
+        'Keyingi bosqichni kutmoqda'
+      ),
+    _ => null,
   };
+  if (translation == null) {
+    return value;
+  }
+  return l10n?.productionText(translation.$1) ?? translation.$2;
 }
 
-String _stateDescription(String value) {
-  return switch (value.trim()) {
-    'start' => 'ish boshlangan',
-    'pause' => 'ish pauzaga olingan',
-    'detach_roll' => 'rulon yechilgan',
-    'resume' => 'ish davom ettirilgan',
-    'complete' || 'completed' => 'ish tugagan',
-    'pending' || 'waiting' => 'ish boshlanishini kutyapti',
-    'in_progress' => 'ish jarayonda',
-    'paused' => 'ish vaqtincha pauzada',
-    'roll_detached' => 'rulon apparatdan yechilgan',
-    'stopped' || 'cancelled' => 'ish to‘xtatilgan',
-    'in_use' => 'ish jarayonida',
-    'processed' => 'keyingi bosqichda ishlatilgan',
-    'free_wip' ||
-    'finished_pending_acceptance' =>
-      'omborga topshirishni kutmoqda',
-    'accepted_to_stock' => 'omborga qabul qilingan',
-    'waiting_next_stage' => 'keyingi bosqichni kutmoqda',
-    'consumed_by_next_stage' => 'keyingi bosqichda ishlatilgan',
-    _ => _stateLabel(value).toLowerCase(),
+String _stateDescription(String value, {AppLocalizations? l10n}) {
+  final normalized = value.trim();
+  final translation = switch (normalized) {
+    'start' => ('worker.qr.state.started', 'ish boshlangan'),
+    'pause' => ('worker.qr.state.paused', 'ish pauzaga olingan'),
+    'detach_roll' || 'roll_detached' => (
+        'worker.qr.state.roll_removed',
+        'rulon yechilgan'
+      ),
+    'resume' => ('worker.qr.state.resumed', 'ish davom ettirilgan'),
+    'complete' || 'completed' => ('worker.qr.state.completed', 'ish tugagan'),
+    'pending' || 'waiting' => (
+        'worker.qr.state.waiting_start',
+        'ish boshlanishini kutyapti'
+      ),
+    'in_progress' || 'in_use' || 'active' => (
+        'worker.qr.state.in_progress',
+        'ish jarayonda'
+      ),
+    'paused' => ('worker.qr.state.paused', 'ish vaqtincha pauzada'),
+    'stopped' || 'cancelled' => ('worker.qr.state.stopped', 'ish to‘xtatilgan'),
+    'processed' || 'consumed_by_next_stage' => (
+        'worker.qr.state.used_next',
+        'keyingi bosqichda ishlatilgan'
+      ),
+    'free_wip' || 'finished_pending_acceptance' => (
+        'worker.qr.state.waiting_stock',
+        'omborga topshirishni kutmoqda'
+      ),
+    'accepted_to_stock' => (
+        'worker.qr.status.accepted_stock',
+        'omborga qabul qilingan'
+      ),
+    'waiting_next_stage' => (
+        'worker.qr.state.waiting_next',
+        'keyingi bosqichni kutmoqda'
+      ),
+    _ => null,
   };
+  if (translation == null) {
+    return _stateLabel(value, l10n: l10n).toLowerCase();
+  }
+  return l10n?.productionText(translation.$1) ?? translation.$2;
 }
 
 @visibleForTesting
@@ -2008,42 +2312,81 @@ String progressQrHumanStatusLabel({
   required String workStatus,
   required String flowStatus,
   required String wipStatus,
+  AppLocalizations? l10n,
 }) {
   final work = workStatus.trim();
   final flow = flowStatus.trim();
   final product = wipStatus.trim();
   if (flow == 'free_wip' || flow == 'finished_pending_acceptance') {
     return work == 'completed'
-        ? 'Ishlab chiqarish tugagan, omborga topshirishni kutmoqda'
-        : 'Omborga topshirishni kutmoqda';
+        ? _qrText(
+            l10n,
+            'worker.qr.status.completed_pending_stock',
+            'Ishlab chiqarish tugagan, omborga topshirishni kutmoqda',
+          )
+        : _qrText(
+            l10n,
+            'worker.qr.status.waiting_stock',
+            'Omborga topshirishni kutmoqda',
+          );
   }
   if (flow == 'accepted_to_stock') {
-    return 'Omborga qabul qilingan';
+    return _qrText(
+      l10n,
+      'worker.qr.status.accepted_stock',
+      'Omborga qabul qilingan',
+    );
   }
   if (flow == 'waiting_next_stage') {
-    return 'Keyingi bosqichni kutmoqda';
+    return _qrText(
+      l10n,
+      'worker.qr.status.waiting_next',
+      'Keyingi bosqichni kutmoqda',
+    );
   }
   if (flow == 'consumed_by_next_stage') {
-    return 'Keyingi bosqichda ishlatilgan';
+    return _qrText(
+      l10n,
+      'worker.qr.status.consumed_next',
+      'Keyingi bosqichda ishlatilgan',
+    );
   }
   if (flow == 'in_progress') {
-    return 'Ish jarayonida';
+    return _qrText(l10n, 'worker.qr.status.in_progress', 'Ish jarayonida');
   }
   if (work.isNotEmpty) {
     return switch (work) {
-      'completed' || 'complete' => 'Ishi tugagan',
-      'paused' || 'pause' => 'Ishi vaqtincha to‘xtatilgan',
-      'roll_detached' || 'detach_roll' => 'Ruloni yechilgan',
-      'in_progress' || 'start' || 'resume' => 'Ish jarayonida',
-      'pending' || 'waiting' => 'Ish boshlanishini kutmoqda',
-      _ => _stateLabel(work),
+      'completed' ||
+      'complete' =>
+        _qrText(l10n, 'worker.qr.status.completed', 'Ishi tugagan'),
+      'paused' ||
+      'pause' =>
+        _qrText(l10n, 'worker.qr.status.paused', 'Ishi vaqtincha to‘xtatilgan'),
+      'roll_detached' ||
+      'detach_roll' =>
+        _qrText(l10n, 'worker.qr.status.roll_removed', 'Ruloni yechilgan'),
+      'in_progress' ||
+      'start' ||
+      'resume' =>
+        _qrText(l10n, 'worker.qr.status.in_progress', 'Ish jarayonida'),
+      'pending' || 'waiting' => _qrText(
+          l10n, 'worker.qr.status.waiting_start', 'Ish boshlanishini kutmoqda'),
+      _ => _stateLabel(work, l10n: l10n),
     };
   }
   return switch (product) {
-    'waiting' => 'Keyingi ishni kutmoqda',
-    'in_use' => 'Ish jarayonida',
-    'processed' => 'Keyingi bosqichda ishlatilgan',
-    _ => _stateLabel(product),
+    'waiting' => _qrText(
+        l10n,
+        'worker.qr.status.waiting_work',
+        'Keyingi ishni kutmoqda',
+      ),
+    'in_use' => _qrText(l10n, 'worker.qr.status.in_progress', 'Ish jarayonida'),
+    'processed' => _qrText(
+        l10n,
+        'worker.qr.status.used',
+        'Keyingi bosqichda ishlatilgan',
+      ),
+    _ => _stateLabel(product, l10n: l10n),
   };
 }
 
@@ -2052,18 +2395,40 @@ String progressQrTechnicalProductStatusLabel({
   required String workStatus,
   required String flowStatus,
   required String wipStatus,
+  AppLocalizations? l10n,
 }) {
   final flow = flowStatus.trim();
   final status = switch (flow) {
-    'free_wip' || 'finished_pending_acceptance' => 'erkin WIP holatida',
-    'accepted_to_stock' => 'omborga qabul qilingan',
-    'waiting_next_stage' => 'keyingi bosqichni kutmoqda',
-    'consumed_by_next_stage' => 'keyingi bosqichda ishlatilgan',
+    'free_wip' || 'finished_pending_acceptance' => _lowercaseFirst(
+        _qrText(l10n, 'worker.qr.status.free_wip', 'erkin WIP holatida'),
+      ),
+    'accepted_to_stock' => _lowercaseFirst(
+        _qrText(
+          l10n,
+          'worker.qr.status.accepted_stock',
+          'omborga qabul qilingan',
+        ),
+      ),
+    'waiting_next_stage' => _lowercaseFirst(
+        _qrText(
+          l10n,
+          'worker.qr.status.waiting_next',
+          'keyingi bosqichni kutmoqda',
+        ),
+      ),
+    'consumed_by_next_stage' => _lowercaseFirst(
+        _qrText(
+          l10n,
+          'worker.qr.status.consumed_next',
+          'keyingi bosqichda ishlatilgan',
+        ),
+      ),
     _ => progressQrHumanStatusLabel(
         workStatus: workStatus,
         flowStatus: flowStatus,
         wipStatus: wipStatus,
-      ).toLowerCase(),
+        l10n: l10n,
+      ),
   };
   if (status.trim().isEmpty) {
     return '';
@@ -2072,40 +2437,85 @@ String progressQrTechnicalProductStatusLabel({
     'free_wip' ||
     'finished_pending_acceptance' ||
     'accepted_to_stock' =>
-      'Tayyor mahsulot',
-    _ => 'Yarim tayyor mahsulot',
+      _qrText(l10n, 'worker.qr.status.product_ready', 'Tayyor mahsulot'),
+    _ => _qrText(
+        l10n,
+        'worker.qr.status.semi_finished',
+        'Yarim tayyor mahsulot',
+      ),
   };
-  return '$productKind holati: $status';
+  return _qrText(
+    l10n,
+    'worker.qr.status.label',
+    '$productKind holati: $status',
+    values: {'kind': productKind, 'status': status},
+  );
 }
 
-String _apparatusPurposeSentence(String apparatus) {
+String _apparatusPurposeSentence(String apparatus, [AppLocalizations? l10n]) {
   final lower = apparatus.trim().toLowerCase();
   if (lower.contains('lamin')) {
-    return 'U yerda mahsulot laminatsiya qilinadi.';
+    return _qrText(
+      l10n,
+      'worker.qr.apparatus.purpose.lamination',
+      'U yerda mahsulot laminatsiya qilinadi.',
+    );
   }
   if (lower.contains('pechat') || lower.contains('bosma')) {
-    return 'U yerda mahsulotga pechat/bosma ishi bajariladi.';
+    return _qrText(
+      l10n,
+      'worker.qr.apparatus.purpose.printing',
+      'U yerda mahsulotga pechat/bosma ishi bajariladi.',
+    );
   }
   if (lower.contains('rezka') || lower.contains('kes')) {
-    return 'U yerda mahsulot kesiladi, ya’ni rezka ishi bajariladi.';
+    return _qrText(
+      l10n,
+      'worker.qr.apparatus.purpose.cutting',
+      'U yerda mahsulot kesiladi, ya’ni rezka ishi bajariladi.',
+    );
   }
   if (lower.contains('qolip')) {
-    return 'U yerda qolip bilan bog‘liq ishlab chiqarish ishi bajariladi.';
+    return _qrText(
+      l10n,
+      'worker.qr.apparatus.purpose.mold',
+      'U yerda qolip bilan bog‘liq ishlab chiqarish ishi bajariladi.',
+    );
   }
-  return 'U yerda keyingi ishlab chiqarish ishi bajariladi.';
+  return _qrText(
+    l10n,
+    'worker.qr.apparatus.purpose.next',
+    'U yerda keyingi ishlab chiqarish ishi bajariladi.',
+  );
 }
 
-String _humanReason(String value) {
+String _humanReason(String value, [AppLocalizations? l10n]) {
   final reason = value.trim();
   if (reason.isEmpty) {
     return '';
   }
   return switch (reason) {
-    'apparatus_issue' => 'Aparatdagi nosozlik',
-    'worker_issue' => 'Xodim bilan bog‘liq sabab',
-    'material_issue' => 'Homashyo bilan bog‘liq sabab',
-    'quality_issue' => 'Sifat bilan bog‘liq sabab',
-    'other' => 'Boshqa sabab',
+    'apparatus_issue' => _qrText(
+        l10n,
+        'worker.qr.reason.apparatus_issue',
+        'Aparatdagi nosozlik',
+      ),
+    'worker_issue' => _qrText(
+        l10n,
+        'worker.qr.reason.worker_issue',
+        'Xodim bilan bog‘liq sabab',
+      ),
+    'material_issue' => _qrText(
+        l10n,
+        'worker.qr.reason.material_issue',
+        'Homashyo bilan bog‘liq sabab',
+      ),
+    'quality_issue' => _qrText(
+        l10n,
+        'worker.qr.reason.quality_issue',
+        'Sifat bilan bog‘liq sabab',
+      ),
+    'other' => _qrText(l10n, 'worker.qr.reason.other', 'Boshqa sabab'),
     _ => reason.contains('_')
         ? '${reason.replaceAll('_', ' ')[0].toUpperCase()}${reason.replaceAll('_', ' ').substring(1)}'
         : reason,
@@ -2113,36 +2523,69 @@ String _humanReason(String value) {
 }
 
 @visibleForTesting
-String progressQrTimelineTitle(String action) {
-  return switch (action.trim()) {
-    'start' => 'Bosqichdagi ish boshlandi',
-    'pause' => 'Bosqichdagi ish vaqtincha to‘xtatildi',
-    'detach_roll' => 'Bosqichdagi rulon yechildi',
-    'resume' => 'Bosqichdagi ish davom ettirildi',
-    'roll_complete' => 'Bitta rulon yakunlandi',
-    'complete' => 'Bosqichdagi ish yakunlandi',
-    _ => _stateLabel(action),
+String progressQrTimelineTitle(
+  String action, {
+  AppLocalizations? l10n,
+}) {
+  final normalized = action.trim();
+  final translation = switch (normalized) {
+    'start' => ('worker.qr.timeline.start', 'Bosqichdagi ish boshlandi'),
+    'pause' => (
+        'worker.qr.timeline.pause',
+        'Bosqichdagi ish vaqtincha to‘xtatildi',
+      ),
+    'detach_roll' => (
+        'worker.qr.timeline.detach_roll',
+        'Bosqichdagi rulon yechildi'
+      ),
+    'resume' => (
+        'worker.qr.timeline.resume',
+        'Bosqichdagi ish davom ettirildi'
+      ),
+    'roll_complete' => (
+        'worker.qr.timeline.roll_complete',
+        'Bitta rulon yakunlandi'
+      ),
+    'complete' => ('worker.qr.timeline.complete', 'Bosqichdagi ish yakunlandi'),
+    _ => null,
   };
+  if (translation == null) {
+    return _stateLabel(action, l10n: l10n);
+  }
+  return l10n?.productionText(translation.$1) ?? translation.$2;
 }
 
-String _logSentence(AdminProductionOrderLogEntry log, String time) {
+String _logSentence(AdminProductionOrderLogEntry log, String time,
+    [AppLocalizations? l10n]) {
   final actor = log.actorDisplayName.trim().isNotEmpty
       ? log.actorDisplayName.trim()
-      : 'Ijrochi';
-  final apparatus = log.apparatus.trim();
-  final actionSentence = switch (log.action.trim()) {
-    'start' => '$actor $apparatus bosqichida ishni boshladi.',
-    'pause' => '$actor $apparatus bosqichidagi ishni vaqtincha to‘xtatdi.',
-    'detach_roll' => '$actor $apparatus bosqichidagi rulonni yechdi.',
-    'resume' => '$actor $apparatus bosqichidagi ishni davom ettirdi.',
-    'roll_complete' =>
-      '$actor $apparatus bosqichidagi bitta rulonni yakunladi.',
-    'complete' => '$actor $apparatus bosqichidagi ishni yakunladi.',
-    _ => '$actor $apparatus bosqichida amal bajardi.',
+      : _qrText(l10n, 'worker.qr.report.editor', 'Ijrochi');
+  final apparatus =
+      l10n?.productionApparatusName(log.apparatus) ?? log.apparatus.trim();
+  final actionKey = switch (log.action.trim()) {
+    'start' => 'worker.qr.timeline.action.start',
+    'pause' => 'worker.qr.timeline.action.pause',
+    'detach_roll' => 'worker.qr.timeline.action.detach_roll',
+    'resume' => 'worker.qr.timeline.action.resume',
+    'roll_complete' => 'worker.qr.timeline.action.roll_complete',
+    'complete' => 'worker.qr.timeline.action.complete',
+    _ => 'worker.qr.timeline.action.generic',
   };
+  final actionSentence = _qrText(
+    l10n,
+    actionKey,
+    _logSentenceFallback(log.action, actor, apparatus),
+    values: {'actor': actor, 'apparatus': apparatus},
+  );
   return [
     actionSentence,
-    if (time.trim().isNotEmpty) 'Vaqt: $time.',
+    if (time.trim().isNotEmpty)
+      _qrText(
+        l10n,
+        'worker.qr.timeline.time',
+        'Vaqt: $time.',
+        values: {'time': time},
+      ),
   ].join(' ');
 }
 
@@ -2192,26 +2635,46 @@ String _displayNumber(num value) {
   return asDouble.toString();
 }
 
-String _rawMaterialStatusLabel(String value) {
-  return switch (value.trim()) {
-    'available' => 'Omborda mavjud',
-    'in_use' => 'Ishlatilmoqda',
-    'consumed' => 'Ishlatib bo‘lingan',
-    'reserved' => 'Band qilingan',
-    _ => value,
+String _rawMaterialStatusLabel(String value, [AppLocalizations? l10n]) {
+  final key = switch (value.trim()) {
+    'available' => 'worker.qr.material.status_available',
+    'in_use' => 'worker.qr.material.status_in_use',
+    'consumed' => 'worker.qr.material.status_consumed',
+    'reserved' => 'worker.qr.material.status_reserved',
+    _ => null,
   };
+  if (key == null) {
+    return value;
+  }
+  return _qrText(l10n, key, _rawMaterialStatusLabelFallback(value));
 }
 
-String _rawMaterialStatusSentence(String value) {
-  return switch (value.trim()) {
-    'available' => 'Bu homashyo omborda mavjud.',
-    'in_use' => 'Bu homashyo ishlab chiqarishda ishlatilmoqda.',
-    'consumed' => 'Bu homashyo ishlatib bo‘lingan.',
-    'reserved' => 'Bu homashyo order uchun band qilingan.',
-    _ => value.trim().isEmpty
-        ? ''
-        : 'Homashyo holati: ${_rawMaterialStatusLabel(value).toLowerCase()}.',
+String _rawMaterialStatusSentence(String value, [AppLocalizations? l10n]) {
+  final key = switch (value.trim()) {
+    'available' => 'worker.qr.material.status_available',
+    'in_use' => 'worker.qr.material.status_in_use',
+    'consumed' => 'worker.qr.material.status_consumed',
+    'reserved' => 'worker.qr.material.status_reserved',
+    _ => null,
   };
+  if (value.trim().isEmpty) {
+    return '';
+  }
+  if (key != null) {
+    return _qrText(
+      l10n,
+      key,
+      _rawMaterialStatusSentenceFallback(value),
+    );
+  }
+  return _qrText(
+    l10n,
+    'worker.qr.material.status_generic',
+    'Homashyo holati: ${_rawMaterialStatusLabel(value).toLowerCase()}.',
+    values: {
+      'status': _rawMaterialStatusLabel(value, l10n).toLowerCase(),
+    },
+  );
 }
 
 String _rawMaterialName(AdminRawMaterialLookup report) {
@@ -2224,17 +2687,36 @@ String _rawMaterialName(AdminRawMaterialLookup report) {
   return 'Homashyo';
 }
 
-String _rawMaterialSummary(AdminRawMaterialLookup report, String queueState) {
+String _rawMaterialSummary(
+  AdminRawMaterialLookup report,
+  String queueState,
+  AppLocalizations? l10n,
+) {
   final assignment = report.assignment;
   final order = report.order;
   final materialName = _rawMaterialName(report);
   final quantity = _quantityTextFromParts(report.qty, report.uom);
   if (assignment == null) {
     return [
-      '$materialName homashyosi scan qilindi.',
-      if (quantity.trim().isNotEmpty) 'Miqdori: $quantity.',
-      _rawMaterialStatusSentence(report.status),
-      'Bu homashyo hali hech qaysi orderga ulanmagan.',
+      _qrText(
+        l10n,
+        'worker.qr.material.scanned',
+        '$materialName homashyosi scan qilindi.',
+        values: {'name': materialName},
+      ),
+      if (quantity.trim().isNotEmpty)
+        _qrText(
+          l10n,
+          'worker.qr.material.quantity',
+          'Miqdori: $quantity.',
+          values: {'quantity': quantity},
+        ),
+      _rawMaterialStatusSentence(report.status, l10n),
+      _qrText(
+        l10n,
+        'worker.qr.material.unassigned',
+        'Bu homashyo hali hech qaysi orderga ulanmagan.',
+      ),
     ].where((item) => item.trim().isNotEmpty).join(' ');
   }
   final orderTitle = order?.title.trim().isNotEmpty == true
@@ -2242,16 +2724,103 @@ String _rawMaterialSummary(AdminRawMaterialLookup report, String queueState) {
       : assignment.orderId.trim();
   final orderNumber = order?.orderNumber.trim() ?? '';
   return [
-    '$materialName homashyosi scan qilindi.',
-    if (quantity.trim().isNotEmpty) 'Miqdori: $quantity.',
+    _qrText(
+      l10n,
+      'worker.qr.material.scanned',
+      '$materialName homashyosi scan qilindi.',
+      values: {'name': materialName},
+    ),
+    if (quantity.trim().isNotEmpty)
+      _qrText(
+        l10n,
+        'worker.qr.material.quantity',
+        'Miqdori: $quantity.',
+        values: {'quantity': quantity},
+      ),
     if (orderNumber.isNotEmpty)
-      'Bu homashyo Zakaz $orderNumber bo‘yicha $orderTitle orderiga ulangan.',
-    if (orderNumber.isEmpty) 'Bu homashyo $orderTitle orderiga ulangan.',
-    'Homashyo ${assignment.apparatus} aparatida ishlatiladi.',
-    _apparatusPurposeSentence(assignment.apparatus),
+      _qrText(
+        l10n,
+        'worker.qr.material.assigned_order_number',
+        'Bu homashyo Zakaz $orderNumber bo‘yicha $orderTitle orderiga ulangan.',
+        values: {'number': orderNumber, 'order': orderTitle},
+      ),
+    if (orderNumber.isEmpty)
+      _qrText(
+        l10n,
+        'worker.qr.material.assigned_order',
+        'Bu homashyo $orderTitle orderiga ulangan.',
+        values: {'order': orderTitle},
+      ),
+    _qrText(
+      l10n,
+      'worker.qr.material.assigned_apparatus',
+      'Homashyo ${assignment.apparatus} aparatida ishlatiladi.',
+      values: {'apparatus': assignment.apparatus},
+    ),
+    _apparatusPurposeSentence(assignment.apparatus, l10n),
     if (queueState.trim().isNotEmpty)
-      'Orderning shu aparatdagi holati: ${_stateDescription(queueState)}.',
+      _qrText(
+        l10n,
+        'worker.qr.material.queue_state',
+        'Orderning shu aparatdagi holati: ${_stateDescription(queueState)}.',
+        values: {'state': _stateDescription(queueState, l10n: l10n)},
+      ),
     if (assignment.assignedByName.trim().isNotEmpty)
-      '${assignment.assignedByName.trim()} tomonidan ulangan.',
+      _qrText(
+        l10n,
+        'worker.qr.material.assigned_by',
+        '${assignment.assignedByName.trim()} tomonidan ulangan.',
+        values: {'name': assignment.assignedByName.trim()},
+      ),
   ].join(' ');
+}
+
+String _qrText(
+  AppLocalizations? l10n,
+  String key,
+  String fallback, {
+  Map<String, Object?> values = const {},
+}) {
+  return l10n?.productionText(key, values: values) ?? fallback;
+}
+
+String _lowercaseFirst(String value) {
+  if (value.isEmpty) {
+    return value;
+  }
+  return '${value[0].toLowerCase()}${value.substring(1)}';
+}
+
+String _logSentenceFallback(String action, String actor, String apparatus) {
+  return switch (action.trim()) {
+    'start' => '$actor $apparatus bosqichida ishni boshladi.',
+    'pause' => '$actor $apparatus bosqichidagi ishni vaqtincha to‘xtatdi.',
+    'detach_roll' => '$actor $apparatus bosqichidagi rulonni yechdi.',
+    'resume' => '$actor $apparatus bosqichidagi ishni davom ettirdi.',
+    'roll_complete' =>
+      '$actor $apparatus bosqichidagi bitta rulonni yakunladi.',
+    'complete' => '$actor $apparatus bosqichidagi ishni yakunladi.',
+    _ => '$actor $apparatus bosqichida amal bajardi.',
+  };
+}
+
+String _rawMaterialStatusLabelFallback(String value) {
+  return switch (value.trim()) {
+    'available' => 'Omborda mavjud',
+    'in_use' => 'Ishlatilmoqda',
+    'consumed' => 'Ishlatib bo‘lingan',
+    'reserved' => 'Band qilingan',
+    _ => value,
+  };
+}
+
+String _rawMaterialStatusSentenceFallback(String value) {
+  return switch (value.trim()) {
+    'available' => 'Bu homashyo omborda mavjud.',
+    'in_use' => 'Bu homashyo ishlab chiqarishda ishlatilmoqda.',
+    'consumed' => 'Bu homashyo ishlatib bo‘lingan.',
+    'reserved' => 'Bu homashyo order uchun band qilingan.',
+    _ =>
+      'Homashyo holati: ${_rawMaterialStatusLabelFallback(value).toLowerCase()}.',
+  };
 }

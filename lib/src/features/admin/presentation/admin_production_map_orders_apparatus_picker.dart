@@ -30,7 +30,7 @@ class _ApparatusPickerSheet extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Text(
-                'Aparat tanlang',
+                context.l10n.productionText('worker.queue.select_apparatus'),
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
@@ -164,7 +164,13 @@ class _ApparatusRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      apparatus.name,
+                      _isMoveUnassignedApparatus(apparatus)
+                          ? context.l10n.productionText(
+                              'worker.queue.filter.unselected',
+                            )
+                          : context.l10n.productionApparatusName(
+                              apparatus.name,
+                            ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
@@ -173,7 +179,10 @@ class _ApparatusRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$orderCount ta zakaz',
+                      context.l10n.productionText(
+                        'worker.queue.orders_count',
+                        values: {'count': orderCount},
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                         height: 1.05,

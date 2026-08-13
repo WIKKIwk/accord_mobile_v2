@@ -4,6 +4,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/native_bluetooth_printer.dart';
 import '../../../core/native_usb_printer.dart';
 import '../../../core/print_service.dart';
@@ -400,7 +401,12 @@ class _AdminProductionMapOrdersScreenState
       completionRequestNote: completionRequestNote,
       result: result,
     )) {
-      showAdminTopNotice(context, 'Tugatish so‘rovi adminga yuborildi');
+      showAdminTopNotice(
+        context,
+        context.l10n.productionText(
+          'worker.notice.completion_request_sent',
+        ),
+      );
     }
     unawaited(_refreshLive());
   }
@@ -544,7 +550,9 @@ class _AdminProductionMapOrdersScreenState
       final stationName = batch.nextApparatus.trim();
       if (targetOrderId.isEmpty || stationName.isEmpty) {
         showAdminTopNotice(
-            context, 'Bu QR boshqa orderni boshlash uchun mos emas');
+          context,
+          context.l10n.productionText('worker.error.qr_other_order'),
+        );
         return;
       }
       AdminApparatus? station;
@@ -564,7 +572,9 @@ class _AdminProductionMapOrdersScreenState
                 const <String>[],
           )) {
         showAdminTopNotice(
-            context, 'Bu QR siz biriktirilgan apparatga mos emas');
+          context,
+          context.l10n.productionText('worker.error.assigned_machine'),
+        );
         return;
       }
       ProductionMapSaved? targetOrder;
@@ -582,7 +592,10 @@ class _AdminProductionMapOrdersScreenState
         station: station.name,
       );
       if (previousStage == null) {
-        showAdminTopNotice(context, 'Bu QR ushbu apparat oqimiga mos emas');
+        showAdminTopNotice(
+          context,
+          context.l10n.productionText('worker.error.machine_flow'),
+        );
         return;
       }
       final states = _queueStatesForApparatus(
@@ -603,11 +616,17 @@ class _AdminProductionMapOrdersScreenState
         states: states,
       );
       if (currentOrder == null) {
-        showAdminTopNotice(context, 'Shu apparatdagi joriy order aniqlanmadi');
+        showAdminTopNotice(
+          context,
+          context.l10n.productionText('worker.error.current_order_missing'),
+        );
         return;
       }
       if (currentOrder.map.id.trim() == targetOrderId) {
-        showAdminTopNotice(context, 'Bu QR hozirgi orderga tegishli');
+        showAdminTopNotice(
+          context,
+          context.l10n.productionText('worker.error.current_order_qr'),
+        );
         return;
       }
       _showWatchOrderDetail(
@@ -621,8 +640,11 @@ class _AdminProductionMapOrdersScreenState
       showAdminTopNotice(
         context,
         error is MobileApiException
-            ? error.message
-            : 'QR orqali boshqa order aniqlanmadi',
+            ? context.l10n.productionErrorMessage(
+                error.code,
+                fallback: error.message,
+              )
+            : context.l10n.productionText('worker.error.other_order_lookup'),
       );
     }
   }
@@ -704,8 +726,11 @@ class _AdminProductionMapOrdersScreenState
         showAdminTopNotice(
           context,
           error is MobileApiException
-              ? error.message
-              : 'Apparatdagi rulon holati olinmadi',
+              ? context.l10n.productionErrorMessage(
+                  error.code,
+                  fallback: error.message,
+                )
+              : context.l10n.productionText('worker.error.machine_roll'),
         );
       }
     }
@@ -1172,8 +1197,8 @@ class _AdminProductionMapOrdersScreenState
         controller: _searchController,
         focusNode: _searchFocusNode,
         hintText: widget.supplyViewerMode
-            ? 'Ketma-ketlikdan zakaz qidirish'
-            : 'Ochilgan zakaz qidirish',
+            ? context.l10n.productionText('worker.queue.search.sequence')
+            : context.l10n.productionText('worker.queue.search.open'),
         onChanged: (value) => setState(() => _searchQuery = value),
         onClear: () {
           _searchController.clear();

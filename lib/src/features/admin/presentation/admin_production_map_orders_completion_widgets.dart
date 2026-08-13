@@ -23,8 +23,12 @@ class _CompletionRequestsSection extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text(
             requests.any((request) => !request.decisionRequired)
-                ? 'Bildirishnomalar'
-                : 'Tugatish so‘rovlari',
+                ? context.l10n.productionText(
+                    'worker.completion.notifications',
+                  )
+                : context.l10n.productionText(
+                    'worker.completion.requests',
+                  ),
             style: theme.textTheme.labelLarge?.copyWith(
               color: scheme.primary,
               fontWeight: FontWeight.w700,
@@ -82,11 +86,33 @@ class _CompletionRequestRow extends StatelessWidget {
     );
     final decisionRequired = request.decisionRequired;
     final title = decisionRequired
-        ? '$code zakaz 0 holatda'
-        : '$code laminatsiya qoldig‘i';
+        ? context.l10n.productionText(
+            'worker.completion.zero_title',
+            values: {'code': code},
+          )
+        : context.l10n.productionText(
+            'worker.completion.remainder_title',
+            values: {'code': code},
+          );
     final subtitle = decisionRequired
-        ? '${request.apparatus} dagi $worker tugatishga urinyapti'
-        : '${request.apparatus} dagi $worker ikkala qavat qoldig‘ini yozdi';
+        ? context.l10n.productionText(
+            'worker.completion.zero_subtitle',
+            values: {
+              'worker': worker,
+              'apparatus': context.l10n.productionApparatusName(
+                request.apparatus,
+              ),
+            },
+          )
+        : context.l10n.productionText(
+            'worker.completion.remainder_subtitle',
+            values: {
+              'worker': worker,
+              'apparatus': context.l10n.productionApparatusName(
+                request.apparatus,
+              ),
+            },
+          );
 
     return Material(
       color:
@@ -193,17 +219,17 @@ class _CompletionRequestDetail extends StatelessWidget {
     final scheme = theme.colorScheme;
     final lines = <String>[
       if (request.orderTitle.trim().isNotEmpty)
-        'Mahsulot: ${request.orderTitle.trim()}',
+        '${context.l10n.productionText('worker.completion.product')}: ${request.orderTitle.trim()}',
       if (request.productCode.trim().isNotEmpty)
-        'Kod: ${request.productCode.trim()}',
-      '${_apparatusDetailLabel(request.apparatus)}: ${request.apparatus.trim()}',
-      'Ishchi: ${_closedActorLabel(
+        '${context.l10n.productionText('worker.completion.code')}: ${request.productCode.trim()}',
+      '${context.l10n.productionText('worker.detail.kind.machine')}: ${context.l10n.productionApparatusName(request.apparatus)}',
+      '${context.l10n.productionText('worker.completion.worker')}: ${_closedActorLabel(
         displayName: request.workerDisplayName,
         role: request.workerRole,
         ref: request.workerRef,
       )}',
       if (_closedLogTimeLabel(request.createdAtUnix).isNotEmpty)
-        'Vaqt: ${_closedLogTimeLabel(request.createdAtUnix)}',
+        '${context.l10n.productionText('worker.completion.time')}: ${_closedLogTimeLabel(request.createdAtUnix)}',
     ];
     return Padding(
       padding: const EdgeInsets.only(left: 58, right: 12, bottom: 12),

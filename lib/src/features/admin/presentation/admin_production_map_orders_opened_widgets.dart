@@ -78,6 +78,7 @@ class _OpenedOrderRow extends StatelessWidget {
       map,
       customerName: customerName,
       includeApparatusCount: true,
+      l10n: context.l10n,
     );
 
     return M3SegmentFilledSurface(
@@ -118,7 +119,7 @@ class _OpenedOrderRow extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Buyurtma ma’lumotlari',
+                tooltip: context.l10n.productionText('worker.order.info'),
                 onPressed: onInfo,
                 icon: Icon(
                   Icons.info_outline_rounded,
@@ -157,7 +158,7 @@ class _OpenedOrderCardRow extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final map = order.map;
-    final subtitle = _openedOrderSubtitle(map);
+    final subtitle = _openedOrderSubtitle(map, l10n: context.l10n);
 
     return M3SegmentFilledSurface(
       slot: slot,
@@ -224,7 +225,7 @@ class _OpenedOrderTitleLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final code = _openedOrderDisplayCode(map);
-    final title = _openedOrderPrimaryTitle(map);
+    final title = _openedOrderPrimaryTitle(map, l10n: context.l10n);
     final resolvedTitleStyle = theme.textTheme.titleMedium?.copyWith(
       color: titleColor,
       fontWeight: FontWeight.w700,

@@ -5,17 +5,24 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../../core/localization/app_localizations.dart';
+
 Future<String?> showRawMaterialScanDialog(
   BuildContext context, {
-  String title = 'Homashyo QR',
-  String manualLabel = 'Barcode',
+  String title = '',
+  String manualLabel = '',
 }) {
+  final l10n = context.l10n;
   return showDialog<String>(
     context: context,
     useSafeArea: false,
     builder: (_) => RawMaterialScanDialog(
-      title: title,
-      manualLabel: manualLabel,
+      title: title.trim().isEmpty
+          ? l10n.productionText('worker.material.scanner.title')
+          : title,
+      manualLabel: manualLabel.trim().isEmpty
+          ? l10n.productionText('worker.material.scanner.manual')
+          : manualLabel,
     ),
   );
 }
@@ -230,7 +237,9 @@ class _ProductionQuickScannerPanelState
                                             ),
                                             child: _QuickScannerStatus(
                                               text: _processing || widget.busy
-                                                  ? 'QR tekshirilmoqda...'
+                                                  ? context.l10n.productionText(
+                                                      'worker.scanner.checking',
+                                                    )
                                                   : widget.statusText,
                                               busy: _processing || widget.busy,
                                             ),
@@ -260,8 +269,12 @@ class _ProductionQuickScannerPanelState
                         'production-quick-scanner-manual-toggle',
                       ),
                       tooltip: _manualEntryVisible
-                          ? 'Barcode maydonini yopish'
-                          : 'Barcode kiritish',
+                          ? context.l10n.productionText(
+                              'worker.scanner.manual.hide',
+                            )
+                          : context.l10n.productionText(
+                              'worker.scanner.manual.show',
+                            ),
                       onPressed: () {
                         setState(() {
                           _manualEntryVisible = !_manualEntryVisible;
@@ -291,8 +304,10 @@ class _ProductionQuickScannerPanelState
                         key: const ValueKey('production-quick-scanner-manual'),
                         controller: _manualController,
                         enabled: !_processing && !widget.busy,
-                        decoration: const InputDecoration(
-                          labelText: 'QR / barcode',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.productionText(
+                            'worker.scanner.manual.label',
+                          ),
                           isDense: true,
                           border: OutlineInputBorder(),
                         ),
@@ -302,7 +317,9 @@ class _ProductionQuickScannerPanelState
                     ),
                     const SizedBox(width: 8),
                     IconButton.filled(
-                      tooltip: 'Qabul qilish',
+                      tooltip: context.l10n.productionText(
+                        'worker.scanner.accept',
+                      ),
                       onPressed: _processing || widget.busy
                           ? null
                           : _submitManualValue,
@@ -379,13 +396,13 @@ class _QuickScannerUnavailableView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
+    return ColoredBox(
       color: Colors.black,
       child: Center(
         child: Padding(
           padding: EdgeInsets.all(20),
           child: Text(
-            'Kamera ochilmadi. Quyidagi maydonga QR yoki barcode kiriting.',
+            context.l10n.productionText('worker.scanner.unavailable'),
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white),
           ),
@@ -398,8 +415,8 @@ class _QuickScannerUnavailableView extends StatelessWidget {
 class RawMaterialScanDialog extends StatefulWidget {
   const RawMaterialScanDialog({
     super.key,
-    this.title = 'Homashyo QR',
-    this.manualLabel = 'Barcode',
+    this.title = '',
+    this.manualLabel = '',
   });
 
   final String title;
@@ -476,14 +493,26 @@ class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final controller = _controller;
+    final title = widget.title.trim().isEmpty
+        ? context.l10n.productionText('worker.material.scanner.title')
+        : widget.title;
+    final manualLabel = widget.manualLabel.trim().isEmpty
+        ? context.l10n.productionText('worker.material.scanner.manual')
+        : widget.manualLabel;
     return Dialog.fullscreen(
       child: Scaffold(
-        appBar: AppBar(title: Text(widget.title)),
+        appBar: AppBar(title: Text(title)),
         body: Column(
           children: [
             Expanded(
               child: controller == null
-                  ? const Center(child: Text('Scanner bu qurilmada ishlamaydi'))
+                  ? Center(
+                      child: Text(
+                        context.l10n.productionText(
+                          'worker.scanner.unavailable',
+                        ),
+                      ),
+                    )
                   : LayoutBuilder(
                       builder: (context, constraints) {
                         final shortest = math.min(
@@ -526,7 +555,7 @@ class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
                         child: TextField(
                           controller: _manualController,
                           decoration: InputDecoration(
-                            labelText: widget.manualLabel,
+                            labelText: manualLabel,
                             border: const OutlineInputBorder(),
                           ),
                           textInputAction: TextInputAction.done,
@@ -589,7 +618,7 @@ class RawMaterialScannerGuide extends StatelessWidget {
                   vertical: 8,
                 ),
                 child: Text(
-                  'QR kodni shu to‘r ichiga olib keling',
+                  context.l10n.productionText('worker.scanner.guide'),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: Colors.white,

@@ -61,7 +61,7 @@ class AparatchiDock extends StatelessWidget {
               context,
               actions: [
                 AdminFabMenuAction(
-                  title: 'QR scan qilish',
+                  title: l10n.productionText('worker.action.scan'),
                   icon: Icons.qr_code_scanner_rounded,
                   onTap: () {
                     final callback = onQrScanRequested;
@@ -76,7 +76,7 @@ class AparatchiDock extends StatelessWidget {
                   },
                 ),
                 AdminFabMenuAction(
-                  title: 'Kunlik ish',
+                  title: l10n.productionText('worker.daily'),
                   icon: Icons.today_rounded,
                   onTap: () => AppRootNavigation.replaceRootRoute(
                     context,
@@ -84,7 +84,7 @@ class AparatchiDock extends StatelessWidget {
                   ),
                 ),
                 AdminFabMenuAction(
-                  title: 'Paddonlar',
+                  title: l10n.productionText('worker.paddons'),
                   icon: Icons.inventory_2_rounded,
                   onTap: () => AppRootNavigation.replaceRootRoute(
                     context,
@@ -130,7 +130,7 @@ class AparatchiDock extends StatelessWidget {
                 ),
                 RoleDockDestination(
                   id: 'aparatchi-primary',
-                  label: 'Amallar',
+                  label: l10n.productionText('worker.actions'),
                   icon: Icons.add_rounded,
                   selectedIcon: Icons.add_rounded,
                   active: false,

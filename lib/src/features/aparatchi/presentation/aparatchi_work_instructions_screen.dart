@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/session/state/app_session.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/logic/production_map_pechat_rules.dart';
@@ -17,8 +18,8 @@ class AparatchiWorkInstructionsScreen extends StatelessWidget {
       AppSession.instance.profile?.assignedApparatus ?? const <String>[],
     );
     return AppShell(
-      title: 'App yo‘riqnomasi',
-      subtitle: 'Zakazni appda to‘g‘ri yuritish tartibi',
+      title: context.l10n.productionText('worker.instructions'),
+      subtitle: context.l10n.productionText('worker.guide.subtitle'),
       nativeTopBar: true,
       drawer: AparatchiNavigationDrawer(
         selectedIndex: 0,
@@ -42,30 +43,33 @@ class AparatchiWorkInstructionsScreen extends StatelessWidget {
                 children: [
                   const _GuideIntro(),
                   const SizedBox(height: 12),
-                  const _GuideSectionCard(
-                    title: 'Kuzatishdan zakazni ochish',
+                  _GuideSectionCard(
+                    title: context.l10n.productionText(
+                      'worker.guide.open_order',
+                    ),
                     items: [
-                      'Yo‘riqnomadan chiqish uchun yuqoridagi ← tugmasini bosing. Siz Kuzatish sahifasiga qaytasiz.',
-                      'Kuzatish sahifasini chap drawerdagi Kuzatish bandi orqali ham ochasiz.',
-                      'Kuzatishda apparat nomi yozilgan tabni bosing. Sizga biriktirilgan apparatlarda zakaz kartasi shu yerda chiqadi.',
-                      'Agar Zakaz yo‘q yozuvi chiqsa, hozir bu apparatga faol zakaz berilmagan. Boshlash uchun karta chiqishini kuting.',
-                      'Zakaz kartasi chiqqanda uning ustiga bosing. Keyingi ekranda mahsulot, metraj va og‘irlikni tekshiring.',
+                      for (var index = 1; index <= 5; index++)
+                        context.l10n.productionText(
+                          'worker.guide.open_order.$index',
+                        ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const _GuideSectionCard(
-                    title: 'Ekrandagi holatlar va tugmalar',
+                  _GuideSectionCard(
+                    title: context.l10n.productionText(
+                      'worker.guide.states_actions',
+                    ),
                     items: [
-                      'Kutmoqda holatidagi zakazda shartlar bajarilgach Boshlash chiqadi. Navbatda oldinda boshqa zakaz bo‘lsa, siznikini boshlay olmaysiz.',
-                      'Jarayonda holatida Pauza va Tugatish tugmalari chiqadi.',
-                      'Pauzada holatida faqat Davom ettirish chiqadi. U bosilganda forma ochilmaydi: zakaz yana Jarayonda holatiga o‘tadi.',
-                      'Admin buyurtmani muzlatishni so‘rasa, avval Pauza qiling. Muzlatilgan zakazni admin aktiv qilmaguncha davom ettirib bo‘lmaydi.',
+                      for (var index = 1; index <= 4; index++)
+                        context.l10n.productionText(
+                          'worker.guide.states_actions.$index',
+                        ),
                     ],
                   ),
                   const SizedBox(height: 12),
                   for (final item in apparatus) ...[
                     _ApparatusGuideCard(
-                      guide: _ApparatusGuide.forApparatus(item),
+                      guide: _ApparatusGuide.forApparatus(item, context.l10n),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -85,6 +89,17 @@ List<String> _assignedApparatus(Iterable<String> values) {
       .toList(growable: false);
 }
 
+List<String> _guideItems(
+  AppLocalizations l10n,
+  String prefix,
+  int count,
+) {
+  return [
+    for (var index = 1; index <= count; index++)
+      l10n.productionText('$prefix.$index'),
+  ];
+}
+
 class _GuideIntro extends StatelessWidget {
   const _GuideIntro();
 
@@ -98,9 +113,7 @@ class _GuideIntro extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Text(
-          'Bu yo‘riqnoma appdagi zakazni yuritish uchun. Pastda faqat sizga '
-          'biriktirilgan apparatlar uchun ekrandagi tasdiqlar va tugatish '
-          'formasi tushuntirilgan.',
+          context.l10n.productionText('worker.guide.intro'),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: scheme.onPrimaryContainer,
             height: 1.35,
@@ -123,12 +136,12 @@ class _NoAssignedApparatus extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Sizga aparat biriktirilmagan',
+              context.l10n.productionText('worker.guide.no_machine.title'),
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 6),
             Text(
-              'Admin profilingizga aparat biriktirgandan keyin app yo‘riqnomasi shu yerda ko‘rinadi.',
+              context.l10n.productionText('worker.guide.no_machine.body'),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
@@ -170,26 +183,25 @@ class _ApparatusGuideCard extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             _GuideSection(
-              title: '1. Boshlashdan oldingi ekrandagi tasdiqlar',
+              title: context.l10n.productionText('worker.guide.before_start'),
               items: guide.startChecks,
             ),
             const SizedBox(height: 16),
             _GuideSection(
-              title: '2. Pauza qilish',
+              title: context.l10n.productionText('worker.guide.pause'),
               items: guide.pauseSteps,
             ),
             const SizedBox(height: 16),
             _GuideSection(
-              title: '3. Tugatish tartibi',
+              title: context.l10n.productionText('worker.guide.complete'),
               items: guide.completionFields,
             ),
             const SizedBox(height: 16),
-            const _GuideSection(
-              title: '4. To‘liq bo‘lmagan tugatish',
+            _GuideSection(
+              title: context.l10n.productionText('worker.guide.partial'),
               items: [
-                'Tugatish miqdorida 0 yoki to‘liq bo‘lmagan hisobot bo‘lsa, Izoh maydonidagi 0 yoki noodatiy tugatish sababi yozilmasa Tasdiqlash qabul qilinmaydi.',
-                'Sabab yozib Tasdiqlashni bossangiz, app Tugatish so‘rovi adminga yuborildi xabarini chiqaradi. Bu to‘liq tugatish emas, admin ko‘radigan so‘rov.',
-                'Pauza formasida izoh bilan chetlab o‘tish yo‘q: chiqarilgan maydonlarning har biri 0 dan katta, haqiqiy son bo‘lishi kerak.',
+                for (var index = 1; index <= 3; index++)
+                  context.l10n.productionText('worker.guide.partial.$index'),
               ],
             ),
           ],
@@ -264,91 +276,53 @@ class _ApparatusGuide {
   final List<String> pauseSteps;
   final List<String> completionFields;
 
-  factory _ApparatusGuide.forApparatus(String apparatus) {
+  factory _ApparatusGuide.forApparatus(
+    String apparatus,
+    AppLocalizations l10n,
+  ) {
     final colorCount = productionMapPechatColorCount(apparatus);
     if (productionMapIsPechatApparatus(apparatus)) {
       return _ApparatusGuide(
         apparatus: apparatus,
         kindLabel: colorCount == null
-            ? 'Flexo bosma uchun app yo‘riqnomasi'
-            : '$colorCount ta rangli bosma uchun app yo‘riqnomasi',
-        startChecks: const [
-          'Ish boshlash uchun homashyolar qatorini oching. Sarlavhadagi son barcha majburiy homashyo QR kodi tasdiqlanganda to‘ladi.',
-          'Qoliplar qatorini oching va talab qilingan qoliplarning hammasini QR orqali tasdiqlang. Qoliplar soni to‘lmaguncha Boshlash faol bo‘lmaydi.',
-          'Oldingi bosqich QR qatori chiqsa, shu zakazning oldingi bosqichidan kelgan WIP QR kodini scan qiling.',
-          'Homashyo, qolip va oldingi bosqich talablari to‘lgandan keyin Boshlash tugmasini bosing.',
-        ],
-        pauseSteps: const [
-          'Pauza tugmasini bosing. Pauza miqdori oynasi ochiladi.',
-          'Rulon almashganda Metraj (metr) va Og‘irlik (kg) maydonlarini hozirgi real qiymat bilan to‘ldiring. Pauzada Jami chiqindi va kraska astatkasi kiritilmaydi. 0 qabul qilinmaydi.',
-          'Tasdiqlashni bosing, keyin chiqadigan printer tanlash oynasidan ishchi printerni tanlang. Printer tanlanmasa pauza yuborilmaydi.',
-        ],
-        completionFields: const [
-          'Barcha rulonlar tugagach, oxirgi rulonda Tugatish tugmasini bosing. Order bo‘yicha jami chiqindini (Jami chiqindi), Metraj va Og‘irlikni bir marta kiriting.',
-          'Qaytarilgan bo‘yoq tugmasini bosing. Rasxot va Astatka tablarining har birida kamida 3 ta qiymat kiriting yoki qaytarilgan bo‘yoq rasmini yuklang.',
-          'Tasdiqlashdan keyin printer tanlang. To‘liq hisobot va printer tanlovi tasdiqlangach zakaz tugatiladi.',
-        ],
+            ? l10n.productionText('worker.guide.kind.print.flexo')
+            : l10n.productionText(
+                'worker.guide.kind.print.color',
+                values: {'count': colorCount},
+              ),
+        startChecks: _guideItems(l10n, 'worker.guide.print.start', 4),
+        pauseSteps: _guideItems(l10n, 'worker.guide.print.pause', 3),
+        completionFields: _guideItems(l10n, 'worker.guide.print.complete', 3),
       );
     }
     if (productionMapIsLaminatsiyaApparatus(apparatus)) {
       return _ApparatusGuide(
         apparatus: apparatus,
-        kindLabel: 'Laminatsiya uchun app yo‘riqnomasi',
-        startChecks: const [
-          'Ish boshlash uchun homashyolar qatorini oching va undagi majburiy homashyo QR kodlarini to‘liq tasdiqlang.',
-          'Oldingi bosqich QR qatori chiqsa, shu zakazning oldingi bosqichidan kelgan WIP QR kodini scan qiling.',
-          'Kerakli homashyo va oldingi bosqich QR tasdiqlanmaguncha Boshlash faol bo‘lmaydi.',
-        ],
-        pauseSteps: const [
-          'Pauza tugmasini bosing. Pauza miqdori oynasi ochiladi.',
-          'Metraj (metr) va Og‘irlik (kg) maydonlarini hozirgi real qiymat bilan to‘ldiring. Pauzada Plyonkadan ortgan rulon ham, Jami chiqindi (atxot) ham kiritilmaydi. 0 qabul qilinmaydi.',
-          'Tasdiqlashdan keyin ishchi printerni tanlang. Printer tanlanmasa pauza yuborilmaydi.',
-        ],
-        completionFields: const [
-          'Barcha rulonlar tugagach, oxirgi rulonda Tugatish tugmasini bosing. Bosmadan ortgan rulon va Plyonkadan ortgan rulon maydonlaridan kamida bittasini, shuningdek order bo‘yicha jami atxot miqdorini (Jami chiqindi), Metraj va Og‘irlikni bir marta kiriting.',
-          'Barcha qiymatlar haqiqiy va 0 dan katta bo‘lsa Tasdiqlashni bosing, keyin ishchi printerni tanlang.',
-          'Bosma yoki plyonka qoldig‘i yo‘q bo‘lsa, to‘liq tugatish o‘tmaydi; sababli tugatish so‘rovini yuboring.',
-        ],
+        kindLabel: l10n.productionText('worker.guide.kind.lamination'),
+        startChecks: _guideItems(l10n, 'worker.guide.lamination.start', 3),
+        pauseSteps: _guideItems(l10n, 'worker.guide.lamination.pause', 3),
+        completionFields: _guideItems(
+          l10n,
+          'worker.guide.lamination.complete',
+          3,
+        ),
       );
     }
     if (productionMapIsRezkaApparatus(apparatus)) {
       return _ApparatusGuide(
         apparatus: apparatus,
-        kindLabel: 'Rezka uchun app yo‘riqnomasi',
-        startChecks: const [
-          'Ish boshlash uchun homashyolar qatorida ko‘rsatilgan majburiy homashyo QR kodlarini to‘liq tasdiqlang.',
-          'Oldingi bosqich QR qatori chiqsa, shu zakazga tegishli WIP QR kodini scan qiling.',
-          'WIP nechta bo‘lakka bo‘linishi haqidagi blok chiqsa, undagi bo‘lak va kadr sonini ko‘rib oling. Shartlar to‘lgach Boshlashni bosing.',
-        ],
-        pauseSteps: const [
-          'Pauza tugmasini bosing. Pauza miqdori oynasi ochiladi.',
-          'Bosmachining chiqindisi, Laminatsiya chiqindisi, Tayyor mahsulot chetidan chiqqan chiqindi (uchalasi kg), Metraj va Og‘irlikni kiriting.',
-          'Beshta miqdorning hammasi 0 dan katta bo‘lishi kerak. Tasdiqlashdan keyin ishchi printerni tanlang.',
-        ],
-        completionFields: const [
-          'Tugatish miqdorida Bosmachining chiqindisi, Laminatsiya chiqindisi va Tayyor mahsulot chetidan chiqqan chiqindini uchta alohida maydonga kiriting.',
-          'Metraj va Og‘irlikni ham kiriting. Beshta miqdor to‘liq bo‘lgach Tasdiqlashni bosing va ishchi printerni tanlang.',
-          'Uchala chiqindi yoki Metraj va Og‘irlikdan biri yo‘q bo‘lsa, to‘liq tugatish qabul qilinmaydi.',
-        ],
+        kindLabel: l10n.productionText('worker.guide.kind.cutting'),
+        startChecks: _guideItems(l10n, 'worker.guide.cutting.start', 3),
+        pauseSteps: _guideItems(l10n, 'worker.guide.cutting.pause', 3),
+        completionFields: _guideItems(l10n, 'worker.guide.cutting.complete', 3),
       );
     }
     return _ApparatusGuide(
       apparatus: apparatus,
-      kindLabel: 'Ushbu apparat uchun app yo‘riqnomasi',
-      startChecks: const [
-        'Ish boshlash uchun homashyolar qatoridagi majburiy QR kodlarni tasdiqlang.',
-        'Oldingi bosqich QR qatori chiqsa, shu zakazga tegishli WIP QR kodini scan qiling.',
-        'Shartlar to‘lgach Boshlash tugmasini bosing.',
-      ],
-      pauseSteps: const [
-        'Pauza tugmasini bosing va Pauza miqdori oynasidagi Metraj hamda Og‘irlikni kiriting.',
-        'Maydonlar 0 dan katta bo‘lgach Tasdiqlashni bosing, keyin ishchi printerni tanlang.',
-      ],
-      completionFields: const [
-        'Tugatish miqdori oynasidagi Metraj va Og‘irlikni haqiqiy qiymat bilan kiriting.',
-        'To‘liq qiymatlar bo‘lsa Tasdiqlashdan keyin ishchi printerni tanlang.',
-        'Miqdor to‘liq bo‘lmasa, Izohga sababni yozib tugatish so‘rovini yuboring.',
-      ],
+      kindLabel: l10n.productionText('worker.guide.kind.machine'),
+      startChecks: _guideItems(l10n, 'worker.guide.machine.start', 3),
+      pauseSteps: _guideItems(l10n, 'worker.guide.machine.pause', 2),
+      completionFields: _guideItems(l10n, 'worker.guide.machine.complete', 3),
     );
   }
 }

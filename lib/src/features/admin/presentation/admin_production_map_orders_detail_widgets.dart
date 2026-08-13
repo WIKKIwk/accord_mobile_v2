@@ -119,6 +119,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     final rezkaInstructionLines = _rezkaWipSplitInstructionLines(
       map: map,
       station: uiState.station,
+      l10n: context.l10n,
     );
     return DraggableScrollableSheet(
       expand: false,
@@ -136,7 +137,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: IconButton.filledTonal(
-                  tooltip: 'Orderga qaytish',
+                  tooltip: context.l10n.productionText(
+                    'worker.action.back_to_order',
+                  ),
                   onPressed: onBack,
                   icon: const Icon(Icons.arrow_back_rounded),
                 ),
@@ -151,7 +154,10 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
               ],
               _OrderStartUnifiedCard(
                 orderCode: _openedOrderDisplayCode(map),
-                productTitle: _openedOrderPrimaryTitle(map),
+                productTitle: _openedOrderPrimaryTitle(
+                  map,
+                  l10n: context.l10n,
+                ),
                 customerName: customerName,
                 startAssignments: uiState.materialAssignments,
                 intakeCandidateAssignments: uiState.intakeCandidateAssignments,
@@ -263,8 +269,11 @@ class _OrderSummaryCard extends StatelessWidget {
       final roundedMetraj = ((baseLength / 500).ceil() * 500).toString();
       rows.add(
         AppInfoRow(
-          label: 'Metraj',
-          value: '$roundedMetraj metr',
+          label: context.l10n.productionText('worker.summary.length'),
+          value: context.l10n.productionText(
+            'worker.summary.length_value',
+            values: {'value': roundedMetraj},
+          ),
           icon: Icons.straighten_rounded,
         ),
       );
@@ -273,8 +282,11 @@ class _OrderSummaryCard extends StatelessWidget {
     if (resolvedOrderKg != null && resolvedOrderKg > 0) {
       rows.add(
         AppInfoRow(
-          label: 'Og‘irlik',
-          value: '${formatRawQuantity(resolvedOrderKg)} kg',
+          label: context.l10n.productionText('worker.summary.weight'),
+          value: context.l10n.productionText(
+            'worker.summary.weight_value',
+            values: {'value': formatRawQuantity(resolvedOrderKg)},
+          ),
           icon: Icons.scale_outlined,
         ),
       );
@@ -282,13 +294,18 @@ class _OrderSummaryCard extends StatelessWidget {
     final rollCount = map.rollCount;
     final widthMm = map.widthMm;
     if (rollCount != null && rollCount > 0) {
-      final width = widthMm != null && widthMm > 0
-          ? ' ${formatRawQuantity(widthMm)} mm eniga ega bo‘lgan'
-          : '';
       rows.add(
         AppInfoRow(
-          label: 'Val',
-          value: '${formatRawQuantity(rollCount)} ta$width val ishlatiladi',
+          label: context.l10n.productionText('worker.summary.shafts'),
+          value: context.l10n.productionText(
+            'worker.summary.shaft_value',
+            values: {
+              'count': formatRawQuantity(rollCount),
+              'width': widthMm != null && widthMm > 0
+                  ? formatRawQuantity(widthMm)
+                  : '—',
+            },
+          ),
           icon: Icons.view_column_outlined,
         ),
       );
@@ -320,14 +337,18 @@ class _OrderSummaryCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Kutilayotgan buyurtma ko‘rsatkichlari',
+                          context.l10n.productionText(
+                            'worker.summary.expected.title',
+                          ),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Buyurtma bo‘yicha taxminiy ma’lumotlar',
+                          context.l10n.productionText(
+                            'worker.summary.expected.subtitle',
+                          ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                             fontWeight: FontWeight.w600,
@@ -424,13 +445,20 @@ class _SequenceStepTile extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: _MapStatusChip(
-                      label: 'Joriy apparat',
+                      label: context.l10n.productionText(
+                        'worker.detail.current_machine',
+                      ),
                       foreground: scheme.onPrimaryContainer,
                       background: scheme.primaryContainer,
                     ),
                   ),
                 Text(
-                  node.title.trim().isEmpty ? 'Qadam ${index + 1}' : node.title,
+                  node.title.trim().isEmpty
+                      ? context.l10n.productionText(
+                          'worker.detail.step',
+                          values: {'step': index + 1},
+                        )
+                      : context.l10n.productionApparatusName(node.title),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
@@ -442,7 +470,7 @@ class _SequenceStepTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  _kindLabel(node),
+                  _kindLabel(context, node),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -456,7 +484,7 @@ class _SequenceStepTile extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: _MapStatusChip(
-              label: _statusLabel(status!),
+              label: _statusLabel(context, status!),
               foreground: _statusForeground(scheme),
               background: _statusBackground(scheme),
             ),
@@ -517,24 +545,35 @@ class _SequenceStepTile extends StatelessWidget {
     };
   }
 
-  String _statusLabel(ApparatusQueueOrderState status) {
+  String _statusLabel(
+    BuildContext context,
+    ApparatusQueueOrderState status,
+  ) {
     return switch (status) {
-      ApparatusQueueOrderState.inProgress => 'Jarayonda',
-      ApparatusQueueOrderState.paused => 'Pauzada',
-      ApparatusQueueOrderState.completed => 'Tugagan',
-      ApparatusQueueOrderState.pending => 'Navbatda',
+      ApparatusQueueOrderState.inProgress => context.l10n.productionText(
+          'worker.queue.status.in_progress',
+        ),
+      ApparatusQueueOrderState.paused => context.l10n.productionText(
+          'worker.queue.status.paused',
+        ),
+      ApparatusQueueOrderState.completed => context.l10n.productionText(
+          'worker.queue.status.completed',
+        ),
+      ApparatusQueueOrderState.pending => context.l10n.productionText(
+          'worker.queue.status.pending',
+        ),
     };
   }
 
-  String _kindLabel(ProductionMapNode node) {
+  String _kindLabel(BuildContext context, ProductionMapNode node) {
     return switch (node.kind) {
-      'start' => 'Boshlanish',
+      'start' => context.l10n.productionText('worker.detail.kind.start'),
       'apparatus' => productionMapIsLaminatsiyaApparatus(node.title)
-          ? 'Laminatsiya mashinasi'
+          ? context.l10n.productionText('worker.detail.kind.lamination')
           : productionMapIsRezkaApparatus(node.title)
-              ? 'Rezka mashinasi'
-              : 'Aparat',
-      'end' => 'Yakun',
+              ? context.l10n.productionText('worker.detail.kind.cutting')
+              : context.l10n.productionText('worker.detail.kind.machine'),
+      'end' => context.l10n.productionText('worker.detail.kind.end'),
       _ => node.kind,
     };
   }
@@ -785,8 +824,14 @@ class _OrderStartUnifiedCard extends StatelessWidget {
         .where((code) => code.isNotEmpty)
         .toSet();
     final qolipProgressText = requiredQolips.isEmpty
-        ? '${qolipCodes.length} ta'
-        : '${qolipCodes.length}/${requiredQolips.length} ta';
+        ? context.l10n.productionCount(qolipCodes.length, kind: 'molds')
+        : context.l10n.productionText(
+            'worker.mold.progress',
+            values: {
+              'scanned': qolipCodes.length,
+              'required': requiredQolips.length,
+            },
+          );
     final orderControlBlocked =
         orderControlState != AdminOrderControlState.active;
     final orderFrozen = orderControlState == AdminOrderControlState.frozen;
@@ -832,12 +877,12 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(
-                      width: 78,
+                      width: 94,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Zakaz kodi',
+                            context.l10n.productionText('worker.order.code'),
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: scheme.onSurfaceVariant,
                               fontWeight: FontWeight.w700,
@@ -885,10 +930,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               ),
               child: Text(
                 orderFrozen
-                    ? 'Buyurtma muzlatilgan. Admin aktiv qilmaguncha '
-                        'davom ettirib bo‘lmaydi.'
-                    : 'Admin buyurtmani muzlatishni so‘radi. '
-                        'Pauza qiling.',
+                    ? context.l10n.productionText('worker.freeze.active')
+                    : context.l10n.productionText('worker.freeze.requested'),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onErrorContainer,
                   fontWeight: FontWeight.w700,
@@ -900,7 +943,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           if (showStartMaterials) ...[
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-start-materials-expansion'),
-              title: 'Ish boshlash uchun homashyolar',
+              title: context.l10n.productionText(
+                'worker.materials.start',
+              ),
               countText:
                   materialsLoading ? '...' : '$scannedCount/$requiredCount',
               expanded: startMaterialsExpanded,
@@ -913,7 +958,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 assignments: startAssignments,
                 loading: materialsLoading,
                 error: materialsError,
-                emptyText: 'Ish boshlash uchun homashyo topilmadi',
+                emptyText: context.l10n.productionText(
+                  'worker.materials.start.empty',
+                ),
                 scannedBarcodes: scannedBarcodes,
                 allowUnlink: allowMaterialUnlink,
                 onUnlink: onUnlinkMaterial,
@@ -927,10 +974,15 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           ] else if (showIntakeCandidates) ...[
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-intake-materials-expansion'),
-              title: 'Hali qabul qilinmagan homashyolar',
+              title: context.l10n.productionText(
+                'worker.materials.pending',
+              ),
               countText: materialsLoading
                   ? '...'
-                  : '${intakeCandidateAssignments.length} ta',
+                  : context.l10n.productionCount(
+                      intakeCandidateAssignments.length,
+                      kind: 'materials',
+                    ),
               expanded: intakeCandidatesExpanded,
               complete: false,
               onTap: onToggleIntakeCandidatesExpanded,
@@ -941,7 +993,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 assignments: intakeCandidateAssignments,
                 loading: materialsLoading,
                 error: materialsError,
-                emptyText: 'Hali qabul qilinmagan homashyo yo‘q',
+                emptyText: context.l10n.productionText(
+                  'worker.materials.pending.empty',
+                ),
                 scannedBarcodes: const {},
                 allowUnlink: allowMaterialUnlink,
                 onUnlink: onUnlinkMaterial,
@@ -955,9 +1009,15 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           ],
           _ScannedItemsExpansionHeader(
             key: const ValueKey('production-materials-expansion'),
-            title: 'Biriktirilgan homashyolar',
-            countText:
-                materialsLoading ? '...' : '${assignedAssignments.length} ta',
+            title: context.l10n.productionText(
+              'worker.materials.attached',
+            ),
+            countText: materialsLoading
+                ? '...'
+                : context.l10n.productionCount(
+                    assignedAssignments.length,
+                    kind: 'materials',
+                  ),
             expanded: materialsExpanded,
             complete: false,
             onTap: onToggleMaterialsExpanded,
@@ -968,7 +1028,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               assignments: assignedAssignments,
               loading: materialsLoading,
               error: materialsError,
-              emptyText: 'Homashyo biriktirilmagan',
+              emptyText: context.l10n.productionText(
+                'worker.materials.attached.empty',
+              ),
               scannedBarcodes: scannedBarcodes,
               allowUnlink: allowMaterialUnlink,
               onUnlink: onUnlinkMaterial,
@@ -982,7 +1044,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             ),
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-qolips-expansion'),
-              title: 'Qoliplar',
+              title: context.l10n.productionText('worker.molds'),
               countText: qolipProgressText,
               expanded: qolipsExpanded,
               complete: qolipScanned,
@@ -1035,8 +1097,12 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 ),
                 label: Text(
                   allMaterialsScanned
-                      ? 'Homashyolar tasdiqlandi'
-                      : 'Homashyo QR scan',
+                      ? context.l10n.productionText(
+                          'worker.action.material_confirmed',
+                        )
+                      : context.l10n.productionText(
+                          'worker.action.scan_material',
+                        ),
                 ),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
@@ -1058,8 +1124,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 icon: const Icon(Icons.qr_code_scanner_rounded),
                 label: Text(
                   qolipCodes.isEmpty
-                      ? 'Qolip QR scan'
-                      : 'Yana qolip scan qilish ($qolipProgressText)',
+                      ? context.l10n.productionText(
+                          'worker.action.scan_mold',
+                        )
+                      : context.l10n.productionText(
+                          'worker.action.scan_more_molds',
+                          values: {'progress': qolipProgressText},
+                        ),
                 ),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
@@ -1104,8 +1175,12 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                       ),
                 label: Text(
                   materialIntakeMode
-                      ? 'Scannerni yopish'
-                      : 'Yana homashyo olish',
+                      ? context.l10n.productionText(
+                          'worker.action.close_scanner',
+                        )
+                      : context.l10n.productionText(
+                          'worker.action.receive_material',
+                        ),
                 ),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
@@ -1130,7 +1205,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                     ? null
                     : onStart,
                 icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text('Boshlash'),
+                label: Text(
+                  context.l10n.productionText('worker.action.start'),
+                ),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
                   shape: RoundedRectangleBorder(
@@ -1167,7 +1244,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: const Text('Tugatish'),
+                      child: Text(
+                        context.l10n.productionText('worker.action.complete'),
+                      ),
                     ),
                   ),
                 ],
@@ -1181,7 +1260,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                     ? null
                     : onRollComplete,
                 icon: const Icon(Icons.call_made_rounded),
-                label: const Text('Rulonni tugatish'),
+                label: Text(
+                  context.l10n.productionText('worker.action.roll_complete'),
+                ),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
                   shape: RoundedRectangleBorder(
@@ -1196,7 +1277,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 onPressed:
                     actionInFlight || orderControlBlocked ? null : onResume,
                 icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text('Davom ettirish'),
+                label: Text(
+                  context.l10n.productionText('worker.action.resume'),
+                ),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
                   shape: RoundedRectangleBorder(
@@ -1218,7 +1301,14 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Oldingi bosqich tugallanguncha kutilmoqda: $previousStage',
+                      context.l10n.productionText(
+                        'worker.waiting.previous',
+                        values: {
+                          'stage': context.l10n.productionApparatusName(
+                            previousStage!,
+                          ),
+                        },
+                      ),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
@@ -1272,7 +1362,7 @@ class _RawMaterialAssignmentsExpansionBody extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Text(
-            'Yuklanmoqda',
+            context.l10n.loading,
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
               fontWeight: FontWeight.w600,
@@ -1419,6 +1509,36 @@ int _adminRawMaterialAssignmentGroupRank(String label) {
   };
 }
 
+String _localizedRawMaterialGroupLabel(BuildContext context, String label) {
+  return switch (label) {
+    'Bosma uchun biriktirilgan' => context.l10n.productionText(
+        'worker.material.group.print',
+      ),
+    'Laminatsiya uchun biriktirilgan' => context.l10n.productionText(
+        'worker.material.group.lamination',
+      ),
+    'Rezka uchun biriktirilgan' => context.l10n.productionText(
+        'worker.material.group.cutting',
+      ),
+    'Bosqichi ko‘rsatilmagan homashyolar' => context.l10n.productionText(
+        'worker.material.group.unknown',
+      ),
+    _ => label.endsWith(' uchun biriktirilgan')
+        ? context.l10n.productionText(
+            'worker.material.group.dynamic',
+            values: {
+              'apparatus': context.l10n.productionApparatusName(
+                label.substring(
+                  0,
+                  label.length - ' uchun biriktirilgan'.length,
+                ),
+              ),
+            },
+          )
+        : label,
+  };
+}
+
 class _AdminRawMaterialAssignmentGroupHeader extends StatelessWidget {
   const _AdminRawMaterialAssignmentGroupHeader({
     required this.label,
@@ -1449,7 +1569,7 @@ class _AdminRawMaterialAssignmentGroupHeader extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              label,
+              _localizedRawMaterialGroupLabel(context, label),
               style: theme.textTheme.titleSmall?.copyWith(
                 color: scheme.onPrimaryContainer,
                 fontWeight: FontWeight.w800,
@@ -1457,7 +1577,7 @@ class _AdminRawMaterialAssignmentGroupHeader extends StatelessWidget {
             ),
           ),
           Text(
-            '$count ta',
+            context.l10n.productionCount(count, kind: 'materials'),
             style: theme.textTheme.labelLarge?.copyWith(
               color: scheme.onPrimaryContainer,
               fontWeight: FontWeight.w800,

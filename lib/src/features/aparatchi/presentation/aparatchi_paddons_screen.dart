@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -76,7 +77,10 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
       await _openPaddon(snapshot.paddon);
     } catch (error) {
       if (mounted) {
-        _showError(error, fallback: 'Bu QR paddon kodi emas');
+        _showError(
+          error,
+          fallback: context.l10n.productionText('worker.paddon.qr_invalid'),
+        );
       }
     }
   }
@@ -94,7 +98,10 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
       await _openPaddon(paddon);
     } catch (error) {
       if (mounted) {
-        _showError(error, fallback: 'Paddon yaratilmadi');
+        _showError(
+          error,
+          fallback: context.l10n.productionText('worker.paddon.create_failed'),
+        );
       }
     } finally {
       if (mounted) {
@@ -104,7 +111,9 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
   }
 
   void _showError(Object error, {required String fallback}) {
-    final message = error is MobileApiException ? error.message : fallback;
+    final message = error is MobileApiException
+        ? context.l10n.productionErrorMessage(error.code, fallback: fallback)
+        : fallback;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
@@ -113,8 +122,8 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
   @override
   Widget build(BuildContext context) {
     return AppShell(
-      title: 'Paddonlar',
-      subtitle: 'WIP va rulonlarni fizik paddonlar bo‘yicha boshqarish',
+      title: context.l10n.productionText('worker.paddons'),
+      subtitle: context.l10n.productionText('worker.paddon.subtitle'),
       nativeTopBar: true,
       drawer: AparatchiNavigationDrawer(
         selectedIndex: 2,
@@ -142,7 +151,7 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
         if (snapshot.hasError && !snapshot.hasData) {
           return AppRetryState(
             onRetry: _retry,
-            message: 'Paddonlar ma’lumoti yuklanmadi',
+            message: context.l10n.productionText('worker.paddon.load_failed'),
           );
         }
         final paddons = snapshot.data ?? const <AdminPaddon>[];
@@ -178,7 +187,13 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
                             )
                           : const Icon(Icons.add_rounded),
                       label: Text(
-                        _creatingPaddon ? 'Yaratilmoqda...' : 'Yangi paddon',
+                        _creatingPaddon
+                            ? context.l10n.productionText(
+                                'worker.paddon.creating',
+                              )
+                            : context.l10n.productionText(
+                                'worker.paddon.create',
+                              ),
                       ),
                     ),
                   ),
@@ -188,14 +203,16 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
                       key: const ValueKey('paddon-scan'),
                       onPressed: _scanPaddon,
                       icon: const Icon(Icons.qr_code_scanner_rounded),
-                      label: const Text('QR scan'),
+                      label: Text(
+                        context.l10n.productionText('worker.paddon.scan'),
+                      ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 18),
               Text(
-                'Paddonlar',
+                context.l10n.productionText('worker.paddons'),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -249,7 +266,7 @@ class _PaddonsSummary extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Fizik joylashuv nazorati',
+              context.l10n.productionText('worker.paddon.location.title'),
               style: theme.textTheme.titleLarge?.copyWith(
                 color: scheme.onPrimaryContainer,
                 fontWeight: FontWeight.w800,
@@ -257,7 +274,7 @@ class _PaddonsSummary extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Har bir paddon ichidagi WIP larni bitta joydan ko‘ring.',
+              context.l10n.productionText('worker.paddon.location.subtitle'),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onPrimaryContainer,
               ),
@@ -267,8 +284,14 @@ class _PaddonsSummary extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _PaddonMetric(label: 'Paddon', value: '$paddonCount'),
-                _PaddonMetric(label: 'WIP', value: '$wipCount'),
+                _PaddonMetric(
+                  label: context.l10n.productionText('worker.paddons'),
+                  value: '$paddonCount',
+                ),
+                _PaddonMetric(
+                  label: context.l10n.productionText('worker.daily.wip'),
+                  value: '$wipCount',
+                ),
               ],
             ),
           ],
@@ -366,7 +389,10 @@ class _PaddonCard extends StatelessWidget {
                   ],
                   const SizedBox(height: 8),
                   Text(
-                    '${paddon.itemCount} ta WIP',
+                    context.l10n.productionText(
+                      'worker.paddon.wip_count',
+                      values: {'count': paddon.itemCount},
+                    ),
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: scheme.primary,
                       fontWeight: FontWeight.w800,
@@ -412,13 +438,13 @@ class _PaddonsEmpty extends StatelessWidget {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             const SizedBox(height: 10),
-            const Text(
-              'Hali paddon yaratilmagan',
+            Text(
+              context.l10n.productionText('worker.paddon.empty.title'),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 4),
             Text(
-              'Yangi paddon bir bosishda yaratiladi. Code avtomatik beriladi, WIP larni esa keyin ichiga qo‘shasiz.',
+              context.l10n.productionText('worker.paddon.empty.body'),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),

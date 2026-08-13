@@ -57,7 +57,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'WIP tafsilotlari',
+                context.l10n.productionText('worker.wip.history.title'),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -68,7 +68,9 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                   if (title.isNotEmpty) title,
                   if (product.isNotEmpty && product != title) product,
                   if (widget.apparatus?.name.trim().isNotEmpty == true)
-                    widget.apparatus!.name.trim(),
+                    context.l10n.productionApparatusName(
+                      widget.apparatus!.name,
+                    ),
                 ].join(' • '),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -90,7 +92,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                     final batches =
                         snapshot.data ?? const <AdminProgressBatch>[];
                     if (batches.isEmpty) {
-                      return const _WorkerWipHistoryEmpty();
+                      return _WorkerWipHistoryEmpty();
                     }
                     return _WorkerWipHistoryList(batches: batches);
                   },
@@ -171,7 +173,10 @@ class _WorkerWipHistorySummary extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '$count ta WIP yaratilgan',
+              context.l10n.productionText(
+                'worker.wip.history.summary',
+                values: {'count': count},
+              ),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: scheme.onTertiaryContainer,
                     fontWeight: FontWeight.w800,
@@ -179,7 +184,9 @@ class _WorkerWipHistorySummary extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Bu order bo‘yicha hosil bo‘lgan yarim tayyor mahsulotlar:',
+              context.l10n.productionText(
+                'worker.wip.history.description',
+              ),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onTertiaryContainer,
                   ),
@@ -189,10 +196,22 @@ class _WorkerWipHistorySummary extends StatelessWidget {
               spacing: 8,
               runSpacing: 6,
               children: [
-                _WorkerWipCountChip(label: 'Kutmoqda', value: waitingCount),
-                _WorkerWipCountChip(label: 'Ishda', value: inUseCount),
                 _WorkerWipCountChip(
-                  label: 'Ishlatilgan',
+                  label: context.l10n.productionText(
+                    'worker.wip.status.waiting',
+                  ),
+                  value: waitingCount,
+                ),
+                _WorkerWipCountChip(
+                  label: context.l10n.productionText(
+                    'worker.wip.status.in_progress',
+                  ),
+                  value: inUseCount,
+                ),
+                _WorkerWipCountChip(
+                  label: context.l10n.productionText(
+                    'worker.wip.status.used',
+                  ),
                   value: processedCount,
                 ),
               ],
@@ -247,24 +266,26 @@ class _WorkerWipHistoryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final kind = _workerWipKind(batch);
-    final statusLabel = _workerWipStatusLabel(batch);
+    final statusLabel = _workerWipStatusLabel(batch, context.l10n);
     final product = _workerWipFirstNotEmpty([
       batch.labelItemName,
       batch.labelItemCode,
-      'WIP ${index + 1}',
+      '${context.l10n.productionText('worker.daily.wip')} ${index + 1}',
     ]);
-    final current = _workerWipFirstNotEmpty([
-      batch.currentLocation,
-      batch.currentApparatus,
-      batch.apparatus,
-    ]);
+    final current = context.l10n.productionApparatusName(
+      _workerWipFirstNotEmpty([
+        batch.currentLocation,
+        batch.currentApparatus,
+        batch.apparatus,
+      ]),
+    );
     final worker = _workerWipFirstNotEmpty([
       batch.workerDisplayName,
       batch.executorName,
       batch.workerRef,
     ]);
-    final next = batch.nextApparatus.trim();
-    final action = _workerWipActionLabel(batch.action);
+    final next = context.l10n.productionApparatusName(batch.nextApparatus);
+    final action = _workerWipActionLabel(batch.action, context.l10n);
 
     return Card.filled(
       color: scheme.surfaceContainerHighest,
@@ -299,7 +320,7 @@ class _WorkerWipHistoryCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _WorkerWipInfoRow(
-              label: 'Miqdor',
+              label: context.l10n.productionText('worker.wip.info.quantity'),
               value: formatQuantityWithUnit(
                 batch.producedQty,
                 batch.uom,
@@ -308,32 +329,48 @@ class _WorkerWipHistoryCard extends StatelessWidget {
             ),
             if (batch.startedAtUnix > 0)
               _WorkerWipInfoRow(
-                label: 'Boshlangan',
+                label: context.l10n.productionText('worker.wip.info.started'),
                 value: formatUnixSecondsLocalDateTime(batch.startedAtUnix),
               ),
             if (batch.completedAtUnix > 0)
               _WorkerWipInfoRow(
-                label: 'Tugagan',
+                label: context.l10n.productionText('worker.wip.info.finished'),
                 value: formatUnixSecondsLocalDateTime(batch.completedAtUnix),
               ),
             _WorkerWipInfoRow(
-              label: 'Qayerdan chiqdi',
-              value: _workerWipValue(batch.apparatus),
+              label: context.l10n.productionText('worker.wip.info.source'),
+              value: context.l10n.productionApparatusName(
+                _workerWipValue(batch.apparatus),
+              ),
             ),
             if (action.isNotEmpty)
-              _WorkerWipInfoRow(label: 'Amal', value: action),
-            _WorkerWipInfoRow(label: 'Hozirgi joyi', value: current),
+              _WorkerWipInfoRow(
+                label: context.l10n.productionText('worker.wip.info.action'),
+                value: action,
+              ),
             _WorkerWipInfoRow(
-              label: 'Keyingi aparat',
+              label: context.l10n.productionText('worker.wip.info.location'),
+              value: current,
+            ),
+            _WorkerWipInfoRow(
+              label: context.l10n.productionText(
+                'worker.wip.info.next_machine',
+              ),
               value: _workerWipValue(next),
             ),
-            _WorkerWipInfoRow(label: 'Ishchi', value: worker),
+            _WorkerWipInfoRow(
+              label: context.l10n.productionText('worker.wip.info.worker'),
+              value: worker,
+            ),
             if (batch.batchId.trim().isNotEmpty)
-              _WorkerWipInfoRow(label: 'WIP ID', value: batch.batchId),
+              _WorkerWipInfoRow(
+                label: context.l10n.productionText('worker.wip.info.id'),
+                value: batch.batchId,
+              ),
             if (batch.qrPayload.trim().isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                'QR: ${batch.qrPayload.trim()}',
+                '${context.l10n.productionText('worker.wip.info.qr')} ${batch.qrPayload.trim()}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -344,7 +381,7 @@ class _WorkerWipHistoryCard extends StatelessWidget {
             if (batch.description.trim().isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
-                'Izoh: ${batch.description.trim()}',
+                '${context.l10n.productionText('worker.wip.info.note')}: ${batch.description.trim()}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -446,9 +483,12 @@ class _WorkerWipHistoryError extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('WIP ma’lumotlari yuklanmadi'),
+          Text(context.l10n.productionText('worker.wip.history.error')),
           const SizedBox(height: 8),
-          TextButton(onPressed: onRetry, child: const Text('Qayta urinish')),
+          TextButton(
+            onPressed: onRetry,
+            child: Text(context.l10n.productionText('worker.action.retry')),
+          ),
         ],
       ),
     );
@@ -460,8 +500,10 @@ class _WorkerWipHistoryEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Bu order bo‘yicha WIP topilmadi'),
+    return Center(
+      child: Text(
+        context.l10n.productionText('worker.wip.history.empty'),
+      ),
     );
   }
 }
@@ -482,26 +524,41 @@ _WorkerWipKind _workerWipKind(AdminProgressBatch batch) {
   return _WorkerWipKind.waiting;
 }
 
-String _workerWipStatusLabel(AdminProgressBatch batch) {
+String _workerWipStatusLabel(
+  AdminProgressBatch batch,
+  AppLocalizations l10n,
+) {
   final flow = batch.statusDetail.flowStatus.trim();
-  if (flow == 'free_wip') return 'Erkin WIP';
-  if (flow == 'accepted_to_stock') return 'Omborga qabul qilingan';
-  if (flow == 'waiting_next_stage') return 'Keyingi bosqichni kutmoqda';
-  if (flow == 'consumed_by_next_stage') {
-    return 'Keyingi bosqichda ishlatilgan';
+  if (flow == 'free_wip') {
+    return l10n.productionText('worker.wip.status.free');
   }
-  if (flow == 'in_progress') return 'Ish jarayonida';
+  if (flow == 'accepted_to_stock') {
+    return l10n.productionText('worker.wip.status.accepted');
+  }
+  if (flow == 'waiting_next_stage') {
+    return l10n.productionText('worker.wip.status.waiting_next');
+  }
+  if (flow == 'consumed_by_next_stage') {
+    return l10n.productionText('worker.wip.status.consumed_next');
+  }
+  if (flow == 'in_progress') {
+    return l10n.productionText('worker.wip.status.in_progress');
+  }
   return switch (batch.wipStatus.trim()) {
-    'waiting' => 'Kutmoqda',
-    'in_use' => 'Ish jarayonida',
-    'processed' => 'Ishlatilgan',
+    'waiting' => l10n.productionText('worker.wip.status.waiting'),
+    'in_use' => l10n.productionText('worker.wip.status.in_progress'),
+    'processed' => l10n.productionText('worker.wip.status.used'),
     _ => switch (batch.statusDetail.workStatus.trim().isNotEmpty
           ? batch.statusDetail.workStatus.trim()
           : batch.status.trim()) {
-        'paused' => 'Pauzada',
-        'resumed' || 'in_progress' => 'Ish jarayonida',
-        'completed' || 'complete' => 'Tugagan',
-        _ => 'WIP',
+        'paused' => l10n.productionText('worker.wip.status.paused'),
+        'resumed' ||
+        'in_progress' =>
+          l10n.productionText('worker.wip.status.in_progress'),
+        'completed' ||
+        'complete' =>
+          l10n.productionText('worker.wip.status.finished'),
+        _ => l10n.productionText('worker.daily.wip'),
       },
   };
 }
@@ -519,13 +576,13 @@ String _workerWipValue(String value) {
   return trimmed.isEmpty ? '—' : trimmed;
 }
 
-String _workerWipActionLabel(String value) {
+String _workerWipActionLabel(String value, AppLocalizations l10n) {
   return switch (value.trim().toLowerCase()) {
-    'pause' => 'Pauza qilib chiqarilgan',
-    'detach_roll' => 'Rulon yechib chiqarilgan',
-    'roll_complete' => 'Rulonni tugatib chiqarilgan',
-    'complete' => 'Tugatib chiqarilgan',
-    'resume' => 'Davom ettirilgan',
+    'pause' => l10n.productionText('worker.wip.action.pause'),
+    'detach_roll' => l10n.productionText('worker.wip.action.detach_roll'),
+    'roll_complete' => l10n.productionText('worker.wip.action.roll_complete'),
+    'complete' => l10n.productionText('worker.wip.action.complete'),
+    'resume' => l10n.productionText('worker.wip.action.resume'),
     _ => value.trim(),
   };
 }

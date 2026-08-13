@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -109,9 +110,14 @@ class _AparatchiPaddonDetailScreenState
     } catch (error) {
       if (mounted) {
         _showMessage(
-          error is MobileApiException && error.message.trim().isNotEmpty
-              ? error.message
-              : 'QR kamera scanneri ochilmadi',
+          error is MobileApiException
+              ? context.l10n.productionErrorMessage(
+                  error.code,
+                  fallback: context.l10n.productionText(
+                    'worker.paddon.camera_failed',
+                  ),
+                )
+              : context.l10n.productionText('worker.paddon.camera_failed'),
         );
       }
     }
@@ -137,7 +143,9 @@ class _AparatchiPaddonDetailScreenState
       if (printer.transport.isLocal) {
         final printJob = result.printJob;
         if (printJob == null) {
-          throw StateError('Paddon QR print ma’lumoti olinmadi');
+          throw StateError(
+            context.l10n.productionText('worker.paddon.print_data_failed'),
+          );
         }
         final printResult = await PrintService.printRps(
           printJob,
@@ -146,18 +154,30 @@ class _AparatchiPaddonDetailScreenState
           transport: printer.transport,
         );
         if (!printResult.ok) {
-          throw StateError('Paddon QR printerga yuborilmadi');
+          throw StateError(
+            context.l10n.productionText('worker.paddon.print_send_failed'),
+          );
         }
       }
       if (mounted) {
-        _showMessage('Paddon ${result.qrPayload} QR chop etildi');
+        _showMessage(
+          context.l10n.productionText(
+            'worker.paddon.printed',
+            values: {'qr': result.qrPayload},
+          ),
+        );
       }
     } catch (error) {
       if (mounted) {
         _showMessage(
-          error is MobileApiException && error.message.trim().isNotEmpty
-              ? error.message
-              : 'Paddon QR chop etilmadi',
+          error is MobileApiException
+              ? context.l10n.productionErrorMessage(
+                  error.code,
+                  fallback: context.l10n.productionText(
+                    'worker.paddon.print_failed',
+                  ),
+                )
+              : context.l10n.productionText('worker.paddon.print_failed'),
         );
       }
     } finally {
@@ -218,7 +238,9 @@ class _AparatchiPaddonDetailScreenState
             snapshot.items.map((batch) => batch.batchId.trim()).toSet();
         return selectedBatchIds.every(assignedBatchIds.contains);
       },
-      fallbackMessage: 'Tanlangan WIP lar qo‘shilmadi',
+      fallbackMessage: context.l10n.productionText(
+        'worker.paddon.add_failed',
+      ),
     );
     if (applied && mounted) {
       setState(() => _selectedAvailableBatchIds.clear());
@@ -233,18 +255,25 @@ class _AparatchiPaddonDetailScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Tanlangan WIP larni chiqarishmi?'),
+        title: Text(
+          context.l10n.productionText('worker.paddon.confirm.remove.title'),
+        ),
         content: Text(
-          '${selectedBatchIds.length} ta WIP paddon tarkibidan chiqariladi.',
+          context.l10n.productionText(
+            'worker.paddon.confirm.remove.body.count',
+            values: {'count': selectedBatchIds.length},
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Bekor qilish'),
+            child: Text(context.l10n.productionText('worker.action.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Chiqarish'),
+            child: Text(
+              context.l10n.productionText('worker.paddon.remove'),
+            ),
           ),
         ],
       ),
@@ -264,7 +293,9 @@ class _AparatchiPaddonDetailScreenState
           (batchId) => !assignedBatchIds.contains(batchId),
         );
       },
-      fallbackMessage: 'Tanlangan WIP lar chiqarilmadi',
+      fallbackMessage: context.l10n.productionText(
+        'worker.paddon.remove_failed',
+      ),
     );
     if (applied && mounted) {
       setState(() => _selectedAssignedBatchIds.clear());
@@ -274,7 +305,7 @@ class _AparatchiPaddonDetailScreenState
   Future<bool> _runMutation(
     Future<AdminPaddonSnapshot> Function() mutation, {
     bool Function(AdminPaddonSnapshot snapshot)? confirmsApplied,
-    String fallbackMessage = 'Paddon tarkibi o‘zgartirilmadi',
+    String? fallbackMessage,
   }) async {
     setState(() => _busy = true);
     try {
@@ -309,10 +340,16 @@ class _AparatchiPaddonDetailScreenState
         }
       }
       if (mounted) {
-        final message =
-            error is MobileApiException && error.message.trim().isNotEmpty
-                ? error.message
-                : fallbackMessage;
+        final message = error is MobileApiException
+            ? context.l10n.productionErrorMessage(
+                error.code,
+                fallback: fallbackMessage ??
+                    context.l10n.productionText(
+                      'worker.paddon.update_failed',
+                    ),
+              )
+            : fallbackMessage ??
+                context.l10n.productionText('worker.paddon.update_failed');
         _showMessage(message);
       }
       return false;
@@ -327,9 +364,10 @@ class _AparatchiPaddonDetailScreenState
       ? _selectedAvailableBatchIds
       : _selectedAssignedBatchIds;
 
-  String get _editModeActionLabel {
-    final label =
-        _editMode == _PaddonEditMode.add ? 'Qo‘shish' : 'Olib tashlash';
+  String _editModeActionLabel(BuildContext context) {
+    final label = _editMode == _PaddonEditMode.add
+        ? context.l10n.productionText('worker.paddon.add')
+        : context.l10n.productionText('worker.paddon.remove');
     final selectedCount = _selectedBatchIds.length;
     return selectedCount == 0 ? label : '$label ($selectedCount)';
   }
@@ -410,8 +448,12 @@ class _AparatchiPaddonDetailScreenState
               Expanded(
                 child: Text(
                   showingAvailableItems
-                      ? 'Paddonga qo‘shish mumkin bo‘lgan WIP lar'
-                      : 'Paddon ichidagi WIP lar',
+                      ? context.l10n.productionText(
+                          'worker.paddon.available.title',
+                        )
+                      : context.l10n.productionText(
+                          'worker.paddon.assigned.title',
+                        ),
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
@@ -419,7 +461,7 @@ class _AparatchiPaddonDetailScreenState
                 ),
               ),
               Text(
-                '${items.length} ta',
+                context.l10n.productionCount(items.length),
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w800,
@@ -431,8 +473,12 @@ class _AparatchiPaddonDetailScreenState
           if (items.isEmpty)
             _PaddonItemsEmpty(
               message: showingAvailableItems
-                  ? 'Paddonga qo‘shish mumkin bo‘lgan WIP topilmadi.'
-                  : 'Bu paddonda hozircha WIP yo‘q.',
+                  ? context.l10n.productionText(
+                      'worker.paddon.available.empty',
+                    )
+                  : context.l10n.productionText(
+                      'worker.paddon.assigned.empty',
+                    ),
             )
           else
             M3SegmentSpacedColumn(
@@ -490,7 +536,7 @@ class _AparatchiPaddonDetailScreenState
   Widget build(BuildContext context) {
     return AppShell(
       title: widget.code,
-      subtitle: 'Paddon tarkibi',
+      subtitle: context.l10n.productionText('worker.paddon.detail.subtitle'),
       nativeTopBar: true,
       drawer: AparatchiNavigationDrawer(
         selectedIndex: 2,
@@ -518,14 +564,14 @@ class _AparatchiPaddonDetailScreenState
         if (snapshot.hasError && !snapshot.hasData) {
           return AppRetryState(
             onRetry: _retry,
-            message: 'Paddon ma’lumoti yuklanmadi',
+            message: context.l10n.productionText('worker.paddon.load_failed'),
           );
         }
         final data = snapshot.data;
         if (data == null) {
           return AppRetryState(
             onRetry: _retry,
-            message: 'Paddon ma’lumoti topilmadi',
+            message: context.l10n.productionText('worker.paddon.not_found'),
           );
         }
         return RefreshIndicator(
@@ -544,7 +590,9 @@ class _AparatchiPaddonDetailScreenState
                 key: const ValueKey('paddon-add-wip-scan'),
                 onPressed: _busy || _printingQr ? null : _scanAndAdd,
                 icon: const Icon(Icons.qr_code_scanner_rounded),
-                label: const Text('WIP QR scan qilib qo‘shish'),
+                label: Text(
+                  context.l10n.productionText('worker.paddon.add_wip'),
+                ),
               ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
@@ -557,7 +605,9 @@ class _AparatchiPaddonDetailScreenState
                       )
                     : const Icon(Icons.qr_code_2_rounded),
                 label: Text(
-                  _printingQr ? 'QR tayyorlanmoqda...' : 'Paddon QR chop etish',
+                  _printingQr
+                      ? context.l10n.productionText('worker.paddon.printing')
+                      : context.l10n.productionText('worker.paddon.print'),
                 ),
               ),
               const SizedBox(height: 18),
@@ -568,7 +618,7 @@ class _AparatchiPaddonDetailScreenState
                   onPressed:
                       _busy || _printingQr ? null : _handleEditModeAction,
                   icon: Icon(_editModeActionIcon),
-                  label: Text(_editModeActionLabel),
+                  label: Text(_editModeActionLabel(context)),
                 ),
               ),
               const SizedBox(height: 8),
@@ -639,7 +689,8 @@ class _PaddonDetailHeader extends StatelessWidget {
                 ),
                 if (paddon.createdByDisplayName.trim().isNotEmpty)
                   _PaddonDetailMetric(
-                    label: 'Yaratgan',
+                    label:
+                        context.l10n.productionText('worker.paddon.created_by'),
                     value: paddon.createdByDisplayName,
                   ),
               ],
@@ -735,7 +786,7 @@ class _PaddonWipCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Order: $orderId',
+                      '${context.l10n.productionText('worker.daily.order')}: $orderId',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyMedium?.copyWith(

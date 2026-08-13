@@ -42,30 +42,30 @@ class AparatchiNavigationDrawer extends StatelessWidget {
           routeName: AppRoutes.apparatusQueue,
         ),
         if (showDailyWork)
-          const RoleNavigationDrawerDestination(
+          RoleNavigationDrawerDestination(
             icon: Icons.today_outlined,
             selectedIcon: Icons.today_rounded,
-            label: 'Kunlik ish',
+            label: l10n.productionText('worker.daily'),
             routeName: AppRoutes.apparatusDailyWork,
           ),
         if (showDailyWork)
-          const RoleNavigationDrawerDestination(
+          RoleNavigationDrawerDestination(
             icon: Icons.inventory_2_outlined,
             selectedIcon: Icons.inventory_2_rounded,
-            label: 'Paddonlar',
+            label: l10n.productionText('worker.paddons'),
             routeName: AppRoutes.apparatusPaddons,
           ),
-        const RoleNavigationDrawerDestination(
+        RoleNavigationDrawerDestination(
           icon: Icons.menu_book_outlined,
           selectedIcon: Icons.menu_book_rounded,
-          label: 'App yo‘riqnomasi',
+          label: l10n.productionText('worker.instructions'),
           routeName: AppRoutes.apparatusWorkInstructions,
         ),
         if (AppRouter.canOpenRoute(AppRoutes.inventoryMovements))
-          const RoleNavigationDrawerDestination(
+          RoleNavigationDrawerDestination(
             icon: Icons.swap_horiz_outlined,
             selectedIcon: Icons.swap_horiz_rounded,
-            label: 'Joylashtirish va transfer',
+            label: l10n.productionText('worker.transfer'),
             routeName: AppRoutes.inventoryMovements,
             push: true,
           ),

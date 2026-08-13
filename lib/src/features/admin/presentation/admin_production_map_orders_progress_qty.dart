@@ -254,12 +254,16 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         }
         final qty = _parseQty(trimmed);
         if (qty == null || !qty.isFinite || qty < 0) {
-          return 'To‘g‘ri raqam kiriting';
+          return context.l10n.productionText(
+            'worker.progress.qty.invalid_number',
+          );
         }
         if (!allowZero &&
             (positive || !_isComplete || !_requiresFullCompletionReport) &&
             qty == 0) {
-          return '0 dan katta raqam kiriting';
+          return context.l10n.productionText(
+            'worker.progress.qty.positive_number',
+          );
         }
         return null;
       },
@@ -283,8 +287,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         widget.isBosma &&
         returnedPaintDraftHasInvalidValues(_returnedPaintDraft)) {
       setState(() {
-        _completionError =
-            'Qaytarilgan bo‘yoq qiymatlarini to‘g‘ri raqamda kiriting.';
+        _completionError = context.l10n.productionText(
+          'worker.progress.qty.returned_paint_invalid',
+        );
       });
       return;
     }
@@ -318,11 +323,16 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         !returnedPaintValid) {
       setState(() {
         _completionError = returnedPaintFieldCount > 0
-            ? 'Har bir tabda kamida 3 ta maydon to‘ldiring. '
-                'Rasxot: $rasxotFieldCount/3, '
-                'Astatka: $astatkaFieldCount/3.'
-            : 'Kamida 3 ta qaytarilgan bo‘yoq maydonini to‘ldiring yoki '
-                'rasm yuklang.';
+            ? context.l10n.productionText(
+                'worker.progress.qty.returned_paint_min',
+                values: {
+                  'rasxot': rasxotFieldCount,
+                  'astatka': astatkaFieldCount,
+                },
+              )
+            : context.l10n.productionText(
+                'worker.progress.qty.returned_paint_image',
+              );
       });
       return;
     }
@@ -516,8 +526,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         return;
       }
       setState(() {
-        _completionError =
-            '0 yoki to‘liq bo‘lmagan hisobot uchun sababini yozing.';
+        _completionError = context.l10n.productionText(
+          'worker.progress.qty.completion_reason',
+        );
       });
       return;
     }
@@ -608,26 +619,46 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
             _isAstatkaReport) &&
         !isBosma;
     final title = _isAstatkaReport
-        ? 'Ishimni tugatish'
+        ? context.l10n.productionText('worker.finish.title')
         : _isWorkerHandoff
-            ? 'Ishimni tugatish'
+            ? context.l10n.productionText('worker.finish.title')
             : _isRollRemoval
-                ? 'Rulonni yechib tashlash'
+                ? context.l10n.productionText(
+                    'worker.progress.qty.title.remove_roll',
+                  )
                 : switch (widget.action) {
-                    'pause' => 'Pauza miqdori',
-                    'detach_roll' => 'Rulonni yechish',
-                    'roll_complete' => 'Rulonni tugatish',
-                    _ => 'Tugatish miqdori',
+                    'pause' => context.l10n.productionText(
+                        'worker.progress.qty.title.pause',
+                      ),
+                    'detach_roll' => context.l10n.productionText(
+                        'worker.progress.qty.title.detach_roll',
+                      ),
+                    'roll_complete' => context.l10n.productionText(
+                        'worker.progress.qty.title.roll_complete',
+                      ),
+                    _ => context.l10n.productionText(
+                        'worker.progress.qty.title.complete',
+                      ),
                   };
     final subtitle = _isAstatkaReport
-        ? 'Bu faqat order astatkasini qayd qiladi. Pauza va Tugatish holati o‘zgarmaydi.'
+        ? context.l10n.productionText(
+            'worker.progress.qty.subtitle.astatka',
+          )
         : _isWorkerHandoff
-            ? 'Rulon apparatda qoladi. Astatka va chiqindini kiriting.'
+            ? context.l10n.productionText(
+                'worker.progress.qty.subtitle.handoff',
+              )
             : _isRollRemoval
-                ? 'Rulon apparatdan olinadi. Metraj va og‘irlikni kiriting.'
+                ? context.l10n.productionText(
+                    'worker.progress.qty.subtitle.remove_roll',
+                  )
                 : _requiresFullCompletionReport
-                    ? '0 yoki to‘liq bo‘lmagan hisobot uchun izoh yozing'
-                    : 'Joriy miqdorni kiriting';
+                    ? context.l10n.productionText(
+                        'worker.progress.qty.subtitle.full_report',
+                      )
+                    : context.l10n.productionText(
+                        'worker.progress.qty.subtitle.current',
+                      );
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -694,12 +725,23 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _progressQtySectionLabel(context, 'Standart miqdor'),
+                        _progressQtySectionLabel(
+                          context,
+                          context.l10n.productionText(
+                            'worker.progress.qty.standard',
+                          ),
+                        ),
                         _qtyField(
                           controller: _bobinaController,
-                          label: 'Babina',
-                          error: 'Babina kg kiriting',
-                          suffix: 'kg',
+                          label: context.l10n.productionText(
+                            'worker.daily.field.roll',
+                          ),
+                          error: context.l10n.productionText(
+                            'worker.progress.qty.roll_required',
+                          ),
+                          suffix: context.l10n.productionText(
+                            'worker.progress.qty.unit.kg',
+                          ),
                           requiredField: true,
                           positive: true,
                         ),
@@ -710,11 +752,24 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             isLaminatsiya &&
                             !_isRollRemoval) ...[
                           _progressQtySectionLabel(
-                              context, 'Ortiqcha rulonlar'),
+                            context,
+                            context.l10n.productionText(
+                              'worker.progress.qty.excess_rolls',
+                            ),
+                          ),
                           _qtyField(
                             controller: _printLeftoverController,
-                            label: 'Bosmadan ortgan rulon',
-                            error: 'Bosmadan ortgan rulonni kiriting',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.print_leftover',
+                            ),
+                            error: context.l10n.productionText(
+                              'worker.daily.required_field',
+                              values: {
+                                'label': context.l10n.productionText(
+                                  'worker.daily.field.print_leftover',
+                                ),
+                              },
+                            ),
                             requiredField:
                                 (_isWorkerHandoff || _isAstatkaReport)
                                     ? true
@@ -730,8 +785,17 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             !_isRollRemoval) ...[
                           _qtyField(
                             controller: _filmLeftoverController,
-                            label: 'Plyonkadan ortgan rulon',
-                            error: 'Plyonkadan ortgan rulonni kiriting',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.film_leftover',
+                            ),
+                            error: context.l10n.productionText(
+                              'worker.daily.required_field',
+                              values: {
+                                'label': context.l10n.productionText(
+                                  'worker.daily.field.film_leftover',
+                                ),
+                              },
+                            ),
                             requiredField:
                                 (_isWorkerHandoff || _isAstatkaReport)
                                     ? true
@@ -743,12 +807,28 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                         if (isRezka &&
                             (_requiresFullCompletionReport ||
                                 _isAstatkaReport)) ...[
-                          _progressQtySectionLabel(context, 'Chiqindilar'),
+                          _progressQtySectionLabel(
+                            context,
+                            context.l10n.productionText(
+                              'worker.progress.qty.waste',
+                            ),
+                          ),
                           _qtyField(
                             controller: _wasteController,
-                            label: 'Jami chiqindi',
-                            error: 'Chiqindi miqdorini kiriting',
-                            suffix: 'kg',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.total_waste',
+                            ),
+                            error: context.l10n.productionText(
+                              'worker.daily.required_field',
+                              values: {
+                                'label': context.l10n.productionText(
+                                  'worker.daily.field.total_waste',
+                                ),
+                              },
+                            ),
+                            suffix: context.l10n.productionText(
+                              'worker.progress.qty.unit.kg',
+                            ),
                             requiredField: _isAstatkaReport ? true : false,
                             positive: !_isAstatkaReport,
                             allowZero: _isAstatkaReport,
@@ -756,9 +836,20 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           const SizedBox(height: 10),
                           _qtyField(
                             controller: _rezkaBosmaWasteController,
-                            label: 'Bosmachining chiqindisi',
-                            error: 'Bosmachining chiqindisini kiriting',
-                            suffix: 'kg',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.print_waste',
+                            ),
+                            error: context.l10n.productionText(
+                              'worker.daily.required_field',
+                              values: {
+                                'label': context.l10n.productionText(
+                                  'worker.daily.field.print_waste',
+                                ),
+                              },
+                            ),
+                            suffix: context.l10n.productionText(
+                              'worker.progress.qty.unit.kg',
+                            ),
                             requiredField: _isAstatkaReport ? true : false,
                             positive: !_isAstatkaReport,
                             allowZero: _isAstatkaReport,
@@ -766,9 +857,20 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           const SizedBox(height: 10),
                           _qtyField(
                             controller: _rezkaLaminationWasteController,
-                            label: 'Laminatsiya chiqindisi',
-                            error: 'Laminatsiya chiqindisini kiriting',
-                            suffix: 'kg',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.lamination_waste',
+                            ),
+                            error: context.l10n.productionText(
+                              'worker.daily.required_field',
+                              values: {
+                                'label': context.l10n.productionText(
+                                  'worker.daily.field.lamination_waste',
+                                ),
+                              },
+                            ),
+                            suffix: context.l10n.productionText(
+                              'worker.progress.qty.unit.kg',
+                            ),
                             requiredField: _isAstatkaReport ? true : false,
                             positive: !_isAstatkaReport,
                             allowZero: _isAstatkaReport,
@@ -776,10 +878,20 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           const SizedBox(height: 10),
                           _qtyField(
                             controller: _rezkaEdgeWasteController,
-                            label: 'Tayyor mahsulot chetidan chiqqan chiqindi',
-                            error:
-                                'Tayyor mahsulot chetidan chiqqan chiqindini kiriting',
-                            suffix: 'kg',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.edge_waste',
+                            ),
+                            error: context.l10n.productionText(
+                              'worker.daily.required_field',
+                              values: {
+                                'label': context.l10n.productionText(
+                                  'worker.daily.field.edge_waste',
+                                ),
+                              },
+                            ),
+                            suffix: context.l10n.productionText(
+                              'worker.progress.qty.unit.kg',
+                            ),
                             requiredField: _isAstatkaReport ? true : false,
                             positive: !_isAstatkaReport,
                             allowZero: _isAstatkaReport,
@@ -796,7 +908,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                 ].any(_hasPositiveQty);
                                 return hasWaste
                                     ? null
-                                    : 'Kamida bitta chiqindi maydonini to‘ldiring';
+                                    : context.l10n.productionText(
+                                        'worker.progress.qty.waste_required',
+                                      );
                               },
                               builder: (field) {
                                 if (!field.hasError) {
@@ -816,12 +930,28 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             ),
                         ],
                         if (showTotalWaste) ...[
-                          _progressQtySectionLabel(context, 'Chiqindi'),
+                          _progressQtySectionLabel(
+                            context,
+                            context.l10n.productionText(
+                              'worker.progress.qty.waste',
+                            ),
+                          ),
                           _qtyField(
                             controller: _wasteController,
-                            label: 'Jami chiqindi',
-                            error: 'Jami chiqindi kg kiriting',
-                            suffix: 'kg',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.total_waste',
+                            ),
+                            error: context.l10n.productionText(
+                              'worker.daily.required_field',
+                              values: {
+                                'label': context.l10n.productionText(
+                                  'worker.daily.field.total_waste',
+                                ),
+                              },
+                            ),
+                            suffix: context.l10n.productionText(
+                              'worker.progress.qty.unit.kg',
+                            ),
                             requiredField:
                                 (_isWorkerHandoff || _isAstatkaReport)
                                     ? true
@@ -833,15 +963,30 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                         if (!_isWorkerHandoff) ...[
                           _progressQtySectionLabel(
                             context,
-                            hasDetailedMetrics ? 'Tayyor mahsulot' : 'Miqdor',
+                            hasDetailedMetrics
+                                ? context.l10n.productionText(
+                                    'worker.progress.qty.finished_goods',
+                                  )
+                                : context.l10n.productionText(
+                                    'worker.daily.field.quantity',
+                                  ),
                           ),
                           _qtyField(
                             controller: _meterController,
-                            label: 'Metraj',
-                            error: hasDetailedMetrics
-                                ? 'Tayyor mahsulot metr kiriting'
-                                : 'Metraj kiriting',
-                            suffix: 'metr',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.length',
+                            ),
+                            error: context.l10n.productionText(
+                              'worker.daily.required_field',
+                              values: {
+                                'label': context.l10n.productionText(
+                                  'worker.daily.field.length',
+                                ),
+                              },
+                            ),
+                            suffix: context.l10n.productionText(
+                              'worker.progress.qty.unit.meter',
+                            ),
                             requiredField:
                                 isRezka || _isRollRemoval || _isAstatkaReport
                                     ? true
@@ -852,11 +997,20 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           const SizedBox(height: 10),
                           _qtyField(
                             controller: _kgController,
-                            label: 'Og\'irlik',
-                            error: hasDetailedMetrics
-                                ? 'Tayyor mahsulot kg kiriting'
-                                : 'Kg kiriting',
-                            suffix: 'kg',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.weight',
+                            ),
+                            error: context.l10n.productionText(
+                              'worker.daily.required_field',
+                              values: {
+                                'label': context.l10n.productionText(
+                                  'worker.daily.field.weight',
+                                ),
+                              },
+                            ),
+                            suffix: context.l10n.productionText(
+                              'worker.progress.qty.unit.kg',
+                            ),
                             requiredField:
                                 isRezka || _isRollRemoval || _isAstatkaReport
                                     ? true
@@ -868,9 +1022,20 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             const SizedBox(height: 10),
                             _qtyField(
                               controller: _diameterController,
-                              label: 'Diametr',
-                              error: 'Diametrni kiriting',
-                              suffix: 'mm',
+                              label: context.l10n.productionText(
+                                'worker.daily.field.diameter',
+                              ),
+                              error: context.l10n.productionText(
+                                'worker.daily.required_field',
+                                values: {
+                                  'label': context.l10n.productionText(
+                                    'worker.daily.field.diameter',
+                                  ),
+                                },
+                              ),
+                              suffix: context.l10n.productionText(
+                                'worker.progress.qty.unit.mm',
+                              ),
                               requiredField: true,
                               positive: true,
                             ),
@@ -880,13 +1045,26 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           const SizedBox(height: 10),
                           _progressQtySectionLabel(
                             context,
-                            'Qaytim va chiqindi',
+                            context.l10n.productionText(
+                              'worker.progress.qty.returned_paint_and_waste',
+                            ),
                           ),
                           _qtyField(
                             controller: _wasteController,
-                            label: 'Jami chiqindi',
-                            error: 'Jami chiqindi kg kiriting',
-                            suffix: 'kg',
+                            label: context.l10n.productionText(
+                              'worker.daily.field.total_waste',
+                            ),
+                            error: context.l10n.productionText(
+                              'worker.daily.required_field',
+                              values: {
+                                'label': context.l10n.productionText(
+                                  'worker.daily.field.total_waste',
+                                ),
+                              },
+                            ),
+                            suffix: context.l10n.productionText(
+                              'worker.progress.qty.unit.kg',
+                            ),
                           ),
                           const SizedBox(height: 10),
                           OutlinedButton(
@@ -904,10 +1082,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                            child: const Row(
+                            child: Row(
                               children: [
                                 Expanded(
-                                  child: Text("Qaytarilgan bo'yoq"),
+                                  child: Text(
+                                    context.l10n.productionText(
+                                      'worker.daily.field.returned_ink',
+                                    ),
+                                  ),
                                 ),
                                 Icon(Icons.arrow_forward_rounded),
                               ],
@@ -917,7 +1099,12 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                         if (_requiresFullCompletionReport ||
                             _isAstatkaReport) ...[
                           const SizedBox(height: 6),
-                          _progressQtySectionLabel(context, 'Izoh'),
+                          _progressQtySectionLabel(
+                            context,
+                            context.l10n.productionText(
+                              'worker.progress.qty.note',
+                            ),
+                          ),
                           TextFormField(
                             controller: _descriptionController,
                             minLines: 3,
@@ -925,8 +1112,12 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             decoration: appSurfaceInputDecoration(
                               context,
                               labelText: _isAstatkaReport
-                                  ? 'Izoh (ixtiyoriy)'
-                                  : '0 yoki noodatiy tugatish sababi',
+                                  ? context.l10n.productionText(
+                                      'worker.progress.qty.optional_note',
+                                    )
+                                  : context.l10n.productionText(
+                                      'worker.progress.qty.reason',
+                                    ),
                               alignLabelWithHint: true,
                             ),
                             onChanged: (_) {
@@ -988,7 +1179,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: const Text('Bekor qilish'),
+                      child: Text(
+                        context.l10n.productionText('worker.action.cancel'),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -1001,7 +1194,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: const Text('Tasdiqlash'),
+                      child: Text(
+                        context.l10n.productionText('worker.action.confirm'),
+                      ),
                     ),
                   ),
                 ],
