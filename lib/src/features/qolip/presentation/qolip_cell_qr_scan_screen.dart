@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 
@@ -37,30 +38,30 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
   final bool _scannerSupported = _supportsLiveScanner;
   MobileScannerController? _controller;
   bool _processing = false;
-  late String _statusText = _initialStatusText;
+  String _statusText = '';
 
-  String get _initialStatusText {
+  String _initialStatusText(AppLocalizations l10n) {
     return switch (widget.mode) {
-      _QolipQrScanMode.cell => 'Yachayka QR kodini ramkaga keltiring',
-      _QolipQrScanMode.raw => 'Qolip QR kodini ramkaga keltiring',
+      _QolipQrScanMode.cell => l10n.qolipText('scanner.prompt.cell'),
+      _QolipQrScanMode.raw => l10n.qolipText('scanner.prompt.mold'),
+      _QolipQrScanMode.universal => l10n.qolipText('scanner.prompt.universal'),
+    };
+  }
+
+  String _checkingStatusText(AppLocalizations l10n) {
+    return switch (widget.mode) {
+      _QolipQrScanMode.cell => l10n.qolipText('scanner.checking.cell'),
+      _QolipQrScanMode.raw => l10n.qolipText('scanner.checking.mold'),
       _QolipQrScanMode.universal =>
-        'Qolip yoki yachayka QR kodini ramkaga keltiring',
+        l10n.qolipText('scanner.checking.universal'),
     };
   }
 
-  String get _checkingStatusText {
+  String _title(AppLocalizations l10n) {
     return switch (widget.mode) {
-      _QolipQrScanMode.cell => 'Yachayka tekshirilmoqda...',
-      _QolipQrScanMode.raw => 'Qolip QR o‘qilmoqda...',
-      _QolipQrScanMode.universal => 'QR o‘qilmoqda...',
-    };
-  }
-
-  String get _title {
-    return switch (widget.mode) {
-      _QolipQrScanMode.cell => 'Yachayka scan',
-      _QolipQrScanMode.raw => 'Qolip scan',
-      _QolipQrScanMode.universal => 'QR scan',
+      _QolipQrScanMode.cell => l10n.qolipText('scanner.title.cell'),
+      _QolipQrScanMode.raw => l10n.qolipText('scanner.title.mold'),
+      _QolipQrScanMode.universal => l10n.qolipText('scanner.title.universal'),
     };
   }
 
@@ -110,7 +111,7 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
       }
       setState(() {
         _processing = false;
-        _statusText = _initialStatusText;
+        _statusText = _initialStatusText(context.l10n);
       });
     } catch (_) {
       if (!mounted) {
@@ -118,7 +119,7 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
       }
       setState(() {
         _processing = false;
-        _statusText = 'Kamera ochilmadi';
+        _statusText = context.l10n.qolipText('scanner.camera_failed');
       });
     }
   }
@@ -146,7 +147,7 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
 
     setState(() {
       _processing = true;
-      _statusText = _checkingStatusText;
+      _statusText = _checkingStatusText(context.l10n);
     });
     await _stopScanner();
 
@@ -167,7 +168,7 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
       if (!mounted) {
         return;
       }
-      final message = _messageForError(error);
+      final message = _messageForError(error, context.l10n);
       setState(() {
         _processing = false;
         _statusText = message;
@@ -179,19 +180,19 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
     }
   }
 
-  String _messageForError(Object error) {
+  String _messageForError(Object error, AppLocalizations l10n) {
     if (error is MobileApiException) {
       return switch (error.code) {
         'cell_qr_not_found' ||
         'qolip_cell_qr_not_found' =>
-          'Bu QR yachayka uchun topilmadi.',
-        'qr_required' || 'qolip_cell_qr_required' => 'Yachayka QR bo‘sh.',
-        _ => error.message.trim().isEmpty
-            ? 'Yachayka QR tekshirishda xatolik.'
-            : error.message,
+          l10n.qolipText('scanner.not_found'),
+        'qr_required' ||
+        'qolip_cell_qr_required' =>
+          l10n.qolipText('scanner.empty'),
+        _ => l10n.qolipText('scanner.check_failed'),
       };
     }
-    return 'Yachayka QR tekshirishda xatolik.';
+    return l10n.qolipText('scanner.check_failed');
   }
 
   String _firstBarcodeValue(BarcodeCapture capture) {
@@ -210,6 +211,7 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final backgroundColor =
@@ -229,7 +231,7 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
     return Theme(
       data: theme.copyWith(appBarTheme: appBarTheme),
       child: AppShell(
-        title: _title,
+        title: _title(l10n),
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: theme.textTheme.titleLarge?.copyWith(
@@ -250,8 +252,7 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
                       onDetect: _handleDetect,
                       errorBuilder: (context, error) {
                         return _ScannerErrorView(
-                          message:
-                              'Kamera ochilmadi. Ruxsatlarni tekshirib qayta urinib ko‘ring.',
+                          message: l10n.qolipText('scanner.camera_retry'),
                           onRetry: _startScanner,
                         );
                       },
@@ -346,7 +347,9 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
                           ),
                           const SizedBox(height: 18),
                           _ScanStatusPill(
-                            text: _statusText,
+                            text: _statusText.isEmpty
+                                ? _initialStatusText(l10n)
+                                : _statusText,
                             isBusy: _processing,
                           ),
                         ],
@@ -357,8 +360,8 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
               )
             : _UnsupportedScannerView(
                 message: widget.mode == _QolipQrScanMode.universal
-                    ? 'Bu qurilmada QR scanner qo‘llab-quvvatlanmadi.'
-                    : 'Bu qurilmada yachayka QR scanner qo‘llab-quvvatlanmadi.',
+                    ? l10n.qolipText('scanner.unsupported')
+                    : l10n.qolipText('scanner.unsupported_cell'),
                 onBack: () => Navigator.of(context).maybePop(),
               ),
       ),
@@ -381,6 +384,7 @@ class _TorchButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return ValueListenableBuilder<MobileScannerState>(
       valueListenable: controller,
       builder: (context, state, child) {
@@ -392,7 +396,9 @@ class _TorchButton extends StatelessWidget {
 
         final enabled = state.torchState == TorchState.on;
         return Tooltip(
-          message: enabled ? 'Flash o‘chirish' : 'Flash yoqish',
+          message: enabled
+              ? l10n.qolipText('scanner.flash_off')
+              : l10n.qolipText('scanner.flash_on'),
           child: Material(
             color: enabled
                 ? Colors.white.withValues(alpha: 0.92)
@@ -487,11 +493,12 @@ class _ScannerErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return _ScannerFallbackPanel(
       icon: Icons.videocam_off_rounded,
-      title: 'Scanner ishlamadi',
+      title: l10n.qolipText('scanner.failed'),
       message: message,
-      actionLabel: 'Qayta urinish',
+      actionLabel: l10n.qolipText('action.retry'),
       onAction: onRetry,
     );
   }
@@ -505,11 +512,12 @@ class _UnsupportedScannerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return _ScannerFallbackPanel(
       icon: Icons.qr_code_scanner_rounded,
-      title: 'Scanner mavjud emas',
+      title: l10n.qolipText('scanner.unavailable'),
       message: message,
-      actionLabel: 'Orqaga',
+      actionLabel: l10n.qolipText('action.back'),
       onAction: onBack,
     );
   }

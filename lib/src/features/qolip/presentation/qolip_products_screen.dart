@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/print_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/app_dialog_action_row.dart';
@@ -111,16 +112,17 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   }
 
   void _openFabAction() {
+    final l10n = context.l10n;
     showAdminCreateHubSheet(
       context,
       actions: [
         AdminFabMenuAction(
-          title: 'Qolip qo‘shish',
+          title: l10n.qolipText('products.add'),
           icon: Icons.inventory_2_rounded,
           onTap: () => unawaited(_openQolipSpecSheet()),
         ),
         AdminFabMenuAction(
-          title: 'Qarz daftari',
+          title: l10n.qolipText('products.ledger'),
           icon: Icons.menu_book_rounded,
           onTap: () => _openDrawerRoute(AppRoutes.qolipCheckouts),
         ),
@@ -216,19 +218,29 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     }
     final codes = _selectedQolipCodes.toList(growable: false);
     final productCount = _selectedContainerKeys.length;
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Qoliplarni o‘chirasizmi?'),
+        title: Text(l10n.qolipText('products.delete_title')),
         content: Text(
           _selectionMode == _QolipSelectionMode.containers
-              ? '$productCount ta mahsulotga biriktirilgan ${codes.length} ta qolip o‘chiriladi.'
-              : '${codes.length} ta tanlangan qolip o‘chiriladi.',
+              ? l10n.qolipText(
+                  'products.delete_container_message',
+                  values: {
+                    'products': productCount,
+                    'molds': codes.length,
+                  },
+                )
+              : l10n.qolipText(
+                  'products.delete_selected_message',
+                  values: {'molds': codes.length},
+                ),
         ),
         actions: [
           AppDialogActionRow(
-            cancelLabel: 'Bekor qilish',
-            confirmLabel: 'O‘chirish',
+            cancelLabel: l10n.qolipText('action.cancel'),
+            confirmLabel: l10n.qolipText('action.delete'),
             gap: 8,
             vertical: true,
             onCancel: () => Navigator.of(dialogContext).pop(false),
@@ -248,7 +260,14 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
       }
       QolipDataRevision.notifyLocationsChanged();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$deleted ta qolip o‘chirildi')),
+        SnackBar(
+          content: Text(
+            l10n.qolipText(
+              'products.deleted',
+              values: {'count': deleted},
+            ),
+          ),
+        ),
       );
       await _reload();
     } catch (error) {
@@ -258,7 +277,11 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            qolipErrorMessage(error, fallback: 'Qoliplar o‘chirilmadi'),
+            qolipErrorMessage(
+              error,
+              fallback: l10n.qolipText('products.delete_failed'),
+              l10n: l10n,
+            ),
           ),
         ),
       );
@@ -272,6 +295,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
 
   Widget _selectionTitle(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final totalQolipCount = _cachedProducts?.length ?? 0;
     final selectedQolipCount = _selectedQolipCodes.length;
     return Row(
@@ -279,11 +303,17 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
         IconButton(
           onPressed: _deleting ? null : _cancelSelection,
           icon: const Icon(Icons.close_rounded),
-          tooltip: 'Tanlashni bekor qilish',
+          tooltip: l10n.qolipText('products.selection_cancel'),
         ),
         Expanded(
           child: Text(
-            '$totalQolipCount/$selectedQolipCount ta tanlandi',
+            l10n.qolipText(
+              'products.selection_summary',
+              values: {
+                'total': totalQolipCount,
+                'selected': selectedQolipCount,
+              },
+            ),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -298,7 +328,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.delete_outline_rounded),
-          tooltip: 'Tanlanganlarni o‘chirish',
+          tooltip: l10n.qolipText('products.selection_delete'),
         ),
       ],
     );
@@ -318,6 +348,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
       return;
     }
     final itemName = product.name.trim().isEmpty ? code : product.name.trim();
+    final l10n = context.l10n;
     await showModalBottomSheet<void>(
       context: context,
       isDismissible: true,
@@ -327,23 +358,26 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.32),
       builder: (_) => RpsQrReprintSheet(
-        title: 'Qolip QR',
+        title: l10n.qolipText('products.qr_title'),
         payload: code,
         itemName: itemName,
         previewKey: ValueKey('qolip-code-qr-preview-$code'),
         reprintButtonKey: ValueKey('qolip-code-qr-reprint-$code'),
         details: [
           if (product.code.trim().isNotEmpty)
-            RpsQrDetail('Mahsulot kodi', product.code),
+            RpsQrDetail(l10n.qolipText('products.product_code'), product.code),
           if (product.qolipSize > 0)
-            RpsQrDetail('Razmer', '${product.qolipSize}'),
+            RpsQrDetail(
+                l10n.qolipText('products.size'), '${product.qolipSize}'),
           if (product.customerNames.isNotEmpty)
-            RpsQrDetail('Customer', product.customerNames.join(', ')),
+            RpsQrDetail(l10n.qolipText('products.customer'),
+                product.customerNames.join(', ')),
         ],
         onReprint: () => _reprintQolipCodeQr(product),
         errorMessage: (error) => qolipErrorMessage(
           error,
-          fallback: 'Qolip QR chop etilmadi',
+          fallback: l10n.qolipText('products.qr_failed'),
+          l10n: l10n,
         ),
       ),
     );
@@ -377,6 +411,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     final size = TextEditingController(text: '${product.qolipSize}');
     String? selectedColor =
         product.qolipColor.trim().isEmpty ? null : product.qolipColor;
+    final l10n = context.l10n;
     final draft = await showDialog<_QolipEditDraft>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -385,7 +420,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
             horizontal: 12,
             vertical: 24,
           ),
-          title: const Text('Qolipni tahrirlash'),
+          title: Text(l10n.qolipText('products.edit_title')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -394,7 +429,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                   controller: code,
                   autofocus: true,
                   decoration: InputDecoration(
-                    labelText: 'Qolip code',
+                    labelText: l10n.qolipText('products.code'),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -418,7 +453,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                   controller: size,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: 'Razmer',
+                    labelText: l10n.qolipText('products.size'),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -441,7 +476,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Qolip rangi',
+                    l10n.qolipText('products.color'),
                     style: Theme.of(context).textTheme.labelLarge,
                   ),
                 ),
@@ -476,12 +511,12 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                         ),
                       );
                     },
-                    child: const Text('Saqlash'),
+                    child: Text(l10n.qolipText('action.save')),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton(
                     onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Bekor qilish'),
+                    child: Text(l10n.qolipText('action.cancel')),
                   ),
                 ],
               ),
@@ -515,7 +550,11 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            qolipErrorMessage(error, fallback: 'Qolip tahrirlanmadi'),
+            qolipErrorMessage(
+              error,
+              fallback: l10n.qolipText('products.edit_failed'),
+              l10n: l10n,
+            ),
           ),
         ),
       );
@@ -564,6 +603,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AppShell(
       title: '',
       subtitle: '',
@@ -575,7 +615,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
           ? AdminCatalogSearchField(
               controller: _search,
               focusNode: _searchFocusNode,
-              hintText: 'Mahsulot yoki qolip code',
+              hintText: l10n.qolipText('products.search'),
               onChanged: _searchChanged,
               onClear: () {
                 _search.clear();
@@ -616,11 +656,13 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
             }
             final products = snapshot.data ?? const <QolipProduct>[];
             if (products.isEmpty) {
-              return const Center(child: Text('Qolip topilmadi'));
+              return Center(child: Text(l10n.qolipText('products.empty')));
             }
             final containers = _visibleContainers(products);
             if (containers.isEmpty) {
-              return const Center(child: Text('Qidiruvda topilmadi'));
+              return Center(
+                child: Text(l10n.qolipText('products.search_empty')),
+              );
             }
             return RefreshIndicator(
               onRefresh: () async => _reload(),
@@ -818,6 +860,7 @@ class _QolipProductContainerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final container = this.container;
     final selectionDisabled = container.hasInUseQolip;
     final radius = M3SegmentedListGeometry.borderRadius(
@@ -886,8 +929,14 @@ class _QolipProductContainerCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           selectionDisabled
-                              ? '${container.children.length} ta qolip • bittasi ishlatilmoqda'
-                              : '${container.children.length} ta qolip',
+                              ? l10n.qolipText(
+                                  'products.count_in_use',
+                                  values: {'count': container.children.length},
+                                )
+                              : l10n.qolipText(
+                                  'products.mold_count',
+                                  values: {'count': container.children.length},
+                                ),
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: scheme.onSurfaceVariant,
@@ -903,7 +952,7 @@ class _QolipProductContainerCard extends StatelessWidget {
                     IconButton.filledTonal(
                       onPressed: onAdd,
                       icon: const Icon(Icons.add_rounded),
-                      tooltip: 'Qolip qo‘shish',
+                      tooltip: l10n.qolipText('products.add'),
                     ),
                     const SizedBox(width: 2),
                   ],
@@ -981,6 +1030,7 @@ class _QolipCodeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -1017,7 +1067,12 @@ class _QolipCodeRow extends StatelessWidget {
               if (product.qolipColor.trim().isNotEmpty) ...[
                 const SizedBox(width: 8),
                 Tooltip(
-                  message: 'Rang: ${product.qolipColor}',
+                  message: l10n.qolipText(
+                    'products.color_label',
+                    values: {
+                      'color': l10n.qolipColorName(product.qolipColor),
+                    },
+                  ),
                   child: Container(
                     width: 16,
                     height: 16,
@@ -1049,9 +1104,12 @@ class _QolipCodeRow extends StatelessWidget {
                     ),
                     Text(
                       product.isInUse
-                          ? 'Ishchiga berilgan'
+                          ? l10n.qolipText('products.issued')
                           : product.qolipSize > 0
-                              ? '${product.qolipSize} razmer'
+                              ? l10n.qolipText(
+                                  'products.size_value',
+                                  values: {'size': product.qolipSize},
+                                )
                               : '',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
@@ -1069,7 +1127,7 @@ class _QolipCodeRow extends StatelessWidget {
                 IconButton(
                   onPressed: onEdit,
                   icon: const Icon(Icons.edit_outlined, size: 18),
-                  tooltip: 'Qolipni tahrirlash',
+                  tooltip: l10n.qolipText('products.edit_title'),
                   visualDensity: VisualDensity.compact,
                 ),
             ],

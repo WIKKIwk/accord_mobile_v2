@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/localization/app_localizations.dart';
+
 const List<String> kQolipGridLetters = [
   'A',
   'B',
@@ -33,7 +35,7 @@ const int kQolipGridColumnCount = 13;
 
 Future<String?> showQolipCellPickerSheet(
   BuildContext context, {
-  String title = 'Joy tanlang',
+  String? title,
   String? excludeCellLabel,
 }) {
   return showModalBottomSheet<String>(
@@ -43,7 +45,7 @@ Future<String?> showQolipCellPickerSheet(
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.32),
     builder: (context) => _QolipCellPickerSheet(
-      title: title,
+      title: title ?? context.l10n.qolipText('cell_picker.title'),
       excludeCellLabel: excludeCellLabel?.trim().toUpperCase(),
     ),
   );
@@ -97,7 +99,7 @@ class _QolipCellPickerSheet extends StatefulWidget {
     this.excludeCellLabel,
   });
 
-  final String title;
+  final String? title;
   final String? excludeCellLabel;
 
   @override
@@ -146,6 +148,7 @@ class _QolipCellPickerSheetState extends State<_QolipCellPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
@@ -182,7 +185,7 @@ class _QolipCellPickerSheetState extends State<_QolipCellPickerSheet> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
                 child: Text(
-                  widget.title,
+                  widget.title ?? l10n.qolipText('cell_picker.title'),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -195,7 +198,7 @@ class _QolipCellPickerSheetState extends State<_QolipCellPickerSheet> {
                   autofocus: false,
                   textCapitalization: TextCapitalization.characters,
                   decoration: InputDecoration(
-                    hintText: 'Masalan: A1, B3, C9',
+                    hintText: l10n.qolipText('cell_picker.search_hint'),
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: _searchQuery.isEmpty
                         ? null
@@ -250,13 +253,14 @@ class _SearchResultsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final normalized = normalizeQolipCellLabel(query);
     if (results.isEmpty) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: Text(
-          'Mos joy topilmadi. A1 yoki B3 kabi yozing.',
+          l10n.qolipText('cell_picker.no_match'),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -276,7 +280,10 @@ class _SearchResultsList extends StatelessWidget {
               ),
             ),
             child: Text(
-              '$normalized — tanlash',
+              l10n.qolipText(
+                'cell_picker.select',
+                values: {'cell': normalized},
+              ),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -285,7 +292,7 @@ class _SearchResultsList extends StatelessWidget {
           if (results.length > 1) ...[
             const SizedBox(height: 12),
             Text(
-              'Boshqa mos joylar',
+              l10n.qolipText('cell_picker.other_matches'),
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
                     color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w700,
@@ -338,12 +345,13 @@ class _LetterColumnPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
       children: [
         Text(
-          'Qator',
+          l10n.qolipText('cell_picker.row'),
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: scheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
@@ -378,7 +386,10 @@ class _LetterColumnPicker extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          '$selectedLetter qatori',
+          l10n.qolipText(
+            'cell_picker.row_heading',
+            values: {'letter': selectedLetter},
+          ),
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: scheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,

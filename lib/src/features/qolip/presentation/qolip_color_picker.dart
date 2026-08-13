@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/app_localizations.dart';
+
 class QolipColorOption {
   const QolipColorOption({
     required this.name,
@@ -211,9 +213,13 @@ class _QolipColorTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
+    final displayName = isPanton
+        ? option.name
+        : l10n?.qolipColorName(option.value) ?? option.name;
     return Semantics(
       button: true,
-      label: option.name,
+      label: displayName,
       selected: selected,
       child: InkWell(
         onTap: onTap,
@@ -277,7 +283,7 @@ class _QolipColorTile extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                option.name,
+                displayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,

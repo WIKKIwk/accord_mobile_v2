@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/native_bluetooth_printer.dart';
 import '../../../core/native_usb_printer.dart';
 import '../../../core/print_service.dart';
@@ -462,7 +463,13 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${cellQr.locationLabel} QR chop etildi: ${cellQr.qrPayload}',
+            context.l10n.qolipText(
+              'home.cell_qr_printed',
+              values: {
+                'cell': cellQr.locationLabel,
+                'payload': cellQr.qrPayload,
+              },
+            ),
           ),
         ),
       );
@@ -471,7 +478,9 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Yachayka QR chop etilmadi')),
+        SnackBar(
+          content: Text(context.l10n.qolipText('home.qr_print_failed')),
+        ),
       );
     }
   }
@@ -488,33 +497,43 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Qolip soni'),
+              title: Text(context.l10n.qolipText('home.mold_count')),
               content: TextField(
                 controller: controller,
                 autofocus: true,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
-                  helperText: 'Eng ko‘pi ${item.quantity} ta',
+                  helperText: context.l10n.qolipText(
+                    'home.max_count',
+                    values: {'count': item.quantity},
+                  ),
                   errorText: errorText,
                 ),
               ),
               actions: [
                 AppDialogActionRow(
-                  cancelLabel: 'Bekor',
-                  confirmLabel: 'Davom',
+                  cancelLabel: context.l10n.qolipText('action.cancel'),
+                  confirmLabel: context.l10n.qolipText('action.continue'),
                   gap: 8,
                   vertical: true,
                   onCancel: () => Navigator.of(context).pop(),
                   onConfirm: () {
                     final qty = int.tryParse(controller.text.trim()) ?? 0;
                     if (qty <= 0) {
-                      setDialogState(() => errorText = 'Son noto‘g‘ri');
+                      setDialogState(
+                        () => errorText = context.l10n.qolipText(
+                          'home.invalid_count',
+                        ),
+                      );
                       return;
                     }
                     if (qty > item.quantity) {
                       setDialogState(
-                        () => errorText = 'Joyda faqat ${item.quantity} ta bor',
+                        () => errorText = context.l10n.qolipText(
+                          'home.only_count',
+                          values: {'count': item.quantity},
+                        ),
                       );
                       return;
                     }
@@ -539,6 +558,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     required String cellLabel,
     int? quantity,
   }) async {
+    final l10n = context.l10n;
     final moveQty = quantity ?? await _promptMoveQuantity(item);
     if (moveQty == null) {
       return false;
@@ -586,7 +606,10 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Server target blokni tasdiqlamadi. Qolip hozir $actualLocation da.',
+              l10n.qolipText(
+                'transfer.target_unconfirmed',
+                values: {'location': actualLocation},
+              ),
             ),
           ),
         );
@@ -596,7 +619,14 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${item.itemName} ${targetBlock.name} / $cellLabel ga ko‘chirildi',
+            l10n.qolipText(
+              'transfer.moved',
+              values: {
+                'item': item.itemName,
+                'block': targetBlock.name,
+                'cell': cellLabel,
+              },
+            ),
           ),
         ),
       );
@@ -608,7 +638,11 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            qolipErrorMessage(error, fallback: 'Ko‘chirish amalga oshmadi'),
+            qolipErrorMessage(
+              error,
+              fallback: l10n.qolipText('transfer.failed'),
+              l10n: l10n,
+            ),
           ),
         ),
       );
@@ -633,7 +667,10 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
         item.block.trim().toLowerCase();
     final cellLabel = await showQolipCellPickerSheet(
       context,
-      title: '${targetBlock.name}: yacheykani tanlang',
+      title: context.l10n.qolipText(
+        'home.select_cell',
+        values: {'block': targetBlock.name},
+      ),
       excludeCellLabel: movingInsideSourceBlock ? excludeCellLabel : null,
     );
     if (cellLabel == null || !mounted) {
@@ -673,6 +710,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     if (blocks.isEmpty) {
       return;
     }
+    final l10n = context.l10n;
     List<QolipLocationEntry> locations;
     try {
       final locationsByBlock = await Future.wait(
@@ -700,7 +738,11 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            qolipErrorMessage(error, fallback: 'Qoliplar yuklanmadi'),
+            qolipErrorMessage(
+              error,
+              fallback: l10n.qolipText('home.load_failed'),
+              l10n: l10n,
+            ),
           ),
         ),
       );
@@ -711,8 +753,9 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     }
     if (locations.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Berish uchun joylashtirilgan qolip yo‘q')),
+        SnackBar(
+          content: Text(l10n.qolipText('home.no_placed_for_issue')),
+        ),
       );
       return;
     }
@@ -727,8 +770,8 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (sheetContext) {
         return M3AsyncPickerSheet<QolipLocationEntry>(
-          title: 'Beriladigan qolipni tanlang',
-          hintText: 'Qolip code yoki mahsulot nomi',
+          title: l10n.qolipText('home.issue_picker_title'),
+          hintText: l10n.qolipText('home.mold_code_or_product_search'),
           pageSize: 80,
           loadPage: (query, offset, limit) async {
             final filtered = locations.where((item) {
@@ -743,7 +786,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
             '${item.size}',
             item.block,
             item.locationLabel,
-            '${item.quantity} ta',
+            l10n.qolipCount(item.quantity),
           ].where((value) => value.trim().isNotEmpty).join(' • '),
           itemKey: (item) => item.id,
           onSelected: (item) => Navigator.of(sheetContext).pop(
@@ -758,8 +801,13 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
               isMultiSelection: true,
             ),
           ),
-          selectedCountLabel: (count) => '$count ta qolip tanlandi',
-          confirmSelectionTooltip: 'Tanlangan qoliplarni tasdiqlash',
+          selectedCountLabel: (count) => l10n.qolipText(
+            'products.mold_count',
+            values: {'count': count},
+          ),
+          confirmSelectionTooltip: l10n.qolipText(
+            'action.confirm_selected',
+          ),
         );
       },
     );
@@ -776,6 +824,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
   Future<void> _issueSelectedQolips(
     List<QolipLocationEntry> locations,
   ) async {
+    final l10n = context.l10n;
     final worker = await _showQolipWorkerPicker(context);
     if (!mounted || worker == null) {
       return;
@@ -783,15 +832,20 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Qoliplarni berasizmi?'),
+        title: Text(l10n.qolipText('home.issue_confirm_title')),
         content: Text(
-          '${locations.length} ta tanlangan qolipni ${worker.name}ga '
-          'qarzga berasizmi? Har biridan 1 tadan beriladi.',
+          l10n.qolipText(
+            'home.issue_confirm_message',
+            values: {
+              'count': locations.length,
+              'worker': worker.name,
+            },
+          ),
         ),
         actions: [
           AppDialogActionRow(
-            cancelLabel: 'Bekor qilish',
-            confirmLabel: 'Berish',
+            cancelLabel: l10n.qolipText('action.cancel'),
+            confirmLabel: l10n.qolipText('action.issue'),
             gap: 8,
             vertical: true,
             onCancel: () => Navigator.of(dialogContext).pop(false),
@@ -828,13 +882,26 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       SnackBar(
         content: Text(
           failedCount == 0
-              ? '$issuedCount ta qolip ${worker.name}ga berildi'
+              ? l10n.qolipText(
+                  'home.issued_to',
+                  values: {
+                    'count': issuedCount,
+                    'worker': worker.name,
+                  },
+                )
               : issuedCount == 0
                   ? qolipErrorMessage(
-                      firstError ?? Exception('Qoliplar berilmadi'),
-                      fallback: 'Qoliplar berilmadi',
+                      firstError ?? Exception('mold_issue_failed'),
+                      fallback: l10n.qolipText('home.take_failed'),
+                      l10n: l10n,
                     )
-                  : '$issuedCount ta qolip berildi, $failedCount tasi berilmadi',
+                  : l10n.qolipText(
+                      'home.issued_partial',
+                      values: {
+                        'success': issuedCount,
+                        'failed': failedCount,
+                      },
+                    ),
         ),
       ),
     );
@@ -869,7 +936,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                         _QolipFabAction.createBlock,
                       ),
                       icon: const Icon(Icons.view_module_rounded),
-                      label: const Text('Blok qo‘shish'),
+                      label: Text(context.l10n.qolipText('blocks.add')),
                     ),
                     if (data.blocks.isNotEmpty) ...[
                       const SizedBox(height: 10),
@@ -878,7 +945,9 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                           _QolipFabAction.attachQolip,
                         ),
                         icon: const Icon(Icons.add_location_alt_rounded),
-                        label: const Text('Qolipni omborga biriktirish'),
+                        label: Text(
+                          context.l10n.qolipText('home.mold_storage_attach'),
+                        ),
                       ),
                     ],
                   ],
@@ -924,22 +993,23 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     if (!mounted) {
       return;
     }
+    final l10n = context.l10n;
     final actions = <AdminFabMenuAction>[
       if (data.blocks.isNotEmpty)
         AdminFabMenuAction(
-          title: 'Qolip berish',
+          title: l10n.qolipText('home.issue_title'),
           icon: Icons.person_add_alt_1_rounded,
           onTap: () => unawaited(_openIssueQolips(data.blocks)),
         ),
       if (data.blocks.isNotEmpty)
         AdminFabMenuAction(
-          title: 'QR Scan',
+          title: l10n.qolipText('home.scan'),
           icon: Icons.qr_code_scanner_rounded,
           onTap: () => unawaited(_scanQolipOrCell(data.blocks)),
         ),
       if (data.warehouses.isNotEmpty)
         AdminFabMenuAction(
-          title: 'Biriktirish',
+          title: l10n.qolipText('home.attach'),
           icon: Icons.add_location_alt_rounded,
           onTap: () => unawaited(_openFabAction(data)),
         ),
@@ -1015,10 +1085,11 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       }
       final message =
           error is MobileApiException && error.code == 'qolip_code_not_found'
-              ? 'QR bo‘yicha qolip yoki yachayka topilmadi'
+              ? context.l10n.qolipText('home.qr_lookup_failed')
               : qolipErrorMessage(
                   error,
-                  fallback: 'QR tekshirish amalga oshmadi',
+                  fallback: context.l10n.qolipText('home.qr_check_failed'),
+                  l10n: context.l10n,
                 );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
@@ -1044,10 +1115,11 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     List<QolipBlock> blocks,
     QolipCellQr cell,
   ) async {
+    final l10n = context.l10n;
     final block = _blockForCell(blocks, cell);
     if (block == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu yachayka sizga biriktirilmagan')),
+        SnackBar(content: Text(l10n.qolipText('home.cell_not_assigned'))),
       );
       return;
     }
@@ -1083,7 +1155,10 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Yachayka ${cell.locationLabel}',
+                l10n.qolipText(
+                  'home.cell_title',
+                  values: {'cell': cell.locationLabel},
+                ),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -1100,7 +1175,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                 onPressed: () =>
                     Navigator.of(context).pop(_ScannedCellAction.placeQolip),
                 icon: const Icon(Icons.add_location_alt_rounded),
-                label: const Text('Qolip kiritish'),
+                label: Text(l10n.qolipText('home.add_mold')),
               ),
               const SizedBox(height: 10),
               FilledButton.tonalIcon(
@@ -1111,8 +1186,11 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                 icon: const Icon(Icons.assignment_returned_rounded),
                 label: Text(
                   cellItems.isEmpty
-                      ? 'Qolip olish — yachayka bo‘sh'
-                      : 'Qolip olish (${cellItems.length})',
+                      ? l10n.qolipText('home.empty_cell')
+                      : l10n.qolipText(
+                          'home.take_count',
+                          values: {'count': cellItems.length},
+                        ),
                 ),
               ),
             ],
@@ -1137,7 +1215,10 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
         ? cellItems.single
         : await _QolipBlockGrid._pickQolipLocation(
             context,
-            title: '${cell.locationLabel} dan qolip tanlang',
+            title: l10n.qolipText(
+              'home.choose_mold_from_cell',
+              values: {'cell': cell.locationLabel},
+            ),
             options: cellItems,
           );
     if (selected != null && mounted) {
@@ -1150,6 +1231,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     QolipProduct product,
     QolipLocationEntry? location,
   ) async {
+    final l10n = context.l10n;
     final action = await showModalBottomSheet<_ScannedQolipAction>(
       context: context,
       showDragHandle: true,
@@ -1195,8 +1277,8 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                       Expanded(
                         child: Text(
                           location == null
-                              ? 'Hozir yachaykaga joylashtirilmagan'
-                              : '${location.block} • ${location.locationLabel} • ${location.quantity} ta',
+                              ? l10n.qolipText('home.not_in_cell')
+                              : '${location.block} • ${location.locationLabel} • ${l10n.qolipCount(location.quantity)}',
                         ),
                       ),
                     ],
@@ -1210,8 +1292,8 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                 icon: const Icon(Icons.add_location_alt_rounded),
                 label: Text(
                   location == null
-                      ? 'Yachaykaga joylash'
-                      : 'Boshqa yachaykaga joylash',
+                      ? l10n.qolipText('home.place_in_cell')
+                      : l10n.qolipText('home.place_in_other_cell'),
                 ),
               ),
               const SizedBox(height: 10),
@@ -1221,12 +1303,12 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                     : () => Navigator.of(context)
                         .pop(_ScannedQolipAction.issueToWorker),
                 icon: const Icon(Icons.person_add_alt_1_rounded),
-                label: const Text('Ishchiga berish'),
+                label: Text(l10n.qolipText('home.issue_to_worker')),
               ),
               if (location == null) ...[
                 const SizedBox(height: 6),
                 Text(
-                  'Ishchiga berishdan oldin qolipni yachaykaga joylang.',
+                  l10n.qolipText('home.place_before_issue'),
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
@@ -1256,6 +1338,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     QolipProduct product,
     QolipLocationEntry? currentLocation,
   ) async {
+    final l10n = context.l10n;
     final method = await showModalBottomSheet<_QolipPlacementMethod>(
       context: context,
       showDragHandle: true,
@@ -1269,7 +1352,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Yachaykani qanday tanlaysiz?',
+                l10n.qolipText('home.choose_cell_method'),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -1279,14 +1362,14 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                 onPressed: () =>
                     Navigator.of(context).pop(_QolipPlacementMethod.scanCell),
                 icon: const Icon(Icons.qr_code_scanner_rounded),
-                label: const Text('Yachayka QR scan'),
+                label: Text(l10n.qolipText('home.cell_qr_scan')),
               ),
               const SizedBox(height: 10),
               FilledButton.tonalIcon(
                 onPressed: () =>
                     Navigator.of(context).pop(_QolipPlacementMethod.selectCell),
                 icon: const Icon(Icons.grid_view_rounded),
-                label: const Text('Ro‘yxatdan tanlash'),
+                label: Text(l10n.qolipText('home.select_from_list')),
               ),
             ],
           ),
@@ -1308,8 +1391,8 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
         final block = _blockForCell(blocks, cell);
         if (block == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Bu yachayka sizga biriktirilmagan'),
+            SnackBar(
+              content: Text(l10n.qolipText('home.cell_not_assigned')),
             ),
           );
           return;
@@ -1325,7 +1408,10 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       if (block != null && mounted) {
         final label = await showQolipCellPickerSheet(
           context,
-          title: '${block.name}: yachaykani tanlang',
+          title: l10n.qolipText(
+            'home.select_cell',
+            values: {'block': block.name},
+          ),
         );
         final normalized = normalizeQolipCellLabel(label ?? '');
         final columnNumber =
@@ -1360,7 +1446,14 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${product.qolipCode} ${target.block.name} • ${target.rowLetter}${target.columnNumber} ga joylandi',
+            l10n.qolipText(
+              'home.moved_to',
+              values: {
+                'item': product.qolipCode,
+                'block': target.block.name,
+                'cell': '${target.rowLetter}${target.columnNumber}',
+              },
+            ),
           ),
         ),
       );
@@ -1371,7 +1464,11 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            qolipErrorMessage(error, fallback: 'Qolip joylashtirilmadi'),
+            qolipErrorMessage(
+              error,
+              fallback: l10n.qolipText('home.place_failed'),
+              l10n: l10n,
+            ),
           ),
         ),
       );
@@ -1393,7 +1490,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
           children: [
             Text(
-              'Blokni tanlang',
+              context.l10n.qolipText('home.block_select'),
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -1435,6 +1532,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AppShell(
       title: '',
       subtitle: '',
@@ -1445,7 +1543,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,
-        hintText: 'Mahsulot qidirish',
+        hintText: l10n.qolipText('home.search'),
         onChanged: _onSearchChanged,
         onClear: () {
           _searchController.clear();
@@ -1488,8 +1586,8 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
             return Center(
               child: Text(
                 data.warehouses.isEmpty
-                    ? 'Block biriktirilmagan'
-                    : 'Blok qo‘shilmagan',
+                    ? l10n.qolipText('home.no_blocks_attached')
+                    : l10n.qolipText('home.no_blocks_added'),
               ),
             );
           }
@@ -1778,6 +1876,7 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final displayedBlocks = _dragOrder ?? widget.blocks;
     final tabWidths = <String, double>{
       for (final block in widget.blocks)
@@ -1830,7 +1929,7 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
             SizedBox(
               width: 42,
               child: Tooltip(
-                message: 'Blok qo‘shish',
+                message: l10n.qolipText('blocks.add'),
                 child: InkWell(
                   onTap: widget.onAdd,
                   child: const Center(
@@ -1847,6 +1946,7 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
 
   Widget _buildTab(BuildContext context, QolipBlock block) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final blockKey = _blockKey(block);
     final dragging = _draggingBlockKey == blockKey;
     final index = widget.blocks.indexWhere(
@@ -1868,8 +1968,11 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
       child: Semantics(
         button: true,
         selected: selected,
-        label:
-            hasMatch ? '${block.name}, $matchCount ta mos qolip' : block.name,
+        label: hasMatch
+            ? '${block.name}, ${l10n.qolipText('products.mold_count', values: {
+                    'count': matchCount
+                  })}'
+            : block.name,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -2067,6 +2170,7 @@ class _QolipBlockGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return FutureBuilder<List<QolipLocationEntry>>(
       future: future,
       initialData: initialLocations,
@@ -2119,16 +2223,25 @@ class _QolipBlockGrid extends StatelessWidget {
                     children: [
                       _QolipStatChip(
                         icon: Icons.grid_view_rounded,
-                        label: '$occupiedCells ta joy band',
+                        label: l10n.qolipText(
+                          'home.occupied_count',
+                          values: {'count': occupiedCells},
+                        ),
                       ),
                       _QolipStatChip(
                         icon: Icons.layers_rounded,
-                        label: '$totalQty ta qolip',
+                        label: l10n.qolipText(
+                          'home.mold_count_stat',
+                          values: {'count': totalQty},
+                        ),
                       ),
                       if (unplaced.isNotEmpty)
                         _QolipStatChip(
                           icon: Icons.warning_amber_rounded,
-                          label: '${unplaced.length} ta joylashmagan',
+                          label: l10n.qolipText(
+                            'home.unplaced_count',
+                            values: {'count': unplaced.length},
+                          ),
                           tone: _QolipStatChipTone.warning,
                         ),
                     ],
@@ -2169,7 +2282,7 @@ class _QolipBlockGrid extends StatelessWidget {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              'Bu blokda hali qolip yo‘q',
+                              l10n.qolipText('home.no_molds'),
                               style: Theme.of(context)
                                   .textTheme
                                   .titleSmall
@@ -2177,7 +2290,7 @@ class _QolipBlockGrid extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Pastdagi Biriktirish tugmasi orqali qo‘shing',
+                              l10n.qolipText('home.attach_hint'),
                               textAlign: TextAlign.center,
                               style: Theme.of(context)
                                   .textTheme
@@ -2198,7 +2311,7 @@ class _QolipBlockGrid extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                     child: Text(
-                      'Joylashmagan',
+                      l10n.qolipText('home.unplaced'),
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             color: Theme.of(context).colorScheme.primary,
                             fontWeight: FontWeight.w800,
@@ -2295,6 +2408,7 @@ class _QolipBlockGrid extends StatelessWidget {
     required Future<void> Function() onAdd,
   }) async {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final action = await showModalBottomSheet<Object>(
       context: context,
       showDragHandle: true,
@@ -2312,7 +2426,10 @@ class _QolipBlockGrid extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Joy $cellLabel',
+                  l10n.qolipText(
+                    'home.cell',
+                    values: {'cell': cellLabel},
+                  ),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -2353,7 +2470,12 @@ class _QolipBlockGrid extends StatelessWidget {
                       onPressed: () => Navigator.of(context)
                           .pop(_QolipCellSheetAction.placeUnplaced),
                       icon: const Icon(Icons.warning_amber_rounded),
-                      label: Text('Joylashmagan qolip (${unplaced.length})'),
+                      label: Text(
+                        l10n.qolipText(
+                          'home.unplaced_molds',
+                          values: {'count': unplaced.length},
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -2366,7 +2488,10 @@ class _QolipBlockGrid extends StatelessWidget {
                           .pop(_QolipCellSheetAction.moveIn),
                       icon: const Icon(Icons.move_down_rounded),
                       label: Text(
-                        'Boshqa joydan ko‘chirish (${movableIn.length})',
+                        l10n.qolipText(
+                          'home.move_from_other',
+                          values: {'count': movableIn.length},
+                        ),
                       ),
                     ),
                   ),
@@ -2378,7 +2503,7 @@ class _QolipBlockGrid extends StatelessWidget {
                     onPressed: () =>
                         Navigator.of(context).pop(_QolipCellSheetAction.add),
                     icon: const Icon(Icons.add_location_alt_rounded),
-                    label: const Text('Shu joyga qolip qo‘shish'),
+                    label: Text(l10n.qolipText('home.add_here')),
                   ),
                 ),
               ],
@@ -2397,7 +2522,7 @@ class _QolipBlockGrid extends StatelessWidget {
     if (action == _QolipCellSheetAction.placeUnplaced) {
       final picked = await _pickQolipLocation(
         context,
-        title: 'Joylashmagan qolip tanlang',
+        title: l10n.qolipText('home.choose_unplaced'),
         options: unplaced,
       );
       if (picked != null && context.mounted) {
@@ -2408,7 +2533,7 @@ class _QolipBlockGrid extends StatelessWidget {
     if (action == _QolipCellSheetAction.moveIn) {
       final picked = await _pickQolipLocation(
         context,
-        title: 'Ko‘chiriladigan qolip tanlang',
+        title: l10n.qolipText('home.choose_move'),
         options: movableIn,
       );
       if (picked != null && context.mounted) {
@@ -2431,6 +2556,7 @@ class _QolipBlockGrid extends StatelessWidget {
     required String title,
     required List<QolipLocationEntry> options,
   }) {
+    final l10n = context.l10n;
     return showModalBottomSheet<QolipLocationEntry>(
       context: context,
       showDragHandle: true,
@@ -2460,7 +2586,7 @@ class _QolipBlockGrid extends StatelessWidget {
                     [
                       item.qolipCode,
                       '${item.size}',
-                      '${item.quantity} ta',
+                      l10n.qolipCount(item.quantity),
                       if (item.locationLabel.trim().isNotEmpty)
                         item.locationLabel,
                     ].where((value) => value.trim().isNotEmpty).join(' • '),
@@ -2658,6 +2784,7 @@ class _GridDataCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final filled = items.isNotEmpty;
     final qty = items.fold<int>(0, (sum, item) => sum + item.quantity);
     final title = filled ? items.first.itemName : '';
@@ -2720,7 +2847,7 @@ class _GridDataCell extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        '$qty ta',
+                        l10n.qolipQuantityShort(qty),
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: foreground,
                               fontWeight: FontWeight.w700,
@@ -2786,6 +2913,7 @@ class _QolipCellActionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
     final title = item.itemName.trim().isEmpty ? item.qolipCode : item.itemName;
     return Material(
       color: scheme.surfaceContainerHighest.withValues(alpha: 0.64),
@@ -2811,7 +2939,7 @@ class _QolipCellActionTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${item.qolipCode} • ${item.size} • ${item.quantity} ta',
+                    '${item.qolipCode} • ${item.size} • ${l10n.qolipCount(item.quantity)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -2829,7 +2957,7 @@ class _QolipCellActionTile extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 minimumSize: const Size(0, 34),
               ),
-              child: const Text('Ko‘chirish'),
+              child: Text(l10n.qolipText('home.move')),
             ),
             const SizedBox(width: 6),
             FilledButton.tonal(
@@ -2839,7 +2967,7 @@ class _QolipCellActionTile extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 minimumSize: const Size(0, 34),
               ),
-              child: const Text('Olish'),
+              child: Text(l10n.qolipText('home.take')),
             ),
           ],
         ),
@@ -2856,6 +2984,7 @@ class _QolipUnplacedTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
       child: Material(
@@ -2898,7 +3027,7 @@ class _QolipUnplacedTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${item.qolipCode} • ${item.size} • ${item.quantity} ta',
+                      '${item.qolipCode} • ${item.size} • ${l10n.qolipCount(item.quantity)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -2918,6 +3047,7 @@ class _QolipUnplacedTile extends StatelessWidget {
 
 Future<QolipWorkerOption?> _showQolipWorkerPicker(BuildContext context) {
   final workersFuture = MobileApi.instance.qolipWorkers();
+  final l10n = context.l10n;
   return showModalBottomSheet<QolipWorkerOption>(
     context: context,
     isDismissible: true,
@@ -2929,8 +3059,8 @@ Future<QolipWorkerOption?> _showQolipWorkerPicker(BuildContext context) {
     sheetAnimationStyle: kM3PickerSheetAnimation,
     builder: (sheetContext) {
       return M3AsyncPickerSheet<QolipWorkerOption>(
-        title: 'Ishchini tanlang',
-        hintText: 'Ishchi nomi bilan qidiring',
+        title: l10n.qolipText('home.choose_worker'),
+        hintText: l10n.qolipText('home.worker_search'),
         pageSize: 80,
         loadPage: (query, offset, limit) async {
           final workers = await workersFuture;
@@ -2987,18 +3117,24 @@ class _QolipTakeSheetState extends State<_QolipTakeSheet> {
   }
 
   Future<void> _submit() async {
+    final l10n = context.l10n;
     final quantity = int.tryParse(_quantityController.text.trim()) ?? 0;
     if (quantity <= 0) {
-      setState(() => _error = 'Qolip soni noto‘g‘ri');
+      setState(() => _error = l10n.qolipText('home.invalid_count'));
       return;
     }
     if (quantity > widget.item.quantity) {
-      setState(() => _error = 'Joyda faqat ${widget.item.quantity} ta bor');
+      setState(
+        () => _error = l10n.qolipText(
+          'home.only_count',
+          values: {'count': widget.item.quantity},
+        ),
+      );
       return;
     }
     final worker = _worker;
     if (worker == null) {
-      setState(() => _error = 'Ishchini tanlang');
+      setState(() => _error = l10n.qolipText('home.choose_worker'));
       return;
     }
     setState(() {
@@ -3020,7 +3156,8 @@ class _QolipTakeSheetState extends State<_QolipTakeSheet> {
           _submitting = false;
           _error = qolipErrorMessage(
             error,
-            fallback: 'Qolip olish amalga oshmadi',
+            fallback: l10n.qolipText('home.take_failed'),
+            l10n: l10n,
           );
         });
       }
@@ -3031,6 +3168,7 @@ class _QolipTakeSheetState extends State<_QolipTakeSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
     final item = widget.item;
     final worker = _worker;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
@@ -3049,14 +3187,14 @@ class _QolipTakeSheetState extends State<_QolipTakeSheet> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Qolip olish',
+                  l10n.qolipText('home.take'),
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${item.itemName} • ${item.qolipCode} • ${item.quantity} ta',
+                  '${item.itemName} • ${item.qolipCode} • ${l10n.qolipCount(item.quantity)}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -3069,7 +3207,7 @@ class _QolipTakeSheetState extends State<_QolipTakeSheet> {
                   icon: const Icon(Icons.person_search_rounded),
                   label: Text(
                     worker == null
-                        ? 'Ishchini tanlang'
+                        ? l10n.qolipText('home.choose_worker')
                         : worker.level.trim().isEmpty
                             ? worker.name
                             : '${worker.name} • ${worker.level}',
@@ -3082,8 +3220,11 @@ class _QolipTakeSheetState extends State<_QolipTakeSheet> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: InputDecoration(
-                    labelText: 'Qolip soni',
-                    helperText: 'Eng ko‘pi ${item.quantity} ta',
+                    labelText: l10n.qolipText('home.mold_count'),
+                    helperText: l10n.qolipText(
+                      'home.max_count',
+                      values: {'count': item.quantity},
+                    ),
                   ),
                 ),
                 if (_error != null) ...[
@@ -3105,7 +3246,7 @@ class _QolipTakeSheetState extends State<_QolipTakeSheet> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.assignment_returned_rounded),
-                  label: const Text('Qarzga berish'),
+                  label: Text(l10n.qolipText('home.borrow')),
                 ),
               ],
             ),
@@ -3283,12 +3424,17 @@ List<QolipProduct> qolipProductsAvailableForCellPlacement(
       .toList(growable: false);
 }
 
-String qolipProductCustomerLabel(QolipProduct product) {
+String qolipProductCustomerLabel(
+  QolipProduct product, {
+  AppLocalizations? l10n,
+}) {
   final customers = product.customerNames
       .map((customer) => customer.trim())
       .where((customer) => customer.isNotEmpty)
       .join(', ');
-  return customers.isEmpty ? 'Mijoz biriktirilmagan' : customers;
+  return customers.isEmpty
+      ? l10n?.qolipText('home.customer_unassigned') ?? 'Mijoz biriktirilmagan'
+      : customers;
 }
 
 int qolipContainerSearchMatchCount(
@@ -3390,6 +3536,7 @@ class _QolipBlockCreateSheetState extends State<_QolipBlockCreateSheet> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(8, 0, 8, bottomInset + 8),
@@ -3416,7 +3563,7 @@ class _QolipBlockCreateSheetState extends State<_QolipBlockCreateSheet> {
               ),
               const SizedBox(height: 18),
               Text(
-                'Blok qo‘shish',
+                l10n.qolipText('home.block_add_title'),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
@@ -3426,7 +3573,9 @@ class _QolipBlockCreateSheetState extends State<_QolipBlockCreateSheet> {
                 DropdownButtonFormField<String>(
                   initialValue: _warehouse,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Ombor'),
+                  decoration: InputDecoration(
+                    labelText: l10n.qolipText('blocks.warehouse'),
+                  ),
                   items: [
                     for (final warehouse in widget.warehouses)
                       DropdownMenuItem(
@@ -3440,7 +3589,9 @@ class _QolipBlockCreateSheetState extends State<_QolipBlockCreateSheet> {
               ],
               TextField(
                 controller: _block,
-                decoration: const InputDecoration(labelText: 'Blok nomi'),
+                decoration: InputDecoration(
+                  labelText: l10n.qolipText('blocks.name'),
+                ),
                 textInputAction: TextInputAction.done,
                 textCapitalization: TextCapitalization.characters,
                 onChanged: (_) => setState(() {}),
@@ -3456,7 +3607,7 @@ class _QolipBlockCreateSheetState extends State<_QolipBlockCreateSheet> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Saqlash'),
+                      : Text(l10n.qolipText('action.save')),
                 ),
               ),
             ],
@@ -3578,6 +3729,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   }
 
   Future<void> _pickProduct() async {
+    final l10n = context.l10n;
     final picked = await showModalBottomSheet<_QolipProductSelection>(
       context: context,
       isDismissible: true,
@@ -3590,10 +3742,12 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       builder: (sheetContext) {
         final isCellPlacement = widget.mode == _QolipAttachMode.cellPlacement;
         return M3AsyncPickerSheet<QolipProduct>(
-          title: isCellPlacement ? 'Qolip tanlang' : 'Tayyor mahsulot tanlang',
+          title: isCellPlacement
+              ? l10n.qolipText('home.mold_select_title')
+              : l10n.qolipText('home.ready_product_select_title'),
           hintText: isCellPlacement
-              ? 'Qolip code, mahsulot yoki customer nomi'
-              : 'Mahsulot yoki customer nomi bilan qidiring',
+              ? l10n.qolipText('home.mold_code_customer_search')
+              : l10n.qolipText('home.product_customer_search'),
           pageSize: 80,
           cacheKey: widget.mode == _QolipAttachMode.cellPlacement
               ? null
@@ -3629,7 +3783,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                     item.code.trim(),
                   ]
                 : [
-                    qolipProductCustomerLabel(item),
+                    qolipProductCustomerLabel(item, l10n: l10n),
                     item.itemGroup.trim(),
                     if (item.hasQolipSpec)
                       '${item.qolipCode.trim()} • ${item.qolipSize}',
@@ -3654,8 +3808,13 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   )
               : null,
           itemKey: (item) => item.qolipCode.trim().toLowerCase(),
-          selectedCountLabel: (count) => '$count ta qolip tanlandi',
-          confirmSelectionTooltip: 'Tanlangan qoliplarni tasdiqlash',
+          selectedCountLabel: (count) => l10n.qolipText(
+            'products.mold_count',
+            values: {'count': count},
+          ),
+          confirmSelectionTooltip: l10n.qolipText(
+            'action.confirm_selected',
+          ),
         );
       },
     );
@@ -3711,7 +3870,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Qolip QR topilmadi')),
+        SnackBar(content: Text(context.l10n.qolipText('home.qr_not_found'))),
       );
     }
   }
@@ -3735,6 +3894,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   }
 
   Future<void> _save() async {
+    final l10n = context.l10n;
     final product = _product;
     final size = int.tryParse(_size.text.trim());
     if (_saving || product == null) {
@@ -3746,17 +3906,15 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     }
     if (size == null || size <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Razmerni to‘g‘ri kiriting')),
+        SnackBar(content: Text(l10n.qolipText('home.size_invalid'))),
       );
       return;
     }
     final draft = _batchDraft;
     if (draft == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Qolip code oxirgi qismi 1–100 oralig‘ida bo‘lishi kerak',
-          ),
+        SnackBar(
+          content: Text(l10n.qolipText('home.code_range')),
         ),
       );
       return;
@@ -3765,7 +3923,10 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${draft.count} ta qolip uchun ${draft.count} ta rang tanlang',
+            l10n.qolipText(
+              'home.colors_required',
+              values: {'count': draft.count},
+            ),
           ),
         ),
       );
@@ -3773,7 +3934,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     }
     if (draft.count == 1 && _selectedColors.length > 1) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bitta qolip uchun bitta rang tanlang')),
+        SnackBar(content: Text(l10n.qolipText('home.one_color'))),
       );
       return;
     }
@@ -3793,7 +3954,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
         specs: batchItems,
       );
       if (saved.length != batchItems.length) {
-        throw StateError('Qolip batch javobi to‘liq emas');
+        throw StateError(l10n.qolipText('home.batch_response'));
       }
       if (mounted) {
         setState(() {
@@ -3819,7 +3980,11 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              qolipErrorMessage(error, fallback: 'Qoliplar saqlanmadi'),
+              qolipErrorMessage(
+                error,
+                fallback: l10n.qolipText('home.save_failed'),
+                l10n: l10n,
+              ),
             ),
           ),
         );
@@ -3834,6 +3999,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   Future<void> _confirmAndSaveSelectedProducts(
     List<QolipProduct> products,
   ) async {
+    final l10n = context.l10n;
     final block = _block;
     final rowLetter = _rowLetter;
     final columnNumber = _columnNumber;
@@ -3843,15 +4009,21 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Qoliplarni joylaysizmi?'),
+        title: Text(l10n.qolipText('home.place_confirm_title')),
         content: Text(
-          '${products.length} ta tanlangan qolipni '
-          '${block.name} • $rowLetter$columnNumber yachaykaga joylaysizmi?',
+          l10n.qolipText(
+            'home.place_confirm_message',
+            values: {
+              'count': products.length,
+              'block': block.name,
+              'cell': '$rowLetter$columnNumber',
+            },
+          ),
         ),
         actions: [
           AppDialogActionRow(
-            cancelLabel: 'Bekor qilish',
-            confirmLabel: 'Joylash',
+            cancelLabel: l10n.qolipText('action.cancel'),
+            confirmLabel: l10n.qolipText('action.place'),
             gap: 8,
             vertical: true,
             onCancel: () => Navigator.of(dialogContext).pop(false),
@@ -3866,6 +4038,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   }
 
   Future<void> _saveCellProducts(List<QolipProduct> products) async {
+    final l10n = context.l10n;
     final block = _block;
     final rowLetter = _rowLetter;
     final columnNumber = _columnNumber;
@@ -3907,8 +4080,20 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
           SnackBar(
             content: Text(
               savedCount == 1
-                  ? '${validProducts.single.qolipCode} $rowLetter$columnNumber ga joylandi'
-                  : '$savedCount ta qolip $rowLetter$columnNumber ga joylandi',
+                  ? l10n.qolipText(
+                      'home.saved_one',
+                      values: {
+                        'code': validProducts.single.qolipCode,
+                        'cell': '$rowLetter$columnNumber',
+                      },
+                    )
+                  : l10n.qolipText(
+                      'home.saved_many',
+                      values: {
+                        'count': savedCount,
+                        'cell': '$rowLetter$columnNumber',
+                      },
+                    ),
             ),
           ),
         );
@@ -3920,10 +4105,17 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
           content: Text(
             savedCount == 0
                 ? qolipErrorMessage(
-                    firstError ?? Exception('Qolip joylashtirilmadi'),
-                    fallback: 'Qoliplar joylashtirilmadi',
+                    firstError ?? Exception('mold_placement_failed'),
+                    fallback: l10n.qolipText('home.place_all_failed'),
+                    l10n: l10n,
                   )
-                : '$savedCount ta qolip joylandi, $failedCount tasi joylanmadi',
+                : l10n.qolipText(
+                    'home.place_partial',
+                    values: {
+                      'success': savedCount,
+                      'failed': failedCount,
+                    },
+                  ),
           ),
         ),
       );
@@ -3984,7 +4176,14 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
       messenger.showSnackBar(
-        SnackBar(content: Text('${saved.length} ta qolip QR chop etildi')),
+        SnackBar(
+          content: Text(
+            context.l10n.qolipText(
+              'home.qr_printed',
+              values: {'count': saved.length},
+            ),
+          ),
+        ),
       );
     } catch (error) {
       if (!mounted) {
@@ -3993,7 +4192,11 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            qolipErrorMessage(error, fallback: 'Qolip QR chop etilmadi'),
+            qolipErrorMessage(
+              error,
+              fallback: context.l10n.qolipText('home.qr_print_failed'),
+              l10n: context.l10n,
+            ),
           ),
         ),
       );
@@ -4025,10 +4228,10 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
         _columnNumber != null;
   }
 
-  String get _title {
+  String _title(AppLocalizations l10n) {
     return widget.mode == _QolipAttachMode.productSpec
-        ? 'Qolipni omborga biriktirish'
-        : 'Qolipni joyga qo‘shish';
+        ? l10n.qolipText('home.storage_attach')
+        : l10n.qolipText('home.cell_attach');
   }
 
   String _productLabel(QolipProduct product) {
@@ -4043,6 +4246,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final productSpecSaved = _savedProductSpecs.isNotEmpty;
     final batchDraft = _batchDraft;
@@ -4074,7 +4278,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 children: [
                   Expanded(
                     child: Text(
-                      _title,
+                      _title(l10n),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w900,
                           ),
@@ -4084,7 +4288,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                     IconButton.filledTonal(
                       onPressed: _scanQolipQr,
                       icon: const Icon(Icons.qr_code_scanner_rounded),
-                      tooltip: 'Qolip QR scan',
+                      tooltip: l10n.qolipText('home.qr_scan_tooltip'),
                     ),
                 ],
               ),
@@ -4094,7 +4298,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   _rowLetter != null &&
                   _columnNumber != null) ...[
                 InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Joy'),
+                  decoration: InputDecoration(
+                    labelText: l10n.qolipText('home.location'),
+                  ),
                   child: Text('${_block!.name} • $_rowLetter$_columnNumber'),
                 ),
                 const SizedBox(height: 12),
@@ -4107,19 +4313,26 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 child: InputDecorator(
                   decoration: InputDecoration(
                     labelText: widget.mode == _QolipAttachMode.cellPlacement
-                        ? 'Qolip code / mahsulot'
-                        : 'Tayyor mahsulot',
+                        ? l10n.qolipText('home.code_or_product')
+                        : l10n.qolipText('home.ready_product'),
                     suffixIcon: widget.lockProduct
                         ? const Icon(Icons.lock_outline_rounded)
                         : const Icon(Icons.search_rounded),
                   ),
                   child: Text(
                     _selectedProducts.length > 1
-                        ? '${_selectedProducts.length} ta qolip tanlandi'
+                        ? l10n.qolipText(
+                            'products.mold_count',
+                            values: {'count': _selectedProducts.length},
+                          )
                         : _product == null
                             ? widget.mode == _QolipAttachMode.cellPlacement
-                                ? 'Qolip code yoki mahsulot nomi'
-                                : 'Mahsulot nomi bilan qidirish'
+                                ? l10n.qolipText(
+                                    'home.mold_code_or_product_hint',
+                                  )
+                                : l10n.qolipText(
+                                    'home.product_search_hint',
+                                  )
                             : _productLabel(_product!),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -4131,7 +4344,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 TextField(
                   controller: _qolipCode,
                   enabled: !productSpecSaved,
-                  decoration: const InputDecoration(labelText: 'Qolip code'),
+                  decoration: InputDecoration(
+                    labelText: l10n.qolipText('home.mold_code_label'),
+                  ),
                   textInputAction: TextInputAction.next,
                   onChanged: (_) => setState(() {}),
                 ),
@@ -4157,7 +4372,10 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    '${batchDraft.count} ta qolip',
+                                    l10n.qolipText(
+                                      'products.mold_count',
+                                      values: {'count': batchDraft.count},
+                                    ),
                                     style: Theme.of(context)
                                         .textTheme
                                         .labelLarge
@@ -4198,7 +4416,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 TextField(
                   controller: _size,
                   enabled: !productSpecSaved,
-                  decoration: const InputDecoration(labelText: 'Razmeri'),
+                  decoration: InputDecoration(
+                    labelText: l10n.qolipText('home.size_label'),
+                  ),
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   textInputAction: TextInputAction.done,
@@ -4206,7 +4426,13 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Qolip rangi (${_selectedColors.length}/${batchDraft?.count ?? 1})',
+                  l10n.qolipText(
+                    'home.color_label',
+                    values: {
+                      'selected': _selectedColors.length,
+                      'total': batchDraft?.count ?? 1,
+                    },
+                  ),
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
                 const SizedBox(height: 8),
@@ -4229,11 +4455,16 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                       (product) => product.hasQolipSpec,
                     )) ...[
                   InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Qolip'),
+                    decoration: InputDecoration(
+                      labelText: l10n.qolipText('home.mold_label'),
+                    ),
                     child: Text(
                       _selectedProducts.length == 1
                           ? '${_selectedProducts.single.qolipCode} • ${_selectedProducts.single.qolipSize}'
-                          : '${_selectedProducts.length} ta qolip tanlandi',
+                          : l10n.qolipText(
+                              'products.mold_count',
+                              values: {'count': _selectedProducts.length},
+                            ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -4256,7 +4487,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.qr_code_2_rounded),
-                        label: const Text('QR chiqarish'),
+                        label: Text(l10n.qolipText('action.print_qr')),
                       )
                     : FilledButton(
                         onPressed: _canSave && !_saving ? _save : null,
@@ -4267,7 +4498,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Text('Saqlash'),
+                            : Text(l10n.qolipText('action.save')),
                       ),
               ),
             ],

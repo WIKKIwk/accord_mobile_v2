@@ -25,12 +25,18 @@ void resetMobileApiQolipTestModeData() {
 String qolipErrorMessage(
   Object error, {
   String fallback = 'Amal bajarilmadi',
+  AppLocalizations? l10n,
 }) {
   final code = switch (error) {
     MobileApiException(code: final value) => value,
     _ => error.toString(),
   };
-  return switch (code) {
+  final localized = l10n?.qolipErrorText(code);
+  if (localized != null && localized.isNotEmpty) {
+    return localized;
+  }
+  final normalizedCode = code.trim().toLowerCase();
+  return switch (normalizedCode) {
     'insufficient_stock' => 'Joyda yetarli qolip qolmadi',
     'location_not_found' => 'Qolip joyi topilmadi',
     'location_invalid' => 'Joy noto‘g‘ri tanlangan',
@@ -55,8 +61,10 @@ String qolipErrorMessage(
     'block_not_found' => 'Blok topilmadi',
     'forbidden' => 'Bu amal uchun ruxsat yo‘q',
     'unauthorized' => 'Sessiya tugagan. Qayta kiring',
-    _ when code.contains('insufficient_stock') => 'Joyda yetarli qolip qolmadi',
-    _ when code.contains('location_not_found') => 'Qolip joyi topilmadi',
+    _ when normalizedCode.contains('insufficient_stock') =>
+      'Joyda yetarli qolip qolmadi',
+    _ when normalizedCode.contains('location_not_found') =>
+      'Qolip joyi topilmadi',
     _ => fallback,
   };
 }

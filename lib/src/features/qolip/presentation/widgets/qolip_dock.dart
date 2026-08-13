@@ -57,7 +57,7 @@ class QolipDock extends StatelessWidget {
           ),
           RoleDockDestination(
             id: 'qolip-products',
-            label: 'Qoliplar',
+            label: l10n.qolipText('nav.molds'),
             icon: Icons.inventory_2_outlined,
             selectedIcon: Icons.inventory_2_rounded,
             active: activeTab == QolipDockTab.products,
@@ -69,7 +69,7 @@ class QolipDock extends StatelessWidget {
           if (showPrimaryFab && onPrimaryFabTap != null)
             RoleDockDestination(
               id: 'qolip-create',
-              label: 'Qo‘shish',
+              label: l10n.qolipText('action.add'),
               icon: Icons.add_rounded,
               selectedIcon: Icons.add_rounded,
               active: false,

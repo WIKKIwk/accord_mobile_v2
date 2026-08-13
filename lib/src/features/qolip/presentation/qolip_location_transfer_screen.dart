@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -166,7 +167,10 @@ class _QolipLocationTransferScreenState
     }
     final cell = await showQolipCellPickerSheet(
       context,
-      title: '${targetBlock.name}: yacheykani tanlang',
+      title: context.l10n.qolipText(
+        'home.select_cell',
+        values: {'block': targetBlock.name},
+      ),
       excludeCellLabel: _sameName(source.block, targetBlock.name)
           ? source.locationLabel
           : null,
@@ -182,27 +186,33 @@ class _QolipLocationTransferScreenState
   }
 
   Future<void> _transfer(QolipBlocksResult data) async {
+    final l10n = context.l10n;
     final source = _selectedSource;
     final targetBlock = _blockByName(data.blocks, _targetBlockName);
     final cell = _targetCell;
     final quantity = int.tryParse(_quantityController.text.trim()) ?? 0;
     if (source == null || targetBlock == null) {
-      _showMessage('Avval ko‘chiriladigan qolipni tanlang');
+      _showMessage(l10n.qolipText('transfer.source_required'));
       return;
     }
     if (cell == null) {
-      _showMessage('Avval boriladigan yacheykani tanlang');
+      _showMessage(l10n.qolipText('transfer.cell_required'));
       return;
     }
     if (quantity <= 0 || quantity > source.quantity) {
-      _showMessage('Qolip soni 1 dan ${source.quantity} gacha bo‘lishi kerak');
+      _showMessage(
+        l10n.qolipText(
+          'transfer.quantity_range',
+          values: {'max': source.quantity},
+        ),
+      );
       return;
     }
 
     final rowLetter = cell.substring(0, 1);
     final columnNumber = int.tryParse(cell.substring(1));
     if (columnNumber == null) {
-      _showMessage('Yacheyka noto‘g‘ri tanlangan');
+      _showMessage(l10n.qolipText('transfer.invalid_cell'));
       return;
     }
 
@@ -225,12 +235,24 @@ class _QolipLocationTransferScreenState
           moved.columnNumber == columnNumber;
       if (!reachedTarget) {
         _showMessage(
-          'Server targetni tasdiqlamadi: ${moved.block} / ${moved.locationLabel}',
+          l10n.qolipText(
+            'transfer.target_unconfirmed',
+            values: {
+              'location': '${moved.block} / ${moved.locationLabel}',
+            },
+          ),
         );
         return;
       }
       _showMessage(
-        '${source.itemName} ${targetBlock.name} / $cell ga ko‘chirildi',
+        l10n.qolipText(
+          'transfer.moved',
+          values: {
+            'item': source.itemName,
+            'block': targetBlock.name,
+            'cell': cell,
+          },
+        ),
       );
       setState(() {
         _selectedSource = null;
@@ -241,7 +263,11 @@ class _QolipLocationTransferScreenState
     } catch (error) {
       if (mounted) {
         _showMessage(
-          qolipErrorMessage(error, fallback: 'Ko‘chirish amalga oshmadi'),
+          qolipErrorMessage(
+            error,
+            fallback: l10n.qolipText('transfer.failed'),
+            l10n: l10n,
+          ),
         );
       }
     } finally {
@@ -266,8 +292,9 @@ class _QolipLocationTransferScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AppShell(
-      title: 'Joylashuv transferi',
+      title: l10n.qolipText('transfer.title'),
       subtitle: '',
       nativeTopBar: true,
       automaticallyImplyNativeLeading: false,
@@ -291,7 +318,7 @@ class _QolipLocationTransferScreenState
           final data = snapshot.data ??
               const QolipBlocksResult(warehouses: [], blocks: []);
           if (data.blocks.isEmpty) {
-            return const Center(child: Text('Blok mavjud emas'));
+            return Center(child: Text(l10n.qolipText('transfer.empty')));
           }
           return _buildTransferForm(data);
         },
@@ -300,6 +327,7 @@ class _QolipLocationTransferScreenState
   }
 
   Widget _buildTransferForm(QolipBlocksResult data) {
+    final l10n = context.l10n;
     final sourceBlock = _blockByName(data.blocks, _sourceBlockName);
     final targetBlock = _blockByName(data.blocks, _targetBlockName);
     final targetBlocks = _selectedSource == null
@@ -316,12 +344,12 @@ class _QolipLocationTransferScreenState
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Qolipni boshqa joyga ko‘chirish',
+                  l10n.qolipText('transfer.heading'),
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Manba qolipni tanlang, keyin boriladigan blok va yacheykani belgilang.',
+                  l10n.qolipText('transfer.description'),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -333,9 +361,9 @@ class _QolipLocationTransferScreenState
                   ),
                   initialValue: sourceBlock?.name,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Manba bloki',
-                    prefixIcon: Icon(Icons.view_module_outlined),
+                  decoration: InputDecoration(
+                    labelText: l10n.qolipText('transfer.source_block'),
+                    prefixIcon: const Icon(Icons.view_module_outlined),
                   ),
                   items: [
                     for (final block in data.blocks)
@@ -374,9 +402,9 @@ class _QolipLocationTransferScreenState
                         ),
                         initialValue: selectedId,
                         isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Ko‘chiriladigan qolip',
-                          prefixIcon: Icon(Icons.inventory_2_outlined),
+                        decoration: InputDecoration(
+                          labelText: l10n.qolipText('transfer.source_mold'),
+                          prefixIcon: const Icon(Icons.inventory_2_outlined),
                         ),
                         items: [
                           for (final item in locations.where(
@@ -385,7 +413,7 @@ class _QolipLocationTransferScreenState
                             DropdownMenuItem(
                               value: item.id,
                               child: Text(
-                                _locationTitle(item),
+                                _locationTitle(item, l10n),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -410,9 +438,9 @@ class _QolipLocationTransferScreenState
                     ),
                     initialValue: validTargetBlock?.name,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Boriladigan blok',
-                      prefixIcon: Icon(Icons.drive_file_move_outlined),
+                    decoration: InputDecoration(
+                      labelText: l10n.qolipText('transfer.target_block'),
+                      prefixIcon: const Icon(Icons.drive_file_move_outlined),
                     ),
                     items: [
                       for (final block in targetBlocks)
@@ -431,8 +459,11 @@ class _QolipLocationTransferScreenState
                     icon: const Icon(Icons.grid_on_rounded),
                     label: Text(
                       _targetCell == null
-                          ? 'Yacheyka tanlash'
-                          : 'Yacheyka: $_targetCell',
+                          ? l10n.qolipText('transfer.select_cell')
+                          : l10n.qolipText(
+                              'transfer.cell',
+                              values: {'cell': _targetCell},
+                            ),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -441,8 +472,11 @@ class _QolipLocationTransferScreenState
                     enabled: !_saving,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: 'Miqdor',
-                      helperText: 'Maksimal ${_selectedSource!.quantity} ta',
+                      labelText: l10n.qolipText('transfer.quantity'),
+                      helperText: l10n.qolipText(
+                        'transfer.max_quantity',
+                        values: {'count': _selectedSource!.quantity},
+                      ),
                       prefixIcon: const Icon(Icons.numbers_rounded),
                     ),
                   ),
@@ -457,7 +491,9 @@ class _QolipLocationTransferScreenState
                           )
                         : const Icon(Icons.swap_horiz_rounded),
                     label: Text(
-                      _saving ? 'Ko‘chirilmoqda...' : 'Joylashuvni ko‘chirish',
+                      _saving
+                          ? l10n.qolipText('transfer.moving')
+                          : l10n.qolipText('transfer.move'),
                     ),
                   ),
                 ],
@@ -469,12 +505,12 @@ class _QolipLocationTransferScreenState
     );
   }
 
-  String _locationTitle(QolipLocationEntry item) {
+  String _locationTitle(QolipLocationEntry item, AppLocalizations l10n) {
     final itemName =
         item.itemName.trim().isEmpty ? item.qolipCode : item.itemName.trim();
     final cell = item.locationLabel.trim().isEmpty
-        ? 'Joylashmagan'
+        ? l10n.qolipText('home.unplaced')
         : item.locationLabel.trim();
-    return '$itemName • ${item.qolipCode} • $cell • ${item.quantity} ta';
+    return '$itemName • ${item.qolipCode} • $cell • ${l10n.qolipCount(item.quantity)}';
   }
 }

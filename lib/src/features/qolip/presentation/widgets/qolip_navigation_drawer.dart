@@ -29,34 +29,34 @@ class QolipNavigationDrawer extends StatelessWidget {
           label: l10n.homeNavTitle,
           routeName: AppRoutes.qolipHome,
         ),
-        const RoleNavigationDrawerDestination(
+        RoleNavigationDrawerDestination(
           icon: Icons.view_module_outlined,
           selectedIcon: Icons.view_module_rounded,
-          label: 'Bloklarim',
+          label: l10n.qolipText('nav.blocks'),
           routeName: AppRoutes.qolipBlocks,
         ),
-        const RoleNavigationDrawerDestination(
+        RoleNavigationDrawerDestination(
           icon: Icons.inventory_2_outlined,
           selectedIcon: Icons.inventory_2_rounded,
-          label: 'Qoliplar',
+          label: l10n.qolipText('nav.molds'),
           routeName: AppRoutes.qolipProducts,
         ),
-        const RoleNavigationDrawerDestination(
+        RoleNavigationDrawerDestination(
           icon: Icons.assignment_return_outlined,
           selectedIcon: Icons.assignment_return_rounded,
-          label: 'Qarz daftari',
+          label: l10n.qolipText('nav.ledger'),
           routeName: AppRoutes.qolipCheckouts,
         ),
-        const RoleNavigationDrawerDestination(
+        RoleNavigationDrawerDestination(
           icon: Icons.swap_horiz_outlined,
           selectedIcon: Icons.swap_horiz_rounded,
-          label: 'Joylashuv transferi',
+          label: l10n.qolipText('nav.transfer'),
           routeName: AppRoutes.qolipLocationTransfer,
         ),
-        const RoleNavigationDrawerDestination(
+        RoleNavigationDrawerDestination(
           icon: Icons.format_list_numbered_outlined,
           selectedIcon: Icons.format_list_numbered_rounded,
-          label: 'Ketma-ketlik',
+          label: l10n.qolipText('nav.sequence'),
           routeName: AppRoutes.supplySequence,
         ),
         RoleNavigationDrawerDestination(

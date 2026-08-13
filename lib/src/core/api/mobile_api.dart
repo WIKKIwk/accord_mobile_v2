@@ -15,6 +15,7 @@ import '../notifications/service/push_messaging_service.dart';
 import '../native_iroh_transport.dart';
 import '../native_usb_printer.dart';
 import '../print_transport.dart';
+import '../localization/app_localizations.dart';
 import '../realtime/warehouse_live_client.dart';
 import '../search/search_activity_store.dart';
 import '../search/search_normalizer.dart';

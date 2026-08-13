@@ -4611,6 +4611,1346 @@ class AppLocalizations {
       'ru':
           'Если количество неполное, укажите причину в примечании и отправьте запрос на завершение.',
     },
+    'qolip.nav.blocks': {
+      'uz': 'Bloklarim',
+      'en': 'Storage blocks',
+      'ru': 'Мои блоки',
+    },
+    'qolip.nav.molds': {
+      'uz': 'Qoliplar',
+      'en': 'Molds',
+      'ru': 'Формы',
+    },
+    'qolip.nav.ledger': {
+      'uz': 'Qarz daftari',
+      'en': 'Mold checkout ledger',
+      'ru': 'Журнал выдачи форм',
+    },
+    'qolip.nav.transfer': {
+      'uz': 'Joylashuv transferi',
+      'en': 'Location transfer',
+      'ru': 'Перемещение по ячейкам',
+    },
+    'qolip.nav.sequence': {
+      'uz': 'Ketma-ketlik',
+      'en': 'Sequence',
+      'ru': 'Последовательность',
+    },
+    'qolip.action.add': {
+      'uz': 'Qo‘shish',
+      'en': 'Add',
+      'ru': 'Добавить',
+    },
+    'qolip.action.edit': {
+      'uz': 'Tahrirlash',
+      'en': 'Edit',
+      'ru': 'Изменить',
+    },
+    'qolip.action.delete': {
+      'uz': 'O‘chirish',
+      'en': 'Delete',
+      'ru': 'Удалить',
+    },
+    'qolip.action.cancel': {
+      'uz': 'Bekor qilish',
+      'en': 'Cancel',
+      'ru': 'Отмена',
+    },
+    'qolip.action.save': {
+      'uz': 'Saqlash',
+      'en': 'Save',
+      'ru': 'Сохранить',
+    },
+    'qolip.action.continue': {
+      'uz': 'Davom',
+      'en': 'Continue',
+      'ru': 'Продолжить',
+    },
+    'qolip.action.back': {
+      'uz': 'Orqaga',
+      'en': 'Back',
+      'ru': 'Назад',
+    },
+    'qolip.action.retry': {
+      'uz': 'Qayta urinish',
+      'en': 'Try again',
+      'ru': 'Повторить',
+    },
+    'qolip.action.return': {
+      'uz': 'Qaytar',
+      'en': 'Return',
+      'ru': 'Вернуть',
+    },
+    'qolip.action.return_molds': {
+      'uz': 'Qoliplarni qaytarib oldim',
+      'en': 'Return molds',
+      'ru': 'Вернуть формы',
+    },
+    'qolip.action.issue': {
+      'uz': 'Berish',
+      'en': 'Issue',
+      'ru': 'Выдать',
+    },
+    'qolip.action.place': {
+      'uz': 'Joylash',
+      'en': 'Place',
+      'ru': 'Разместить',
+    },
+    'qolip.action.move': {
+      'uz': 'Ko‘chirish',
+      'en': 'Move',
+      'ru': 'Переместить',
+    },
+    'qolip.action.take': {
+      'uz': 'Olish',
+      'en': 'Take',
+      'ru': 'Взять',
+    },
+    'qolip.action.select': {
+      'uz': 'Tanlash',
+      'en': 'Select',
+      'ru': 'Выбрать',
+    },
+    'qolip.action.scan_qr': {
+      'uz': 'QR scan',
+      'en': 'Scan QR',
+      'ru': 'Сканировать QR',
+    },
+    'qolip.action.confirm_selected': {
+      'uz': 'Tanlangan qoliplarni tasdiqlash',
+      'en': 'Confirm selected molds',
+      'ru': 'Подтвердить выбранные формы',
+    },
+    'qolip.action.print_qr': {
+      'uz': 'QR chiqarish',
+      'en': 'Print QR',
+      'ru': 'Печать QR',
+    },
+    'qolip.blocks.search': {
+      'uz': 'Blok qidirish',
+      'en': 'Search blocks',
+      'ru': 'Поиск блоков',
+    },
+    'qolip.blocks.edit_title': {
+      'uz': 'Blokni tahrirlash',
+      'en': 'Edit block',
+      'ru': 'Изменить блок',
+    },
+    'qolip.blocks.name': {
+      'uz': 'Blok nomi',
+      'en': 'Block name',
+      'ru': 'Название блока',
+    },
+    'qolip.blocks.updated': {
+      'uz': 'Blok tahrirlandi',
+      'en': 'Block updated',
+      'ru': 'Блок изменён',
+    },
+    'qolip.blocks.update_failed': {
+      'uz': 'Blok tahrirlanmadi',
+      'en': 'Could not update the block',
+      'ru': 'Не удалось изменить блок',
+    },
+    'qolip.blocks.delete_title': {
+      'uz': 'Blokni o‘chirasizmi?',
+      'en': 'Delete block?',
+      'ru': 'Удалить блок?',
+    },
+    'qolip.blocks.delete_message': {
+      'uz': '{name} bloki butunlay o‘chiriladi.',
+      'en': 'Block “{name}” will be permanently deleted.',
+      'ru': 'Блок «{name}» будет удалён без возможности восстановления.',
+    },
+    'qolip.blocks.deleted': {
+      'uz': 'Blok o‘chirildi',
+      'en': 'Block deleted',
+      'ru': 'Блок удалён',
+    },
+    'qolip.blocks.delete_failed': {
+      'uz': 'Blok o‘chirilmadi',
+      'en': 'Could not delete the block',
+      'ru': 'Не удалось удалить блок',
+    },
+    'qolip.blocks.load_failed': {
+      'uz': 'Bloklar yuklanmadi',
+      'en': 'Could not load blocks',
+      'ru': 'Не удалось загрузить блоки',
+    },
+    'qolip.blocks.empty': {
+      'uz': 'Blok topilmadi',
+      'en': 'No blocks found',
+      'ru': 'Блоки не найдены',
+    },
+    'qolip.blocks.choose': {
+      'uz': 'Blokni tanlang',
+      'en': 'Select a block',
+      'ru': 'Выберите блок',
+    },
+    'qolip.blocks.add': {
+      'uz': 'Blok qo‘shish',
+      'en': 'Add block',
+      'ru': 'Добавить блок',
+    },
+    'qolip.blocks.warehouse': {
+      'uz': 'Ombor',
+      'en': 'Warehouse',
+      'ru': 'Склад',
+    },
+    'qolip.products.add': {
+      'uz': 'Qolip qo‘shish',
+      'en': 'Add mold',
+      'ru': 'Добавить форму',
+    },
+    'qolip.products.ledger': {
+      'uz': 'Qarz daftari',
+      'en': 'Checkout ledger',
+      'ru': 'Журнал выдачи',
+    },
+    'qolip.products.delete_title': {
+      'uz': 'Qoliplarni o‘chirasizmi?',
+      'en': 'Delete molds?',
+      'ru': 'Удалить формы?',
+    },
+    'qolip.products.delete_container_message': {
+      'uz':
+          '{products} ta mahsulotga biriktirilgan {molds} ta qolip o‘chiriladi.',
+      'en': 'This will delete {molds} molds attached to {products} products.',
+      'ru': 'Будут удалены {molds} форм, привязанных к {products} товарам.',
+    },
+    'qolip.products.delete_selected_message': {
+      'uz': '{molds} ta tanlangan qolip o‘chiriladi.',
+      'en': 'This will delete {molds} selected molds.',
+      'ru': 'Будут удалены {molds} выбранных форм.',
+    },
+    'qolip.products.deleted': {
+      'uz': '{count} ta qolip o‘chirildi',
+      'en': '{count} molds deleted',
+      'ru': 'Удалено форм: {count}',
+    },
+    'qolip.products.delete_failed': {
+      'uz': 'Qoliplar o‘chirilmadi',
+      'en': 'Could not delete the molds',
+      'ru': 'Не удалось удалить формы',
+    },
+    'qolip.products.selection_cancel': {
+      'uz': 'Tanlashni bekor qilish',
+      'en': 'Cancel selection',
+      'ru': 'Отменить выбор',
+    },
+    'qolip.products.selection_delete': {
+      'uz': 'Tanlanganlarni o‘chirish',
+      'en': 'Delete selected',
+      'ru': 'Удалить выбранные',
+    },
+    'qolip.products.selection_summary': {
+      'uz': '{total}/{selected} ta tanlandi',
+      'en': '{selected} of {total} selected',
+      'ru': 'Выбрано: {selected} из {total}',
+    },
+    'qolip.products.qr_title': {
+      'uz': 'Qolip QR',
+      'en': 'Mold QR',
+      'ru': 'QR формы',
+    },
+    'qolip.products.product_code': {
+      'uz': 'Mahsulot kodi',
+      'en': 'Product code',
+      'ru': 'Код товара',
+    },
+    'qolip.products.size': {
+      'uz': 'Razmer',
+      'en': 'Size',
+      'ru': 'Размер',
+    },
+    'qolip.products.customer': {
+      'uz': 'Mijoz',
+      'en': 'Customer',
+      'ru': 'Клиент',
+    },
+    'qolip.products.qr_failed': {
+      'uz': 'Qolip QR chop etilmadi',
+      'en': 'Could not print the mold QR code',
+      'ru': 'Не удалось напечатать QR формы',
+    },
+    'qolip.products.edit_title': {
+      'uz': 'Qolipni tahrirlash',
+      'en': 'Edit mold',
+      'ru': 'Изменить форму',
+    },
+    'qolip.products.code': {
+      'uz': 'Qolip code',
+      'en': 'Mold code',
+      'ru': 'Код формы',
+    },
+    'qolip.products.color': {
+      'uz': 'Qolip rangi',
+      'en': 'Mold color',
+      'ru': 'Цвет формы',
+    },
+    'qolip.products.edit_failed': {
+      'uz': 'Qolip tahrirlanmadi',
+      'en': 'Could not update the mold',
+      'ru': 'Не удалось изменить форму',
+    },
+    'qolip.products.search': {
+      'uz': 'Mahsulot yoki qolip code',
+      'en': 'Search by product or mold code',
+      'ru': 'Поиск по товару или коду формы',
+    },
+    'qolip.products.empty': {
+      'uz': 'Qolip topilmadi',
+      'en': 'No molds found',
+      'ru': 'Формы не найдены',
+    },
+    'qolip.products.search_empty': {
+      'uz': 'Qidiruvda topilmadi',
+      'en': 'No matching molds found',
+      'ru': 'Совпадений не найдено',
+    },
+    'qolip.products.color_label': {
+      'uz': 'Rang: {color}',
+      'en': 'Color: {color}',
+      'ru': 'Цвет: {color}',
+    },
+    'qolip.products.issued': {
+      'uz': 'Ishchiga berilgan',
+      'en': 'Issued to a worker',
+      'ru': 'Выдано работнику',
+    },
+    'qolip.products.size_value': {
+      'uz': '{size} razmer',
+      'en': 'Size {size}',
+      'ru': 'Размер {size}',
+    },
+    'qolip.products.count_in_use': {
+      'uz': '{count} ta qolip • bittasi ishlatilmoqda',
+      'en': '{count} molds • one is in use',
+      'ru': '{count} форм • одна используется',
+    },
+    'qolip.products.mold_count': {
+      'uz': '{count} ta qolip',
+      'en': '{count} molds',
+      'ru': '{count} форм',
+    },
+    'qolip.checkouts.title': {
+      'uz': 'Qarz daftari',
+      'en': 'Mold checkout ledger',
+      'ru': 'Журнал выдачи форм',
+    },
+    'qolip.checkouts.search': {
+      'uz': 'Qarzdan qidirish',
+      'en': 'Search checkout records',
+      'ru': 'Поиск по выдачам',
+    },
+    'qolip.checkouts.load_failed': {
+      'uz': 'Qarz daftari yuklanmadi',
+      'en': 'Could not load the checkout ledger',
+      'ru': 'Не удалось загрузить журнал выдачи',
+    },
+    'qolip.checkouts.empty': {
+      'uz': 'Qarzda qolip yo‘q',
+      'en': 'No molds are currently checked out',
+      'ru': 'Выданных форм нет',
+    },
+    'qolip.checkouts.search_empty': {
+      'uz': 'Qidiruvda topilmadi',
+      'en': 'No matching records found',
+      'ru': 'Совпадений не найдено',
+    },
+    'qolip.checkouts.loading': {
+      'uz': 'Qarz daftari yuklanmoqda',
+      'en': 'Loading checkout ledger',
+      'ru': 'Загрузка журнала выдачи',
+    },
+    'qolip.checkouts.return_to': {
+      'uz': 'Qayerga qaytarasiz?',
+      'en': 'Where should this be returned?',
+      'ru': 'Куда вернуть?',
+    },
+    'qolip.checkouts.returned': {
+      'uz': '{item} {cell} ga qaytdi',
+      'en': '{item} was returned to {cell}',
+      'ru': '{item} возвращено в ячейку {cell}',
+    },
+    'qolip.checkouts.return_failed': {
+      'uz': 'Qolip qaytarilmadi',
+      'en': 'The mold could not be returned',
+      'ru': 'Не удалось вернуть форму',
+    },
+    'qolip.checkouts.draft_returned': {
+      'uz': '{item} qoliplari qaytarildi',
+      'en': 'Molds for {item} were returned',
+      'ru': 'Формы для {item} возвращены',
+    },
+    'qolip.checkouts.draft_return_failed': {
+      'uz': 'Qolip qaydi qaytarilmadi',
+      'en': 'The mold checkout record could not be returned',
+      'ru': 'Не удалось вернуть запись о выдаче формы',
+    },
+    'qolip.checkouts.draft': {
+      'uz': 'Draft',
+      'en': 'Draft',
+      'ru': 'Черновик',
+    },
+    'qolip.checkouts.order': {
+      'uz': 'Order: {id}',
+      'en': 'Order: {id}',
+      'ru': 'Заказ: {id}',
+    },
+    'qolip.checkouts.unknown_worker': {
+      'uz': 'Noma’lum qolipchi',
+      'en': 'Unknown worker',
+      'ru': 'Неизвестный работник',
+    },
+    'qolip.checkouts.debt_type': {
+      'uz': 'Qarz turi',
+      'en': 'Checkout type',
+      'ru': 'Тип выдачи',
+    },
+    'qolip.checkouts.order_draft': {
+      'uz': 'Order drafti',
+      'en': 'Order draft',
+      'ru': 'Черновик заказа',
+    },
+    'qolip.checkouts.order_label': {
+      'uz': 'Order',
+      'en': 'Order',
+      'ru': 'Заказ',
+    },
+    'qolip.checkouts.product': {
+      'uz': 'Mahsulot',
+      'en': 'Product',
+      'ru': 'Товар',
+    },
+    'qolip.checkouts.item_code': {
+      'uz': 'Item kodi',
+      'en': 'Item code',
+      'ru': 'Код позиции',
+    },
+    'qolip.checkouts.mold_codes': {
+      'uz': 'Qolip kodlari',
+      'en': 'Mold codes',
+      'ru': 'Коды форм',
+    },
+    'qolip.checkouts.quantity': {
+      'uz': 'Soni',
+      'en': 'Quantity',
+      'ru': 'Количество',
+    },
+    'qolip.checkouts.issued_at': {
+      'uz': 'Berilgan vaqt',
+      'en': 'Issued at',
+      'ru': 'Время выдачи',
+    },
+    'qolip.checkouts.issued_to': {
+      'uz': 'Kimga berilgan',
+      'en': 'Issued to',
+      'ru': 'Кому выдано',
+    },
+    'qolip.checkouts.mold_code': {
+      'uz': 'Qolip kodi',
+      'en': 'Mold code',
+      'ru': 'Код формы',
+    },
+    'qolip.checkouts.size': {
+      'uz': 'Razmer',
+      'en': 'Size',
+      'ru': 'Размер',
+    },
+    'qolip.checkouts.block': {
+      'uz': 'Blok',
+      'en': 'Block',
+      'ru': 'Блок',
+    },
+    'qolip.checkouts.cell': {
+      'uz': 'Joy',
+      'en': 'Cell',
+      'ru': 'Ячейка',
+    },
+    'qolip.checkouts.warehouse': {
+      'uz': 'Ombor',
+      'en': 'Warehouse',
+      'ru': 'Склад',
+    },
+    'qolip.checkouts.order_id': {
+      'uz': 'Order ID',
+      'en': 'Order ID',
+      'ru': 'ID заказа',
+    },
+    'qolip.checkouts.checkout_id': {
+      'uz': 'Checkout ID',
+      'en': 'Checkout ID',
+      'ru': 'ID выдачи',
+    },
+    'qolip.transfer.title': {
+      'uz': 'Joylashuv transferi',
+      'en': 'Location transfer',
+      'ru': 'Перемещение по ячейкам',
+    },
+    'qolip.transfer.heading': {
+      'uz': 'Qolipni boshqa joyga ko‘chirish',
+      'en': 'Move a mold to another location',
+      'ru': 'Переместить форму в другую ячейку',
+    },
+    'qolip.transfer.description': {
+      'uz':
+          'Manba qolipni tanlang, keyin boriladigan blok va yacheykani belgilang.',
+      'en':
+          'Select the source mold, then choose the destination block and cell.',
+      'ru': 'Выберите исходную форму, затем блок и ячейку назначения.',
+    },
+    'qolip.transfer.source_block': {
+      'uz': 'Manba bloki',
+      'en': 'Source block',
+      'ru': 'Исходный блок',
+    },
+    'qolip.transfer.source_mold': {
+      'uz': 'Ko‘chiriladigan qolip',
+      'en': 'Mold to move',
+      'ru': 'Форма для перемещения',
+    },
+    'qolip.transfer.target_block': {
+      'uz': 'Boriladigan blok',
+      'en': 'Destination block',
+      'ru': 'Блок назначения',
+    },
+    'qolip.transfer.select_cell': {
+      'uz': 'Yacheyka tanlash',
+      'en': 'Select cell',
+      'ru': 'Выбрать ячейку',
+    },
+    'qolip.transfer.cell': {
+      'uz': 'Yacheyka: {cell}',
+      'en': 'Cell: {cell}',
+      'ru': 'Ячейка: {cell}',
+    },
+    'qolip.transfer.quantity': {
+      'uz': 'Miqdor',
+      'en': 'Quantity',
+      'ru': 'Количество',
+    },
+    'qolip.transfer.max_quantity': {
+      'uz': 'Maksimal {count} ta',
+      'en': 'Maximum {count}',
+      'ru': 'Максимум: {count}',
+    },
+    'qolip.transfer.move': {
+      'uz': 'Joylashuvni ko‘chirish',
+      'en': 'Move location',
+      'ru': 'Переместить',
+    },
+    'qolip.transfer.moving': {
+      'uz': 'Ko‘chirilmoqda...',
+      'en': 'Moving...',
+      'ru': 'Перемещение...',
+    },
+    'qolip.transfer.empty': {
+      'uz': 'Blok mavjud emas',
+      'en': 'No blocks available',
+      'ru': 'Нет доступных блоков',
+    },
+    'qolip.transfer.source_required': {
+      'uz': 'Avval ko‘chiriladigan qolipni tanlang',
+      'en': 'Select a mold to move first',
+      'ru': 'Сначала выберите форму для перемещения',
+    },
+    'qolip.transfer.cell_required': {
+      'uz': 'Avval boriladigan yacheykani tanlang',
+      'en': 'Select a destination cell first',
+      'ru': 'Сначала выберите ячейку назначения',
+    },
+    'qolip.transfer.quantity_range': {
+      'uz': 'Qolip soni 1 dan {max} gacha bo‘lishi kerak',
+      'en': 'Quantity must be between 1 and {max}',
+      'ru': 'Количество должно быть от 1 до {max}',
+    },
+    'qolip.transfer.invalid_cell': {
+      'uz': 'Yacheyka noto‘g‘ri tanlangan',
+      'en': 'The selected cell is invalid',
+      'ru': 'Выбрана неверная ячейка',
+    },
+    'qolip.transfer.target_unconfirmed': {
+      'uz': 'Server targetni tasdiqlamadi: {location}',
+      'en': 'The server did not confirm the destination: {location}',
+      'ru': 'Сервер не подтвердил назначение: {location}',
+    },
+    'qolip.transfer.moved': {
+      'uz': '{item} {block} / {cell} ga ko‘chirildi',
+      'en': '{item} was moved to {block} / {cell}',
+      'ru': '{item} перемещено в {block} / {cell}',
+    },
+    'qolip.transfer.failed': {
+      'uz': 'Ko‘chirish amalga oshmadi',
+      'en': 'Could not move the mold',
+      'ru': 'Не удалось переместить форму',
+    },
+    'qolip.cell_picker.title': {
+      'uz': 'Joy tanlang',
+      'en': 'Select a cell',
+      'ru': 'Выберите ячейку',
+    },
+    'qolip.cell_picker.search_hint': {
+      'uz': 'Masalan: A1, B3, C9',
+      'en': 'For example: A1, B3, C9',
+      'ru': 'Например: A1, B3, C9',
+    },
+    'qolip.cell_picker.no_match': {
+      'uz': 'Mos joy topilmadi. A1 yoki B3 kabi yozing.',
+      'en': 'No matching cells. Try a value such as A1 or B3.',
+      'ru': 'Подходящие ячейки не найдены. Введите, например, A1 или B3.',
+    },
+    'qolip.cell_picker.select': {
+      'uz': '{cell} — tanlash',
+      'en': 'Select {cell}',
+      'ru': 'Выбрать {cell}',
+    },
+    'qolip.cell_picker.other_matches': {
+      'uz': 'Boshqa mos joylar',
+      'en': 'Other matching cells',
+      'ru': 'Другие подходящие ячейки',
+    },
+    'qolip.cell_picker.row': {
+      'uz': 'Qator',
+      'en': 'Row',
+      'ru': 'Ряд',
+    },
+    'qolip.cell_picker.row_heading': {
+      'uz': '{letter} qatori',
+      'en': 'Row {letter}',
+      'ru': 'Ряд {letter}',
+    },
+    'qolip.scanner.prompt.cell': {
+      'uz': 'Yachayka QR kodini ramkaga keltiring',
+      'en': 'Align the cell QR code within the frame',
+      'ru': 'Поместите QR-код ячейки в рамку',
+    },
+    'qolip.scanner.prompt.mold': {
+      'uz': 'Qolip QR kodini ramkaga keltiring',
+      'en': 'Align the mold QR code within the frame',
+      'ru': 'Поместите QR-код формы в рамку',
+    },
+    'qolip.scanner.prompt.universal': {
+      'uz': 'Qolip yoki yachayka QR kodini ramkaga keltiring',
+      'en': 'Align a mold or cell QR code within the frame',
+      'ru': 'Поместите QR-код формы или ячейки в рамку',
+    },
+    'qolip.scanner.checking.cell': {
+      'uz': 'Yachayka tekshirilmoqda...',
+      'en': 'Checking cell...',
+      'ru': 'Проверка ячейки...',
+    },
+    'qolip.scanner.checking.mold': {
+      'uz': 'Qolip QR o‘qilmoqda...',
+      'en': 'Reading mold QR code...',
+      'ru': 'Чтение QR-кода формы...',
+    },
+    'qolip.scanner.checking.universal': {
+      'uz': 'QR o‘qilmoqda...',
+      'en': 'Reading QR code...',
+      'ru': 'Чтение QR-кода...',
+    },
+    'qolip.scanner.title.cell': {
+      'uz': 'Yachayka scan',
+      'en': 'Scan cell QR',
+      'ru': 'Сканировать QR ячейки',
+    },
+    'qolip.scanner.title.mold': {
+      'uz': 'Qolip scan',
+      'en': 'Scan mold QR',
+      'ru': 'Сканировать QR формы',
+    },
+    'qolip.scanner.title.universal': {
+      'uz': 'QR scan',
+      'en': 'Scan QR',
+      'ru': 'Сканировать QR',
+    },
+    'qolip.scanner.camera_failed': {
+      'uz': 'Kamera ochilmadi',
+      'en': 'Could not start the camera',
+      'ru': 'Не удалось открыть камеру',
+    },
+    'qolip.scanner.camera_retry': {
+      'uz': 'Kamera ochilmadi. Ruxsatlarni tekshirib qayta urinib ko‘ring.',
+      'en': 'Could not start the camera. Check permissions and try again.',
+      'ru':
+          'Не удалось открыть камеру. Проверьте разрешения и повторите попытку.',
+    },
+    'qolip.scanner.not_found': {
+      'uz': 'Bu QR yachayka uchun topilmadi.',
+      'en': 'This QR code does not belong to a cell.',
+      'ru': 'Этот QR-код не относится к ячейке.',
+    },
+    'qolip.scanner.empty': {
+      'uz': 'Yachayka QR bo‘sh.',
+      'en': 'The cell QR code is empty.',
+      'ru': 'QR-код ячейки пуст.',
+    },
+    'qolip.scanner.check_failed': {
+      'uz': 'Yachayka QR tekshirishda xatolik.',
+      'en': 'Could not validate the cell QR code.',
+      'ru': 'Ошибка проверки QR-кода ячейки.',
+    },
+    'qolip.scanner.unsupported': {
+      'uz': 'Bu qurilmada QR scanner qo‘llab-quvvatlanmadi.',
+      'en': 'QR scanning is not supported on this device.',
+      'ru': 'Сканирование QR не поддерживается на этом устройстве.',
+    },
+    'qolip.scanner.unsupported_cell': {
+      'uz': 'Bu qurilmada yachayka QR scanner qo‘llab-quvvatlanmadi.',
+      'en': 'Cell QR scanning is not supported on this device.',
+      'ru': 'Сканирование QR ячейки не поддерживается на этом устройстве.',
+    },
+    'qolip.scanner.flash_off': {
+      'uz': 'Flash o‘chirish',
+      'en': 'Turn flash off',
+      'ru': 'Выключить вспышку',
+    },
+    'qolip.scanner.flash_on': {
+      'uz': 'Flash yoqish',
+      'en': 'Turn flash on',
+      'ru': 'Включить вспышку',
+    },
+    'qolip.scanner.failed': {
+      'uz': 'Scanner ishlamadi',
+      'en': 'Scanner unavailable',
+      'ru': 'Сканер недоступен',
+    },
+    'qolip.scanner.unavailable': {
+      'uz': 'Scanner mavjud emas',
+      'en': 'Scanner not available',
+      'ru': 'Сканер недоступен',
+    },
+    'qolip.home.search': {
+      'uz': 'Mahsulot qidirish',
+      'en': 'Search products',
+      'ru': 'Поиск товаров',
+    },
+    'qolip.home.load_failed': {
+      'uz': 'Qoliplar yuklanmadi',
+      'en': 'Could not load molds',
+      'ru': 'Не удалось загрузить формы',
+    },
+    'qolip.home.cell_qr_printed': {
+      'uz': '{cell} QR chop etildi: {payload}',
+      'en': '{cell} QR code printed: {payload}',
+      'ru': 'QR ячейки {cell} напечатан: {payload}',
+    },
+    'qolip.home.no_blocks_attached': {
+      'uz': 'Block biriktirilmagan',
+      'en': 'No blocks assigned',
+      'ru': 'Блоки не назначены',
+    },
+    'qolip.home.no_blocks_added': {
+      'uz': 'Blok qo‘shilmagan',
+      'en': 'No blocks added',
+      'ru': 'Блоки не добавлены',
+    },
+    'qolip.home.no_molds': {
+      'uz': 'Bu blokda hali qolip yo‘q',
+      'en': 'This block has no molds yet',
+      'ru': 'В этом блоке пока нет форм',
+    },
+    'qolip.home.attach_hint': {
+      'uz': 'Pastdagi Biriktirish tugmasi orqali qo‘shing',
+      'en': 'Use the Attach button below to add one',
+      'ru': 'Добавьте форму кнопкой «Привязать» ниже',
+    },
+    'qolip.home.unplaced': {
+      'uz': 'Joylashmagan',
+      'en': 'Unplaced',
+      'ru': 'Не размещено',
+    },
+    'qolip.home.occupied_count': {
+      'uz': '{count} ta joy band',
+      'en': '{count} occupied cells',
+      'ru': 'Занято ячеек: {count}',
+    },
+    'qolip.home.unplaced_count': {
+      'uz': '{count} ta joylashmagan',
+      'en': '{count} unplaced',
+      'ru': 'Не размещено: {count}',
+    },
+    'qolip.home.cell': {
+      'uz': 'Joy {cell}',
+      'en': 'Cell {cell}',
+      'ru': 'Ячейка {cell}',
+    },
+    'qolip.home.unplaced_molds': {
+      'uz': 'Joylashmagan qolip ({count})',
+      'en': 'Unplaced molds ({count})',
+      'ru': 'Неразмещённые формы ({count})',
+    },
+    'qolip.home.move_from_other': {
+      'uz': 'Boshqa joydan ko‘chirish ({count})',
+      'en': 'Move from another cell ({count})',
+      'ru': 'Переместить из другой ячейки ({count})',
+    },
+    'qolip.home.add_here': {
+      'uz': 'Shu joyga qolip qo‘shish',
+      'en': 'Add a mold to this cell',
+      'ru': 'Добавить форму в эту ячейку',
+    },
+    'qolip.home.choose_unplaced': {
+      'uz': 'Joylashmagan qolip tanlang',
+      'en': 'Select an unplaced mold',
+      'ru': 'Выберите неразмещённую форму',
+    },
+    'qolip.home.choose_move': {
+      'uz': 'Ko‘chiriladigan qolip tanlang',
+      'en': 'Select a mold to move',
+      'ru': 'Выберите форму для перемещения',
+    },
+    'qolip.home.choose_worker': {
+      'uz': 'Ishchini tanlang',
+      'en': 'Select a worker',
+      'ru': 'Выберите работника',
+    },
+    'qolip.home.worker_search': {
+      'uz': 'Ishchi nomi bilan qidiring',
+      'en': 'Search by worker name',
+      'ru': 'Поиск по имени работника',
+    },
+    'qolip.home.mold_count': {
+      'uz': 'Qolip soni',
+      'en': 'Mold quantity',
+      'ru': 'Количество форм',
+    },
+    'qolip.home.max_count': {
+      'uz': 'Eng ko‘pi {count} ta',
+      'en': 'Maximum {count}',
+      'ru': 'Максимум: {count}',
+    },
+    'qolip.home.invalid_count': {
+      'uz': 'Qolip soni noto‘g‘ri',
+      'en': 'Enter a valid mold quantity',
+      'ru': 'Введите корректное количество форм',
+    },
+    'qolip.home.only_count': {
+      'uz': 'Joyda faqat {count} ta bor',
+      'en': 'Only {count} available in this cell',
+      'ru': 'В этой ячейке доступно только: {count}',
+    },
+    'qolip.home.issue_title': {
+      'uz': 'Qolip berish',
+      'en': 'Issue mold',
+      'ru': 'Выдать форму',
+    },
+    'qolip.home.scan': {
+      'uz': 'QR Scan',
+      'en': 'Scan QR',
+      'ru': 'Сканировать QR',
+    },
+    'qolip.home.attach': {
+      'uz': 'Biriktirish',
+      'en': 'Attach',
+      'ru': 'Привязать',
+    },
+    'qolip.home.issue_confirm_title': {
+      'uz': 'Qoliplarni berasizmi?',
+      'en': 'Issue these molds?',
+      'ru': 'Выдать эти формы?',
+    },
+    'qolip.home.issue_confirm_message': {
+      'uz':
+          '{count} ta tanlangan qolipni {worker}ga qarzga berasizmi? Har biridan 1 tadan beriladi.',
+      'en':
+          'Issue {count} selected molds to {worker}? One mold will be issued from each location.',
+      'ru':
+          'Выдать {count} выбранных форм работнику {worker}? Из каждой ячейки будет выдана одна форма.',
+    },
+    'qolip.home.issued_to': {
+      'uz': '{count} ta qolip {worker}ga berildi',
+      'en': '{count} molds issued to {worker}',
+      'ru': '{count} форм выдано работнику {worker}',
+    },
+    'qolip.home.issued_partial': {
+      'uz': '{success} ta qolip berildi, {failed} tasi berilmadi',
+      'en': '{success} molds issued; {failed} could not be issued',
+      'ru': 'Выдано форм: {success}; не выдано: {failed}',
+    },
+    'qolip.home.no_placed_for_issue': {
+      'uz': 'Berish uchun joylashtirilgan qolip yo‘q',
+      'en': 'No placed molds are available to issue',
+      'ru': 'Нет размещённых форм для выдачи',
+    },
+    'qolip.home.issue_picker_title': {
+      'uz': 'Beriladigan qolipni tanlang',
+      'en': 'Select molds to issue',
+      'ru': 'Выберите формы для выдачи',
+    },
+    'qolip.home.mold_code_or_product_search': {
+      'uz': 'Qolip code yoki mahsulot nomi',
+      'en': 'Search by mold code or product name',
+      'ru': 'Поиск по коду формы или названию товара',
+    },
+    'qolip.home.qr_lookup_failed': {
+      'uz': 'QR bo‘yicha qolip yoki yachayka topilmadi',
+      'en': 'No mold or cell was found for this QR code',
+      'ru': 'По этому QR-коду форма или ячейка не найдена',
+    },
+    'qolip.home.qr_check_failed': {
+      'uz': 'QR tekshirish amalga oshmadi',
+      'en': 'Could not validate the QR code',
+      'ru': 'Не удалось проверить QR-код',
+    },
+    'qolip.home.cell_not_assigned': {
+      'uz': 'Bu yachayka sizga biriktirilmagan',
+      'en': 'This cell is not assigned to you',
+      'ru': 'Эта ячейка вам не назначена',
+    },
+    'qolip.home.cell_title': {
+      'uz': 'Yachayka {cell}',
+      'en': 'Cell {cell}',
+      'ru': 'Ячейка {cell}',
+    },
+    'qolip.home.add_mold': {
+      'uz': 'Qolip kiritish',
+      'en': 'Add mold',
+      'ru': 'Добавить форму',
+    },
+    'qolip.home.empty_cell': {
+      'uz': 'Qolip olish — yachayka bo‘sh',
+      'en': 'Take mold — cell is empty',
+      'ru': 'Взять форму — ячейка пуста',
+    },
+    'qolip.home.take_count': {
+      'uz': 'Qolip olish ({count})',
+      'en': 'Take mold ({count})',
+      'ru': 'Взять форму ({count})',
+    },
+    'qolip.home.choose_mold_from_cell': {
+      'uz': '{cell} dan qolip tanlang',
+      'en': 'Select a mold from {cell}',
+      'ru': 'Выберите форму из ячейки {cell}',
+    },
+    'qolip.home.not_in_cell': {
+      'uz': 'Hozir yachaykaga joylashtirilmagan',
+      'en': 'Not currently placed in a cell',
+      'ru': 'Сейчас не размещено в ячейке',
+    },
+    'qolip.home.place_in_cell': {
+      'uz': 'Yachaykaga joylash',
+      'en': 'Place in a cell',
+      'ru': 'Разместить в ячейке',
+    },
+    'qolip.home.place_in_other_cell': {
+      'uz': 'Boshqa yachaykaga joylash',
+      'en': 'Place in another cell',
+      'ru': 'Разместить в другой ячейке',
+    },
+    'qolip.home.issue_to_worker': {
+      'uz': 'Ishchiga berish',
+      'en': 'Issue to worker',
+      'ru': 'Выдать работнику',
+    },
+    'qolip.home.place_before_issue': {
+      'uz': 'Ishchiga berishdan oldin qolipni yachaykaga joylang.',
+      'en': 'Place the mold in a cell before issuing it to a worker.',
+      'ru': 'Разместите форму в ячейке перед выдачей работнику.',
+    },
+    'qolip.home.choose_cell_method': {
+      'uz': 'Yachaykani qanday tanlaysiz?',
+      'en': 'How would you like to select the cell?',
+      'ru': 'Как выбрать ячейку?',
+    },
+    'qolip.home.cell_qr_scan': {
+      'uz': 'Yachayka QR scan',
+      'en': 'Scan cell QR',
+      'ru': 'Сканировать QR ячейки',
+    },
+    'qolip.home.select_from_list': {
+      'uz': 'Ro‘yxatdan tanlash',
+      'en': 'Select from list',
+      'ru': 'Выбрать из списка',
+    },
+    'qolip.home.select_cell': {
+      'uz': '{block}: yacheykani tanlang',
+      'en': '{block}: select a cell',
+      'ru': '{block}: выберите ячейку',
+    },
+    'qolip.home.moved_to': {
+      'uz': '{item} {block} • {cell} ga joylandi',
+      'en': '{item} was placed in {block} • {cell}',
+      'ru': '{item} размещено в {block} • {cell}',
+    },
+    'qolip.home.place_failed': {
+      'uz': 'Qolip joylashtirilmadi',
+      'en': 'Could not place the mold',
+      'ru': 'Не удалось разместить форму',
+    },
+    'qolip.home.block_select': {
+      'uz': 'Blokni tanlang',
+      'en': 'Select a block',
+      'ru': 'Выберите блок',
+    },
+    'qolip.home.mold_count_stat': {
+      'uz': '{count} ta qolip',
+      'en': '{count} molds',
+      'ru': '{count} форм',
+    },
+    'qolip.home.move': {
+      'uz': 'Ko‘chirish',
+      'en': 'Move',
+      'ru': 'Переместить',
+    },
+    'qolip.home.take': {
+      'uz': 'Olish',
+      'en': 'Take',
+      'ru': 'Взять',
+    },
+    'qolip.home.customer_unassigned': {
+      'uz': 'Mijoz biriktirilmagan',
+      'en': 'No customer assigned',
+      'ru': 'Клиент не назначен',
+    },
+    'qolip.home.take_failed': {
+      'uz': 'Qolip olish amalga oshmadi',
+      'en': 'Could not issue the mold',
+      'ru': 'Не удалось выдать форму',
+    },
+    'qolip.home.borrow': {
+      'uz': 'Qarzga berish',
+      'en': 'Issue on checkout',
+      'ru': 'Выдать под ответственность',
+    },
+    'qolip.home.block_add_title': {
+      'uz': 'Blok qo‘shish',
+      'en': 'Add block',
+      'ru': 'Добавить блок',
+    },
+    'qolip.home.mold_storage_attach': {
+      'uz': 'Qolipni omborga biriktirish',
+      'en': 'Add mold to storage',
+      'ru': 'Добавить форму на склад',
+    },
+    'qolip.home.mold_select_title': {
+      'uz': 'Qolip tanlang',
+      'en': 'Select a mold',
+      'ru': 'Выберите форму',
+    },
+    'qolip.home.ready_product_select_title': {
+      'uz': 'Tayyor mahsulot tanlang',
+      'en': 'Select a finished product',
+      'ru': 'Выберите готовый товар',
+    },
+    'qolip.home.mold_code_customer_search': {
+      'uz': 'Qolip code, mahsulot yoki customer nomi',
+      'en': 'Search by mold code, product, or customer',
+      'ru': 'Поиск по коду формы, товару или клиенту',
+    },
+    'qolip.home.product_customer_search': {
+      'uz': 'Mahsulot yoki customer nomi bilan qidiring',
+      'en': 'Search by product or customer',
+      'ru': 'Поиск по товару или клиенту',
+    },
+    'qolip.home.qr_not_found': {
+      'uz': 'Qolip QR topilmadi',
+      'en': 'Mold QR code not found',
+      'ru': 'QR формы не найден',
+    },
+    'qolip.home.size_invalid': {
+      'uz': 'Razmerni to‘g‘ri kiriting',
+      'en': 'Enter a valid size',
+      'ru': 'Введите корректный размер',
+    },
+    'qolip.home.code_range': {
+      'uz': 'Qolip code oxirgi qismi 1–100 oralig‘ida bo‘lishi kerak',
+      'en': 'The last part of the mold code must be between 1 and 100',
+      'ru': 'Последняя часть кода формы должна быть от 1 до 100',
+    },
+    'qolip.home.colors_required': {
+      'uz': '{count} ta qolip uchun {count} ta rang tanlang',
+      'en': 'Select {count} colors for {count} molds',
+      'ru': 'Выберите {count} цвета для {count} форм',
+    },
+    'qolip.home.one_color': {
+      'uz': 'Bitta qolip uchun bitta rang tanlang',
+      'en': 'Select one color for a single mold',
+      'ru': 'Для одной формы выберите один цвет',
+    },
+    'qolip.home.batch_response': {
+      'uz': 'Qolip batch javobi to‘liq emas',
+      'en': 'The mold batch response is incomplete',
+      'ru': 'Неполный ответ по партии форм',
+    },
+    'qolip.home.save_failed': {
+      'uz': 'Qoliplar saqlanmadi',
+      'en': 'Could not save the molds',
+      'ru': 'Не удалось сохранить формы',
+    },
+    'qolip.home.place_confirm_title': {
+      'uz': 'Qoliplarni joylaysizmi?',
+      'en': 'Place these molds?',
+      'ru': 'Разместить эти формы?',
+    },
+    'qolip.home.place_confirm_message': {
+      'uz':
+          '{count} ta tanlangan qolipni {block} • {cell} yachaykaga joylaysizmi?',
+      'en': 'Place {count} selected molds in cell {block} • {cell}?',
+      'ru': 'Разместить {count} выбранных форм в ячейке {block} • {cell}?',
+    },
+    'qolip.home.saved_one': {
+      'uz': '{code} {cell} ga joylandi',
+      'en': '{code} was placed in {cell}',
+      'ru': '{code} размещено в {cell}',
+    },
+    'qolip.home.saved_many': {
+      'uz': '{count} ta qolip {cell} ga joylandi',
+      'en': '{count} molds were placed in {cell}',
+      'ru': '{count} форм размещено в ячейке {cell}',
+    },
+    'qolip.home.place_all_failed': {
+      'uz': 'Qoliplar joylashtirilmadi',
+      'en': 'Could not place the molds',
+      'ru': 'Не удалось разместить формы',
+    },
+    'qolip.home.place_partial': {
+      'uz': '{success} ta qolip joylandi, {failed} tasi joylanmadi',
+      'en': '{success} molds placed; {failed} could not be placed',
+      'ru': 'Размещено форм: {success}; не размещено: {failed}',
+    },
+    'qolip.home.qr_printed': {
+      'uz': '{count} ta qolip QR chop etildi',
+      'en': '{count} mold QR codes printed',
+      'ru': 'Напечатано QR форм: {count}',
+    },
+    'qolip.home.qr_print_failed': {
+      'uz': 'Qolip QR chop etilmadi',
+      'en': 'Could not print the mold QR code',
+      'ru': 'Не удалось напечатать QR формы',
+    },
+    'qolip.home.storage_attach': {
+      'uz': 'Qolipni omborga biriktirish',
+      'en': 'Add mold to storage',
+      'ru': 'Добавить форму на склад',
+    },
+    'qolip.home.cell_attach': {
+      'uz': 'Qolipni joyga qo‘shish',
+      'en': 'Add mold to cell',
+      'ru': 'Добавить форму в ячейку',
+    },
+    'qolip.home.qr_scan_tooltip': {
+      'uz': 'Qolip QR scan',
+      'en': 'Scan mold QR',
+      'ru': 'Сканировать QR формы',
+    },
+    'qolip.home.location': {
+      'uz': 'Joy',
+      'en': 'Cell',
+      'ru': 'Ячейка',
+    },
+    'qolip.home.code_or_product': {
+      'uz': 'Qolip code / mahsulot',
+      'en': 'Mold code / product',
+      'ru': 'Код формы / товар',
+    },
+    'qolip.home.ready_product': {
+      'uz': 'Tayyor mahsulot',
+      'en': 'Finished product',
+      'ru': 'Готовый товар',
+    },
+    'qolip.home.mold_code_or_product_hint': {
+      'uz': 'Qolip code yoki mahsulot nomi',
+      'en': 'Search by mold code or product name',
+      'ru': 'Поиск по коду формы или названию товара',
+    },
+    'qolip.home.product_search_hint': {
+      'uz': 'Mahsulot nomi bilan qidirish',
+      'en': 'Search by product name',
+      'ru': 'Поиск по названию товара',
+    },
+    'qolip.home.mold_code_label': {
+      'uz': 'Qolip code',
+      'en': 'Mold code',
+      'ru': 'Код формы',
+    },
+    'qolip.home.size_label': {
+      'uz': 'Razmeri',
+      'en': 'Size',
+      'ru': 'Размер',
+    },
+    'qolip.home.color_label': {
+      'uz': 'Qolip rangi ({selected}/{total})',
+      'en': 'Mold colors ({selected}/{total})',
+      'ru': 'Цвета форм ({selected}/{total})',
+    },
+    'qolip.home.mold_label': {
+      'uz': 'Qolip',
+      'en': 'Mold',
+      'ru': 'Форма',
+    },
+    'qolip.color.red': {
+      'uz': 'Qizil',
+      'en': 'Red',
+      'ru': 'Красный',
+    },
+    'qolip.color.orange': {
+      'uz': 'To‘q sariq',
+      'en': 'Orange',
+      'ru': 'Оранжевый',
+    },
+    'qolip.color.yellow': {
+      'uz': 'Sariq',
+      'en': 'Yellow',
+      'ru': 'Жёлтый',
+    },
+    'qolip.color.green': {
+      'uz': 'Yashil',
+      'en': 'Green',
+      'ru': 'Зелёный',
+    },
+    'qolip.color.cyan': {
+      'uz': 'Moviy',
+      'en': 'Cyan',
+      'ru': 'Голубой',
+    },
+    'qolip.color.blue': {
+      'uz': 'Ko‘k',
+      'en': 'Blue',
+      'ru': 'Синий',
+    },
+    'qolip.color.indigo': {
+      'uz': 'To‘q ko‘k',
+      'en': 'Indigo',
+      'ru': 'Индиго',
+    },
+    'qolip.color.purple': {
+      'uz': 'Binafsha',
+      'en': 'Purple',
+      'ru': 'Фиолетовый',
+    },
+    'qolip.color.pink': {
+      'uz': 'Pushti',
+      'en': 'Pink',
+      'ru': 'Розовый',
+    },
+    'qolip.color.brown': {
+      'uz': 'Jigarrang',
+      'en': 'Brown',
+      'ru': 'Коричневый',
+    },
+    'qolip.color.gold': {
+      'uz': 'Tilla',
+      'en': 'Gold',
+      'ru': 'Золотой',
+    },
+    'qolip.color.gray': {
+      'uz': 'Kulrang',
+      'en': 'Gray',
+      'ru': 'Серый',
+    },
+    'qolip.color.silver': {
+      'uz': 'Matlak',
+      'en': 'Silver',
+      'ru': 'Серебристый',
+    },
+    'qolip.color.black': {
+      'uz': 'Qora',
+      'en': 'Black',
+      'ru': 'Чёрный',
+    },
+    'qolip.color.white': {
+      'uz': 'Oq',
+      'en': 'White',
+      'ru': 'Белый',
+    },
+    'qolip.error.insufficient_stock': {
+      'uz': 'Joyda yetarli qolip qolmadi',
+      'en': 'There are not enough molds in this cell',
+      'ru': 'В этой ячейке недостаточно форм',
+    },
+    'qolip.error.location_not_found': {
+      'uz': 'Qolip joyi topilmadi',
+      'en': 'Mold location not found',
+      'ru': 'Место формы не найдено',
+    },
+    'qolip.error.location_invalid': {
+      'uz': 'Joy noto‘g‘ri tanlangan',
+      'en': 'The selected location is invalid',
+      'ru': 'Выбрано неверное место',
+    },
+    'qolip.error.checkout_not_found': {
+      'uz': 'Berilgan qolip topilmadi',
+      'en': 'The checked-out mold was not found',
+      'ru': 'Выданная форма не найдена',
+    },
+    'qolip.error.checkout_not_returnable': {
+      'uz': 'Bu qolipni qaytarib bo‘lmaydi',
+      'en': 'This mold cannot be returned',
+      'ru': 'Эту форму нельзя вернуть',
+    },
+    'qolip.error.checkout_required': {
+      'uz': 'Qolip avval workerga qarzga berilishi kerak',
+      'en': 'The mold must be checked out to a worker first',
+      'ru': 'Сначала форму нужно выдать работнику',
+    },
+    'qolip.error.assigned_to_another': {
+      'uz': 'Qolip boshqa workerga berilgan',
+      'en': 'This mold is checked out to another worker',
+      'ru': 'Форма выдана другому работнику',
+    },
+    'qolip.error.worker_required': {
+      'uz': 'Ishchini tanlang',
+      'en': 'Select a worker',
+      'ru': 'Выберите работника',
+    },
+    'qolip.error.worker_not_found': {
+      'uz': 'Ishchi topilmadi',
+      'en': 'Worker not found',
+      'ru': 'Работник не найден',
+    },
+    'qolip.error.quantity_required': {
+      'uz': 'Qolip soni noto‘g‘ri',
+      'en': 'Enter a valid mold quantity',
+      'ru': 'Введите корректное количество форм',
+    },
+    'qolip.error.location_identity_mismatch': {
+      'uz': 'Bu joyda boshqa qolip bor. Avval mavjud qolipni ko‘chiring',
+      'en': 'Another mold is already in this location. Move it first',
+      'ru': 'В этом месте уже есть другая форма. Сначала переместите её',
+    },
+    'qolip.error.in_use': {
+      'uz': 'Qolip ishchiga berilgan yoki aktiv orderda ishlatilmoqda',
+      'en': 'The mold is issued to a worker or used by an active order',
+      'ru': 'Форма выдана работнику или используется в активном заказе',
+    },
+    'qolip.error.code_conflict': {
+      'uz': 'Bu qolip code allaqachon mavjud',
+      'en': 'This mold code already exists',
+      'ru': 'Такой код формы уже существует',
+    },
+    'qolip.error.panton_limit': {
+      'uz': 'Panton 1–100 band. Yangi Panton biriktirib bo‘lmaydi',
+      'en': 'PANTONE numbers 1–100 are already in use',
+      'ru': 'Номера PANTONE от 1 до 100 уже заняты',
+    },
+    'qolip.error.block_in_use': {
+      'uz':
+          'Blokda qolip yoki qaytarilmagan berish bor. Uni o‘chirib bo‘lmaydi',
+      'en':
+          'This block has molds or outstanding checkouts and cannot be deleted',
+      'ru': 'В блоке есть формы или незакрытые выдачи. Его нельзя удалить',
+    },
+    'qolip.error.block_exists': {
+      'uz': 'Bu nomdagi blok allaqachon mavjud',
+      'en': 'A block with this name already exists',
+      'ru': 'Блок с таким названием уже существует',
+    },
+    'qolip.error.block_not_found': {
+      'uz': 'Blok topilmadi',
+      'en': 'Block not found',
+      'ru': 'Блок не найден',
+    },
+    'qolip.error.forbidden': {
+      'uz': 'Bu amal uchun ruxsat yo‘q',
+      'en': 'You do not have permission to perform this action',
+      'ru': 'У вас нет разрешения на это действие',
+    },
+    'qolip.error.unauthorized': {
+      'uz': 'Sessiya tugagan. Qayta kiring',
+      'en': 'Your session has expired. Sign in again',
+      'ru': 'Сессия завершена. Войдите снова',
+    },
   };
 
   String productionText(
@@ -4643,6 +5983,81 @@ class AppLocalizations {
       _ => count == 1 ? 'item' : 'items',
     };
     return '$count $noun';
+  }
+
+  String qolipText(
+    String key, {
+    Map<String, Object?> values = const <String, Object?>{},
+  }) {
+    return productionText('qolip.$key', values: values);
+  }
+
+  String qolipCount(int count) {
+    if (isUzbek) {
+      return '$count ta qolip';
+    }
+    return productionCount(count, kind: 'molds');
+  }
+
+  String qolipQuantityShort(int count) {
+    if (isUzbek) {
+      return '$count ta';
+    }
+    return qolipCount(count);
+  }
+
+  String qolipColorName(String raw) {
+    final normalized = raw.trim().toUpperCase();
+    final key = switch (normalized) {
+      '#E53935' || 'QIZIL' => 'qolip.color.red',
+      '#FB8C00' || 'TO‘Q SARIQ' || 'TO\'Q SARIQ' => 'qolip.color.orange',
+      '#FDD835' || 'SARIQ' => 'qolip.color.yellow',
+      '#43A047' || 'YASHIL' => 'qolip.color.green',
+      '#00ACC1' || 'MOVIY' => 'qolip.color.cyan',
+      '#1E88E5' || 'KO‘K' || 'KO\'K' => 'qolip.color.blue',
+      '#3949AB' || 'TO‘Q KO‘K' || 'TO\'Q KO\'K' => 'qolip.color.indigo',
+      '#8E24AA' || 'BINAFSHA' => 'qolip.color.purple',
+      '#D81B60' || 'PUSHTI' => 'qolip.color.pink',
+      '#6D4C41' || 'JIGARRANG' => 'qolip.color.brown',
+      '#D4A72C' || 'TILLA' => 'qolip.color.gold',
+      '#757575' || 'KULRANG' => 'qolip.color.gray',
+      '#B7BCC2' || 'MATLAK' => 'qolip.color.silver',
+      '#212121' || 'QORA' => 'qolip.color.black',
+      '#FFFFFF' || 'OQ' => 'qolip.color.white',
+      _ => '',
+    };
+    return key.isEmpty ? raw : productionText(key);
+  }
+
+  String qolipErrorText(String code, {String fallback = ''}) {
+    final key = switch (code.trim().toLowerCase()) {
+      'insufficient_stock' => 'qolip.error.insufficient_stock',
+      'location_not_found' => 'qolip.error.location_not_found',
+      'location_invalid' => 'qolip.error.location_invalid',
+      'checkout_not_found' => 'qolip.error.checkout_not_found',
+      'checkout_not_returnable' => 'qolip.error.checkout_not_returnable',
+      'qolip_checkout_required' => 'qolip.error.checkout_required',
+      'qolip_checkout_assigned_to_another_worker' =>
+        'qolip.error.assigned_to_another',
+      'worker_required' => 'qolip.error.worker_required',
+      'worker_not_found' => 'qolip.error.worker_not_found',
+      'quantity_required' => 'qolip.error.quantity_required',
+      'location_identity_mismatch' => 'qolip.error.location_identity_mismatch',
+      'qolip_in_use' => 'qolip.error.in_use',
+      'qolip_code_conflict' => 'qolip.error.code_conflict',
+      'panton_limit_exceeded' => 'qolip.error.panton_limit',
+      'block_in_use' => 'qolip.error.block_in_use',
+      'block_exists' => 'qolip.error.block_exists',
+      'block_not_found' => 'qolip.error.block_not_found',
+      'forbidden' => 'qolip.error.forbidden',
+      'unauthorized' => 'qolip.error.unauthorized',
+      _ when code.contains('insufficient_stock') =>
+        'qolip.error.insufficient_stock',
+      _ when code.contains('location_not_found') =>
+        'qolip.error.location_not_found',
+      _ => '',
+    };
+    return key.isEmpty ? fallback : productionText(key);
   }
 
   String productionApparatusName(String raw) {

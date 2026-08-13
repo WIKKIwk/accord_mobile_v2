@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -111,7 +112,7 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
     }
     final cellLabel = await showQolipCellPickerSheet(
       context,
-      title: 'Qayerga qaytarasiz?',
+      title: context.l10n.qolipText('checkouts.return_to'),
     );
     if (!mounted || cellLabel == null) {
       return;
@@ -135,7 +136,16 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('${checkout.itemName} $normalizedCell ga qaytdi')),
+          content: Text(
+            context.l10n.qolipText(
+              'checkouts.returned',
+              values: {
+                'item': checkout.itemName,
+                'cell': normalizedCell,
+              },
+            ),
+          ),
+        ),
       );
       await _reload();
     } catch (error) {
@@ -145,7 +155,11 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            qolipErrorMessage(error, fallback: 'Qolip qaytarilmadi'),
+            qolipErrorMessage(
+              error,
+              fallback: context.l10n.qolipText('checkouts.return_failed'),
+              l10n: context.l10n,
+            ),
           ),
         ),
       );
@@ -171,7 +185,14 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${debt.title} qoliplari qaytarildi')),
+        SnackBar(
+          content: Text(
+            context.l10n.qolipText(
+              'checkouts.draft_returned',
+              values: {'item': debt.title},
+            ),
+          ),
+        ),
       );
       await _reload();
     } catch (error) {
@@ -183,7 +204,7 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
           content: Text(
             error is MobileApiException
                 ? error.message
-                : 'Qolip qaydi qaytarilmadi',
+                : context.l10n.qolipText('checkouts.draft_return_failed'),
           ),
         ),
       );
@@ -207,8 +228,9 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AppShell(
-      title: 'Qarz daftari',
+      title: l10n.qolipText('checkouts.title'),
       subtitle: '',
       nativeTopBar: true,
       automaticallyImplyNativeLeading: false,
@@ -218,7 +240,7 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
       titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,
-        hintText: 'Qarzdan qidirish',
+        hintText: l10n.qolipText('checkouts.search'),
         onChanged: (value) {
           setState(() => _query = value.trim());
         },
@@ -248,7 +270,7 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
           if (snapshot.hasError) {
             return AppRetryState(
               onRetry: _reload,
-              message: 'Qarz daftari yuklanmadi',
+              message: l10n.qolipText('checkouts.load_failed'),
             );
           }
           final debts = snapshot.data ?? const <_QolipDebtEntry>[];
@@ -256,13 +278,17 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
           if (debts.isEmpty) {
             return RefreshIndicator(
               onRefresh: _reload,
-              child: const _QolipDebtEmptyState(message: 'Qarzda qolip yo‘q'),
+              child: _QolipDebtEmptyState(
+                message: l10n.qolipText('checkouts.empty'),
+              ),
             );
           }
           if (visible.isEmpty) {
             return RefreshIndicator(
               onRefresh: _reload,
-              child: const _QolipDebtEmptyState(message: 'Qidiruvda topilmadi'),
+              child: _QolipDebtEmptyState(
+                message: l10n.qolipText('checkouts.search_empty'),
+              ),
             );
           }
           return RefreshIndicator(
@@ -382,6 +408,7 @@ class _QolipDebtRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
     final checkout = debt.checkout;
     final note = debt.orderNote;
     final location = checkout == null
@@ -391,14 +418,17 @@ class _QolipDebtRow extends StatelessWidget {
             : checkout.block;
     final subtitle = note != null
         ? <String>[
-            'Draft',
-            'Order: ${note.orderId}',
-            '${debt.quantity} ta qolip',
+            l10n.qolipText('checkouts.draft'),
+            l10n.qolipText(
+              'checkouts.order',
+              values: {'id': note.orderId},
+            ),
+            l10n.qolipCount(debt.quantity),
             _formatIssuedAt(note.updatedAt),
           ].where((value) => value.trim().isNotEmpty).join(' • ')
         : <String>[
             checkout!.issuedToName.trim().isEmpty
-                ? 'Noma’lum qolipchi'
+                ? l10n.qolipText('checkouts.unknown_worker')
                 : checkout.issuedToName.trim(),
             location,
             checkout.qolipCode,
@@ -460,7 +490,7 @@ class _QolipDebtRow extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      '${debt.quantity} ta',
+                      l10n.qolipCount(debt.quantity),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
@@ -545,6 +575,7 @@ class _QolipDebtDetail extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
     final checkout = debt.checkout;
     final note = debt.orderNote;
     final location = checkout == null
@@ -554,45 +585,74 @@ class _QolipDebtDetail extends StatelessWidget {
             : checkout.block;
     final detailLines = note != null
         ? <Widget>[
-            const _QolipDebtDetailLine(
-              label: 'Qarz turi',
-              value: 'Order drafti',
-            ),
-            _QolipDebtDetailLine(label: 'Order', value: note.orderId),
-            _QolipDebtDetailLine(label: 'Mahsulot', value: note.itemName),
-            _QolipDebtDetailLine(label: 'Item kodi', value: note.itemCode),
             _QolipDebtDetailLine(
-              label: 'Qolip kodlari',
+              label: l10n.qolipText('checkouts.debt_type'),
+              value: l10n.qolipText('checkouts.order_draft'),
+            ),
+            _QolipDebtDetailLine(
+              label: l10n.qolipText('checkouts.order_label'),
+              value: note.orderId,
+            ),
+            _QolipDebtDetailLine(
+              label: l10n.qolipText('checkouts.product'),
+              value: note.itemName,
+            ),
+            _QolipDebtDetailLine(
+              label: l10n.qolipText('checkouts.item_code'),
+              value: note.itemCode,
+            ),
+            _QolipDebtDetailLine(
+              label: l10n.qolipText('checkouts.mold_codes'),
               value: note.qolipCodes.join(', '),
             ),
             _QolipDebtDetailLine(
-              label: 'Soni',
-              value: '${note.qolipCodes.length} ta',
+              label: l10n.qolipText('checkouts.quantity'),
+              value: l10n.qolipCount(note.qolipCodes.length),
             ),
             _QolipDebtDetailLine(
-              label: 'Berilgan vaqt',
+              label: l10n.qolipText('checkouts.issued_at'),
               value: _formatIssuedAt(note.updatedAt),
             ),
           ]
         : <Widget>[
             _QolipDebtDetailLine(
-              label: 'Kimga berilgan',
+              label: l10n.qolipText('checkouts.issued_to'),
               value: checkout!.issuedToName,
             ),
-            _QolipDebtDetailLine(label: 'Mahsulot', value: checkout.itemName),
-            _QolipDebtDetailLine(label: 'Item kodi', value: checkout.itemCode),
             _QolipDebtDetailLine(
-                label: 'Qolip kodi', value: checkout.qolipCode),
-            _QolipDebtDetailLine(label: 'Razmer', value: '${checkout.size}'),
-            _QolipDebtDetailLine(
-              label: 'Soni',
-              value: '${checkout.quantity} ta',
+              label: l10n.qolipText('checkouts.product'),
+              value: checkout.itemName,
             ),
-            _QolipDebtDetailLine(label: 'Blok', value: checkout.block),
-            _QolipDebtDetailLine(label: 'Joy', value: location),
-            _QolipDebtDetailLine(label: 'Ombor', value: checkout.warehouse),
             _QolipDebtDetailLine(
-              label: 'Berilgan vaqt',
+              label: l10n.qolipText('checkouts.item_code'),
+              value: checkout.itemCode,
+            ),
+            _QolipDebtDetailLine(
+              label: l10n.qolipText('checkouts.mold_code'),
+              value: checkout.qolipCode,
+            ),
+            _QolipDebtDetailLine(
+              label: l10n.qolipText('checkouts.size'),
+              value: '${checkout.size}',
+            ),
+            _QolipDebtDetailLine(
+              label: l10n.qolipText('checkouts.quantity'),
+              value: l10n.qolipCount(checkout.quantity),
+            ),
+            _QolipDebtDetailLine(
+              label: l10n.qolipText('checkouts.block'),
+              value: checkout.block,
+            ),
+            _QolipDebtDetailLine(
+              label: l10n.qolipText('checkouts.cell'),
+              value: location,
+            ),
+            _QolipDebtDetailLine(
+              label: l10n.qolipText('checkouts.warehouse'),
+              value: checkout.warehouse,
+            ),
+            _QolipDebtDetailLine(
+              label: l10n.qolipText('checkouts.issued_at'),
               value: _formatIssuedAt(checkout.issuedAt),
             ),
           ];
@@ -614,12 +674,14 @@ class _QolipDebtDetail extends StatelessWidget {
                     )
                   : const Icon(Icons.keyboard_return_rounded, size: 18),
               label: Text(
-                note != null ? 'Qoliplarni qaytarib oldim' : 'Qaytar',
+                note != null
+                    ? l10n.qolipText('action.return_molds')
+                    : l10n.qolipText('action.return'),
               ),
             ),
           ),
           Text(
-            '${note != null ? 'Order ID' : 'Checkout ID'}: ${debt.id.replaceFirst('order-note:', '')}',
+            '${note != null ? l10n.qolipText('checkouts.order_id') : l10n.qolipText('checkouts.checkout_id')}: ${debt.id.replaceFirst('order-note:', '')}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelSmall?.copyWith(
@@ -711,7 +773,7 @@ class _QolipDebtLoadingState extends StatelessWidget {
           const AppLoadingIndicator(),
           const SizedBox(height: 12),
           Text(
-            'Qarz daftari yuklanmoqda',
+            context.l10n.qolipText('checkouts.loading'),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,

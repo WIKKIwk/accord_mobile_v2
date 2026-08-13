@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/app_dialog_action_row.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
@@ -57,6 +58,7 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
     if (_saving) {
       return;
     }
+    final l10n = context.l10n;
     final action = await showModalBottomSheet<_QolipBlockAction>(
       context: context,
       showDragHandle: true,
@@ -67,14 +69,14 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.edit_outlined),
-              title: const Text('Tahrirlash'),
+              title: Text(l10n.qolipText('action.edit')),
               onTap: () => Navigator.of(sheetContext).pop(
                 _QolipBlockAction.edit,
               ),
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline_rounded),
-              title: const Text('O‘chirish'),
+              title: Text(l10n.qolipText('action.delete')),
               onTap: () => Navigator.of(sheetContext).pop(
                 _QolipBlockAction.delete,
               ),
@@ -95,23 +97,26 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
   }
 
   Future<void> _editBlock(QolipBlock block) async {
+    final l10n = context.l10n;
     final controller = TextEditingController(text: block.name);
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Blokni tahrirlash'),
+        title: Text(l10n.qolipText('blocks.edit_title')),
         content: TextField(
           controller: controller,
           autofocus: true,
           textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(labelText: 'Blok nomi'),
+          decoration: InputDecoration(
+            labelText: l10n.qolipText('blocks.name'),
+          ),
           textInputAction: TextInputAction.done,
           onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
         ),
         actions: [
           AppDialogActionRow(
-            cancelLabel: 'Bekor qilish',
-            confirmLabel: 'Saqlash',
+            cancelLabel: l10n.qolipText('action.cancel'),
+            confirmLabel: l10n.qolipText('action.save'),
             gap: 8,
             vertical: true,
             onCancel: () => Navigator.of(dialogContext).pop(),
@@ -130,21 +135,27 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
         block: block,
         newName: updatedName,
       ),
-      successMessage: 'Blok tahrirlandi',
-      failureMessage: 'Blok tahrirlanmadi',
+      successMessage: l10n.qolipText('blocks.updated'),
+      failureMessage: l10n.qolipText('blocks.update_failed'),
     );
   }
 
   Future<void> _deleteBlock(QolipBlock block) async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Blokni o‘chirasizmi?'),
-        content: Text('${block.name} bloki butunlay o‘chiriladi.'),
+        title: Text(l10n.qolipText('blocks.delete_title')),
+        content: Text(
+          l10n.qolipText(
+            'blocks.delete_message',
+            values: {'name': block.name},
+          ),
+        ),
         actions: [
           AppDialogActionRow(
-            cancelLabel: 'Bekor qilish',
-            confirmLabel: 'O‘chirish',
+            cancelLabel: l10n.qolipText('action.cancel'),
+            confirmLabel: l10n.qolipText('action.delete'),
             gap: 8,
             vertical: true,
             onCancel: () => Navigator.of(dialogContext).pop(false),
@@ -158,8 +169,8 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
     }
     await _runBlockAction(
       () => MobileApi.instance.qolipDeleteBlock(block),
-      successMessage: 'Blok o‘chirildi',
-      failureMessage: 'Blok o‘chirilmadi',
+      successMessage: l10n.qolipText('blocks.deleted'),
+      failureMessage: l10n.qolipText('blocks.delete_failed'),
     );
   }
 
@@ -187,7 +198,14 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(qolipErrorMessage(error, fallback: failureMessage))),
+          content: Text(
+            qolipErrorMessage(
+              error,
+              fallback: failureMessage,
+              l10n: context.l10n,
+            ),
+          ),
+        ),
       );
     } finally {
       if (mounted) {
@@ -198,6 +216,7 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AppShell(
       title: '',
       subtitle: '',
@@ -208,7 +227,7 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
       titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,
-        hintText: 'Blok qidirish',
+        hintText: l10n.qolipText('blocks.search'),
         onChanged: (value) => setState(() => _query = value.trim()),
         onClear: () {
           _searchController.clear();
@@ -236,7 +255,9 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
             }
             if (snapshot.hasError) {
               return AppRetryState(
-                  onRetry: _reload, message: 'Bloklar yuklanmadi');
+                onRetry: _reload,
+                message: l10n.qolipText('blocks.load_failed'),
+              );
             }
             final blocks =
                 (snapshot.data?.blocks ?? const <QolipBlock>[]).where((block) {
@@ -248,9 +269,9 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
                 onRefresh: _reload,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  children: const [
-                    SizedBox(height: 180),
-                    Center(child: Text('Blok topilmadi')),
+                  children: [
+                    const SizedBox(height: 180),
+                    Center(child: Text(l10n.qolipText('blocks.empty'))),
                   ],
                 ),
               );
