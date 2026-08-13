@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -152,7 +153,10 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
       unawaited(_load());
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'Tugatish so‘rovi hal qilinmadi');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('notification.completion_failed'),
+        );
       }
     } finally {
       if (mounted) {
@@ -171,7 +175,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
         selectedRouteName: AppRoutes.adminNotifications,
         onNavigate: _openDrawerRoute,
       ),
-      title: 'Bildirishnomalar',
+      title: context.l10n.adminText('notification.title'),
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -241,7 +245,7 @@ class _EmptyNotificationState extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
             child: Text(
-              'Bildirishnoma yo‘q',
+              context.l10n.adminText('notification.empty'),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w700,
@@ -275,22 +279,39 @@ class _CompletionRequestNotificationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final code = _requestDisplayCode(request);
+    final l10n = context.l10n;
+    final code = _requestDisplayCode(request, l10n);
     final worker = _actorLabel(
       displayName: request.workerDisplayName,
       role: request.workerRole,
       ref: request.workerRef,
+      l10n: l10n,
     );
     final decisionRequired = request.decisionRequired;
     final hasZeroMetrics = request.zeroMetricCodes.isNotEmpty;
     final title = decisionRequired
         ? hasZeroMetrics
-            ? '$code zakazda 0 ko‘rsatkich bor'
-            : '$code zakaz 0 holatda'
-        : '$code laminatsiya qoldig‘i';
+            ? l10n.adminText(
+                'notification.title_zero_metrics',
+                values: {'code': code},
+              )
+            : l10n.adminText(
+                'notification.title_zero_state',
+                values: {'code': code},
+              )
+        : l10n.adminText(
+            'notification.title_remainder',
+            values: {'code': code},
+          );
     final subtitle = decisionRequired
-        ? '${request.apparatus.trim()} dagi $worker tugatishga urinyapti'
-        : '${request.apparatus.trim()} dagi $worker ikkala qavat qoldig‘ini yozdi';
+        ? l10n.adminText(
+            'notification.subtitle_attempt',
+            values: {'apparatus': request.apparatus.trim(), 'worker': worker},
+          )
+        : l10n.adminText(
+            'notification.subtitle_remainder',
+            values: {'apparatus': request.apparatus.trim(), 'worker': worker},
+          );
 
     return Material(
       color:
@@ -406,22 +427,44 @@ class _CompletionRequestDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
     final lines = <String>[
       if (request.orderTitle.trim().isNotEmpty)
-        'Mahsulot: ${request.orderTitle.trim()}',
+        l10n.adminText(
+          'notification.item_line',
+          values: {'value': request.orderTitle.trim()},
+        ),
       if (request.productCode.trim().isNotEmpty)
-        'Kod: ${request.productCode.trim()}',
+        l10n.adminText(
+          'notification.code_line',
+          values: {'value': request.productCode.trim()},
+        ),
       if (request.apparatus.trim().isNotEmpty)
-        '${_apparatusDetailLabel(request.apparatus)}: ${request.apparatus.trim()}',
-      'Ishchi: ${_actorLabel(
-        displayName: request.workerDisplayName,
-        role: request.workerRole,
-        ref: request.workerRef,
-      )}',
+        l10n.adminText(
+          'notification.apparatus_line',
+          values: {'value': request.apparatus.trim()},
+        ),
+      l10n.adminText(
+        'notification.worker_line',
+        values: {
+          'value': _actorLabel(
+            displayName: request.workerDisplayName,
+            role: request.workerRole,
+            ref: request.workerRef,
+            l10n: l10n,
+          ),
+        },
+      ),
       if (_timeLabel(request.createdAtUnix).isNotEmpty)
-        'Vaqt: ${_timeLabel(request.createdAtUnix)}',
+        l10n.adminText(
+          'notification.time_line',
+          values: {'value': _timeLabel(request.createdAtUnix)},
+        ),
     ];
-    final zeroMetricLabels = _zeroMetricLabels(request.zeroMetricCodes);
+    final zeroMetricLabels = _zeroMetricLabels(
+      request.zeroMetricCodes,
+      l10n,
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(60, 0, 14, 14),
@@ -443,7 +486,7 @@ class _CompletionRequestDetails extends StatelessWidget {
           if (zeroMetricLabels.isNotEmpty) ...[
             const SizedBox(height: 2),
             Text(
-              '0 kiritilgan ko‘rsatkichlar',
+              l10n.adminText('notification.zero_metrics'),
               style: theme.textTheme.labelLarge?.copyWith(
                 color: scheme.error,
                 fontWeight: FontWeight.w800,
@@ -472,7 +515,7 @@ class _CompletionRequestDetails extends StatelessWidget {
           const SizedBox(height: 14),
           if (request.decisionRequired) ...[
             Text(
-              'Tugatishga ruxsat berasizmi?',
+              l10n.adminText('notification.approval_question'),
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w800,
                 color: scheme.onSurface,
@@ -484,7 +527,7 @@ class _CompletionRequestDetails extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: deciding ? null : onReject,
-                    child: const Text('Rad etish'),
+                    child: Text(l10n.adminText('notification.reject')),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -496,7 +539,7 @@ class _CompletionRequestDetails extends StatelessWidget {
                             dimension: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Tasdiqlash'),
+                        : Text(l10n.adminText('notification.confirm')),
                   ),
                 ),
               ],
@@ -508,7 +551,10 @@ class _CompletionRequestDetails extends StatelessWidget {
   }
 }
 
-String _requestDisplayCode(AdminCompletionRequestNotification request) {
+String _requestDisplayCode(
+  AdminCompletionRequestNotification request,
+  AppLocalizations l10n,
+) {
   final orderNumber = request.orderNumber.trim();
   if (orderNumber.isNotEmpty) {
     return orderNumber;
@@ -517,13 +563,14 @@ String _requestDisplayCode(AdminCompletionRequestNotification request) {
   if (orderId.isNotEmpty) {
     return orderId;
   }
-  return 'Zakaz';
+  return l10n.adminText('notification.order_fallback');
 }
 
 String _actorLabel({
   required String displayName,
   required String role,
   required String ref,
+  required AppLocalizations l10n,
 }) {
   final name = displayName.trim();
   if (name.isNotEmpty) {
@@ -537,35 +584,32 @@ String _actorLabel({
   if (workerRole.isNotEmpty) {
     return workerRole;
   }
-  return 'Ishchi';
+  return l10n.adminText('notification.worker_fallback');
 }
 
 String _timeLabel(int unix) => formatUnixSecondsLocalDateTime(unix);
 
-String _apparatusDetailLabel(String apparatus) {
-  final normalized = apparatus.trim().toLowerCase();
-  if (normalized.contains('laminatsiya')) {
-    return 'Laminatsiya mashinasi';
-  }
-  if (normalized.contains('rezka')) {
-    return 'Rezka mashinasi';
-  }
-  return 'Aparat';
-}
-
-List<String> _zeroMetricLabels(List<String> codes) {
-  const labels = <String, String>{
-    'produced_qty': 'Ishlab chiqarilgan miqdor',
-    'gross_qty': 'Brutto og‘irlik',
-    'return_ink_kg': 'Qaytgan kraska',
-    'lamination_print_leftover_rolls': 'Bosmadan ortgan rulon',
-    'lamination_film_leftover_rolls': 'Plyonkadan ortgan rulon',
-    'rezka_bosma_waste': 'Bosma chiqindisi',
-    'rezka_lamination_waste': 'Laminatsiya chiqindisi',
-    'rezka_edge_waste': 'Tayyor mahsulot cheti chiqindisi',
-    'total_waste': 'Jami chiqindi',
-    'finished_goods_kg': 'Tayyor mahsulot og‘irligi',
-    'finished_goods_meter': 'Tayyor mahsulot metraji',
+List<String> _zeroMetricLabels(
+  List<String> codes,
+  AppLocalizations l10n,
+) {
+  final labels = <String, String>{
+    'produced_qty': l10n.productionText('worker.qr.passport.produced_quantity'),
+    'gross_qty': l10n.productionText('worker.daily.field.weight'),
+    'return_ink_kg': l10n.productionText('worker.qr.passport.returned_ink'),
+    'lamination_print_leftover_rolls':
+        l10n.productionText('worker.daily.field.print_leftover'),
+    'lamination_film_leftover_rolls':
+        l10n.productionText('worker.daily.field.film_leftover'),
+    'rezka_bosma_waste': l10n.productionText('worker.daily.field.print_waste'),
+    'rezka_lamination_waste':
+        l10n.productionText('worker.daily.field.lamination_waste'),
+    'rezka_edge_waste': l10n.productionText('worker.daily.field.edge_waste'),
+    'total_waste': l10n.productionText('worker.daily.field.total_waste'),
+    'finished_goods_kg':
+        l10n.productionText('worker.qr.passport.finished_weight'),
+    'finished_goods_meter':
+        l10n.productionText('worker.qr.passport.finished_length'),
   };
   return [
     for (final code in codes) labels[code.trim()] ?? code.trim(),

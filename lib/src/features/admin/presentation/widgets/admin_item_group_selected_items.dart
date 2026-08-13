@@ -1,4 +1,5 @@
 import '../../../shared/models/app_models.dart';
+import '../../../../core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 class AdminItemGroupSelectedItems extends StatelessWidget {
@@ -21,6 +22,7 @@ class AdminItemGroupSelectedItems extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
@@ -54,7 +56,7 @@ class AdminItemGroupSelectedItems extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Text(
-                'Bu groupda mahsulot yo‘q',
+                l10n.adminText('item_group.no_items'),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             )
@@ -80,14 +82,14 @@ class AdminItemGroupSelectedItems extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Yana yuklash'),
+                label: Text(l10n.adminText('item_group.load_more')),
               ),
             )
           else if (hasMore)
             Padding(
               padding: const EdgeInsets.all(12),
               child: Text(
-                'Pastga scroll qiling, qolganlari yuklanadi',
+                l10n.adminText('item_group.scroll_hint'),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -175,7 +177,10 @@ class _CountBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        '$count item',
+        context.l10n.adminText(
+          'item_group.item_count',
+          values: {'count': count},
+        ),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: colorScheme.onPrimaryContainer,
               fontWeight: FontWeight.w800,

@@ -1,4 +1,5 @@
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/buttons/app_action_button_styles.dart';
 import '../../../core/widgets/display/app_detail_field.dart';
@@ -145,7 +146,9 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
     }
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Code nusxalandi')));
+    ).showSnackBar(
+      SnackBar(content: Text(context.l10n.adminText('profile.code_copied'))),
+    );
   }
 
   @override
@@ -159,7 +162,7 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
         Navigator.of(context).pop(changed);
       },
       child: AppShell(
-        title: 'Profil',
+        title: context.l10n.adminText('profile.title'),
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -251,10 +254,12 @@ class _AdminWerkaDetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final displayName =
-        name.text.trim().isEmpty ? 'Omborchi' : name.text.trim();
+    final displayName = name.text.trim().isEmpty
+        ? l10n.adminText('profile.name_placeholder')
+        : name.text.trim();
     final phoneText = phone.text.trim();
 
     return Column(
@@ -269,17 +274,17 @@ class _AdminWerkaDetailCard extends StatelessWidget {
                 top: 112,
                 child: ColoredBox(color: scheme.surface),
               ),
-              const Positioned(
+              Positioned(
                 left: 0,
                 right: 0,
                 top: 0,
                 height: 112,
                 child: ColoredBox(color: Colors.black),
               ),
-              const Positioned(
+              Positioned(
                 right: 14,
                 top: 14,
-                child: AppStatusChip(label: 'Tayyor'),
+                child: AppStatusChip(label: l10n.adminText('profile.ready')),
               ),
               Positioned(
                 left: 16,
@@ -307,7 +312,7 @@ class _AdminWerkaDetailCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Omborchi profili',
+                      l10n.adminText('profile.description'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -333,12 +338,12 @@ class _AdminWerkaDetailCard extends StatelessWidget {
                     ProfileInfoChip(
                       icon: Icons.phone_rounded,
                       label: phoneText.isEmpty
-                          ? 'Telefon kiritilmagan'
+                          ? l10n.adminText('profile.phone_missing')
                           : phoneText,
                     ),
-                    const ProfileInfoChip(
+                    ProfileInfoChip(
                       icon: Icons.warehouse_rounded,
-                      label: 'Omborchi',
+                      label: l10n.adminText('profile.warehouse_worker'),
                     ),
                     if (chatTarget != null)
                       ChatProfileActionButton(
@@ -351,7 +356,9 @@ class _AdminWerkaDetailCard extends StatelessWidget {
               const SizedBox(width: 8),
               IconButton(
                 key: const ValueKey('admin-werka-detail-admin-toggle'),
-                tooltip: expanded ? 'Boshqaruvni yopish' : 'Boshqaruvni ochish',
+                tooltip: expanded
+                    ? l10n.adminText('profile.controls_close')
+                    : l10n.adminText('profile.controls_open'),
                 onPressed: () => onExpandedChanged(!expanded),
                 icon: AnimatedRotation(
                   turns: expanded ? 0.5 : 0,
@@ -417,26 +424,27 @@ class _WerkaAdminPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Admin boshqaruv',
+          l10n.adminText('profile.admin_controls'),
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w800,
           ),
         ),
         const SizedBox(height: 14),
-        Text('Nomi', style: theme.textTheme.bodySmall),
+        Text(l10n.adminText('profile.name'), style: theme.textTheme.bodySmall),
         const SizedBox(height: 6),
         _WerkaTextField(
           controller: name,
-          hintText: 'Omborchi',
+          hintText: l10n.adminText('profile.name_placeholder'),
         ),
         const SizedBox(height: 14),
-        Text('Telefon', style: theme.textTheme.bodySmall),
+        Text(l10n.adminText('profile.phone'), style: theme.textTheme.bodySmall),
         const SizedBox(height: 6),
         _WerkaPhoneInlineField(
           controller: phone,
@@ -444,14 +452,19 @@ class _WerkaAdminPanel extends StatelessWidget {
           onSave: onSave,
         ),
         const SizedBox(height: 14),
-        Text('Kirish kodi', style: theme.textTheme.bodySmall),
+        Text(
+          l10n.adminText('profile.access_code'),
+          style: theme.textTheme.bodySmall,
+        ),
         const SizedBox(height: 6),
         AppDetailField(
           child: Row(
             children: [
               Expanded(
                 child: Text(
-                  code.trim().isEmpty ? 'Hali generatsiya qilinmagan' : code,
+                  code.trim().isEmpty
+                      ? l10n.adminText('profile.not_generated')
+                      : code,
                   style: theme.textTheme.titleMedium,
                 ),
               ),
@@ -477,7 +490,10 @@ class _WerkaAdminPanel extends StatelessWidget {
         if (retryAfterSec > 0) ...[
           const SizedBox(height: 12),
           Text(
-            'Keyingi code uchun $retryAfterSec soniya kuting.',
+            l10n.adminText(
+              'profile.code_wait',
+              values: {'seconds': retryAfterSec},
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -489,7 +505,11 @@ class _WerkaAdminPanel extends StatelessWidget {
           child: FilledButton.tonal(
             style: appFilledActionButtonStyle(),
             onPressed: saving ? null : () => onSave(),
-            child: Text(saving ? 'Saqlanmoqda...' : 'Saqlash'),
+            child: Text(
+              saving
+                  ? l10n.adminText('profile.saving')
+                  : l10n.adminText('profile.save'),
+            ),
           ),
         ),
       ],
@@ -540,6 +560,7 @@ class _WerkaPhoneInlineFieldState extends State<_WerkaPhoneInlineField> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final phone = widget.controller.text.trim();
     return AppDetailField(
@@ -555,13 +576,13 @@ class _WerkaPhoneInlineFieldState extends State<_WerkaPhoneInlineField> {
                     decoration: const InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
-                      hintText: '+998901234567',
+                      hintText: '+998 90 123 45 67',
                     ),
                     style: theme.textTheme.titleMedium,
                     onSubmitted: (_) => _submit(),
                   )
                 : Text(
-                    phone.isEmpty ? 'Kiritilmagan' : phone,
+                    phone.isEmpty ? l10n.adminText('profile.entered') : phone,
                     style: theme.textTheme.titleMedium,
                   ),
           ),
@@ -571,10 +592,10 @@ class _WerkaPhoneInlineFieldState extends State<_WerkaPhoneInlineField> {
             child: IconButton(
               key: const ValueKey('admin-werka-detail-phone-action'),
               tooltip: _editing
-                  ? 'Telefonni saqlash'
+                  ? l10n.adminText('profile.save_phone')
                   : phone.isEmpty
-                      ? 'Telefon raqami kiritish'
-                      : 'Telefonni yangilash',
+                      ? l10n.adminText('profile.enter_phone')
+                      : l10n.adminText('profile.update_phone'),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints.tightFor(
                 height: 32,

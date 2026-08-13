@@ -4,6 +4,7 @@ import 'dart:io';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -280,7 +281,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       return true;
     }
     if (mounted) {
-      showAdminTopNotice(context, 'Qavat materiallari yuklanmadi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('status.load_failed'),
+      );
     }
     return false;
   }
@@ -350,13 +354,16 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3AsyncPickerSheet<CalculateMaterial>(
-          title: 'Qavat materiali',
-          hintText: 'Material qidiring',
+          title: context.l10n.adminText('calculate.layer_material_title'),
+          hintText: context.l10n.adminText('calculate.layer_material_search'),
           pageSize: 50,
           cacheKey: 'calculate:materials',
           loadPage: _loadMaterialPickerPage,
           itemTitle: (item) => item.name,
-          itemSubtitle: (item) => '${item.variants.length} ta mikron',
+          itemSubtitle: (item) => context.l10n.adminText(
+            'calculate.variant_count',
+            values: {'count': item.variants.length},
+          ),
           itemKey: (item) => item.id,
           onSelected: (item) => Navigator.of(context).pop(item),
         );
@@ -388,7 +395,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     final material = _materialForLayer(_layers[index]);
     if (material == null) {
       if (mounted) {
-        showAdminTopNotice(context, 'Avval qavat materialini tanlang');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('calculate.select_layer_material_first'),
+        );
       }
       return;
     }
@@ -406,8 +416,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3AsyncPickerSheet<CalculateMaterialVariant>(
-          title: '${material.name} mikroni',
-          hintText: 'Mikron qidiring',
+          title: '${material.name} ${context.l10n.adminText('label.micron')}',
+          hintText: context.l10n.adminText('calculate.micron_search'),
           pageSize: 50,
           cacheKey: 'calculate:material:${material.id}:microns',
           loadPage: (query, offset, limit) async {
@@ -418,13 +428,21 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             }).toList(growable: false);
             return variants.skip(offset).take(limit).toList(growable: false);
           },
-          itemTitle: (item) => '${item.micron} mikron',
-          itemSubtitle: (item) => 'GSM: ${_fmtInput(
-            item.actualGsm ??
-                (material.densityGCm3 > 0
-                    ? item.micron * material.densityGCm3
-                    : item.coefficient * (1000000 / 60000)),
-          )}',
+          itemTitle: (item) => context.l10n.adminText(
+            'calculate.micron_value',
+            values: {'value': item.micron},
+          ),
+          itemSubtitle: (item) => context.l10n.adminText(
+            'calculate.gsm_value',
+            values: {
+              'value': _fmtInput(
+                item.actualGsm ??
+                    (material.densityGCm3 > 0
+                        ? item.micron * material.densityGCm3
+                        : item.coefficient * (1000000 / 60000)),
+              ),
+            },
+          ),
           itemKey: (item) => '${material.id}:${item.micron}',
           onSelected: (item) => Navigator.of(context).pop(item),
         );
@@ -457,7 +475,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   Future<void> _openProductionMap() async {
     if (!_hasFreshCalculation) {
-      showAdminTopNotice(context, 'Avval hisoblash tugmasini bosing');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('calculate.calculate_first'),
+      );
       return;
     }
     final error = _templateValidationError();
@@ -489,7 +510,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           return;
         }
         if (mounted) {
-          showAdminTopNotice(context, 'Tezkor zakaz mapini yuklab bo‘lmadi');
+          showAdminTopNotice(
+            context,
+            context.l10n.adminText('calculate.quick_map_load_failed'),
+          );
         }
         return;
       }
@@ -517,7 +541,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   Future<void> _viewProductionMap() async {
     final sourceMapId = _sourceMapId.trim();
     if (sourceMapId.isEmpty) {
-      showAdminTopNotice(context, 'Bu tezkor zakazga map ulanmagan');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('calculate.quick_map_unlinked'),
+      );
       return;
     }
     try {
@@ -538,7 +565,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         if (_isProductionMapMissing(error)) {
           await _handleMissingSourceMap();
         } else {
-          showAdminTopNotice(context, 'Tezkor zakaz mapini yuklab bo‘lmadi');
+          showAdminTopNotice(
+            context,
+            context.l10n.adminText('calculate.quick_map_load_failed'),
+          );
         }
       }
     }
@@ -563,12 +593,18 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       return;
     }
     if (!_hasFreshCalculation) {
-      showAdminTopNotice(context, 'Avval hisoblash tugmasini bosing');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('calculate.calculate_first'),
+      );
       return;
     }
     final sourceMapId = _sourceMapId.trim();
     if (sourceMapId.isEmpty) {
-      showAdminTopNotice(context, 'Bu tezkor zakazga map ulanmagan');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('calculate.quick_map_unlinked'),
+      );
       return;
     }
     final error = _templateValidationError();
@@ -625,7 +661,13 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       _templateId = savedQuickTemplate.id;
       _orderCode = savedQuickTemplate.code;
       _sourceMapId = savedQuickTemplate.sourceMapId;
-      showAdminTopNotice(context, 'Zakaz ochildi: $normalizedOrder');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText(
+          'calculate.order_opened',
+          values: {'order': normalizedOrder},
+        ),
+      );
     } catch (error) {
       if (!mounted) {
         return;
@@ -636,7 +678,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       }
       showAdminTopNotice(
         context,
-        error is MobileApiException ? error.message : 'Zakaz ochilmadi',
+        error is MobileApiException
+            ? error.message
+            : context.l10n.adminText('calculate.order_open_failed'),
       );
     } finally {
       if (mounted) {
@@ -650,11 +694,17 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       return;
     }
     if (widget.trainingApparatus.trim().isEmpty) {
-      showAdminTopNotice(context, 'Training orderni aparat ichidan oching');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('calculate.training_order_open_hint'),
+      );
       return;
     }
     if (!_hasFreshCalculation) {
-      showAdminTopNotice(context, 'Avval hisoblash tugmasini bosing');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('calculate.calculate_first'),
+      );
       return;
     }
     final error = _templateValidationError();
@@ -701,7 +751,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       }
       showAdminTopNotice(
         context,
-        'Training order ochildi: ${saved.saved.map.orderNumber}',
+        context.l10n.adminText(
+          'calculate.training_order_opened',
+          values: {'order': saved.saved.map.orderNumber},
+        ),
         icon: Icons.check_circle_outline,
       );
       Navigator.of(context).pop(true);
@@ -711,7 +764,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           context,
           error is MobileApiException
               ? error.message
-              : 'Training order ochilmadi',
+              : context.l10n.adminText('calculate.training_order_failed'),
         );
       }
     } finally {
@@ -754,7 +807,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       // The screen can still recover locally and let the user relink the map.
     }
     if (mounted) {
-      showAdminTopNotice(context, 'Tezkor zakaz mapi topilmadi. Qayta ulang');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('calculate.quick_map_missing'),
+      );
     }
   }
 
@@ -844,8 +900,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3AsyncPickerSheet<CustomerDirectoryEntry>(
-          title: 'Mijoz tanlang',
-          hintText: 'Mijoz qidiring',
+          title: context.l10n.adminText('calculate.customer_select'),
+          hintText: context.l10n.adminText('calculate.customer_search'),
           pageSize: 50,
           cacheKey: 'calculate:customers',
           loadPage: (query, offset, limit) {
@@ -890,8 +946,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3AsyncPickerSheet<CalculateProductPickerOption>(
-          title: 'Mahsulot tanlang',
-          hintText: 'Mahsulot qidiring',
+          title: context.l10n.adminText('calculate.product_select'),
+          hintText: context.l10n.adminText('calculate.product_search'),
           pageSize: 80,
           cacheKey: _customerRef.trim().isEmpty
               ? 'calculate:finished-items:v2:customer-names'
@@ -1005,7 +1061,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       _optionalPositiveInteger(_rollCount.text),
     ];
     if (checks.any((error) => error != null)) {
-      return 'Zakaz ma’lumotlarini to‘ldiring';
+      return context.l10n.adminText('calculate.order_details_required');
     }
     return null;
   }
@@ -1013,11 +1069,17 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   Future<void> _calculate() async {
     FocusManager.instance.primaryFocus?.unfocus();
     if (_product.text.trim().isEmpty) {
-      showAdminTopNotice(context, 'Mahsulot tanlang');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('calculate.product_select'),
+      );
       return;
     }
     if (!(_formKey.currentState?.validate() ?? false)) {
-      showAdminTopNotice(context, 'Majburiy maydonlarni to‘ldiring');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('calculate.required_fields'),
+      );
       return;
     }
     setState(() {
@@ -1059,7 +1121,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         _result = null;
         _lastCalculatedSignature = '';
       });
-      showAdminTopNotice(context, 'Hisoblashda xatolik');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('calculate.calculate_error'),
+      );
     } finally {
       if (mounted) {
         setState(() => _calculating = false);
@@ -1111,7 +1176,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         _imageLocalPath = '';
         _error = error is MobileApiException ? error.message : error.toString();
       });
-      showAdminTopNotice(context, 'Rasm yuklashda xatolik');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('calculate.image_upload_failed'),
+      );
     } finally {
       if (mounted) {
         setState(() => _uploadingImage = false);
@@ -1136,23 +1204,26 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     });
   }
 
-  List<Widget> _fullEditChildren() {
+  List<Widget> _fullEditChildren(AppLocalizations l10n) {
     return [
-      const _SectionHeader(title: 'Buyurtma'),
+      _SectionHeader(title: l10n.adminText('calculate.order_section')),
       _PickerInput(
-        label: 'Mijoz',
+        label: l10n.adminText('label.customer'),
         value: _customer.text,
         subtitle: _customerRef,
         onTap: _openCustomerPicker,
       ),
       _PickerInput(
-        label: 'Mahsulot',
+        label: l10n.adminText('calculate.product_select'),
         value: _product.text,
         subtitle: _itemCode,
         required: true,
         onTap: _openProductPicker,
       ),
-      _TextInput(controller: _status, label: 'Holat'),
+      _TextInput(
+        controller: _status,
+        label: l10n.adminText('calculate.status_input'),
+      ),
       _ImageUploadInput(
         localPath: _imageLocalPath,
         imageUrl: _imageUrl,
@@ -1163,46 +1234,46 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         onClear: _clearImage,
       ),
       const SizedBox(height: 18),
-      const _SectionHeader(title: 'Hisob'),
+      _SectionHeader(title: l10n.adminText('calculate.accounting_section')),
       _NumberInput(
         controller: _kg,
-        label: 'KG',
+        label: l10n.adminText('calculate.kg_input'),
         suffixText: 'kg',
         required: true,
       ),
       _NumberInput(
         controller: _frameProductSizeMm,
-        label: "1ta kadrdagi mahsulot o'lchami",
+        label: l10n.adminText('calculate.frame_size'),
         suffixText: 'mm',
         required: true,
       ),
       _NumberInput(
         controller: _frameCount,
-        label: 'Kadr soni',
-        suffixText: 'ta',
+        label: l10n.adminText('calculate.frame_count'),
+        suffixText: l10n.adminText('calculate.pieces_suffix'),
         required: true,
       ),
       _NumberInput(
         controller: _wastePercent,
-        label: 'Atxod foiz',
+        label: l10n.adminText('calculate.waste_percent'),
         suffixText: '%',
         required: true,
         allowZero: true,
       ),
       _IntegerInput(
         controller: _rollCount,
-        label: 'Val soni',
-        suffixText: 'ta',
+        label: l10n.adminText('calculate.roll_count'),
+        suffixText: l10n.adminText('calculate.pieces_suffix'),
       ),
       const SizedBox(height: 18),
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const _SectionHeader(title: 'Qavatlar'),
+          _SectionHeader(title: l10n.adminText('calculate.layers_section')),
           TextButton.icon(
             onPressed: _openMaterialCatalogManager,
             icon: const Icon(Icons.tune_rounded, size: 18),
-            label: const Text('Materiallar'),
+            label: Text(l10n.adminText('calculate.material_manager')),
           ),
         ],
       ),
@@ -1210,7 +1281,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         _LayerInputs(
           material: _layers[index].material,
           micron: _layers[index].micron,
-          materialLabel: '${index + 1}-qavat',
+          materialLabel: l10n.adminText(
+            'calculate.layer_label',
+            values: {'number': index + 1},
+          ),
           onMaterialTap: () => _openLayerMaterialPicker(index),
           onMicronTap: () => _openLayerMicronPicker(index),
           onRemove: index == 0 ? null : () => _removeLayer(index),
@@ -1218,18 +1292,23 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       OutlinedButton.icon(
         onPressed: _addLayer,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Qavat qo‘shish'),
+        label: Text(l10n.adminText('calculate.add_layer')),
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(48),
         ),
       ),
       const SizedBox(height: 18),
-      _TextInput(controller: _note, label: 'Izoh', minLines: 3, maxLines: 5),
-      ..._calculateActionChildren(),
+      _TextInput(
+        controller: _note,
+        label: l10n.adminText('calculate.note'),
+        minLines: 3,
+        maxLines: 5,
+      ),
+      ..._calculateActionChildren(l10n),
     ];
   }
 
-  List<Widget> _compactTemplateChildren() {
+  List<Widget> _compactTemplateChildren(AppLocalizations l10n) {
     return [
       _SavedTemplateSummary(
         title: _resolvedOrderName(),
@@ -1249,32 +1328,36 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         note: _note.text,
       ),
       const SizedBox(height: 18),
-      const _SectionHeader(title: 'Hisob'),
+      _SectionHeader(title: l10n.adminText('calculate.accounting_section')),
       _NumberInput(
         controller: _kg,
-        label: 'KG',
+        label: l10n.adminText('calculate.kg_input'),
         suffixText: 'kg',
         required: true,
       ),
       _NumberInput(
         controller: _wastePercent,
-        label: 'Atxod foiz',
+        label: l10n.adminText('calculate.waste_percent'),
         suffixText: '%',
         required: true,
         allowZero: true,
       ),
-      ..._calculateActionChildren(),
+      ..._calculateActionChildren(l10n),
     ];
   }
 
-  List<Widget> _calculateActionChildren() {
+  List<Widget> _calculateActionChildren(AppLocalizations l10n) {
     final freshResult = _hasFreshCalculation ? _result : null;
     return [
       const SizedBox(height: 22),
       FilledButton.icon(
         onPressed: _calculating ? null : _calculate,
         icon: const Icon(Icons.calculate_outlined),
-        label: Text(_calculating ? 'Hisoblanmoqda...' : 'Hisoblash'),
+        label: Text(
+          _calculating
+              ? l10n.adminText('calculate.calculating')
+              : l10n.adminText('calculate.calculate'),
+        ),
         style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
       ),
       if (_error.isNotEmpty) ...[
@@ -1300,8 +1383,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             ),
             label: Text(
               _openingTrainingOrder
-                  ? 'Training order ochilmoqda...'
-                  : 'Training order ochish',
+                  ? l10n.adminText('calculate.training_order_opening')
+                  : l10n.adminText('calculate.training_order_open'),
             ),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
@@ -1317,7 +1400,11 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
                   ? Icons.hourglass_top_rounded
                   : Icons.playlist_add_check_rounded,
             ),
-            label: Text(_openingSavedOrder ? 'Ochilmoqda...' : 'Zakaz ochish'),
+            label: Text(
+              _openingSavedOrder
+                  ? l10n.adminText('calculate.opening')
+                  : l10n.adminText('calculate.order_open'),
+            ),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
             ),
@@ -1328,7 +1415,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           OutlinedButton.icon(
             onPressed: _openProductionMap,
             icon: const Icon(Icons.account_tree_outlined),
-            label: const Text('Production mapga ulash'),
+            label: Text(l10n.adminText('calculate.map_attach')),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
             ),
@@ -1358,12 +1445,14 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-    final children =
-        _editingAllFields ? _fullEditChildren() : _compactTemplateChildren();
+    final children = _editingAllFields
+        ? _fullEditChildren(l10n)
+        : _compactTemplateChildren(l10n);
     final resolvedName = _resolvedOrderName().trim();
     final pageTitle = resolvedName.isEmpty || resolvedName == 'Zakaz'
-        ? 'Zakaz yaratish'
+        ? l10n.adminText('calculate.create_title')
         : resolvedName;
     return AppShell(
       drawer: AdminNavigationDrawer(
@@ -1371,8 +1460,11 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         selectedRouteName: AppRoutes.adminCalculate,
         onNavigate: _openDrawerRoute,
       ),
-      title: widget.trainingMode ? 'Training order' : pageTitle,
-      subtitle: widget.trainingMode ? 'Test rejimi' : '',
+      title: widget.trainingMode
+          ? l10n.adminText('calculate.training_title')
+          : pageTitle,
+      subtitle:
+          widget.trainingMode ? l10n.adminText('calculate.test_mode') : '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       actions: [
@@ -1413,6 +1505,7 @@ class _QuickOrderRecreateDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Dialog(
@@ -1428,14 +1521,14 @@ class _QuickOrderRecreateDialog extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Bu tezkor zakazlar ro‘yxatida bor',
+                l10n.adminText('calculate.quick_order_exists'),
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 14),
               Text(
-                'Qaytadan yaratmoqchimisiz?',
+                l10n.adminText('calculate.recreate_question'),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -1454,7 +1547,7 @@ class _QuickOrderRecreateDialog extends StatelessWidget {
                             onTap: () => Navigator.of(context).pop(false),
                             child: Center(
                               child: Text(
-                                'Yo‘q',
+                                l10n.adminText('calculate.no'),
                                 style: theme.textTheme.labelLarge?.copyWith(
                                   color: scheme.error,
                                   fontWeight: FontWeight.w800,
@@ -1472,7 +1565,7 @@ class _QuickOrderRecreateDialog extends StatelessWidget {
                             onTap: () => Navigator.of(context).pop(true),
                             child: Center(
                               child: Text(
-                                'Ha',
+                                l10n.adminText('calculate.yes'),
                                 style: theme.textTheme.labelLarge?.copyWith(
                                   color: scheme.onPrimary,
                                   fontWeight: FontWeight.w800,
@@ -1531,11 +1624,17 @@ class _SavedTemplateSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final imageTitle =
-        imageName.trim().isEmpty ? 'Rasm biriktirilgan' : imageName.trim();
-    final resolvedTitle = title.trim().isEmpty ? 'Zakaz' : title.trim();
+    final piecesSuffix = l10n.adminText('calculate.pieces_suffix');
+    final micronSuffix = l10n.adminText('calculate.micron_suffix');
+    final imageTitle = imageName.trim().isEmpty
+        ? l10n.adminText('calculate.image_selected')
+        : imageName.trim();
+    final resolvedTitle = title.trim().isEmpty
+        ? l10n.adminText('calculate.order_create_default')
+        : title.trim();
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1588,37 +1687,64 @@ class _SavedTemplateSummary extends StatelessWidget {
             ],
             const SizedBox(height: 14),
             _ChecklistSection(
-              title: 'Buyurtma',
+              title: l10n.adminText('calculate.order_section'),
               rows: [
-                _ChecklistRowData('Mijoz', customer, subtitle: customerRef),
-                _ChecklistRowData('Mahsulot', product, subtitle: itemCode),
-                _ChecklistRowData('Holat', status),
+                _ChecklistRowData(
+                  l10n.adminText('label.customer'),
+                  customer,
+                  subtitle: customerRef,
+                ),
+                _ChecklistRowData(
+                  l10n.adminText('label.item'),
+                  product,
+                  subtitle: itemCode,
+                ),
+                _ChecklistRowData(
+                  l10n.adminText('calculate.status_input'),
+                  status,
+                ),
               ],
             ),
             const _ReceiptDivider(),
             _ChecklistSection(
-              title: 'Parametrlar',
+              title: l10n.adminText('calculate.parameters'),
               rows: [
-                _ChecklistRowData('Razmer', widthMm, suffix: 'mm'),
                 _ChecklistRowData(
-                  "1ta kadrdagi o'lcham",
+                  l10n.adminText('calculate.size'),
+                  widthMm,
+                  suffix: 'mm',
+                ),
+                _ChecklistRowData(
+                  l10n.adminText('calculate.frame_size'),
                   frameProductSizeMm,
                   suffix: 'mm',
                 ),
-                _ChecklistRowData('Kadr soni', frameCount, suffix: 'ta'),
-                _ChecklistRowData('Val soni', rollCount, suffix: 'ta'),
+                _ChecklistRowData(
+                  l10n.adminText('calculate.frame_count'),
+                  frameCount,
+                  suffix: piecesSuffix,
+                ),
+                _ChecklistRowData(
+                  l10n.adminText('calculate.roll_count'),
+                  rollCount,
+                  suffix: piecesSuffix,
+                ),
               ],
             ),
             const _ReceiptDivider(),
             _ChecklistSection(
-              title: 'Qavatlar',
+              title: l10n.adminText('calculate.layers_section'),
               rows: [
                 for (var index = 0; index < layers.length; index++)
                   _ChecklistRowData(
-                    '${index + 1}-qavat',
+                    l10n.adminText(
+                      'calculate.layer_label',
+                      values: {'number': index + 1},
+                    ),
                     _layerValue(
                       layers[index].material,
                       layers[index].micron,
+                      micronSuffix,
                     ),
                   ),
               ],
@@ -1626,7 +1752,7 @@ class _SavedTemplateSummary extends StatelessWidget {
             if (note.trim().isNotEmpty) ...[
               const _ReceiptDivider(),
               _ChecklistSection(
-                title: 'Izoh',
+                title: l10n.adminText('calculate.note'),
                 rows: [_ChecklistRowData('', note)],
               ),
             ],
@@ -1839,16 +1965,17 @@ bool _sameChecklistText(String left, String right) {
   return left.trim().toLowerCase() == right.trim().toLowerCase();
 }
 
-String _layerValue(String material, String micron) {
+String _layerValue(String material, String micron, String micronSuffix) {
   final materialText = material.trim();
   final micronText = micron.trim();
+  final suffix = micronSuffix.trim();
   if (materialText.isEmpty) {
-    return micronText.isEmpty ? '' : '$micronText mkr';
+    return micronText.isEmpty ? '' : '$micronText $suffix';
   }
   if (micronText.isEmpty) {
     return materialText;
   }
-  return '$materialText • $micronText mkr';
+  return '$materialText • $micronText $suffix';
 }
 
 class _ResultPanel extends StatelessWidget {
@@ -1866,6 +1993,7 @@ class _ResultPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Container(
@@ -1882,7 +2010,7 @@ class _ResultPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Natija',
+                  l10n.adminText('calculate.result_title'),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -1892,7 +2020,7 @@ class _ResultPanel extends StatelessWidget {
                 TextButton.icon(
                   onPressed: onViewMap,
                   icon: const Icon(Icons.account_tree_outlined, size: 18),
-                  label: const Text('Map ko‘rish'),
+                  label: Text(l10n.adminText('calculate.view_map')),
                   style: TextButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1903,14 +2031,14 @@ class _ResultPanel extends StatelessWidget {
           const SizedBox(height: 12),
           if (response.results.isNotEmpty) ...[
             _ResultRow(
-              label: 'Tayyor mahsulot GSM',
+              label: l10n.adminText('calculate.finished_gsm'),
               value: '${_fmt(response.results.first.totalGsm)} g/m²',
               emphasized: true,
             ),
             const Divider(height: 18),
           ],
           _ResultMultilineRow(
-            label: 'Bosma',
+            label: l10n.adminText('calculate.print'),
             value: productionMapPechatCompatibilitySummary(
               rollCount: rollCount,
               widthMm: widthMm,
@@ -1950,8 +2078,14 @@ class _ResultVariant extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
-    final title = index == 0 ? 'Asosiy' : 'Variant ${index + 1}';
+    final title = index == 0
+        ? l10n.adminText('calculate.primary')
+        : l10n.adminText(
+            'calculate.variant',
+            values: {'number': index + 1},
+          );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1962,21 +2096,36 @@ class _ResultVariant extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        _ResultRow(label: 'Koeff', value: _fmt(result.coeffSum)),
-        _ResultRow(label: 'Razmer', value: '${_fmt(result.widthSm * 10)} mm'),
         _ResultRow(
-          label: 'Minimum qolip',
+          label: l10n.adminText('calculate.coeff'),
+          value: _fmt(result.coeffSum),
+        ),
+        _ResultRow(
+          label: l10n.adminText('calculate.size'),
+          value: '${_fmt(result.widthSm * 10)} mm',
+        ),
+        _ResultRow(
+          label: l10n.adminText('calculate.minimum_mold'),
           value: '${_fmt(minMoldSizeMm)} mm',
         ),
-        _ResultRow(label: 'Rezina razmeri', value: '$rubberSizeMm mm'),
-        _ResultRow(label: 'Base', value: _fmt(result.baseLength)),
         _ResultRow(
-          label: 'Atxod ${_fmt(wastePercent)}%',
+          label: l10n.adminText('calculate.rubber_size'),
+          value: '$rubberSizeMm mm',
+        ),
+        _ResultRow(
+          label: l10n.adminText('calculate.base'),
+          value: _fmt(result.baseLength),
+        ),
+        _ResultRow(
+          label: l10n.adminText(
+            'calculate.waste_with_percent',
+            values: {'percent': _fmt(wastePercent)},
+          ),
           value: _fmt(result.wasteLength),
         ),
         const Divider(height: 18),
         _ResultRow(
-          label: 'Yakuniy uzunlik',
+          label: l10n.adminText('calculate.final_length'),
           value: _fmt(result.roundedLength),
           emphasized: true,
         ),
@@ -2194,6 +2343,7 @@ class _ImageUploadInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final hasImage = localPath.trim().isNotEmpty || imageUrl.trim().isNotEmpty;
@@ -2229,7 +2379,7 @@ class _ImageUploadInput extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Rang rasmi',
+                      l10n.adminText('calculate.image_label'),
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
@@ -2239,9 +2389,9 @@ class _ImageUploadInput extends StatelessWidget {
                     Text(
                       hasImage
                           ? (imageName.trim().isEmpty
-                              ? 'Rasm tanlangan'
+                              ? l10n.adminText('calculate.image_selected')
                               : imageName.trim())
-                          : 'Rasm tanlash',
+                          : l10n.adminText('calculate.image_pick'),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
@@ -2354,6 +2504,7 @@ class _LayerInputs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2370,7 +2521,7 @@ class _LayerInputs extends StatelessWidget {
         Expanded(
           flex: 2,
           child: _PickerInput(
-            label: 'Mikron',
+            label: l10n.adminText('calculate.micron'),
             value: micron.text,
             required: true,
             onTap: onMicronTap,
@@ -2382,7 +2533,7 @@ class _LayerInputs extends StatelessWidget {
             padding: const EdgeInsets.only(top: 4),
             child: IconButton(
               onPressed: onRemove,
-              tooltip: 'Qavatni olib tashlash',
+              tooltip: l10n.adminText('calculate.remove_layer'),
               icon: const Icon(Icons.remove_circle_outline_rounded),
             ),
           ),
@@ -2450,6 +2601,7 @@ class _CalculateMaterialManagerState extends State<_CalculateMaterialManager> {
   }
 
   Future<void> _edit([CalculateMaterial? material]) async {
+    final l10n = context.l10n;
     final draft = await showModalBottomSheet<CalculateMaterial>(
       context: context,
       isScrollControlled: true,
@@ -2475,7 +2627,7 @@ class _CalculateMaterialManagerState extends State<_CalculateMaterialManager> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_materialSaveError(error))),
+          SnackBar(content: Text(_materialSaveError(l10n, error))),
         );
       }
     } finally {
@@ -2487,6 +2639,7 @@ class _CalculateMaterialManagerState extends State<_CalculateMaterialManager> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return SizedBox(
@@ -2499,7 +2652,7 @@ class _CalculateMaterialManagerState extends State<_CalculateMaterialManager> {
               children: [
                 Expanded(
                   child: Text(
-                    'Qavat materiallari',
+                    l10n.adminText('calculate.material_manager'),
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -2514,7 +2667,7 @@ class _CalculateMaterialManagerState extends State<_CalculateMaterialManager> {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Har bir materialga mikron va koifisent bering.',
+                l10n.adminText('calculate.manager_description'),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -2524,7 +2677,7 @@ class _CalculateMaterialManagerState extends State<_CalculateMaterialManager> {
             FilledButton.icon(
               onPressed: _saving ? null : () => _edit(),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Material qo‘shish'),
+              label: Text(l10n.adminText('calculate.material_add')),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(46),
               ),
@@ -2532,7 +2685,9 @@ class _CalculateMaterialManagerState extends State<_CalculateMaterialManager> {
             const SizedBox(height: 8),
             Expanded(
               child: _materials.isEmpty
-                  ? const Center(child: Text('Material yo‘q'))
+                  ? Center(
+                      child: Text(l10n.adminText('calculate.material_empty')),
+                    )
                   : ListView.separated(
                       itemCount: _materials.length,
                       separatorBuilder: (_, __) => const Divider(height: 1),
@@ -2550,7 +2705,15 @@ class _CalculateMaterialManagerState extends State<_CalculateMaterialManager> {
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           subtitle: Text(
-                            '$micronText mkr${material.active ? '' : ' • o‘chirilgan'}',
+                            material.active
+                                ? l10n.adminText(
+                                    'calculate.active_micron_suffix',
+                                    values: {'microns': micronText},
+                                  )
+                                : l10n.adminText(
+                                    'calculate.inactive_micron_suffix',
+                                    values: {'microns': micronText},
+                                  ),
                           ),
                           trailing: const Icon(Icons.chevron_right_rounded),
                         );
@@ -2628,7 +2791,11 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
         variant.coefficient.text.trim().replaceAll(',', '.'),
       );
       if (micron == null || coefficient == null || !seenMicrons.add(micron)) {
-        setState(() => _variantError = 'Mikronlar takrorlanmasin');
+        setState(
+          () => _variantError = context.l10n.adminText(
+            'calculate.duplicate_micron',
+          ),
+        );
         return;
       }
       variants.add(
@@ -2651,6 +2818,7 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         16,
@@ -2669,8 +2837,8 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
                   Expanded(
                     child: Text(
                       widget.material == null
-                          ? 'Material qo‘shish'
-                          : 'Materialni tahrirlash',
+                          ? l10n.adminText('calculate.material_add')
+                          : l10n.adminText('calculate.material_edit'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -2686,20 +2854,19 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
                 controller: _name,
                 decoration: appSurfaceInputDecoration(
                   context,
-                  labelText: 'Material nomi',
+                  labelText: l10n.adminText('calculate.material_name'),
                 ),
-                validator: (value) =>
-                    value == null || value.trim().isEmpty ? 'Majburiy' : null,
+                validator: (value) => _requiredText(value, l10n),
               ),
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
                 value: _active,
                 onChanged: (value) => setState(() => _active = value),
-                title: const Text('Tanlashda ko‘rsatilsin'),
+                title: Text(l10n.adminText('calculate.show_in_picker')),
               ),
               const SizedBox(height: 4),
               Text(
-                'Mikron va koifisent',
+                l10n.adminText('calculate.micron_coefficient'),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -2727,12 +2894,12 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
               OutlinedButton.icon(
                 onPressed: _addVariant,
                 icon: const Icon(Icons.add_rounded),
-                label: const Text('Mikron qo‘shish'),
+                label: Text(l10n.adminText('calculate.add_micron')),
               ),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: _save,
-                child: const Text('Saqlash'),
+                child: Text(l10n.adminText('action.save')),
               ),
             ],
           ),
@@ -2750,6 +2917,7 @@ class _MaterialVariantEditorRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2758,10 +2926,15 @@ class _MaterialVariantEditorRow extends StatelessWidget {
             controller: variant.micron,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: appSurfaceInputDecoration(context, labelText: 'Mikron'),
+            decoration: appSurfaceInputDecoration(
+              context,
+              labelText: l10n.adminText('calculate.micron'),
+            ),
             validator: (value) {
               final micron = int.tryParse(value?.trim() ?? '');
-              return micron == null || micron <= 0 ? 'Noto‘g‘ri' : null;
+              return micron == null || micron <= 0
+                  ? l10n.adminText('calculate.invalid')
+                  : null;
             },
           ),
         ),
@@ -2772,14 +2945,14 @@ class _MaterialVariantEditorRow extends StatelessWidget {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: appSurfaceInputDecoration(
               context,
-              labelText: 'Koifisent',
+              labelText: l10n.adminText('calculate.coefficient'),
             ),
             validator: (value) {
               final coefficient = double.tryParse(
                 value?.trim().replaceAll(',', '.') ?? '',
               );
               return coefficient == null || coefficient <= 0
-                  ? 'Noto‘g‘ri'
+                  ? l10n.adminText('calculate.invalid')
                   : null;
             },
           ),
@@ -2822,11 +2995,11 @@ class _CalculateMaterialVariantControllers {
   }
 }
 
-String _materialSaveError(Object error) {
+String _materialSaveError(AppLocalizations l10n, Object error) {
   if (error is MobileApiException) {
     return error.message;
   }
-  return 'Material saqlanmadi';
+  return l10n.adminText('calculate.material_save_failed');
 }
 
 class _TextInput extends StatelessWidget {
@@ -2896,12 +3069,12 @@ class _NumberInput extends StatelessWidget {
         ),
         validator: validator ??
             (required
-                ? (allowZero
-                    ? _requiredNonNegativeNumber
-                    : _requiredPositiveNumber)
-                : (allowZero
-                    ? _optionalNonNegativeNumber
-                    : _optionalPositiveNumber)),
+                ? (value) => allowZero
+                    ? _requiredNonNegativeNumber(value, context.l10n)
+                    : _requiredPositiveNumber(value, context.l10n)
+                : (value) => allowZero
+                    ? _optionalNonNegativeNumber(value, context.l10n)
+                    : _optionalPositiveNumber(value, context.l10n)),
       ),
     );
   }
@@ -2932,67 +3105,67 @@ class _IntegerInput extends StatelessWidget {
           labelText: label,
           suffixText: suffixText,
         ),
-        validator: _optionalPositiveInteger,
+        validator: (value) => _optionalPositiveInteger(value, context.l10n),
       ),
     );
   }
 }
 
-String? _requiredText(String? value) {
+String? _requiredText(String? value, [AppLocalizations? l10n]) {
   if (value == null || value.trim().isEmpty) {
-    return 'Majburiy';
+    return l10n?.adminText('calculate.required') ?? 'Majburiy';
   }
   return null;
 }
 
-String? _requiredPositiveNumber(String? value) {
-  final requiredError = _requiredText(value);
+String? _requiredPositiveNumber(String? value, [AppLocalizations? l10n]) {
+  final requiredError = _requiredText(value, l10n);
   if (requiredError != null) {
     return requiredError;
   }
-  return _optionalPositiveNumber(value);
+  return _optionalPositiveNumber(value, l10n);
 }
 
-String? _requiredNonNegativeNumber(String? value) {
-  final requiredError = _requiredText(value);
+String? _requiredNonNegativeNumber(String? value, [AppLocalizations? l10n]) {
+  final requiredError = _requiredText(value, l10n);
   if (requiredError != null) {
     return requiredError;
   }
-  return _optionalNonNegativeNumber(value);
+  return _optionalNonNegativeNumber(value, l10n);
 }
 
-String? _optionalPositiveNumber(String? value) {
+String? _optionalPositiveNumber(String? value, [AppLocalizations? l10n]) {
   final normalized = value?.trim().replaceAll(',', '.') ?? '';
   if (normalized.isEmpty) {
     return null;
   }
   final parsed = double.tryParse(normalized);
   if (parsed == null || parsed <= 0) {
-    return 'Noto‘g‘ri';
+    return l10n?.adminText('calculate.invalid') ?? 'Noto‘g‘ri';
   }
   return null;
 }
 
-String? _optionalNonNegativeNumber(String? value) {
+String? _optionalNonNegativeNumber(String? value, [AppLocalizations? l10n]) {
   final normalized = value?.trim().replaceAll(',', '.') ?? '';
   if (normalized.isEmpty) {
     return null;
   }
   final parsed = double.tryParse(normalized);
   if (parsed == null || parsed < 0) {
-    return 'Noto‘g‘ri';
+    return l10n?.adminText('calculate.invalid') ?? 'Noto‘g‘ri';
   }
   return null;
 }
 
-String? _optionalPositiveInteger(String? value) {
+String? _optionalPositiveInteger(String? value, [AppLocalizations? l10n]) {
   final normalized = value?.trim() ?? '';
   if (normalized.isEmpty) {
     return null;
   }
   final parsed = int.tryParse(normalized);
   if (parsed == null || parsed <= 0) {
-    return 'Noto‘g‘ri';
+    return l10n?.adminText('calculate.invalid') ?? 'Noto‘g‘ri';
   }
   return null;
 }

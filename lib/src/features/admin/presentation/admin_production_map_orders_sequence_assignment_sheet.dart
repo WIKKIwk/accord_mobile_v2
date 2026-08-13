@@ -23,7 +23,8 @@ class _SequenceRawMaterialAssignmentSheetState
   String _loadError = '';
   String _actionMessage = '';
   String _assigningBarcode = '';
-  String _qrScannerStatus = 'Mos homashyo QR kodini tirqishga olib keling';
+  String _qrScannerStatus = '';
+  bool _actionSucceeded = false;
   String _lastQrScanValue = '';
   DateTime? _lastQrScanAt;
   final Set<String> _selectedCandidateBarcodes = <String>{};
@@ -48,6 +49,9 @@ class _SequenceRawMaterialAssignmentSheetState
       ),
       orElse: () => _apparatusOptions.isEmpty ? '' : _apparatusOptions.first,
     );
+    _qrScannerStatus = context.l10n.adminText(
+      'production.assignment.qr_prompt',
+    );
     unawaited(_load());
   }
 
@@ -57,7 +61,9 @@ class _SequenceRawMaterialAssignmentSheetState
       if (mounted) {
         setState(() {
           _loading = false;
-          _loadError = 'Order identifikatori topilmadi';
+          _loadError = context.l10n.adminText(
+            'production.assignment.order_missing',
+          );
         });
       }
       return;
@@ -114,7 +120,7 @@ class _SequenceRawMaterialAssignmentSheetState
         _loading = false;
         _loadError = error is MobileApiException
             ? error.message
-            : 'Mos homashyolar yuklanmadi';
+            : context.l10n.adminText('production.assignment.load_failed');
       });
     }
   }
@@ -130,7 +136,12 @@ class _SequenceRawMaterialAssignmentSheetState
         !_candidateApparatusOptions(candidate).any(
           (option) => productionMapStationTitlesMatch(option, apparatus),
         )) {
-      setState(() => _actionMessage = 'Bu homashyo uchun aparat topilmadi');
+      setState(() {
+        _actionMessage = context.l10n.adminText(
+          'production.assignment.apparatus_missing',
+        );
+        _actionSucceeded = false;
+      });
       return;
     }
     final barcode = candidate.barcode.trim();
@@ -159,15 +170,20 @@ class _SequenceRawMaterialAssignmentSheetState
             if (item.barcode.trim().toUpperCase() != barcode.toUpperCase())
               item,
         ];
-        _actionMessage = 'Homashyo orderga ulandi';
+        _actionMessage = context.l10n.adminText(
+          'production.assignment.linked',
+        );
+        _actionSucceeded = true;
       });
     } catch (error) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _actionMessage =
-            error is MobileApiException ? error.message : 'Homashyo ulanmagan';
+        _actionMessage = error is MobileApiException
+            ? error.message
+            : context.l10n.adminText('production.assignment.failed');
+        _actionSucceeded = false;
       });
       await _load(showLoading: false);
     } finally {
@@ -231,7 +247,9 @@ class _SequenceRawMaterialAssignmentSheetState
     setState(() {
       _qrScannerVisible = !_qrScannerVisible;
       if (_qrScannerVisible) {
-        _qrScannerStatus = 'Mos homashyo QR kodini tirqishga olib keling';
+        _qrScannerStatus = context.l10n.adminText(
+          'production.assignment.qr_prompt',
+        );
         _lastQrScanValue = '';
         _lastQrScanAt = null;
       }
@@ -268,7 +286,9 @@ class _SequenceRawMaterialAssignmentSheetState
     }
     if (matchedCandidate == null) {
       setState(
-        () => _qrScannerStatus = 'Bu QR mos homashyolar ro‘yxatida topilmadi',
+        () => _qrScannerStatus = context.l10n.adminText(
+          'production.assignment.qr_not_found',
+        ),
       );
       return;
     }
@@ -278,7 +298,9 @@ class _SequenceRawMaterialAssignmentSheetState
           (option) => productionMapStationTitlesMatch(option, apparatus),
         )) {
       setState(
-        () => _qrScannerStatus = 'Bu homashyo tanlangan aparatga mos emas',
+        () => _qrScannerStatus = context.l10n.adminText(
+          'production.assignment.qr_wrong_apparatus',
+        ),
       );
       return;
     }
@@ -291,10 +313,19 @@ class _SequenceRawMaterialAssignmentSheetState
       _selectedCandidateBarcodes.add(key);
       _actionMessage = '';
       _qrScannerStatus = alreadySelected
-          ? 'Bu homashyo allaqachon tanlangan '
-              '(${_selectedCandidateBarcodes.length} ta)'
-          : '${title.isEmpty ? 'Homashyo' : title} tanlandi '
-              '(${_selectedCandidateBarcodes.length} ta)';
+          ? context.l10n.adminText(
+              'production.assignment.already_selected',
+              values: {'count': _selectedCandidateBarcodes.length},
+            )
+          : context.l10n.adminText(
+              'production.assignment.selected',
+              values: {
+                'title': title.isEmpty
+                    ? context.l10n.adminText('label.item')
+                    : title,
+                'count': _selectedCandidateBarcodes.length,
+              },
+            );
     });
   }
 
@@ -315,7 +346,9 @@ class _SequenceRawMaterialAssignmentSheetState
       _candidates = const [];
       _assignments = const [];
       _actionMessage = '';
-      _qrScannerStatus = 'Mos homashyo QR kodini tirqishga olib keling';
+      _qrScannerStatus = context.l10n.adminText(
+        'production.assignment.qr_prompt',
+      );
       _lastQrScanValue = '';
       _lastQrScanAt = null;
     });
@@ -357,7 +390,9 @@ class _SequenceRawMaterialAssignmentSheetState
             !_candidateApparatusOptions(candidate).any(
               (option) => productionMapStationTitlesMatch(option, apparatus),
             )) {
-          issue = 'Bu homashyo uchun aparat topilmadi';
+          issue = context.l10n.adminText(
+            'production.assignment.apparatus_missing',
+          );
           break;
         }
 
@@ -388,7 +423,7 @@ class _SequenceRawMaterialAssignmentSheetState
         } catch (error) {
           issue = error is MobileApiException
               ? error.message
-              : 'Homashyo ulanmagan';
+              : context.l10n.adminText('production.assignment.failed');
           shouldReload = true;
           break;
         }
@@ -406,15 +441,25 @@ class _SequenceRawMaterialAssignmentSheetState
         _bulkAssigning = false;
         if (issue == null) {
           _selectedCandidateBarcodes.clear();
-          _actionMessage = '$linkedCount ta homashyo orderga ulandi';
+          _actionMessage = context.l10n.adminText(
+            'production.assignment.linked_count',
+            values: {'count': linkedCount},
+          );
+          _actionSucceeded = true;
           if (_qrScannerVisible) {
-            _qrScannerStatus =
-                '$linkedCount ta homashyo orderga ulandi. Yana QR scan qiling';
+            _qrScannerStatus = context.l10n.adminText(
+              'production.assignment.linked_scan_more',
+              values: {'count': linkedCount},
+            );
           }
         } else {
           _actionMessage = linkedCount > 0
-              ? '$linkedCount ta homashyo ulandi. $issue'
+              ? context.l10n.adminText(
+                  'production.assignment.partial_linked',
+                  values: {'count': linkedCount, 'error': issue},
+                )
               : issue;
+          _actionSucceeded = false;
         }
       });
     } finally {
@@ -482,12 +527,8 @@ class _SequenceRawMaterialAssignmentSheetState
                       child: Text(
                         _actionMessage,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: _actionMessage == 'Homashyo orderga ulandi' ||
-                                  _actionMessage.endsWith(
-                                    'ta homashyo orderga ulandi',
-                                  )
-                              ? scheme.primary
-                              : scheme.error,
+                          color:
+                              _actionSucceeded ? scheme.primary : scheme.error,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -514,13 +555,16 @@ class _SequenceRawMaterialAssignmentSheetState
 
   Widget _buildBody(BuildContext context) {
     if (_apparatusOptions.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
         child: _SequenceAssignmentMessage(
           icon: Icons.lock_outline_rounded,
-          title: 'Ruxsat berilgan aparat topilmadi',
-          message:
-              'Admin user details’da material ta’minotchiga kamida bitta aparat biriktiring.',
+          title: context.l10n.adminText(
+            'production.assignment.apparatus_access_title',
+          ),
+          message: context.l10n.adminText(
+            'production.assignment.apparatus_access_message',
+          ),
         ),
       );
     }
@@ -533,11 +577,13 @@ class _SequenceRawMaterialAssignmentSheetState
     if (_loadError.trim().isNotEmpty) {
       return _SequenceAssignmentMessage(
         icon: Icons.cloud_off_rounded,
-        title: 'Mos homashyolar yuklanmadi',
+        title: context.l10n.adminText(
+          'production.assignment.load_failed',
+        ),
         message: _loadError,
         action: TextButton(
           onPressed: () => _load(),
-          child: const Text('Qayta urinish'),
+          child: Text(context.l10n.adminText('production.qolip_retry')),
         ),
       );
     }
@@ -593,11 +639,11 @@ class _SequenceRawMaterialAssignmentSheetState
       children.add(
         _SequenceAssignmentMessage(
           title: _assignments.isEmpty
-              ? 'Mos homashyo topilmadi'
-              : 'Barcha mos homashyolar ulangan',
+              ? context.l10n.adminText('production.assignment.no_matching')
+              : context.l10n.adminText('production.assignment.all_linked'),
           message: _assignments.isEmpty
-              ? 'Bu order uchun sizga ajratilgan omborda mos homashyo yo‘q.'
-              : 'Yangi mos variant chiqsa, Yangilash tugmasini bosing.',
+              ? context.l10n.adminText('production.assignment.no_stock')
+              : context.l10n.adminText('production.assignment.refresh_hint'),
           minimumAcceptedRollWidthMm:
               _assignments.isEmpty ? emptyMinimumAcceptedRollWidthMm : null,
           maximumAcceptedRollWidthMm: _assignments.isEmpty
@@ -608,7 +654,7 @@ class _SequenceRawMaterialAssignmentSheetState
               : null,
           action: TextButton(
             onPressed: _loading ? null : () => _load(),
-            child: const Text('Yangilash'),
+            child: Text(context.l10n.adminText('action.retry')),
           ),
           centered: _assignments.isEmpty,
         ),
@@ -619,7 +665,7 @@ class _SequenceRawMaterialAssignmentSheetState
       children.addAll([
         const SizedBox(height: 18),
         Text(
-          'Ulangan homashyolar',
+          context.l10n.adminText('production.assignment.connected_title'),
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
@@ -668,7 +714,7 @@ class _SequenceAssignmentSheetHeader extends StatelessWidget {
       contentPadding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
       leading: const Icon(Icons.inventory_2_outlined),
       title: Text(
-        'Orderga homashyo ulash',
+        context.l10n.adminText('production.assignment.title'),
         style: theme.textTheme.titleLarge?.copyWith(
           fontWeight: FontWeight.w800,
         ),
@@ -683,14 +729,19 @@ class _SequenceAssignmentSheetHeader extends StatelessWidget {
         children: [
           IconButton(
             key: const ValueKey('sequence-assignment-qr-scan'),
-            tooltip:
-                scannerVisible ? 'QR tirqishini yopish' : 'Homashyo QR scan',
+            tooltip: scannerVisible
+                ? context.l10n.adminText(
+                    'production.assignment.qr_close',
+                  )
+                : context.l10n.adminText(
+                    'production.assignment.qr_scan',
+                  ),
             onPressed: onToggleScanner,
             color: scannerVisible ? theme.colorScheme.primary : null,
             icon: const Icon(Icons.qr_code_scanner_rounded),
           ),
           IconButton(
-            tooltip: 'Yopish',
+            tooltip: context.l10n.adminText('action.close'),
             onPressed: onClose,
             icon: const Icon(Icons.close_rounded),
           ),
@@ -726,7 +777,9 @@ class _SequenceAssignmentApparatusFilter extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Bu orderning qaysi aparatiga homashyo ulamoqchisiz?',
+            context.l10n.adminText(
+              'production.assignment.apparatus_question',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w600,
@@ -736,8 +789,12 @@ class _SequenceAssignmentApparatusFilter extends StatelessWidget {
           IgnorePointer(
             ignoring: busy,
             child: AdminExpandableFilterChip<String>(
-              label: 'Aparat',
-              emptyLabel: options.isEmpty ? 'Ruxsat yo‘q' : 'Tanlang',
+              label: context.l10n.adminText('label.apparatus'),
+              emptyLabel: options.isEmpty
+                  ? context.l10n.adminText(
+                      'production.assignment.not_allowed',
+                    )
+                  : context.l10n.adminText('production.assignment.select'),
               icon: Icons.precision_manufacturing_outlined,
               selectedValue:
                   selectedApparatus.trim().isEmpty ? null : selectedApparatus,
@@ -795,14 +852,19 @@ class _SequenceAssignmentIntro extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '$candidateCount ta mos homashyo',
+                    context.l10n.adminText(
+                      'production.assignment.candidate_count',
+                      values: {'count': candidateCount},
+                    ),
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'Aniq moslik va eng kam astatka yuqoridan boshlab ko‘rsatilgan.',
+                    context.l10n.adminText(
+                      'production.assignment.match_hint',
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                       height: 1.3,
@@ -810,7 +872,9 @@ class _SequenceAssignmentIntro extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'Bir nechta ulash uchun cardni bosib turing yoki yuqoridagi QR icon orqali scan qiling.',
+                    context.l10n.adminText(
+                      'production.assignment.multi_hint',
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                       height: 1.25,
@@ -826,7 +890,10 @@ class _SequenceAssignmentIntro extends StatelessWidget {
                   if (assignedCount > 0) ...[
                     const SizedBox(height: 3),
                     Text(
-                      '$assignedCount ta homashyo allaqachon ulangan',
+                      context.l10n.adminText(
+                        'production.assignment.assigned_count',
+                        values: {'count': assignedCount},
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
@@ -858,7 +925,9 @@ class _SequenceBulkAssignmentFab extends StatelessWidget {
   Widget build(BuildContext context) {
     return FloatingActionButton.extended(
       heroTag: 'sequence-bulk-assignment-fab',
-      tooltip: 'Tanlanganlarni ulash',
+      tooltip: context.l10n.adminText(
+        'production.assignment.bulk_link',
+      ),
       onPressed: busy ? null : onAssign,
       icon: busy
           ? const SizedBox.square(
@@ -866,7 +935,12 @@ class _SequenceBulkAssignmentFab extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : const Icon(Icons.link_rounded),
-      label: Text('Ulash · $selectedCount'),
+      label: Text(
+        context.l10n.adminText(
+          'production.assignment.link_count',
+          values: {'count': selectedCount},
+        ),
+      ),
     );
   }
 }
@@ -892,6 +966,7 @@ class _SequenceCandidateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final title = candidate.itemName.trim().isEmpty
@@ -912,18 +987,30 @@ class _SequenceCandidateCard extends StatelessWidget {
     ].join(' • ');
     final materialDetails = <String>[
       if (candidate.warehouse.trim().isNotEmpty)
-        'Ombor: ${candidate.warehouse.trim()}',
+        l10n.adminText(
+          'production.assignment.warehouse',
+          values: {'value': candidate.warehouse.trim()},
+        ),
       if (candidate.orderWidthMm != null)
-        'Order ${_sequenceMillimeters(candidate.orderWidthMm!)}',
+        l10n.adminText(
+          'production.assignment.order_width',
+          values: {'value': _sequenceMillimeters(candidate.orderWidthMm!)},
+        ),
       if (candidate.rollWidthMm != null)
-        'Rulon ${_sequenceMillimeters(candidate.rollWidthMm!)}',
+        l10n.adminText(
+          'production.assignment.roll_width',
+          values: {'value': _sequenceMillimeters(candidate.rollWidthMm!)},
+        ),
       if (candidate.leftoverWidthMm != null)
-        'Astatka ${_sequenceMillimeters(candidate.leftoverWidthMm!)}',
+        l10n.adminText(
+          'production.assignment.leftover_width',
+          values: {'value': _sequenceMillimeters(candidate.leftoverWidthMm!)},
+        ),
     ];
     final matchLabel = switch (candidate.matchType.trim()) {
-      'exact_width' => 'Aniq mos',
-      'closest_width' => 'Eng yaqin',
-      _ => 'Mos variant',
+      'exact_width' => l10n.adminText('production.assignment.exact'),
+      'closest_width' => l10n.adminText('production.assignment.closest'),
+      _ => l10n.adminText('production.assignment.compatible'),
     };
 
     return Card(
@@ -982,7 +1069,11 @@ class _SequenceCandidateCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          title.isEmpty ? 'Nomsiz homashyo' : title,
+                          title.isEmpty
+                              ? l10n.adminText(
+                                  'production.assignment.unnamed',
+                                )
+                              : title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleMedium?.copyWith(
@@ -1064,7 +1155,13 @@ class _SequenceCandidateCard extends StatelessWidget {
               if (candidate.itemGroup.trim().isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text(
-                  'Guruh: ${candidate.itemGroup.trim()} • Aparat: ${candidate.apparatusOptions.join(', ')}',
+                  l10n.adminText(
+                    'production.assignment.group_apparatus',
+                    values: {
+                      'group': candidate.itemGroup.trim(),
+                      'apparatus': candidate.apparatusOptions.join(', '),
+                    },
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -1089,12 +1186,16 @@ class _SequenceCandidateCard extends StatelessWidget {
                       ),
                 label: Text(
                   busy
-                      ? 'Ulanmoqda...'
+                      ? l10n.adminText('production.assignment.linking')
                       : selectionMode
                           ? selected
-                              ? 'Tanlandi'
-                              : 'Tanlash'
-                          : 'Orderga ulash',
+                              ? l10n.adminText(
+                                  'production.assignment.selected_label',
+                                )
+                              : l10n.adminText(
+                                  'production.assignment.select',
+                                )
+                          : l10n.adminText('production.assignment.link'),
                 ),
               ),
             ],
@@ -1131,7 +1232,11 @@ class _SequenceAssignedMaterialRow extends StatelessWidget {
         dense: true,
         leading:
             Icon(Icons.check_circle_outline_rounded, color: scheme.primary),
-        title: Text(title.isEmpty ? 'Ulangan homashyo' : title),
+        title: Text(
+          title.isEmpty
+              ? context.l10n.adminText('production.assignment.connected')
+              : title,
+        ),
         subtitle: subtitle.isEmpty ? null : Text(subtitle),
       ),
     );
@@ -1274,6 +1379,7 @@ class _SequenceMinimumRequirementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return DecoratedBox(
@@ -1298,12 +1404,25 @@ class _SequenceMinimumRequirementCard extends StatelessWidget {
             Expanded(
               child: Text(
                 maximumAcceptedRollWidthMm == null
-                    ? 'Tizim qabul qiladigan minimum: rulon eni '
-                        '${_sequenceMillimeters(minimumAcceptedRollWidthMm)} '
-                        'dan kichik bo‘lmasin.'
-                    : 'Tizim qabul qiladigan rulon eni: '
-                        '${_sequenceMillimeters(minimumAcceptedRollWidthMm)} dan '
-                        '${_sequenceMillimeters(maximumAcceptedRollWidthMm!)} gacha.',
+                    ? l10n.adminText(
+                        'production.assignment.minimum_width',
+                        values: {
+                          'value': _sequenceMillimeters(
+                            minimumAcceptedRollWidthMm,
+                          ),
+                        },
+                      )
+                    : l10n.adminText(
+                        'production.assignment.width_range',
+                        values: {
+                          'min': _sequenceMillimeters(
+                            minimumAcceptedRollWidthMm,
+                          ),
+                          'max': _sequenceMillimeters(
+                            maximumAcceptedRollWidthMm!,
+                          ),
+                        },
+                      ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onPrimaryContainer,
                   fontWeight: FontWeight.w700,

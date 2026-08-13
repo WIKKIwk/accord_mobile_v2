@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -24,7 +25,7 @@ class AdminQueuePolicyScreen extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
     return AppShell(
-      title: 'Aparat navbati',
+      title: context.l10n.adminText('queue.title'),
       subtitle: '',
       drawer: AdminNavigationDrawer(
         selectedIndex: 0,
@@ -163,7 +164,7 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
         context,
         error is MobileApiException
             ? error.message
-            : 'Navbat sozlamasi saqlanmadi',
+            : context.l10n.adminText('queue.save_failed'),
       );
     } finally {
       if (mounted) {
@@ -228,10 +229,10 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
           _queuePolicyPanelGap,
           widget.bottomPadding,
         ),
-        children: const [
+        children: [
           _QueuePolicyIntro(),
           SizedBox(height: 24),
-          Center(child: Text('Aparatlar topilmadi')),
+          Center(child: Text(context.l10n.adminText('queue.empty'))),
         ],
       );
     }
@@ -279,7 +280,7 @@ class _QueuePolicyIntro extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
       child: Text(
-        'Har bir aparat uchun ishchilar zakazni qanday tanlashini belgilang.',
+        context.l10n.adminText('queue.intro'),
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
               height: 1.3,
@@ -311,17 +312,18 @@ class _QueuePolicyTile extends StatelessWidget {
   final bool saving;
   final ValueChanged<ApparatusQueuePolicy>? onChanged;
 
-  String? get _lockedHint {
+  String? _lockedHint(AppLocalizations l10n) {
     if (!policy.locked) {
       return null;
     }
-    return 'Bosma aparatlari doim ketma-ket rejimda';
+    return l10n.adminText('queue.locked_hint');
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
     final locked = policy.locked || onChanged == null;
     final radius = M3SegmentedListGeometry.borderRadius(
       slot,
@@ -382,10 +384,10 @@ class _QueuePolicyTile extends StatelessWidget {
                               : scheme.onSurface,
                         ),
                       ),
-                      if (_lockedHint != null) ...[
+                      if (_lockedHint(l10n) != null) ...[
                         const SizedBox(height: 2),
                         Text(
-                          _lockedHint!,
+                          _lockedHint(l10n)!,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant.withValues(
                               alpha: locked ? 0.72 : 1,
@@ -458,7 +460,7 @@ class _QueuePolicySelector extends StatelessWidget {
                 enabled: enabled,
                 locked: locked,
                 icon: Icons.format_list_numbered_rounded,
-                label: 'Ketma-ket',
+                label: context.l10n.adminText('queue.strict'),
                 onTap: onChanged == null
                     ? null
                     : () => onChanged!(ApparatusQueuePolicy.strictSequence),
@@ -471,7 +473,7 @@ class _QueuePolicySelector extends StatelessWidget {
                 enabled: enabled,
                 locked: locked,
                 icon: Icons.ads_click_rounded,
-                label: 'Erkin',
+                label: context.l10n.adminText('queue.free'),
                 onTap: onChanged == null
                     ? null
                     : () => onChanged!(ApparatusQueuePolicy.freePick),

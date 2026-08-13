@@ -1,4 +1,5 @@
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import 'admin_suppliers_screen.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_party_create_scaffold.dart';
@@ -10,11 +11,11 @@ class AdminCustomerCreateScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AdminPartyCreateScaffold(
-      title: 'Customer qo‘shish',
-      nameLabel: 'Customer name',
-      phoneLabel: 'Customer phone',
-      submitLabel: 'Customer qo‘shish',
-      savingLabel: 'Qo‘shilmoqda...',
+      title: context.l10n.adminText('user.add_customer'),
+      nameLabel: context.l10n.adminText('user.name'),
+      phoneLabel: context.l10n.adminText('user.phone'),
+      submitLabel: context.l10n.adminText('user.add_customer'),
+      savingLabel: context.l10n.adminText('user.saving'),
       activeTab: AdminDockTab.settings,
       onCreate: (name, phone) {
         return MobileApi.instance.adminCreateCustomer(

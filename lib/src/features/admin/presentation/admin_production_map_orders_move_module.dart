@@ -98,7 +98,9 @@ class _MoveModulePageState extends State<_MoveModulePage> {
     final top = topApparatus;
     final bottom = bottomApparatus;
     if (top == null || bottom == null) {
-      return const _EmptyOpenedOrders(message: 'Ko‘chirish uchun aparat yo‘q');
+      return _EmptyOpenedOrders(
+        message: context.l10n.adminText('production.move.no_equipment'),
+      );
     }
     final viewMetrics = MediaQueryData.fromView(View.of(context));
     final allowUnassignedAlternativeMove =

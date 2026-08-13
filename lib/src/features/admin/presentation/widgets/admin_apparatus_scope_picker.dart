@@ -1,6 +1,8 @@
 import '../../../shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/localization/app_localizations.dart';
+
 class AdminApparatusScopePicker extends StatelessWidget {
   const AdminApparatusScopePicker({
     super.key,
@@ -15,9 +17,10 @@ class AdminApparatusScopePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (apparatus.isEmpty) {
       return Text(
-        'Aparat topilmadi',
+        l10n.adminText('scope.empty'),
         style: Theme.of(context).textTheme.bodySmall,
       );
     }
@@ -25,7 +28,7 @@ class AdminApparatusScopePicker extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Ruxsat berilgan apparatlar',
+          l10n.adminText('scope.allowed'),
           style: Theme.of(context).textTheme.labelLarge,
         ),
         const SizedBox(height: 6),

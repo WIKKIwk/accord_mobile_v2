@@ -1,4 +1,5 @@
 import '../../../../core/api/mobile_api.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../shared/models/app_models.dart';
 import '../../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'admin_picker_field.dart';
@@ -68,8 +69,8 @@ class _AdminItemGroupParentMovePanelState
       return;
     }
     final picked = await _showGroupPicker(
-      title: 'Ko‘chiriladigan group',
-      hintText: 'Group qidiring',
+      title: context.l10n.adminText('item_group.movable_group'),
+      hintText: context.l10n.adminText('item_group.group_search'),
       groups: groups,
     );
     if (picked == null || !mounted) {
@@ -89,8 +90,8 @@ class _AdminItemGroupParentMovePanelState
       return;
     }
     final picked = await _showGroupPicker(
-      title: 'Yangi parent',
-      hintText: 'Parent qidiring',
+      title: context.l10n.adminText('item_group.new_parent'),
+      hintText: context.l10n.adminText('item_group.parent_search_short'),
       groups: groups,
     );
     if (picked == null || !mounted) {
@@ -151,14 +152,29 @@ class _AdminItemGroupParentMovePanelState
         return;
       }
       widget.onMoved(moved);
-      showAdminTopNotice(context, '${moved.itemGroupName} parenti yangilandi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText(
+          'item_group.parent_updated',
+          values: {'name': moved.itemGroupName},
+        ),
+      );
     } catch (error) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Parent yangilanmadi: $error')));
+      ).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.adminText(
+              'item_group.parent_update_failed',
+              values: {'error': error},
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => submitting = false);
@@ -168,6 +184,7 @@ class _AdminItemGroupParentMovePanelState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final movable = movableGroups;
     final parents = parentGroups;
     final canSubmit = !submitting &&
@@ -188,30 +205,30 @@ class _AdminItemGroupParentMovePanelState
           children: [
             if (widget.showHeader) ...[
               Text(
-                'Parentni ko‘chirish',
+                l10n.adminText('item_group.parent_move_title'),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
               ),
               const SizedBox(height: 6),
               Text(
-                'Mavjud groupni boshqa parent ostiga o‘tkazish uchun ishlatiladi.',
+                l10n.adminText('item_group.parent_move_description'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 14),
             ],
             AdminPickerField(
-              label: 'Ko‘chiriladigan group',
+              label: l10n.adminText('item_group.movable_group'),
               value: groupName,
-              placeholder: 'Group tanlang',
+              placeholder: l10n.adminText('item_group.group_select'),
               enabled: !submitting && movable.isNotEmpty,
               onTap: () => _openGroupPicker(movable),
             ),
             const SizedBox(height: 12),
             AdminPickerField(
-              label: 'Yangi parent',
+              label: l10n.adminText('item_group.new_parent'),
               value: parentName,
-              placeholder: 'Parent tanlang',
+              placeholder: l10n.adminText('item_group.parent_placeholder'),
               enabled: !submitting && parents.isNotEmpty,
               onTap: () => _openParentPicker(parents),
             ),
@@ -219,7 +236,9 @@ class _AdminItemGroupParentMovePanelState
             FilledButton(
               onPressed: canSubmit ? _move : null,
               child: Text(
-                submitting ? 'Ko‘chirilmoqda...' : 'Parentni yangilash',
+                submitting
+                    ? l10n.adminText('item_group.moving')
+                    : l10n.adminText('item_group.move_action'),
               ),
             ),
           ],

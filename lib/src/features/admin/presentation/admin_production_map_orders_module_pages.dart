@@ -34,9 +34,13 @@ class _OrdersModulePage extends StatelessWidget {
       ),
       children: [
         if (orders.isEmpty)
-          const _EmptyOpenedOrders(message: 'Ochilgan zakaz yo‘q')
+          _EmptyOpenedOrders(
+            message: context.l10n.adminText('production.open_empty'),
+          )
         else if (visibleOrders.isEmpty)
-          const _EmptyOpenedOrders(message: 'Zakaz topilmadi')
+          _EmptyOpenedOrders(
+            message: context.l10n.adminText('production.search_empty'),
+          )
         else
           _OpenedOrderList(
             orders: visibleOrders,
@@ -340,10 +344,16 @@ class _WorkflowAuditModulePage extends StatelessWidget {
                         children: [
                           Text(
                             currentReport == null
-                                ? 'Ish jarayoni tekshiruvi'
+                                ? context.l10n.adminText(
+                                    'production.audit_title',
+                                  )
                                 : currentReport.ok
-                                    ? 'Ish jarayoni tekshiruvi toza'
-                                    : 'Ish jarayoni tekshiruvida xatolar bor',
+                                    ? context.l10n.adminText(
+                                        'production.audit_clean',
+                                      )
+                                    : context.l10n.adminText(
+                                        'production.audit_issues',
+                                      ),
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium
@@ -351,7 +361,9 @@ class _WorkflowAuditModulePage extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Buyurtma, WIP, sessiya, ko‘chirish va quvvat qoidalari tekshiriladi.',
+                            context.l10n.adminText(
+                              'production.audit_description',
+                            ),
                             style: Theme.of(context)
                                 .textTheme
                                 .bodySmall
@@ -361,7 +373,9 @@ class _WorkflowAuditModulePage extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Tekshiruvni yangilash',
+                      tooltip: context.l10n.adminText(
+                        'production.refresh_audit',
+                      ),
                       onPressed: loading ? null : onRefresh,
                       icon: loading
                           ? const SizedBox(
@@ -381,22 +395,22 @@ class _WorkflowAuditModulePage extends StatelessWidget {
                     children: [
                       _AuditCountChip(
                         icon: Icons.receipt_long_outlined,
-                        label: 'Buyurtma',
+                        label: context.l10n.adminText('production.orders'),
                         value: currentReport.checkedOrderCount,
                       ),
                       _AuditCountChip(
                         icon: Icons.inventory_2_outlined,
-                        label: 'Partiya',
+                        label: context.l10n.adminText('production.batches'),
                         value: currentReport.checkedBatchCount,
                       ),
                       _AuditCountChip(
                         icon: Icons.play_circle_outline,
-                        label: 'Sessiya',
+                        label: context.l10n.adminText('production.sessions'),
                         value: currentReport.checkedSessionCount,
                       ),
                       _AuditCountChip(
                         icon: Icons.report_problem_outlined,
-                        label: 'Xato',
+                        label: context.l10n.adminText('production.errors'),
                         value: currentReport.violations.length,
                       ),
                     ],
@@ -425,9 +439,15 @@ class _WorkflowAuditModulePage extends StatelessWidget {
                 subtitle: Text(
                   [
                     if (violation.orderId.isNotEmpty)
-                      'Buyurtma: ${violation.orderId}',
+                      context.l10n.adminText(
+                        'production.audit_order',
+                        values: {'value': violation.orderId},
+                      ),
                     if (violation.subject.isNotEmpty)
-                      'Obyekt: ${violation.subject}',
+                      context.l10n.adminText(
+                        'production.audit_object',
+                        values: {'value': violation.subject},
+                      ),
                   ].join(' • '),
                 ),
               ),
@@ -436,9 +456,13 @@ class _WorkflowAuditModulePage extends StatelessWidget {
           Card(
             child: ListTile(
               leading: Icon(Icons.check_circle_outline, color: scheme.primary),
-              title: const Text('Barcha tekshiruvlar muvaffaqiyatli'),
-              subtitle: const Text(
-                'Yashirin buyurtma va WIP nomuvofiqligi aniqlanmadi.',
+              title: Text(
+                context.l10n.adminText('production.audit_success'),
+              ),
+              subtitle: Text(
+                context.l10n.adminText(
+                  'production.audit_success_description',
+                ),
               ),
             ),
           ),

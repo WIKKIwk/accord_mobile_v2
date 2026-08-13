@@ -1,5 +1,6 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -118,7 +119,9 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
         _detailFuture = Future<AdminItemDetail>.value(updated);
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Item ma’lumotlari saqlandi')),
+        SnackBar(
+          content: Text(context.l10n.adminText('detail.item_saved')),
+        ),
       );
     } catch (error) {
       if (mounted) {
@@ -152,21 +155,22 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
+        final l10n = dialogContext.l10n;
         final scheme = Theme.of(dialogContext).colorScheme;
         return AlertDialog(
           icon: Icon(Icons.delete_forever_rounded, color: scheme.error),
-          title: const Text('Itemni o‘chirish'),
+          title: Text(l10n.adminText('detail.item_delete_title')),
           content: Text(
-            '“$itemName” (${detail.code}) itemini tizimdan o‘chirmoqchimisiz?\n\n'
-            'Faol buyurtma, WIP, ombor qoldig‘i yoki boshqa jarayonga '
-            'bog‘langan item o‘chirilmaydi. Bog‘langan customer va supplier '
-            'katalog aloqalari ham uziladi.',
+            l10n.adminText(
+              'detail.item_delete_message',
+              values: {'name': itemName, 'code': detail.code},
+            ),
           ),
           actions: [
             TextButton(
               key: const ValueKey('admin-item-delete-cancel'),
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Bekor qilish'),
+              child: Text(l10n.adminText('action.cancel')),
             ),
             FilledButton.icon(
               key: const ValueKey('admin-item-delete-confirm'),
@@ -176,7 +180,7 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
               ),
               onPressed: () => Navigator.of(dialogContext).pop(true),
               icon: const Icon(Icons.delete_forever_rounded),
-              label: const Text('O‘chirish'),
+              label: Text(l10n.adminText('action.delete')),
             ),
           ],
         );
@@ -194,7 +198,10 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
       if (mounted) {
         setState(() => _deleting = false);
       }
-      _showError('Item o‘chirilmadi', error);
+      _showError(
+        context.l10n.adminText('detail.item_delete_failed'),
+        error,
+      );
       return;
     }
     if (!mounted) {
@@ -205,7 +212,7 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
       _changed = true;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Item o‘chirildi')),
+      SnackBar(content: Text(context.l10n.adminText('detail.item_deleted'))),
     );
     Navigator.of(context).pop(true);
   }
@@ -254,10 +261,12 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
         _detailFuture = Future<AdminItemDetail>.value(updated);
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Item group o‘zgartirildi')),
+        SnackBar(
+          content: Text(context.l10n.adminText('detail.group_updated')),
+        ),
       );
     } catch (error) {
-      _showError('Item group o‘zgartirilmadi', error);
+      _showError(context.l10n.adminText('detail.groups_save_failed'), error);
     } finally {
       if (mounted) {
         setState(() => _changingGroup = false);
@@ -325,7 +334,7 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
         }
       },
       child: AppShell(
-        title: 'Item ma’lumotlari',
+        title: context.l10n.adminText('detail.item_title'),
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -351,13 +360,16 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
                     children: [
                       AppRetryState(
                         onRetry: _reload,
-                        message: 'Item ma’lumotlari yuklanmadi',
+                        message: context.l10n.adminText(
+                          'detail.item_load_failed',
+                        ),
                       ),
                     ],
                   );
                 }
                 final detail = snapshot.data!;
                 final mutationBusy = _saving || _changingGroup || _deleting;
+                final l10n = context.l10n;
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
                   children: [
@@ -369,12 +381,18 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
                     ),
                     const SizedBox(height: 10),
                     _ItemDetailSection(
-                      title: 'Asosiy ma’lumotlar',
+                      title: l10n.adminText('detail.main_info'),
                       children: [
-                        _ItemDetailRow(label: 'Nomi', value: detail.name),
-                        _ItemDetailRow(label: 'Code', value: detail.code),
                         _ItemDetailRow(
-                          label: 'Item group',
+                          label: l10n.adminText('detail.item_name'),
+                          value: detail.name,
+                        ),
+                        _ItemDetailRow(
+                          label: l10n.adminText('detail.item_code'),
+                          value: detail.code,
+                        ),
+                        _ItemDetailRow(
+                          label: l10n.adminText('item.group'),
                           value: detail.itemGroup,
                         ),
                         Padding(
@@ -398,33 +416,35 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
                                   : const Icon(Icons.account_tree_rounded),
                               label: Text(
                                 _changingGroup
-                                    ? 'Guruhlar yuklanmoqda...'
-                                    : 'Guruhini o‘zgartirish',
+                                    ? l10n.adminText('detail.groups_loading')
+                                    : l10n.adminText('detail.change_group'),
                               ),
                             ),
                           ),
                         ),
                         _ItemDetailRow(
-                            label: 'O‘lchov birligi', value: detail.uom),
+                          label: l10n.adminText('item.uom_label'),
+                          value: detail.uom,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
                     _ItemDetailSection(
-                      title: 'Tizim ma’lumotlari',
+                      title: l10n.adminText('detail.system_info'),
                       children: [
                         _ItemDetailRow(
-                          label: 'Tizimga kiritilgan',
+                          label: l10n.adminText('detail.created_at'),
                           value: formatUnixSecondsLocalDateTime(
                             detail.createdAtUnix,
                           ),
-                          emptyText: 'Sana mavjud emas',
+                          emptyText: l10n.adminText('detail.date_missing'),
                         ),
                         _ItemDetailRow(
-                          label: 'Oxirgi o‘zgartirish',
+                          label: l10n.adminText('detail.updated_at'),
                           value: formatUnixSecondsLocalDateTime(
                             detail.updatedAtUnix,
                           ),
-                          emptyText: 'O‘zgartirilmagan',
+                          emptyText: l10n.adminText('detail.not_changed'),
                         ),
                       ],
                     ),
@@ -468,6 +488,7 @@ class _ItemDetailHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Card(
@@ -519,9 +540,9 @@ class _ItemDetailHeader extends StatelessWidget {
             ),
             if (detail.isFinishedGoods) ...[
               const SizedBox(height: 14),
-              const Chip(
+              Chip(
                 avatar: Icon(Icons.task_alt_rounded, size: 18),
-                label: Text('Tayyor mahsulot'),
+                label: Text(l10n.adminText('detail.finished_product')),
                 visualDensity: VisualDensity.compact,
               ),
             ],
@@ -538,7 +559,10 @@ class _ItemDetailHeader extends StatelessWidget {
                       )
                     : const Icon(Icons.edit_rounded),
                 label: Text(
-                    saving ? 'Saqlanmoqda...' : 'Nom va codeni tahrirlash'),
+                  saving
+                      ? l10n.adminText('action.saving')
+                      : l10n.adminText('detail.edit_name_code'),
+                ),
               ),
             ),
           ],
@@ -586,7 +610,7 @@ class _ItemDetailRow extends StatelessWidget {
   const _ItemDetailRow({
     required this.label,
     required this.value,
-    this.emptyText = 'Kiritilmagan',
+    this.emptyText = '',
   });
 
   final String label;
@@ -596,7 +620,11 @@ class _ItemDetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final displayValue = value.trim().isEmpty ? emptyText : value.trim();
+    final displayValue = value.trim().isEmpty
+        ? (emptyText.trim().isEmpty
+            ? context.l10n.adminText('profile.entered')
+            : emptyText)
+        : value.trim();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
@@ -641,14 +669,17 @@ class _ItemCustomersSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return _ItemDetailSection(
-      title: customers.length > 1 ? 'Customerlar' : 'Customer',
+      title: customers.length > 1
+          ? l10n.adminText('detail.customers')
+          : l10n.adminText('detail.customer'),
       children: customers.isEmpty
           ? [
-              const _ItemDetailRow(
-                label: 'Customer',
+              _ItemDetailRow(
+                label: l10n.adminText('detail.customer'),
                 value: '',
-                emptyText: 'Biriktirilmagan',
+                emptyText: l10n.adminText('detail.unassigned'),
               ),
               _CustomerManageButton(onPressed: enabled ? onManage : null),
             ]
@@ -688,14 +719,15 @@ class _ItemDeleteSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     return _ItemDetailSection(
-      title: 'Itemni o‘chirish',
+      title: l10n.adminText('detail.item_delete_title'),
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Text(
-            'Faqat faol jarayonlar va qoldiqlarga bog‘lanmagan item o‘chadi.',
+            l10n.adminText('detail.delete_description'),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -718,7 +750,11 @@ class _ItemDeleteSection extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.delete_forever_rounded),
-              label: Text(deleting ? 'O‘chirilmoqda...' : 'Itemni o‘chirish'),
+              label: Text(
+                deleting
+                    ? l10n.adminText('detail.delete_in_progress')
+                    : l10n.adminText('detail.item_delete_title'),
+              ),
             ),
           ),
         ),

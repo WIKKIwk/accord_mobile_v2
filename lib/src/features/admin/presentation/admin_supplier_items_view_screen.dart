@@ -1,4 +1,5 @@
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/display/common_widgets.dart';
@@ -57,10 +58,13 @@ class _AdminSupplierItemsViewScreenState
   Future<void> _removeItem(SupplierItem item) async {
     final confirm = await showM3ConfirmDialog(
       context: context,
-      title: 'Mahsulotni uzish',
-      message: '${item.name} mahsulotini supplierdan uzaymi?',
-      cancelLabel: 'Yo‘q',
-      confirmLabel: 'Ha',
+      title: context.l10n.adminText('supplier_items.remove_title'),
+      message: context.l10n.adminText(
+        'supplier_items.remove_message',
+        values: {'item': item.name},
+      ),
+      cancelLabel: context.l10n.adminText('bulk_move.no'),
+      confirmLabel: context.l10n.adminText('bulk_move.yes'),
     );
     if (confirm != true) {
       return;
@@ -88,7 +92,7 @@ class _AdminSupplierItemsViewScreenState
   @override
   Widget build(BuildContext context) {
     return AppShell(
-      title: 'Biriktirilgan mahsulotlar',
+      title: context.l10n.adminText('supplier_items.view_title'),
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -100,7 +104,9 @@ class _AdminSupplierItemsViewScreenState
             : ItemsTable(
                 items: items,
                 actionIcon: Icons.remove_rounded,
-                emptyText: 'Hozircha mahsulot biriktirilmagan.',
+                emptyText: context.l10n.adminText(
+                  'supplier_items.empty_assigned',
+                ),
                 onActionTap: mutating ? null : _removeItem,
               ),
       ),
@@ -192,13 +198,16 @@ class ItemsTableHeader extends StatelessWidget {
           Expanded(
             flex: 3,
             child: Text(
-              'Mahsulot',
+              context.l10n.adminText('supplier_items.item'),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
           Expanded(
             flex: 2,
-            child: Text('Kod', style: Theme.of(context).textTheme.bodySmall),
+            child: Text(
+              context.l10n.adminText('supplier_items.code'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ),
           const SizedBox(width: 44),
         ],

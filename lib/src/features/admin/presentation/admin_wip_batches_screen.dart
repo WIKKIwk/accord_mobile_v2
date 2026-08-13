@@ -1,6 +1,7 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
@@ -27,19 +28,19 @@ extension _WipBatchStatusX on _WipBatchStatus {
     };
   }
 
-  String get title {
+  String title(AppLocalizations l10n) {
     return switch (this) {
-      _WipBatchStatus.waiting => 'Kutmoqda',
-      _WipBatchStatus.inUse => 'Ishda',
-      _WipBatchStatus.processed => 'Tugadi',
+      _WipBatchStatus.waiting => l10n.adminText('wip.status.waiting'),
+      _WipBatchStatus.inUse => l10n.adminText('wip.status.in_use'),
+      _WipBatchStatus.processed => l10n.adminText('wip.status.processed'),
     };
   }
 
-  String get emptyText {
+  String emptyText(AppLocalizations l10n) {
     return switch (this) {
-      _WipBatchStatus.waiting => 'Kutayotgan mahsulot yo‘q',
-      _WipBatchStatus.inUse => 'Ishlayotgan mahsulot yo‘q',
-      _WipBatchStatus.processed => 'Tugagan mahsulot yo‘q',
+      _WipBatchStatus.waiting => l10n.adminText('wip.empty.waiting'),
+      _WipBatchStatus.inUse => l10n.adminText('wip.empty.in_use'),
+      _WipBatchStatus.processed => l10n.adminText('wip.empty.processed'),
     };
   }
 }
@@ -115,7 +116,7 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen> {
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     return AdminShell(
-      title: 'Oraliq mahsulotlar',
+      title: context.l10n.adminText('wip.title'),
       selectedRouteName: AppRoutes.adminWipBatches,
       activeTab: AdminDockTab.home,
       bottomDockFadeStrength: null,
@@ -200,8 +201,8 @@ class _WipLocationFilterBar extends StatelessWidget {
     final selected = selectedLocation.trim();
     return AdminExpandableFilterChip<String>(
       chipKey: const ValueKey('admin-wip-location-filter-chip'),
-      label: 'Joy',
-      emptyLabel: 'Barchasi',
+      label: context.l10n.adminText('wip.location'),
+      emptyLabel: context.l10n.adminText('wip.all_locations'),
       icon: Icons.place_outlined,
       selectedValue: selected,
       expanded: expanded,
@@ -209,9 +210,9 @@ class _WipLocationFilterBar extends StatelessWidget {
       onSelect: onChanged,
       optionKeyPrefix: 'admin-wip-location-option-chip',
       options: [
-        const AdminFilterChipOption(
+        AdminFilterChipOption(
           value: '',
-          label: 'Barchasi',
+          label: context.l10n.adminText('wip.all_locations'),
           key: ValueKey('admin-wip-location-option-chip-all'),
         ),
         for (final location in locations)
@@ -257,7 +258,7 @@ class _WipBatchTab extends StatelessWidget {
           const _WipIntroText(),
           const SizedBox(height: 10),
           if (batches.isEmpty)
-            _WipEmptyCard(text: status.emptyText)
+            _WipEmptyCard(text: status.emptyText(context.l10n))
           else
             M3SegmentSpacedColumn(
               padding: EdgeInsets.zero,
@@ -288,9 +289,7 @@ class _WipIntroText extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
-        'Bu yerda aparatdan chiqqan, lekin keyingi qabul yoki ish hali '
-        'tasdiqlanmagan WIP mahsulotlar ko‘rinadi. Oxirgi bosqichdan '
-        'chiqqan mahsulot ham boshqa tomon qabul qilmaguncha WIP bo‘lib qoladi.',
+        context.l10n.adminText('wip.intro'),
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
               height: 1.3,
@@ -346,7 +345,7 @@ class _WipBatchTile extends StatelessWidget {
       batch.labelItemCode,
       batch.orderId,
     ]);
-    final productTitle = _headlineForBatch(rawTitle);
+    final productTitle = _headlineForBatch(rawTitle, context.l10n);
     final currentPlace = _firstNotEmpty([
       canonicalWaitingLocation(batch),
       batch.currentLocation,
@@ -366,6 +365,7 @@ class _WipBatchTile extends StatelessWidget {
       sourceApparatus: sourceApparatus,
       currentPlace: currentPlace,
       worker: worker,
+      l10n: context.l10n,
     );
     return M3SegmentFilledSurface(
       slot: slot,
@@ -393,7 +393,10 @@ class _WipBatchTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Zakaz: ${batch.orderId}',
+                        context.l10n.adminText(
+                          'wip.order',
+                          values: {'order': batch.orderId},
+                        ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -408,7 +411,7 @@ class _WipBatchTile extends StatelessWidget {
             const SizedBox(height: 12),
             _WipInfoLine(
               icon: Icons.scale_outlined,
-              label: 'Miqdor',
+              label: context.l10n.adminText('wip.quantity'),
               value: formatQuantityWithUnit(
                 batch.producedQty,
                 batch.uom,
@@ -417,35 +420,35 @@ class _WipBatchTile extends StatelessWidget {
             ),
             _WipInfoLine(
               icon: Icons.output_rounded,
-              label: 'Qayerdan chiqdi',
+              label: context.l10n.adminText('wip.source'),
               value: sourceApparatus,
             ),
             _WipInfoLine(
               icon: Icons.place_outlined,
-              label: 'Hozir qayerda',
+              label: context.l10n.adminText('wip.current_location'),
               value: _valueOrDash(currentPlace),
             ),
             if (finalFreeWip)
-              const _WipInfoLine(
+              _WipInfoLine(
                 icon: Icons.inventory_2_outlined,
-                label: 'Mahsulot holati',
-                value: 'Erkin WIP',
+                label: context.l10n.adminText('wip.product_status'),
+                value: context.l10n.adminText('wip.free'),
               )
             else ...[
               _WipInfoLine(
                 icon: Icons.call_split_rounded,
-                label: 'Keyingi aparat',
-                value: _nextApparatusText(batch.nextApparatus),
+                label: context.l10n.adminText('wip.next_apparatus'),
+                value: _nextApparatusText(batch.nextApparatus, context.l10n),
               ),
               _WipInfoLine(
                 icon: Icons.alt_route_rounded,
-                label: 'Keyingi bosqich',
-                value: _nextStepText(batch.nextApparatus),
+                label: context.l10n.adminText('wip.next_step'),
+                value: _nextStepText(batch.nextApparatus, context.l10n),
               ),
             ],
             _WipInfoLine(
               icon: Icons.badge_outlined,
-              label: 'Ishchi',
+              label: context.l10n.adminText('wip.worker'),
               value: _valueOrDash(worker),
             ),
             const SizedBox(height: 8),
@@ -501,7 +504,7 @@ class _WipStatusPill extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         child: Text(
-          status.title,
+          status.title(context.l10n),
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: foreground,
                 fontWeight: FontWeight.w700,
@@ -629,35 +632,38 @@ String _valueOrDash(String value) {
   return trimmed.isEmpty ? '-' : trimmed;
 }
 
-String _headlineForBatch(String rawTitle) {
+String _headlineForBatch(String rawTitle, AppLocalizations l10n) {
   final trimmed = rawTitle.trim();
   if (trimmed.isEmpty) {
-    return 'Oraliq mahsulot';
+    return l10n.adminText('wip.product_fallback');
   }
   final shortTitle = trimmed.split(',').first.trim();
   if (shortTitle.isEmpty) {
-    return 'Oraliq mahsulot';
+    return l10n.adminText('wip.product_fallback');
   }
   if (shortTitle.toLowerCase().contains('mahsulot')) {
     return shortTitle;
   }
-  return '$shortTitle mahsuloti';
+  return l10n.adminText(
+    'wip.product_suffix',
+    values: {'title': shortTitle},
+  );
 }
 
-String _nextApparatusText(String nextApparatus) {
+String _nextApparatusText(String nextApparatus, AppLocalizations l10n) {
   final trimmed = nextApparatus.trim();
   if (trimmed.isNotEmpty) {
     return trimmed;
   }
-  return 'Belgilanmagan';
+  return l10n.adminText('wip.unspecified');
 }
 
-String _nextStepText(String nextApparatus) {
+String _nextStepText(String nextApparatus, AppLocalizations l10n) {
   final trimmed = nextApparatus.trim();
   if (trimmed.isNotEmpty) {
     return trimmed;
   }
-  return 'Belgilanmagan';
+  return l10n.adminText('wip.unspecified');
 }
 
 String _buildFriendlySummary({
@@ -666,40 +672,93 @@ String _buildFriendlySummary({
   required String sourceApparatus,
   required String currentPlace,
   required String worker,
+  required AppLocalizations l10n,
 }) {
-  final product = _headlineForBatch(batch.labelItemName);
+  final product = _headlineForBatch(batch.labelItemName, l10n);
   final quantity = formatQuantityWithUnit(
     batch.producedQty,
     batch.uom,
     trimTrailingZeros: true,
   );
-  final sourceText =
-      sourceApparatus == '-' ? 'noma’lum aparatdan' : '${sourceApparatus}dan';
-  final waitingPlace =
-      currentPlace == '-' ? 'noma’lum joyda' : '$currentPlace yonida';
-  final inUsePlace =
-      currentPlace == '-' ? 'noma’lum joyda' : '$currentPlace ishlayapti';
-  final processedPlace =
-      currentPlace == '-' ? 'noma’lum joyda' : '${currentPlace}da';
-  final workerText = worker == '-' ? '' : ' Ishchi: $worker.';
+  final sourceText = sourceApparatus == '-'
+      ? (l10n.locale.languageCode == 'en'
+          ? 'an unknown machine'
+          : 'noma’lum aparatdan')
+      : l10n.locale.languageCode == 'en'
+          ? sourceApparatus
+          : '${sourceApparatus}dan';
+  final waitingPlace = currentPlace == '-'
+      ? (l10n.locale.languageCode == 'en'
+          ? 'an unknown location'
+          : 'noma’lum joyda')
+      : l10n.locale.languageCode == 'en'
+          ? 'at $currentPlace'
+          : '$currentPlace yonida';
+  final inUsePlace = currentPlace == '-'
+      ? (l10n.locale.languageCode == 'en'
+          ? 'an unknown location'
+          : 'noma’lum joyda')
+      : l10n.locale.languageCode == 'en'
+          ? currentPlace
+          : '$currentPlace ishlayapti';
+  final processedPlace = currentPlace == '-'
+      ? (l10n.locale.languageCode == 'en'
+          ? 'an unknown location'
+          : 'noma’lum joyda')
+      : l10n.locale.languageCode == 'en'
+          ? currentPlace
+          : '${currentPlace}da';
+  final workerText = worker == '-'
+      ? ''
+      : l10n.locale.languageCode == 'en'
+          ? ' Worker: $worker.'
+          : ' Ishchi: $worker.';
   if (isFinalFreeWip(batch)) {
-    return '$product $sourceText chiqdi. Hozir $waitingPlace erkin WIP '
-        'holatida turibdi. Ombor yoki boshqa manzil biriktirilmagan. '
-        'Miqdor: $quantity.$workerText';
+    return l10n.adminText(
+      'wip.summary.free',
+      values: {
+        'product': product,
+        'source': sourceText,
+        'place': waitingPlace,
+        'quantity': quantity,
+        'worker': workerText,
+      },
+    );
   }
   return switch (status) {
-    _WipBatchStatus.waiting =>
-      '$product $sourceText chiqdi. Hozir $waitingPlace turibdi. '
-          'Keyingi bosqich: ${_nextStepText(batch.nextApparatus)}. '
-          'Keyingi aparat: ${_nextApparatusText(batch.nextApparatus)}. '
-          'Miqdor: $quantity.$workerText',
-    _WipBatchStatus.inUse => '$product hozir ishlanmoqda. Hozir $inUsePlace. '
-        'Keyingi bosqich: ${_nextStepText(batch.nextApparatus)}. '
-        'Keyingi aparat: ${_nextApparatusText(batch.nextApparatus)}. '
-        'Miqdor: $quantity.$workerText',
-    _WipBatchStatus.processed =>
-      '$product tugagan. Qayerdan chiqdi: $sourceApparatus. '
-          'Hozir: $processedPlace. Keyingi bosqich: ${_nextStepText(batch.nextApparatus)}. '
-          'Miqdor: $quantity.$workerText',
+    _WipBatchStatus.waiting => l10n.adminText(
+        'wip.summary.waiting',
+        values: {
+          'product': product,
+          'source': sourceText,
+          'place': waitingPlace,
+          'step': _nextStepText(batch.nextApparatus, l10n),
+          'apparatus': _nextApparatusText(batch.nextApparatus, l10n),
+          'quantity': quantity,
+          'worker': workerText,
+        },
+      ),
+    _WipBatchStatus.inUse => l10n.adminText(
+        'wip.summary.in_use',
+        values: {
+          'product': product,
+          'place': inUsePlace,
+          'step': _nextStepText(batch.nextApparatus, l10n),
+          'apparatus': _nextApparatusText(batch.nextApparatus, l10n),
+          'quantity': quantity,
+          'worker': workerText,
+        },
+      ),
+    _WipBatchStatus.processed => l10n.adminText(
+        'wip.summary.processed',
+        values: {
+          'product': product,
+          'source': sourceApparatus,
+          'place': processedPlace,
+          'step': _nextStepText(batch.nextApparatus, l10n),
+          'quantity': quantity,
+          'worker': workerText,
+        },
+      ),
   };
 }

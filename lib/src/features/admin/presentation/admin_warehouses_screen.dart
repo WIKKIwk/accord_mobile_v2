@@ -1,6 +1,7 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/print_service.dart';
 import '../../../core/search/search_normalizer.dart';
 import '../../../core/session/session.dart';
@@ -64,8 +65,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
   bool get _materialScoped =>
       AppSession.instance.profile?.role == UserRole.materialTaminotchi;
 
-  bool get _adminScoped =>
-      AppSession.instance.profile?.role == UserRole.admin;
+  bool get _adminScoped => AppSession.instance.profile?.role == UserRole.admin;
 
   Future<List<String>> _loadMaterialAssignedWarehouses() async {
     final profile = AppSession.instance.profile;
@@ -380,7 +380,9 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
               selectedRouteName: AppRoutes.adminWarehouses,
               onNavigate: _openDrawerRoute,
             ),
-      title: materialScoped ? 'Joylashuvlarim' : 'Ombor',
+      title: materialScoped
+          ? context.l10n.adminText('warehouse.my_locations')
+          : context.l10n.adminText('label.warehouse'),
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -391,8 +393,8 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
         controller: _materialItemsSearchController,
         focusNode: _materialItemsSearchFocusNode,
         hintText: materialScoped
-            ? 'Joylashuvdagi mahsulotni qidirish'
-            : 'Ombordagi mahsulotni qidirish',
+            ? context.l10n.adminText('warehouse.location_products_search')
+            : context.l10n.adminText('warehouse.products_search'),
         onChanged: (value) {
           _warehouseDetailsKey.currentState?.handleItemsSearchChanged(value);
           _materialStateLocationsKey.currentState
@@ -411,7 +413,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
               activeTab: AdminDockTab.settings,
               primaryFabActions: [
                 AdminFabMenuAction(
-                  title: 'Ombor yaratish',
+                  title: context.l10n.adminText('warehouse.create'),
                   icon: Icons.warehouse_outlined,
                   onTap: _openWarehouseCreateDialog,
                 ),
@@ -454,9 +456,17 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
               children: [
                 AdminSurfaceTabBar(
                   controller: _pageTabController,
-                  tabs: const [
-                    Tab(height: 38, text: 'Omborlar'),
-                    Tab(height: 38, text: 'State’lar'),
+                  tabs: [
+                    Tab(
+                      height: 38,
+                      text: context.l10n.adminText(
+                        'warehouse.tabs_warehouses',
+                      ),
+                    ),
+                    Tab(
+                      height: 38,
+                      text: context.l10n.adminText('warehouse.tabs_states'),
+                    ),
                   ],
                 ),
                 Expanded(
@@ -725,7 +735,11 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
         _usersFuture = null;
         setState(() => _loadingUsers = false);
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          const SnackBar(content: Text('Foydalanuvchilar yuklanmadi')),
+          SnackBar(
+            content: Text(
+              context.l10n.adminText('warehouse.users_load_failed'),
+            ),
+          ),
         );
       }
       return;
@@ -736,7 +750,9 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
     setState(() => _loadingUsers = false);
     if (users.isEmpty) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Foydalanuvchilar topilmadi')),
+        SnackBar(
+          content: Text(context.l10n.adminText('warehouse.no_users')),
+        ),
       );
       return;
     }
@@ -752,8 +768,8 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3PickerSheet<AdminUserListEntry>(
-          title: 'Kimga assign',
-          hintText: 'Foydalanuvchi qidiring',
+          title: context.l10n.adminText('warehouse.assign_to'),
+          hintText: context.l10n.adminText('warehouse.user_search'),
           items: users,
           itemTitle: (item) => item.name,
           itemSubtitle: (item) => item.roleLabel,
@@ -794,7 +810,7 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Ombor yaratish',
+                      context.l10n.adminText('warehouse.create'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -803,7 +819,7 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
                   IconButton(
                     onPressed: _saving ? null : widget.onClose,
                     icon: const Icon(Icons.close_rounded),
-                    tooltip: 'Yopish',
+                    tooltip: context.l10n.adminText('action.close'),
                   ),
                 ],
               ),
@@ -814,7 +830,7 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
                 onSubmitted: (_) => _save(),
                 decoration: appSurfaceInputDecoration(
                   context,
-                  labelText: 'Ombor nomi',
+                  labelText: context.l10n.adminText('warehouse.name'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -835,7 +851,7 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.link_rounded),
-                  label: const Text('Assign qilish'),
+                  label: Text(context.l10n.adminText('warehouse.assign')),
                 ),
               ),
             ],
@@ -867,7 +883,7 @@ class _AssignUserPickerField extends StatelessWidget {
       child: InputDecorator(
         decoration: appSurfaceInputDecoration(
           context,
-          labelText: 'Kimga assign',
+          labelText: context.l10n.adminText('warehouse.assign_to'),
           prefixIcon: const Icon(Icons.person_search_rounded),
           suffixIcon: loading
               ? const Padding(
@@ -882,7 +898,9 @@ class _AssignUserPickerField extends StatelessWidget {
         ),
         child: user == null
             ? Text(
-                loading ? 'Yuklanmoqda...' : 'Tanlash uchun bosing',
+                loading
+                    ? context.l10n.adminText('action.loading')
+                    : context.l10n.adminText('warehouse.pick_user'),
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w500,
@@ -1056,7 +1074,10 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
       );
       await widget.onRawStockChanged?.call();
       if (mounted) {
-        _showWarehouseNotice(context, 'Homashyo ma’lumotlari yangilandi');
+        _showWarehouseNotice(
+          context,
+          context.l10n.adminText('warehouse.raw_material_updated'),
+        );
       }
     } on MobileApiException catch (error) {
       if (mounted) {
@@ -1064,7 +1085,10 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
       }
     } catch (_) {
       if (mounted) {
-        _showWarehouseNotice(context, 'Homashyoni tahrirlab bo‘lmadi');
+        _showWarehouseNotice(
+          context,
+          context.l10n.adminText('warehouse.raw_material_edit_failed'),
+        );
       }
     } finally {
       if (mounted) {
@@ -1260,17 +1284,17 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
     }
 
     if (widget.summaries.isEmpty) {
-      return buildScaffold(const [
+      return buildScaffold([
         SizedBox(height: 24),
-        Center(child: Text('Ombor topilmadi')),
+        Center(child: Text(context.l10n.adminText('warehouse.empty'))),
       ]);
     }
     if (widget.warehouse == null ||
         widget.warehouse!.trim().isEmpty ||
         future == null) {
-      return buildScaffold(const [
+      return buildScaffold([
         SizedBox(height: 24),
-        Center(child: Text('Ombor tanlanmagan')),
+        Center(child: Text(context.l10n.adminText('warehouse.no_selection'))),
       ]);
     }
     return FutureBuilder<_WarehouseInventorySection?>(
@@ -1307,7 +1331,7 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
           if (widget.searchController == null)
             SearchBar(
               controller: _itemsSearchController,
-              hintText: 'Ombordagi mahsulotni qidirish',
+              hintText: context.l10n.adminText('warehouse.products_search'),
               constraints: const BoxConstraints(minHeight: 54),
               padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
                 EdgeInsets.symmetric(horizontal: 16),
@@ -1331,7 +1355,7 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
                 child: OutlinedButton.icon(
                   onPressed: _loadFirstItemsPage,
                   icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Qayta urinish'),
+                  label: Text(context.l10n.adminText('action.retry')),
                 ),
               ),
             )
@@ -1342,14 +1366,20 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
               items: _items,
             )
           else if (isQolipWarehouse)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 16),
-              child: Center(child: Text('Qolipli mahsulot topilmadi')),
+              child: Center(
+                child: Text(
+                  context.l10n.adminText('warehouse.no_mold_products'),
+                ),
+              ),
             )
           else if (availableRawStock.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 16),
-              child: Center(child: Text('Mahsulot topilmadi')),
+              child: Center(
+                child: Text(context.l10n.adminText('warehouse.no_products')),
+              ),
             ),
           if (availableRawStock.isNotEmpty)
             _WarehouseRawStockListModule(
@@ -1378,14 +1408,14 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
               child: OutlinedButton.icon(
                 onPressed: _loadNextItemsPage,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Yana yuklash'),
+                label: Text(context.l10n.adminText('action.load_more')),
               ),
             )
           else if (_hasMoreItems)
             Padding(
               padding: const EdgeInsets.all(12),
               child: Text(
-                'Pastga scroll qiling, qolganlari yuklanadi',
+                context.l10n.adminText('warehouse.load_more_hint'),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1408,12 +1438,25 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
         ];
         final hasReserved = reservedChildren.isNotEmpty;
         final stockTabs = <Tab>[
-          Tab(height: 38, text: 'Mavjud ($availableCount)'),
+          Tab(
+            height: 38,
+            text: context.l10n.adminText(
+              'warehouse.available',
+              values: {'count': availableCount},
+            ),
+          ),
         ];
         final stockTabChildren = <List<Widget>>[availableChildren];
         if (hasReserved) {
-          stockTabs
-              .add(Tab(height: 38, text: 'Band qilingan ($reservedCount)'));
+          stockTabs.add(
+            Tab(
+              height: 38,
+              text: context.l10n.adminText(
+                'warehouse.reserved',
+                values: {'count': reservedCount},
+              ),
+            ),
+          );
           stockTabChildren.add(reservedChildren);
         }
         return DefaultTabController(
@@ -1435,9 +1478,13 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
                   return buildScaffold([
                     const SizedBox(height: 8),
                     if (visibleChildren.isEmpty)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.only(top: 16),
-                        child: Center(child: Text('Mahsulot topilmadi')),
+                        child: Center(
+                          child: Text(
+                            context.l10n.adminText('warehouse.no_products'),
+                          ),
+                        ),
                       )
                     else ...[
                       for (var index = 0;
@@ -1570,7 +1617,10 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
           .toList(growable: false);
     } catch (_) {
       if (mounted) {
-        _showWarehouseNotice(context, 'Foydalanuvchilar yuklanmadi');
+        _showWarehouseNotice(
+          context,
+          context.l10n.adminText('warehouse.users_load_failed'),
+        );
       }
       return;
     } finally {
@@ -1583,7 +1633,9 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
     }
     if (users.isEmpty) {
       _showWarehouseNotice(
-          context, 'Barcha mos foydalanuvchilar assign qilingan');
+        context,
+        context.l10n.adminText('warehouse.all_assigned'),
+      );
       return;
     }
     final picked = await showModalBottomSheet<AdminUserListEntry>(
@@ -1598,8 +1650,8 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3PickerSheet<AdminUserListEntry>(
-          title: 'Kimga assign',
-          hintText: 'Foydalanuvchi qidiring',
+          title: context.l10n.adminText('warehouse.assign_to'),
+          hintText: context.l10n.adminText('warehouse.user_search'),
           items: users,
           itemTitle: (item) => item.name,
           itemSubtitle: (item) => item.roleLabel,
@@ -1627,11 +1679,20 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
       await _refreshAssignments();
       await widget.onChanged();
       if (mounted) {
-        _showWarehouseNotice(context, '${picked.name} omborga assign qilindi');
+        _showWarehouseNotice(
+          context,
+          context.l10n.adminText(
+            'warehouse.assigned_user_success',
+            values: {'name': picked.name},
+          ),
+        );
       }
     } catch (_) {
       if (mounted) {
-        _showWarehouseNotice(context, 'Foydalanuvchi assign qilinmadi');
+        _showWarehouseNotice(
+          context,
+          context.l10n.adminText('warehouse.assign_user_failed'),
+        );
       }
     } finally {
       if (mounted) {
@@ -1650,11 +1711,13 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
         : assignment.displayName.trim();
     final confirmed = await showM3ConfirmDialog(
       context: context,
-      title: 'Assigndan chiqarish',
-      message:
-          '$displayName foydalanuvchisini “$_warehouse” omboridan chiqarasizmi?',
-      cancelLabel: 'Bekor qilish',
-      confirmLabel: 'Olib tashlash',
+      title: context.l10n.adminText('warehouse.unassign'),
+      message: context.l10n.adminText(
+        'warehouse.unassign_confirm',
+        values: {'warehouse': _warehouse, 'displayName': displayName},
+      ),
+      cancelLabel: context.l10n.adminText('action.cancel'),
+      confirmLabel: context.l10n.adminText('action.delete'),
     );
     if (confirmed != true || !mounted) {
       return;
@@ -1670,13 +1733,19 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
       await _refreshAssignments();
       await widget.onChanged();
       if (mounted) {
-        _showWarehouseNotice(context, '$displayName assigndan chiqarildi');
+        _showWarehouseNotice(
+          context,
+          context.l10n.adminText(
+            'warehouse.unassigned_user_success',
+            values: {'name': displayName},
+          ),
+        );
       }
     } catch (error) {
       if (mounted) {
         final message = error is MobileApiException
             ? error.message
-            : 'Foydalanuvchi assigndan chiqarilmadi';
+            : context.l10n.adminText('warehouse.unassign_user_failed');
         _showWarehouseNotice(context, message);
       }
     } finally {
@@ -1699,14 +1768,22 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
           final scheme = Theme.of(dialogContext).colorScheme;
           return AlertDialog(
             icon: Icon(Icons.block_rounded, color: scheme.error),
-            title: const Text('Omborni o‘chirib bo‘lmaydi'),
+            title: Text(
+              dialogContext.l10n.adminText('warehouse.delete_blocked'),
+            ),
             content: Text(
-              '“${summary.warehouse}” omborida ${summary.reservedCount} ta faol band qilingan mahsulot bor. Avval ularni bo‘shating.',
+              dialogContext.l10n.adminText(
+                'warehouse.delete_blocked_message',
+                values: {
+                  'warehouse': summary.warehouse,
+                  'count': summary.reservedCount,
+                },
+              ),
             ),
             actions: [
               FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Yopish'),
+                child: Text(dialogContext.l10n.adminText('action.close')),
               ),
             ],
           );
@@ -1726,11 +1803,17 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
       );
       await widget.onDeleted();
       if (mounted) {
-        _showWarehouseNotice(context, 'Ombor o‘chirildi');
+        _showWarehouseNotice(
+          context,
+          context.l10n.adminText('warehouse.deleted'),
+        );
       }
     } catch (error) {
       if (mounted) {
-        _showWarehouseNotice(context, _warehouseDeleteErrorMessage(error));
+        _showWarehouseNotice(
+          context,
+          _warehouseDeleteErrorMessage(error, context.l10n),
+        );
       }
     } finally {
       if (mounted) {
@@ -1750,20 +1833,32 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
         final hasProducts = summary.productCount > 0;
         return AlertDialog(
           icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
-          title: const Text('Omborni o‘chirish'),
+          title: Text(dialogContext.l10n.adminText('warehouse.delete_title')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 hasProducts
-                    ? '“${summary.warehouse}” omborida ${summary.productCount} ta mahsulot bor. Omborni o‘chirsangiz, bu mahsulotlar ham o‘chib ketadi.'
-                    : '“${summary.warehouse}” omborini o‘chirishni tasdiqlaysizmi?',
+                    ? dialogContext.l10n.adminText(
+                        'warehouse.delete_products_warning',
+                        values: {
+                          'warehouse': summary.warehouse,
+                          'count': summary.productCount,
+                        },
+                      )
+                    : dialogContext.l10n.adminText(
+                        'warehouse.delete_confirmation',
+                        values: {'warehouse': summary.warehouse},
+                      ),
               ),
               if (summary.assignmentCount > 0) ...[
                 const SizedBox(height: 12),
                 Text(
-                  '${summary.assignmentCount} ta foydalanuvchi assigni ham olib tashlanadi.',
+                  dialogContext.l10n.adminText(
+                    'warehouse.delete_assignments_warning',
+                    values: {'count': summary.assignmentCount},
+                  ),
                 ),
               ],
             ],
@@ -1778,7 +1873,9 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () => Navigator.of(dialogContext).pop(false),
-                      child: const Text('Bekor qilish'),
+                      child: Text(
+                        dialogContext.l10n.adminText('action.cancel'),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1790,7 +1887,9 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
                       style: FilledButton.styleFrom(
                         backgroundColor: scheme.error,
                       ),
-                      child: const Text('O‘chirish'),
+                      child: Text(
+                        dialogContext.l10n.adminText('action.delete'),
+                      ),
                     ),
                   ),
                 ],
@@ -1822,7 +1921,9 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
           filter,
           if (summary == null) ...[
             const SizedBox(height: 24),
-            const Center(child: Text('Ombor tanlanmagan')),
+            Center(
+              child: Text(context.l10n.adminText('warehouse.no_selection')),
+            ),
           ] else ...[
             const SizedBox(height: 8),
             Card.filled(
@@ -1834,22 +1935,24 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ombor ma’lumoti',
+                      context.l10n.adminText('warehouse.summary'),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                     ),
                     const SizedBox(height: 12),
                     _WarehouseSettingCount(
-                      label: 'Mahsulotlar',
+                      label: context.l10n.adminText('warehouse.items'),
                       value: summary.productCount,
                     ),
                     _WarehouseSettingCount(
-                      label: 'Band qilingan',
+                      label: context.l10n.adminText(
+                        'warehouse.reserved_count',
+                      ),
                       value: summary.reservedCount,
                     ),
                     _WarehouseSettingCount(
-                      label: 'Assignlar',
+                      label: context.l10n.adminText('warehouse.assignments'),
                       value: summary.assignmentCount,
                     ),
                   ],
@@ -1866,7 +1969,7 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Assign qilinganlar',
+                      context.l10n.adminText('warehouse.assigned_users'),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -1886,7 +1989,9 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             child: Text(
-                              'Hech kim assign qilinmagan',
+                              context.l10n.adminText(
+                                'warehouse.no_assignments',
+                              ),
                               style: TextStyle(color: scheme.onSurfaceVariant),
                             ),
                           );
@@ -1920,7 +2025,9 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
                                             key: ValueKey(
                                               'warehouse-unassign-$assignmentKey',
                                             ),
-                                            tooltip: 'Assigndan chiqarish',
+                                            tooltip: context.l10n.adminText(
+                                              'warehouse.unassign',
+                                            ),
                                             onPressed: _removingAssignmentKey ==
                                                     null
                                                 ? () =>
@@ -1944,7 +2051,9 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
                         key: const ValueKey('warehouse-assign-user'),
                         onPressed: _assigning ? null : _assignUser,
                         icon: const Icon(Icons.person_add_alt_1_outlined),
-                        label: const Text('Kimga assign qilish'),
+                        label: Text(
+                          context.l10n.adminText('warehouse.assign_user'),
+                        ),
                       ),
                     ),
                   ],
@@ -1961,7 +2070,7 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Xavfli amal',
+                      context.l10n.adminText('warehouse.dangerous_action'),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: scheme.onErrorContainer,
                             fontWeight: FontWeight.w700,
@@ -1969,7 +2078,9 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Ombor o‘chirilganda uning mahsulotlari va assignlari ham olib tashlanadi.',
+                      context.l10n.adminText(
+                        'warehouse.delete_cascade_warning',
+                      ),
                       style: TextStyle(color: scheme.onErrorContainer),
                     ),
                     const SizedBox(height: 12),
@@ -1983,7 +2094,9 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
                           foregroundColor: scheme.onError,
                         ),
                         icon: const Icon(Icons.delete_outline),
-                        label: const Text('Omborni o‘chirish'),
+                        label: Text(
+                          context.l10n.adminText('warehouse.delete_title'),
+                        ),
                       ),
                     ),
                   ],
@@ -2037,19 +2150,25 @@ void _showWarehouseNotice(BuildContext context, String message) {
   );
 }
 
-String _warehouseDeleteErrorMessage(Object error) {
+String _warehouseDeleteErrorMessage(
+  Object error,
+  AppLocalizations l10n,
+) {
   if (error is MobileApiException) {
     return switch (error.code) {
       'warehouse_has_active_reservations' =>
-        'Omborda faol band qilingan mahsulotlar bor',
-      'warehouse_has_children' => 'Omborda ichki omborlar bor',
+        l10n.adminText('warehouse.delete_error_active'),
+      'warehouse_has_children' =>
+        l10n.adminText('warehouse.delete_error_children'),
       'warehouse_not_empty' =>
-        'Omborda mahsulotlar bor. Ma’lumotni yangilab qayta urinib ko‘ring',
-      'warehouse_not_found' => 'Ombor topilmadi',
-      _ => 'Ombor o‘chirilmadi',
+        l10n.adminText('warehouse.delete_error_not_empty'),
+      'warehouse_not_found' => l10n.adminText(
+          'warehouse.delete_error_not_found',
+        ),
+      _ => l10n.adminText('warehouse.delete_error'),
     };
   }
-  return 'Ombor o‘chirilmadi';
+  return l10n.adminText('warehouse.delete_error');
 }
 
 class _WarehouseFilterBar extends StatelessWidget {
@@ -2072,8 +2191,8 @@ class _WarehouseFilterBar extends StatelessWidget {
     final selected = selectedWarehouse.trim();
     return AdminExpandableFilterChip<String>(
       chipKey: const ValueKey('admin-warehouse-filter-chip'),
-      label: 'Ombor',
-      emptyLabel: 'Tanlanmagan',
+      label: context.l10n.adminText('label.warehouse'),
+      emptyLabel: context.l10n.adminText('warehouse.unselected'),
       icon: Icons.warehouse_outlined,
       selectedValue: selected.isEmpty ? null : selected,
       expanded: expanded,
@@ -2159,11 +2278,10 @@ List<_AdminQolipProductGroup> _groupAdminQolipProducts(
       )
       .toList(growable: false)
     ..sort(
-      (left, right) => (left.name.isEmpty ? left.code : left.name)
-          .toLowerCase()
-          .compareTo(
-            (right.name.isEmpty ? right.code : right.name).toLowerCase(),
-          ),
+      (left, right) =>
+          (left.name.isEmpty ? left.code : left.name).toLowerCase().compareTo(
+                (right.name.isEmpty ? right.code : right.name).toLowerCase(),
+              ),
     );
   return groups;
 }
@@ -2203,17 +2321,23 @@ class _AdminQolipProductRow extends StatelessWidget {
     final title = group.name.isEmpty ? group.code : group.name;
     final subtitle = <String>[
       if (group.code.isNotEmpty && group.code != title) group.code,
-      '${group.qolips.length} ta qolip',
+      '${group.qolips.length} ${context.l10n.adminText('label.item').toLowerCase()}',
       if (group.itemGroup.isNotEmpty) group.itemGroup,
     ].join(' • ');
     final details = <_WarehouseDetailEntry>[
       if (group.code.isNotEmpty)
-        _WarehouseDetailEntry('Mahsulot kodi', group.code),
+        _WarehouseDetailEntry(
+          context.l10n.adminText('label.item_code'),
+          group.code,
+        ),
       if (group.itemGroup.isNotEmpty)
-        _WarehouseDetailEntry('Guruh', group.itemGroup),
+        _WarehouseDetailEntry(
+          context.l10n.adminText('label.group'),
+          group.itemGroup,
+        ),
       for (var index = 0; index < group.qolips.length; index++)
         _WarehouseDetailEntry(
-          'Qolip ${index + 1}',
+          '${context.l10n.adminText('label.item')} ${index + 1}',
           _adminQolipDetail(group.qolips[index]),
         ),
     ];
@@ -2311,15 +2435,27 @@ class _WarehouseItemRow extends StatelessWidget {
       title: title,
       subtitle: subtitle,
       details: [
-        _WarehouseDetailEntry('Kod', item.code),
         _WarehouseDetailEntry(
-          'Mavjud miqdor',
+          context.l10n.adminText('label.code'),
+          item.code,
+        ),
+        _WarehouseDetailEntry(
+          context.l10n.adminText('warehouse.available_quantity'),
           '${_formatQty(item.onHandQty)} ${item.uom}'.trim(),
         ),
-        _WarehouseDetailEntry('Qadoqlar', '${item.packageCount}'),
+        _WarehouseDetailEntry(
+          context.l10n.adminText('warehouse.packages'),
+          '${item.packageCount}',
+        ),
         if (item.itemGroup.trim().isNotEmpty)
-          _WarehouseDetailEntry('Guruh', item.itemGroup),
-        _WarehouseDetailEntry('Ombor', item.warehouse),
+          _WarehouseDetailEntry(
+            context.l10n.adminText('label.group'),
+            item.itemGroup,
+          ),
+        _WarehouseDetailEntry(
+          context.l10n.adminText('label.warehouse'),
+          item.warehouse,
+        ),
       ],
     );
   }
@@ -2403,18 +2539,32 @@ class _WarehouseRawStockRow extends StatelessWidget {
       title: title.isEmpty ? stock.barcode : title,
       subtitle: subtitle,
       details: [
-        _WarehouseDetailEntry('Mahsulot kodi', stock.itemCode),
-        _WarehouseDetailEntry('Shtrix-kod', stock.barcode),
         _WarehouseDetailEntry(
-          'Miqdor',
+          context.l10n.adminText('label.item_code'),
+          stock.itemCode,
+        ),
+        _WarehouseDetailEntry(
+          context.l10n.adminText('label.barcode'),
+          stock.barcode,
+        ),
+        _WarehouseDetailEntry(
+          context.l10n.adminText('label.quantity'),
           '${_formatQty(stock.qty)} ${stock.uom}'.trim(),
         ),
         _WarehouseDetailEntry(
-            'Holati', _warehouseStockStatusLabel(stock.status)),
+          context.l10n.adminText('label.status'),
+          _warehouseStockStatusLabel(stock.status, context.l10n),
+        ),
         if (stock.reservedOrderId.trim().isNotEmpty)
-          _WarehouseDetailEntry('Band', stock.reservedOrderId),
+          _WarehouseDetailEntry(
+            context.l10n.adminText('label.reserved'),
+            stock.reservedOrderId,
+          ),
         if (stock.sourceReceiptId.trim().isNotEmpty)
-          _WarehouseDetailEntry('Kirim raqami', stock.sourceReceiptId),
+          _WarehouseDetailEntry(
+            context.l10n.adminText('label.receipt'),
+            stock.sourceReceiptId,
+          ),
       ],
       expandedFooter: onEdit == null && onQr == null
           ? null
@@ -2427,7 +2577,7 @@ class _WarehouseRawStockRow extends StatelessWidget {
                     IconButton.filledTonal(
                       key: ValueKey('raw-stock-qr-${stock.barcode}'),
                       onPressed: onQr,
-                      tooltip: 'QR kodni ko‘rish',
+                      tooltip: context.l10n.adminText('warehouse.qr_view'),
                       icon: const Icon(Icons.qr_code_2_rounded),
                     ),
                   if (onQr != null && onEdit != null) const SizedBox(width: 8),
@@ -2435,7 +2585,7 @@ class _WarehouseRawStockRow extends StatelessWidget {
                     IconButton.filledTonal(
                       key: ValueKey('raw-stock-edit-${stock.barcode}'),
                       onPressed: onEdit,
-                      tooltip: 'Tahrirlash',
+                      tooltip: context.l10n.adminText('action.edit'),
                       icon: const Icon(Icons.edit_outlined),
                     ),
                 ],
@@ -2465,14 +2615,14 @@ class _RawMaterialStockQrSheetState extends State<_RawMaterialStockQrSheet> {
         prepared.stock.sourceReceiptId.trim() !=
             widget.stock.sourceReceiptId.trim() ||
         prepared.printRequest.epc.trim().toUpperCase() != expectedBarcode) {
-      throw const MobileApiException(
+      throw MobileApiException(
         code: 'raw_material_stock_reprint_identity_mismatch',
-        message: 'Serverdagi QR identifikatori mos kelmadi',
+        message: context.l10n.adminText('warehouse.qr_identity_mismatch'),
       );
     }
     final result = await PrintService.printRps(prepared.printRequest);
     if (!result.ok) {
-      throw StateError('Printer QR kodini chop etmadi');
+      throw StateError(context.l10n.adminText('warehouse.qr_printer_failed'));
     }
     try {
       await MobileApi.instance.adminConfirmRawMaterialStockReprint(
@@ -2481,7 +2631,7 @@ class _RawMaterialStockQrSheetState extends State<_RawMaterialStockQrSheet> {
       );
       return null;
     } catch (_) {
-      return 'QR chop etildi, lekin server tasdig‘i saqlanmadi';
+      return context.l10n.adminText('warehouse.qr_confirmation_failed');
     }
   }
 
@@ -2497,7 +2647,10 @@ class _RawMaterialStockQrSheetState extends State<_RawMaterialStockQrSheet> {
       previewKey: ValueKey('raw-stock-qr-preview-${stock.barcode}'),
       reprintButtonKey: const ValueKey('raw-stock-qr-reprint'),
       details: [
-        RpsQrDetail('Kirim raqami', stock.sourceReceiptId),
+        RpsQrDetail(
+          context.l10n.adminText('label.receipt'),
+          stock.sourceReceiptId,
+        ),
         RpsQrDetail(
           'Miqdor',
           '${_formatQty(stock.qty)} ${stock.uom}'.trim(),
@@ -2506,7 +2659,7 @@ class _RawMaterialStockQrSheetState extends State<_RawMaterialStockQrSheet> {
       onReprint: _reprint,
       errorMessage: (error) => error is MobileApiException
           ? error.message
-          : 'QR kodini qayta chop etib bo‘lmadi',
+          : context.l10n.adminText('warehouse.qr_print_failed'),
     );
   }
 }
@@ -2569,9 +2722,11 @@ class _RawMaterialStockEditSheetState
       barrierColor: Colors.black.withValues(alpha: 0.32),
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) => M3AsyncPickerSheet<SupplierItem>(
-        title: 'Mahsulot tanlang',
-        hintText: 'Mahsulot nomi yoki kodini qidiring',
-        supportingText: 'Faqat sizga biriktirilgan guruh mahsulotlari',
+        title: context.l10n.adminText('warehouse.product_select'),
+        hintText: context.l10n.adminText('warehouse.product_search'),
+        supportingText: context.l10n.adminText(
+          'warehouse.raw_material_groups_only',
+        ),
         pageSize: 80,
         loadPage: (query, offset, limit) => MobileApi.instance.adminItemsPage(
           query: query,
@@ -2601,7 +2756,11 @@ class _RawMaterialStockEditSheetState
         qty == null ||
         !qty.isFinite ||
         qty <= 0) {
-      setState(() => _errorText = 'Mahsulot va musbat miqdorni kiriting');
+      setState(
+        () => _errorText = context.l10n.adminText(
+          'warehouse.raw_material_quantity_required',
+        ),
+      );
       return;
     }
     Navigator.of(context).pop(
@@ -2649,7 +2808,9 @@ class _RawMaterialStockEditSheetState
                     children: [
                       Expanded(
                         child: Text(
-                          'Homashyoni tahrirlash',
+                          context.l10n.adminText(
+                            'warehouse.raw_material_edit_title',
+                          ),
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -2657,7 +2818,7 @@ class _RawMaterialStockEditSheetState
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        tooltip: 'Yopish',
+                        tooltip: context.l10n.adminText('action.close'),
                         icon: const Icon(Icons.close_rounded),
                       ),
                     ],
@@ -2669,7 +2830,7 @@ class _RawMaterialStockEditSheetState
                     child: InputDecorator(
                       decoration: appSurfaceInputDecoration(
                         context,
-                        labelText: 'Mahsulot nomi',
+                        labelText: context.l10n.adminText('material.name'),
                         prefixIcon: const Icon(Icons.science_outlined),
                         suffixIcon: const Icon(Icons.expand_more_rounded),
                       ),
@@ -2711,7 +2872,9 @@ class _RawMaterialStockEditSheetState
                     },
                     decoration: appSurfaceInputDecoration(
                       context,
-                      labelText: 'Kirim miqdori',
+                      labelText: context.l10n.adminText(
+                        'warehouse.incoming_quantity',
+                      ),
                       prefixIcon: const Icon(Icons.scale_outlined),
                     ).copyWith(
                       suffixText: widget.stock.uom.trim(),
@@ -2737,8 +2900,13 @@ class _RawMaterialStockEditSheetState
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Shtrix-kod ${widget.stock.barcode} va kirim raqami '
-                              '${widget.stock.sourceReceiptId} o‘zgarmaydi.',
+                              context.l10n.adminText(
+                                'warehouse.stock_identity_note',
+                                values: {
+                                  'barcode': widget.stock.barcode,
+                                  'receipt': widget.stock.sourceReceiptId,
+                                },
+                              ),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: scheme.onSecondaryContainer,
                               ),
@@ -2753,7 +2921,7 @@ class _RawMaterialStockEditSheetState
                     key: const ValueKey('raw-stock-edit-save'),
                     onPressed: _save,
                     icon: const Icon(Icons.save_outlined),
-                    label: const Text('Saqlash'),
+                    label: Text(context.l10n.adminText('action.save')),
                   ),
                 ],
               ),
@@ -2830,17 +2998,38 @@ class _WarehouseReservationRow extends StatelessWidget {
       title: title,
       subtitle: subtitle,
       details: [
-        _WarehouseDetailEntry('Buyurtma', reservation.orderId),
-        _WarehouseDetailEntry('Kod', reservation.itemCode),
-        _WarehouseDetailEntry('Barcode', reservation.barcode),
+        _WarehouseDetailEntry(
+          context.l10n.adminText('calculate.order'),
+          reservation.orderId,
+        ),
+        _WarehouseDetailEntry(
+          context.l10n.adminText('label.code'),
+          reservation.itemCode,
+        ),
+        _WarehouseDetailEntry(
+          context.l10n.adminText('label.barcode'),
+          reservation.barcode,
+        ),
         if (reservation.itemGroup.trim().isNotEmpty)
-          _WarehouseDetailEntry('Guruh', reservation.itemGroup),
+          _WarehouseDetailEntry(
+            context.l10n.adminText('label.group'),
+            reservation.itemGroup,
+          ),
         if (reservation.apparatus.trim().isNotEmpty)
-          _WarehouseDetailEntry('Apparat', reservation.apparatus),
+          _WarehouseDetailEntry(
+            context.l10n.adminText('label.apparatus'),
+            reservation.apparatus,
+          ),
         if (reservation.assignedByName.trim().isNotEmpty)
-          _WarehouseDetailEntry('Assign', reservation.assignedByName),
+          _WarehouseDetailEntry(
+            context.l10n.adminText('action.assign'),
+            reservation.assignedByName,
+          ),
         if (reservation.assignedAt.trim().isNotEmpty)
-          _WarehouseDetailEntry('Vaqt', reservation.assignedAt),
+          _WarehouseDetailEntry(
+            context.l10n.adminText('label.date'),
+            reservation.assignedAt,
+          ),
       ],
     );
   }
@@ -3085,14 +3274,17 @@ bool _canEditRawMaterialStock(
   );
 }
 
-String _warehouseStockStatusLabel(String rawStatus) {
+String _warehouseStockStatusLabel(
+  String rawStatus,
+  AppLocalizations l10n,
+) {
   return switch (rawStatus.trim().toLowerCase()) {
-    'available' => 'Mavjud',
-    'reserved' || 'band' => 'Band qilingan',
-    'in_use' => 'Ishlatilmoqda',
-    'consumed' => 'Sarflangan',
-    'returned' => 'Qaytarilgan',
-    'processed' => 'Qayta ishlangan',
+    'available' => l10n.adminText('stock.status.available'),
+    'reserved' || 'band' => l10n.adminText('stock.status.reserved'),
+    'in_use' => l10n.adminText('stock.status.in_use'),
+    'consumed' => l10n.adminText('stock.status.consumed'),
+    'returned' => l10n.adminText('stock.status.returned'),
+    'processed' => l10n.adminText('stock.status.processed'),
     final value when value.isEmpty => '',
     final value => value,
   };

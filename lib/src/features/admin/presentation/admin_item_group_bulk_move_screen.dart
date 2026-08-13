@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/search/search_normalizer.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -19,7 +20,7 @@ class AdminItemGroupBulkMoveScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppShell(
       animateOnEnter: false,
-      title: "Mahsulot group ko'chirish",
+      title: context.l10n.adminText('bulk_move.title'),
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -233,7 +234,16 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Mahsulotlar yuklanmadi: $error')));
+      ).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.adminText(
+              'bulk_move.load_failed',
+              values: {'error': error},
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted && showLoader) {
         setState(() => _loadingMore = false);
@@ -262,9 +272,11 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
     }
 
     final confirmed = await _showSafeConfirm(
-      title: "Mahsulotlarni ko'chirish",
-      message:
-          "${_selectedCodes.length} ta mahsulotni \"$targetGroup\" groupiga o'tkazamizmi?",
+      title: context.l10n.adminText('bulk_move.move_title'),
+      message: context.l10n.adminText(
+        'bulk_move.confirm',
+        values: {'count': _selectedCodes.length, 'group': targetGroup},
+      ),
     );
     if (confirmed != true || !mounted) {
       return;
@@ -291,8 +303,17 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
       });
 
       final message = result.failedCount == 0
-          ? "${result.updatedCount} ta mahsulot ko'chirildi"
-          : "${result.updatedCount} ta ko'chirildi, ${result.failedCount} ta xato";
+          ? context.l10n.adminText(
+              'bulk_move.success',
+              values: {'count': result.updatedCount},
+            )
+          : context.l10n.adminText(
+              'bulk_move.partial_success',
+              values: {
+                'updated': result.updatedCount,
+                'failed': result.failedCount,
+              },
+            );
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -302,7 +323,16 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Ko'chirish bajarilmadi: $error")));
+      ).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.adminText(
+              'bulk_move.failed',
+              values: {'error': error},
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _submitting = false);
@@ -802,7 +832,9 @@ class _SafeConfirmDialog extends StatelessWidget {
                   child: _PillButton(
                     enabled: true,
                     onTap: () => Navigator.of(context).pop(false),
-                    child: const Center(child: Text("Yo'q")),
+                    child: Center(
+                      child: Text(context.l10n.adminText('bulk_move.no')),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -810,7 +842,9 @@ class _SafeConfirmDialog extends StatelessWidget {
                   child: _PillButton(
                     enabled: true,
                     onTap: () => Navigator.of(context).pop(true),
-                    child: const Center(child: Text('Ha')),
+                    child: Center(
+                      child: Text(context.l10n.adminText('bulk_move.yes')),
+                    ),
                   ),
                 ),
               ],
@@ -851,6 +885,7 @@ class _BulkMoveHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
     final fieldSurface = theme.brightness == Brightness.light
         ? scheme.surfaceBright
         : scheme.surface;
@@ -864,7 +899,7 @@ class _BulkMoveHeader extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Target group',
+                  l10n.adminText('bulk_move.target_group'),
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -886,7 +921,9 @@ class _BulkMoveHeader extends StatelessWidget {
                     else
                       const Icon(Icons.done_all_rounded, size: 18),
                     const SizedBox(width: 6),
-                    Text(submitting ? "..." : "Ko'chirish"),
+                    Text(
+                      submitting ? '...' : l10n.adminText('bulk_move.action'),
+                    ),
                   ],
                 ),
               ),
@@ -918,7 +955,8 @@ class _BulkMoveHeader extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              selectedGroup ?? 'Group tanlang',
+                              selectedGroup ??
+                                  l10n.adminText('bulk_move.select_group'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodyLarge?.copyWith(
@@ -1024,7 +1062,7 @@ class _BulkMoveHeader extends StatelessWidget {
               controller: searchController,
               enabled: !submitting,
               decoration: InputDecoration(
-                hintText: 'Mahsulot qidirish',
+                hintText: l10n.adminText('bulk_move.search'),
                 isDense: true,
                 filled: true,
                 fillColor: fieldSurface,
@@ -1044,7 +1082,10 @@ class _BulkMoveHeader extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           Text(
-            'Tanlangan: $selectedCount ta',
+            l10n.adminText(
+              'bulk_move.selected_count',
+              values: {'count': selectedCount},
+            ),
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w700,
             ),
@@ -1135,7 +1176,7 @@ class _EmptyItemsView extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 18, 8, 0),
       child: Text(
-        'Mahsulot topilmadi',
+        context.l10n.adminText('item.empty'),
         style: Theme.of(context).textTheme.bodyLarge,
         textAlign: TextAlign.center,
       ),
@@ -1163,7 +1204,7 @@ class _ErrorView extends StatelessWidget {
             Icon(Icons.error_outline_rounded, size: 44, color: scheme.error),
             const SizedBox(height: 12),
             Text(
-              'Mahsulotlar yuklanmadi',
+              context.l10n.adminText('item.loading_failed'),
               style: theme.textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
@@ -1179,7 +1220,7 @@ class _ErrorView extends StatelessWidget {
             _PillButton(
               enabled: true,
               onTap: onRetry,
-              child: const Text('Qayta urinish'),
+              child: Text(context.l10n.adminText('item.retry')),
             ),
           ],
         ),

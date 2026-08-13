@@ -7,6 +7,7 @@ class _CustomerManageButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: SizedBox(
@@ -15,7 +16,7 @@ class _CustomerManageButton extends StatelessWidget {
           key: const ValueKey('admin-item-detail-manage-customers'),
           onPressed: onPressed,
           icon: const Icon(Icons.group_add_rounded),
-          label: const Text('Customerlarni boshqarish'),
+          label: Text(l10n.adminText('detail.manage_customers')),
         ),
       ),
     );
@@ -66,6 +67,7 @@ class _ItemGroupPickerSheetState extends State<_ItemGroupPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final query = _query.trim().toLowerCase();
     final visible = _groups
         .where((group) => query.isEmpty || group.toLowerCase().contains(query))
@@ -78,7 +80,7 @@ class _ItemGroupPickerSheetState extends State<_ItemGroupPickerSheet> {
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
             child: Text(
-              'Item groupni tanlang',
+              l10n.adminText('detail.item_group_select'),
               style: Theme.of(context)
                   .textTheme
                   .titleLarge
@@ -91,8 +93,8 @@ class _ItemGroupPickerSheetState extends State<_ItemGroupPickerSheet> {
               key: const ValueKey('admin-item-group-search'),
               controller: _searchController,
               onChanged: (value) => setState(() => _query = value),
-              decoration: const InputDecoration(
-                labelText: 'Guruhni qidirish',
+              decoration: InputDecoration(
+                labelText: l10n.adminText('detail.item_group_search'),
                 prefixIcon: Icon(Icons.search_rounded),
                 border: OutlineInputBorder(),
               ),
@@ -101,7 +103,9 @@ class _ItemGroupPickerSheetState extends State<_ItemGroupPickerSheet> {
           const SizedBox(height: 10),
           Expanded(
             child: visible.isEmpty
-                ? const Center(child: Text('Guruh topilmadi'))
+                ? Center(
+                    child: Text(l10n.adminText('detail.item_group_not_found')),
+                  )
                 : ListView.builder(
                     itemCount: visible.length,
                     itemBuilder: (context, index) {
@@ -134,7 +138,7 @@ class _ItemGroupPickerSheetState extends State<_ItemGroupPickerSheet> {
               onPressed: _selectedGroup.trim().isEmpty
                   ? null
                   : () => Navigator.of(context).pop(_selectedGroup),
-              child: const Text('Guruhni saqlash'),
+              child: Text(l10n.adminText('detail.item_group_save')),
             ),
           ),
         ],
@@ -257,7 +261,14 @@ class _ItemCustomerPickerSheetState extends State<_ItemCustomerPickerSheet> {
       if (mounted) {
         final message = error.toString().replaceFirst('Exception: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Customer saqlanmadi: $message')),
+          SnackBar(
+            content: Text(
+              context.l10n.adminText(
+                'detail.customer_save_failed',
+                values: {'error': message},
+              ),
+            ),
+          ),
         );
       }
     } finally {
@@ -269,6 +280,7 @@ class _ItemCustomerPickerSheetState extends State<_ItemCustomerPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return SizedBox(
       height: MediaQuery.sizeOf(context).height * 0.84,
       child: Column(
@@ -277,7 +289,7 @@ class _ItemCustomerPickerSheetState extends State<_ItemCustomerPickerSheet> {
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
             child: Text(
-              'Customerlarni boshqarish',
+              l10n.adminText('detail.manage_customers'),
               style: Theme.of(context)
                   .textTheme
                   .titleLarge
@@ -292,10 +304,10 @@ class _ItemCustomerPickerSheetState extends State<_ItemCustomerPickerSheet> {
               textInputAction: TextInputAction.search,
               onSubmitted: (_) => _load(),
               decoration: InputDecoration(
-                labelText: 'Customer qidirish',
+                labelText: l10n.adminText('detail.customer_search'),
                 prefixIcon: const Icon(Icons.search_rounded),
                 suffixIcon: IconButton(
-                  tooltip: 'Qidirish',
+                  tooltip: l10n.adminText('action.search'),
                   onPressed: _loading ? null : _load,
                   icon: const Icon(Icons.arrow_forward_rounded),
                 ),
@@ -317,7 +329,7 @@ class _ItemCustomerPickerSheetState extends State<_ItemCustomerPickerSheet> {
               onPressed: _pendingRef == null
                   ? () => Navigator.of(context).pop(_currentDetail)
                   : null,
-              child: const Text('Tayyor'),
+              child: Text(l10n.adminText('detail.done')),
             ),
           ),
         ],
@@ -332,11 +344,13 @@ class _ItemCustomerPickerSheetState extends State<_ItemCustomerPickerSheet> {
     if (_error != null) {
       return AppRetryState(
         onRetry: _load,
-        message: 'Customerlar yuklanmadi',
+        message: context.l10n.adminText('detail.customer_load_failed'),
       );
     }
     if (_customers.isEmpty) {
-      return const Center(child: Text('Customer topilmadi'));
+      return Center(
+        child: Text(context.l10n.adminText('detail.customer_not_found')),
+      );
     }
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -409,12 +423,14 @@ class _AdminItemEditDialogState extends State<_AdminItemEditDialog> {
   }
 
   void _save() {
+    final l10n = context.l10n;
     final code = _codeController.text.trim();
     final name = _nameController.text.trim();
     if (code.isEmpty || name.isEmpty) {
       setState(() {
-        _validationMessage =
-            code.isEmpty ? 'Item code kiriting' : 'Item nomini kiriting';
+        _validationMessage = code.isEmpty
+            ? l10n.adminText('detail.code_required')
+            : l10n.adminText('detail.name_required');
       });
       return;
     }
@@ -423,8 +439,9 @@ class _AdminItemEditDialogState extends State<_AdminItemEditDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AlertDialog(
-      title: const Text('Itemni tahrirlash'),
+      title: Text(l10n.adminText('detail.item_edit')),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -436,8 +453,8 @@ class _AdminItemEditDialogState extends State<_AdminItemEditDialog> {
               controller: _codeController,
               autocorrect: false,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Code',
+              decoration: InputDecoration(
+                labelText: l10n.adminText('detail.item_code'),
                 border: OutlineInputBorder(),
               ),
             ),
@@ -447,8 +464,8 @@ class _AdminItemEditDialogState extends State<_AdminItemEditDialog> {
               controller: _nameController,
               textCapitalization: TextCapitalization.sentences,
               onSubmitted: (_) => _save(),
-              decoration: const InputDecoration(
-                labelText: 'Nomi',
+              decoration: InputDecoration(
+                labelText: l10n.adminText('detail.item_name'),
                 border: OutlineInputBorder(),
               ),
             ),
@@ -465,12 +482,12 @@ class _AdminItemEditDialogState extends State<_AdminItemEditDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Bekor qilish'),
+          child: Text(l10n.adminText('action.cancel')),
         ),
         FilledButton(
           key: const ValueKey('admin-item-detail-save'),
           onPressed: _save,
-          child: const Text('Saqlash'),
+          child: Text(l10n.adminText('action.save')),
         ),
       ],
     );

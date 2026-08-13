@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 
+import '../../../core/localization/app_localizations.dart';
+
 class FactoryMapObjectSelection {
   const FactoryMapObjectSelection({
     required this.objectId,
@@ -28,7 +30,7 @@ class AdminFactoryMapViewer extends StatelessWidget {
   final bool interactionEnabled;
   final ValueChanged<FactoryMapObjectSelection>? onObjectTap;
 
-  void _handleMessage(String message) {
+  void _handleMessage(String message, String fallbackLabel) {
     try {
       final payload = jsonDecode(message);
       if (payload is! Map || payload['type'] != 'object_tap') {
@@ -42,7 +44,7 @@ class AdminFactoryMapViewer extends StatelessWidget {
       onObjectTap?.call(
         FactoryMapObjectSelection(
           objectId: objectId,
-          label: label.isEmpty ? '3D obyekt · $objectId' : label,
+          label: label.isEmpty ? '$fallbackLabel · $objectId' : label,
         ),
       );
     } on FormatException {
@@ -52,6 +54,7 @@ class AdminFactoryMapViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final rendererScript = kIsWeb
         ? 'assets/packages/model_viewer_plus/assets/factory-map-renderer.js'
         : './factory-map-renderer.js';
@@ -59,7 +62,7 @@ class AdminFactoryMapViewer extends StatelessWidget {
 
     return ModelViewer(
       src: 'assets/models/zavod6-phone.glb',
-      alt: 'Zavod 3D kartasi',
+      alt: l10n.adminText('factory_map.title'),
       interactionEnabled: interactionEnabled,
       customHtml: '''
         <style>
@@ -84,8 +87,8 @@ class AdminFactoryMapViewer extends StatelessWidget {
             var statuses = document.querySelectorAll('[data-factory-map-status]');
             var status = statuses.length ? statuses[statuses.length - 1] : null;
             if (status) {
-              status.textContent = 'Zavod modeli yuklanmadi';
-              status.title = event && (event.message || event.reason || event.type) || 'Unknown renderer error';
+              status.textContent = '${htmlEscape.convert(l10n.adminText('factory_map.renderer_failed'))}';
+              status.title = event && (event.message || event.reason || event.type) || 'Renderer error';
               status.hidden = false;
               status.style.display = 'grid';
             }
@@ -100,7 +103,7 @@ class AdminFactoryMapViewer extends StatelessWidget {
           data-selection-mode="$selectionMode"
           data-selected-object-id="$escapedSelectedObjectId"
         ></canvas>
-        <div id="factory-map-status" data-factory-map-status>Zavod modeli yuklanmoqda...</div>
+        <div id="factory-map-status" data-factory-map-status>${htmlEscape.convert(l10n.adminText('factory_map.model_loading'))}</div>
         <div
           id="factory-map-bridge"
           data-factory-map-bridge
@@ -124,7 +127,10 @@ class AdminFactoryMapViewer extends StatelessWidget {
       javascriptChannels: {
         JavascriptChannel(
           'FactoryMapChannel',
-          onMessageReceived: (message) => _handleMessage(message.message),
+          onMessageReceived: (message) => _handleMessage(
+            message.message,
+            l10n.adminText('factory_map.object_fallback'),
+          ),
         ),
       },
     );
@@ -164,13 +170,14 @@ class _FactoryMapObjectPickerState extends State<_FactoryMapObjectPicker> {
     if (initialObjectId.isNotEmpty) {
       _selection = FactoryMapObjectSelection(
         objectId: initialObjectId,
-        label: '3D obyekt · $initialObjectId',
+        label: initialObjectId,
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final size = MediaQuery.sizeOf(context);
     final viewportWidth = size.width.isFinite ? size.width : 520.0;
@@ -196,14 +203,14 @@ class _FactoryMapObjectPickerState extends State<_FactoryMapObjectPicker> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '3D xaritadan aparat tanlang',
+                          l10n.adminText('factory_map.viewer_title'),
                           style: Theme.of(context)
                               .textTheme
                               .titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          'Xaritadagi kerakli qizil aparat ustiga bosing.',
+                          l10n.adminText('factory_map.viewer_instruction'),
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: scheme.onSurfaceVariant,
@@ -213,7 +220,7 @@ class _FactoryMapObjectPickerState extends State<_FactoryMapObjectPicker> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Yopish',
+                    tooltip: l10n.adminText('factory_map.close'),
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
@@ -244,7 +251,8 @@ class _FactoryMapObjectPickerState extends State<_FactoryMapObjectPicker> {
                     ConstrainedBox(
                       constraints: BoxConstraints(maxWidth: dialogWidth - 24),
                       child: Text(
-                        _selection?.label ?? 'Hali aparat tanlanmadi',
+                        _selection?.label ??
+                            l10n.adminText('factory_map.viewer_not_selected'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -261,14 +269,16 @@ class _FactoryMapObjectPickerState extends State<_FactoryMapObjectPicker> {
                         children: [
                           TextButton(
                             onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('Bekor qilish'),
+                            child: Text(l10n.adminText('action.cancel')),
                           ),
                           FilledButton.icon(
                             onPressed: _selection == null
                                 ? null
                                 : () => Navigator.of(context).pop(_selection),
                             icon: const Icon(Icons.check_rounded),
-                            label: const Text('Tanlash'),
+                            label: Text(
+                              l10n.adminText('factory_map.viewer_select'),
+                            ),
                           ),
                         ],
                       ),

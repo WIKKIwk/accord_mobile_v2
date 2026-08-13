@@ -45,8 +45,10 @@ class AdminCreateHubScreen extends StatelessWidget {
                 ),
                 const Divider(height: 1, thickness: 1),
                 _CreateHubRow(
-                  title: 'Ishchi sozlamalari',
-                  subtitle: 'Ishchi va darajasini alohida yuritish',
+                  title: context.l10n.adminText('create_hub.worker_settings'),
+                  subtitle: context.l10n.adminText(
+                    'create_hub.worker_settings_subtitle',
+                  ),
                   onTap: () => Navigator.of(
                     context,
                   ).pushNamed(AppRoutes.adminWorkerSettings),
@@ -77,7 +79,7 @@ class AdminCreateHubScreen extends StatelessWidget {
                 const Divider(height: 1, thickness: 1),
                 _CreateHubRow(
                   title: context.l10n.adminCreateOrderTitle,
-                  subtitle: 'Formula uchun yangi saqlanadigan zakaz ochish',
+                  subtitle: context.l10n.adminText('create_hub.saved_order'),
                   onTap: () =>
                       Navigator.of(context).pushNamed(AppRoutes.adminCalculate),
                 ),

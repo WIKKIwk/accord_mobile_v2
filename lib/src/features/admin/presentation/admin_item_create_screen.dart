@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/session.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
@@ -141,7 +142,10 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       availableUoms = await itemUomsFuture;
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'O‘lchov birliklari yuklanmadi');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('item.uom_load_failed'),
+        );
       }
       return false;
     }
@@ -156,20 +160,29 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       }
     }
     if (selectedUom == null) {
-      showAdminTopNotice(context, 'O‘lchov birligini tanlang');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('item.uom_required'),
+      );
       return false;
     }
     uom.text = selectedUom.trim();
     final group = itemGroup.text.trim();
     if (_requiresCustomer(group) && selectedCustomer == null) {
-      showAdminTopNotice(context, 'Tayyor mahsulot uchun customer tanlang');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('item.customer_required'),
+      );
       return false;
     }
     setState(() => saving = true);
     try {
       if (await _itemCodeAlreadyExists()) {
         if (mounted) {
-          showAdminTopNotice(context, 'Item allaqachon yaratilgan');
+          showAdminTopNotice(
+            context,
+            context.l10n.adminText('item.already_exists'),
+          );
         }
         return false;
       }
@@ -192,13 +205,21 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       if (!mounted) {
         return true;
       }
-      showAdminTopNotice(context, 'Item yaratildi: ${item.code}');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText(
+          'item.created',
+          values: {'code': item.code},
+        ),
+      );
       return true;
     } catch (error) {
       if (mounted) {
         showAdminTopNotice(
           context,
-          error is MobileApiException ? error.message : 'Item yaratilmadi',
+          error is MobileApiException
+              ? error.message
+              : context.l10n.adminText('item.create_failed'),
         );
       }
       return false;
@@ -237,8 +258,8 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3AsyncPickerSheet<String>(
-          title: 'Item group tanlang',
-          hintText: 'Item group qidiring',
+          title: context.l10n.adminText('item.group_select'),
+          hintText: context.l10n.adminText('item.group_search'),
           pageSize: 50,
           loadPage: (query, offset, limit) async {
             final normalizedQuery = query.trim().toLowerCase();
@@ -279,8 +300,8 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3AsyncPickerSheet<String>(
-          title: 'O‘lchov birligini tanlang',
-          hintText: 'O‘lchov birligini qidiring',
+          title: context.l10n.adminText('item.uom_select'),
+          hintText: context.l10n.adminText('item.uom_search'),
           pageSize: 50,
           loadPage: (query, offset, limit) async {
             final normalizedQuery = query.trim().toLowerCase();
@@ -316,8 +337,8 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3AsyncPickerSheet<CustomerDirectoryEntry>(
-          title: 'Customer tanlang',
-          hintText: 'Customer qidiring',
+          title: context.l10n.adminText('item.customer_select'),
+          hintText: context.l10n.adminText('item.customer_search'),
           pageSize: 50,
           cacheKey: 'admin:item-create-customers',
           loadPage: (query, offset, limit) {
@@ -419,7 +440,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       titleWidget: AdminCatalogSearchField(
         controller: _itemsSearchController,
         focusNode: _itemsSearchFocusNode,
-        hintText: 'Mahsulot qidirish',
+        hintText: context.l10n.adminText('item.search'),
         onChanged: (value) =>
             _itemsListTabKey.currentState?.notifySearchChanged(value),
         onClear: () {
@@ -432,7 +453,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
         activeTab: AdminDockTab.settings,
         primaryFabActions: [
           AdminFabMenuAction(
-            title: 'Item qo‘shish',
+            title: context.l10n.adminText('item.add_title'),
             icon: Icons.inventory_2_outlined,
             onTap: _openItemCreateDialog,
           ),
@@ -450,9 +471,15 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
                   ? const SizedBox.shrink()
                   : AdminSurfaceTabBar(
                       controller: _tabController,
-                      tabs: const [
-                        Tab(height: 38, text: 'Itemlar'),
-                        Tab(height: 38, text: "Group ko'chirish"),
+                      tabs: [
+                        Tab(
+                          height: 38,
+                          text: context.l10n.adminText('item.items_tab'),
+                        ),
+                        Tab(
+                          height: 38,
+                          text: context.l10n.adminText('item.group_move_tab'),
+                        ),
                       ],
                     ),
             ),
@@ -566,7 +593,7 @@ class _ItemCreateDialogCard extends StatelessWidget {
                     controller: code,
                     decoration: appSoftInputDecoration(
                       context,
-                      labelText: 'Mahsulot kodi',
+                      labelText: context.l10n.adminText('item.code'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -575,7 +602,7 @@ class _ItemCreateDialogCard extends StatelessWidget {
                     controller: name,
                     decoration: appSoftInputDecoration(
                       context,
-                      labelText: 'Mahsulot nomi',
+                      labelText: context.l10n.adminText('item.name'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -597,7 +624,7 @@ class _ItemCreateDialogCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Mahsulot guruhi',
+                            context.l10n.adminText('item.group_label'),
                             style: theme.textTheme.labelMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: scheme.onSurfaceVariant,
@@ -634,7 +661,10 @@ class _ItemCreateDialogCard extends StatelessWidget {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      selectedGroup ?? 'Guruh tanlang',
+                                      selectedGroup ??
+                                          context.l10n.adminText(
+                                            'item.group_required',
+                                          ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style:
@@ -658,7 +688,7 @@ class _ItemCreateDialogCard extends StatelessWidget {
                           const SizedBox(height: 12),
                           if (requiresCustomer) ...[
                             Text(
-                              'Haridor',
+                              context.l10n.adminText('item.customer_label'),
                               style: theme.textTheme.labelMedium?.copyWith(
                                 fontWeight: FontWeight.w700,
                                 color: scheme.onSurfaceVariant,
@@ -692,7 +722,9 @@ class _ItemCreateDialogCard extends StatelessWidget {
                                     Expanded(
                                       child: Text(
                                         selectedCustomer == null
-                                            ? 'Haridor tanlang'
+                                            ? context.l10n.adminText(
+                                                'item.customer_required_short',
+                                              )
                                             : selectedCustomer!.name,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -708,7 +740,9 @@ class _ItemCreateDialogCard extends StatelessWidget {
                                     if (selectedCustomer != null) ...[
                                       const SizedBox(width: 10),
                                       IconButton(
-                                        tooltip: 'Tozalash',
+                                        tooltip: context.l10n.adminText(
+                                          'action.clear',
+                                        ),
                                         onPressed:
                                             saving ? null : onClearCustomer,
                                         icon: const Icon(Icons.close_rounded),
@@ -749,7 +783,7 @@ class _ItemCreateDialogCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'O‘lchov birligi',
+                            context.l10n.adminText('item.uom_label'),
                             style: theme.textTheme.labelMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: scheme.onSurfaceVariant,
@@ -783,9 +817,13 @@ class _ItemCreateDialogCard extends StatelessWidget {
                                   Expanded(
                                     child: Text(
                                       snapshot.hasError
-                                          ? 'O‘lchov birliklari yuklanmadi'
+                                          ? context.l10n.adminText(
+                                              'item.uom_load_failed',
+                                            )
                                           : selectedUom.isEmpty
-                                              ? 'O‘lchov birligini tanlang'
+                                              ? context.l10n.adminText(
+                                                  'item.uom_required',
+                                                )
                                               : selectedUom,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -818,7 +856,9 @@ class _ItemCreateDialogCard extends StatelessWidget {
                       key: const ValueKey('admin-item-create-submit'),
                       onPressed: onSave,
                       child: Text(
-                        saving ? 'Yaratilmoqda...' : 'Item qo‘shish',
+                        saving
+                            ? context.l10n.adminText('item.creating')
+                            : context.l10n.adminText('item.add_title'),
                       ),
                     ),
                   ),
@@ -831,7 +871,7 @@ class _ItemCreateDialogCard extends StatelessWidget {
               child: IconButton(
                 onPressed: saving ? null : onClose,
                 icon: const Icon(Icons.close_rounded),
-                tooltip: 'Yopish',
+                tooltip: context.l10n.adminText('item.close'),
               ),
             ),
           ],
@@ -1058,7 +1098,7 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
             if (!widget.embeddedSearchInAppBar) ...[
               SearchBar(
                 controller: _searchController,
-                hintText: 'Mahsulot qidirish',
+                hintText: context.l10n.adminText('item.search'),
                 constraints: const BoxConstraints(minHeight: 58),
                 padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
                   EdgeInsets.symmetric(horizontal: 18),
@@ -1135,8 +1175,8 @@ class _AdminItemsListBody extends StatelessWidget {
     }
     if (error != null && items.isEmpty) {
       return _ItemListNotice(
-        text: 'Itemlar yuklanmadi',
-        actionText: 'Qayta urinish',
+        text: context.l10n.adminText('item.loading_failed'),
+        actionText: context.l10n.adminText('item.retry'),
         onAction: onRetry,
       );
     }
@@ -1171,7 +1211,9 @@ class _AdminItemsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const _ItemListNotice(text: 'Item topilmadi');
+      return _ItemListNotice(
+        text: context.l10n.adminText('item.empty'),
+      );
     }
     final scheme = Theme.of(context).colorScheme;
     return Column(
@@ -1202,14 +1244,14 @@ class _AdminItemsList extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Yana yuklash'),
+              label: Text(context.l10n.adminText('item.load_more')),
             ),
           )
         else if (hasMore)
           Padding(
             padding: const EdgeInsets.all(12),
             child: Text(
-              'Pastga scroll qiling, qolganlari yuklanadi',
+              context.l10n.adminText('item.scroll_load_more'),
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),

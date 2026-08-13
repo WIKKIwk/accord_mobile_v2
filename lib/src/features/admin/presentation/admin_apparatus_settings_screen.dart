@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
@@ -173,7 +174,7 @@ class _AdminApparatusSettingsScreenState
       }
       setState(() {
         _loading = false;
-        _loadError = 'Aparat sozlamalari yuklanmadi';
+        _loadError = context.l10n.adminText('apparatus.load_failed');
       });
     }
   }
@@ -233,7 +234,9 @@ class _AdminApparatusSettingsScreenState
   void _editApparatus(AdminApparatus apparatus) {
     if (apparatus.isDefault) {
       showAdminTopNotice(
-          context, 'Standart aparat master-data\'si o\'zgarmaydi');
+        context,
+        context.l10n.adminText('apparatus.master_data_immutable'),
+      );
       return;
     }
     setState(() {
@@ -371,7 +374,7 @@ class _AdminApparatusSettingsScreenState
   Future<void> _pickApparatusFamily() async {
     final picked = await _showApparatusSinglePicker(
       context,
-      title: 'Aparat oilasi tanlang',
+      title: context.l10n.adminText('apparatus.family_select'),
       options: _apparatusOptions.families,
       selected: _selectedApparatusFamily,
     );
@@ -394,12 +397,15 @@ class _AdminApparatusSettingsScreenState
   Future<void> _pickApparatusKind() async {
     final family = _selectedApparatusFamily;
     if (family == null) {
-      showAdminTopNotice(context, 'Avval aparat oilasini tanlang');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('apparatus.family_required'),
+      );
       return;
     }
     final picked = await _showApparatusSinglePicker(
       context,
-      title: 'Aparat turi tanlang',
+      title: context.l10n.adminText('apparatus.kind_select'),
       options: _apparatusOptions.kindsForFamily(family),
       selected: _selectedApparatusKind,
     );
@@ -466,7 +472,10 @@ class _AdminApparatusSettingsScreenState
     final targetKey = groupName?.trim().toLowerCase() ?? '';
     if (targetKey.isNotEmpty &&
         !_groups.any((group) => group.name.trim().toLowerCase() == targetKey)) {
-      showAdminTopNotice(context, 'Bunday guruh topilmadi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('apparatus.group_not_found'),
+      );
       return;
     }
 
@@ -496,8 +505,8 @@ class _AdminApparatusSettingsScreenState
       showAdminTopNotice(
         context,
         targetKey.isEmpty
-            ? 'Aparat guruhdan chiqarilgan'
-            : 'Aparat shu guruhda allaqachon bor',
+            ? context.l10n.adminText('apparatus.assign_removed')
+            : context.l10n.adminText('apparatus.assign_already'),
       );
       return;
     }
@@ -512,14 +521,17 @@ class _AdminApparatusSettingsScreenState
         showAdminTopNotice(
           context,
           targetKey.isEmpty
-              ? 'Aparat guruhdan chiqarildi'
-              : 'Aparat guruhga biriktirildi',
+              ? context.l10n.adminText('apparatus.assign_removed')
+              : context.l10n.adminText('apparatus.assigned'),
         );
       }
     } catch (_) {
       await _load(showLoading: false);
       if (mounted) {
-        showAdminTopNotice(context, 'Aparat guruhi saqlanmadi');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('apparatus.save_failed'),
+        );
       }
     }
   }
@@ -562,7 +574,10 @@ class _AdminApparatusSettingsScreenState
             item.factoryMapObjectId.trim() == normalizedObjectId) {
           showAdminTopNotice(
             context,
-            'Bu 3D obyekt ${item.name} apparatiga biriktirilgan',
+            context.l10n.adminText(
+              'apparatus.map_duplicate',
+              values: {'name': item.name},
+            ),
           );
           return null;
         }
@@ -595,13 +610,16 @@ class _AdminApparatusSettingsScreenState
       showAdminTopNotice(
         context,
         normalizedObjectId.isEmpty
-            ? '3D xarita bog‘lanishi olib tashlandi'
-            : 'Aparat 3D xaritaga biriktirildi',
+            ? context.l10n.adminText('apparatus.map_removed')
+            : context.l10n.adminText('apparatus.map_assigned'),
       );
       return visibleSaved;
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, '3D xarita bog‘lanishi saqlanmadi');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('apparatus.map_save_failed'),
+        );
       }
       return null;
     }
@@ -636,12 +654,17 @@ class _AdminApparatusSettingsScreenState
       _saveCache();
       showAdminTopNotice(
         context,
-        enabled ? 'Training rejimi yoqildi' : 'Training rejimi o‘chirildi',
+        enabled
+            ? context.l10n.adminText('apparatus.training_enabled')
+            : context.l10n.adminText('apparatus.training_disabled'),
       );
       return saved;
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'Training rejimi saqlanmadi');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('apparatus.training_save_failed'),
+        );
       }
       return null;
     }
@@ -650,7 +673,10 @@ class _AdminApparatusSettingsScreenState
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty || _selected.isEmpty || _saving) {
-      showAdminTopNotice(context, 'Guruh nomi va aparatlar kerak');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('apparatus.group_required'),
+      );
       return;
     }
     setState(() => _saving = true);
@@ -676,10 +702,16 @@ class _AdminApparatusSettingsScreenState
         _expandedGroupName = saved.name;
       });
       _saveCache();
-      showAdminTopNotice(context, 'Aparat guruhi saqlandi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('apparatus.saved'),
+      );
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'Aparat guruhi saqlanmadi');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('apparatus.save_failed'),
+        );
       }
     } finally {
       if (mounted) {
@@ -691,7 +723,10 @@ class _AdminApparatusSettingsScreenState
   Future<void> _createApparatus() async {
     final name = _apparatusName.text.trim();
     if (name.isEmpty || _creatingApparatus) {
-      showAdminTopNotice(context, 'Aparat nomi kerak');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('apparatus.name_required'),
+      );
       return;
     }
     final family = _selectedApparatusFamily;
@@ -699,7 +734,10 @@ class _AdminApparatusSettingsScreenState
     if (family == null ||
         kind == null ||
         _selectedApparatusCapabilities.isEmpty) {
-      showAdminTopNotice(context, 'Aparat oilasi, turi va capability tanlang');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('apparatus.kind_required'),
+      );
       return;
     }
     final colorStationsText = _apparatusColorStations.text.trim();
@@ -713,8 +751,13 @@ class _AdminApparatusSettingsScreenState
             colorStations > _apparatusOptions.colorStationsMax)) {
       showAdminTopNotice(
         context,
-        'Rang stansiyalari ${_apparatusOptions.colorStationsMin}-'
-        '${_apparatusOptions.colorStationsMax} oralig\'ida bo\'lsin',
+        context.l10n.adminText(
+          'apparatus.color_stations_range',
+          values: {
+            'min': _apparatusOptions.colorStationsMin,
+            'max': _apparatusOptions.colorStationsMax,
+          },
+        ),
       );
       return;
     }
@@ -804,12 +847,15 @@ class _AdminApparatusSettingsScreenState
       showAdminTopNotice(
         context,
         previousId == null
-            ? 'Aparat qo\'shildi'
-            : 'Aparat master-data\'si saqlandi',
+            ? context.l10n.adminText('apparatus.added')
+            : context.l10n.adminText('apparatus.master_saved'),
       );
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'Aparat qo\'shilmadi');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('apparatus.add_failed'),
+        );
       }
     } finally {
       if (mounted) {
@@ -839,11 +885,11 @@ class _AdminApparatusSettingsScreenState
                     unawaited(_showApparatusEditor());
                   },
             icon: const Icon(Icons.add_circle_outline_rounded),
-            label: const Text('Aparat qo\'shish'),
+            label: Text(context.l10n.adminText('apparatus.add')),
           ),
           const SizedBox(height: 16),
           Text(
-            'Mavjud aparatlar',
+            context.l10n.adminText('apparatus.available'),
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: scheme.primary,
                   fontWeight: FontWeight.w800,
@@ -854,7 +900,7 @@ class _AdminApparatusSettingsScreenState
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
-                'Aparatlar topilmadi',
+                context.l10n.adminText('apparatus.empty'),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -899,8 +945,8 @@ class _AdminApparatusSettingsScreenState
                 Expanded(
                   child: Text(
                     _editingApparatusId == null
-                        ? 'Aparat qo\'shish'
-                        : 'Aparatni tahrirlash',
+                        ? context.l10n.adminText('apparatus.add')
+                        : context.l10n.adminText('apparatus.edit'),
                     style: Theme.of(context)
                         .textTheme
                         .titleMedium
@@ -908,7 +954,7 @@ class _AdminApparatusSettingsScreenState
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Yopish',
+                  tooltip: context.l10n.adminText('action.close'),
                   onPressed: _closeCreateEditor,
                   icon: const Icon(Icons.close_rounded),
                 ),
@@ -939,7 +985,7 @@ class _AdminApparatusSettingsScreenState
                 children: [
                   Expanded(
                     child: Text(
-                      'Master-data tahriri',
+                      context.l10n.adminText('apparatus.master_data_edit'),
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             color: scheme.onSecondaryContainer,
                             fontWeight: FontWeight.w700,
@@ -950,7 +996,7 @@ class _AdminApparatusSettingsScreenState
                     onPressed: () {
                       _closeCreateEditor();
                     },
-                    child: const Text('Bekor qilish'),
+                    child: Text(context.l10n.adminText('action.cancel')),
                   ),
                 ],
               ),
@@ -965,41 +1011,46 @@ class _AdminApparatusSettingsScreenState
           onSubmitted: (_) => _createApparatus(),
           decoration: appSurfaceInputDecoration(
             context,
-            labelText: 'Aparat nomi',
+            labelText: context.l10n.adminText('apparatus.name'),
             hintText: 'Bobst 1',
           ),
         ),
         const SizedBox(height: 8),
         AdminPickerField(
-          label: 'Aparat oilasi (family)',
+          label: context.l10n.adminText('apparatus.family'),
           value: _selectedApparatusFamily == null
               ? null
-              : _apparatusOptionLabel(_selectedApparatusFamily!),
-          placeholder: 'Aparat oilasini tanlang',
+              : _apparatusOptionLabel(
+                  _selectedApparatusFamily!,
+                  context.l10n,
+                ),
+          placeholder: context.l10n.adminText('apparatus.family_placeholder'),
           enabled: !_creatingApparatus,
           onTap: _pickApparatusFamily,
         ),
         const SizedBox(height: 8),
         AdminPickerField(
-          label: 'Aparat turi (kind)',
+          label: context.l10n.adminText('apparatus.kind'),
           value: _selectedApparatusKind == null
               ? null
-              : _apparatusOptionLabel(_selectedApparatusKind!),
+              : _apparatusOptionLabel(_selectedApparatusKind!, context.l10n),
           placeholder: _selectedApparatusFamily == null
-              ? 'Avval oilani tanlang'
-              : 'Aparat turini tanlang',
+              ? context.l10n.adminText('apparatus.kind_before_family')
+              : context.l10n.adminText('apparatus.kind_placeholder'),
           enabled: !_creatingApparatus && _selectedApparatusFamily != null,
           onTap: _pickApparatusKind,
         ),
         const SizedBox(height: 8),
         AdminPickerField(
-          label: 'Capability lar',
+          label: context.l10n.adminText('apparatus.capabilities'),
           value: _selectedApparatusCapabilities.isEmpty
               ? null
               : _selectedApparatusCapabilities
-                  .map(_apparatusOptionLabel)
+                  .map((value) => _apparatusOptionLabel(value, context.l10n))
                   .join(', '),
-          placeholder: 'Capability tanlang',
+          placeholder: context.l10n.adminText(
+            'apparatus.capability_placeholder',
+          ),
           enabled: !_creatingApparatus,
           onTap: _pickApparatusCapabilities,
         ),
@@ -1011,7 +1062,7 @@ class _AdminApparatusSettingsScreenState
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: appSurfaceInputDecoration(
               context,
-              labelText: 'Rang stansiyalari (ixtiyoriy)',
+              labelText: context.l10n.adminText('apparatus.color_stations'),
               hintText: '${_apparatusOptions.colorStationsMin}-'
                   '${_apparatusOptions.colorStationsMax}',
             ),
@@ -1023,10 +1074,10 @@ class _AdminApparatusSettingsScreenState
           icon: const Icon(Icons.precision_manufacturing_outlined),
           label: Text(
             _creatingApparatus
-                ? 'Saqlanmoqda...'
+                ? context.l10n.adminText('action.saving')
                 : _editingApparatusId == null
-                    ? 'Aparat qo\'shish'
-                    : 'Master-data\'ni saqlash',
+                    ? context.l10n.adminText('apparatus.add')
+                    : context.l10n.adminText('apparatus.master_save'),
           ),
         ),
       ],
@@ -1060,7 +1111,10 @@ class _AdminApparatusSettingsScreenState
                   children: [
                     Expanded(
                       child: Text(
-                        'Tahrirlanmoqda: $_editingGroupName',
+                        context.l10n.adminText(
+                          'apparatus.editing_group',
+                          values: {'name': _editingGroupName},
+                        ),
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                               color: scheme.onSecondaryContainer,
                               fontWeight: FontWeight.w700,
@@ -1069,7 +1123,7 @@ class _AdminApparatusSettingsScreenState
                     ),
                     TextButton(
                       onPressed: _clearEditor,
-                      child: const Text('Bekor qilish'),
+                      child: Text(context.l10n.adminText('action.cancel')),
                     ),
                   ],
                 ),
@@ -1082,13 +1136,13 @@ class _AdminApparatusSettingsScreenState
             focusNode: _nameFocus,
             decoration: appSurfaceInputDecoration(
               context,
-              labelText: 'Guruh nomi',
+              labelText: context.l10n.adminText('apparatus.group_name'),
               hintText: 'bosma',
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            'Guruh aparatlari',
+            context.l10n.adminText('apparatus.group_apparatus'),
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: scheme.primary,
                   fontWeight: FontWeight.w800,
@@ -1099,7 +1153,7 @@ class _AdminApparatusSettingsScreenState
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
-                'Aparatlar topilmadi',
+                context.l10n.adminText('apparatus.empty'),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -1110,8 +1164,12 @@ class _AdminApparatusSettingsScreenState
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
                 _editingGroupName == null
-                    ? 'Bo\'sh aparatlar yo\'q. Barcha aparatlar boshqa guruhlarga biriktirilgan.'
-                    : 'Tanlash uchun bo\'sh aparat qolmadi.',
+                    ? context.l10n.adminText(
+                        'apparatus.no_free_apparatus',
+                      )
+                    : context.l10n.adminText(
+                        'apparatus.no_free_apparatus_edit',
+                      ),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                       height: 1.3,
@@ -1149,11 +1207,15 @@ class _AdminApparatusSettingsScreenState
           FilledButton.icon(
             onPressed: _saving ? null : _save,
             icon: const Icon(Icons.save_outlined),
-            label: Text(_saving ? 'Saqlanmoqda...' : 'Saqlash'),
+            label: Text(
+              _saving
+                  ? context.l10n.adminText('action.saving')
+                  : context.l10n.adminText('apparatus.group_save'),
+            ),
           ),
           const SizedBox(height: 20),
           Text(
-            'Saqlangan guruhlar',
+            context.l10n.adminText('apparatus.saved_groups'),
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: scheme.primary,
                   fontWeight: FontWeight.w800,
@@ -1164,7 +1226,7 @@ class _AdminApparatusSettingsScreenState
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
-                'Guruhlar topilmadi',
+                context.l10n.adminText('apparatus.groups_empty'),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -1199,7 +1261,7 @@ class _AdminApparatusSettingsScreenState
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 112;
     return AppShell(
-      title: 'Aparat sozlamalari',
+      title: context.l10n.adminText('apparatus.title'),
       subtitle: '',
       drawer: AdminNavigationDrawer(
         selectedIndex: 0,
@@ -1229,11 +1291,25 @@ class _AdminApparatusSettingsScreenState
                       controller: _tabController,
                       isScrollable: true,
                       tabAlignment: TabAlignment.start,
-                      tabs: const [
-                        Tab(height: 38, text: 'Aparat qo\'shish'),
-                        Tab(height: 38, text: 'Aparat guruhlari'),
-                        Tab(height: 38, text: 'Aparat navbati'),
-                        Tab(height: 38, text: 'Quvvat / jadval'),
+                      tabs: [
+                        Tab(
+                          height: 38,
+                          text: context.l10n.adminText('apparatus.add'),
+                        ),
+                        Tab(
+                          height: 38,
+                          text: context.l10n.adminText('apparatus.groups'),
+                        ),
+                        Tab(
+                          height: 38,
+                          text: context.l10n.adminText('apparatus.tabs_queue'),
+                        ),
+                        Tab(
+                          height: 38,
+                          text: context.l10n.adminText(
+                            'apparatus.tabs_capacity',
+                          ),
+                        ),
                       ],
                     ),
                     Expanded(
@@ -1261,24 +1337,25 @@ class _AdminApparatusSettingsScreenState
   }
 }
 
-String _apparatusOptionLabel(String value) {
+String _apparatusOptionLabel(String value, AppLocalizations l10n) {
   return switch (value) {
-    'pechat' => 'Pechat',
-    'laminatsiya' => 'Laminatsiya',
-    'rezka' => 'Rezka',
-    'paket' => 'Paket',
-    'kley' => 'Kley',
-    'other' => 'Boshqa',
-    'color_pechat' => 'Rangli pechat',
-    'flexo' => 'Flexo',
-    'extruder_laminatsiya' => 'Extruder laminatsiya',
-    'holodniy_kley' => 'Holodniy kley',
-    'print' => 'Bosma (print)',
-    'laminate' => 'Laminatsiya (laminate)',
-    'cut' => 'Rezka (cut)',
-    'package' => 'Paket (package)',
-    'glue' => 'Kley (glue)',
-    'apparatus' => 'Aparat',
+    'pechat' => l10n.adminText('apparatus.option.pechat'),
+    'laminatsiya' => l10n.adminText('apparatus.option.laminatsiya'),
+    'rezka' => l10n.adminText('apparatus.option.rezka'),
+    'paket' => l10n.adminText('apparatus.option.paket'),
+    'kley' => l10n.adminText('apparatus.option.kley'),
+    'other' => l10n.adminText('apparatus.option.other'),
+    'color_pechat' => l10n.adminText('apparatus.option.color_pechat'),
+    'flexo' => l10n.adminText('apparatus.option.flexo'),
+    'extruder_laminatsiya' =>
+      l10n.adminText('apparatus.option.extruder_laminatsiya'),
+    'holodniy_kley' => l10n.adminText('apparatus.option.holodniy_kley'),
+    'print' => l10n.adminText('apparatus.option.print'),
+    'laminate' => l10n.adminText('apparatus.option.laminate'),
+    'cut' => l10n.adminText('apparatus.option.cut'),
+    'package' => l10n.adminText('apparatus.option.package'),
+    'glue' => l10n.adminText('apparatus.option.glue'),
+    'apparatus' => l10n.adminText('apparatus.option.apparatus'),
     _ => value,
   };
 }
@@ -1361,7 +1438,9 @@ class _ApparatusSinglePickerSheet extends StatelessWidget {
                   final option = options[index];
                   final isSelected = option == selected;
                   return ListTile(
-                    title: Text(_apparatusOptionLabel(option)),
+                    title: Text(
+                      _apparatusOptionLabel(option, context.l10n),
+                    ),
                     subtitle: Text(option),
                     selected: isSelected,
                     trailing: Icon(
@@ -1447,7 +1526,9 @@ class _ApparatusCapabilitiesPickerSheetState
                 children: [
                   Expanded(
                     child: Text(
-                      'Capability tanlang',
+                      context.l10n.adminText(
+                        'apparatus.capability_placeholder',
+                      ),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -1469,7 +1550,9 @@ class _ApparatusCapabilitiesPickerSheetState
                   final option = widget.options[index];
                   final isSelected = _selected.contains(option);
                   return CheckboxListTile(
-                    title: Text(_apparatusOptionLabel(option)),
+                    title: Text(
+                      _apparatusOptionLabel(option, context.l10n),
+                    ),
                     subtitle: Text(option),
                     value: isSelected,
                     selected: isSelected,
@@ -1500,7 +1583,7 @@ class _ApparatusCapabilitiesPickerSheetState
                       ? null
                       : () => Navigator.of(context).pop({..._selected}),
                   icon: const Icon(Icons.check_rounded),
-                  label: const Text('Tasdiqlash'),
+                  label: Text(context.l10n.adminText('action.confirm')),
                 ),
               ),
             ),
@@ -1524,20 +1607,23 @@ IconData _apparatusIcon(String title) {
   return Icons.precision_manufacturing_rounded;
 }
 
-String _apparatusKindLabel(String title) {
+String _apparatusKindLabel(String title, AppLocalizations l10n) {
   if (productionMapIsPechatApparatus(title)) {
-    return 'Bosma aparat';
+    return l10n.adminText('apparatus.kind.printing');
   }
   if (productionMapIsLaminatsiyaApparatus(title)) {
-    return 'Laminatsiya mashinasi';
+    return l10n.adminText('apparatus.kind.lamination');
   }
   if (productionMapIsRezkaApparatus(title)) {
-    return 'Rezka mashinasi';
+    return l10n.adminText('apparatus.kind.cutting');
   }
-  return 'Aparat';
+  return l10n.adminText('label.apparatus');
 }
 
-String _apparatusMetadataLabel(AdminApparatus apparatus) {
+String _apparatusMetadataLabel(
+  AdminApparatus apparatus,
+  AppLocalizations l10n,
+) {
   final kind = apparatus.kind.trim();
   final capabilities = apparatus.capabilities.join(', ');
   if (kind.isNotEmpty && capabilities.isNotEmpty) {
@@ -1546,7 +1632,7 @@ String _apparatusMetadataLabel(AdminApparatus apparatus) {
   if (kind.isNotEmpty) {
     return kind;
   }
-  return _apparatusKindLabel(apparatus.name);
+  return _apparatusKindLabel(apparatus.name, l10n);
 }
 
 Widget _apparatusLeading(BuildContext context, String title) {
@@ -1588,7 +1674,7 @@ class _ApparatusListRow extends StatelessWidget {
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       title: apparatus.name,
-      subtitle: _apparatusMetadataLabel(apparatus),
+      subtitle: _apparatusMetadataLabel(apparatus, context.l10n),
       value: '',
       showChevron: true,
       onTap: onTap,
@@ -1600,7 +1686,7 @@ class _ApparatusListRow extends StatelessWidget {
       trailing: onEdit == null
           ? null
           : IconButton(
-              tooltip: 'Master-data tahriri',
+              tooltip: context.l10n.adminText('apparatus.master_data_edit'),
               onPressed: onEdit,
               icon: const Icon(Icons.edit_outlined),
               visualDensity: VisualDensity.compact,
@@ -1638,7 +1724,7 @@ class _ApparatusSelectRow extends StatelessWidget {
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       title: title,
-      subtitle: _apparatusKindLabel(title),
+      subtitle: _apparatusKindLabel(title, context.l10n),
       value: '',
       showChevron: false,
       fixedHeight: 61,
@@ -1778,8 +1864,8 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
               const SizedBox(height: 10),
               Text(
                 objectId.isEmpty
-                    ? '3D xaritada belgilanmagan'
-                    : '3D xaritaga biriktirilgan',
+                    ? context.l10n.adminText('apparatus.map_unmarked')
+                    : context.l10n.adminText('apparatus.map_linked'),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -1787,7 +1873,7 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
               const SizedBox(height: 4),
               Text(
                 objectId.isEmpty
-                    ? 'Zavod xaritasidan shu apparatga mos qizil obyektni tanlang.'
+                    ? context.l10n.adminText('apparatus.map_instruction')
                     : objectId,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
@@ -1806,7 +1892,9 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
                 )
               : const Icon(Icons.map_outlined),
           label: Text(
-            objectId.isEmpty ? 'Xaritadan tanlash' : 'Xaritadan qayta tanlash',
+            objectId.isEmpty
+                ? context.l10n.adminText('apparatus.map_select')
+                : context.l10n.adminText('apparatus.map_reselect'),
           ),
         ),
         if (objectId.isNotEmpty) ...[
@@ -1814,7 +1902,7 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
           OutlinedButton.icon(
             onPressed: _savingMapObject ? null : _clearMapObject,
             icon: const Icon(Icons.link_off_rounded),
-            label: const Text('Bog‘lanishni olib tashlash'),
+            label: Text(context.l10n.adminText('apparatus.remove_link')),
           ),
         ],
       ],
@@ -1847,11 +1935,15 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
           contentPadding: EdgeInsets.zero,
           value: enabled,
           onChanged: _savingTraining ? null : _setTrainingEnabled,
-          title: const Text('Training’ni yoqish'),
+          title: Text(context.l10n.adminText('apparatus.training_switch')),
           subtitle: Text(
             enabled
-                ? 'Training rejimi faol. Keyingi bosqichda demo orderlar shu apparatda ko‘rinadi.'
-                : 'Production rejimi faol.',
+                ? context.l10n.adminText(
+                    'apparatus.training_on_description',
+                  )
+                : context.l10n.adminText(
+                    'apparatus.training_off_description',
+                  ),
           ),
           secondary: _savingTraining
               ? const SizedBox.square(
@@ -1886,7 +1978,7 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
       children: [
         Text(
-          'Aparatni qaysi guruhda ishlatishni belgilang.',
+          context.l10n.adminText('apparatus.group_description'),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
                 height: 1.3,
@@ -1895,14 +1987,14 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
         const SizedBox(height: 14),
         DropdownButtonFormField<String>(
           initialValue: _selectedGroupName,
-          decoration: const InputDecoration(
-            labelText: 'Aparat guruhi',
-            prefixIcon: Icon(Icons.folder_copy_outlined),
+          decoration: InputDecoration(
+            labelText: context.l10n.adminText('apparatus.group'),
+            prefixIcon: const Icon(Icons.folder_copy_outlined),
           ),
           items: [
-            const DropdownMenuItem(
+            DropdownMenuItem(
               value: '',
-              child: Text('Guruhsiz'),
+              child: Text(context.l10n.adminText('apparatus.unassigned')),
             ),
             for (final group in widget.groups)
               DropdownMenuItem(
@@ -1924,11 +2016,15 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.link_rounded),
-          label: Text(_savingGroup ? 'Saqlanmoqda...' : 'Guruhni saqlash'),
+          label: Text(
+            _savingGroup
+                ? context.l10n.adminText('action.saving')
+                : context.l10n.adminText('apparatus.group_save'),
+          ),
         ),
         const SizedBox(height: 20),
         Text(
-          'Mavjud guruhlar',
+          context.l10n.adminText('apparatus.available_groups'),
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: scheme.primary,
                 fontWeight: FontWeight.w800,
@@ -1937,7 +2033,7 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
         const SizedBox(height: 8),
         if (widget.groups.isEmpty)
           Text(
-            'Hali guruh yaratilmagan.',
+            context.l10n.adminText('apparatus.no_groups'),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -1949,7 +2045,12 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
               dense: true,
               leading: const Icon(Icons.folder_outlined),
               title: Text(group.name),
-              subtitle: Text('${group.apparatus.length} ta aparat'),
+              subtitle: Text(
+                context.l10n.adminText(
+                  'apparatus.count',
+                  values: {'count': group.apparatus.length},
+                ),
+              ),
             ),
       ],
     );
@@ -1982,7 +2083,7 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Aparat sozlamalari',
+                            context.l10n.adminText('apparatus.title'),
                             style: Theme.of(context)
                                 .textTheme
                                 .titleLarge
@@ -1999,21 +2100,25 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Yopish',
+                      tooltip: context.l10n.adminText('action.close'),
                       onPressed: widget.onClose,
                       icon: const Icon(Icons.close_rounded),
                     ),
                   ],
                 ),
               ),
-              const TabBar(
+              TabBar(
                 isScrollable: true,
                 tabs: [
-                  Tab(text: 'Guruh'),
-                  Tab(text: 'Navbat'),
-                  Tab(text: 'Quvvat / jadval'),
-                  Tab(text: '3D xarita'),
-                  Tab(text: 'Training'),
+                  Tab(text: context.l10n.adminText('apparatus.tabs_group')),
+                  Tab(text: context.l10n.adminText('apparatus.tabs_queue')),
+                  Tab(
+                    text: context.l10n.adminText('apparatus.tabs_capacity'),
+                  ),
+                  Tab(text: context.l10n.adminText('apparatus.tabs_map')),
+                  Tab(
+                    text: context.l10n.adminText('apparatus.tabs_training'),
+                  ),
                 ],
               ),
               Expanded(
@@ -2127,7 +2232,10 @@ class _ApparatusGroupListTile extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${group.apparatus.length} ta aparat',
+                          context.l10n.adminText(
+                            'apparatus.count',
+                            values: {'count': group.apparatus.length},
+                          ),
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: scheme.onSurfaceVariant,
@@ -2166,7 +2274,9 @@ class _ApparatusGroupListTile extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
                           child: Text(
-                            'Bu guruhda aparat yo‘q',
+                            context.l10n.adminText(
+                              'apparatus.no_apparatus_in_group',
+                            ),
                             style: Theme.of(context)
                                 .textTheme
                                 .bodySmall
@@ -2198,7 +2308,7 @@ class _ApparatusGroupListTile extends StatelessWidget {
                                             ),
                                       ),
                                       Text(
-                                        _apparatusKindLabel(name),
+                                        _apparatusKindLabel(name, context.l10n),
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall
@@ -2219,7 +2329,9 @@ class _ApparatusGroupListTile extends StatelessWidget {
                           child: TextButton.icon(
                             onPressed: onEdit,
                             icon: const Icon(Icons.edit_rounded, size: 18),
-                            label: const Text('Tahrirlash'),
+                            label: Text(
+                              context.l10n.adminText('action.edit'),
+                            ),
                           ),
                         ),
                       ),

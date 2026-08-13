@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../shared/models/app_models.dart';
 import '../../admin/models/production_map_models.dart';
@@ -123,7 +124,7 @@ class _AdminApparatusCapacityPanelState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Aparat quvvati yuklanmadi';
+        _error = context.l10n.adminText('capacity.load_failed');
       });
     }
   }
@@ -269,13 +270,16 @@ class _AdminApparatusCapacityPanelState
         setup == null ||
         cleanup == null ||
         efficiency == null) {
-      showAdminTopNotice(context, 'Quvvat qiymatlarini to‘g‘ri kiriting');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('capacity.value_invalid'),
+      );
       return;
     }
     if (!_workingWindowsInputIsValid(_workingWindows.text)) {
       showAdminTopNotice(
         context,
-        'Ish vaqti 1:480-1020;2:480-1020 ko‘rinishida bo‘lsin',
+        context.l10n.adminText('capacity.window_invalid'),
       );
       return;
     }
@@ -300,7 +304,12 @@ class _AdminApparatusCapacityPanelState
         ),
       );
       await _load(showLoading: false);
-      if (mounted) showAdminTopNotice(context, 'Aparat quvvati saqlandi');
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('capacity.profile_saved'),
+        );
+      }
     } catch (error) {
       if (mounted) showAdminTopNotice(context, _errorMessage(error));
     } finally {
@@ -316,7 +325,10 @@ class _AdminApparatusCapacityPanelState
         orderId.isEmpty ||
         duration == null ||
         duration <= 0) {
-      showAdminTopNotice(context, 'Order va davomiylikni kiriting');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('capacity.order_required'),
+      );
       return;
     }
     final candidateApparatuses = _scheduleWithAlternatives
@@ -341,7 +353,12 @@ class _AdminApparatusCapacityPanelState
             'admin:$orderId:${apparatus.id}:${_scheduleStart.millisecondsSinceEpoch}:$candidateKey',
       );
       await _load(showLoading: false);
-      if (mounted) showAdminTopNotice(context, 'Order jadvalga qo‘yildi');
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('capacity.order_scheduled'),
+        );
+      }
     } catch (error) {
       if (mounted) showAdminTopNotice(context, _errorMessage(error));
     } finally {
@@ -392,7 +409,10 @@ class _AdminApparatusCapacityPanelState
     final hours = double.tryParse(_downtimeHours.text.trim());
     final reason = _downtimeReason.text.trim();
     if (apparatus == null || hours == null || hours <= 0 || reason.isEmpty) {
-      showAdminTopNotice(context, 'Nosozlik va sababni kiriting');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('capacity.downtime_required'),
+      );
       return;
     }
     final start = DateTime.now();
@@ -412,7 +432,12 @@ class _AdminApparatusCapacityPanelState
       );
       _downtimeReason.clear();
       await _load(showLoading: false);
-      if (mounted) showAdminTopNotice(context, 'Nosozlik vaqti saqlandi');
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('capacity.downtime_saved'),
+        );
+      }
     } catch (error) {
       if (mounted) showAdminTopNotice(context, _errorMessage(error));
     }
@@ -420,7 +445,7 @@ class _AdminApparatusCapacityPanelState
 
   String _errorMessage(Object error) {
     if (error is MobileApiException) return error.message;
-    return 'Amal bajarilmadi';
+    return context.l10n.adminText('capacity.action_failed');
   }
 
   String _formatUnix(int value) {
@@ -443,6 +468,7 @@ class _AdminApparatusCapacityPanelState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
@@ -482,14 +508,14 @@ class _AdminApparatusCapacityPanelState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Quvvat va capability profili',
+                  l10n.adminText('capacity.profile_title'),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Finite capacity, setup/cleanup va Flexo kabi capability darajalari shu yerda boshqariladi.',
+                  l10n.adminText('capacity.profile_description'),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -498,7 +524,9 @@ class _AdminApparatusCapacityPanelState
                 if (widget.showApparatusSelector) ...[
                   DropdownButtonFormField<String>(
                     initialValue: selected?.id,
-                    decoration: _decoration('Aparat'),
+                    decoration: _decoration(
+                      l10n.adminText('capacity.apparatus'),
+                    ),
                     items: [
                       for (final item in widget.apparatus)
                         DropdownMenuItem(
@@ -519,7 +547,9 @@ class _AdminApparatusCapacityPanelState
                       child: TextField(
                         controller: _capacitySlots,
                         keyboardType: TextInputType.number,
-                        decoration: _decoration('Parallel slot'),
+                        decoration: _decoration(
+                          l10n.adminText('capacity.parallel_slots'),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -527,7 +557,9 @@ class _AdminApparatusCapacityPanelState
                       child: TextField(
                         controller: _efficiency,
                         keyboardType: TextInputType.number,
-                        decoration: _decoration('Efficiency %'),
+                        decoration: _decoration(
+                          l10n.adminText('capacity.efficiency'),
+                        ),
                       ),
                     ),
                   ],
@@ -539,7 +571,9 @@ class _AdminApparatusCapacityPanelState
                       child: TextField(
                         controller: _setupMinutes,
                         keyboardType: TextInputType.number,
-                        decoration: _decoration('Setup min'),
+                        decoration: _decoration(
+                          l10n.adminText('capacity.setup_minutes'),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -547,7 +581,9 @@ class _AdminApparatusCapacityPanelState
                       child: TextField(
                         controller: _cleanupMinutes,
                         keyboardType: TextInputType.number,
-                        decoration: _decoration('Cleanup min'),
+                        decoration: _decoration(
+                          l10n.adminText('capacity.cleanup_minutes'),
+                        ),
                       ),
                     ),
                   ],
@@ -558,32 +594,33 @@ class _AdminApparatusCapacityPanelState
                   onChanged: _saving
                       ? null
                       : (value) => setState(() => _finiteCapacity = value),
-                  title: const Text('Finite capacity'),
-                  subtitle: const Text(
-                    'O‘chirilsa, shu aparat parallel jadvalni cheklamaydi.',
+                  title: Text(l10n.adminText('capacity.finite_title')),
+                  subtitle: Text(
+                    l10n.adminText('capacity.finite_description'),
                   ),
                 ),
                 TextField(
                   controller: _workingWindows,
                   maxLines: 2,
                   decoration: _decoration(
-                    'Ish vaqti: 1:480-1020;2:480-1020',
+                    l10n.adminText('capacity.working_windows'),
                   ).copyWith(
-                    helperText:
-                        '1=Dushanba, 7=Yakshanba; bo‘sh qoldirilsa 24/7',
+                    helperText: l10n.adminText('capacity.working_windows_help'),
                   ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _capabilities,
                   maxLines: 2,
-                  decoration: _decoration('Capability: flexo:3, print'),
+                  decoration: _decoration(
+                    l10n.adminText('capacity.capabilities'),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _notes,
                   maxLines: 2,
-                  decoration: _decoration('Izoh / standart'),
+                  decoration: _decoration(l10n.adminText('capacity.notes')),
                 ),
                 const SizedBox(height: 10),
                 Align(
@@ -592,7 +629,7 @@ class _AdminApparatusCapacityPanelState
                     onPressed:
                         selected == null || _saving ? null : _saveProfile,
                     icon: const Icon(Icons.save_outlined),
-                    label: const Text('Profilni saqlash'),
+                    label: Text(l10n.adminText('capacity.save_profile')),
                   ),
                 ),
               ],
@@ -603,7 +640,7 @@ class _AdminApparatusCapacityPanelState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Orderni rejalashtirish',
+                  l10n.adminText('capacity.schedule_title'),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -614,7 +651,7 @@ class _AdminApparatusCapacityPanelState
                       _orders.any((item) => item.map.id == _orderId.text)
                           ? _orderId.text
                           : null,
-                  decoration: _decoration('Order'),
+                  decoration: _decoration(l10n.adminText('capacity.order')),
                   items: [
                     for (final item in _orders)
                       DropdownMenuItem(
@@ -635,11 +672,11 @@ class _AdminApparatusCapacityPanelState
                       ? null
                       : (value) =>
                           setState(() => _scheduleWithAlternatives = value),
-                  title: const Text('Mos alternativ aparatni ham ko‘rish'),
+                  title: Text(l10n.adminText('capacity.alternatives_title')),
                   subtitle: Text(
                     _scheduleCandidates().isEmpty
-                        ? 'Tanlangan oilada boshqa aparat topilmadi'
-                        : 'Eng erta bo‘sh slot topilgan mos aparat tanlanadi',
+                        ? l10n.adminText('capacity.alternatives_none')
+                        : l10n.adminText('capacity.alternatives_hint'),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -649,7 +686,9 @@ class _AdminApparatusCapacityPanelState
                       child: TextField(
                         controller: _duration,
                         keyboardType: TextInputType.number,
-                        decoration: _decoration('Ish min'),
+                        decoration: _decoration(
+                          l10n.adminText('capacity.duration'),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -657,7 +696,8 @@ class _AdminApparatusCapacityPanelState
                       child: OutlinedButton(
                         onPressed: _pickScheduleStart,
                         child: Text(
-                            'Boshlanish\n${_formatUnix(_scheduleStart.millisecondsSinceEpoch ~/ 1000)}'),
+                          '${l10n.adminText('capacity.start')}\n${_formatUnix(_scheduleStart.millisecondsSinceEpoch ~/ 1000)}',
+                        ),
                       ),
                     ),
                   ],
@@ -665,12 +705,16 @@ class _AdminApparatusCapacityPanelState
                 const SizedBox(height: 8),
                 TextField(
                   controller: _requirements,
-                  decoration: _decoration('Talab: flexo:2 (ixtiyoriy)'),
+                  decoration: _decoration(
+                    l10n.adminText('capacity.requirements'),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _scheduleReason,
-                  decoration: _decoration('Sabab / priority izohi'),
+                  decoration: _decoration(
+                    l10n.adminText('capacity.reason_priority'),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Align(
@@ -679,7 +723,7 @@ class _AdminApparatusCapacityPanelState
                     onPressed:
                         selected == null || _saving ? null : _scheduleOrder,
                     icon: const Icon(Icons.event_available_outlined),
-                    label: const Text('Jadvalga qo‘yish'),
+                    label: Text(l10n.adminText('capacity.add_schedule')),
                   ),
                 ),
               ],
@@ -690,7 +734,7 @@ class _AdminApparatusCapacityPanelState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Rejalashtirilgan bandlik',
+                  l10n.adminText('capacity.reservations_title'),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -698,7 +742,7 @@ class _AdminApparatusCapacityPanelState
                 const SizedBox(height: 8),
                 if (reservations.isEmpty)
                   Text(
-                    'Hozircha reservation yo‘q',
+                    l10n.adminText('capacity.reservations_empty'),
                     style: TextStyle(color: scheme.onSurfaceVariant),
                   )
                 else
@@ -717,7 +761,7 @@ class _AdminApparatusCapacityPanelState
                       ),
                       trailing: reservation.status == 'planned'
                           ? IconButton(
-                              tooltip: 'Bekor qilish',
+                              tooltip: l10n.adminText('capacity.cancel'),
                               onPressed: () => _cancelReservation(reservation),
                               icon: const Icon(Icons.cancel_outlined),
                             )
@@ -734,7 +778,7 @@ class _AdminApparatusCapacityPanelState
                   children: [
                     Expanded(
                       child: Text(
-                        'Downtime / nosozlik',
+                        l10n.adminText('capacity.downtime_title'),
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w800,
@@ -742,7 +786,7 @@ class _AdminApparatusCapacityPanelState
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Saqlash',
+                      tooltip: l10n.adminText('action.save'),
                       onPressed: _addDowntime,
                       icon: const Icon(Icons.add_task_outlined),
                     ),
@@ -754,7 +798,9 @@ class _AdminApparatusCapacityPanelState
                       child: TextField(
                         controller: _downtimeHours,
                         keyboardType: TextInputType.number,
-                        decoration: _decoration('Soat'),
+                        decoration: _decoration(
+                          l10n.adminText('capacity.hours'),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -762,7 +808,9 @@ class _AdminApparatusCapacityPanelState
                       flex: 2,
                       child: TextField(
                         controller: _downtimeReason,
-                        decoration: _decoration('Sabab'),
+                        decoration: _decoration(
+                          l10n.adminText('capacity.reason'),
+                        ),
                       ),
                     ),
                   ],

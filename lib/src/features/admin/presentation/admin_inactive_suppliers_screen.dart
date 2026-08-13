@@ -1,4 +1,5 @@
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -65,7 +66,7 @@ class _AdminInactiveSuppliersScreenState
   @override
   Widget build(BuildContext context) {
     return AppShell(
-      title: 'Inactive Suppliers',
+      title: context.l10n.adminText('users.inactive_title'),
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -85,7 +86,7 @@ class _AdminInactiveSuppliersScreenState
             return Center(
               child: SoftCard(
                 child: Text(
-                  'Hozircha bloklangan yoki chiqarilgan supplier yo‘q.',
+                  context.l10n.adminText('users.inactive_empty'),
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
@@ -114,13 +115,13 @@ class _AdminInactiveSuppliersScreenState
                             ),
                           ),
                           if (item.removed)
-                            const _StatusChip(
-                              label: 'Chiqarilgan',
+                            _StatusChip(
+                              label: context.l10n.adminText('users.removed'),
                               color: Colors.white,
                             )
                           else if (item.blocked)
-                            const _StatusChip(
-                              label: 'Blocked',
+                            _StatusChip(
+                              label: context.l10n.adminText('users.blocked'),
                               color: Colors.white,
                             ),
                         ],
@@ -143,7 +144,13 @@ class _AdminInactiveSuppliersScreenState
                               child: FilledButton(
                                 onPressed: busy ? null : () => _restore(item),
                                 child: Text(
-                                  busy ? 'Qaytarilmoqda...' : 'Qaytarish',
+                                  busy
+                                      ? context.l10n.adminText(
+                                          'users.restoring',
+                                        )
+                                      : context.l10n.adminText(
+                                          'users.restore',
+                                        ),
                                 ),
                               ),
                             ),
@@ -154,7 +161,13 @@ class _AdminInactiveSuppliersScreenState
                               child: OutlinedButton(
                                 onPressed: busy ? null : () => _unblock(item),
                                 child: Text(
-                                  busy ? 'Ochilmoqda...' : 'Blokdan ochish',
+                                  busy
+                                      ? context.l10n.adminText(
+                                          'users.unblocking',
+                                        )
+                                      : context.l10n.adminText(
+                                          'users.unblock',
+                                        ),
                                 ),
                               ),
                             ),

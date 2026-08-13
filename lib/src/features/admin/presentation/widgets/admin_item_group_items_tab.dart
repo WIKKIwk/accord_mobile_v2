@@ -1,4 +1,5 @@
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../../core/widgets/shell/app_shell.dart' show AppRefreshIndicator;
 import '../../../shared/models/app_models.dart';
@@ -161,6 +162,7 @@ class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final selected = widget.selectedGroup?.trim();
     final bottomPadding = MediaQuery.paddingOf(context).bottom + 240;
     return ColoredBox(
@@ -174,12 +176,12 @@ class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
           physics: const TopRefreshScrollPhysics(),
           children: [
             Text(
-              'Group itemlari',
+              l10n.adminText('item_group.items_title'),
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 6),
             Text(
-              'Group tanlanganda mahsulotlar lazy load bilan yuklanadi.',
+              l10n.adminText('item_group.items_description'),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 14),
@@ -190,7 +192,9 @@ class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
                   return const LinearProgressIndicator();
                 }
                 if (snapshot.hasError) {
-                  return const _NoticeCard(text: 'Grouplar yuklanmadi');
+                  return _NoticeCard(
+                    text: l10n.adminText('item_group.load_failed'),
+                  );
                 }
                 return _GroupSelector(
                   groups: _displayGroups(
@@ -264,14 +268,15 @@ class _GroupSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (groups.isEmpty) {
-      return const _NoticeCard(text: 'Group topilmadi');
+      return _NoticeCard(text: l10n.adminText('item_group.not_found'));
     }
     final selected = selectedGroup?.trim();
     return AdminExpandableFilterChip<String>(
       chipKey: const ValueKey('admin-item-group-items-filter-chip'),
-      label: 'Group',
-      emptyLabel: 'Tanlanmagan',
+      label: l10n.adminText('item_group.group'),
+      emptyLabel: l10n.adminText('item_group.not_selected'),
       icon: Icons.inventory_2_outlined,
       selectedValue: selected == null || selected.isEmpty ? null : selected,
       expanded: expanded,
@@ -316,10 +321,11 @@ class _ItemsBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final selected = selectedGroup?.trim();
     if (selected == null || selected.isEmpty) {
-      return const _NoticeCard(
-        text: 'Tree’dan group uchun Show ni bosing yoki group tanlang',
+      return _NoticeCard(
+        text: l10n.adminText('item_group.tree_show_hint'),
       );
     }
     if (loadedGroup != selected || initialLoading) {
@@ -332,8 +338,8 @@ class _ItemsBody extends StatelessWidget {
     }
     if (error != null && items.isEmpty) {
       return _NoticeCard(
-        text: 'Group itemlari yuklanmadi',
-        actionText: 'Qayta urinish',
+        text: l10n.adminText('item_group.items_load_failed'),
+        actionText: l10n.adminText('action.retry'),
         onAction: onRetry,
       );
     }

@@ -253,8 +253,8 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       icon: Icons.add_location_alt_outlined,
       routeName: AppRoutes.adminFactoryLocations,
     ),
-    const _AdminHomeAction(
-      title: 'Joylashtirish va transfer',
+    _AdminHomeAction(
+      title: l10n.adminText('home.inventory_transfer'),
       icon: Icons.swap_horiz_rounded,
       routeName: AppRoutes.inventoryMovements,
     ),
@@ -288,8 +288,8 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       icon: Icons.list_alt_rounded,
       routeName: AppRoutes.adminCalculateOrders,
     ),
-    const _AdminHomeAction(
-      title: 'Xomashyo mikronlari',
+    _AdminHomeAction(
+      title: l10n.adminText('home.raw_material_microns'),
       icon: Icons.straighten_rounded,
       routeName: AppRoutes.adminCalculateMaterials,
     ),
@@ -318,8 +318,8 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       icon: Icons.inventory_2_outlined,
       routeName: AppRoutes.adminWipBatches,
     ),
-    const _AdminHomeAction(
-      title: 'GScale',
+    _AdminHomeAction(
+      title: l10n.adminText('home.gscale'),
       icon: Icons.scale_outlined,
       routeName: AppRoutes.gscaleMode,
     ),

@@ -1,4 +1,5 @@
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../../core/widgets/shell/app_shell.dart' show AppRefreshIndicator;
 import '../../models/admin_item_group_tree_entry.dart';
@@ -24,6 +25,7 @@ class AdminItemGroupTreeTab extends StatelessWidget {
     return FutureBuilder<List<AdminItemGroupTreeEntry>>(
       future: itemGroupTreeFuture,
       builder: (context, snapshot) {
+        final l10n = context.l10n;
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -32,7 +34,7 @@ class AdminItemGroupTreeTab extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                'Item group tree yuklanmadi',
+                l10n.adminText('item_group.tree_load_failed'),
                 style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center,
               ),
@@ -65,7 +67,7 @@ class AdminItemGroupTreeTab extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'Item Group tree',
+                          l10n.adminText('item_group.tree_title'),
                           style: Theme.of(context)
                               .textTheme
                               .titleMedium
@@ -73,7 +75,7 @@ class AdminItemGroupTreeTab extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Parent va child guruhlarni ERPNext tree tartibida ko‘rsatadi.',
+                          l10n.adminText('item_group.tree_description'),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         const SizedBox(height: 14),

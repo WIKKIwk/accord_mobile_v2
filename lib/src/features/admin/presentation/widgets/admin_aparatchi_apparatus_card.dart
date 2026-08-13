@@ -6,6 +6,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/localization/app_localizations.dart';
+
 class AdminAparatchiApparatusCard extends StatefulWidget {
   const AdminAparatchiApparatusCard({
     super.key,
@@ -88,14 +90,20 @@ class _AdminAparatchiApparatusCardState
   Future<bool> _saveSelection(Set<String> selected) async {
     if (selected.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kamida bitta aparat tanlang')),
+        SnackBar(
+          content: Text(context.l10n.adminText('scope.select_required')),
+        ),
       );
       return false;
     }
     final assignment = _assignment;
     if (widget.materialTaminotchi && assignment == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Material ta’minotchi role’i topilmadi')),
+        SnackBar(
+          content: Text(
+            context.l10n.adminText('scope.material_supplier_missing'),
+          ),
+        ),
       );
       return false;
     }
@@ -121,7 +129,9 @@ class _AdminAparatchiApparatusCardState
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Aparatlar saqlandi')));
+      ).showSnackBar(
+        SnackBar(content: Text(context.l10n.adminText('scope.saved'))),
+      );
       await _load();
       return true;
     } catch (error) {
@@ -130,7 +140,16 @@ class _AdminAparatchiApparatusCardState
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Aparatlar saqlanmadi: $error')));
+      ).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.adminText(
+              'scope.save_failed',
+              values: {'error': error},
+            ),
+          ),
+        ),
+      );
       return false;
     } finally {
       if (mounted) {
@@ -158,24 +177,25 @@ class _AdminAparatchiApparatusCardState
   }
 
   Widget _buildMaterialApparatusField() {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     if (_loading) {
-      return const _MaterialApparatusField(
-        title: 'Material ta’minotchi aparatlari',
-        subtitle: 'Yuklanmoqda...',
+      return _MaterialApparatusField(
+        title: l10n.adminText('scope.material_supplier_title'),
+        subtitle: l10n.adminText('action.loading'),
         trailing: Icon(Icons.hourglass_top_rounded),
       );
     }
     if (_error != null) {
       return _MaterialApparatusField(
-        title: 'Material ta’minotchi aparatlari',
-        subtitle: 'Yuklanmadi. Qayta urinib ko‘ring.',
+        title: l10n.adminText('scope.material_supplier_title'),
+        subtitle: l10n.adminText('scope.load_failed'),
         trailing: IconButton(
           key: const ValueKey('admin-material-apparatus-retry'),
           onPressed: _load,
           icon: const Icon(Icons.refresh_rounded),
-          tooltip: 'Qayta urinish',
+          tooltip: l10n.adminText('action.retry'),
         ),
       );
     }
@@ -185,10 +205,13 @@ class _AdminAparatchiApparatusCardState
     final selectedCount = _selected.length;
     return _MaterialApparatusField(
       key: const ValueKey('admin-material-apparatus-field'),
-      title: 'Material ta’minotchi aparatlari',
+      title: l10n.adminText('scope.material_supplier_title'),
       subtitle: selectedCount == 0
-          ? 'Aparat tanlanmagan'
-          : '$selectedCount ta apparat tanlangan',
+          ? l10n.adminText('scope.none_selected')
+          : l10n.adminText(
+              'scope.selected_count',
+              values: {'count': selectedCount},
+            ),
       trailing: Icon(
         Icons.chevron_right_rounded,
         color: scheme.onSurfaceVariant,
@@ -218,13 +241,13 @@ class _AdminAparatchiApparatusCardState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Aparatlar yuklanmadi',
+                context.l10n.adminText('scope.load_failed'),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
               OutlinedButton(
                 onPressed: _load,
-                child: const Text('Qayta urinish'),
+                child: Text(context.l10n.adminText('action.retry')),
               ),
             ],
           ),
@@ -238,12 +261,13 @@ class _AdminAparatchiApparatusCardState
     }
 
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final title = widget.materialTaminotchi
-        ? 'Material ta’minotchi aparatlari'
-        : 'Aparatchi aparatlari';
+        ? l10n.adminText('scope.material_supplier_title')
+        : l10n.adminText('scope.operator_title');
     final description = widget.materialTaminotchi
-        ? 'Homashyo ulash filtrida faqat tanlangan aparatlar ko‘rinadi.'
-        : 'Bu foydalanuvchi faqat tanlangan aparat ketma-ketligini ko‘radi.';
+        ? l10n.adminText('scope.material_description')
+        : l10n.adminText('scope.operator_description');
     return Card.filled(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -276,7 +300,11 @@ class _AdminAparatchiApparatusCardState
             const SizedBox(height: 12),
             FilledButton(
               onPressed: _saving ? null : _save,
-              child: Text(_saving ? 'Saqlanmoqda...' : 'Aparatlarni saqlash'),
+              child: Text(
+                _saving
+                    ? l10n.adminText('action.saving')
+                    : l10n.adminText('scope.save_action'),
+              ),
             ),
           ],
         ),
@@ -353,6 +381,7 @@ class _AdminMaterialApparatusSheetState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return FractionallySizedBox(
@@ -369,7 +398,7 @@ class _AdminMaterialApparatusSheetState
                 children: [
                   Expanded(
                     child: Text(
-                      'Material ta’minotchi aparatlari',
+                      l10n.adminText('scope.material_supplier_title'),
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -388,7 +417,7 @@ class _AdminMaterialApparatusSheetState
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 children: [
                   Text(
-                    'Homashyo ulash filtrida faqat tanlangan apparatlar ko‘rinadi.',
+                    l10n.adminText('scope.material_description'),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -419,7 +448,9 @@ class _AdminMaterialApparatusSheetState
                   key: const ValueKey('admin-material-apparatus-save'),
                   onPressed: _saving ? null : _save,
                   child: Text(
-                    _saving ? 'Saqlanmoqda...' : 'Aparatlarni saqlash',
+                    _saving
+                        ? l10n.adminText('action.saving')
+                        : l10n.adminText('scope.save_action'),
                   ),
                 ),
               ),

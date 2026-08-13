@@ -101,33 +101,41 @@ class _ClosedOrderLogDetailsSheet extends StatelessWidget {
               _ClosedLogDetailsHeader(log: log, apparatus: apparatus),
               const SizedBox(height: 18),
               _ClosedLogDetailsSection(
-                title: 'Hodisa tafsilotlari',
+                title: context.l10n.adminText('production.event_details'),
                 icon: Icons.info_outline_rounded,
                 children: [
                   _ClosedLogDetailRow(
-                      label: 'Hodisa', value: _closedLogTitle(log)),
+                    label: context.l10n.adminText('production.event'),
+                    value: _closedLogTitle(log),
+                  ),
                   if (apparatus.isNotEmpty)
-                    _ClosedLogDetailRow(label: 'Apparat', value: apparatus),
+                    _ClosedLogDetailRow(
+                      label: context.l10n.adminText('label.apparatus'),
+                      value: apparatus,
+                    ),
                   _ClosedLogDetailRow(
-                    label: 'Vaqt',
+                    label: context.l10n.adminText('production.time'),
                     value: _closedLogTimeLabel(log.createdAtUnix),
                   ),
-                  _ClosedLogDetailRow(label: 'Bajaruvchi', value: actor),
+                  _ClosedLogDetailRow(
+                    label: context.l10n.adminText('production.executor'),
+                    value: actor,
+                  ),
                   if (log.fromState.trim().isNotEmpty ||
                       log.toState.trim().isNotEmpty)
                     _ClosedLogDetailRow(
-                      label: 'Holat',
+                      label: context.l10n.adminText('label.status'),
                       value: _closedLogStateLabel(log),
                     ),
                   if (log.eventId.trim().isNotEmpty)
                     _ClosedLogDetailRow(
-                      label: 'Event ID',
+                      label: context.l10n.adminText('production.event_id'),
                       value: log.eventId.trim(),
                       selectable: true,
                     ),
                   if (log.completedWithIssue && log.issueNote.trim().isNotEmpty)
                     _ClosedLogDetailRow(
-                      label: 'Muammo izohi',
+                      label: context.l10n.adminText('production.issue_note'),
                       value: log.issueNote.trim(),
                     ),
                 ],
@@ -135,23 +143,25 @@ class _ClosedOrderLogDetailsSheet extends StatelessWidget {
               if (freeze != null) ...[
                 const SizedBox(height: 16),
                 _ClosedLogDetailsSection(
-                  title: 'Muzlatish tafsilotlari',
+                  title: context.l10n.adminText('production.freeze_details'),
                   icon: Icons.lock_clock_rounded,
                   children: [
                     _ClosedLogDetailRow(
-                      label: 'Holat',
+                      label: context.l10n.adminText('label.status'),
                       value: _closedLogFreezeStatusLabel(freeze.status),
                     ),
                     if (freeze.targetApparatus.trim().isNotEmpty)
                       _ClosedLogDetailRow(
-                        label: 'Apparat',
+                        label: context.l10n.adminText('label.apparatus'),
                         value: freeze.targetApparatus.trim(),
                       ),
                     if (freeze.targetWorkerDisplayName.trim().isNotEmpty ||
                         freeze.targetWorkerRef.trim().isNotEmpty ||
                         freeze.targetWorkerRole.trim().isNotEmpty)
                       _ClosedLogDetailRow(
-                        label: 'Maqsad ishchi',
+                        label: context.l10n.adminText(
+                          'production.target_worker',
+                        ),
                         value: _closedActorLabel(
                           displayName: freeze.targetWorkerDisplayName,
                           role: freeze.targetWorkerRole,
@@ -160,24 +170,32 @@ class _ClosedOrderLogDetailsSheet extends StatelessWidget {
                       ),
                     if (freeze.targetSessionId.trim().isNotEmpty)
                       _ClosedLogDetailRow(
-                        label: 'Target session',
+                        label: context.l10n.adminText(
+                          'production.target_session',
+                        ),
                         value: freeze.targetSessionId.trim(),
                         selectable: true,
                       ),
                     if (freeze.requestId.trim().isNotEmpty)
                       _ClosedLogDetailRow(
-                        label: 'Freeze request ID',
+                        label: context.l10n.adminText(
+                          'production.freeze_request_id',
+                        ),
                         value: freeze.requestId.trim(),
                         selectable: true,
                       ),
                     if (freeze.requestedAtUnix > 0)
                       _ClosedLogDetailRow(
-                        label: 'So‘rov vaqti',
+                        label: context.l10n.adminText(
+                          'production.requested_at',
+                        ),
                         value: _closedLogTimeLabel(freeze.requestedAtUnix),
                       ),
                     if (freeze.transitionedAtUnix > 0)
                       _ClosedLogDetailRow(
-                        label: 'Holat o‘zgarishi',
+                        label: context.l10n.adminText(
+                          'production.state_transition',
+                        ),
                         value: _closedLogTimeLabel(freeze.transitionedAtUnix),
                       ),
                   ],
@@ -186,43 +204,53 @@ class _ClosedOrderLogDetailsSheet extends StatelessWidget {
               if (transfer != null) ...[
                 const SizedBox(height: 16),
                 _ClosedLogDetailsSection(
-                  title: 'Apparat almashtirish tafsilotlari',
+                  title: context.l10n.adminText(
+                    'production.transfer_details',
+                  ),
                   icon: Icons.swap_horiz_rounded,
                   children: [
                     _ClosedLogDetailRow(
-                      label: 'Qayerdan',
+                      label: context.l10n.adminText('production.from'),
                       value: transfer.fromApparatus,
                     ),
                     _ClosedLogDetailRow(
-                      label: 'Qayerga',
+                      label: context.l10n.adminText('production.to'),
                       value: transfer.toApparatus,
                     ),
                     if (transfer.reason.trim().isNotEmpty)
                       _ClosedLogDetailRow(
-                        label: 'Sabab',
+                        label: context.l10n.adminText('label.reason'),
                         value: transfer.reason.trim(),
                       ),
                     if (transfer.transferId.trim().isNotEmpty)
                       _ClosedLogDetailRow(
-                        label: 'Transfer ID',
+                        label: context.l10n.adminText(
+                          'production.transfer_id',
+                        ),
                         value: transfer.transferId.trim(),
                         selectable: true,
                       ),
                     if (transfer.sessionId.trim().isNotEmpty)
                       _ClosedLogDetailRow(
-                        label: 'Session ID',
+                        label: context.l10n.adminText(
+                          'production.target_session',
+                        ),
                         value: transfer.sessionId.trim(),
                         selectable: true,
                       ),
                     if (transfer.progressBatchId.trim().isNotEmpty)
                       _ClosedLogDetailRow(
-                        label: 'Progress batch',
+                        label: context.l10n.adminText(
+                          'production.progress_batch',
+                        ),
                         value: transfer.progressBatchId.trim(),
                         selectable: true,
                       ),
                     if (transfer.materialBarcodes.isNotEmpty)
                       _ClosedLogDetailRow(
-                        label: 'Material QR/barcode',
+                        label: context.l10n.adminText(
+                          'production.material_qr',
+                        ),
                         value: transfer.materialBarcodes.join(', '),
                         selectable: true,
                       ),
@@ -232,14 +260,17 @@ class _ClosedOrderLogDetailsSheet extends StatelessWidget {
               const SizedBox(height: 16),
               _ClosedLogDetailsSection(
                 title: batches.isEmpty
-                    ? 'Progress ma’lumoti'
-                    : 'Progress ma’lumotlari',
+                    ? context.l10n.adminText('production.progress_info')
+                    : context.l10n.adminText(
+                        'production.progress_info_plural',
+                      ),
                 icon: Icons.analytics_outlined,
                 children: [
                   if (batches.isEmpty)
-                    const _ClosedLogMutedText(
-                      text:
-                          'Bu hodisa uchun qo‘shimcha progress ma’lumoti yo‘q.',
+                    _ClosedLogMutedText(
+                      text: context.l10n.adminText(
+                        'production.progress_empty',
+                      ),
                     )
                   else
                     for (var index = 0; index < batches.length; index++) ...[
@@ -434,6 +465,7 @@ class _ClosedLogProgressDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
     final worker = _closedActorLabel(
       displayName: batch.workerDisplayName,
       role: batch.workerRole,
@@ -441,34 +473,80 @@ class _ClosedLogProgressDetails extends StatelessWidget {
     );
     final metrics = <String>[
       if (batch.producedQty > 0 || batch.uom.trim().isNotEmpty)
-        'Ishlab chiqarildi: ${_closedLogNumber(batch.producedQty)} ${batch.uom}'
-            .trim(),
+        l10n.adminText(
+          'production.produced',
+          values: {
+            'value':
+                '${_closedLogNumber(batch.producedQty)} ${batch.uom}'.trim(),
+          },
+        ),
       if (batch.returnInkKg != null)
-        'Qaytgan bo‘yoq: ${_closedLogNumber(batch.returnInkKg!)} kg',
+        l10n.adminText(
+          'production.returned_ink',
+          values: {'value': _closedLogNumber(batch.returnInkKg!)},
+        ),
       if (batch.laminationPrintLeftoverRolls != null)
-        'Bosma rulon qoldig‘i: ${_closedLogNumber(batch.laminationPrintLeftoverRolls!)}',
+        l10n.adminText(
+          'production.print_roll_waste',
+          values: {
+            'value': _closedLogNumber(batch.laminationPrintLeftoverRolls!)
+          },
+        ),
       if (batch.laminationFilmLeftoverRolls != null)
-        'Plyonka qoldig‘i: ${_closedLogNumber(batch.laminationFilmLeftoverRolls!)}',
+        l10n.adminText(
+          'production.film_waste',
+          values: {
+            'value': _closedLogNumber(batch.laminationFilmLeftoverRolls!)
+          },
+        ),
       if (batch.rezkaBosmaWaste != null)
-        'Bosma chiqindi: ${_closedLogNumber(batch.rezkaBosmaWaste!)}',
+        l10n.adminText(
+          'production.print_waste',
+          values: {'value': _closedLogNumber(batch.rezkaBosmaWaste!)},
+        ),
       if (batch.rezkaLaminationWaste != null)
-        'Laminatsiya chiqindisi: ${_closedLogNumber(batch.rezkaLaminationWaste!)}',
+        l10n.adminText(
+          'production.lamination_waste',
+          values: {'value': _closedLogNumber(batch.rezkaLaminationWaste!)},
+        ),
       if (batch.rezkaEdgeWaste != null)
-        'Chekka chiqindi: ${_closedLogNumber(batch.rezkaEdgeWaste!)}',
+        l10n.adminText(
+          'production.edge_waste',
+          values: {'value': _closedLogNumber(batch.rezkaEdgeWaste!)},
+        ),
       if (batch.totalWaste != null)
-        'Jami chiqindi: ${_closedLogNumber(batch.totalWaste!)}',
+        l10n.adminText(
+          'production.total_waste',
+          values: {'value': _closedLogNumber(batch.totalWaste!)},
+        ),
       if (batch.finishedGoodsKg != null)
-        'Tayyor mahsulot: ${_closedLogNumber(batch.finishedGoodsKg!)} kg',
+        l10n.adminText(
+          'production.finished_goods',
+          values: {'value': _closedLogNumber(batch.finishedGoodsKg!)},
+        ),
       if (batch.finishedGoodsMeter != null)
-        'Tayyor metr: ${_closedLogNumber(batch.finishedGoodsMeter!)} m',
+        l10n.adminText(
+          'production.finished_meters',
+          values: {'value': _closedLogNumber(batch.finishedGoodsMeter!)},
+        ),
     ];
     final status = [
       if (batch.status.trim().isNotEmpty) batch.status.trim(),
-      if (batch.wipStatus.trim().isNotEmpty) 'WIP: ${batch.wipStatus.trim()}',
+      if (batch.wipStatus.trim().isNotEmpty)
+        l10n.adminText(
+          'production.wip_prefix',
+          values: {'value': batch.wipStatus.trim()},
+        ),
       if (batch.statusDetail.flowStatus.trim().isNotEmpty)
-        'Flow: ${batch.statusDetail.flowStatus.trim()}',
+        l10n.adminText(
+          'production.flow_prefix',
+          values: {'value': batch.statusDetail.flowStatus.trim()},
+        ),
       if (batch.statusDetail.stockStatus.trim().isNotEmpty)
-        'Stock: ${batch.statusDetail.stockStatus.trim()}',
+        l10n.adminText(
+          'production.stock_prefix',
+          values: {'value': batch.statusDetail.stockStatus.trim()},
+        ),
     ].join(' • ');
 
     return Column(
@@ -495,26 +573,29 @@ class _ClosedLogProgressDetails extends StatelessWidget {
         const SizedBox(height: 8),
         if (batch.batchId.trim().isNotEmpty)
           _ClosedLogDetailRow(
-            label: 'Batch ID',
+            label: l10n.adminText('production.batch_id'),
             value: batch.batchId.trim(),
             selectable: true,
           ),
         if (batch.sessionId.trim().isNotEmpty)
           _ClosedLogDetailRow(
-            label: 'Session ID',
+            label: l10n.adminText('production.target_session'),
             value: batch.sessionId.trim(),
             selectable: true,
           ),
-        _ClosedLogDetailRow(label: 'Ijrochi', value: worker),
+        _ClosedLogDetailRow(
+          label: l10n.adminText('production.executor'),
+          value: worker,
+        ),
         if (batch.executorName.trim().isNotEmpty)
           _ClosedLogDetailRow(
-            label: 'Executor',
+            label: l10n.adminText('production.executor'),
             value: batch.executorName.trim(),
           ),
         if (batch.labelItemCode.trim().isNotEmpty ||
             batch.labelItemName.trim().isNotEmpty)
           _ClosedLogDetailRow(
-            label: 'Mahsulot',
+            label: l10n.adminText('production.item'),
             value: [
               batch.labelItemCode.trim(),
               batch.labelItemName.trim(),
@@ -522,17 +603,17 @@ class _ClosedLogProgressDetails extends StatelessWidget {
           ),
         if (batch.currentLocation.trim().isNotEmpty)
           _ClosedLogDetailRow(
-            label: 'Joylashuvi',
+            label: l10n.adminText('production.location'),
             value: batch.currentLocation.trim(),
           ),
         if (batch.nextApparatus.trim().isNotEmpty)
           _ClosedLogDetailRow(
-            label: 'Keyingi aparat',
+            label: l10n.adminText('production.next_equipment'),
             value: batch.nextApparatus.trim(),
           ),
         if (batch.parentBatchId.trim().isNotEmpty)
           _ClosedLogDetailRow(
-            label: 'Parent batch',
+            label: l10n.adminText('production.parent_batch'),
             value: batch.parentBatchId.trim(),
             selectable: true,
           ),
@@ -549,7 +630,7 @@ class _ClosedLogProgressDetails extends StatelessWidget {
         ],
         if (batch.description.trim().isNotEmpty)
           _ClosedLogDetailRow(
-            label: 'Izoh',
+            label: l10n.adminText('production.note'),
             value: batch.description.trim(),
           ),
         if (batch.qrPayload.trim().isNotEmpty) ...[
@@ -582,7 +663,7 @@ class _ClosedLogQrPayload extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'QR kodi / payload',
+                  context.l10n.adminText('production.qr_payload'),
                   style: theme.textTheme.labelMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -598,11 +679,15 @@ class _ClosedLogQrPayload extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Nusxalash',
+            tooltip: context.l10n.adminText('action.copy'),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: payload));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('QR payload nusxalandi')),
+                SnackBar(
+                  content: Text(
+                    context.l10n.adminText('production.copied'),
+                  ),
+                ),
               );
             },
             icon: const Icon(Icons.copy_rounded, size: 19),

@@ -1,6 +1,7 @@
 import 'admin_raw_material_assignment_screen.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/session.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/theme/app_theme.dart';
@@ -169,7 +170,10 @@ class _AdminRawMaterialSettingsScreenState
 
   Future<void> _pickGroups(List<String> options) async {
     if (options.isEmpty || _saving) {
-      showAdminTopNotice(context, 'Homashyo guruhlari topilmadi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('raw_material.groups_not_found'),
+      );
       return;
     }
     final selected = await showDialog<List<AdminRawMaterialRequirementGroup>>(
@@ -195,7 +199,10 @@ class _AdminRawMaterialSettingsScreenState
     final requirementGroups = _selectedRequirementGroups;
     final groups = _itemGroupsFromRequirementGroups(requirementGroups);
     if (apparatus.isEmpty || groups.isEmpty || _saving) {
-      showAdminTopNotice(context, 'Aparat va homashyo guruhini kiriting');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('raw_material.apparatus_group_required'),
+      );
       return;
     }
     setState(() => _saving = true);
@@ -219,7 +226,10 @@ class _AdminRawMaterialSettingsScreenState
         _selectedRequiresMaterial = saved.requiresMaterial;
         _selectedStartPolicy = saved.startPolicy;
       });
-      showAdminTopNotice(context, 'Homashyo qoidasi saqlandi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('raw_material.rule_saved'),
+      );
     } catch (error) {
       if (!mounted) {
         return;
@@ -228,7 +238,7 @@ class _AdminRawMaterialSettingsScreenState
         context,
         error is MobileApiException
             ? error.message
-            : 'Homashyo qoidasi saqlanmadi',
+            : context.l10n.adminText('raw_material.rule_save_failed'),
       );
     } finally {
       if (mounted) {
@@ -244,7 +254,10 @@ class _AdminRawMaterialSettingsScreenState
     final apparatusName = apparatus.name.trim();
     final rule = _ruleFor(apparatusName);
     if (rule == null || rule.itemGroups.isEmpty || _saving) {
-      showAdminTopNotice(context, 'Avval homashyo qoidasi saqlang');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('raw_material.save_rule_first'),
+      );
       return;
     }
     setState(() => _saving = true);
@@ -262,7 +275,7 @@ class _AdminRawMaterialSettingsScreenState
       if (saved.requiresMaterial != requiresMaterial) {
         showAdminTopNotice(
           context,
-          'Backend majburiylikni saqlamadi',
+          context.l10n.adminText('raw_material.requirement_save_failed'),
           icon: Icons.error_rounded,
         );
         return;
@@ -273,14 +286,21 @@ class _AdminRawMaterialSettingsScreenState
           _selectedRequiresMaterial = saved.requiresMaterial;
         }
       });
-      showAdminTopNotice(context, 'Majburiylik saqlandi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('raw_material.requirement_saved'),
+      );
     } catch (error) {
       if (!mounted) {
         return;
       }
       showAdminTopNotice(
         context,
-        error is MobileApiException ? error.message : 'Majburiylik saqlanmadi',
+        error is MobileApiException
+            ? error.message
+            : context.l10n.adminText(
+                'raw_material.requirement_save_failed_short',
+              ),
       );
     } finally {
       if (mounted) {
@@ -301,7 +321,7 @@ class _AdminRawMaterialSettingsScreenState
           selectedRouteName: AppRoutes.adminRawMaterialAssignments,
           onNavigate: _openMaterialDrawerRoute,
         ),
-        title: 'Homashyo biriktirish',
+        title: context.l10n.adminText('raw_material.assign_title'),
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -321,7 +341,7 @@ class _AdminRawMaterialSettingsScreenState
         selectedRouteName: AppRoutes.adminRawMaterialSettings,
         onNavigate: _openDrawerRoute,
       ),
-      title: 'Homashyo sozlamalari',
+      title: context.l10n.adminText('raw_material.settings_title'),
       subtitle: '',
       nativeTopBar: true,
       bottom: const AdminDock(activeTab: AdminDockTab.settings),
@@ -345,10 +365,20 @@ class _AdminRawMaterialSettingsScreenState
             children: [
               AdminSurfaceTabBar(
                 controller: _tabController,
-                tabs: const [
-                  Tab(height: 38, text: 'Homashyoni ulash'),
-                  Tab(height: 38, text: 'Qoidalar'),
-                  Tab(height: 38, text: 'Majburiylik'),
+                tabs: [
+                  Tab(
+                    height: 38,
+                    text: context.l10n.adminText('raw_material.link_tab'),
+                  ),
+                  Tab(
+                    height: 38,
+                    text: context.l10n.adminText('raw_material.rules_tab'),
+                  ),
+                  Tab(
+                    height: 38,
+                    text:
+                        context.l10n.adminText('raw_material.requirement_tab'),
+                  ),
                 ],
               ),
               Expanded(
@@ -590,7 +620,7 @@ class _RuleEditor extends StatelessWidget {
                   selectedApparatus.isEmpty ? null : selectedApparatus,
               decoration: appSurfaceInputDecoration(
                 context,
-                labelText: 'Aparat',
+                labelText: context.l10n.adminText('worker.apparatus_label'),
               ),
               items: [
                 for (final item in apparatus)
@@ -613,16 +643,20 @@ class _RuleEditor extends StatelessWidget {
               initialValue: selectedStartPolicy,
               decoration: appSurfaceInputDecoration(
                 context,
-                labelText: 'Ish boshlash qoidasi',
+                labelText: context.l10n.adminText('raw_material.start_rule'),
               ),
-              items: const [
+              items: [
                 DropdownMenuItem(
                   value: AdminRawMaterialStartPolicy.stateAll,
-                  child: Text('State’dagi barcha homashyolar'),
+                  child: Text(
+                    context.l10n.adminText('raw_material.state_all'),
+                  ),
                 ),
                 DropdownMenuItem(
                   value: AdminRawMaterialStartPolicy.requirementGroups,
-                  child: Text('Har bir guruhdan minimum'),
+                  child: Text(
+                    context.l10n.adminText('raw_material.each_group_min'),
+                  ),
                 ),
               ],
               onChanged: saving
@@ -640,8 +674,10 @@ class _RuleEditor extends StatelessWidget {
               maxLines: 3,
               decoration: appSurfaceInputDecoration(
                 context,
-                labelText: 'Homashyo guruhlari',
-                hintText: 'Tanlang',
+                labelText: context.l10n.adminText(
+                  'raw_material.groups_label',
+                ),
+                hintText: context.l10n.adminText('raw_material.select'),
                 suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
               ),
             ),
@@ -655,7 +691,7 @@ class _RuleEditor extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.save_rounded),
-              label: const Text('Saqlash'),
+              label: Text(context.l10n.adminText('action.save')),
             ),
           ],
         ),
@@ -762,7 +798,9 @@ class _RawMaterialGroupPickerDialogState
   Widget build(BuildContext context) {
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
-      title: const Text('Homashyo guruhlari'),
+      title: Text(
+        context.l10n.adminText('raw_material.groups_select_title'),
+      ),
       contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
       content: SizedBox(
         width: 520,
@@ -816,8 +854,8 @@ class _RawMaterialGroupPickerDialogState
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
               child: AppDialogActionRow(
-                cancelLabel: 'Bekor',
-                confirmLabel: 'Tanlash',
+                cancelLabel: context.l10n.adminText('action.cancel'),
+                confirmLabel: context.l10n.adminText('action.select'),
                 onCancel: () => Navigator.of(context).pop(),
                 onConfirm: () => Navigator.of(context).pop(_selectedGroups()),
               ),
@@ -890,7 +928,9 @@ class _RawMaterialGroupOptionCard extends StatelessWidget {
                     ),
                     IconButton(
                       key: Key('raw-material-group-expand-$option'),
-                      tooltip: expanded ? 'Yopish' : 'Ochish',
+                      tooltip: expanded
+                          ? context.l10n.adminText('action.close')
+                          : context.l10n.adminText('action.open'),
                       onPressed: onExpandedChanged,
                       icon: AnimatedRotation(
                         duration: const Duration(milliseconds: 160),
@@ -913,7 +953,7 @@ class _RawMaterialGroupOptionCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'Alternativlar',
+                          context.l10n.adminText('raw_material.alternatives'),
                           style: theme.textTheme.labelLarge?.copyWith(
                             color: scheme.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
@@ -922,7 +962,9 @@ class _RawMaterialGroupOptionCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         if (alternatives.isEmpty)
                           Text(
-                            'Boshqa homashyo guruhi yo‘q',
+                            context.l10n.adminText(
+                              'raw_material.no_other_group',
+                            ),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: scheme.onSurfaceVariant,
                             ),
@@ -1024,8 +1066,8 @@ class _RuleTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   rule.requiresMaterial
-                      ? 'Homashyo majburiy'
-                      : 'Homashyo ixtiyoriy',
+                      ? context.l10n.adminText('raw_material.mandatory')
+                      : context.l10n.adminText('raw_material.optional'),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     height: 1.05,
@@ -1034,8 +1076,10 @@ class _RuleTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   rule.startPolicy == AdminRawMaterialStartPolicy.stateAll
-                      ? 'State’dagi hammasi scan qilinadi'
-                      : 'Har bir guruhdan minimum scan qilinadi',
+                      ? context.l10n.adminText('raw_material.state_all_scan')
+                      : context.l10n.adminText(
+                          'raw_material.each_group_scan',
+                        ),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     height: 1.05,
@@ -1134,7 +1178,11 @@ class _RequiredMaterialTile extends StatelessWidget {
         secondary: const Icon(Icons.fact_check_rounded),
         title: Text(apparatus.name.trim()),
         subtitle: Text(
-          groups.isEmpty ? 'Avval homashyo guruhi tanlang' : groups,
+          groups.isEmpty
+              ? context.l10n.adminText(
+                  'raw_material.select_group_first',
+                )
+              : groups,
         ),
       ),
     );

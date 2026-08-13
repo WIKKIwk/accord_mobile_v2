@@ -5,6 +5,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/files/backup_file_saver.dart';
 import '../../../core/formatters/date_time_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import 'package:flutter/foundation.dart';
@@ -77,7 +78,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
     }
     final raw = _serverEndpointController.text.trim();
     if (raw.isEmpty) {
-      _showNotice('ERP domenini kiriting');
+      _showNotice(context.l10n.adminText('server.endpoint_required'));
       return;
     }
 
@@ -97,13 +98,13 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             _error = null;
             _latencySamples.clear();
           });
-          _showNotice('Mini RS ERP topildi va server almashtirildi');
+          _showNotice(context.l10n.adminText('server.switched'));
           await _loadSnapshot();
           _startLiveStream();
           return;
         case MobileServerSwitchStatus.alreadyActive:
           _serverEndpointController.text = result.baseUrl;
-          _showNotice('Bu domen allaqachon faol');
+          _showNotice(context.l10n.adminText('server.already_active'));
           await _loadSnapshot();
           _startLiveStream();
           return;
@@ -128,23 +129,26 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
           }
           return;
         case MobileServerSwitchStatus.invalidEndpoint:
-          _showNotice(
-            'Domen noto‘g‘ri. Masalan: https://erp.example.com',
-          );
+          _showNotice(context.l10n.adminText('server.invalid_endpoint'));
           _startLiveStream();
           return;
         case MobileServerSwitchStatus.notMiniRsErp:
-          _showNotice('Bu domen Mini RS ERP serveri emas');
+          _showNotice(context.l10n.adminText('server.not_mini_rs'));
           _startLiveStream();
           return;
         case MobileServerSwitchStatus.unavailable:
-          _showNotice('Bu domen bilan serverga ulanib bo‘lmadi');
+          _showNotice(context.l10n.adminText('server.unavailable'));
           _startLiveStream();
           return;
       }
     } catch (error) {
       if (mounted) {
-        _showNotice('Server almashtirilmadi: $error');
+        _showNotice(
+          context.l10n.adminText(
+            'server.endpoint_switch_failed',
+            values: {'error': error},
+          ),
+        );
         _startLiveStream();
       }
     } finally {
@@ -160,22 +164,23 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       builder: (dialogContext) {
         return AlertDialog(
           icon: const Icon(Icons.person_off_outlined),
-          title: const Text('Login bu domenda topilmadi'),
+          title: Text(dialogContext.l10n.adminText('server.login_missing')),
           content: Text(
-            'Sizning hozirgi login raqamingiz va kodingiz $baseUrl domenidagi '
-            'Mini RS ERP’da mavjud emas. Domenni tekshirib ko‘ring.\n\n'
-            'Tasdiqlasangiz, hozirgi tizimdan chiqib, yangi domenning login '
-            'oynasiga o‘tasiz.',
+            dialogContext.l10n.adminText(
+              'server.login_missing_message',
+              values: {'url': baseUrl},
+            ),
           ),
           actions: [
             OutlinedButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Bekor qilish'),
+              child: Text(dialogContext.l10n.adminText('action.cancel')),
             ),
             FilledButton(
               key: const ValueKey('server-endpoint-logout-confirm'),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Ha, chiqish'),
+              child:
+                  Text(dialogContext.l10n.adminText('server.logout_confirm')),
             ),
           ],
         );
@@ -238,7 +243,10 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
             children: [
               Text(
-                '${_formatBackupDay(day.date)} backup',
+                sheetContext.l10n.adminText(
+                  'server.backup_day_title',
+                  values: {'date': _formatBackupDay(day.date)},
+                ),
                 style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -253,7 +261,10 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _formatBackupDateTime(snapshot.completedAtUnix),
+                          _formatBackupDateTime(
+                            snapshot.completedAtUnix,
+                            sheetContext.l10n,
+                          ),
                           style: Theme.of(sheetContext)
                               .textTheme
                               .titleMedium
@@ -261,7 +272,9 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${_backupSourceLabel(snapshot.source)} • ${_formatBackupBytes(snapshot.sizeBytes)} • Tekshirilgan',
+                          '${_backupSourceLabel(snapshot.source, sheetContext.l10n)} • '
+                          '${_formatBackupBytes(snapshot.sizeBytes)} • '
+                          '${sheetContext.l10n.adminText('server.backup_verified')}',
                           style: Theme.of(sheetContext).textTheme.bodySmall,
                         ),
                         if (snapshot.checksumSha256.isNotEmpty) ...[
@@ -282,7 +295,11 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
                                   }
                                 : null,
                             icon: const Icon(Icons.download_rounded),
-                            label: const Text('Backupni yuklab olish'),
+                            label: Text(
+                              sheetContext.l10n.adminText(
+                                'server.backup_download',
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -302,7 +319,9 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
                           unawaited(_confirmAndStartBackup(day.date));
                         },
                   icon: const Icon(Icons.add_circle_outline_rounded),
-                  label: const Text('Bugun yana backup olish'),
+                  label: Text(
+                    sheetContext.l10n.adminText('server.backup_today'),
+                  ),
                 ),
               ],
             ],
@@ -318,16 +337,17 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       builder: (dialogContext) {
         return AlertDialog(
           icon: const Icon(Icons.history_rounded),
-          title: const Text('Bu kun uchun backup yo‘q'),
+          title: Text(dialogContext.l10n.adminText('server.no_backup_today')),
           content: Text(
-            '${_formatBackupDay(day)} kunidagi database holati saqlanmagan. '
-            'O‘tgan holatni bugun qayta yaratib bo‘lmaydi. '
-            'Bugungi holat uchun esa alohida yangi backup olishingiz mumkin.',
+            dialogContext.l10n.adminText(
+              'server.past_backup_message',
+              values: {'date': _formatBackupDay(day)},
+            ),
           ),
           actions: [
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Tushunarli'),
+              child: Text(dialogContext.l10n.adminText('server.understood')),
             ),
           ],
         );
@@ -350,8 +370,8 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             children: [
               Text(
                 snapshot.source == 'imported'
-                    ? 'Backup import qilinmoqda'
-                    : 'Backup tayyorlanmoqda',
+                    ? sheetContext.l10n.adminText('server.import_in_progress')
+                    : sheetContext.l10n.adminText('server.preparing_backup'),
                 style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -359,7 +379,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
               const SizedBox(height: 12),
               const LinearProgressIndicator(),
               const SizedBox(height: 12),
-              Text(_backupStatusLabel(snapshot.status)),
+              Text(_backupStatusLabel(snapshot.status, sheetContext.l10n)),
             ],
           ),
         );
@@ -386,11 +406,18 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             vertical: 24,
           ),
           icon: const Icon(Icons.backup_outlined),
-          title: Text(failed == null ? 'Backup olish' : 'Backupni qayta olish'),
+          title: Text(
+            dialogContext.l10n.adminText(
+              failed == null ? 'server.backup' : 'server.retry_backup_title',
+            ),
+          ),
           content: Text(
             failed != null && failed.error.isNotEmpty
-                ? '${failed.error}\n\nYangi backup hozirgi database holatidan olinsinmi?'
-                : 'Database’ning hozirgi holatidan backup olinsinmi?',
+                ? dialogContext.l10n.adminText(
+                    'server.backup_confirm_failed',
+                    values: {'error': failed.error},
+                  )
+                : dialogContext.l10n.adminText('server.backup_confirm'),
           ),
           actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           actions: [
@@ -402,12 +429,14 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
                   FilledButton(
                     key: const ValueKey('server-backup-start-confirm'),
                     onPressed: () => Navigator.of(dialogContext).pop(true),
-                    child: const Text('Backup olish'),
+                    child: Text(
+                      dialogContext.l10n.adminText('server.backup'),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton(
                     onPressed: () => Navigator.of(dialogContext).pop(false),
-                    child: const Text('Bekor qilish'),
+                    child: Text(dialogContext.l10n.adminText('action.cancel')),
                   ),
                 ],
               ),
@@ -424,11 +453,11 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       await MobileApi.instance.adminStartBackup();
       await _loadSnapshot();
       if (mounted) {
-        _showNotice('Backup olish boshlandi');
+        _showNotice(context.l10n.adminText('server.backup_started'));
       }
     } catch (error) {
       if (mounted) {
-        _showNotice(_backupActionError(error));
+        _showNotice(_backupActionError(error, context.l10n));
       }
     } finally {
       if (mounted) {
@@ -447,7 +476,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       _downloadingBackupId = snapshot.id;
       _downloadProgress = 0;
     });
-    _showNotice('Backup yuklanmoqda…');
+    _showNotice(context.l10n.adminText('server.download_in_progress'));
     try {
       final download = await MobileApi.instance.adminDownloadBackup(
         snapshot.id,
@@ -469,13 +498,13 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
         return;
       }
       if (kIsWeb) {
-        _showNotice('Backup yuklab olindi');
+        _showNotice(context.l10n.adminText('server.downloaded'));
       } else {
         await _showDownloadedBackup(saved);
       }
     } catch (error) {
       if (mounted) {
-        _showNotice(_backupActionError(error));
+        _showNotice(_backupActionError(error, context.l10n));
       }
     } finally {
       if (mounted) {
@@ -504,7 +533,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
     final picked = result.files.single;
     final filename = picked.name.trim();
     if (!filename.toLowerCase().endsWith('.dump')) {
-      _showNotice('Faqat PostgreSQL .dump backup fayli import qilinadi');
+      _showNotice(context.l10n.adminText('server.dump_only'));
       return;
     }
     final source = picked.bytes != null
@@ -513,7 +542,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             ? null
             : XFile(picked.path!);
     if (source == null) {
-      _showNotice('Backup fayliga kirish imkoni bo‘lmadi');
+      _showNotice(context.l10n.adminText('server.file_unavailable'));
       return;
     }
     final contentLength = picked.size > 0 ? picked.size : await source.length();
@@ -521,7 +550,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       return;
     }
     if (contentLength <= 0) {
-      _showNotice('Backup fayli bo‘sh');
+      _showNotice(context.l10n.adminText('server.file_empty'));
       return;
     }
     final confirmed = await showDialog<bool>(
@@ -533,10 +562,12 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             vertical: 24,
           ),
           icon: const Icon(Icons.restore_rounded),
-          title: const Text('Backupni import qilish'),
+          title: Text(dialogContext.l10n.adminText('server.import_backup')),
           content: Text(
-            '$filename serverga yuboriladi va serverdagi PostgreSQL '
-            'ma’lumotlari shu backup holatiga qaytariladi. Davom etilsinmi?',
+            dialogContext.l10n.adminText(
+              'server.import_confirm',
+              values: {'filename': filename},
+            ),
           ),
           actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           actions: [
@@ -548,12 +579,14 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
                   FilledButton(
                     key: const ValueKey('server-backup-import-confirm'),
                     onPressed: () => Navigator.of(dialogContext).pop(true),
-                    child: const Text('Import qilish'),
+                    child: Text(
+                      dialogContext.l10n.adminText('action.import'),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton(
                     onPressed: () => Navigator.of(dialogContext).pop(false),
-                    child: const Text('Bekor qilish'),
+                    child: Text(dialogContext.l10n.adminText('action.cancel')),
                   ),
                 ],
               ),
@@ -569,7 +602,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       _importingBackup = true;
       _importProgress = 0;
     });
-    _showNotice('Backup serverga yuborilmoqda…');
+    _showNotice(context.l10n.adminText('server.import_in_progress_upload'));
     try {
       final importJob = await MobileApi.instance.adminImportBackup(
         filename: filename,
@@ -596,13 +629,13 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
         _importProgress = 0;
       });
       _showNotice(
-        'Backup qabul qilindi: avto backup, restore va schema migration boshlandi',
+        context.l10n.adminText('server.import_accepted'),
       );
       unawaited(_loadSnapshot());
       unawaited(_watchImportCompletion(importJob.id));
     } catch (error) {
       if (mounted) {
-        _showNotice(_backupActionError(error));
+        _showNotice(_backupActionError(error, context.l10n));
       }
     } finally {
       if (mounted) {
@@ -627,13 +660,18 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Backup tayyor',
+                sheetContext.l10n.adminText('server.backup_ready'),
                 style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
               ),
               const SizedBox(height: 8),
-              Text('${saved.filename} mobil qurilmaga saqlandi.'),
+              Text(
+                sheetContext.l10n.adminText(
+                  'server.saved_to_device',
+                  values: {'filename': saved.filename},
+                ),
+              ),
               const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: () async {
@@ -650,7 +688,9 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
                   );
                 },
                 icon: const Icon(Icons.ios_share_rounded),
-                label: const Text('Fayllarga saqlash yoki ulashish'),
+                label: Text(
+                  sheetContext.l10n.adminText('server.save_or_share'),
+                ),
               ),
             ],
           ),
@@ -789,9 +829,8 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       if (error.isEmpty) {
         return 'Import amalga oshmadi';
       }
-      final shortError = error.length > 180
-          ? '${error.substring(0, 180)}…'
-          : error;
+      final shortError =
+          error.length > 180 ? '${error.substring(0, 180)}…' : error;
       return 'Import amalga oshmadi: $shortError';
     }
     return null;
@@ -856,7 +895,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: _goHomeOrPop,
         ),
-        title: 'Server holati',
+        title: context.l10n.adminText('server.title'),
         selectedRouteName: AppRoutes.adminServerMonitor,
         activeTab: null,
         child: _buildBody(context),
@@ -874,7 +913,10 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
     final currentServerLabel = Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
       child: Text(
-        'Hozirgi server: ${MobileApi.baseUrl}',
+        context.l10n.adminText(
+          'server.current',
+          values: {'url': MobileApi.baseUrl},
+        ),
         style: Theme.of(context).textTheme.labelMedium,
       ),
     );
@@ -963,15 +1005,14 @@ class _ServerEndpointPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'ERP serverini almashtirish',
+              context.l10n.adminText('server.title_switch'),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
             ),
             const SizedBox(height: 4),
             Text(
-              'Build domeni saqlanadi. Yangi domen shu yerda tekshiriladi va '
-              'Mini RS ERP bo‘lsa faol serverga almashtiriladi.',
+              context.l10n.adminText('server.description_switch'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -984,8 +1025,8 @@ class _ServerEndpointPanel extends StatelessWidget {
               keyboardType: TextInputType.url,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => onSubmit(),
-              decoration: const InputDecoration(
-                labelText: 'Yangi ERP domeni',
+              decoration: InputDecoration(
+                labelText: context.l10n.adminText('server.endpoint_label'),
                 hintText: 'https://erp.example.com',
                 prefixIcon: Icon(Icons.language_rounded),
               ),
@@ -1003,8 +1044,8 @@ class _ServerEndpointPanel extends StatelessWidget {
                   : const Icon(Icons.swap_horiz_rounded),
               label: Text(
                 busy
-                    ? 'Server tekshirilmoqda…'
-                    : 'Domenni tekshirish va ulanish',
+                    ? context.l10n.adminText('server.checking')
+                    : context.l10n.adminText('server.check_connect'),
               ),
             ),
           ],
@@ -1083,7 +1124,11 @@ class _StatusSummaryPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        allOk ? 'Tizim barqaror' : 'Tekshiruv kerak',
+                        allOk
+                            ? context.l10n.adminText('server.health_stable')
+                            : context.l10n.adminText(
+                                'server.health_check_needed',
+                              ),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w900,
                               letterSpacing: -0.4,
@@ -1093,7 +1138,9 @@ class _StatusSummaryPanel extends StatelessWidget {
                   ),
                 ),
                 _StatusPill(
-                  label: liveConnected ? 'Live' : 'Ulanmoqda',
+                  label: liveConnected
+                      ? context.l10n.adminText('server.live')
+                      : context.l10n.adminText('server.connecting'),
                   active: liveConnected,
                 ),
               ],
@@ -1103,26 +1150,35 @@ class _StatusSummaryPanel extends StatelessWidget {
               children: [
                 Expanded(
                   child: _CompactStatusChip(
-                    label: 'Server',
-                    value: _serverStatusLabel(report.server.status),
+                    label: context.l10n.adminText('server.server_label'),
+                    value: _serverStatusLabel(
+                      report.server.status,
+                      context.l10n,
+                    ),
                     ok: serverOk,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _CompactStatusChip(
-                    label: 'Baza',
+                    label: context.l10n.adminText('server.database_label'),
                     value: report.database.pingMs > 0
                         ? '${report.database.pingMs} ms'
-                        : _databaseStatusLabel(report.database.status),
+                        : _databaseStatusLabel(
+                            report.database.status,
+                            context.l10n,
+                          ),
                     ok: dbOk,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _CompactStatusChip(
-                    label: 'Backup',
-                    value: '${report.backups.snapshotCount} backup',
+                    label: context.l10n.adminText('server.backup'),
+                    value: context.l10n.adminText(
+                      'server.backup_count',
+                      values: {'count': report.backups.snapshotCount},
+                    ),
                     ok: backupOk,
                   ),
                 ),
@@ -1136,7 +1192,7 @@ class _StatusSummaryPanel extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _UsageTicksPanel(
-              label: 'CPU bosim',
+              label: context.l10n.adminText('server.cpu_load'),
               percent: report.runtime.cpuPercent,
               caption: _formatLoad(report.runtime.loadAverage),
             ),
@@ -1156,8 +1212,8 @@ class _StatusSummaryPanel extends StatelessWidget {
               icon: const Icon(Icons.file_upload_outlined),
               label: Text(
                 backupImportProgress == null
-                    ? 'Backupni import qilish'
-                    : 'Backup import qilinmoqda…',
+                    ? context.l10n.adminText('server.import_backup')
+                    : context.l10n.adminText('server.import_in_progress'),
               ),
             ),
             if (backupDownloadProgress != null) ...[
@@ -1170,10 +1226,15 @@ class _StatusSummaryPanel extends StatelessWidget {
             ],
             const SizedBox(height: 12),
             _KeyValueLine(
-                label: 'Oxirgi update', value: _formatLocal(lastUpdated)),
+              label: context.l10n.adminText('server.last_update'),
+              value: _formatLocal(lastUpdated, context.l10n),
+            ),
             _KeyValueLine(
-              label: 'Uptime',
-              value: _formatDuration(report.server.uptimeSeconds),
+              label: context.l10n.adminText('server.uptime'),
+              value: _formatDuration(
+                report.server.uptimeSeconds,
+                context.l10n,
+              ),
             ),
           ],
         ),
@@ -1399,11 +1460,17 @@ class _DataVolumePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final percent = runtime.diskPercent.clamp(0, 100);
     return _TickStatusPanel(
-      title: 'SSD joy',
+      title: context.l10n.adminText('server.disk_space'),
       percent: percent,
       color: _usageColor(context, percent),
-      leadingText: '${_formatStorageMb(runtime.diskUsedMb)} band',
-      trailingText: '${_formatStorageMb(runtime.diskTotalMb)} jami',
+      leadingText: context.l10n.adminText(
+        'server.storage_used',
+        values: {'value': _formatStorageMb(runtime.diskUsedMb)},
+      ),
+      trailingText: context.l10n.adminText(
+        'server.storage_total',
+        values: {'value': _formatStorageMb(runtime.diskTotalMb)},
+      ),
       footer: runtime.diskPath.trim().isEmpty
           ? null
           : _shortDiskPath(runtime.diskPath),
@@ -1420,14 +1487,18 @@ class _DatabaseStatusPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final ok = database.reachable;
     return _TickStatusPanel(
-      title: 'Ma’lumotlar bazasi',
+      title: context.l10n.adminText('server.database'),
       percent: ok ? 100 : 0,
       color: _statusColor(context, ok),
-      leadingText: ok ? 'Ulangan' : 'Ulanmagan',
+      leadingText: ok
+          ? context.l10n.adminText('server.database_connected')
+          : context.l10n.adminText('server.database_disconnected'),
       trailingText: database.pingMs > 0
           ? '${database.pingMs} ms'
-          : _databaseStatusLabel(database.status),
-      footer: ok ? 'Saqlov ishlayapti' : database.error,
+          : _databaseStatusLabel(database.status, context.l10n),
+      footer: ok
+          ? context.l10n.adminText('server.database_running')
+          : database.error,
     );
   }
 }
@@ -1894,7 +1965,7 @@ class _BackupCalendarPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Backup',
+                  context.l10n.adminText('server.backup'),
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w900,
@@ -1903,7 +1974,10 @@ class _BackupCalendarPanel extends StatelessWidget {
                 ),
               ),
               Text(
-                '$backedUpDays/7 kun',
+                context.l10n.adminText(
+                  'server.backup_days',
+                  values: {'count': backedUpDays},
+                ),
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w900,
@@ -1949,8 +2023,16 @@ class _BackupCalendarPanel extends StatelessWidget {
               Expanded(
                 child: Text(
                   backups.latest == null
-                      ? 'Oxirgi backup yo‘q'
-                      : 'Oxirgi backup: ${_shortBackupAgeLabel(backups.latest!)}',
+                      ? context.l10n.adminText('server.latest_backup_none')
+                      : context.l10n.adminText(
+                          'server.latest_backup',
+                          values: {
+                            'age': _shortBackupAgeLabel(
+                              backups.latest!,
+                              context.l10n,
+                            ),
+                          },
+                        ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -1960,7 +2042,10 @@ class _BackupCalendarPanel extends StatelessWidget {
                 ),
               ),
               Text(
-                '${backups.snapshotCount} ta backup',
+                context.l10n.adminText(
+                  'server.backup_count',
+                  values: {'count': backups.snapshotCount},
+                ),
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
@@ -2048,12 +2133,27 @@ class _BackupDayCell extends StatelessWidget {
                 ? scheme.errorContainer
                 : trackColor;
     final label = day.count > 0
-        ? '${_formatBackupDay(day.date)}: ${day.count} ta backup'
+        ? context.l10n.adminText(
+            'server.day_backups',
+            values: {
+              'date': _formatBackupDay(day.date),
+              'count': day.count,
+            },
+          )
         : day.running
-            ? '${_formatBackupDay(day.date)}: backup tayyorlanmoqda'
+            ? context.l10n.adminText(
+                'server.day_preparing',
+                values: {'date': _formatBackupDay(day.date)},
+              )
             : day.failed
-                ? '${_formatBackupDay(day.date)}: backup xatosi'
-                : '${_formatBackupDay(day.date)}: backup yo‘q';
+                ? context.l10n.adminText(
+                    'server.day_failed',
+                    values: {'date': _formatBackupDay(day.date)},
+                  )
+                : context.l10n.adminText(
+                    'server.day_none',
+                    values: {'date': _formatBackupDay(day.date)},
+                  );
     return Semantics(
       button: true,
       label: label,
@@ -2163,8 +2263,18 @@ class _LastUpdatedCard extends StatelessWidget {
             Expanded(
               child: Text(
                 liveConnected
-                    ? 'Live WebSocket ulangan. Yangilandi: ${_formatLocal(lastUpdated)}'
-                    : 'Live aloqa qayta ulanmoqda. Oxirgi ma\'lumot: ${_formatLocal(lastUpdated)}',
+                    ? context.l10n.adminText(
+                        'server.live_updated',
+                        values: {
+                          'time': _formatLocal(lastUpdated, context.l10n),
+                        },
+                      )
+                    : context.l10n.adminText(
+                        'server.live_reconnecting',
+                        values: {
+                          'time': _formatLocal(lastUpdated, context.l10n),
+                        },
+                      ),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
@@ -2338,20 +2448,23 @@ Color _usageColor(BuildContext context, int percent) {
   return scheme.primary;
 }
 
-String _shortBackupAgeLabel(AdminServerMonitorBackupFile backup) {
+String _shortBackupAgeLabel(
+  AdminServerMonitorBackupFile backup,
+  AppLocalizations l10n,
+) {
   final days = backup.ageSeconds ~/ Duration.secondsPerDay;
   if (days > 0) {
-    return '$days kun oldin';
+    return l10n.adminText('server.days_ago', values: {'count': days});
   }
   final hours = backup.ageSeconds ~/ Duration.secondsPerHour;
   if (hours > 0) {
-    return '$hours soat oldin';
+    return l10n.adminText('server.hours_ago', values: {'count': hours});
   }
   final minutes = backup.ageSeconds ~/ Duration.secondsPerMinute;
   if (minutes > 0) {
-    return '$minutes daqiqa oldin';
+    return l10n.adminText('server.minutes_ago', values: {'count': minutes});
   }
-  return 'hozir';
+  return l10n.adminText('server.now');
 }
 
 String _formatBackupDay(DateTime value) {
@@ -2360,9 +2473,9 @@ String _formatBackupDay(DateTime value) {
   return '$day.$month.${value.year}';
 }
 
-String _formatBackupDateTime(int unixSeconds) {
+String _formatBackupDateTime(int unixSeconds, AppLocalizations l10n) {
   if (unixSeconds <= 0) {
-    return 'Vaqt kutilmoqda';
+    return l10n.adminText('server.time_waiting');
   }
   return formatLocalDateTime(
     DateTime.fromMillisecondsSinceEpoch(unixSeconds * 1000).toLocal(),
@@ -2388,86 +2501,96 @@ String _formatBackupBytes(int bytes) {
   return '$bytes B';
 }
 
-String _backupSourceLabel(String source) {
+String _backupSourceLabel(String source, AppLocalizations l10n) {
   return switch (source.trim()) {
-    'automatic' => 'Avtomatik',
-    'manual' => 'Qo‘lda',
-    'legacy' => 'Avvalgi',
-    'imported' => 'Import qilingan',
-    'pre_restore' => 'Restore oldidan',
-    _ => 'Backup Doctor',
+    'automatic' => l10n.adminText('server.source.automatic'),
+    'manual' => l10n.adminText('server.source.manual'),
+    'legacy' => l10n.adminText('server.source.legacy'),
+    'imported' => l10n.adminText('server.source.imported'),
+    'pre_restore' => l10n.adminText('server.source.pre_restore'),
+    _ => l10n.adminText('server.source.unknown'),
   };
 }
 
-String _backupStatusLabel(String status) {
+String _backupStatusLabel(String status, AppLocalizations l10n) {
   return switch (status.trim()) {
-    'queued' => 'Navbatga qo‘yildi',
-    'running' => 'Database nusxasi olinmoqda',
-    'verifying' => 'Backup tekshirilmoqda',
-    'ready' => 'Yuklab olishga tayyor',
-    'failed' => 'Backup olishda xato yuz berdi',
-    _ => 'Backup holati yangilanmoqda',
+    'queued' => l10n.adminText('server.status.queued'),
+    'running' => l10n.adminText('server.status.running'),
+    'verifying' => l10n.adminText('server.status.verifying'),
+    'ready' => l10n.adminText('server.status.ready'),
+    'failed' => l10n.adminText('server.status.failed'),
+    _ => l10n.adminText('server.status.unknown'),
   };
 }
 
-String _backupActionError(Object error) {
+String _backupActionError(Object error, AppLocalizations l10n) {
   if (error is MobileApiException && error.message.trim().isNotEmpty) {
     return error.message.trim();
   }
   if (error is StateError && error.message.trim().isNotEmpty) {
     return error.message.trim();
   }
-  return 'Backup amali bajarilmadi';
+  return l10n.adminText('server.action_failed');
 }
 
-String _serverStatusLabel(String status) {
+String _serverStatusLabel(String status, AppLocalizations l10n) {
   switch (status.trim()) {
     case 'running':
-      return 'Faol';
+      return l10n.adminText('server.status.active');
     default:
-      return 'To‘xtagan';
+      return l10n.adminText('server.status.stopped');
   }
 }
 
-String _databaseStatusLabel(String status) {
+String _databaseStatusLabel(String status, AppLocalizations l10n) {
   switch (status.trim()) {
     case 'online':
-      return 'Ulangan';
+      return l10n.adminText('server.status.online');
     case 'offline':
-      return 'Ulanmadi';
+      return l10n.adminText('server.status.offline');
     case 'unavailable':
-      return 'Mavjud emas';
+      return l10n.adminText('server.status.unavailable');
     default:
-      return status.trim().isEmpty ? 'Noma\'lum' : status.trim();
+      return status.trim().isEmpty
+          ? l10n.adminText('server.status.unknown_database')
+          : status.trim();
   }
 }
 
-String _formatLocal(DateTime? value) {
+String _formatLocal(DateTime? value, AppLocalizations l10n) {
   if (value == null) {
-    return 'Kutilmoqda';
+    return l10n.adminText('server.time_pending');
   }
   return formatLocalDateTime(value);
 }
 
-String _formatDuration(int seconds) {
+String _formatDuration(int seconds, AppLocalizations l10n) {
   if (seconds <= 0) {
-    return '0 soniya';
+    return l10n.adminText('server.duration_seconds', values: {'count': 0});
   }
   final days = seconds ~/ 86400;
   final hours = (seconds % 86400) ~/ 3600;
   final minutes = (seconds % 3600) ~/ 60;
   final parts = <String>[];
   if (days > 0) {
-    parts.add('$days kun');
+    parts.add(
+      l10n.adminText('server.duration_days', values: {'count': days}),
+    );
   }
   if (hours > 0) {
-    parts.add('$hours soat');
+    parts.add(
+      l10n.adminText('server.duration_hours', values: {'count': hours}),
+    );
   }
   if (minutes > 0) {
-    parts.add('$minutes daqiqa');
+    parts.add(
+      l10n.adminText('server.duration_minutes', values: {'count': minutes}),
+    );
   }
   if (parts.isEmpty) {
-    parts.add('$seconds soniya');
+    parts.add(
+      l10n.adminText('server.duration_seconds', values: {'count': seconds}),
+    );
   }
   return parts.join(' ');
 }

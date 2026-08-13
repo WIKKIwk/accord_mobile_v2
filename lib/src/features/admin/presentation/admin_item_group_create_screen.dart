@@ -1,4 +1,5 @@
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -123,7 +124,12 @@ class _AdminItemGroupCreateScreenState extends State<AdminItemGroupCreateScreen>
                 _refreshParentGroups();
               });
               showAdminTopNotice(
-                  context, 'Item Group qo‘shildi: ${group.name}');
+                context,
+                context.l10n.adminText(
+                  'item_group.saved',
+                  values: {'name': group.name},
+                ),
+              );
             },
             onClose: () => Navigator.of(dialogContext).pop(),
           ),
@@ -152,8 +158,9 @@ class _AdminItemGroupCreateScreenState extends State<AdminItemGroupCreateScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AppShell(
-      title: 'Item Group',
+      title: l10n.adminText('item_group.title'),
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -161,12 +168,12 @@ class _AdminItemGroupCreateScreenState extends State<AdminItemGroupCreateScreen>
         activeTab: AdminDockTab.settings,
         primaryFabActions: [
           AdminFabMenuAction(
-            title: 'Group qo‘shish',
+            title: l10n.adminText('item_group.add'),
             icon: Icons.create_new_folder_outlined,
             onTap: _openGroupCreateDialog,
           ),
           AdminFabMenuAction(
-            title: 'Parent ko‘chirish',
+            title: l10n.adminText('item_group.move_parent'),
             icon: Icons.drive_file_move_outline,
             onTap: _openParentMoveDialog,
           ),
@@ -177,9 +184,9 @@ class _AdminItemGroupCreateScreenState extends State<AdminItemGroupCreateScreen>
         children: [
           AdminSurfaceTabBar(
             controller: _tabController,
-            tabs: const [
-              Tab(height: 38, text: 'Tree'),
-              Tab(height: 38, text: 'Items'),
+            tabs: [
+              Tab(height: 38, text: l10n.adminText('item_group.tree_tab')),
+              Tab(height: 38, text: l10n.adminText('item_group.items_tab')),
             ],
           ),
           Expanded(
@@ -267,8 +274,8 @@ class _ItemGroupCreateDialogCardState
     }
     final picked = await _showItemGroupPicker(
       context: context,
-      title: 'Parent group tanlang',
-      hintText: 'Parent group qidiring',
+      title: context.l10n.adminText('item_group.parent_select'),
+      hintText: context.l10n.adminText('item_group.parent_search'),
       groups: groups,
     );
     if (picked == null || !mounted) {
@@ -297,7 +304,14 @@ class _ItemGroupCreateDialogCardState
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Item Group qo‘shilmadi: $error')),
+          SnackBar(
+            content: Text(
+              context.l10n.adminText(
+                'item_group.create_failed',
+                values: {'error': error},
+              ),
+            ),
+          ),
         );
       }
     } finally {
@@ -309,6 +323,7 @@ class _ItemGroupCreateDialogCardState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     return Material(
       color: scheme.surface,
@@ -329,7 +344,7 @@ class _ItemGroupCreateDialogCardState
                 children: [
                   Expanded(
                     child: Text(
-                      'Group qo‘shish',
+                      l10n.adminText('item_group.create_title'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -338,7 +353,7 @@ class _ItemGroupCreateDialogCardState
                   IconButton(
                     onPressed: _saving ? null : widget.onClose,
                     icon: const Icon(Icons.close_rounded),
-                    tooltip: 'Yopish',
+                    tooltip: l10n.adminText('action.close'),
                   ),
                 ],
               ),
@@ -348,7 +363,7 @@ class _ItemGroupCreateDialogCardState
                 textInputAction: TextInputAction.next,
                 decoration: appSurfaceInputDecoration(
                   context,
-                  labelText: 'Group nomi',
+                  labelText: l10n.adminText('item_group.name'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -365,12 +380,12 @@ class _ItemGroupCreateDialogCardState
                           !snapshot.hasError &&
                           !_saving;
                   return AdminPickerField(
-                    label: 'Parent group',
+                    label: l10n.adminText('item_group.parent'),
                     value: _parent,
                     placeholder:
                         snapshot.connectionState == ConnectionState.done
-                            ? 'Parent tanlang'
-                            : 'Yuklanmoqda...',
+                            ? l10n.adminText('item_group.parent_placeholder')
+                            : l10n.adminText('action.loading'),
                     enabled: pickerReady,
                     onTap: pickerReady ? () => _openParentPicker(groups) : null,
                   );
@@ -383,17 +398,17 @@ class _ItemGroupCreateDialogCardState
                 onChanged: _saving
                     ? null
                     : (value) => setState(() => _isGroup = value),
-                title: const Text('Ichida yana guruh bo‘ladi'),
-                subtitle: const Text(
-                  'Parent sifatida ishlatiladigan group uchun yoqing. '
-                  'Oxirgi/leaf group bo‘lsa o‘chiring.',
-                ),
+                title: Text(l10n.adminText('item_group.group_type')),
+                subtitle: Text(l10n.adminText('item_group.group_type_hint')),
               ),
               const SizedBox(height: 14),
               FilledButton(
                 onPressed: _saving ? null : _save,
-                child:
-                    Text(_saving ? 'Qo‘shilmoqda...' : 'Item Group qo‘shish'),
+                child: Text(
+                  _saving
+                      ? l10n.adminText('item_group.creating')
+                      : l10n.adminText('item_group.create_action'),
+                ),
               ),
             ],
           ),
@@ -416,6 +431,7 @@ class _ItemGroupParentMoveDialogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     return Material(
       color: scheme.surface,
@@ -436,7 +452,7 @@ class _ItemGroupParentMoveDialogCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Parent ko‘chirish',
+                      l10n.adminText('item_group.parent_move_title'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -445,7 +461,7 @@ class _ItemGroupParentMoveDialogCard extends StatelessWidget {
                   IconButton(
                     onPressed: onClose,
                     icon: const Icon(Icons.close_rounded),
-                    tooltip: 'Yopish',
+                    tooltip: l10n.adminText('action.close'),
                   ),
                 ],
               ),
@@ -454,16 +470,18 @@ class _ItemGroupParentMoveDialogCard extends StatelessWidget {
                 future: itemGroupsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const Padding(
+                    return Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
                       child: Center(child: AppLoadingIndicator()),
                     );
                   }
                   if (snapshot.hasError ||
                       (snapshot.data ?? const []).isEmpty) {
-                    return const Padding(
+                    return Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(child: Text('Item grouplar yuklanmadi')),
+                      child: Center(
+                        child: Text(l10n.adminText('item_group.load_failed')),
+                      ),
                     );
                   }
                   return AdminItemGroupParentMovePanel(

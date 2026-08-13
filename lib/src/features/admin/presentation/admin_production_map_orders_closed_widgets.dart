@@ -22,9 +22,13 @@ class _ClosedOrdersModulePage extends StatelessWidget {
       ),
       children: [
         if (closedOrders.isEmpty)
-          const _EmptyOpenedOrders(message: 'Yopilgan zakaz yo‘q')
+          _EmptyOpenedOrders(
+            message: context.l10n.adminText('production.closed_empty'),
+          )
         else if (visibleClosedOrders.isEmpty)
-          const _EmptyOpenedOrders(message: 'Zakaz topilmadi')
+          _EmptyOpenedOrders(
+            message: context.l10n.adminText('production.search_empty'),
+          )
         else
           M3SegmentSpacedColumn(
             padding: EdgeInsets.zero,

@@ -77,10 +77,10 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       label: l10n.adminEquipmentNavTitle,
       routeName: AppRoutes.adminApparatusSettings,
     ),
-    const RoleNavigationDrawerDestination(
+    RoleNavigationDrawerDestination(
       icon: Icons.school_outlined,
       selectedIcon: Icons.school_rounded,
-      label: 'Training',
+      label: l10n.adminText('training.title'),
       routeName: AppRoutes.adminTraining,
     ),
     RoleNavigationDrawerDestination(
@@ -101,10 +101,10 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       label: l10n.adminRawMaterialRulesNavTitle,
       routeName: AppRoutes.adminRawMaterialSettings,
     ),
-    const RoleNavigationDrawerDestination(
+    RoleNavigationDrawerDestination(
       icon: Icons.straighten_outlined,
       selectedIcon: Icons.straighten_rounded,
-      label: 'Xomashyo mikronlari',
+      label: l10n.adminText('home.raw_material_microns'),
       routeName: AppRoutes.adminCalculateMaterials,
     ),
     RoleNavigationDrawerDestination(

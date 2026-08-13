@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/session.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
@@ -39,15 +40,16 @@ const List<AdminUserKind> _adminUserTabKinds = [
   AdminUserKind.boyoqchi,
 ];
 
-String _adminUserKindLabel(AdminUserKind kind) {
+String _adminUserKindLabel(AppLocalizations l10n, AdminUserKind kind) {
   return switch (kind) {
-    AdminUserKind.werka => 'Omborchi',
-    AdminUserKind.customer => 'Haridor',
-    AdminUserKind.supplier => 'Ta’minotchi',
-    AdminUserKind.materialTaminotchi => 'Material taminotchisi',
-    AdminUserKind.worker => 'Ishchi',
-    AdminUserKind.qolipchi => 'Qolipchi',
-    AdminUserKind.boyoqchi => 'Bo‘yoqchi',
+    AdminUserKind.werka => l10n.adminText('users.kind.werka'),
+    AdminUserKind.customer => l10n.adminText('users.kind.customer'),
+    AdminUserKind.supplier => l10n.adminText('users.kind.supplier'),
+    AdminUserKind.materialTaminotchi =>
+      l10n.adminText('users.kind.material_supplier'),
+    AdminUserKind.worker => l10n.adminText('users.kind.worker'),
+    AdminUserKind.qolipchi => l10n.adminText('users.kind.mold_maker'),
+    AdminUserKind.boyoqchi => l10n.adminText('users.kind.painter'),
   };
 }
 
@@ -262,9 +264,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Userlarning keyingi qismi yuklanmadi. Qayta urinib ko‘ring.',
+            context.l10n.adminText('users.next_page_failed'),
           ),
         ),
       );
@@ -472,7 +474,10 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     });
   }
 
-  AdminUserListEntry _materialTaminotchiEntry(AdminUserListEntry item) {
+  AdminUserListEntry _materialTaminotchiEntry(
+    AdminUserListEntry item,
+    AppLocalizations l10n,
+  ) {
     if (item.kind == AdminUserKind.materialTaminotchi &&
         item.principalRole == UserRole.materialTaminotchi) {
       return item;
@@ -485,7 +490,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       avatarUrl: item.avatarUrl,
       principalRole: UserRole.materialTaminotchi,
       blocked: item.blocked,
-      roleLabelOverride: 'Material taminotchisi',
+      roleLabelOverride: l10n.adminText('users.kind.material_supplier'),
     );
   }
 
@@ -496,7 +501,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     if (kind == AdminUserKind.materialTaminotchi) {
       return _items
           .where(_itemIsMaterialTaminotchi)
-          .map(_materialTaminotchiEntry)
+          .map((item) => _materialTaminotchiEntry(item, context.l10n))
           .toList(growable: false);
     }
     if (kind == AdminUserKind.worker) {
@@ -518,13 +523,14 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   }
 
   Widget _buildUserList(AdminUserKind? kind) {
+    final l10n = context.l10n;
     final visibleItems = _visibleItems(kind);
     if (kind == null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            'Rollar tanlanmagan',
+            l10n.adminText('users.not_selected'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge,
           ),
@@ -541,7 +547,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     if (_loadError != null) {
       return AppRetryState(
         onRetry: _reload,
-        message: 'Userlar yuklanmadi. Qayta urinib ko‘ring.',
+        message: l10n.adminText('users.load_failed'),
       );
     }
     return AppRefreshIndicator(
@@ -568,7 +574,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
                   vertical: 12,
                 ),
                 child: Text(
-                  'Userlar topilmadi',
+                  l10n.adminText('users.not_found'),
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),
               );
@@ -604,6 +610,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AppShell(
       animateOnEnter: false,
       drawer: AdminNavigationDrawer(
@@ -620,7 +627,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,
-        hintText: 'Foydalanuvchi qidirish',
+        hintText: l10n.adminText('users.search'),
         onChanged: _onSearchChanged,
         onClear: () {
           _searchController.clear();
@@ -659,12 +666,13 @@ class _AdminUserRolePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final selectedLabel =
-        selectedKind == null ? null : _adminUserKindLabel(selectedKind!);
+        selectedKind == null ? null : _adminUserKindLabel(l10n, selectedKind!);
     return AdminExpandableFilterChip<AdminUserKind>(
       chipKey: const ValueKey('admin-users-role-filter-chip'),
-      label: 'Rol',
-      emptyLabel: selectedLabel ?? 'Tanlanmagan',
+      label: l10n.adminText('users.role'),
+      emptyLabel: selectedLabel ?? l10n.adminText('users.none_selected'),
       icon: Icons.person_outline_rounded,
       selectedValue: selectedKind,
       expanded: expanded,
@@ -675,7 +683,7 @@ class _AdminUserRolePicker extends StatelessWidget {
         for (final kind in _adminUserTabKinds)
           AdminFilterChipOption(
             value: kind,
-            label: _adminUserKindLabel(kind),
+            label: _adminUserKindLabel(l10n, kind),
             key: ValueKey('admin-users-role-option-chip-${kind.name}'),
           ),
       ],

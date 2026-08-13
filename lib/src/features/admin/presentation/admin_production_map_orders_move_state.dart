@@ -94,7 +94,10 @@ extension _AdminProductionMapOrdersMoveState
       });
       showAdminTopNotice(
         context,
-        _adminActionErrorText(error, 'Ketma-ketlik saqlanmadi'),
+        _adminActionErrorText(
+          error,
+          context.l10n.adminText('item.loading_failed'),
+        ),
       );
     }
   }
@@ -207,7 +210,10 @@ extension _AdminProductionMapOrdersMoveState
       (order) => !_canMoveOrderToApparatus(order, to, source: from),
     );
     if (blocked) {
-      showAdminTopNotice(context, 'Tanlangan zakazlar bu aparatga tushmaydi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('production.move.invalid_target'),
+      );
       return;
     }
     final orderIds = _productionMapOrderIdSet(orders);
@@ -222,7 +228,7 @@ extension _AdminProductionMapOrdersMoveState
       _clearMoveDragState();
       showAdminTopNotice(
         context,
-        'Ishlayotgan zakazni ko‘chirish mumkin emas. Avval Pause qiling.',
+        context.l10n.adminText('production.move.in_progress'),
       );
       return;
     }
@@ -280,7 +286,9 @@ extension _AdminProductionMapOrdersMoveState
           _savedProductionMapOrdersByIdOrThrow(
             saved: saved,
             expectedOrderIds: _productionMapOrderIdSet(pendingOrders),
-            incompleteMessage: 'Zakazlar to‘liq ko‘chirilmadi',
+            incompleteMessage: context.l10n.adminText(
+              'production.move.incomplete',
+            ),
           ),
         );
       }
@@ -290,7 +298,9 @@ extension _AdminProductionMapOrdersMoveState
       final completeSavedById = _savedProductionMapOrdersByIdOrThrow(
         saved: savedById.values.toList(growable: false),
         expectedOrderIds: orderIds,
-        incompleteMessage: 'Zakazlar to‘liq ko‘chirilmadi',
+        incompleteMessage: context.l10n.adminText(
+          'production.move.incomplete',
+        ),
       );
       _applySavedMoveOrders(
         orderIds: orderIds,
@@ -300,9 +310,15 @@ extension _AdminProductionMapOrdersMoveState
       if (!mounted) {
         return;
       }
-      showAdminTopNotice(context, _moveOrdersSuccessText(orders.length));
+      showAdminTopNotice(
+        context,
+        _moveOrdersSuccessText(context.l10n, orders.length),
+      );
     } catch (error) {
-      await _resyncAfterMoveActionError(error, 'Zakaz ko‘chirilmadi');
+      await _resyncAfterMoveActionError(
+        error,
+        context.l10n.adminText('production.move.failed'),
+      );
     }
   }
 
@@ -318,7 +334,10 @@ extension _AdminProductionMapOrdersMoveState
       source: source,
     );
     if (convertedMaps == null) {
-      showAdminTopNotice(context, 'Bu zakaz tanlanmagan holatga qaytmaydi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('production.move.not_unassigned'),
+      );
       return;
     }
     final orderIds = _productionMapOrderIdSet(orders);
@@ -331,17 +350,19 @@ extension _AdminProductionMapOrdersMoveState
       final savedById = _savedProductionMapOrdersByIdOrThrow(
         saved: saved,
         expectedOrderIds: orderIds,
-        incompleteMessage: 'Zakazlar to‘liq tanlanmagan holatga qaytmadi',
+        incompleteMessage: context.l10n.adminText(
+          'production.move.return_incomplete',
+        ),
       );
       _applySavedMoveOrders(orderIds: orderIds, savedById: savedById);
       showAdminTopNotice(
         context,
-        _returnOrdersToUnassignedSuccessText(orders.length),
+        _returnOrdersToUnassignedSuccessText(context.l10n, orders.length),
       );
     } catch (error) {
       await _resyncAfterMoveActionError(
         error,
-        'Zakaz tanlanmagan holatga qaytmadi',
+        context.l10n.adminText('production.move.return_failed'),
       );
     }
   }
@@ -357,7 +378,10 @@ extension _AdminProductionMapOrdersMoveState
       (order) => !_isAlternativeOrderForApparatus(order, apparatus),
     );
     if (blocked) {
-      showAdminTopNotice(context, 'Tanlangan zakazlar bu aparatga tushmaydi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('production.move.invalid_target'),
+      );
       return;
     }
     final orderIds = _productionMapOrderIdSet(orders);
@@ -374,15 +398,20 @@ extension _AdminProductionMapOrdersMoveState
       final savedById = _savedProductionMapOrdersByIdOrThrow(
         saved: saved,
         expectedOrderIds: orderIds,
-        incompleteMessage: 'Zakazlar to‘liq biriktirilmadi',
+        incompleteMessage: context.l10n.adminText(
+          'production.move.assign_incomplete',
+        ),
       );
       _applySavedMoveOrders(orderIds: orderIds, savedById: savedById);
       showAdminTopNotice(
         context,
-        _assignAlternativeOrdersSuccessText(orders.length),
+        _assignAlternativeOrdersSuccessText(context.l10n, orders.length),
       );
     } catch (error) {
-      await _resyncAfterMoveActionError(error, 'Zakaz biriktirilmadi');
+      await _resyncAfterMoveActionError(
+        error,
+        context.l10n.adminText('production.move.assign_failed'),
+      );
     }
   }
 
@@ -473,15 +502,21 @@ class _ApparatusTransferReasonDialogState
   Widget build(BuildContext context) {
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      title: const Text('Avariya sababini kiriting'),
+      title: Text(context.l10n.adminText('production.transfer.title')),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '${widget.orderCount} ta zakazni ${widget.from.name} dan '
-              '${widget.to.name} ga pause holatda ko‘chirish',
+              context.l10n.adminText(
+                'production.transfer.message',
+                values: {
+                  'count': widget.orderCount,
+                  'from': widget.from.name,
+                  'to': widget.to.name,
+                },
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -491,8 +526,12 @@ class _ApparatusTransferReasonDialogState
               maxLines: 3,
               maxLength: 500,
               decoration: InputDecoration(
-                labelText: 'Sabab',
-                hintText: 'Masalan: aparat buzildi',
+                labelText: context.l10n.adminText(
+                  'production.transfer.reason',
+                ),
+                hintText: context.l10n.adminText(
+                  'production.transfer.hint',
+                ),
                 errorText:
                     _validationMessage.isEmpty ? null : _validationMessage,
               ),
@@ -512,18 +551,22 @@ class _ApparatusTransferReasonDialogState
                   final reason = _controller.text.trim();
                   if (reason.isEmpty) {
                     setState(() {
-                      _validationMessage = 'Sabab majburiy';
+                      _validationMessage = context.l10n.adminText(
+                        'production.transfer.required',
+                      );
                     });
                     return;
                   }
                   Navigator.of(context).pop(reason);
                 },
-                child: const Text('Ko‘chirish'),
+                child: Text(
+                  context.l10n.adminText('production.transfer.move'),
+                ),
               ),
               const SizedBox(height: 10),
               OutlinedButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Bekor qilish'),
+                child: Text(context.l10n.adminText('action.cancel')),
               ),
             ],
           ),

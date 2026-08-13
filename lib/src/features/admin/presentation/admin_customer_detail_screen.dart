@@ -1,4 +1,5 @@
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/buttons/app_action_button_styles.dart';
@@ -192,9 +193,16 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Telefon saqlanmadi: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.adminText(
+              'detail.phone_save_failed',
+              values: {'error': error},
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _savingPhone = false);
@@ -220,9 +228,16 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Code yangilanmadi: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.adminText(
+              'detail.code_update_failed',
+              values: {'error': error},
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _regeneratingCode = false);
@@ -235,19 +250,18 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Code nusxalandi')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.adminText('detail.code_copied'))),
+    );
   }
 
   Future<void> _removeCustomer() async {
     final bool? confirmed = await showM3ConfirmDialog(
       context: context,
-      title: 'Customerni chiqarish',
-      message:
-          'Bu customer admin panel ro‘yxatidan chiqariladi va kira olmaydi.',
-      cancelLabel: 'Bekor qilish',
-      confirmLabel: 'Chiqarish',
+      title: context.l10n.adminText('detail.customer_remove_title'),
+      message: context.l10n.adminText('detail.customer_remove_message'),
+      cancelLabel: context.l10n.adminText('action.cancel'),
+      confirmLabel: context.l10n.adminText('detail.customer_remove'),
       destructive: true,
     );
     if (confirmed != true) {
@@ -266,9 +280,16 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Customer chiqarilmadi: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.adminText(
+              'detail.customer_remove_failed',
+              values: {'error': error},
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _removing = false);
@@ -294,7 +315,14 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
         return false;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Mahsulot biriktirilmadi: $error')),
+        SnackBar(
+          content: Text(
+            context.l10n.adminText(
+              'detail.item_assign_failed',
+              values: {'error': error},
+            ),
+          ),
+        ),
       );
       return false;
     } finally {
@@ -319,7 +347,7 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
         allItems.where((item) => !assignedCodes.contains(item.code)).toList();
     if (availableItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Biriktirilmagan mahsulot topilmadi')),
+        SnackBar(content: Text(context.l10n.adminText('detail.no_items'))),
       );
       return;
     }
@@ -334,10 +362,13 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
   Future<bool> _removeItem(SupplierItem item) async {
     final bool? confirmed = await showM3ConfirmDialog(
       context: context,
-      title: 'Mahsulotni uzish',
-      message: '${item.name} mahsulotini customerdan uzaymi?',
-      cancelLabel: 'Yo‘q',
-      confirmLabel: 'Ha',
+      title: context.l10n.adminText('detail.item_unlink_title'),
+      message: context.l10n.adminText(
+        'detail.customer_item_remove_message',
+        values: {'item': item.name},
+      ),
+      cancelLabel: context.l10n.adminText('bulk_move.no'),
+      confirmLabel: context.l10n.adminText('bulk_move.yes'),
     );
     if (confirmed != true) {
       return false;
@@ -359,9 +390,16 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
       if (!mounted) {
         return false;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Mahsulot uzilmadi: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.adminText(
+              'detail.item_unlink_failed',
+              values: {'error': error},
+            ),
+          ),
+        ),
+      );
       return false;
     } finally {
       if (mounted) {
@@ -388,7 +426,7 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
       }
       if (available.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Mahsulot guruhlari topilmadi')),
+          SnackBar(content: Text(context.l10n.adminText('detail.no_groups'))),
         );
         return;
       }
@@ -421,7 +459,9 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
       if (mounted) {
         setState(() => _detail = updated);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Mahsulot guruhlari saqlandi')),
+          SnackBar(
+            content: Text(context.l10n.adminText('detail.groups_saved')),
+          ),
         );
       }
     } catch (error) {
@@ -430,7 +470,7 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
           SnackBar(
             content: Text(
               _operationErrorMessage(
-                'Mahsulot guruhlari saqlanmadi',
+                context.l10n.adminText('detail.groups_save_failed'),
                 error,
               ),
             ),
@@ -446,13 +486,31 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final screenTitle = widget.title == 'Profil'
+        ? l10n.adminText('profile.title')
+        : widget.title;
+    final profileSubtitle = widget.profileSubtitle == 'Haridor profili'
+        ? l10n.adminText('detail.customer_profile')
+        : widget.profileSubtitle;
+    final namelessLabel = widget.namelessLabel == 'Nomsiz haridor'
+        ? l10n.adminText('detail.nameless_customer')
+        : widget.namelessLabel;
     final AdminCustomerDetail detail = _detail ??
         AdminCustomerDetail(
           ref: widget.customerRef,
-          name: _loading ? 'Yuklanmoqda...' : widget.emptyName,
-          phone: _loading ? 'Yuklanmoqda...' : 'Kiritilmagan',
+          name: _loading
+              ? l10n.adminText('detail.loading')
+              : widget.emptyName == 'Customer'
+                  ? l10n.adminText('detail.customer')
+                  : widget.emptyName,
+          phone: _loading
+              ? l10n.adminText('detail.loading')
+              : l10n.adminText('profile.entered'),
           avatarUrl: '',
-          code: _loading ? 'Yuklanmoqda...' : 'Hali generatsiya qilinmagan',
+          code: _loading
+              ? l10n.adminText('detail.loading')
+              : l10n.adminText('profile.not_generated'),
           codeLocked: false,
           codeRetryAfterSec: _retryAfterSec,
           assignedItems: const [],
@@ -476,8 +534,9 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
                     });
                   }
                 },
-                assignedMessage:
-                    'Material faqat shu omborlarda qabul qilinadi va boshqariladi.',
+                assignedMessage: l10n.adminText(
+                  'detail.material_scope_message',
+                ),
                 chipKeyPrefix: 'admin-material-detail-warehouse-',
                 addButtonKey: 'admin-material-detail-add-warehouse',
                 warehousesLoader: widget.materialWarehousesLoader,
@@ -496,7 +555,7 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
         Navigator.of(context).pop(_changed);
       },
       child: AppShell(
-        title: widget.title,
+        title: screenTitle,
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -516,14 +575,14 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
               child: _AdminCustomerDetailCard(
                 detail: detail,
                 statusLabel: _loading
-                    ? 'Yuklanmoqda'
+                    ? l10n.adminText('detail.loading')
                     : _loadError != null
-                        ? 'Xato'
+                        ? l10n.adminText('detail.error')
                         : _detail == null
-                            ? 'Bo‘sh'
-                            : 'Tayyor',
-                profileSubtitle: widget.profileSubtitle,
-                namelessLabel: widget.namelessLabel,
+                            ? l10n.adminText('detail.empty')
+                            : l10n.adminText('detail.ready'),
+                profileSubtitle: profileSubtitle,
+                namelessLabel: namelessLabel,
                 customerManagementEnabled: widget.customerManagementEnabled,
                 itemManagementEnabled: widget.itemManagementEnabled,
                 removeEnabled: widget.removeEnabled,
@@ -655,6 +714,7 @@ class _MaterialItemGroupPickerSheetState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final visible = widget.available.where((group) {
@@ -683,7 +743,7 @@ class _MaterialItemGroupPickerSheetState
                 children: [
                   Expanded(
                     child: Text(
-                      'Mahsulot guruhlarini tahrirlash',
+                      l10n.adminText('detail.groups_edit_title'),
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -703,8 +763,8 @@ class _MaterialItemGroupPickerSheetState
                 controller: _searchController,
                 onChanged: (value) =>
                     setState(() => _query = value.trim().toLowerCase()),
-                decoration: const InputDecoration(
-                  hintText: 'Guruh qidiring',
+                decoration: InputDecoration(
+                  hintText: l10n.adminText('detail.group_search'),
                   prefixIcon: Icon(Icons.search_rounded),
                 ),
               ),
@@ -712,7 +772,9 @@ class _MaterialItemGroupPickerSheetState
             const SizedBox(height: 10),
             Expanded(
               child: visible.isEmpty
-                  ? const Center(child: Text('Guruh topilmadi'))
+                  ? Center(
+                      child: Text(l10n.adminText('detail.groups_not_found')),
+                    )
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                       itemCount: visible.length,
@@ -759,7 +821,12 @@ class _MaterialItemGroupPickerSheetState
                               .toSet();
                           Navigator.of(context).pop(selected);
                         },
-                  child: Text('${_selectedKeys.length} ta guruhni saqlash'),
+                  child: Text(
+                    l10n.adminText(
+                      'detail.groups_save_count',
+                      values: {'count': _selectedKeys.length},
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -785,6 +852,7 @@ Future<void> _showAvailableItemsSheet(
     useSafeArea: true,
     isScrollControlled: true,
     builder: (context) {
+      final l10n = context.l10n;
       final theme = Theme.of(context);
       final scheme = theme.colorScheme;
       return StatefulBuilder(
@@ -799,7 +867,7 @@ Future<void> _showAvailableItemsSheet(
                   children: [
                     Expanded(
                       child: Text(
-                        'Mahsulot qo‘shish',
+                        l10n.adminText('detail.items_add'),
                         style: theme.textTheme.titleLarge,
                       ),
                     ),
@@ -957,6 +1025,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final phone = detail.phone.trim();
@@ -1037,21 +1106,32 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                   children: [
                     ProfileInfoChip(
                       icon: Icons.phone_rounded,
-                      label: phone.isEmpty ? 'Telefon kiritilmagan' : phone,
+                      label: phone.isEmpty
+                          ? l10n.adminText('profile.phone_missing')
+                          : phone,
                     ),
                     if (isMaterialTaminotchi) ...[
                       ProfileInfoChip(
                         icon: Icons.category_outlined,
-                        label: '${detail.assignedItemGroups.length} ta guruh',
+                        label: l10n.adminText(
+                          'detail.groups_count',
+                          values: {'count': detail.assignedItemGroups.length},
+                        ),
                       ),
                       ProfileInfoChip(
                         icon: Icons.warehouse_outlined,
-                        label: '${detail.assignedWarehouses.length} ta ombor',
+                        label: l10n.adminText(
+                          'detail.warehouses_count',
+                          values: {'count': detail.assignedWarehouses.length},
+                        ),
                       ),
                     ] else
                       ProfileInfoChip(
                         icon: Icons.shopping_bag_rounded,
-                        label: '${detail.assignedItems.length} ta mahsulot',
+                        label: l10n.adminText(
+                          'detail.items_count',
+                          values: {'count': detail.assignedItems.length},
+                        ),
                       ),
                     if (chatTarget != null)
                       ChatProfileActionButton(
@@ -1067,8 +1147,9 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   key: const ValueKey('admin-customer-detail-admin-toggle'),
-                  tooltip:
-                      expanded ? 'Boshqaruvni yopish' : 'Boshqaruvni ochish',
+                  tooltip: expanded
+                      ? l10n.adminText('profile.controls_close')
+                      : l10n.adminText('profile.controls_open'),
                   onPressed: () => onExpandedChanged(!expanded),
                   icon: AnimatedRotation(
                     turns: expanded ? 0.5 : 0,
@@ -1163,6 +1244,7 @@ class _AdminCustomerPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Column(
@@ -1174,13 +1256,13 @@ class _AdminCustomerPanel extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Text(
-          'Admin boshqaruv',
+          l10n.adminText('profile.admin_controls'),
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w800,
           ),
         ),
         const SizedBox(height: 14),
-        Text('Telefon', style: theme.textTheme.bodySmall),
+        Text(l10n.adminText('profile.phone'), style: theme.textTheme.bodySmall),
         const SizedBox(height: 6),
         _CustomerPhoneInlineField(
           detail: detail,
@@ -1188,7 +1270,10 @@ class _AdminCustomerPanel extends StatelessWidget {
           onSavePhone: onSavePhone,
         ),
         const SizedBox(height: 14),
-        Text('Kirish kodi', style: theme.textTheme.bodySmall),
+        Text(
+          l10n.adminText('profile.access_code'),
+          style: theme.textTheme.bodySmall,
+        ),
         const SizedBox(height: 6),
         AppDetailField(
           child: Row(
@@ -1196,7 +1281,7 @@ class _AdminCustomerPanel extends StatelessWidget {
               Expanded(
                 child: Text(
                   detail.code.trim().isEmpty
-                      ? 'Hali generatsiya qilinmagan'
+                      ? l10n.adminText('profile.not_generated')
                       : detail.code,
                   style: theme.textTheme.titleMedium,
                 ),
@@ -1225,7 +1310,10 @@ class _AdminCustomerPanel extends StatelessWidget {
         if (detail.codeRetryAfterSec > 0) ...[
           const SizedBox(height: 12),
           Text(
-            'Keyingi code uchun ${detail.codeRetryAfterSec} soniya kuting.',
+            l10n.adminText(
+              'profile.code_wait',
+              values: {'seconds': detail.codeRetryAfterSec},
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -1234,14 +1322,14 @@ class _AdminCustomerPanel extends StatelessWidget {
         if (isMaterialTaminotchi) ...[
           const SizedBox(height: 18),
           Text(
-            'Mahsulot guruhlari',
+            l10n.adminText('item.group'),
             style: theme.textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
           Text(
             detail.assignedItemGroups.isEmpty
-                ? 'Mahsulot guruhi biriktirilmagan.'
-                : 'Faqat shu guruhlardagi materiallar bilan ishlaydi.',
+                ? l10n.adminText('detail.groups_unassigned')
+                : l10n.adminText('detail.groups_scope'),
             style: theme.textTheme.bodySmall?.copyWith(
               color: detail.assignedItemGroups.isEmpty
                   ? scheme.error
@@ -1282,8 +1370,8 @@ class _AdminCustomerPanel extends StatelessWidget {
                   : const Icon(Icons.edit_outlined),
               label: Text(
                 editingMaterialItemGroups
-                    ? 'Yuklanmoqda...'
-                    : 'Guruhlarni tahrirlash',
+                    ? l10n.adminText('detail.loading')
+                    : l10n.adminText('detail.edit_groups'),
               ),
             ),
           ),
@@ -1293,14 +1381,17 @@ class _AdminCustomerPanel extends StatelessWidget {
         if (itemManagementEnabled) ...[
           const SizedBox(height: 18),
           Text(
-            'Biriktirilgan mahsulotlar',
+            l10n.adminText('detail.assigned_items'),
             style: theme.textTheme.titleLarge,
           ),
           const SizedBox(height: 10),
           Text(
             detail.assignedItems.isEmpty
-                ? 'Hozircha mahsulot biriktirilmagan.'
-                : '${detail.assignedItems.length} ta mahsulot biriktirilgan.',
+                ? l10n.adminText('detail.assigned_items_empty')
+                : l10n.adminText(
+                    'detail.assigned_items_count',
+                    values: {'count': detail.assignedItems.length},
+                  ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -1321,7 +1412,7 @@ class _AdminCustomerPanel extends StatelessWidget {
                             onRemoveItem: onRemoveItem,
                             removingItemCode: removingItemCode,
                           ),
-                  child: const Text('Ko‘rish'),
+                  child: Text(l10n.adminText('detail.items_view')),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1331,7 +1422,11 @@ class _AdminCustomerPanel extends StatelessWidget {
                     borderRadius: _customerDetailButtonRadius,
                   ),
                   onPressed: addingItem ? null : onAddItem,
-                  child: Text(addingItem ? 'Qo‘shilmoqda...' : 'Qo‘shish'),
+                  child: Text(
+                    addingItem
+                        ? l10n.adminText('detail.items_adding')
+                        : l10n.adminText('detail.add'),
+                  ),
                 ),
               ),
             ],
@@ -1347,7 +1442,9 @@ class _AdminCustomerPanel extends StatelessWidget {
               ),
               onPressed: removing ? null : onRemove,
               child: Text(
-                removing ? 'Chiqarilmoqda...' : 'Tizimdan chiqarish',
+                removing
+                    ? l10n.adminText('detail.removing')
+                    : l10n.adminText('detail.remove_from_system'),
               ),
             ),
           ),
@@ -1407,6 +1504,7 @@ class _CustomerPhoneInlineFieldState extends State<_CustomerPhoneInlineField> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final phone = widget.detail.phone.trim();
     return AppDetailField(
@@ -1422,23 +1520,23 @@ class _CustomerPhoneInlineFieldState extends State<_CustomerPhoneInlineField> {
                     decoration: const InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
-                      hintText: '+998901234567',
+                      hintText: '+998 90 123 45 67',
                     ),
                     style: theme.textTheme.titleMedium,
                     onSubmitted: (_) => _submit(),
                   )
                 : Text(
-                    phone.isEmpty ? 'Kiritilmagan' : phone,
+                    phone.isEmpty ? l10n.adminText('profile.entered') : phone,
                     style: theme.textTheme.titleMedium,
                   ),
           ),
           IconButton(
             key: const ValueKey('admin-customer-detail-phone-action'),
             tooltip: _editing
-                ? 'Telefonni saqlash'
+                ? l10n.adminText('profile.save_phone')
                 : phone.isEmpty
-                    ? 'Telefon raqami kiritish'
-                    : 'Telefonni yangilash',
+                    ? l10n.adminText('profile.enter_phone')
+                    : l10n.adminText('profile.update_phone'),
             onPressed: widget.savingPhone
                 ? null
                 : _editing
@@ -1488,6 +1586,7 @@ Future<void> _showAssignedItemsSheet(
     useSafeArea: true,
     isScrollControlled: true,
     builder: (context) {
+      final l10n = context.l10n;
       final theme = Theme.of(context);
       final scheme = theme.colorScheme;
       return StatefulBuilder(
@@ -1502,7 +1601,7 @@ Future<void> _showAssignedItemsSheet(
                   children: [
                     Expanded(
                       child: Text(
-                        'Biriktirilgan mahsulotlar',
+                        l10n.adminText('detail.items_sheet_title'),
                         style: theme.textTheme.titleLarge,
                       ),
                     ),

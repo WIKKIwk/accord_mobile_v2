@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/api/mobile_api.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/widgets/buttons/app_action_button_styles.dart';
 import '../../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../shared/models/app_models.dart';
@@ -66,6 +67,7 @@ class _AdminWarehouseAssignmentEditorState
     if (_adding) {
       return;
     }
+    final l10n = context.l10n;
     setState(() => _adding = true);
     try {
       final warehouses = widget.warehousesLoader == null
@@ -88,7 +90,11 @@ class _AdminWarehouseAssignmentEditorState
       }
       if (available.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Biriktirilmagan ombor topilmadi')),
+          SnackBar(
+            content: Text(
+              l10n.adminText('warehouse.assignment_available_empty'),
+            ),
+          ),
         );
         return;
       }
@@ -114,21 +120,37 @@ class _AdminWarehouseAssignmentEditorState
             assignment.warehouse.trim().toLowerCase(),
       );
       if (!assignmentConfirmed) {
-        throw const MobileApiException(
+        throw MobileApiException(
           code: 'warehouse_assignment_not_confirmed',
-          message: 'Server ombor biriktirilganini tasdiqlamadi',
+          message: l10n.adminText(
+            'warehouse.assignment_not_confirmed',
+          ),
         );
       }
       if (mounted) {
         widget.onChanged(normalizeAdminWarehouseNames(updated));
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${assignment.warehouse} biriktirildi')),
+          SnackBar(
+            content: Text(
+              l10n.adminText(
+                'warehouse.assigned',
+                values: {'warehouse': assignment.warehouse},
+              ),
+            ),
+          ),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ombor biriktirilmadi: $error')),
+          SnackBar(
+            content: Text(
+              l10n.adminText(
+                'warehouse.assign_failed',
+                values: {'error': error},
+              ),
+            ),
+          ),
         );
       }
     } finally {
@@ -142,12 +164,16 @@ class _AdminWarehouseAssignmentEditorState
     if (_removingWarehouse != null) {
       return;
     }
+    final l10n = context.l10n;
     final confirmed = await showM3ConfirmDialog(
       context: context,
-      title: 'Omborni uzish',
-      message: '$warehouse omborini ${widget.displayName} profilidan uzaymi?',
-      cancelLabel: 'Yo‘q',
-      confirmLabel: 'Ha',
+      title: l10n.adminText('warehouse.unassign_title'),
+      message: l10n.adminText(
+        'warehouse.unassign_message',
+        values: {'warehouse': warehouse, 'name': widget.displayName},
+      ),
+      cancelLabel: l10n.adminText('action.no'),
+      confirmLabel: l10n.adminText('action.yes'),
     );
     if (confirmed != true || !mounted) {
       return;
@@ -166,21 +192,37 @@ class _AdminWarehouseAssignmentEditorState
         (item) => item.trim().toLowerCase() == warehouse.trim().toLowerCase(),
       );
       if (assignmentStillExists) {
-        throw const MobileApiException(
+        throw MobileApiException(
           code: 'warehouse_unassignment_not_confirmed',
-          message: 'Server ombor uzilganini tasdiqlamadi',
+          message: l10n.adminText(
+            'warehouse.unassignment_not_confirmed',
+          ),
         );
       }
       if (mounted) {
         widget.onChanged(normalizeAdminWarehouseNames(updated));
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$warehouse profildan uzildi')),
+          SnackBar(
+            content: Text(
+              l10n.adminText(
+                'warehouse.unassigned',
+                values: {'warehouse': warehouse},
+              ),
+            ),
+          ),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ombor uzilmadi: $error')),
+          SnackBar(
+            content: Text(
+              l10n.adminText(
+                'warehouse.unassign_failed',
+                values: {'error': error},
+              ),
+            ),
+          ),
         );
       }
     } finally {
@@ -192,16 +234,20 @@ class _AdminWarehouseAssignmentEditorState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Biriktirilgan omborlar', style: theme.textTheme.titleLarge),
+        Text(
+          l10n.adminText('warehouse.assigned_title'),
+          style: theme.textTheme.titleLarge,
+        ),
         const SizedBox(height: 8),
         Text(
           widget.assignedWarehouses.isEmpty
-              ? 'Ombor biriktirilmagan.'
+              ? l10n.adminText('warehouse.none_assigned')
               : widget.assignedMessage,
           style: theme.textTheme.bodySmall?.copyWith(
             color: widget.assignedWarehouses.isEmpty
@@ -248,7 +294,11 @@ class _AdminWarehouseAssignmentEditorState
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.add_rounded),
-            label: Text(_adding ? 'Yuklanmoqda...' : 'Ombor biriktirish'),
+            label: Text(
+              _adding
+                  ? l10n.adminText('action.loading')
+                  : l10n.adminText('warehouse.add'),
+            ),
           ),
         ),
       ],

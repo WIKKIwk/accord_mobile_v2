@@ -59,7 +59,7 @@ class _AdminFactoryLocationsScreenState
       }
       setState(() {
         _loading = false;
-        _error = 'State’lar yuklanmadi';
+        _error = context.l10n.adminText('factory.states_load_failed');
       });
     }
   }
@@ -118,7 +118,7 @@ class _AdminFactoryLocationsScreenState
     } on MobileApiException catch (error) {
       _showMessage(error.message);
     } catch (_) {
-      _showMessage('State saqlanmadi');
+      _showMessage(context.l10n.adminText('factory.state_save_failed'));
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -134,19 +134,19 @@ class _AdminFactoryLocationsScreenState
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('State nomini o‘zgartirish'),
+        title: Text(context.l10n.adminText('factory.state_name_edit')),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'State nomi',
+          decoration: InputDecoration(
+            labelText: context.l10n.adminText('factory.state_name'),
             border: OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Bekor qilish'),
+            child: Text(context.l10n.adminText('action.cancel')),
           ),
           FilledButton(
             onPressed: () {
@@ -155,7 +155,7 @@ class _AdminFactoryLocationsScreenState
                 Navigator.of(context).pop(value);
               }
             },
-            child: const Text('Saqlash'),
+            child: Text(context.l10n.adminText('action.save')),
           ),
         ],
       ),
@@ -186,7 +186,7 @@ class _AdminFactoryLocationsScreenState
     } on MobileApiException catch (error) {
       _showMessage(error.message);
     } catch (_) {
-      _showMessage('State nomi yangilanmadi');
+      _showMessage(context.l10n.adminText('factory.state_update_failed'));
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -219,7 +219,7 @@ class _AdminFactoryLocationsScreenState
     } on MobileApiException catch (error) {
       _showMessage(error.message);
     } catch (_) {
-      _showMessage('State holati yangilanmadi');
+      _showMessage(context.l10n.adminText('factory.state_status_failed'));
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -245,7 +245,7 @@ class _AdminFactoryLocationsScreenState
       activeTab: AdminDockTab.home,
       actions: [
         IconButton(
-          tooltip: 'State ochish',
+          tooltip: context.l10n.adminText('factory.state_create'),
           onPressed: _saving ? null : () => _openEditor(),
           icon: const Icon(Icons.add_location_alt_outlined),
         ),
@@ -263,7 +263,9 @@ class _AdminFactoryLocationsScreenState
                       FilledButton.icon(
                         onPressed: _saving ? null : () => _openEditor(),
                         icon: const Icon(Icons.add_rounded),
-                        label: const Text('State ochish'),
+                        label: Text(
+                          context.l10n.adminText('factory.state_create'),
+                        ),
                       ),
                       const SizedBox(height: 10),
                       if (_locations.isEmpty)
@@ -356,15 +358,19 @@ class _FactoryLocationTile extends StatelessWidget {
                     children: [
                       _StateBadge(
                         label: location.isApparatusState
-                            ? 'Aparat state'
-                            : 'Oddiy state',
+                            ? context.l10n.adminText(
+                                'factory.apparatus_state',
+                              )
+                            : context.l10n.adminText(
+                                'factory.ordinary_state',
+                              ),
                         color: location.isApparatusState
                             ? scheme.primaryContainer
                             : scheme.surfaceContainerHighest,
                       ),
                       if (!location.active)
                         _StateBadge(
-                          label: 'Nofaol',
+                          label: context.l10n.adminText('factory.inactive'),
                           color: scheme.errorContainer,
                         ),
                     ],
@@ -383,7 +389,7 @@ class _FactoryLocationTile extends StatelessWidget {
             ),
             PopupMenuButton<String>(
               enabled: !disabled,
-              tooltip: 'State amallari',
+              tooltip: context.l10n.adminText('factory.state_actions'),
               onSelected: (value) {
                 if (value == 'edit') {
                   onEdit();
@@ -394,18 +400,22 @@ class _FactoryLocationTile extends StatelessWidget {
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'edit',
-                  child: Text('Apparatlarni tahrirlash'),
+                  child: Text(
+                    context.l10n.adminText('factory.edit_equipment'),
+                  ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'rename',
-                  child: Text('Nomini o‘zgartirish'),
+                  child: Text(context.l10n.adminText('factory.rename')),
                 ),
                 PopupMenuItem(
                   value: 'active',
                   child: Text(
-                    location.active ? 'Nofaol qilish' : 'Faollashtirish',
+                    location.active
+                        ? context.l10n.adminText('factory.deactivate')
+                        : context.l10n.adminText('action.activate'),
                   ),
                 ),
               ],
@@ -453,8 +463,8 @@ class _EmptyFactoryLocations extends StatelessWidget {
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Hali state ochilmagan',
+          Text(
+            context.l10n.adminText('factory.no_states'),
             textAlign: TextAlign.center,
           ),
         ],
@@ -531,7 +541,9 @@ class _FactoryLocationEditorDialogState
     final name = _name.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('State nomini kiriting')),
+        SnackBar(
+          content: Text(context.l10n.adminText('factory.enter_state_name')),
+        ),
       );
       return;
     }
@@ -548,7 +560,11 @@ class _FactoryLocationEditorDialogState
     final selectedApparatus = _selectedApparatus;
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      title: Text(widget.location == null ? 'State ochish' : 'State tahriri'),
+      title: Text(
+        widget.location == null
+            ? context.l10n.adminText('factory.state_create')
+            : context.l10n.adminText('factory.state_edit'),
+      ),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -559,8 +575,8 @@ class _FactoryLocationEditorDialogState
               autofocus: widget.location == null,
               readOnly: widget.location != null,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'State nomi',
+              decoration: InputDecoration(
+                labelText: context.l10n.adminText('factory.state_name'),
                 border: OutlineInputBorder(),
               ),
             ),
@@ -569,8 +585,10 @@ class _FactoryLocationEditorDialogState
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Apparat biriktirish ID va nomni o‘zgartirmaydi: '
-                  '${widget.location!.id}',
+                  context.l10n.adminText(
+                    'factory.state_id_note',
+                    values: {'id': widget.location!.id},
+                  ),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -581,7 +599,7 @@ class _FactoryLocationEditorDialogState
               child: OutlinedButton.icon(
                 onPressed: _openApparatusPicker,
                 icon: const Icon(Icons.add_link_rounded),
-                label: const Text('Aparat ulash'),
+                label: Text(context.l10n.adminText('factory.attach_title')),
               ),
             ),
             const SizedBox(height: 8),
@@ -589,7 +607,7 @@ class _FactoryLocationEditorDialogState
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Aparat ulanmagan — oddiy state',
+                  context.l10n.adminText('factory.no_equipment_linked'),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               )
@@ -617,7 +635,7 @@ class _FactoryLocationEditorDialogState
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
                 ),
-                child: const Text('Saqlash'),
+                child: Text(context.l10n.adminText('action.save')),
               ),
             ),
             const SizedBox(height: 6),
@@ -628,7 +646,7 @@ class _FactoryLocationEditorDialogState
                 style: TextButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
                 ),
-                child: const Text('Bekor qilish'),
+                child: Text(context.l10n.adminText('action.cancel')),
               ),
             ),
           ],
@@ -698,7 +716,7 @@ class _ApparatusPickerBottomSheetState
                 children: [
                   Expanded(
                     child: Text(
-                      'Aparat ulash',
+                      context.l10n.adminText('factory.attach_title'),
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -717,8 +735,8 @@ class _ApparatusPickerBottomSheetState
                 controller: _search,
                 onChanged: (value) =>
                     setState(() => _query = value.trim().toLowerCase()),
-                decoration: const InputDecoration(
-                  hintText: 'Aparat qidiring',
+                decoration: InputDecoration(
+                  hintText: context.l10n.adminText('factory.state_search'),
                   prefixIcon: Icon(Icons.search_rounded),
                 ),
               ),
@@ -726,16 +744,26 @@ class _ApparatusPickerBottomSheetState
             const SizedBox(height: 8),
             Expanded(
               child: visible.isEmpty
-                  ? const Center(child: Text('Mos apparat topilmadi'))
+                  ? Center(
+                      child: Text(
+                        context.l10n.adminText('factory.no_equipment'),
+                      ),
+                    )
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                       children: [
                         if (defaults.isNotEmpty) ...[
-                          const _ApparatusSectionTitle('Default aparatlar'),
+                          _ApparatusSectionTitle(
+                            context.l10n.adminText(
+                              'factory.default_equipment',
+                            ),
+                          ),
                           for (final item in defaults) _apparatusTile(item),
                         ],
                         if (customs.isNotEmpty) ...[
-                          const _ApparatusSectionTitle('Custom aparatlar'),
+                          _ApparatusSectionTitle(
+                            context.l10n.adminText('factory.custom_equipment'),
+                          ),
                           for (final item in customs) _apparatusTile(item),
                         ],
                       ],
@@ -750,8 +778,13 @@ class _ApparatusPickerBottomSheetState
                   icon: const Icon(Icons.check_rounded),
                   label: Text(
                     _selected.isEmpty
-                        ? 'Tanlamasdan davom etish'
-                        : 'Tanlash (${_selected.length})',
+                        ? context.l10n.adminText(
+                            'factory.continue_without_selection',
+                          )
+                        : context.l10n.adminText(
+                            'factory.selected_count',
+                            values: {'count': _selected.length},
+                          ),
                   ),
                 ),
               ),

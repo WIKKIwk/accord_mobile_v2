@@ -54,8 +54,9 @@ class _SequenceQolipOrderNoteSheetState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error =
-            error is MobileApiException ? error.message : 'Qoliplar yuklanmadi';
+        _error = error is MobileApiException
+            ? error.message
+            : context.l10n.adminText('production.qolip_load_failed');
       });
     }
   }
@@ -158,13 +159,17 @@ class _SequenceQolipOrderNoteSheetState
       if (!mounted) return;
       if (product == null) {
         setState(() {
-          _error = 'Bu tayyor mahsulot katalogdan topilmadi';
+          _error = context.l10n.adminText(
+            'production.qolip_product_missing',
+          );
         });
         return;
       }
       if (product.itemGroup.trim().isEmpty) {
         setState(() {
-          _error = 'Bu tayyor mahsulotning guruhi aniqlanmadi';
+          _error = context.l10n.adminText(
+            'production.qolip_group_missing',
+          );
         });
         return;
       }
@@ -181,7 +186,7 @@ class _SequenceQolipOrderNoteSheetState
       setState(() {
         _error = error is MobileApiException
             ? error.message
-            : 'Qolip qo‘shish ma’lumotlari yuklanmadi';
+            : context.l10n.adminText('production.qolip_add_failed');
       });
     } finally {
       if (mounted) {
@@ -192,6 +197,7 @@ class _SequenceQolipOrderNoteSheetState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final details = _details;
@@ -219,7 +225,7 @@ class _SequenceQolipOrderNoteSheetState
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Order qoliplarini qayd qilish',
+              l10n.adminText('production.qolip_title'),
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
@@ -235,8 +241,7 @@ class _SequenceQolipOrderNoteSheetState
             ),
             const SizedBox(height: 6),
             Text(
-              'Bu qayd orderga qolip biriktirmaydi, lekin berilgan qoliplar '
-              'qaytarilguncha boshqa order uchun band bo‘ladi.',
+              l10n.adminText('production.qolip_description'),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -267,26 +272,25 @@ class _SequenceQolipOrderNoteSheetState
                 child: TextButton.icon(
                   onPressed: _saving ? null : _load,
                   icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Qayta urinish'),
+                  label: Text(l10n.adminText('production.qolip_retry')),
                 ),
               )
             else if (details.requiredQolips.isEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
-                  'Bu tayyor mahsulotga hali qolip biriktirilmagan.',
+                  l10n.adminText('production.qolip_empty'),
                 ),
               ),
               OutlinedButton.icon(
                 onPressed: _saving ? null : _addQolipForOrder,
                 icon: const Icon(Icons.add_box_outlined),
-                label: const Text('Qolip qo‘shish'),
+                label: Text(l10n.adminText('production.qolip_add')),
               ),
             ] else ...[
               if (details.requiredQolips.any((item) => item.isInUse)) ...[
                 Text(
-                  'Ba’zi qoliplar boshqa order uchun band qilingan. '
-                  'Ular qaytarilgandan keyin berish mumkin.',
+                  l10n.adminText('production.qolip_reserved'),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.error,
                     fontWeight: FontWeight.w700,
@@ -295,7 +299,7 @@ class _SequenceQolipOrderNoteSheetState
                 const SizedBox(height: 8),
               ],
               Text(
-                'Qoliplarni tanlang',
+                l10n.adminText('production.qolip_select'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -325,12 +329,21 @@ class _SequenceQolipOrderNoteSheetState
                   subtitle: givenCodeKeys.contains(
                     item.qolipCode.trim().toLowerCase(),
                   )
-                      ? const Text('Allaqachon berilgan')
+                      ? Text(l10n.adminText('production.qolip_already_issued'))
                       : item.isInUse
-                          ? const Text('Boshqa order uchun band qilingan')
+                          ? Text(
+                              l10n.adminText(
+                                'production.qolip_reserved_other',
+                              ),
+                            )
                           : item.color.trim().isEmpty
                               ? null
-                              : Text('Rang: ${item.color.trim()}'),
+                              : Text(
+                                  l10n.adminText(
+                                    'production.qolip_color',
+                                    values: {'value': item.color.trim()},
+                                  ),
+                                ),
                 ),
               const SizedBox(height: 8),
               FilledButton.icon(
@@ -340,8 +353,8 @@ class _SequenceQolipOrderNoteSheetState
                 icon: const Icon(Icons.check_circle_outline_rounded),
                 label: Text(
                   newSelectedCodes.isEmpty
-                      ? 'Yangi qolip tanlang'
-                      : 'Tanlangan qoliplarni berdim',
+                      ? l10n.adminText('production.qolip_select_new')
+                      : l10n.adminText('production.qolip_issued'),
                 ),
               ),
               const SizedBox(height: 8),
@@ -352,13 +365,13 @@ class _SequenceQolipOrderNoteSheetState
                     ? null
                     : () => _saveGiven(allAvailableCodes),
                 icon: const Icon(Icons.done_all_rounded),
-                label: const Text('Hammasini berish'),
+                label: Text(l10n.adminText('production.qolip_issue_all')),
               ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: _saving ? null : _addQolipForOrder,
                 icon: const Icon(Icons.add_box_outlined),
-                label: const Text('Qolip qo‘shish'),
+                label: Text(l10n.adminText('production.qolip_add')),
               ),
             ],
             if (note?.isGiven == true) ...[
@@ -366,12 +379,12 @@ class _SequenceQolipOrderNoteSheetState
               OutlinedButton.icon(
                 onPressed: _saving ? null : _saveReturned,
                 icon: const Icon(Icons.assignment_return_outlined),
-                label: const Text('Qoliplarni qaytarib oldim'),
+                label: Text(l10n.adminText('production.qolip_returned')),
               ),
             ] else if (note?.isReturned == true) ...[
               const SizedBox(height: 14),
               Text(
-                'Qoliplar qaytarib olingan. Bu qayd o‘chirilmaydi; yana berganingizda yashil holatga qaytadi.',
+                l10n.adminText('production.qolip_returned_note'),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -410,8 +423,12 @@ class _QolipOrderNoteStatusBanner extends StatelessWidget {
             Expanded(
               child: Text(
                 given
-                    ? 'Siz bu order qoliplarini berdim deb qayd qilgansiz.'
-                    : 'Siz bu order qoliplarini qaytarib olgansiz.',
+                    ? context.l10n.adminText(
+                        'production.qolip_given_banner',
+                      )
+                    : context.l10n.adminText(
+                        'production.qolip_returned_banner',
+                      ),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),

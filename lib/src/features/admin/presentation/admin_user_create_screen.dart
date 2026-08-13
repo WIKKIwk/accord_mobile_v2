@@ -1,4 +1,5 @@
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/forms/forms.dart';
@@ -86,15 +87,19 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3PickerSheet<_AdminUserCreateChoice>(
-          title: 'Role tanlang',
-          hintText: 'Role qidiring',
+          title: context.l10n.adminText('user.role_select'),
+          hintText: context.l10n.adminText('user.role_search'),
           items: choices,
-          itemTitle: (choice) => choice.label,
-          itemSubtitle: (choice) => choice.subtitle,
+          itemTitle: (choice) => _userChoiceLabel(choice, context.l10n),
+          itemSubtitle: (choice) => _userChoiceSubtitle(choice, context.l10n),
           matchesQuery: (choice, query) {
             final normalized = query.trim().toLowerCase();
-            return choice.label.toLowerCase().contains(normalized) ||
-                choice.subtitle.toLowerCase().contains(normalized);
+            return _userChoiceLabel(choice, context.l10n)
+                    .toLowerCase()
+                    .contains(normalized) ||
+                _userChoiceSubtitle(choice, context.l10n)
+                    .toLowerCase()
+                    .contains(normalized);
           },
           onSelected: (choice) => Navigator.of(context).pop(choice),
         );
@@ -112,7 +117,7 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
     final kind = choice?.kind;
     final scheme = Theme.of(context).colorScheme;
     return AppShell(
-      title: 'Foydalanuvchi qo‘shish',
+      title: context.l10n.adminText('user.create_title'),
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -224,6 +229,45 @@ enum _AdminUserCreateKind {
   }
 }
 
+String _userChoiceLabel(
+  _AdminUserCreateChoice choice,
+  AppLocalizations l10n,
+) {
+  if (choice.customRole != null) {
+    return choice.label;
+  }
+  return switch (choice.kind) {
+    _AdminUserCreateKind.werka => l10n.adminText('user.warehouse_worker'),
+    _AdminUserCreateKind.customer => l10n.adminText('user.customer'),
+    _AdminUserCreateKind.supplier => l10n.adminText('user.supplier'),
+    _AdminUserCreateKind.materialTaminotchi =>
+      l10n.adminText('user.material_supplier'),
+    _AdminUserCreateKind.custom => l10n.adminText('user.custom_role'),
+  };
+}
+
+String _userChoiceSubtitle(
+  _AdminUserCreateChoice choice,
+  AppLocalizations l10n,
+) {
+  if (choice.customRole != null) {
+    return _userKindSubtitle(choice.kind, l10n);
+  }
+  return _userKindSubtitle(choice.kind, l10n);
+}
+
+String _userKindSubtitle(_AdminUserCreateKind kind, AppLocalizations l10n) {
+  return switch (kind) {
+    _AdminUserCreateKind.werka =>
+      l10n.adminText('user.warehouse_worker_subtitle'),
+    _AdminUserCreateKind.customer => l10n.adminText('user.customer_subtitle'),
+    _AdminUserCreateKind.supplier => l10n.adminText('user.supplier_subtitle'),
+    _AdminUserCreateKind.materialTaminotchi =>
+      l10n.adminText('user.material_supplier_subtitle'),
+    _AdminUserCreateKind.custom => l10n.adminText('user.custom_role_subtitle'),
+  };
+}
+
 List<_AdminUserCreateChoice> _fallbackRoleChoices({
   required bool includeMaterialTaminotchi,
   required bool includeBoyoqchi,
@@ -329,7 +373,7 @@ class _RoleSelector extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Role tanlash',
+            context.l10n.adminText('user.role_select'),
             style: theme.textTheme.labelMedium?.copyWith(
               color: scheme.onSurfaceVariant,
               fontWeight: FontWeight.w700,
@@ -378,13 +422,21 @@ class _RoleSelector extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              choice?.label ?? 'Role tanlang',
+                              choice == null
+                                  ? context.l10n.adminText('user.role_choose')
+                                  : _userChoiceLabel(choice!, context.l10n),
                               style: theme.textTheme.titleMedium,
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              choice?.subtitle ??
-                                  'Foydalanuvchi rolini tanlang',
+                              choice == null
+                                  ? context.l10n.adminText(
+                                      'user.role_choose_message',
+                                    )
+                                  : _userChoiceSubtitle(
+                                      choice!,
+                                      context.l10n,
+                                    ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -450,10 +502,16 @@ class _CustomerCreateTabState extends State<_CustomerCreateTab> {
       name.clear();
       phone.clear();
       AdminSuppliersScreen.invalidateCache();
-      showAdminTopNotice(context, 'Haridor yaratildi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('user.customer_created'),
+      );
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'Haridor yaratilmadi');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('user.customer_create_failed'),
+        );
       }
     } finally {
       if (mounted) {
@@ -467,9 +525,11 @@ class _CustomerCreateTabState extends State<_CustomerCreateTab> {
     return _CreateUserForm(
       name: name,
       phone: phone,
-      nameLabel: 'Foydalanuvchi nomi',
-      phoneLabel: 'Foydalanuvchi telefoni',
-      actionLabel: saving ? 'Saqlanmoqda...' : 'Foydalanuvchi saqlash',
+      nameLabel: context.l10n.adminText('user.name'),
+      phoneLabel: context.l10n.adminText('user.phone'),
+      actionLabel: saving
+          ? context.l10n.adminText('user.saving')
+          : context.l10n.adminText('user.save'),
       saving: saving,
       onSubmit: _create,
     );
@@ -515,10 +575,16 @@ class _SupplierCreateTabState extends State<_SupplierCreateTab> {
       name.clear();
       phone.clear();
       AdminSuppliersScreen.invalidateCache();
-      showAdminTopNotice(context, 'Ta’minotchi yaratildi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('user.supplier_created'),
+      );
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'Ta’minotchi yaratilmadi');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('user.supplier_create_failed'),
+        );
       }
     } finally {
       if (mounted) {
@@ -532,9 +598,11 @@ class _SupplierCreateTabState extends State<_SupplierCreateTab> {
     return _CreateUserForm(
       name: name,
       phone: phone,
-      nameLabel: 'Foydalanuvchi nomi',
-      phoneLabel: 'Foydalanuvchi telefoni',
-      actionLabel: saving ? 'Saqlanmoqda...' : 'Foydalanuvchi saqlash',
+      nameLabel: context.l10n.adminText('user.name'),
+      phoneLabel: context.l10n.adminText('user.phone'),
+      actionLabel: saving
+          ? context.l10n.adminText('user.saving')
+          : context.l10n.adminText('user.save'),
       saving: saving,
       onSubmit: _create,
     );
@@ -623,11 +691,17 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
 
   Future<void> _create() async {
     if (_isAparatchiRole && selectedApparatus.isEmpty) {
-      showAdminTopNotice(context, 'Kamida bitta aparat tanlang');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('user.minimum_apparatus'),
+      );
       return;
     }
     if (_isMaterialTaminotchiAssignedRole && selectedItemGroups.isEmpty) {
-      showAdminTopNotice(context, 'Kamida bitta mahsulot guruhi tanlang');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('user.minimum_item_group'),
+      );
       return;
     }
     setState(() => saving = true);
@@ -679,10 +753,16 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
       selectedApparatus.clear();
       selectedItemGroups.clear();
       AdminSuppliersScreen.invalidateCache();
-      showAdminTopNotice(context, 'Foydalanuvchi yaratildi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('user.created'),
+      );
     } catch (error) {
       if (mounted) {
-        showAdminTopNotice(context, _adminCreateErrorMessage(error));
+        showAdminTopNotice(
+          context,
+          _adminCreateErrorMessage(error, context.l10n),
+        );
       }
     } finally {
       if (mounted) {
@@ -749,7 +829,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
                 textInputAction: TextInputAction.next,
                 decoration: appSoftInputDecoration(
                   context,
-                  labelText: 'Foydalanuvchi nomi',
+                  labelText: context.l10n.adminText('user.name'),
                 ),
               ),
               const SizedBox(height: _adminUserCreateFieldGap),
@@ -758,7 +838,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
                 keyboardType: TextInputType.phone,
                 decoration: appSoftInputDecoration(
                   context,
-                  labelText: 'Foydalanuvchi telefoni',
+                  labelText: context.l10n.adminText('user.phone'),
                 ),
               ),
               if (_isAparatchiRole) ...[
@@ -799,7 +879,11 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
                         selectedItemGroups.isEmpty)
                 ? null
                 : _create,
-            child: Text(saving ? 'Saqlanmoqda...' : 'Foydalanuvchi saqlash'),
+            child: Text(
+              saving
+                  ? context.l10n.adminText('user.saving')
+                  : context.l10n.adminText('user.save'),
+            ),
           ),
         ),
       ],
@@ -823,13 +907,15 @@ class _MaterialItemGroupScopeSelector extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final value = selectedGroups.isEmpty
-        ? (loading ? 'Yuklanmoqda...' : 'Guruh tanlang')
+        ? (loading
+            ? context.l10n.adminText('user.groups_loading')
+            : context.l10n.adminText('user.group_choose'))
         : selectedGroups.join(', ');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Mahsulot guruhlari',
+          context.l10n.adminText('user.item_groups'),
           style: theme.textTheme.labelMedium?.copyWith(
             color: scheme.onSurfaceVariant,
             fontWeight: FontWeight.w700,
@@ -948,7 +1034,9 @@ class _MaterialItemGroupPickerSheetState
                             children: [
                               Expanded(
                                 child: Text(
-                                  'Mahsulot guruhlarini tanlang',
+                                  context.l10n.adminText(
+                                    'user.select_item_groups',
+                                  ),
                                   style: theme.textTheme.titleLarge,
                                 ),
                               ),
@@ -995,7 +1083,9 @@ class _MaterialItemGroupPickerSheetState
                             onPressed: tempSelected.isEmpty
                                 ? null
                                 : () => Navigator.of(context).pop(tempSelected),
-                            child: const Text('Tanlash'),
+                            child: Text(
+                              context.l10n.adminText('action.select'),
+                            ),
                           ),
                         ],
                       ),
@@ -1101,10 +1191,16 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
         werkaCode = updated.werkaCode;
       });
       AdminSuppliersScreen.invalidateCache();
-      showAdminTopNotice(context, 'Omborchi saqlandi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('user.warehouse_saved'),
+      );
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'Omborchi saqlanmadi');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('user.warehouse_save_failed'),
+        );
       }
     } finally {
       if (mounted) {
@@ -1124,10 +1220,16 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
         werkaCode = updated.werkaCode;
       });
       _setRetryAfter(updated.werkaCodeRetryAfterSec);
-      showAdminTopNotice(context, 'Omborchi code yangilandi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('user.warehouse_code_updated'),
+      );
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'Code yangilanmadi');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('user.code_update_failed'),
+        );
       }
     } finally {
       if (mounted) {
@@ -1141,7 +1243,7 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
     if (!mounted) {
       return;
     }
-    showAdminTopNotice(context, 'Code nusxalandi');
+    showAdminTopNotice(context, context.l10n.adminText('user.code_copied'));
   }
 
   @override
@@ -1179,16 +1281,22 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
               ),
               if (_retryAfterSec > 0) ...[
                 const SizedBox(height: _adminUserCreateFieldGap),
-                Text('Keyingi code uchun $_retryAfterSec soniya kuting.'),
+                Text(
+                  context.l10n.adminText(
+                    'user.code_retry',
+                    values: {'seconds': _retryAfterSec},
+                  ),
+                ),
               ],
               const SizedBox(height: 14),
               _CreateUserForm(
                 name: name,
                 phone: phone,
-                nameLabel: 'Foydalanuvchi nomi',
-                phoneLabel: 'Foydalanuvchi telefoni',
-                actionLabel:
-                    saving ? 'Saqlanmoqda...' : 'Foydalanuvchi saqlash',
+                nameLabel: context.l10n.adminText('user.name'),
+                phoneLabel: context.l10n.adminText('user.phone'),
+                actionLabel: saving
+                    ? context.l10n.adminText('user.saving')
+                    : context.l10n.adminText('user.save'),
                 saving: saving,
                 onSubmit: () => _save(current),
                 padding: EdgeInsets.zero,
@@ -1250,14 +1358,14 @@ List<String> _sortedSelection(Set<String> groups) {
   return groups.toList(growable: false)..sort();
 }
 
-String _adminCreateErrorMessage(Object error) {
+String _adminCreateErrorMessage(Object error, AppLocalizations l10n) {
   if (error is MobileApiException) {
     final message = error.message.trim();
     if (message.isNotEmpty) {
       return message;
     }
   }
-  return 'Foydalanuvchi yaratilmadi';
+  return l10n.adminText('user.create_failed');
 }
 
 class _CreateUserForm extends StatelessWidget {
@@ -1341,7 +1449,7 @@ class _WerkaCodeField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Code',
+          context.l10n.adminText('user.code'),
           style: theme.textTheme.labelMedium?.copyWith(
             color: scheme.onSurfaceVariant,
             fontWeight: FontWeight.w700,

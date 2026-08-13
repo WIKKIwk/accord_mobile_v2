@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/lists.dart';
@@ -39,31 +40,108 @@ const Map<String, String> adminWorkerStartDayLabels = {
 const String _workerGroupsScope = 'worker-settings';
 const double _workerSettingsPanelGap = 4;
 
+String _workerLevelLabel(String level, AppLocalizations l10n) {
+  switch (level) {
+    case 'Brigader':
+      return l10n.adminText('worker.level.brigader');
+    case 'Master':
+      return l10n.adminText('worker.level.master');
+    case '1 - darajali':
+      return l10n.adminText('worker.level.one');
+    case '2 - darajali':
+      return l10n.adminText('worker.level.two');
+    case '3 - darajali':
+      return l10n.adminText('worker.level.three');
+    default:
+      return level;
+  }
+}
+
+String _workerStartDayLabel(String day, AppLocalizations l10n) {
+  final key = switch (day) {
+    'monday' => 'day.monday',
+    'tuesday' => 'day.tuesday',
+    'wednesday' => 'day.wednesday',
+    'thursday' => 'day.thursday',
+    'friday' => 'day.friday',
+    'saturday' => 'day.saturday',
+    'sunday' => 'day.sunday',
+    _ => null,
+  };
+  return key == null
+      ? (adminWorkerStartDayLabels[day] ?? day)
+      : l10n.adminText('worker.$key');
+}
+
+String _workerShiftLabel(String shift, AppLocalizations l10n) {
+  final normalized = shift.trim().toLowerCase();
+  switch (normalized) {
+    case 'kunduz':
+      return l10n.adminText('worker.shift.day');
+    case 'tun':
+      return l10n.adminText('worker.shift.night');
+    case 'ab navbat':
+    case 'ab':
+      return l10n.adminText('worker.shift.ab');
+    default:
+      return shift;
+  }
+}
+
 String _workerDeletionDependencyLabel(
   AdminWorkerDeletionDependency dependency,
+  AppLocalizations l10n,
 ) {
   switch (dependency.kind) {
     case 'active_order':
       final status = dependency.status == 'paused'
-          ? 'vaqtincha to‘xtatilgan'
-          : 'jarayonda';
-      return 'Zakaz: ${dependency.orderId} • ${dependency.apparatus} • $status';
+          ? l10n.adminText('worker.status.paused')
+          : l10n.adminText('worker.status.in_progress');
+      return l10n.adminText(
+        'worker.dependency.order',
+        values: {
+          'order': dependency.orderId,
+          'apparatus': dependency.apparatus,
+          'status': status,
+        },
+      );
     case 'worker_group':
       final apparatus = dependency.apparatus.trim();
       return apparatus.isEmpty || apparatus == _workerGroupsScope
-          ? 'Guruh: ${dependency.label}'
-          : 'Guruh: ${dependency.label} • $apparatus';
+          ? l10n.adminText(
+              'worker.dependency.group',
+              values: {'label': dependency.label},
+            )
+          : l10n.adminText(
+              'worker.dependency.group_apparatus',
+              values: {'label': dependency.label, 'apparatus': apparatus},
+            );
     case 'apparatus':
-      return 'Apparat: ${dependency.label}';
+      return l10n.adminText(
+        'worker.dependency.apparatus',
+        values: {'label': dependency.label},
+      );
     case 'role_assignment':
-      return 'Ruxsat roli: ${dependency.label}';
+      return l10n.adminText(
+        'worker.dependency.role',
+        values: {'label': dependency.label},
+      );
     case 'item_group':
-      return 'Mahsulot guruhi: ${dependency.label}';
+      return l10n.adminText(
+        'worker.dependency.item_group',
+        values: {'label': dependency.label},
+      );
     case 'qolip_checkout':
       final apparatusName = dependency.apparatus.trim();
       return apparatusName.isEmpty
-          ? 'Qolip: ${dependency.label}'
-          : 'Qolip: ${dependency.label} • $apparatusName';
+          ? l10n.adminText(
+              'worker.dependency.mold',
+              values: {'label': dependency.label},
+            )
+          : l10n.adminText(
+              'worker.dependency.mold_apparatus',
+              values: {'label': dependency.label, 'apparatus': apparatusName},
+            );
     default:
       return dependency.label;
   }
@@ -136,13 +214,16 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
           _future = _load();
           _workersVersion++;
         });
-        showAdminTopNotice(context, 'Ishchi darajasi saqlandi');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('worker.level_saved'),
+        );
       }
     } catch (_) {
       if (mounted) {
         showAdminTopNotice(
           context,
-          'Ishchi darajasi saqlanmadi',
+          context.l10n.adminText('worker.level_save_failed'),
           icon: Icons.error,
         );
       }
@@ -167,7 +248,10 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                 _future = _load();
                 _workersVersion++;
               });
-              showAdminTopNotice(context, 'Ishchi ismi saqlandi');
+              showAdminTopNotice(
+                context,
+                context.l10n.adminText('worker.name_saved'),
+              );
             },
             onClose: () => Navigator.of(dialogContext).pop(),
           ),
@@ -192,11 +276,11 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3PickerSheet<String>(
-          title: 'Daraja tanlash',
-          hintText: 'Daraja qidiring',
+          title: context.l10n.adminText('worker.level_title'),
+          hintText: context.l10n.adminText('worker.level_search_title'),
           items: adminWorkerLevels,
-          itemTitle: (item) => item,
-          itemSubtitle: (_) => 'Ishchi darajasi',
+          itemTitle: (item) => _workerLevelLabel(item, context.l10n),
+          itemSubtitle: (_) => context.l10n.adminText('worker.level_subtitle'),
           matchesQuery: (item, query) =>
               item.toLowerCase().contains(query.trim().toLowerCase()),
           onSelected: (item) => Navigator.of(context).pop(item),
@@ -234,7 +318,10 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                 _future = _load();
                 _workersVersion++;
               });
-              showAdminTopNotice(context, 'Ishchi saqlandi');
+              showAdminTopNotice(
+                context,
+                context.l10n.adminText('worker.saved'),
+              );
             },
             onClose: () => Navigator.of(dialogContext).pop(),
           ),
@@ -257,7 +344,10 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                 return;
               }
               setState(() => _groupsVersion++);
-              showAdminTopNotice(context, 'Guruh yaratildi');
+              showAdminTopNotice(
+                context,
+                context.l10n.adminText('worker.group_created'),
+              );
             },
             onClose: () => Navigator.of(dialogContext).pop(),
           ),
@@ -300,7 +390,10 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
         _workersVersion++;
         _groupsVersion++;
       });
-      showAdminTopNotice(context, 'Ishchi faolsizlantirildi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('worker.deactivated'),
+      );
     } on AdminWorkerDeletionRejected catch (error) {
       if (!mounted) {
         return;
@@ -310,7 +403,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
       } else {
         showAdminTopNotice(
           context,
-          'Ishchi ulanishlari o‘zgardi. Qayta urinib ko‘ring',
+          context.l10n.adminText('worker.connections_changed'),
           icon: Icons.error,
         );
       }
@@ -322,7 +415,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
       if (mounted) {
         showAdminTopNotice(
           context,
-          'Ishchi faolsizlantirilmadi',
+          context.l10n.adminText('worker.deactivation_failed'),
           icon: Icons.error,
         );
       }
@@ -351,8 +444,10 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
           ),
           title: Text(
             blocked
-                ? 'Ishchini faolsizlantirib bo‘lmaydi'
-                : 'Ishchini faolsizlantirish',
+                ? dialogContext.l10n.adminText(
+                    'worker.deactivate_blocked_title',
+                  )
+                : dialogContext.l10n.adminText('worker.deactivate_title'),
           ),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),
@@ -363,10 +458,19 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                 children: [
                   Text(
                     blocked
-                        ? '${worker.name} quyidagi faol ishni tugatmaguncha faolsizlantirib bo‘lmaydi.'
+                        ? dialogContext.l10n.adminText(
+                            'worker.deactivate_blocked_message',
+                            values: {'name': worker.name},
+                          )
                         : dependencies.isEmpty
-                            ? '“${worker.name}” ishchisi faolsizlantiriladi. U tizimga kira olmaydi, ammo oldingi ish tarixi saqlanadi. Tasdiqlaysizmi?'
-                            : '${worker.name} quyidagi ulanishlarga ega. Tasdiqlasangiz, ulanishlar olib tashlanadi va ishchi faolsizlantiriladi. Oldingi ish tarixi saqlanadi.',
+                            ? dialogContext.l10n.adminText(
+                                'worker.deactivate_confirm_message',
+                                values: {'name': worker.name},
+                              )
+                            : dialogContext.l10n.adminText(
+                                'worker.deactivate_connections_message',
+                                values: {'name': worker.name},
+                              ),
                   ),
                   if (dependencies.isNotEmpty) ...[
                     const SizedBox(height: 14),
@@ -388,7 +492,10 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _workerDeletionDependencyLabel(dependency),
+                                _workerDeletionDependencyLabel(
+                                  dependency,
+                                  dialogContext.l10n,
+                                ),
                                 style: Theme.of(dialogContext)
                                     .textTheme
                                     .bodyMedium,
@@ -413,7 +520,9 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                       width: double.infinity,
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(dialogContext).pop(false),
-                        child: const Text('Bekor qilish'),
+                        child: Text(
+                          dialogContext.l10n.adminText('action.cancel'),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -424,7 +533,9 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                         style: FilledButton.styleFrom(
                           backgroundColor: scheme.error,
                         ),
-                        child: const Text('Faolsizlantirish'),
+                        child: Text(
+                          dialogContext.l10n.adminText('action.deactivate'),
+                        ),
                       ),
                     ),
                   ],
@@ -433,7 +544,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
             else
               FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Yopish'),
+                child: Text(dialogContext.l10n.adminText('action.close')),
               ),
           ],
         );
@@ -450,7 +561,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
         selectedRouteName: AppRoutes.adminWorkerSettings,
         onNavigate: _openDrawerRoute,
       ),
-      title: 'Ishchi sozlamalari',
+      title: context.l10n.adminText('worker.title'),
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -458,12 +569,12 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
         activeTab: null,
         primaryFabActions: [
           AdminFabMenuAction(
-            title: 'Ishchi qo‘shish',
+            title: context.l10n.adminText('worker.add'),
             icon: Icons.person_add_alt_1_rounded,
             onTap: _openWorkerCreateDialog,
           ),
           AdminFabMenuAction(
-            title: 'Guruh qo‘shish',
+            title: context.l10n.adminText('worker.group_add'),
             icon: Icons.groups_2_outlined,
             onTap: _openWorkerGroupCreateDialog,
           ),
@@ -474,9 +585,15 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
         children: [
           AdminSurfaceTabBar(
             controller: _tabController,
-            tabs: const [
-              Tab(height: 38, text: 'Ishchilar'),
-              Tab(height: 38, text: 'Guruhlar'),
+            tabs: [
+              Tab(
+                height: 38,
+                text: context.l10n.adminText('worker.tabs_workers'),
+              ),
+              Tab(
+                height: 38,
+                text: context.l10n.adminText('worker.tabs_groups'),
+              ),
             ],
           ),
           Expanded(
@@ -519,13 +636,19 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                   );
                 }
                 if (snapshot.hasError) {
-                  return const AppSegmentSurfaceCard(
-                    child: Center(child: Text('Ishchilar yuklanmadi')),
+                  return AppSegmentSurfaceCard(
+                    child: Center(
+                      child: Text(
+                        context.l10n.adminText('worker.load_failed'),
+                      ),
+                    ),
                   );
                 }
                 final workers = snapshot.data ?? const <AdminWorker>[];
                 if (workers.isEmpty) {
-                  return const Center(child: Text('Ishchi topilmadi'));
+                  return Center(
+                    child: Text(context.l10n.adminText('worker.empty')),
+                  );
                 }
                 return M3SegmentSpacedColumn(
                   padding: EdgeInsets.zero,
@@ -607,7 +730,11 @@ class _WorkerCreateDialogCardState extends State<_WorkerCreateDialogCard> {
       }
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'Ishchi qo‘shilmadi', icon: Icons.error);
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('worker.add_failed'),
+          icon: Icons.error,
+        );
       }
     } finally {
       if (mounted) {
@@ -629,11 +756,11 @@ class _WorkerCreateDialogCardState extends State<_WorkerCreateDialogCard> {
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3PickerSheet<String>(
-          title: 'Unvon tanlash',
-          hintText: 'Unvon qidiring',
+          title: context.l10n.adminText('worker.create_level_title'),
+          hintText: context.l10n.adminText('worker.level_search'),
           items: adminWorkerLevels,
-          itemTitle: (item) => item,
-          itemSubtitle: (_) => 'Ishchi unvoni',
+          itemTitle: (item) => _workerLevelLabel(item, context.l10n),
+          itemSubtitle: (_) => context.l10n.adminText('worker.level_subtitle'),
           matchesQuery: (item, query) =>
               item.toLowerCase().contains(query.trim().toLowerCase()),
           onSelected: (item) => Navigator.of(context).pop(item),
@@ -668,7 +795,7 @@ class _WorkerCreateDialogCardState extends State<_WorkerCreateDialogCard> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Ishchi qo‘shish',
+                      context.l10n.adminText('worker.create_title'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -677,7 +804,7 @@ class _WorkerCreateDialogCardState extends State<_WorkerCreateDialogCard> {
                   IconButton(
                     onPressed: _saving ? null : widget.onClose,
                     icon: const Icon(Icons.close_rounded),
-                    tooltip: 'Yopish',
+                    tooltip: context.l10n.adminText('worker.close'),
                   ),
                 ],
               ),
@@ -688,7 +815,7 @@ class _WorkerCreateDialogCardState extends State<_WorkerCreateDialogCard> {
                 onSubmitted: (_) => _save(),
                 decoration: appSurfaceInputDecoration(
                   context,
-                  labelText: 'Ishchi nomi',
+                  labelText: context.l10n.adminText('worker.name'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -705,7 +832,7 @@ class _WorkerCreateDialogCardState extends State<_WorkerCreateDialogCard> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.person_add_alt_1_rounded),
-                label: const Text('Ishchi qo‘shish'),
+                label: Text(context.l10n.adminText('worker.add')),
               ),
             ],
           ),
@@ -764,8 +891,11 @@ class _WorkerNameEditDialogCardState extends State<_WorkerNameEditDialogCard> {
       }
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'Ishchi ismi saqlanmadi',
-            icon: Icons.error);
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('worker.name_save_failed'),
+          icon: Icons.error,
+        );
       }
     } finally {
       if (mounted) {
@@ -796,7 +926,7 @@ class _WorkerNameEditDialogCardState extends State<_WorkerNameEditDialogCard> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Ishchi ismini o‘zgartirish',
+                      context.l10n.adminText('worker.edit_name'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -805,7 +935,7 @@ class _WorkerNameEditDialogCardState extends State<_WorkerNameEditDialogCard> {
                   IconButton(
                     onPressed: _saving ? null : widget.onClose,
                     icon: const Icon(Icons.close_rounded),
-                    tooltip: 'Yopish',
+                    tooltip: context.l10n.adminText('worker.close'),
                   ),
                 ],
               ),
@@ -818,7 +948,7 @@ class _WorkerNameEditDialogCardState extends State<_WorkerNameEditDialogCard> {
                 onSubmitted: (_) => _save(),
                 decoration: appSurfaceInputDecoration(
                   context,
-                  labelText: 'Ishchi ismi',
+                  labelText: context.l10n.adminText('worker.name'),
                 ),
               ),
               const SizedBox(height: 14),
@@ -829,7 +959,7 @@ class _WorkerNameEditDialogCardState extends State<_WorkerNameEditDialogCard> {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Saqlash'),
+                    : Text(context.l10n.adminText('action.save')),
               ),
             ],
           ),
@@ -877,7 +1007,13 @@ class _WorkerGroupCreateDialogCardState
       );
       if (exists) {
         if (mounted) {
-          showAdminTopNotice(context, '$code guruh allaqachon bor');
+          showAdminTopNotice(
+            context,
+            context.l10n.adminText(
+              'worker.group_already_exists',
+              values: {'code': code},
+            ),
+          );
         }
         return;
       }
@@ -888,8 +1024,14 @@ class _WorkerGroupCreateDialogCardState
       }
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, '$code guruh yaratilmadi',
-            icon: Icons.error);
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText(
+            'worker.group_create_failed',
+            values: {'code': code},
+          ),
+          icon: Icons.error,
+        );
       }
     } finally {
       if (mounted) {
@@ -920,7 +1062,7 @@ class _WorkerGroupCreateDialogCardState
                 children: [
                   Expanded(
                     child: Text(
-                      'Guruh qo‘shish',
+                      context.l10n.adminText('worker.group_create_title'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -929,7 +1071,7 @@ class _WorkerGroupCreateDialogCardState
                   IconButton(
                     onPressed: _saving ? null : widget.onClose,
                     icon: const Icon(Icons.close_rounded),
-                    tooltip: 'Yopish',
+                    tooltip: context.l10n.adminText('worker.close'),
                   ),
                 ],
               ),
@@ -942,7 +1084,7 @@ class _WorkerGroupCreateDialogCardState
                 onSubmitted: (_) => _save(),
                 decoration: appSurfaceInputDecoration(
                   context,
-                  labelText: 'Guruh nomi',
+                  labelText: context.l10n.adminText('worker.group_name'),
                 ).copyWith(hintText: 'AB, BA, DD'),
               ),
               const SizedBox(height: 14),
@@ -954,7 +1096,7 @@ class _WorkerGroupCreateDialogCardState
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.save_rounded),
-                label: const Text('Saqlash'),
+                label: Text(context.l10n.adminText('action.save')),
               ),
             ],
           ),
@@ -983,12 +1125,12 @@ class _WorkerLevelPickerField extends StatelessWidget {
       child: InputDecorator(
         decoration: appSurfaceInputDecoration(
           context,
-          labelText: 'Unvoni',
+          labelText: context.l10n.adminText('worker.level_label'),
           prefixIcon: const Icon(Icons.badge_outlined),
           suffixIcon: const Icon(Icons.expand_more_rounded),
         ),
         child: Text(
-          value,
+          _workerLevelLabel(value, context.l10n),
           style: theme.textTheme.bodyLarge?.copyWith(
             color: colorScheme.onSurface,
             fontWeight: FontWeight.w700,
@@ -1085,7 +1227,11 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
         setState(() {
           _loading = false;
         });
-        showAdminTopNotice(context, 'Guruhlar yuklanmadi', icon: Icons.error);
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('worker.group_load_failed'),
+          icon: Icons.error,
+        );
       }
     }
   }
@@ -1104,7 +1250,11 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
       });
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'Ishchilar yuklanmadi', icon: Icons.error);
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('worker.load_failed'),
+          icon: Icons.error,
+        );
       }
     }
   }
@@ -1134,7 +1284,11 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
       });
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'Guruhlar yuklanmadi', icon: Icons.error);
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('worker.group_load_failed'),
+          icon: Icons.error,
+        );
       }
     }
   }
@@ -1147,7 +1301,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
     final editingExistingGroup =
         _editingOriginalGroup != null && currentCode != null;
     final mapKey = editingExistingGroup
-        ? currentCode!
+        ? currentCode
         : code.isEmpty
             ? currentCode ?? code
             : code;
@@ -1238,12 +1392,24 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
         _editingGroupCode = null;
         _editingOriginalGroup = null;
       });
-      showAdminTopNotice(context, '${saved.groupCode} guruh saqlandi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText(
+          'worker.group_saved',
+          values: {'code': saved.groupCode},
+        ),
+      );
       await _loadGroups();
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, '$code guruh saqlanmadi',
-            icon: Icons.error);
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText(
+            'worker.group_save_failed',
+            values: {'code': code},
+          ),
+          icon: Icons.error,
+        );
       }
     } finally {
       if (mounted) {
@@ -1292,19 +1458,25 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
           ),
           children: [
             if (_loading) ...[
-              const AppSegmentSurfaceCard(
+              AppSegmentSurfaceCard(
                 child: Row(
                   children: [
                     AppLoadingIndicator(size: 28, glyphSize: 20),
                     SizedBox(width: 12),
-                    Expanded(child: Text('Guruhlar yuklanmoqda')),
+                    Expanded(
+                      child: Text(
+                        context.l10n.adminText('worker.load_groups'),
+                      ),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 10),
             ],
             if (_groupsByCode.isEmpty)
-              const Center(child: Text('Guruh topilmadi'))
+              Center(
+                child: Text(context.l10n.adminText('worker.group_empty')),
+              )
             else
               M3SegmentSpacedColumn(
                 padding: EdgeInsets.zero,
@@ -1393,8 +1565,16 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
       slot,
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
     );
-    final summary = '${group.shift} • ${group.startTime}-${group.endTime} • '
-        '${group.workDaysPerWeek} kun • ${group.workerIds.length} odam';
+    final summary = '${_workerShiftLabel(group.shift, context.l10n)} • '
+        '${group.startTime}-${group.endTime} • '
+        '${context.l10n.adminText(
+      'worker.day_count',
+      values: {'count': group.workDaysPerWeek},
+    )} • '
+        '${context.l10n.adminText(
+      'worker.workers_count',
+      values: {'count': group.workerIds.length},
+    )}';
 
     return Material(
       key: ValueKey('worker-group-card-$identityKey'),
@@ -1436,7 +1616,10 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            '${group.groupCode} guruh',
+                            context.l10n.adminText(
+                              'worker.group_title',
+                              values: {'code': group.groupCode},
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
@@ -1534,8 +1717,11 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
     ];
     final workerFieldValue = selectedWorkerNames.isEmpty
         ? selected.isEmpty
-            ? 'Biriktirilmagan'
-            : '${selected.length} ta ishchi'
+            ? context.l10n.adminText('worker.unassigned')
+            : context.l10n.adminText(
+                'worker.selected_count',
+                values: {'count': selected.length},
+              )
         : selectedWorkerNames.join(', ');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1543,8 +1729,14 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
         const SizedBox(height: 10),
         Text(
           editing
-              ? '${group.groupCode} guruh sozlamalari'
-              : '${group.groupCode} guruh ma’lumoti',
+              ? context.l10n.adminText(
+                  'worker.group_settings',
+                  values: {'code': group.groupCode},
+                )
+              : context.l10n.adminText(
+                  'worker.group_info',
+                  values: {'code': group.groupCode},
+                ),
           style: Theme.of(context).textTheme.labelLarge,
         ),
         const SizedBox(height: 10),
@@ -1556,9 +1748,11 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (workers.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
-              child: Center(child: Text('Ishchi topilmadi')),
+              child: Center(
+                child: Text(context.l10n.adminText('worker.worker_empty')),
+              ),
             )
           else ...[
             _WorkerGroupWorkerPickerField(
@@ -1568,10 +1762,12 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
                   : () => unawaited(_openWorkerPicker(context)),
             ),
             if (visibleWorkers.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Center(
-                  child: Text('ishchilar guruhlarga taqsimlanib bo‘lingan'),
+                  child: Text(
+                    context.l10n.adminText('worker.assigned_all'),
+                  ),
                 ),
               ),
           ],
@@ -1582,7 +1778,7 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: saving ? null : onCancelEdit,
                   icon: const Icon(Icons.close_rounded),
-                  label: const Text('Bekor qilish'),
+                  label: Text(context.l10n.adminText('action.cancel')),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1595,7 +1791,7 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.save_rounded),
-                  label: const Text('Saqlash'),
+                  label: Text(context.l10n.adminText('action.save')),
                 ),
               ),
             ],
@@ -1606,7 +1802,7 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
           Align(
             alignment: Alignment.centerRight,
             child: IconButton.filledTonal(
-              tooltip: 'Tahrirlash',
+              tooltip: context.l10n.adminText('worker.edit'),
               onPressed: onEdit,
               icon: const Icon(Icons.edit_outlined),
             ),
@@ -1644,9 +1840,9 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (sheetContext) {
         return M3AsyncPickerSheet<AdminWorker>(
-          title: 'Ishchi qo‘shish',
-          supportingText: 'Boshqa guruhlarga biriktirilmagan ishchilar',
-          hintText: 'Ishchi qidiring',
+          title: sheetContext.l10n.adminText('worker.add'),
+          supportingText: sheetContext.l10n.adminText('worker.assigned_all'),
+          hintText: sheetContext.l10n.adminText('worker.search'),
           pageSize: visibleWorkers.isEmpty ? 1 : visibleWorkers.length,
           loadPage: (query, offset, limit) async {
             final needle = query.trim().toLowerCase();
@@ -1658,7 +1854,8 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
             return filtered.skip(offset).take(limit).toList(growable: false);
           },
           itemTitle: (worker) => worker.name,
-          itemSubtitle: (worker) => worker.level,
+          itemSubtitle: (worker) =>
+              _workerLevelLabel(worker.level, sheetContext.l10n),
           itemKey: (worker) => worker.id,
           itemSelected: (worker) => selected.contains(worker.id),
           initialSelectedKeys: selected.map<Object>((id) => id).toSet(),
@@ -1667,8 +1864,12 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
           onMultiSelected: (items) => Navigator.of(sheetContext).pop(
             items.map((worker) => worker.id).toSet(),
           ),
-          selectedCountLabel: (count) => '$count ta ishchi tanlandi',
-          confirmSelectionTooltip: 'Ishchilarni tasdiqlash',
+          selectedCountLabel: (count) => sheetContext.l10n.adminText(
+            'worker.selected_count',
+            values: {'count': count},
+          ),
+          confirmSelectionTooltip:
+              sheetContext.l10n.adminText('worker.confirm_workers'),
         );
       },
     );
@@ -1698,7 +1899,7 @@ class _WorkerGroupWorkerPickerField extends StatelessWidget {
       child: InputDecorator(
         decoration: appSurfaceInputDecoration(
           context,
-          labelText: 'Ishchi qo‘shish',
+          labelText: context.l10n.adminText('worker.add'),
           prefixIcon: const Icon(Icons.person_add_alt_1_rounded),
           suffixIcon: const Icon(Icons.expand_more_rounded),
         ).copyWith(enabled: onTap != null),
@@ -1733,35 +1934,46 @@ class _WorkerGroupInfoRows extends StatelessWidget {
         for (final worker in workers)
           if (worker.id == workerId) worker.name,
     ];
-    final startDay = adminWorkerStartDayLabels[group.startDay] ??
-        adminWorkerStartDayLabels['monday']!;
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _WorkerGroupInfoRow(label: 'Smena', value: group.shift),
         _WorkerGroupInfoRow(
-          label: 'Aparat',
+          label: l10n.adminText('worker.shift_label'),
+          value: _workerShiftLabel(group.shift, l10n),
+        ),
+        _WorkerGroupInfoRow(
+          label: l10n.adminText('worker.apparatus_label'),
           value: group.apparatus == _workerGroupsScope
-              ? 'Tanlanmagan'
+              ? l10n.adminText('worker.apparatus_unselected')
               : group.apparatus,
         ),
         _WorkerGroupInfoRow(
-          label: 'Ish vaqti',
+          label: l10n.adminText('worker.work_time'),
           value: '${group.startTime} - ${group.endTime}',
         ),
         _WorkerGroupInfoRow(
-          label: 'Haftalik ish kuni',
-          value: '${group.workDaysPerWeek} kun',
-        ),
-        _WorkerGroupInfoRow(label: 'Ishga chiqish kuni', value: startDay),
-        _WorkerGroupInfoRow(
-          label: 'Schot',
-          value: group.accountingEnabled ? 'Hisoblanadi' : 'Hisoblanmaydi',
+          label: l10n.adminText('worker.weekly_days'),
+          value: l10n.adminText(
+            'worker.day_count',
+            values: {'count': group.workDaysPerWeek},
+          ),
         ),
         _WorkerGroupInfoRow(
-          label: 'Ishchilar',
-          value:
-              workerNames.isEmpty ? 'Biriktirilmagan' : workerNames.join(', '),
+          label: l10n.adminText('worker.start_day'),
+          value: _workerStartDayLabel(group.startDay, l10n),
+        ),
+        _WorkerGroupInfoRow(
+          label: l10n.adminText('worker.accounting'),
+          value: group.accountingEnabled
+              ? l10n.adminText('worker.accounting_yes')
+              : l10n.adminText('worker.accounting_no'),
+        ),
+        _WorkerGroupInfoRow(
+          label: l10n.adminText('worker.group_workers'),
+          value: workerNames.isEmpty
+              ? l10n.adminText('worker.unassigned')
+              : workerNames.join(', '),
         ),
       ],
     );
@@ -1826,8 +2038,8 @@ class _WorkerGroupScheduleFields extends StatelessWidget {
           key: const Key('worker-group-name-field'),
           initialValue: group.groupCode,
           textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(
-            labelText: 'Guruh nomi',
+          decoration: InputDecoration(
+            labelText: context.l10n.adminText('worker.group_name'),
             filled: true,
           ),
           onChanged: (value) => onChanged(group.copyWith(groupCode: value)),
@@ -1837,11 +2049,11 @@ class _WorkerGroupScheduleFields extends StatelessWidget {
           key: const Key('worker-group-apparatus-picker'),
           initialValue: selectedApparatus,
           isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Aparat',
+          decoration: InputDecoration(
+            labelText: context.l10n.adminText('worker.apparatus_label'),
             filled: true,
           ),
-          hint: const Text('Aparat tanlanmagan'),
+          hint: Text(context.l10n.adminText('worker.apparatus_unselected')),
           items: [
             for (final item in apparatus)
               DropdownMenuItem(
@@ -1859,13 +2071,16 @@ class _WorkerGroupScheduleFields extends StatelessWidget {
                 },
         ),
         const SizedBox(height: 12),
-        Text('Ish vaqti', style: Theme.of(context).textTheme.labelLarge),
+        Text(
+          context.l10n.adminText('worker.work_time'),
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
         const SizedBox(height: 8),
         TextFormField(
           initialValue: group.shift,
-          decoration: const InputDecoration(
-            labelText: 'Smena',
-            hintText: 'Kunduz, tun, AB navbat',
+          decoration: InputDecoration(
+            labelText: context.l10n.adminText('worker.shift'),
+            hintText: context.l10n.adminText('worker.shift_hint'),
             filled: true,
           ),
           onChanged: (value) => onChanged(group.copyWith(shift: value)),
@@ -1875,7 +2090,7 @@ class _WorkerGroupScheduleFields extends StatelessWidget {
           children: [
             Expanded(
               child: _TimePickerField(
-                label: 'Boshlanish',
+                label: context.l10n.adminText('worker.start_time'),
                 value: group.startTime,
                 onChanged: (value) =>
                     onChanged(group.copyWith(startTime: value)),
@@ -1884,7 +2099,7 @@ class _WorkerGroupScheduleFields extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _TimePickerField(
-                label: 'Tugash',
+                label: context.l10n.adminText('worker.end_time'),
                 value: group.endTime,
                 onChanged: (value) => onChanged(group.copyWith(endTime: value)),
               ),
@@ -1895,13 +2110,21 @@ class _WorkerGroupScheduleFields extends StatelessWidget {
         DropdownButtonFormField<int>(
           initialValue: group.workDaysPerWeek.clamp(1, 7).toInt(),
           isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Haftalik ish kuni',
+          decoration: InputDecoration(
+            labelText: context.l10n.adminText('worker.weekly_days'),
             filled: true,
           ),
           items: [
             for (var day = 1; day <= 7; day++)
-              DropdownMenuItem(value: day, child: Text('$day kun')),
+              DropdownMenuItem(
+                value: day,
+                child: Text(
+                  context.l10n.adminText(
+                    'worker.day_count',
+                    values: {'count': day},
+                  ),
+                ),
+              ),
           ],
           onChanged: (value) {
             if (value == null) {
@@ -1916,13 +2139,18 @@ class _WorkerGroupScheduleFields extends StatelessWidget {
               ? group.startDay
               : 'monday',
           isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Ishga chiqish kuni',
+          decoration: InputDecoration(
+            labelText: context.l10n.adminText('worker.start_day'),
             filled: true,
           ),
           items: [
             for (final entry in adminWorkerStartDayLabels.entries)
-              DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+              DropdownMenuItem(
+                value: entry.key,
+                child: Text(
+                  _workerStartDayLabel(entry.key, context.l10n),
+                ),
+              ),
           ],
           onChanged: (value) {
             if (value == null) {
@@ -1937,7 +2165,7 @@ class _WorkerGroupScheduleFields extends StatelessWidget {
           child: SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: group.accountingEnabled,
-            title: const Text('Schot hisoblanadi'),
+            title: Text(context.l10n.adminText('worker.accounting')),
             onChanged: (value) =>
                 onChanged(group.copyWith(accountingEnabled: value)),
           ),
@@ -2035,6 +2263,7 @@ class _WorkerSettingsCard extends StatelessWidget {
     final level = adminWorkerLevels.contains(worker.level)
         ? worker.level
         : adminWorkerLevels.last;
+    final l10n = context.l10n;
     return Material(
       key: ValueKey('worker-settings-card-${worker.id}'),
       color: scheme.surfaceContainerLowest,
@@ -2085,7 +2314,7 @@ class _WorkerSettingsCard extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             [
-                              level,
+                              _workerLevelLabel(level, l10n),
                               if (phone.isNotEmpty) phone,
                             ].join(' • '),
                             maxLines: 1,
@@ -2125,35 +2354,51 @@ class _WorkerSettingsCard extends StatelessWidget {
                       children: [
                         const SizedBox(height: 10),
                         Text(
-                          '${worker.name} ma’lumoti',
+                          l10n.adminText(
+                            'worker.worker_details',
+                            values: {'name': worker.name},
+                          ),
                           style: theme.textTheme.labelLarge,
                         ),
                         const SizedBox(height: 10),
-                        _WorkerGroupInfoRow(label: 'Ism', value: worker.name),
-                        _WorkerGroupInfoRow(label: 'Daraja', value: level),
                         _WorkerGroupInfoRow(
-                          label: 'Telefon',
-                          value: phone.isEmpty ? 'Kiritilmagan' : phone,
+                          label: l10n.adminText('worker.name_label'),
+                          value: worker.name,
                         ),
-                        _WorkerGroupInfoRow(label: 'ID', value: worker.id),
+                        _WorkerGroupInfoRow(
+                          label: l10n.adminText('worker.level'),
+                          value: _workerLevelLabel(level, l10n),
+                        ),
+                        _WorkerGroupInfoRow(
+                          label: l10n.adminText('worker.phone_label'),
+                          value: phone.isEmpty
+                              ? l10n.adminText('worker.not_entered')
+                              : phone,
+                        ),
+                        _WorkerGroupInfoRow(
+                          label: l10n.adminText('worker.id'),
+                          value: worker.id,
+                        ),
                         const SizedBox(height: 12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             IconButton.filledTonal(
-                              tooltip: 'Ismni o‘zgartirish',
+                              tooltip: l10n.adminText('worker.edit_name'),
                               onPressed: deleting ? null : onEditName,
                               icon: const Icon(Icons.edit_outlined),
                             ),
                             const SizedBox(width: 8),
                             IconButton.filledTonal(
-                              tooltip: 'Darajani o‘zgartirish',
+                              tooltip: l10n.adminText('worker.edit_level'),
                               onPressed: deleting ? null : onEditLevel,
                               icon: const Icon(Icons.stars_outlined),
                             ),
                             const SizedBox(width: 8),
                             IconButton.filledTonal(
-                              tooltip: 'Ishchini faolsizlantirish',
+                              tooltip: l10n.adminText(
+                                'worker.deactivate_tooltip',
+                              ),
                               onPressed: deleting ? null : onDelete,
                               style: IconButton.styleFrom(
                                 foregroundColor: scheme.error,

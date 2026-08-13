@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/localization/app_localizations.dart';
+
 Future<String?> showAdminWarehousePicker(
   BuildContext context, {
   required List<String> available,
@@ -37,6 +39,7 @@ class _AdminWarehousePickerSheetState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final visible = widget.available.where((warehouse) {
@@ -65,7 +68,7 @@ class _AdminWarehousePickerSheetState
                 children: [
                   Expanded(
                     child: Text(
-                      'Ombor biriktirish',
+                      l10n.adminText('warehouse.picker_title'),
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -85,8 +88,8 @@ class _AdminWarehousePickerSheetState
                 controller: _searchController,
                 onChanged: (value) =>
                     setState(() => _query = value.trim().toLowerCase()),
-                decoration: const InputDecoration(
-                  hintText: 'Ombor qidiring',
+                decoration: InputDecoration(
+                  hintText: l10n.adminText('warehouse.picker_search'),
                   prefixIcon: Icon(Icons.search_rounded),
                 ),
               ),
@@ -94,7 +97,9 @@ class _AdminWarehousePickerSheetState
             const SizedBox(height: 10),
             Expanded(
               child: visible.isEmpty
-                  ? const Center(child: Text('Ombor topilmadi'))
+                  ? Center(
+                      child: Text(l10n.adminText('warehouse.picker_empty')),
+                    )
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                       itemCount: visible.length,
@@ -136,7 +141,7 @@ class _AdminWarehousePickerSheetState
                       ? null
                       : () => Navigator.of(context).pop(_selectedWarehouse),
                   icon: const Icon(Icons.check_rounded),
-                  label: const Text('Tasdiqlash'),
+                  label: Text(l10n.adminText('action.confirm')),
                 ),
               ),
             ),

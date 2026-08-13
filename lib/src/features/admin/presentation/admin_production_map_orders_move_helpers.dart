@@ -215,20 +215,28 @@ String _adminActionErrorText(Object error, String fallback) {
   return error is MobileApiException ? error.message : fallback;
 }
 
-String _moveOrdersSuccessText(int count) {
-  return count == 1 ? 'Zakaz ko‘chirildi' : '$count ta zakaz ko‘chirildi';
+String _moveOrdersSuccessText(AppLocalizations l10n, int count) {
+  return l10n.adminText('production.move.success', values: {'count': count});
 }
 
-String _returnOrdersToUnassignedSuccessText(int count) {
-  return count == 1
-      ? 'Zakaz tanlanmagan holatga qaytarildi'
-      : '$count ta zakaz tanlanmagan holatga qaytarildi';
+String _returnOrdersToUnassignedSuccessText(
+  AppLocalizations l10n,
+  int count,
+) {
+  return l10n.adminText(
+    'production.move.return_success',
+    values: {'count': count},
+  );
 }
 
-String _assignAlternativeOrdersSuccessText(int count) {
-  return count == 1
-      ? 'Zakaz aparatga biriktirildi'
-      : '$count ta zakaz aparatga biriktirildi';
+String _assignAlternativeOrdersSuccessText(
+  AppLocalizations l10n,
+  int count,
+) {
+  return l10n.adminText(
+    'production.move.assign_success',
+    values: {'count': count},
+  );
 }
 
 Future<List<ProductionMapSaved>> _saveProductionMapDefinitions(

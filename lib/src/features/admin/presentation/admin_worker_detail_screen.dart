@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/buttons/app_action_button_styles.dart';
@@ -27,8 +28,8 @@ typedef AdminWorkerDetailLoader = Future<AdminWorkerDetail> Function(
   AdminUserListEntry entry,
 );
 
-typedef AdminWorkerProfileDetailLoader =
-    Future<AdminWorkerProfileDetail> Function(AdminUserListEntry entry);
+typedef AdminWorkerProfileDetailLoader = Future<AdminWorkerProfileDetail>
+    Function(AdminUserListEntry entry);
 
 class AdminWorkerDetailScreen extends StatefulWidget {
   const AdminWorkerDetailScreen({
@@ -265,7 +266,16 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Telefon saqlanmadi: $error')));
+      ).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.adminText(
+              'detail.phone_save_failed',
+              values: {'error': error},
+            ),
+          ),
+        ),
+      );
       return false;
     } finally {
       if (mounted) {
@@ -304,7 +314,16 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Code yangilanmadi: $error')));
+      ).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.adminText(
+              'detail.code_update_failed',
+              values: {'error': error},
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _regeneratingCode = false);
@@ -319,19 +338,23 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
     }
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Code nusxalandi')));
+    ).showSnackBar(
+      SnackBar(content: Text(context.l10n.adminText('detail.code_copied'))),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final detail = _detail ??
         AdminWorkerDetail(
           id: _workerId,
           name: widget.entry.name,
-          phone: _loading ? 'Yuklanmoqda...' : widget.entry.phone,
+          phone:
+              _loading ? l10n.adminText('detail.loading') : widget.entry.phone,
           avatarUrl: '',
           level: widget.entry.roleLabel,
-          code: _loading ? 'Yuklanmoqda...' : '',
+          code: _loading ? l10n.adminText('detail.loading') : '',
           codeLocked: false,
           codeRetryAfterSec: _retryAfterSec,
         );
@@ -348,7 +371,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                 setState(() => _assignedWarehouses = warehouses);
               }
             },
-            assignedMessage: 'Qolipchi faqat shu omborlar bilan ishlaydi.',
+            assignedMessage: l10n.adminText('detail.warehouse_scope'),
             chipKeyPrefix: 'admin-qolipchi-detail-warehouse-',
             addButtonKey: 'admin-qolipchi-detail-add-warehouse',
             warehousesLoader: widget.warehousesLoader,
@@ -367,7 +390,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
         Navigator.of(context).pop(_changed);
       },
       child: AppShell(
-        title: 'Profil',
+        title: l10n.adminText('profile.title'),
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -394,10 +417,10 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                   assignedWarehouses: _assignedWarehouses,
                   warehouseEditor: warehouseEditor,
                   statusLabel: _loading
-                      ? 'Yuklanmoqda'
+                      ? l10n.adminText('detail.loading')
                       : _loadError != null
-                          ? 'Xato'
-                          : 'Tayyor',
+                          ? l10n.adminText('detail.error')
+                          : l10n.adminText('detail.ready'),
                   expanded: _adminPanelExpanded,
                   savingPhone: _savingPhone,
                   regeneratingCode: _regeneratingCode,
@@ -428,7 +451,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                     AppRoutes.adminWorkerProfileDetail,
                     arguments: widget.entry,
                   ),
-                  child: const Text('Ish faoliyati tafsilotlari'),
+                  child: Text(l10n.adminText('detail.worker_activity')),
                 ),
               ],
               if (_loadError != null) ...[
@@ -438,7 +461,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                     borderRadius: _workerDetailFieldRadius,
                   ),
                   onPressed: _reload,
-                  child: const Text('Qayta yuklash'),
+                  child: Text(l10n.adminText('detail.reload')),
                 ),
               ],
             ],
@@ -464,8 +487,9 @@ class _WorkerAssignmentSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (loading && detail == null) {
-      return const AppSegmentSurfaceCard(
+      return AppSegmentSurfaceCard(
         key: ValueKey('admin-worker-detail-activity-summary'),
         child: Row(
           children: [
@@ -475,7 +499,7 @@ class _WorkerAssignmentSummaryCard extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             SizedBox(width: 12),
-            Text('Ish faoliyati yuklanmoqda...'),
+            Text(l10n.adminText('detail.activity_loading')),
           ],
         ),
       );
@@ -488,7 +512,7 @@ class _WorkerAssignmentSummaryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Ish faoliyati yuklanmadi',
+              l10n.adminText('detail.activity_load_failed'),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -496,7 +520,7 @@ class _WorkerAssignmentSummaryCard extends StatelessWidget {
             const SizedBox(height: 8),
             OutlinedButton(
               onPressed: () => onRetry(),
-              child: const Text('Qayta urinish'),
+              child: Text(l10n.adminText('detail.retry')),
             ),
           ],
         ),
@@ -510,23 +534,23 @@ class _WorkerAssignmentSummaryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Ish faoliyati',
+            l10n.adminText('detail.worker_activity'),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
           ),
           const SizedBox(height: 12),
           if (groups.isEmpty)
-            const _WorkerAssignmentSummaryLine(
-              label: 'Aparat',
-              value: 'Aparat biriktirilmagan',
+            _WorkerAssignmentSummaryLine(
+              label: l10n.adminText('label.apparatus'),
+              value: l10n.adminText('detail.no_assignment'),
             )
           else
             for (var index = 0; index < groups.length; index++) ...[
               if (index > 0) const Divider(height: 20),
               _WorkerAssignmentSummaryLine(
-                label: 'Aparat',
-                value: _workerGroupSummary(groups[index]),
+                label: l10n.adminText('label.apparatus'),
+                value: _workerGroupSummary(l10n, groups[index]),
               ),
             ],
         ],
@@ -546,6 +570,7 @@ class _WorkerAssignmentSummaryLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -558,7 +583,7 @@ class _WorkerAssignmentSummaryLine extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          value.trim().isEmpty ? 'Kiritilmagan' : value,
+          value.trim().isEmpty ? l10n.adminText('profile.entered') : value,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -568,18 +593,21 @@ class _WorkerAssignmentSummaryLine extends StatelessWidget {
   }
 }
 
-String _workerGroupSummary(AdminWorkerGroup group) {
+String _workerGroupSummary(AppLocalizations l10n, AdminWorkerGroup group) {
   final apparatus = group.apparatus.trim();
   final schedule = [
-    if (group.groupCode.trim().isNotEmpty) 'Guruh ${group.groupCode.trim()}',
+    if (group.groupCode.trim().isNotEmpty)
+      '${l10n.adminText('label.group')} ${group.groupCode.trim()}',
     if (group.shift.trim().isNotEmpty) group.shift.trim(),
     if (group.startTime.trim().isNotEmpty && group.endTime.trim().isNotEmpty)
       '${group.startTime.trim()}–${group.endTime.trim()}',
-    if (group.workDaysPerWeek > 0) '${group.workDaysPerWeek} kun/hafta',
+    if (group.workDaysPerWeek > 0)
+      l10n.adminText(
+        'detail.days_per_week',
+        values: {'count': group.workDaysPerWeek},
+      ),
   ];
-  return [apparatus, ...schedule]
-      .where((item) => item.isNotEmpty)
-      .join(' • ');
+  return [apparatus, ...schedule].where((item) => item.isNotEmpty).join(' • ');
 }
 
 class _WorkerProfileExpandableCard extends StatelessWidget {
@@ -618,6 +646,7 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final phone = detail.phone.trim();
@@ -662,7 +691,7 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
                   children: [
                     Text(
                       detail.name.trim().isEmpty
-                          ? 'Nomsiz ishchi'
+                          ? l10n.adminText('detail.nameless_worker')
                           : detail.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -673,7 +702,9 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      level.isEmpty ? 'Ishchi profili' : '$level profili',
+                      level.isEmpty
+                          ? l10n.adminText('detail.worker_profile')
+                          : '$level • ${l10n.adminText('detail.worker_profile')}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -698,16 +729,23 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
                   children: [
                     ProfileInfoChip(
                       icon: Icons.phone_rounded,
-                      label: phone.isEmpty ? 'Telefon kiritilmagan' : phone,
+                      label: phone.isEmpty
+                          ? l10n.adminText('profile.phone_missing')
+                          : phone,
                     ),
                     ProfileInfoChip(
                       icon: Icons.badge_rounded,
-                      label: level.isEmpty ? 'Daraja belgilanmagan' : level,
+                      label: level.isEmpty
+                          ? l10n.adminText('detail.level_missing')
+                          : level,
                     ),
                     if (warehouseManagementEnabled)
                       ProfileInfoChip(
                         icon: Icons.warehouse_outlined,
-                        label: '${assignedWarehouses.length} ta ombor',
+                        label: l10n.adminText(
+                          'detail.warehouses_count',
+                          values: {'count': assignedWarehouses.length},
+                        ),
                       ),
                     if (chatTarget != null)
                       ChatProfileActionButton(
@@ -723,8 +761,9 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   key: const ValueKey('admin-worker-detail-admin-toggle'),
-                  tooltip:
-                      expanded ? 'Boshqaruvni yopish' : 'Boshqaruvni ochish',
+                  tooltip: expanded
+                      ? l10n.adminText('profile.controls_close')
+                      : l10n.adminText('profile.controls_open'),
                   onPressed: () => onExpandedChanged(!expanded),
                   icon: AnimatedRotation(
                     turns: expanded ? 0.5 : 0,
@@ -786,6 +825,7 @@ class _WorkerAdminPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Column(
@@ -797,13 +837,13 @@ class _WorkerAdminPanel extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Text(
-          'Admin boshqaruv',
+          l10n.adminText('profile.admin_controls'),
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w800,
           ),
         ),
         const SizedBox(height: 14),
-        const _WorkerDetailLabel('Telefon'),
+        _WorkerDetailLabel(l10n.adminText('profile.phone')),
         const SizedBox(height: 6),
         _WorkerPhoneInlineField(
           detail: detail,
@@ -811,7 +851,7 @@ class _WorkerAdminPanel extends StatelessWidget {
           onSavePhone: onSavePhone,
         ),
         const SizedBox(height: 14),
-        const _WorkerDetailLabel('Kirish kodi'),
+        _WorkerDetailLabel(l10n.adminText('profile.access_code')),
         const SizedBox(height: 6),
         AppDetailField(
           child: Row(
@@ -819,7 +859,7 @@ class _WorkerAdminPanel extends StatelessWidget {
               Expanded(
                 child: Text(
                   detail.code.trim().isEmpty
-                      ? 'Hali generatsiya qilinmagan'
+                      ? l10n.adminText('profile.not_generated')
                       : detail.code,
                   style: theme.textTheme.titleMedium,
                 ),
@@ -847,7 +887,10 @@ class _WorkerAdminPanel extends StatelessWidget {
         if (detail.codeRetryAfterSec > 0) ...[
           const SizedBox(height: 12),
           Text(
-            'Keyingi code uchun ${detail.codeRetryAfterSec} soniya kuting.',
+            l10n.adminText(
+              'profile.code_wait',
+              values: {'seconds': detail.codeRetryAfterSec},
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -912,6 +955,7 @@ class _WorkerPhoneInlineFieldState extends State<_WorkerPhoneInlineField> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final phone = widget.detail.phone.trim();
     return AppDetailField(
@@ -933,17 +977,17 @@ class _WorkerPhoneInlineFieldState extends State<_WorkerPhoneInlineField> {
                     onSubmitted: (_) => _submit(),
                   )
                 : Text(
-                    phone.isEmpty ? 'Kiritilmagan' : phone,
+                    phone.isEmpty ? l10n.adminText('profile.entered') : phone,
                     style: theme.textTheme.titleMedium,
                   ),
           ),
           IconButton(
             key: const ValueKey('admin-worker-detail-phone-action'),
             tooltip: _editing
-                ? 'Telefonni saqlash'
+                ? l10n.adminText('profile.save_phone')
                 : phone.isEmpty
-                    ? 'Telefon raqami kiritish'
-                    : 'Telefonni yangilash',
+                    ? l10n.adminText('profile.enter_phone')
+                    : l10n.adminText('profile.update_phone'),
             onPressed: widget.savingPhone
                 ? null
                 : _editing

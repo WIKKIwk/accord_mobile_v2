@@ -262,8 +262,8 @@ Future<AdminProgressBatch?> _scanProgressBatchFromQrDialog(
 ) async {
   final raw = await showRawMaterialScanDialog(
     context,
-    title: 'Progress QR',
-    manualLabel: 'EPC',
+    title: context.l10n.adminText('production.progress_qr_title'),
+    manualLabel: context.l10n.adminText('production.progress_qr_manual'),
   );
   if (raw == null || raw.trim().isEmpty) {
     return null;

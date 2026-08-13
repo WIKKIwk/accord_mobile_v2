@@ -1,4 +1,5 @@
 import '../../../../app/app_router.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
@@ -131,7 +132,7 @@ class AdminCatalogSearchField extends StatelessWidget {
                   dimension: 48,
                   child: IconButton(
                     key: searchCloseKey,
-                    tooltip: 'Yopish',
+                    tooltip: context.l10n.adminText('action.close'),
                     onPressed: focusNode.unfocus,
                     icon: Icon(
                       Icons.close_rounded,
@@ -143,7 +144,7 @@ class AdminCatalogSearchField extends StatelessWidget {
                 SizedBox.square(
                   dimension: 48,
                   child: IconButton(
-                    tooltip: 'Tozalash',
+                    tooltip: context.l10n.adminText('action.clear'),
                     onPressed: onClear,
                     icon: Icon(
                       Icons.close_rounded,

@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -50,7 +51,7 @@ class _AdminCalculateMaterialsScreenState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = _materialError(error);
+        _error = _materialError(error, context.l10n);
       });
     }
   }
@@ -78,12 +79,14 @@ class _AdminCalculateMaterialsScreenState
         _materials.sort((left, right) => left.name.compareTo(right.name));
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Xomashyo saqlandi')),
+        SnackBar(
+          content: Text(context.l10n.adminText('material.saved')),
+        ),
       );
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_materialError(error))),
+          SnackBar(content: Text(_materialError(error, context.l10n))),
         );
       }
     } finally {
@@ -104,7 +107,7 @@ class _AdminCalculateMaterialsScreenState
         selectedRouteName: AppRoutes.adminCalculateMaterials,
         onNavigate: _openDrawerRoute,
       ),
-      title: 'Xomashyo mikronlari',
+      title: context.l10n.adminText('material.title'),
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -112,7 +115,7 @@ class _AdminCalculateMaterialsScreenState
         activeTab: AdminDockTab.home,
         primaryFabActions: [
           AdminFabMenuAction(
-            title: 'Xomashyo qo‘shish',
+            title: context.l10n.adminText('material.add'),
             icon: Icons.add_box_outlined,
             enabled: !_saving,
             onTap: () => _edit(),
@@ -144,7 +147,7 @@ class _AdminCalculateMaterialsScreenState
               FilledButton.icon(
                 onPressed: _load,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Qayta urinish'),
+                label: Text(context.l10n.adminText('action.retry')),
               ),
             ],
           ),
@@ -160,17 +163,18 @@ class _AdminCalculateMaterialsScreenState
       ),
       children: [
         Text(
-          'Zichlik va mikronlardan film GSM’i avtomatik hisoblanadi. '
-          'Standartdan farqli xomashyo uchun actual GSM kiriting.',
+          context.l10n.adminText('material.description'),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
         ),
         const SizedBox(height: 12),
         if (_materials.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.all(24),
-            child: Center(child: Text('Xomashyo yo‘q')),
+            child: Center(
+              child: Text(context.l10n.adminText('material.empty')),
+            ),
           )
         else
           for (final material in _materials)
@@ -185,7 +189,7 @@ class _AdminCalculateMaterialsScreenState
                     material.name,
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  subtitle: Text(_materialSubtitle(material)),
+                  subtitle: Text(_materialSubtitle(material, context.l10n)),
                   trailing: const Icon(Icons.chevron_right_rounded),
                 ),
               ),
@@ -255,13 +259,17 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
       final micron = int.tryParse(variant.micron.text.trim());
       final actualGsm = _optionalDecimal(variant.actualGsm.text);
       if (micron == null || micron <= 0 || !seenMicrons.add(micron)) {
-        setState(() => _variantError = 'Mikronlar musbat va takrorlanmasin');
+        setState(
+          () => _variantError = context.l10n.adminText(
+            'material.validation_microns',
+          ),
+        );
         return;
       }
       if (density <= 0 && actualGsm == null) {
         setState(
           () => _variantError =
-              'Zichlik bo‘lmasa har bir mikron uchun actual GSM kerak',
+              context.l10n.adminText('material.validation_actual_gsm'),
         );
         return;
       }
@@ -306,8 +314,8 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
                   Expanded(
                     child: Text(
                       widget.material == null
-                          ? 'Xomashyo qo‘shish'
-                          : 'Xomashyoni tahrirlash',
+                          ? context.l10n.adminText('material.add')
+                          : context.l10n.adminText('material.edit'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -323,10 +331,13 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
                 controller: _name,
                 decoration: appSurfaceInputDecoration(
                   context,
-                  labelText: 'Xomashyo nomi',
+                  labelText: context.l10n.adminText('material.name'),
                 ),
-                validator: (value) =>
-                    value == null || value.trim().isEmpty ? 'Majburiy' : null,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? context.l10n.adminText(
+                        'material.validation_required',
+                      )
+                    : null,
               ),
               const SizedBox(height: 10),
               TextFormField(
@@ -336,31 +347,35 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
                 inputFormatters: [_decimalFormatter],
                 decoration: appSurfaceInputDecoration(
                   context,
-                  labelText: 'Zichlik',
+                  labelText: context.l10n.adminText('material.density'),
                   suffixText: 'g/cm³',
-                  hintText: 'masalan: PET 1.40',
+                  hintText: context.l10n.adminText('material.density_hint'),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) return null;
                   final density = _decimal(value);
-                  return density == null || density <= 0 ? 'Noto‘g‘ri' : null;
+                  return density == null || density <= 0
+                      ? context.l10n.adminText('material.validation_invalid')
+                      : null;
                 },
               ),
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
                 value: _active,
                 onChanged: (value) => setState(() => _active = value),
-                title: const Text('Tanlashda ko‘rsatilsin'),
+                title: Text(
+                  context.l10n.adminText('material.show_in_picker'),
+                ),
               ),
               Text(
-                'Mikronlar',
+                context.l10n.adminText('material.microns'),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Actual GSM ixtiyoriy: real o‘lchov zichlikdan farq qilsa kiriting.',
+                context.l10n.adminText('material.actual_gsm_note'),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -389,12 +404,12 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
               OutlinedButton.icon(
                 onPressed: _addVariant,
                 icon: const Icon(Icons.add_rounded),
-                label: const Text('Mikron qo‘shish'),
+                label: Text(context.l10n.adminText('material.add_micron')),
               ),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: _save,
-                child: const Text('Saqlash'),
+                child: Text(context.l10n.adminText('action.save')),
               ),
             ],
           ),
@@ -422,11 +437,13 @@ class _VariantRow extends StatelessWidget {
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: appSurfaceInputDecoration(
               context,
-              labelText: 'Mikron',
+              labelText: context.l10n.adminText('material.micron'),
             ),
             validator: (value) {
               final micron = int.tryParse(value?.trim() ?? '');
-              return micron == null || micron <= 0 ? 'Noto‘g‘ri' : null;
+              return micron == null || micron <= 0
+                  ? context.l10n.adminText('material.validation_invalid')
+                  : null;
             },
           ),
         ),
@@ -438,12 +455,14 @@ class _VariantRow extends StatelessWidget {
             inputFormatters: [_decimalFormatter],
             decoration: appSurfaceInputDecoration(
               context,
-              labelText: 'Actual GSM',
+              labelText: context.l10n.adminText('material.actual_gsm'),
             ),
             validator: (value) {
               if (value == null || value.trim().isEmpty) return null;
               final gsm = _decimal(value);
-              return gsm == null || gsm <= 0 ? 'Noto‘g‘ri' : null;
+              return gsm == null || gsm <= 0
+                  ? context.l10n.adminText('material.validation_invalid')
+                  : null;
             },
           ),
         ),
@@ -494,16 +513,20 @@ String _numberText(double value) {
   return value.toStringAsFixed(4).replaceFirst(RegExp(r'0+$'), '');
 }
 
-String _materialSubtitle(CalculateMaterial material) {
+String _materialSubtitle(
+  CalculateMaterial material,
+  AppLocalizations l10n,
+) {
   final density = material.densityGCm3 > 0
       ? '${_numberText(material.densityGCm3)} g/cm³'
-      : 'actual GSM';
+      : l10n.adminText('material.actual_gsm_short');
   final microns = material.variants.map((item) => item.micron).join(', ');
-  final inactive = material.active ? '' : ' • o‘chirilgan';
+  final inactive =
+      material.active ? '' : ' • ${l10n.adminText('material.inactive_suffix')}';
   return '$density • $microns mkr$inactive';
 }
 
-String _materialError(Object error) {
+String _materialError(Object error, AppLocalizations l10n) {
   if (error is MobileApiException) return error.message;
-  return 'Xomashyo ma’lumotlari saqlanmadi';
+  return l10n.adminText('status.save_failed');
 }

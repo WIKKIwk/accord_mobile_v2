@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'admin_localization.dart';
+
 class AppLocalizations {
   AppLocalizations(this.locale);
 
@@ -5958,6 +5960,19 @@ class AppLocalizations {
     Map<String, Object?> values = const <String, Object?>{},
   }) {
     final translations = _productionTranslations[key];
+    var value =
+        translations?[locale.languageCode] ?? translations?['en'] ?? key;
+    for (final entry in values.entries) {
+      value = value.replaceAll('{${entry.key}}', '${entry.value ?? ''}');
+    }
+    return value;
+  }
+
+  String adminText(
+    String key, {
+    Map<String, Object?> values = const <String, Object?>{},
+  }) {
+    final translations = adminTranslations['admin.$key'];
     var value =
         translations?[locale.languageCode] ?? translations?['en'] ?? key;
     for (final entry in values.entries) {

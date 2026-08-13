@@ -177,10 +177,23 @@ class _AdminActivityCard extends StatelessWidget {
   final M3SegmentVerticalSlot slot;
   final DispatchRecord item;
 
-  String _metricLine() {
-    final sent = '${item.sentQty.toStringAsFixed(0)} ${item.uom} jo‘natildi';
+  String _metricLine(AppLocalizations l10n) {
+    final sent = l10n.adminText(
+      'activity.sent',
+      values: {
+        'quantity': item.sentQty.toStringAsFixed(0),
+        'uom': item.uom,
+      },
+    );
     if (item.acceptedQty > 0) {
-      return '$sent • ${item.acceptedQty.toStringAsFixed(0)} ${item.uom} qabul';
+      return l10n.adminText(
+        'activity.accepted',
+        values: {
+          'sent': sent,
+          'quantity': item.acceptedQty.toStringAsFixed(0),
+          'uom': item.uom,
+        },
+      );
     }
     return sent;
   }
@@ -210,7 +223,7 @@ class _AdminActivityCard extends StatelessWidget {
             color: scheme.onSurfaceVariant,
             fontWeight: FontWeight.w500,
           ),
-      subtitle: _metricLine(),
+      subtitle: _metricLine(context.l10n),
       leading: _ActivityStatusBadge(status: item.status),
       showChevron: false,
       backgroundColor: scheme.surfaceContainerLowest,

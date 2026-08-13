@@ -154,21 +154,32 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      _SettingsField(label: 'ERP URL', controller: erpUrl),
-                      const SizedBox(height: 14),
-                      _SettingsField(label: 'API Key', controller: apiKey),
+                      _SettingsField(
+                        label: context.l10n.adminText('settings.erp_url'),
+                        controller: erpUrl,
+                      ),
                       const SizedBox(height: 14),
                       _SettingsField(
-                        label: 'API Secret',
+                        label: context.l10n.adminText('settings.api_key'),
+                        controller: apiKey,
+                      ),
+                      const SizedBox(height: 14),
+                      _SettingsField(
+                        label: context.l10n.adminText('settings.api_secret'),
                         controller: apiSecret,
                       ),
                       const SizedBox(height: 14),
                       _SettingsField(
-                        label: 'Default Warehouse',
+                        label: context.l10n.adminText(
+                          'settings.default_warehouse',
+                        ),
                         controller: warehouse,
                       ),
                       const SizedBox(height: 14),
-                      _SettingsField(label: 'Default UOM', controller: uom),
+                      _SettingsField(
+                        label: context.l10n.adminText('settings.default_uom'),
+                        controller: uom,
+                      ),
                     ],
                   ),
                 ),
@@ -192,12 +203,12 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                       ),
                       const SizedBox(height: 18),
                       _SettingsField(
-                        label: 'Werka Phone',
+                        label: context.l10n.adminText('settings.werka_phone'),
                         controller: werkaPhone,
                       ),
                       const SizedBox(height: 12),
                       _SettingsField(
-                        label: 'Werka Name',
+                        label: context.l10n.adminText('settings.werka_name'),
                         controller: werkaName,
                       ),
                       const SizedBox(height: 18),

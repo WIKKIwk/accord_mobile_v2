@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
@@ -41,7 +42,7 @@ class _AdminWorkerProfileDetailScreenState
   @override
   Widget build(BuildContext context) {
     return AppShell(
-      title: 'Worker detail',
+      title: context.l10n.adminText('detail.worker_title'),
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -73,6 +74,7 @@ class _WorkerProfileBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final worker = detail.worker;
     return ListView(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 116),
@@ -80,10 +82,10 @@ class _WorkerProfileBody extends StatelessWidget {
         _InfoCard(
           title: worker.name,
           rows: [
-            _InfoRow('Ref', worker.id),
-            _InfoRow('Telefon', worker.phone),
-            _InfoRow('Daraja', worker.level),
-            _InfoRow('Code', worker.code),
+            _InfoRow(l10n.adminText('detail.ref'), worker.id),
+            _InfoRow(l10n.adminText('profile.phone'), worker.phone),
+            _InfoRow(l10n.adminText('detail.level'), worker.level),
+            _InfoRow(l10n.adminText('detail.item_code'), worker.code),
           ],
         ),
         _WorkerGroupsCard(groups: detail.assignedGroups),
@@ -102,14 +104,18 @@ class _WorkerGroupsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (groups.isEmpty) {
-      return const _InfoCard(
-        title: 'Assign qilingan guruhlar',
-        rows: [_InfoRow('Holat', 'Assign yo‘q')],
+      return _InfoCard(
+        title: l10n.adminText('detail.worker_groups'),
+        rows: [
+          _InfoRow(l10n.adminText('label.status'),
+              l10n.adminText('detail.assigned_none')),
+        ],
       );
     }
     return _InfoCard(
-      title: 'Assign qilingan guruhlar',
+      title: l10n.adminText('detail.worker_groups'),
       rows: [
         for (final group in groups)
           _InfoRow(
@@ -118,7 +124,7 @@ class _WorkerGroupsCard extends StatelessWidget {
               group.groupCode,
               group.shift,
               '${group.startTime}-${group.endTime}',
-              '${group.workDaysPerWeek} kun',
+              '${group.workDaysPerWeek} ${l10n.adminText('worker.day_count')}',
             ].where((item) => item.trim().isNotEmpty).join(' • '),
           ),
       ],
@@ -133,14 +139,18 @@ class _ActiveSessionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (sessions.isEmpty) {
-      return const _InfoCard(
-        title: 'Aktiv ishlar',
-        rows: [_InfoRow('Holat', 'Aktiv ish yo‘q')],
+      return _InfoCard(
+        title: l10n.adminText('detail.active_jobs'),
+        rows: [
+          _InfoRow(l10n.adminText('label.status'),
+              l10n.adminText('detail.active_none')),
+        ],
       );
     }
     return _InfoCard(
-      title: 'Aktiv ishlar',
+      title: l10n.adminText('detail.active_jobs'),
       rows: [
         for (final session in sessions)
           _InfoRow(
@@ -159,14 +169,18 @@ class _ProgressBatchesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (batches.isEmpty) {
-      return const _InfoCard(
-        title: 'Progress batchlar',
-        rows: [_InfoRow('Holat', 'Batch yo‘q')],
+      return _InfoCard(
+        title: l10n.adminText('detail.progress_batches'),
+        rows: [
+          _InfoRow(l10n.adminText('label.status'),
+              l10n.adminText('detail.batch_none')),
+        ],
       );
     }
     return _InfoCard(
-      title: 'Progress batchlar',
+      title: l10n.adminText('detail.progress_batches'),
       rows: [
         for (final batch in batches)
           _InfoRow(
@@ -193,22 +207,27 @@ class _RecentLogsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (logs.isEmpty) {
-      return const _InfoCard(
-        title: 'Loglar',
-        rows: [_InfoRow('Holat', 'Log yo‘q')],
+      return _InfoCard(
+        title: l10n.adminText('detail.logs'),
+        rows: [
+          _InfoRow(l10n.adminText('label.status'),
+              l10n.adminText('detail.log_none')),
+        ],
       );
     }
     return _InfoCard(
-      title: 'Loglar',
+      title: l10n.adminText('detail.logs'),
       rows: [
         for (final log in logs)
           _InfoRow(
-            '${_actionLabel(log.action)} • ${log.apparatus}',
+            '${_actionLabel(l10n, log.action)} • ${log.apparatus}',
             [
               log.orderId,
               '${log.fromState} → ${log.toState}',
-              if (log.completedWithIssue) 'Muammo bilan yopilgan',
+              if (log.completedWithIssue)
+                l10n.adminText('detail.problem_closed'),
             ].where((item) => item.trim().isNotEmpty).join(' • '),
           ),
       ],
@@ -265,7 +284,9 @@ class _InfoLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final value = row.value.trim().isEmpty ? 'Kiritilmagan' : row.value.trim();
+    final value = row.value.trim().isEmpty
+        ? context.l10n.adminText('profile.entered')
+        : row.value.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -297,7 +318,7 @@ class _WorkerProfileError extends StatelessWidget {
     return Center(
       child: FilledButton(
         onPressed: onRetry,
-        child: const Text('Qayta yuklash'),
+        child: Text(context.l10n.adminText('detail.reload')),
       ),
     );
   }
@@ -310,16 +331,16 @@ class _InfoRow {
   final String value;
 }
 
-String _actionLabel(String action) {
+String _actionLabel(AppLocalizations l10n, String action) {
   return switch (action.trim()) {
-    'start' => 'Boshladi',
-    'pause' => 'Pauza',
-    'detach_roll' => 'Rulonni yechdi',
-    'resume' => 'Davom etdi',
-    'roll_complete' => 'Rulonni tugatdi',
-    'complete' => 'Tugatdi',
+    'start' => l10n.adminText('detail.action_start'),
+    'pause' => l10n.adminText('detail.action_pause'),
+    'detach_roll' => l10n.adminText('detail.action_detach_roll'),
+    'resume' => l10n.adminText('detail.action_resume'),
+    'roll_complete' => l10n.adminText('detail.action_roll_complete'),
+    'complete' => l10n.adminText('detail.action_complete'),
     final value when value.isNotEmpty => value,
-    _ => 'Harakat',
+    _ => l10n.adminText('detail.action_generic'),
   };
 }
 

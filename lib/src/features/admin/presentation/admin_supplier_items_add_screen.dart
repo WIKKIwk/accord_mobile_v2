@@ -1,4 +1,5 @@
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -38,9 +39,8 @@ class _AdminSupplierItemsAddScreenState
         widget.supplierRef,
       );
       final allItems = await MobileApi.instance.adminItems();
-      final assignedCodes = detail.assignedItems
-          .map((item) => item.code)
-          .toSet();
+      final assignedCodes =
+          detail.assignedItems.map((item) => item.code).toSet();
       if (!mounted) {
         return;
       }
@@ -60,10 +60,13 @@ class _AdminSupplierItemsAddScreenState
   Future<void> _addItem(SupplierItem item) async {
     final confirm = await showM3ConfirmDialog(
       context: context,
-      title: 'Mahsulotni biriktirish',
-      message: '${item.name} mahsulotini supplierga biriktiraymi?',
-      cancelLabel: 'Yo‘q',
-      confirmLabel: 'Ha',
+      title: context.l10n.adminText('supplier_items.add_title'),
+      message: context.l10n.adminText(
+        'supplier_items.add_message',
+        values: {'item': item.name},
+      ),
+      cancelLabel: context.l10n.adminText('bulk_move.no'),
+      confirmLabel: context.l10n.adminText('bulk_move.yes'),
     );
     if (confirm != true) {
       return;
@@ -91,7 +94,7 @@ class _AdminSupplierItemsAddScreenState
   @override
   Widget build(BuildContext context) {
     return AppShell(
-      title: 'Mahsulot qo‘shish',
+      title: context.l10n.adminText('supplier_items.add_title'),
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -103,7 +106,9 @@ class _AdminSupplierItemsAddScreenState
             : ItemsTable(
                 items: items,
                 actionIcon: Icons.add_rounded,
-                emptyText: 'Biriktirilmagan mahsulot topilmadi.',
+                emptyText: context.l10n.adminText(
+                  'supplier_items.empty_available',
+                ),
                 onActionTap: mutating ? null : _addItem,
               ),
       ),

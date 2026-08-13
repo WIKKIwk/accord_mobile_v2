@@ -159,9 +159,11 @@ Future<bool> showProductionMapFreezePauseFlow(
   if (normalizedRequestId.isEmpty ||
       normalizedOrderId.isEmpty ||
       normalizedApparatus.isEmpty) {
-    throw const MobileApiException(
+    throw MobileApiException(
       code: 'order_freeze_request_invalid',
-      message: 'Muzlatish so‘rovi ma’lumotlari to‘liq emas',
+      message: context.l10n.adminText(
+        'production.freeze_request_incomplete',
+      ),
     );
   }
   final results = await Future.wait<Object>([
@@ -890,7 +892,7 @@ class _AdminProductionMapOrdersScreenState
           context,
           error is MobileApiException
               ? error.message
-              : 'Production mapni ochib bo‘lmadi',
+              : context.l10n.adminText('production.open_failed'),
         );
       }
     }
@@ -916,7 +918,7 @@ class _AdminProductionMapOrdersScreenState
             if (control == AdminOrderControlState.active) ...[
               ListTile(
                 leading: const Icon(Icons.ac_unit_rounded),
-                title: const Text('Muzlatish'),
+                title: Text(context.l10n.adminText('production.freeze')),
                 onTap: () => Navigator.pop(
                   context,
                   _OrderLongPressAction.freeze,
@@ -942,7 +944,9 @@ class _AdminProductionMapOrdersScreenState
             if (control == AdminOrderControlState.freezeRequested)
               ListTile(
                 leading: const Icon(Icons.cancel_outlined),
-                title: const Text('Muzlatish so‘rovini bekor qilish'),
+                title: Text(
+                  context.l10n.adminText('production.cancel_freeze'),
+                ),
                 onTap: () => Navigator.pop(
                   context,
                   _OrderLongPressAction.cancelFreeze,
@@ -951,7 +955,7 @@ class _AdminProductionMapOrdersScreenState
             if (control == AdminOrderControlState.frozen)
               ListTile(
                 leading: const Icon(Icons.play_circle_outline_rounded),
-                title: const Text('Muzdan chiqarish'),
+                title: Text(context.l10n.adminText('production.unfreeze')),
                 onTap: () => Navigator.pop(
                   context,
                   _OrderLongPressAction.unfreeze,
@@ -959,7 +963,7 @@ class _AdminProductionMapOrdersScreenState
               ),
             ListTile(
               leading: const Icon(Icons.account_tree_outlined),
-              title: const Text('Mapni o‘zgartirish'),
+              title: Text(context.l10n.adminText('production.edit_map')),
               onTap: () => Navigator.pop(
                 context,
                 _OrderLongPressAction.editMap,
@@ -989,12 +993,8 @@ class _AdminProductionMapOrdersScreenState
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Buyurtmani o‘chirish'),
-          content: const Text(
-            'Bu amal buyurtmani butunlay o‘chiradi. Server ish '
-            'boshlanganini, navbatdagi 1-o‘rinni va biriktirilgan '
-            'homashyoni qayta tekshiradi.',
-          ),
+          title: Text(context.l10n.adminText('production.delete_order')),
+          content: Text(context.l10n.adminText('production.delete_message')),
           actionsPadding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
           actions: [
             SizedBox(
@@ -1004,12 +1004,14 @@ class _AdminProductionMapOrdersScreenState
                 children: [
                   FilledButton(
                     onPressed: () => Navigator.pop(context, true),
-                    child: const Text('O‘chirishni tasdiqlash'),
+                    child: Text(
+                      context.l10n.adminText('production.delete_confirm'),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton(
                     onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Bekor qilish'),
+                    child: Text(context.l10n.adminText('action.cancel')),
                   ),
                 ],
               ),

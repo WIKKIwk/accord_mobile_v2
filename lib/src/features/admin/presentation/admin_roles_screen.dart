@@ -820,7 +820,7 @@ class _RoleAssignmentSheetBodyState extends State<_RoleAssignmentSheetBody> {
                           _roleCanAssignToPrincipal(role, widget.principal)
                               ? () => _submit(role)
                               : null,
-                      child: const Text('Saqlash'),
+                      child: Text(l10n.save),
                     ),
                   ],
                 ),
@@ -834,7 +834,10 @@ class _RoleAssignmentSheetBodyState extends State<_RoleAssignmentSheetBody> {
   void _submit(AdminRoleDefinition role) {
     if (_roleNeedsApparatus(role) && _assignedApparatus.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kamida bitta aparat tanlang')),
+        SnackBar(
+          content:
+              Text(context.l10n.adminText('roles.save_apparatus_required')),
+        ),
       );
       return;
     }

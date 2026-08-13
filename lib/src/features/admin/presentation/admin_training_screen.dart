@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/native_usb_printer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -136,7 +137,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       }
       setState(() {
         _loading = false;
-        _error = 'Training ma’lumotlari yuklanmadi';
+        _error = context.l10n.adminText('training.load_failed');
       });
     }
   }
@@ -194,11 +195,16 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       });
       showAdminTopNotice(
         context,
-        enabled ? 'Training rejimi yoqildi' : 'Training rejimi o‘chirildi',
+        enabled
+            ? context.l10n.adminText('training.enabled')
+            : context.l10n.adminText('training.disabled'),
       );
     } catch (_) {
       if (mounted) {
-        showAdminTopNotice(context, 'Training rejimi saqlanmadi');
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('training.save_failed'),
+        );
       }
     } finally {
       if (mounted) {
@@ -213,12 +219,13 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     }
     final confirmed = await showM3ConfirmDialog(
       context: context,
-      title: '${apparatus.name} trainingini qayta boshlash',
-      message: 'Faqat shu apparatdagi training orderlar 0-holatga qaytariladi. '
-          'Orderlar va ulangan homashyolar saqlanadi. Boshqa apparatlar va '
-          'production ma’lumotlari o‘zgarmaydi.',
-      cancelLabel: 'Bekor qilish',
-      confirmLabel: 'Qayta boshlash',
+      title: context.l10n.adminText(
+        'training.restart_title',
+        values: {'apparatus': apparatus.name},
+      ),
+      message: context.l10n.adminText('training.restart_message'),
+      cancelLabel: context.l10n.adminText('action.cancel'),
+      confirmLabel: context.l10n.adminText('training.restart_confirm'),
     );
     if (!mounted || confirmed != true) {
       return;
@@ -237,7 +244,10 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       }
       showAdminTopNotice(
         context,
-        '${apparatus.name} trainingi qayta boshlandi',
+        context.l10n.adminText(
+          'training.restarted',
+          values: {'apparatus': apparatus.name},
+        ),
         icon: Icons.restart_alt_rounded,
       );
     } catch (error) {
@@ -246,7 +256,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           context,
           error is MobileApiException
               ? error.message
-              : 'Training qayta boshlanmadi',
+              : context.l10n.adminText('training.restart_failed'),
           icon: Icons.error_outline,
         );
       }
@@ -264,7 +274,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     if (!apparatus.trainingEnabled) {
       showAdminTopNotice(
         context,
-        'Avval shu aparat uchun Training rejimini yoqing',
+        context.l10n.adminText('training.enable_first'),
       );
       return;
     }
@@ -287,7 +297,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           context,
           error is MobileApiException
               ? error.message
-              : 'Training order sahifasi ochilmadi',
+              : context.l10n.adminText('training.order_page_failed'),
           icon: Icons.error_outline,
         );
       }
@@ -305,7 +315,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     if (available.isEmpty) {
       showAdminTopNotice(
         context,
-        'Avval kamida bitta apparat uchun Training rejimini yoqing',
+        context.l10n.adminText('training.enable_one'),
         icon: Icons.school_outlined,
       );
       return;
@@ -334,16 +344,19 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     if (orderId.isEmpty) {
       return;
     }
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         final scheme = Theme.of(dialogContext).colorScheme;
         return AlertDialog(
           icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
-          title: const Text('Training orderni o‘chirish'),
+          title: Text(l10n.adminText('training.order_delete_title')),
           content: Text(
-            '“${_trainingOrderLabel(order)}” va unga ulangan test homashyolar '
-            'o‘chiriladi. Davom etilsinmi?',
+            l10n.adminText(
+              'training.order_delete_message',
+              values: {'order': _trainingOrderLabel(order)},
+            ),
           ),
           actionsPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
           actions: [
@@ -360,14 +373,14 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                       foregroundColor: scheme.onError,
                       minimumSize: const Size.fromHeight(52),
                     ),
-                    child: const Text('O‘chirish'),
+                    child: Text(l10n.adminText('action.delete')),
                   ),
                   const SizedBox(height: 8),
                   Align(
                     alignment: Alignment.center,
                     child: TextButton(
                       onPressed: () => Navigator.of(dialogContext).pop(false),
-                      child: const Text('Bekor qilish'),
+                      child: Text(l10n.adminText('action.cancel')),
                     ),
                   ),
                 ],
@@ -402,7 +415,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       });
       showAdminTopNotice(
         context,
-        'Training order o‘chirildi',
+        l10n.adminText('training.order_deleted'),
         icon: Icons.check_circle_outline,
       );
     } catch (error) {
@@ -411,7 +424,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           context,
           error is MobileApiException
               ? error.message
-              : 'Training order o‘chirilmadi',
+              : l10n.adminText('training.order_delete_failed'),
           icon: Icons.error_outline,
         );
       }
@@ -450,6 +463,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     if (_generatingInputBatchOrderId != null || orderId.isEmpty) {
       return null;
     }
+    final l10n = context.l10n;
     setState(() => _generatingInputBatchOrderId = orderId);
     try {
       final batch = await MobileApi.instance.adminGenerateTrainingInputBatch(
@@ -467,7 +481,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       });
       showAdminTopNotice(
         context,
-        'Test batch QR generatsiya qilindi va orderga ulandi',
+        l10n.adminText('training.batch_created'),
         icon: Icons.qr_code_2_rounded,
       );
       return batch;
@@ -477,7 +491,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           context,
           error is MobileApiException
               ? error.message
-              : 'Test batch generatsiya qilinmadi',
+              : l10n.adminText('training.batch_create_failed'),
           icon: Icons.error_outline,
         );
       }
@@ -498,26 +512,35 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   }
 
   void _showTrainingInputBatchDetails(AdminProgressBatch batch) {
+    final l10n = context.l10n;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (context) => RpsQrReprintSheet(
-        title: 'Training batch QR',
+        title: l10n.adminText('training.batch_qr_title'),
         payload: batch.qrPayload,
         itemName: batch.labelItemName,
         previewKey: ValueKey('training-input-batch-qr-${batch.batchId}'),
         reprintButtonKey:
             ValueKey('training-input-batch-qr-reprint-${batch.batchId}'),
         details: [
-          RpsQrDetail('Batch ID', batch.batchId),
-          RpsQrDetail('Order', batch.orderId),
-          RpsQrDetail('Bosqich', batch.apparatus),
-          RpsQrDetail('Keyingi apparat', batch.nextApparatus),
+          RpsQrDetail(l10n.adminText('training.batch_id'), batch.batchId),
+          RpsQrDetail(l10n.adminText('training.order_label'), batch.orderId),
+          RpsQrDetail(l10n.adminText('training.stage'), batch.apparatus),
           RpsQrDetail(
-              'Miqdor', '${formatRawQuantity(batch.producedQty)} ${batch.uom}'),
-          const RpsQrDetail('Holat', 'Generatsiya qilingan, scan kutilmoqda'),
+            l10n.adminText('training.next_apparatus'),
+            batch.nextApparatus,
+          ),
+          RpsQrDetail(
+            l10n.adminText('training.quantity'),
+            '${formatRawQuantity(batch.producedQty)} ${batch.uom}',
+          ),
+          RpsQrDetail(
+            l10n.adminText('training.status'),
+            l10n.adminText('training.batch_status'),
+          ),
         ],
         onReprint: () => _reprintTrainingInputBatch(batch),
         onDelete: () => _deleteTrainingInputBatch(batch),
@@ -547,7 +570,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     });
     showAdminTopNotice(
       context,
-      'Test batch QR o‘chirildi',
+      context.l10n.adminText('training.batch_deleted'),
       icon: Icons.delete_outline_rounded,
     );
   }
@@ -557,14 +580,14 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   ) async {
     final qrPayload = batch.qrPayload.trim();
     if (qrPayload.isEmpty) {
-      throw StateError('Training batch QR kodi topilmadi');
+      throw StateError(context.l10n.adminText('training.batch_code_missing'));
     }
     final printer = await pickProgressPrinter(context);
     if (!mounted) {
       return null;
     }
     if (printer == null) {
-      throw StateError('Printer tanlanmadi');
+      throw StateError(context.l10n.adminText('training.printer_missing'));
     }
     final printRequest = UsbRpsPrintRequest(
       epc: qrPayload,
@@ -601,10 +624,13 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         : assignment.itemName.trim();
     final confirmed = await showM3ConfirmDialog(
       context: context,
-      title: 'Training homashyosini o‘chirish',
-      message: '“$itemName” homashyosini shu training orderdan uzasizmi?',
-      cancelLabel: 'Bekor qilish',
-      confirmLabel: 'O‘chirish',
+      title: context.l10n.adminText('training.material_delete_title'),
+      message: context.l10n.adminText(
+        'training.material_delete_message',
+        values: {'item': itemName},
+      ),
+      cancelLabel: context.l10n.adminText('action.cancel'),
+      confirmLabel: context.l10n.adminText('action.delete'),
     );
     if (!mounted || confirmed != true) {
       return false;
@@ -627,7 +653,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       });
       showAdminTopNotice(
         context,
-        'Training homashyo orderdan uzildi',
+        context.l10n.adminText('training.material_deleted'),
         icon: Icons.link_off_rounded,
       );
       return true;
@@ -637,7 +663,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           context,
           error is MobileApiException
               ? error.message
-              : 'Training homashyo o‘chirilmadi',
+              : context.l10n.adminText('training.material_delete_failed'),
           icon: Icons.error_outline,
         );
       }
@@ -653,7 +679,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     AdminRawMaterialAssignment assignment,
   ) {
     final itemName = assignment.itemName.trim().isEmpty
-        ? 'Training homashyosi'
+        ? context.l10n.adminText('training.material_fallback')
         : assignment.itemName.trim();
     final quantity = assignment.stockQty > 0
         ? '${formatRawQuantity(assignment.stockQty)} ${assignment.stockUom}'
@@ -665,29 +691,55 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       builder: (context) => RpsQrReprintSheet(
-        title: 'Training homashyo QR',
+        title: this.context.l10n.adminText('training.material_qr_title'),
         payload: assignment.barcode,
         itemName: itemName,
         previewKey: ValueKey('training-material-qr-${assignment.barcode}'),
         reprintButtonKey:
             ValueKey('training-material-qr-reprint-${assignment.barcode}'),
         details: [
-          RpsQrDetail('Item code', assignment.itemCode),
-          RpsQrDetail('Guruh', assignment.itemGroup),
-          RpsQrDetail('Miqdor', quantity),
-          RpsQrDetail('Ombor', assignment.stockWarehouse),
-          RpsQrDetail('Apparat', assignment.apparatus),
           RpsQrDetail(
-              'Holat',
-              _trainingRawMaterialStatusLabel(
-                assignment.stockStatus,
-              )),
+            this.context.l10n.adminText('label.item_code'),
+            assignment.itemCode,
+          ),
+          RpsQrDetail(
+            this.context.l10n.adminText('label.group'),
+            assignment.itemGroup,
+          ),
+          RpsQrDetail(
+            this.context.l10n.adminText('label.quantity'),
+            quantity,
+          ),
+          RpsQrDetail(
+            this.context.l10n.adminText('label.warehouse'),
+            assignment.stockWarehouse,
+          ),
+          RpsQrDetail(
+            this.context.l10n.adminText('label.apparatus'),
+            assignment.apparatus,
+          ),
+          RpsQrDetail(
+            this.context.l10n.adminText('label.status'),
+            _trainingRawMaterialStatusLabel(
+              this.context.l10n,
+              assignment.stockStatus,
+            ),
+          ),
           if (assignment.orderId.trim().isNotEmpty)
-            RpsQrDetail('Order', assignment.orderId),
+            RpsQrDetail(
+              this.context.l10n.adminText('training.order_label'),
+              assignment.orderId,
+            ),
           if (assignment.assignedByName.trim().isNotEmpty)
-            RpsQrDetail('Ulagan', assignment.assignedByName),
+            RpsQrDetail(
+              this.context.l10n.adminText('training.assigned_by'),
+              assignment.assignedByName,
+            ),
           if (assignment.assignedAt.trim().isNotEmpty)
-            RpsQrDetail('Vaqt', assignment.assignedAt),
+            RpsQrDetail(
+              this.context.l10n.adminText('training.assigned_at'),
+              assignment.assignedAt,
+            ),
         ],
         onReprint: () => _reprintTrainingMaterial(assignment),
         errorMessage: (error) => error is MobileApiException
@@ -702,14 +754,14 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   ) async {
     final barcode = assignment.barcode.trim();
     if (barcode.isEmpty) {
-      throw StateError('Homashyo QR kodi topilmadi');
+      throw StateError(context.l10n.adminText('training.material_qr_missing'));
     }
     final printer = await pickProgressPrinter(context);
     if (!mounted) {
       return null;
     }
     if (printer == null) {
-      throw StateError('Printer tanlanmadi');
+      throw StateError(context.l10n.adminText('training.printer_missing'));
     }
     final printRequest = UsbRpsPrintRequest(
       epc: barcode,
@@ -717,7 +769,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           ? 'TRAINING-MATERIAL'
           : assignment.itemCode.trim(),
       itemName: assignment.itemName.trim().isEmpty
-          ? 'Training homashyosi'
+          ? context.l10n.adminText('training.material_fallback')
           : assignment.itemName.trim(),
       apparatus: assignment.apparatus.trim(),
       warehouse: assignment.stockWarehouse.trim().isEmpty
@@ -745,13 +797,16 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         .map((node) => node.title.trim())
         .firstWhere((title) => title.isNotEmpty, orElse: () => '');
     if (orderId.isEmpty || apparatus.isEmpty) {
-      showAdminTopNotice(context, 'Training order apparati topilmadi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('training.order_apparatus_missing'),
+      );
       return null;
     }
     if (_materials.isEmpty) {
       showAdminTopNotice(
         context,
-        'Xomashyo mikronlari sahifasida faol homashyo yo‘q',
+        context.l10n.adminText('training.no_active_material'),
         icon: Icons.inventory_2_outlined,
       );
       return null;
@@ -774,7 +829,10 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       final printer = await pickProgressPrinter(context);
       if (!mounted || printer == null) {
         if (mounted) {
-          showAdminTopNotice(context, 'Printer tanlanmadi');
+          showAdminTopNotice(
+            context,
+            context.l10n.adminText('training.printer_missing'),
+          );
         }
         return null;
       }
@@ -820,7 +878,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       });
       showAdminTopNotice(
         context,
-        'QR chop etildi va homashyo training orderga ulandi',
+        context.l10n.adminText('training.material_linked'),
         icon: Icons.link_rounded,
       );
       return assignment;
@@ -830,7 +888,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           context,
           error is MobileApiException
               ? error.message
-              : 'Training homashyosi ulanmagan yoki chop etilmadi',
+              : context.l10n.adminText('training.material_link_failed'),
           icon: Icons.error_outline,
         );
       }
@@ -846,6 +904,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     ProgressPrinterOption printer,
     UsbRpsPrintRequest request,
   ) async {
+    final l10n = context.l10n;
     if (printer.transport.isLocal) {
       final result = await PrintService.printRps(
         request,
@@ -854,13 +913,13 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         transport: printer.transport,
       );
       if (!result.ok) {
-        throw StateError('Printer training QR kodini chop etmadi');
+        throw StateError(l10n.adminText('training.print_failed'));
       }
       return;
     }
     final server = printer.server;
     if (server == null) {
-      throw StateError('Printer serveri topilmadi');
+      throw StateError(l10n.adminText('training.printer_server_missing'));
     }
     final response = await http
         .post(
@@ -876,7 +935,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
           ? (payload['detail'] ?? payload['error'])?.toString().trim() ?? ''
           : '';
       throw StateError(
-        detail.isEmpty ? 'Printer training QR kodini chop etmadi' : detail,
+        detail.isEmpty ? l10n.adminText('training.print_failed') : detail,
       );
     }
   }
@@ -908,14 +967,15 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 112;
     return AdminShell(
-      title: 'Training',
+      title: l10n.adminText('training.title'),
       selectedRouteName: AppRoutes.adminTraining,
       activeTab: AdminDockTab.home,
       primaryFabActions: [
         AdminFabMenuAction(
-          title: 'Training order qo‘shish',
+          title: l10n.adminText('training.order_add'),
           icon: Icons.playlist_add_rounded,
           onTap: _openTrainingOrder,
         ),
@@ -945,17 +1005,13 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                                 .withValues(alpha: 0.6),
                             borderRadius: BorderRadius.circular(18),
                           ),
-                          child: const Row(
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.school_outlined),
-                              SizedBox(width: 12),
+                              const Icon(Icons.school_outlined),
+                              const SizedBox(width: 12),
                               Expanded(
-                                child: Text(
-                                  'Training apparat bo‘yicha yoqiladi. Aparatni ochib, '
-                                  'rejimni almashtiring yoki istalgan apparat '
-                                  'ichidan Order ulash amalini bosing.',
-                                ),
+                                child: Text(l10n.adminText('training.intro')),
                               ),
                             ],
                           ),
@@ -963,9 +1019,12 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                       ),
                       const SizedBox(height: 14),
                       if (_apparatus.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Center(child: Text('Aparatlar topilmadi')),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child:
+                                Text(l10n.adminText('training.no_apparatus')),
+                          ),
                         )
                       else
                         M3SegmentSpacedColumn(
@@ -1048,31 +1107,39 @@ _TrainingOrderStatusTone _trainingOrderStatusTone(
   }
 }
 
-String _trainingOrderStatusLabel(AdminTrainingOrderStatus status) {
+String _trainingOrderStatusLabel(
+  AppLocalizations l10n,
+  AdminTrainingOrderStatus status,
+) {
   switch (_trainingOrderStatusTone(status)) {
     case _TrainingOrderStatusTone.completed:
-      return 'Tugallangan';
+      return l10n.adminText('training.status_completed');
     case _TrainingOrderStatusTone.inProgress:
-      return 'Jarayonda';
+      return l10n.adminText('training.status_in_progress');
     case _TrainingOrderStatusTone.paused:
-      return 'Pauzada';
+      return l10n.adminText('training.status_paused');
     case _TrainingOrderStatusTone.pending:
-      return 'Kutilmoqda';
+      return l10n.adminText('training.status_pending');
   }
 }
 
-String _trainingRawMaterialStatusLabel(String status) {
+String _trainingRawMaterialStatusLabel(
+  AppLocalizations l10n,
+  String status,
+) {
   switch (status.trim().toLowerCase()) {
     case 'available':
-      return 'Mavjud';
+      return l10n.adminText('stock.status.available');
     case 'reserved':
-      return 'Band';
+      return l10n.adminText('stock.status.reserved');
     case 'in_use':
-      return 'Ishlatilmoqda';
+      return l10n.adminText('stock.status.in_use');
     case 'consumed':
-      return 'Ishlatilgan';
+      return l10n.adminText('stock.status.consumed');
     default:
-      return status.trim().isEmpty ? 'Noma’lum' : status.trim();
+      return status.trim().isEmpty
+          ? l10n.adminText('status.no_data')
+          : status.trim();
   }
 }
 
@@ -1160,6 +1227,7 @@ class _TrainingApparatusTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final radius = M3SegmentedListGeometry.borderRadius(
@@ -1180,10 +1248,24 @@ class _TrainingApparatusTile extends StatelessWidget {
       assignmentsByOrderId.putIfAbsent(orderId, () => []).add(assignment);
     }
     final summaryParts = <String>[
-      apparatus.trainingEnabled ? 'Training rejimi' : 'Production rejimi',
-      if (orders.isNotEmpty) '${orders.length} ta test order',
-      if (completedCount > 0) '$completedCount ta tugagan',
-      if (assignments.isNotEmpty) '${assignments.length} ta test homashyo',
+      apparatus.trainingEnabled
+          ? l10n.adminText('training.mode_summary')
+          : l10n.adminText('training.production_summary'),
+      if (orders.isNotEmpty)
+        l10n.adminText(
+          'training.test_orders_count',
+          values: {'count': orders.length},
+        ),
+      if (completedCount > 0)
+        l10n.adminText(
+          'training.completed_count',
+          values: {'count': completedCount},
+        ),
+      if (assignments.isNotEmpty)
+        l10n.adminText(
+          'training.test_materials_count',
+          values: {'count': assignments.length},
+        ),
     ];
     final summary = summaryParts.join(' · ');
     return Material(
@@ -1250,7 +1332,9 @@ class _TrainingApparatusTile extends StatelessWidget {
                       key: ValueKey(
                         'admin-training-details-${apparatus.id}',
                       ),
-                      tooltip: expanded ? 'Yopish' : 'Ochish',
+                      tooltip: expanded
+                          ? l10n.adminText('training.collapse')
+                          : l10n.adminText('training.expand'),
                       onPressed: () => onExpandedChanged(!expanded),
                       icon: AnimatedRotation(
                         turns: expanded ? 0.5 : 0,
@@ -1286,8 +1370,10 @@ class _TrainingApparatusTile extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 apparatus.trainingEnabled
-                                    ? 'Training rejimi yoqilgan'
-                                    : 'Production rejimi yoqilgan',
+                                    ? l10n.adminText('training.mode_on')
+                                    : l10n.adminText(
+                                        'training.production_mode_on',
+                                      ),
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1320,7 +1406,7 @@ class _TrainingApparatusTile extends StatelessWidget {
                                     ),
                                   )
                                 : const Icon(Icons.restart_alt_rounded),
-                            label: const Text('Trainingni qayta boshlash'),
+                            label: Text(l10n.adminText('training.restart')),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -1338,7 +1424,8 @@ class _TrainingApparatusTile extends StatelessWidget {
                                     ),
                                   )
                                 : const Icon(Icons.link_rounded),
-                            label: const Text('Order ulash'),
+                            label:
+                                Text(l10n.adminText('training.attach_order')),
                           ),
                         ),
                         if (orders.isNotEmpty) ...[
@@ -1418,6 +1505,7 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final status = widget.status;
@@ -1425,7 +1513,7 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
     final subtitleParts = <String>[
       if (widget.order.map.productCode.trim().isNotEmpty)
         widget.order.map.productCode.trim(),
-      if (status != null) _trainingOrderStatusLabel(status),
+      if (status != null) _trainingOrderStatusLabel(l10n, status),
       if (status != null && status.actorDisplayName.trim().isNotEmpty)
         status.actorDisplayName.trim(),
     ];
@@ -1467,7 +1555,7 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                           const SizedBox(height: 2),
                           Text(
                             subtitleParts.isEmpty
-                                ? 'Test order'
+                                ? l10n.adminText('training.order_label')
                                 : subtitleParts.join(' · '),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -1485,7 +1573,7 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                           )
                         : IconButton(
                             visualDensity: VisualDensity.compact,
-                            tooltip: 'Training orderni o‘chirish',
+                            tooltip: l10n.adminText('training.order_delete'),
                             onPressed: widget.onDelete,
                             icon: const Icon(Icons.delete_outline_rounded),
                           ),
@@ -1515,7 +1603,7 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                             Padding(
                               padding: const EdgeInsets.only(bottom: 4),
                               child: Text(
-                                'Bu orderga homashyo ulanmagan',
+                                l10n.adminText('training.no_material_assigned'),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: scheme.onSurfaceVariant,
                                 ),
@@ -1561,7 +1649,9 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                                           : IconButton(
                                               visualDensity:
                                                   VisualDensity.compact,
-                                              tooltip: 'Homashyoni o‘chirish',
+                                              tooltip: l10n.adminText(
+                                                'training.material_delete_tooltip',
+                                              ),
                                               onPressed: () {
                                                 unawaited(
                                                   widget.onDeleteMaterial(
@@ -1606,8 +1696,15 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                                     : const Icon(Icons.qr_code_2_rounded),
                                 label: Text(
                                   widget.inputBatches.isNotEmpty
-                                      ? 'Yana batch QR generatsiya qilish (${widget.inputBatches.length})'
-                                      : 'Batch QR generatsiya qilish',
+                                      ? l10n.adminText(
+                                          'training.batch_generate_more',
+                                          values: {
+                                            'count': widget.inputBatches.length,
+                                          },
+                                        )
+                                      : l10n.adminText(
+                                          'training.batch_generate',
+                                        ),
                                 ),
                               ),
                             ),
@@ -1620,8 +1717,8 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                                 size: 20,
                                 color: color,
                               ),
-                              title: const Text(
-                                'Test batch QR',
+                              title: Text(
+                                l10n.adminText('training.batch_qr_title'),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1764,6 +1861,7 @@ class _TrainingOrderDetailsSheetState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final map = widget.order.map;
@@ -1821,7 +1919,7 @@ class _TrainingOrderDetailsSheetState
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Training order ma’lumotlari',
+                          l10n.adminText('training.order_details'),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
@@ -1833,45 +1931,68 @@ class _TrainingOrderDetailsSheetState
               ),
               const SizedBox(height: 18),
               _TrainingOrderDetailsSection(
-                title: 'Buyurtma ma’lumotlari',
+                title: l10n.adminText('training.order_information'),
                 icon: Icons.info_outline_rounded,
                 children: [
                   if (map.orderNumber.trim().isNotEmpty)
                     AppInfoRow(
-                      label: 'Buyurtma raqami',
+                      label: l10n.adminText('training.order_number'),
                       value: map.orderNumber,
                       selectable: true,
                     ),
-                  AppInfoRow(label: 'Mahsulot', value: map.title),
+                  AppInfoRow(
+                    label: l10n.adminText('training.product'),
+                    value: map.title,
+                  ),
                   if (map.productCode.trim().isNotEmpty)
                     AppInfoRow(
-                      label: 'Mahsulot kodi',
+                      label: l10n.adminText('training.product_code'),
                       value: map.productCode,
                       selectable: true,
                     ),
                   if (map.code.trim().isNotEmpty)
-                    AppInfoRow(label: 'Kod', value: map.code),
+                    AppInfoRow(
+                      label: l10n.adminText('label.code'),
+                      value: map.code,
+                    ),
                   if (map.customerName.trim().isNotEmpty)
-                    AppInfoRow(label: 'Mijoz', value: map.customerName),
+                    AppInfoRow(
+                      label: l10n.adminText('training.customer'),
+                      value: map.customerName,
+                    ),
                   if (map.rollCount != null && map.rollCount! > 0)
                     AppInfoRow(
-                      label: 'Rulon soni',
-                      value: '${formatRawQuantity(map.rollCount!)} ta',
+                      label: l10n.adminText('training.roll_count'),
+                      value: l10n.adminText(
+                        'training.roll_count_value',
+                        values: {
+                          'value': formatRawQuantity(map.rollCount!),
+                        },
+                      ),
                     ),
                   if (map.widthMm != null && map.widthMm! > 0)
                     AppInfoRow(
-                      label: 'Eni',
-                      value: '${formatRawQuantity(map.widthMm!)} mm',
+                      label: l10n.adminText('training.width'),
+                      value: l10n.adminText(
+                        'training.width_value',
+                        values: {'value': formatRawQuantity(map.widthMm!)},
+                      ),
                     ),
                   if (map.orderKg != null && map.orderKg! > 0)
                     AppInfoRow(
-                      label: 'Rejadagi og‘irlik',
-                      value: '${formatRawQuantity(map.orderKg!)} kg',
+                      label: l10n.adminText('training.planned_weight'),
+                      value: l10n.adminText(
+                        'training.weight_value',
+                        values: {'value': formatRawQuantity(map.orderKg!)},
+                      ),
                     ),
                   if (map.baseLength != null && map.baseLength! > 0)
                     AppInfoRow(
-                      label: 'Rejadagi uzunlik',
-                      value: '${formatRawQuantity(map.baseLength!)} metr',
+                      label: l10n.adminText('training.planned_length'),
+                      value: l10n.adminText(
+                        'training.length_value',
+                        values: {'value': formatRawQuantity(map.baseLength!)},
+                      ),
                     ),
                 ],
               ),
@@ -1885,7 +2006,9 @@ class _TrainingOrderDetailsSheetState
                       )
                     : const Icon(Icons.link_rounded),
                 label: Text(
-                  _linking ? 'Ulanmoqda…' : 'Homashyo ulash va QR chiqarish',
+                  _linking
+                      ? l10n.adminText('training.linking')
+                      : l10n.adminText('training.material_link'),
                 ),
               ),
               if (_trainingOrderNeedsGeneratedInputBatch(map)) ...[
@@ -1900,21 +2023,24 @@ class _TrainingOrderDetailsSheetState
                       : const Icon(Icons.qr_code_2_rounded),
                   label: Text(
                     _inputBatches.isNotEmpty
-                        ? 'Yana batch QR generatsiya qilish (${_inputBatches.length})'
-                        : 'Batch QR generatsiya qilish',
+                        ? l10n.adminText(
+                            'training.batch_generate_more',
+                            values: {'count': _inputBatches.length},
+                          )
+                        : l10n.adminText('training.batch_generate'),
                   ),
                 ),
               ],
               if (_assignments.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 _TrainingOrderDetailsSection(
-                  title: 'Ulangan test homashyolar',
+                  title: l10n.adminText('training.assigned_materials'),
                   icon: Icons.inventory_2_outlined,
                   children: [
                     for (final assignment in _assignments)
                       AppInfoRow(
                         label: assignment.itemName.trim().isEmpty
-                            ? 'Homashyo'
+                            ? l10n.adminText('training.material')
                             : assignment.itemName,
                         value: assignment.barcode,
                         selectable: true,
@@ -1926,7 +2052,9 @@ class _TrainingOrderDetailsSheetState
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
                             : IconButton(
-                                tooltip: 'Homashyoni o‘chirish',
+                                tooltip: l10n.adminText(
+                                  'training.material_delete_tooltip',
+                                ),
                                 onPressed: () {
                                   unawaited(_deleteMaterial(assignment));
                                 },
@@ -1941,12 +2069,12 @@ class _TrainingOrderDetailsSheetState
               if (_inputBatches.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 _TrainingOrderDetailsSection(
-                  title: 'Ulangan test batch QR',
+                  title: l10n.adminText('training.assigned_batches'),
                   icon: Icons.qr_code_2_rounded,
                   children: [
                     for (final batch in _inputBatches)
                       AppInfoRow(
-                        label: 'Batch QR',
+                        label: l10n.adminText('training.batch_qr'),
                         value: batch.qrPayload,
                         selectable: true,
                         onTap: () => widget.onBatchTap(batch),
@@ -1958,20 +2086,28 @@ class _TrainingOrderDetailsSheetState
               if (apparatus.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 _TrainingOrderDetailsSection(
-                  title: 'Ulangan aparat',
+                  title: l10n.adminText('training.assigned_apparatus'),
                   icon: Icons.precision_manufacturing_outlined,
-                  children: [AppInfoRow(label: 'Apparat', value: apparatus)],
+                  children: [
+                    AppInfoRow(
+                      label: l10n.adminText('training.apparatus'),
+                      value: apparatus,
+                    ),
+                  ],
                 ),
               ],
               if (stages.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 _TrainingOrderDetailsSection(
-                  title: 'Production map bosqichlari',
+                  title: l10n.adminText('training.production_stages'),
                   icon: Icons.account_tree_outlined,
                   children: [
                     for (var index = 0; index < stages.length; index++)
                       AppInfoRow(
-                        label: '${index + 1}-bosqich',
+                        label: l10n.adminText(
+                          'training.stage_number',
+                          values: {'number': index + 1},
+                        ),
                         value: stages[index].title,
                       ),
                   ],
@@ -2032,7 +2168,9 @@ class _TrainingMaterialLinkSheetState
     final micron = int.tryParse(_micronController.text.trim());
     if (_material == null || micron == null || micron <= 0) {
       setState(() {
-        _validationMessage = 'Homashyo va musbat micronni kiriting';
+        _validationMessage = context.l10n.adminText(
+          'training.micron_required',
+        );
       });
       return;
     }
@@ -2043,6 +2181,7 @@ class _TrainingMaterialLinkSheetState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return Padding(
@@ -2056,20 +2195,25 @@ class _TrainingMaterialLinkSheetState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Training homashyosini ulash',
+                l10n.adminText('training.link_material_title'),
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 6),
-              Text('Aparat: ${widget.apparatus}'),
+              Text(
+                l10n.adminText(
+                  'training.apparatus_value',
+                  values: {'apparatus': widget.apparatus},
+                ),
+              ),
               const SizedBox(height: 18),
               DropdownButtonFormField<CalculateMaterial>(
                 initialValue: _material,
                 isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Homashyo nomi',
-                  prefixIcon: Icon(Icons.inventory_2_outlined),
+                decoration: InputDecoration(
+                  labelText: l10n.adminText('training.material_name'),
+                  prefixIcon: const Icon(Icons.inventory_2_outlined),
                 ),
                 items: [
                   for (final material in widget.materials)
@@ -2088,18 +2232,17 @@ class _TrainingMaterialLinkSheetState
                 controller: _micronController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  labelText: 'Mikron',
-                  hintText: 'Masalan, 50',
-                  prefixIcon: Icon(Icons.straighten_outlined),
+                decoration: InputDecoration(
+                  labelText: l10n.adminText('label.micron'),
+                  hintText: l10n.adminText('training.micron_hint'),
+                  prefixIcon: const Icon(Icons.straighten_outlined),
                   suffixText: 'µm',
                 ),
               ),
               const SizedBox(height: 12),
-              const _TrainingSheetNotice(
+              _TrainingSheetNotice(
                 icon: Icons.print_outlined,
-                text: 'Printer tanlangandan keyin shu homashyo uchun qayta '
-                    'ishlatiladigan QR chiqariladi va orderga biriktiriladi.',
+                text: l10n.adminText('training.material_link_notice'),
               ),
               if (_validationMessage != null) ...[
                 const SizedBox(height: 8),
@@ -2112,7 +2255,7 @@ class _TrainingMaterialLinkSheetState
               FilledButton.icon(
                 onPressed: widget.materials.isEmpty ? null : _submit,
                 icon: const Icon(Icons.print_rounded),
-                label: const Text('Mikronni yozib davom etish'),
+                label: Text(l10n.adminText('training.continue_micron')),
               ),
             ],
           ),
@@ -2206,14 +2349,6 @@ String _trainingOrderLabel(ProductionMapSaved saved) {
   return values.isEmpty ? map.id : values.join(' · ');
 }
 
-String _trainingOrderShortLabel(String orderId) {
-  final normalized = orderId.trim();
-  if (normalized.length <= 22) {
-    return normalized;
-  }
-  return '${normalized.substring(0, 10)}…${normalized.substring(normalized.length - 8)}';
-}
-
 bool _trainingOrderNeedsGeneratedInputBatch(ProductionMapDefinition map) {
   return map.nodes.any((node) {
     if (node.kind != 'apparatus' ||
@@ -2257,7 +2392,7 @@ class _TrainingApparatusPicker extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Training apparatini tanlang',
+            context.l10n.adminText('training.apparatus_select'),
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
             ),

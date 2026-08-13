@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../shared/models/app_models.dart';
 import '../logic/apparatus_queue_state.dart';
@@ -18,6 +19,30 @@ import 'widgets/admin_dock.dart';
 import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_shell.dart';
 import 'widgets/admin_top_notice.dart';
+
+String _factoryMapFilterLabel(
+  AppLocalizations l10n,
+  FactoryMapOrderFilter filter,
+) =>
+    switch (filter) {
+      FactoryMapOrderFilter.inProgress =>
+        l10n.adminText('factory_map.filter.in_progress'),
+      FactoryMapOrderFilter.completed =>
+        l10n.adminText('factory_map.filter.completed'),
+      FactoryMapOrderFilter.all => l10n.adminText('factory_map.filter.all'),
+    };
+
+String _factoryMapEmptyMessage(
+  AppLocalizations l10n,
+  FactoryMapOrderFilter filter,
+) =>
+    switch (filter) {
+      FactoryMapOrderFilter.inProgress =>
+        l10n.adminText('factory_map.empty.in_progress'),
+      FactoryMapOrderFilter.completed =>
+        l10n.adminText('factory_map.empty.completed'),
+      FactoryMapOrderFilter.all => l10n.adminText('factory_map.empty.all'),
+    };
 
 class AdminFactoryMapScreen extends StatefulWidget {
   const AdminFactoryMapScreen({super.key});
@@ -84,6 +109,9 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
     if (_loadingMappings) {
       return;
     }
+    final loadFailed = context.l10n.adminText(
+      'factory_map.mapping_load_failed',
+    );
     setState(() {
       _loadingMappings = true;
       _mappingError = '';
@@ -96,7 +124,7 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
       setState(() => _apparatus = apparatus);
     } catch (_) {
       if (mounted) {
-        setState(() => _mappingError = 'Aparat bog‘lanishlari olinmadi');
+        setState(() => _mappingError = loadFailed);
       }
     } finally {
       if (mounted) {
@@ -116,7 +144,7 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
     if (mapped == null) {
       showAdminTopNotice(
         context,
-        'Bu 3D obyekt hali hech qaysi apparatga biriktirilmagan',
+        context.l10n.adminText('factory_map.unassigned_object'),
       );
       return;
     }
@@ -153,6 +181,7 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
     final mappedCount = _apparatus
@@ -160,7 +189,7 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
         .length;
 
     return AdminShell(
-      title: 'Zavod kartasi',
+      title: l10n.adminText('factory_map.title'),
       selectedRouteName: AppRoutes.adminFactoryMap,
       activeTab: AdminDockTab.home,
       child: ColoredBox(
@@ -206,10 +235,15 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
                                   ),
                                   child: Text(
                                     _loadingMappings
-                                        ? 'Aparatlar yuklanmoqda…'
+                                        ? l10n.adminText(
+                                            'factory_map.loading_equipment',
+                                          )
                                         : _mappingError.isNotEmpty
                                             ? _mappingError
-                                            : '$mappedCount ta apparat ulangan · apparat ustiga bosing',
+                                            : l10n.adminText(
+                                                'factory_map.mapping_summary',
+                                                values: {'count': mappedCount},
+                                              ),
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 12,
@@ -225,7 +259,9 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
                           right: 10,
                           bottom: 10,
                           child: IconButton.filledTonal(
-                            tooltip: 'Bog‘lanishlarni yangilash',
+                            tooltip: l10n.adminText(
+                              'factory_map.refresh_mappings',
+                            ),
                             onPressed: _loadingMappings ? null : _loadMappings,
                             icon: _loadingMappings
                                 ? const SizedBox.square(
@@ -295,6 +331,9 @@ class _FactoryApparatusLiveSheetState
     if (_refreshing) {
       return;
     }
+    final loadFailed = context.l10n.adminText(
+      'factory_map.live_load_failed',
+    );
     _refreshing = true;
     if (!silent && mounted) {
       setState(() {
@@ -327,7 +366,7 @@ class _FactoryApparatusLiveSheetState
       });
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Live ishlab chiqarish ma’lumoti olinmadi');
+        setState(() => _error = loadFailed);
       }
     } finally {
       _refreshing = false;
@@ -432,6 +471,7 @@ class _FactoryApparatusLiveSheetState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final states = _queueStates;
     final orderIds = filterFactoryMapOrderIds(
@@ -477,7 +517,7 @@ class _FactoryApparatusLiveSheetState
                           ),
                     ),
                     Text(
-                      'Live holat · har 15 soniyada yangilanadi',
+                      l10n.adminText('factory_map.live_status'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
@@ -486,12 +526,12 @@ class _FactoryApparatusLiveSheetState
                 ),
               ),
               IconButton(
-                tooltip: 'Yangilash',
+                tooltip: l10n.adminText('factory_map.refresh'),
                 onPressed: _refreshing ? null : _load,
                 icon: const Icon(Icons.refresh_rounded),
               ),
               IconButton(
-                tooltip: 'Yopish',
+                tooltip: l10n.adminText('factory_map.close'),
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.close_rounded),
               ),
@@ -501,8 +541,8 @@ class _FactoryApparatusLiveSheetState
         const Divider(height: 1),
         AdminExpandableFilterChip<FactoryMapOrderFilter>(
           chipKey: const ValueKey('factory-map-order-filter-chip'),
-          label: 'Holat',
-          emptyLabel: _orderFilter.label,
+          label: l10n.adminText('factory_map.filter'),
+          emptyLabel: _factoryMapFilterLabel(l10n, _orderFilter),
           icon: Icons.filter_list_rounded,
           selectedValue: _orderFilter,
           expanded: _orderFilterExpanded,
@@ -515,7 +555,7 @@ class _FactoryApparatusLiveSheetState
             for (final filter in FactoryMapOrderFilter.values)
               AdminFilterChipOption<FactoryMapOrderFilter>(
                 value: filter,
-                label: filter.label,
+                label: _factoryMapFilterLabel(l10n, filter),
                 key: ValueKey(
                   'factory-map-order-filter-option-${filter.name}',
                 ),
@@ -537,7 +577,7 @@ class _FactoryApparatusLiveSheetState
                         _FactoryMapNoticeCard(
                           icon: Icons.cloud_off_outlined,
                           message: _error,
-                          actionLabel: 'Qayta urinish',
+                          actionLabel: l10n.adminText('factory_map.retry'),
                           onAction: _load,
                         ),
                       Wrap(
@@ -546,15 +586,24 @@ class _FactoryApparatusLiveSheetState
                         children: [
                           _FactoryMapMetric(
                             icon: Icons.receipt_long_outlined,
-                            label: '${orderIds.length} order',
+                            label: l10n.adminText(
+                              'factory_map.order_count',
+                              values: {'count': orderIds.length},
+                            ),
                           ),
                           _FactoryMapMetric(
                             icon: Icons.inventory_2_outlined,
-                            label: '${visibleMaterials.length} homashyo',
+                            label: l10n.adminText(
+                              'factory_map.material_count',
+                              values: {'count': visibleMaterials.length},
+                            ),
                           ),
                           _FactoryMapMetric(
                             icon: Icons.precision_manufacturing_outlined,
-                            label: '${visibleWipBatches.length} WIP',
+                            label: l10n.adminText(
+                              'factory_map.wip_count',
+                              values: {'count': visibleWipBatches.length},
+                            ),
                           ),
                         ],
                       ),
@@ -562,7 +611,7 @@ class _FactoryApparatusLiveSheetState
                       if (orderIds.isEmpty)
                         _FactoryMapNoticeCard(
                           icon: Icons.check_circle_outline_rounded,
-                          message: _orderFilter.emptyMessage,
+                          message: _factoryMapEmptyMessage(l10n, _orderFilter),
                         )
                       else
                         M3SegmentSpacedColumn(
@@ -654,11 +703,15 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
     }
   }
 
-  String get _statusLabel => switch (widget.state) {
-        ApparatusQueueOrderState.inProgress => 'Jarayonda',
-        ApparatusQueueOrderState.paused => 'Pauzada',
-        ApparatusQueueOrderState.completed => 'Tugagan',
-        ApparatusQueueOrderState.pending => 'Navbatda',
+  String _statusLabel(AppLocalizations l10n) => switch (widget.state) {
+        ApparatusQueueOrderState.inProgress =>
+          l10n.adminText('factory_map.filter.in_progress'),
+        ApparatusQueueOrderState.paused =>
+          l10n.adminText('training.status_paused'),
+        ApparatusQueueOrderState.completed =>
+          l10n.adminText('factory_map.filter.completed'),
+        ApparatusQueueOrderState.pending =>
+          l10n.adminText('wip.status.waiting'),
       };
 
   Color _statusColor(ColorScheme scheme) => switch (widget.state) {
@@ -670,13 +723,16 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final map = widget.order?.map;
     final orderNumber = map?.orderNumber.trim() ?? '';
-    final title = orderNumber.isEmpty ? widget.orderId : 'Order №$orderNumber';
+    final title = orderNumber.isEmpty
+        ? widget.orderId
+        : '${l10n.adminText('calculate.order')} №$orderNumber';
     final statusColor = _statusColor(scheme);
     final subtitle = [
-      _statusLabel,
+      _statusLabel(l10n),
       if ((map?.customerName.trim() ?? '').isNotEmpty) map!.customerName.trim(),
       if ((map?.productCode.trim() ?? '').isNotEmpty) map!.productCode.trim(),
     ].join(' · ');
@@ -751,12 +807,14 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
             const Divider(height: 1),
             const SizedBox(height: 8),
             if (widget.materials.isEmpty)
-              const _FactoryMapEmptyRow(
+              _FactoryMapEmptyRow(
                 icon: Icons.inventory_2_outlined,
-                text: 'Biriktirilgan homashyo yo‘q',
+                text: l10n.adminText('factory_map.materials_empty'),
               )
             else ...[
-              const _FactoryMapSectionTitle(title: 'Homashyolar'),
+              _FactoryMapSectionTitle(
+                title: l10n.adminText('factory_map.materials'),
+              ),
               for (final material in widget.materials)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -786,7 +844,9 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
                 ),
             ],
             if (widget.wipBatches.isNotEmpty) ...[
-              const _FactoryMapSectionTitle(title: 'WIP / yarim tayyor'),
+              _FactoryMapSectionTitle(
+                title: l10n.adminText('factory_map.wip'),
+              ),
               for (final batch in widget.wipBatches)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -805,7 +865,10 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
                       if (batch.currentLocation.trim().isNotEmpty)
                         batch.currentLocation,
                       if (batch.nextApparatus.trim().isNotEmpty)
-                        'Keyingi: ${batch.nextApparatus}',
+                        l10n.adminText(
+                          'factory_map.next',
+                          values: {'apparatus': batch.nextApparatus},
+                        ),
                     ].join(' · '),
                   ),
                   trailing: Text(
@@ -823,7 +886,7 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
               OutlinedButton.icon(
                 onPressed: widget.onOpenDetail,
                 icon: const Icon(Icons.open_in_new_rounded),
-                label: const Text('Orderni to‘liq ko‘rish'),
+                label: Text(l10n.adminText('factory_map.open_order')),
               ),
             ],
           ],
@@ -941,18 +1004,19 @@ class _FactoryMapPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return ColoredBox(
       color: const Color(0xFF202426),
       child: Semantics(
-        label: 'Zavod 3D kartasi tayyorlanmoqda',
-        child: const Center(
+        label: l10n.adminText('factory_map.placeholder_semantics'),
+        child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.factory_outlined, color: Colors.white70, size: 34),
               SizedBox(height: 12),
               Text(
-                'Zavod kartasi tayyorlanmoqda…',
+                l10n.adminText('factory_map.placeholder'),
                 style: TextStyle(color: Colors.white70),
               ),
             ],

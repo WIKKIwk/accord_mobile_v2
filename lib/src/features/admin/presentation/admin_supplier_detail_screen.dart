@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/buttons/app_action_button_styles.dart';
@@ -127,9 +128,16 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Telefon saqlanmadi: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.adminText(
+              'detail.phone_save_failed',
+              values: {'error': error},
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _savingPhone = false);
@@ -158,11 +166,10 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
   Future<void> _removeSupplier() async {
     final bool? confirmed = await showM3ConfirmDialog(
       context: context,
-      title: 'Supplierni chiqarish',
-      message:
-          'Bu supplier admin panel ro‘yxatidan chiqariladi va kira olmaydi.',
-      cancelLabel: 'Bekor qilish',
-      confirmLabel: 'Chiqarish',
+      title: context.l10n.adminText('detail.supplier_remove_title'),
+      message: context.l10n.adminText('detail.supplier_remove_message'),
+      cancelLabel: context.l10n.adminText('action.cancel'),
+      confirmLabel: context.l10n.adminText('detail.customer_remove'),
       destructive: true,
     );
     if (confirmed != true) {
@@ -188,9 +195,9 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Code nusxalandi')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.adminText('detail.code_copied'))),
+    );
   }
 
   @override
@@ -204,7 +211,7 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
         Navigator.of(context).pop(_changed);
       },
       child: AppShell(
-        title: 'Profil',
+        title: context.l10n.adminText('profile.title'),
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -318,11 +325,13 @@ class _AdminSupplierDetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final phone = detail.phone.trim();
-    final displayName =
-        detail.name.trim().isEmpty ? 'Yetkazib beruvchi' : detail.name.trim();
+    final displayName = detail.name.trim().isEmpty
+        ? l10n.adminText('detail.supplier_missing')
+        : detail.name.trim();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -347,7 +356,9 @@ class _AdminSupplierDetailCard extends StatelessWidget {
                 right: 14,
                 top: 14,
                 child: AppStatusChip(
-                  label: detail.blocked ? 'Bloklangan' : 'Tayyor',
+                  label: detail.blocked
+                      ? l10n.adminText('detail.blocked')
+                      : l10n.adminText('detail.ready'),
                 ),
               ),
               Positioned(
@@ -376,7 +387,7 @@ class _AdminSupplierDetailCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Yetkazib beruvchi profili',
+                      l10n.adminText('detail.supplier_profile'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -401,11 +412,16 @@ class _AdminSupplierDetailCard extends StatelessWidget {
                   children: [
                     ProfileInfoChip(
                       icon: Icons.phone_rounded,
-                      label: phone.isEmpty ? 'Telefon kiritilmagan' : phone,
+                      label: phone.isEmpty
+                          ? l10n.adminText('profile.phone_missing')
+                          : phone,
                     ),
                     ProfileInfoChip(
                       icon: Icons.inventory_2_rounded,
-                      label: '${detail.assignedItems.length} ta mahsulot',
+                      label: l10n.adminText(
+                        'detail.items_count',
+                        values: {'count': detail.assignedItems.length},
+                      ),
                     ),
                     if (chatTarget != null)
                       ChatProfileActionButton(
@@ -421,8 +437,9 @@ class _AdminSupplierDetailCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   key: const ValueKey('admin-supplier-detail-admin-toggle'),
-                  tooltip:
-                      expanded ? 'Boshqaruvni yopish' : 'Boshqaruvni ochish',
+                  tooltip: expanded
+                      ? l10n.adminText('profile.controls_close')
+                      : l10n.adminText('profile.controls_open'),
                   onPressed: () => onExpandedChanged(!expanded),
                   icon: AnimatedRotation(
                     turns: expanded ? 0.5 : 0,
@@ -502,6 +519,7 @@ class _AdminSupplierPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Column(
@@ -513,13 +531,13 @@ class _AdminSupplierPanel extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Text(
-          'Admin boshqaruv',
+          l10n.adminText('profile.admin_controls'),
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w800,
           ),
         ),
         const SizedBox(height: 14),
-        Text('Telefon', style: theme.textTheme.bodySmall),
+        Text(l10n.adminText('profile.phone'), style: theme.textTheme.bodySmall),
         const SizedBox(height: 6),
         _SupplierPhoneInlineField(
           detail: detail,
@@ -527,7 +545,10 @@ class _AdminSupplierPanel extends StatelessWidget {
           onSavePhone: onSavePhone,
         ),
         const SizedBox(height: 14),
-        Text('Kirish kodi', style: theme.textTheme.bodySmall),
+        Text(
+          l10n.adminText('profile.access_code'),
+          style: theme.textTheme.bodySmall,
+        ),
         const SizedBox(height: 6),
         AppDetailField(
           child: Row(
@@ -535,7 +556,7 @@ class _AdminSupplierPanel extends StatelessWidget {
               Expanded(
                 child: Text(
                   detail.code.trim().isEmpty
-                      ? 'Hali generatsiya qilinmagan'
+                      ? l10n.adminText('profile.not_generated')
                       : detail.code,
                   style: theme.textTheme.titleMedium,
                 ),
@@ -563,7 +584,10 @@ class _AdminSupplierPanel extends StatelessWidget {
         if (retryAfterSec > 0) ...[
           const SizedBox(height: 12),
           Text(
-            'Keyingi code uchun $retryAfterSec soniya kuting.',
+            l10n.adminText(
+              'profile.code_wait',
+              values: {'seconds': retryAfterSec},
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -571,14 +595,17 @@ class _AdminSupplierPanel extends StatelessWidget {
         ],
         const SizedBox(height: 18),
         Text(
-          'Biriktirilgan mahsulotlar',
+          l10n.adminText('detail.assigned_items'),
           style: theme.textTheme.titleLarge,
         ),
         const SizedBox(height: 10),
         Text(
           detail.assignedItems.isEmpty
-              ? 'Hozircha mahsulot biriktirilmagan.'
-              : '${detail.assignedItems.length} ta mahsulot biriktirilgan.',
+              ? l10n.adminText('detail.assigned_items_empty')
+              : l10n.adminText(
+                  'detail.assigned_items_count',
+                  values: {'count': detail.assignedItems.length},
+                ),
           style: theme.textTheme.bodySmall?.copyWith(
             color: scheme.onSurfaceVariant,
           ),
@@ -592,7 +619,7 @@ class _AdminSupplierPanel extends StatelessWidget {
                   borderRadius: _supplierDetailButtonRadius,
                 ),
                 onPressed: onViewItems,
-                child: const Text('Ko‘rish'),
+                child: Text(l10n.adminText('detail.items_view')),
               ),
             ),
             const SizedBox(width: 12),
@@ -602,7 +629,7 @@ class _AdminSupplierPanel extends StatelessWidget {
                   borderRadius: _supplierDetailButtonRadius,
                 ),
                 onPressed: onAddItem,
-                child: const Text('Qo‘shish'),
+                child: Text(l10n.adminText('detail.add')),
               ),
             ),
           ],
@@ -617,10 +644,10 @@ class _AdminSupplierPanel extends StatelessWidget {
             onPressed: savingStatus ? null : () => onToggleBlocked(detail),
             child: Text(
               savingStatus
-                  ? 'Saqlanmoqda...'
+                  ? l10n.adminText('action.saving')
                   : detail.blocked
-                      ? 'Blokdan chiqarish'
-                      : 'Bloklash',
+                      ? l10n.adminText('detail.unblock')
+                      : l10n.adminText('detail.block'),
             ),
           ),
         ),
@@ -633,7 +660,9 @@ class _AdminSupplierPanel extends StatelessWidget {
             ),
             onPressed: removing ? null : onRemove,
             child: Text(
-              removing ? 'Chiqarilmoqda...' : 'Tizimdan chiqarish',
+              removing
+                  ? l10n.adminText('detail.removing')
+                  : l10n.adminText('detail.remove_from_system'),
             ),
           ),
         ),
@@ -692,6 +721,7 @@ class _SupplierPhoneInlineFieldState extends State<_SupplierPhoneInlineField> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final phone = widget.detail.phone.trim();
     return AppDetailField(
@@ -707,23 +737,23 @@ class _SupplierPhoneInlineFieldState extends State<_SupplierPhoneInlineField> {
                     decoration: const InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
-                      hintText: '+998901234567',
+                      hintText: '+998 90 123 45 67',
                     ),
                     style: theme.textTheme.titleMedium,
                     onSubmitted: (_) => _submit(),
                   )
                 : Text(
-                    phone.isEmpty ? 'Kiritilmagan' : phone,
+                    phone.isEmpty ? l10n.adminText('profile.entered') : phone,
                     style: theme.textTheme.titleMedium,
                   ),
           ),
           IconButton(
             key: const ValueKey('admin-supplier-detail-phone-action'),
             tooltip: _editing
-                ? 'Telefonni saqlash'
+                ? l10n.adminText('profile.save_phone')
                 : phone.isEmpty
-                    ? 'Telefon raqami kiritish'
-                    : 'Telefonni yangilash',
+                    ? l10n.adminText('profile.enter_phone')
+                    : l10n.adminText('profile.update_phone'),
             onPressed: widget.savingPhone
                 ? null
                 : _editing

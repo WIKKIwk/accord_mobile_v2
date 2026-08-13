@@ -1,4 +1,5 @@
 import '../../models/admin_item_group_tree_entry.dart';
+import '../../../../core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 class AdminItemGroupTreePanel extends StatefulWidget {
@@ -98,6 +99,7 @@ class _TreeNodeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     final hasChildren = node.children.isNotEmpty;
     final isExpanded = expandedNames.contains(node.entry.name);
@@ -161,15 +163,21 @@ class _TreeNodeCard extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () => onShowItems(node.entry.name),
-                      child: const Text('Show'),
+                      child: Text(l10n.adminText('item_group.show')),
                     ),
                     if (hasChildren)
                       _TreeBadge(
-                        label: '${node.children.length} child',
+                        label: l10n.adminText(
+                          'item_group.children_count',
+                          values: {'count': node.children.length},
+                        ),
                         filled: true,
                       ),
                     if (!hasChildren)
-                      const _TreeBadge(label: 'leaf', filled: false),
+                      _TreeBadge(
+                        label: l10n.adminText('item_group.leaf'),
+                        filled: false,
+                      ),
                     if (hasChildren) ...[
                       const SizedBox(width: 6),
                       AnimatedRotation(
@@ -268,11 +276,12 @@ class _EmptyTree extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          'Tree bo‘sh',
+          l10n.adminText('item_group.tree_empty'),
           style: Theme.of(context).textTheme.bodyMedium,
           textAlign: TextAlign.center,
         ),

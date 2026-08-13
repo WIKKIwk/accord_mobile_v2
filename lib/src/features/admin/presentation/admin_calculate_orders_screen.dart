@@ -1,6 +1,7 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -79,7 +80,10 @@ class _AdminCalculateOrdersScreenState
     if (!mounted) {
       return;
     }
-    showAdminTopNotice(context, 'Zakaz o‘chirildi');
+    showAdminTopNotice(
+      context,
+      context.l10n.adminText('calculate.saved_deleted'),
+    );
   }
 
   void _onSearchChanged(String value) {
@@ -137,7 +141,7 @@ class _AdminCalculateOrdersScreenState
       titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,
-        hintText: 'Zakaz qidirish',
+        hintText: context.l10n.adminText('calculate.order_search'),
         onChanged: _onSearchChanged,
         onClear: () {
           _searchController.clear();
@@ -162,11 +166,17 @@ class _AdminCalculateOrdersScreenState
                     children: [
                       if (visibleTemplates.isEmpty &&
                           _searchQuery.trim().isEmpty)
-                        const _EmptyOrders(
-                          message: 'Saqlangan shablonlar hozircha yo‘q',
+                        _EmptyOrders(
+                          message: context.l10n.adminText(
+                            'calculate.saved_templates_empty',
+                          ),
                         )
                       else if (visibleTemplates.isEmpty)
-                        const _EmptyOrders(message: 'Zakaz topilmadi')
+                        _EmptyOrders(
+                          message: context.l10n.adminText(
+                            'calculate.order_empty',
+                          ),
+                        )
                       else
                         _OrderListModule(
                           templates: visibleTemplates,
@@ -233,7 +243,9 @@ class _OrderRow extends StatelessWidget {
       if (template.customer.trim().isNotEmpty) template.customer.trim(),
       if (template.product.trim().isNotEmpty) template.product.trim(),
       if (template.widthMm > 0) '${_fmt(template.widthMm)} mm',
-      if (template.wastePercent >= 0) 'Atxod ${_fmt(template.wastePercent)}%',
+      if (template.wastePercent >= 0)
+        '${context.l10n.adminText('calculate.waste')} '
+            '${_fmt(template.wastePercent)}%',
     ].join(' • ');
 
     return AdminSummaryCard(
@@ -259,7 +271,7 @@ class _OrderRow extends StatelessWidget {
           ),
         ),
       ),
-      title: _orderTitle(template),
+      title: _orderTitle(context.l10n, template),
       subtitle: subtitle,
       titleMaxLines: 1,
       subtitleMaxLines: 1,
@@ -271,7 +283,7 @@ class _OrderRow extends StatelessWidget {
             height: 1.05,
           ),
       trailing: IconButton(
-        tooltip: 'O‘chirish',
+        tooltip: context.l10n.adminText('action.delete'),
         onPressed: onDelete,
         icon: const Icon(Icons.delete_outline_rounded),
       ),
@@ -293,11 +305,14 @@ class _EmptyOrders extends StatelessWidget {
   }
 }
 
-String _orderTitle(CalculateOrderTemplate template) {
+String _orderTitle(
+  AppLocalizations l10n,
+  CalculateOrderTemplate template,
+) {
   final name = template.name.trim().isEmpty
       ? template.product.trim()
       : template.name.trim();
-  return name.isEmpty ? 'Zakaz' : name;
+  return name.isEmpty ? l10n.adminText('calculate.order') : name;
 }
 
 String _fmt(double value) => formatQuantity(value);

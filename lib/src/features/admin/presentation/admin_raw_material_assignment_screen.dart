@@ -4,6 +4,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/search/search_normalizer.dart';
 import '../../../core/session/session.dart';
 import '../../../core/theme/app_theme.dart';
@@ -70,8 +71,8 @@ class AdminRawMaterialAssignmentScreen extends StatelessWidget {
                   AdminDrawerNavigation.openRoute(context, routeName),
             ),
       title: isMaterialTaminotchi
-          ? 'Homashyo biriktirish'
-          : 'Homashyo sozlamalari',
+          ? context.l10n.adminText('raw_material.assign_title')
+          : context.l10n.adminText('raw_material.settings_title'),
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: isMaterialTaminotchi
@@ -341,7 +342,7 @@ class _AdminRawMaterialAssignmentPanelState
   String _selectedOrderLabel(List<ProductionMapSaved> orders) {
     for (final order in orders) {
       if (order.map.id.trim() == _selectedOrderId.trim()) {
-        return _orderLabel(order);
+        return _orderLabel(order, context.l10n);
       }
     }
     return _selectedOrderId.trim();
@@ -362,8 +363,8 @@ class _AdminRawMaterialAssignmentPanelState
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3AsyncPickerSheet<ProductionMapSaved>(
-          title: 'Zakaz tanlang',
-          hintText: 'Zakaz qidiring',
+          title: context.l10n.adminText('raw_material.order_select'),
+          hintText: context.l10n.adminText('raw_material.order_search'),
           pageSize: 50,
           loadPage: (query, offset, limit) async {
             final normalizedQuery = query.trim().toLowerCase();
@@ -377,12 +378,12 @@ class _AdminRawMaterialAssignmentPanelState
                       map.orderNumber,
                       map.title,
                       map.productCode,
-                      _orderLabel(order),
+                      _orderLabel(order, context.l10n),
                     ]);
                   }).toList(growable: false);
             return filtered.skip(offset).take(limit).toList(growable: false);
           },
-          itemTitle: _orderLabel,
+          itemTitle: (order) => _orderLabel(order, context.l10n),
           itemSubtitle: (order) => order.map.id.trim(),
           onSelected: (order) => Navigator.of(context).pop(order),
         );
@@ -439,8 +440,9 @@ class _AdminRawMaterialAssignmentPanelState
         return;
       }
       setState(() {
-        _scanLookupError =
-            error is MobileApiException ? error.message : 'Homashyo topilmadi';
+        _scanLookupError = error is MobileApiException
+            ? error.message
+            : context.l10n.adminText('raw_material.not_found');
       });
     } finally {
       if (mounted) {
@@ -453,7 +455,10 @@ class _AdminRawMaterialAssignmentPanelState
     final orderId = _selectedOrderId.trim();
     final barcode = rawMaterialBarcodeFromQr(_scannedBarcode);
     if (orderId.isEmpty || barcode.isEmpty || _saving) {
-      showAdminTopNotice(context, 'Zakaz tanlang va homashyo QR skaner qiling');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('raw_material.order_scan_required'),
+      );
       return;
     }
     setState(() => _saving = true);
@@ -477,14 +482,19 @@ class _AdminRawMaterialAssignmentPanelState
               item,
         ];
       });
-      showAdminTopNotice(context, 'Homashyo zakazga ulandi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('raw_material.assigned'),
+      );
     } catch (error) {
       if (!mounted) {
         return;
       }
       showAdminTopNotice(
         context,
-        error is MobileApiException ? error.message : 'Homashyo ulanmadi',
+        error is MobileApiException
+            ? error.message
+            : context.l10n.adminText('raw_material.assign_failed'),
       );
     } finally {
       if (mounted) {
@@ -508,11 +518,14 @@ class _AdminRawMaterialAssignmentPanelState
           !mounted) {
         rethrow;
       }
+      final cancelledMessage = context.l10n.adminText(
+        'raw_material.assign_cancelled',
+      );
       final apparatus = await _showApparatusChoice(error.apparatusOptions);
       if (apparatus == null || !mounted) {
-        throw const MobileApiException(
+        throw MobileApiException(
           code: 'raw_material_assignment_cancelled',
-          message: 'Homashyoni ulash bekor qilindi',
+          message: cancelledMessage,
         );
       }
       return MobileApi.instance.adminAssignRawMaterialToOrder(
@@ -566,14 +579,18 @@ class _AdminRawMaterialAssignmentPanelState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Qaysi aparatga ulaymiz?',
+                              dialogContext.l10n.adminText(
+                                'raw_material.choose_apparatus',
+                              ),
                               style: theme.textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
                             const SizedBox(height: 5),
                             Text(
-                              'Bu homashyo bir nechta bosqichga mos keladi. Bittasini tanlang.',
+                              dialogContext.l10n.adminText(
+                                'raw_material.choose_apparatus_message',
+                              ),
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: scheme.onSurfaceVariant,
                                 height: 1.3,
@@ -600,7 +617,9 @@ class _AdminRawMaterialAssignmentPanelState
                   ],
                   TextButton(
                     onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Bekor qilish'),
+                    child: Text(
+                      dialogContext.l10n.adminText('action.cancel'),
+                    ),
                   ),
                 ],
               ),
@@ -665,14 +684,19 @@ class _AdminRawMaterialAssignmentPanelState
             if (_assignmentKey(item) != _assignmentKey(saved)) item,
         ];
       });
-      showAdminTopNotice(context, 'Homashyo zakazga ulandi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('raw_material.assigned'),
+      );
     } catch (error) {
       if (!mounted) {
         return;
       }
       showAdminTopNotice(
         context,
-        error is MobileApiException ? error.message : 'Homashyo ulanmadi',
+        error is MobileApiException
+            ? error.message
+            : context.l10n.adminText('raw_material.assign_failed'),
       );
       await _loadManualCandidates(force: true);
     } finally {
@@ -709,10 +733,10 @@ class _AdminRawMaterialAssignmentPanelState
     }
     final confirmed = await showM3ConfirmDialog(
       context: context,
-      title: 'Homashyoni uzish',
-      message: 'Bu homashyoni zakazdan uzasizmi?',
-      cancelLabel: 'Bekor qilish',
-      confirmLabel: 'Uzish',
+      title: context.l10n.adminText('raw_material.unlink_title'),
+      message: context.l10n.adminText('raw_material.unlink_message'),
+      cancelLabel: context.l10n.adminText('action.cancel'),
+      confirmLabel: context.l10n.adminText('raw_material.unassign'),
       destructive: true,
       verticalActions: true,
       confirmButtonKey: const ValueKey('manual-assignment-confirm-unlink'),
@@ -738,7 +762,10 @@ class _AdminRawMaterialAssignmentPanelState
           _expandedAssignmentKey = null;
         }
       });
-      showAdminTopNotice(context, 'Homashyo zakazdan uzildi');
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('raw_material.unlinked'),
+      );
       if (_manualCandidatesOrderId == assignment.orderId.trim()) {
         await _loadManualCandidates(force: true);
       }
@@ -748,7 +775,9 @@ class _AdminRawMaterialAssignmentPanelState
       }
       showAdminTopNotice(
         context,
-        error is MobileApiException ? error.message : 'Homashyo uzilmadi',
+        error is MobileApiException
+            ? error.message
+            : context.l10n.adminText('raw_material.unlink_failed'),
       );
     } finally {
       if (mounted) {
@@ -780,8 +809,10 @@ class _AdminRawMaterialAssignmentPanelState
         ),
         if (_assignments.isEmpty) ...[
           const SizedBox(height: 10),
-          const Center(
-            child: Text('Ulangan homashyo topilmadi'),
+          Center(
+            child: Text(
+              context.l10n.adminText('raw_material.linked_empty'),
+            ),
           ),
         ] else ...[
           const SizedBox(height: 10),
@@ -851,8 +882,8 @@ class _AdminRawMaterialAssignmentPanelState
                       _manualAssigningBarcode.isNotEmpty ||
                       _manualCandidatesLoading,
                   child: AdminExpandableFilterChip<String>(
-                    label: 'Aparat',
-                    emptyLabel: 'Tanlang',
+                    label: context.l10n.adminText('raw_material.apparatus'),
+                    emptyLabel: context.l10n.adminText('raw_material.select'),
                     icon: Icons.precision_manufacturing_outlined,
                     selectedValue: _selectedApparatus.trim().isEmpty
                         ? null
@@ -889,7 +920,9 @@ class _AdminRawMaterialAssignmentPanelState
             ],
           ),
         ),
-        const _ManualListSectionTitle(title: 'Ulanmagan'),
+        _ManualListSectionTitle(
+          title: context.l10n.adminText('raw_material.unlinked_section'),
+        ),
         if (_manualCandidatesLoading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 28),
@@ -900,24 +933,24 @@ class _AdminRawMaterialAssignmentPanelState
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
             child: Column(
               children: [
-                const Text(
-                  'Mos homashyolar yuklanmadi',
+                Text(
+                  context.l10n.adminText('raw_material.candidates_failed'),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 TextButton.icon(
                   onPressed: () => _loadManualCandidates(force: true),
                   icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Qayta urinish'),
+                  label: Text(context.l10n.adminText('action.retry')),
                 ),
               ],
             ),
           )
         else if (_manualCandidates.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
             child: Text(
-              'Bu zakazga ulash mumkin bo‘lgan homashyo topilmadi',
+              context.l10n.adminText('raw_material.candidates_empty'),
               textAlign: TextAlign.center,
             ),
           )
@@ -938,12 +971,14 @@ class _AdminRawMaterialAssignmentPanelState
                 ),
             ],
           ),
-        const _ManualListSectionTitle(title: 'Ulangan'),
+        _ManualListSectionTitle(
+          title: context.l10n.adminText('raw_material.linked_section'),
+        ),
         if (linked.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
             child: Text(
-              'Bu zakazga hali homashyo ulanmagan',
+              context.l10n.adminText('raw_material.order_empty'),
               textAlign: TextAlign.center,
             ),
           )
@@ -1064,14 +1099,18 @@ class _MaterialGroupScopeMissingState extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Mahsulot guruhi biriktirilmagan',
+                        context.l10n.adminText(
+                          'raw_material.group_missing',
+                        ),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Homashyo qabul qilish va zakazga ulash uchun admin avval material guruhini biriktirishi kerak.',
+                        context.l10n.adminText(
+                          'raw_material.group_missing_message',
+                        ),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
                           height: 1.3,
@@ -1110,14 +1149,16 @@ class _AssignmentOrderPicker extends StatelessWidget {
       child: InputDecorator(
         decoration: appSurfaceInputDecoration(
           context,
-          labelText: 'Zakaz',
+          labelText: context.l10n.adminText('raw_material.order_label'),
         ).copyWith(
           suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
         ),
         isEmpty: selectedOrderLabel.trim().isEmpty,
         child: Text(
           selectedOrderLabel.trim().isEmpty
-              ? (orders.isEmpty ? 'Zakaz topilmadi' : 'Tanlang')
+              ? (orders.isEmpty
+                  ? context.l10n.adminText('raw_material.not_found')
+                  : context.l10n.adminText('raw_material.select'))
               : selectedOrderLabel,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -1169,7 +1210,7 @@ class _AssignmentEditor extends StatelessWidget {
           FilledButton.icon(
             onPressed: saving ? null : onScan,
             icon: const Icon(Icons.qr_code_scanner_rounded),
-            label: const Text('QR skanerlash'),
+            label: Text(context.l10n.adminText('raw_material.qr_scan')),
           ),
           if (scannedBarcode.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -1190,7 +1231,7 @@ class _AssignmentEditor extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.link_rounded),
-            label: const Text('Ulash'),
+            label: Text(context.l10n.adminText('raw_material.assign')),
           ),
         ],
       ),
@@ -1373,22 +1414,31 @@ class _ManualCandidateDetailsSheet extends StatelessWidget {
       title: title,
       subtitle: candidate.itemCode,
       details: [
-        _MaterialInfoRow(label: 'QR', value: candidate.barcode),
-        _MaterialInfoRow(label: 'Ombor', value: candidate.warehouse),
-        _MaterialInfoRow(label: 'Guruh', value: candidate.itemGroup),
         _MaterialInfoRow(
-          label: 'Miqdor',
+          label: context.l10n.adminText('raw_material.qr'),
+          value: candidate.barcode,
+        ),
+        _MaterialInfoRow(
+          label: context.l10n.adminText('raw_material.warehouse'),
+          value: candidate.warehouse,
+        ),
+        _MaterialInfoRow(
+          label: context.l10n.adminText('raw_material.group'),
+          value: candidate.itemGroup,
+        ),
+        _MaterialInfoRow(
+          label: context.l10n.adminText('raw_material.quantity'),
           value: _formatQty(candidate.qty, candidate.uom),
         ),
         _MaterialInfoRow(
-          label: 'Aparat',
+          label: context.l10n.adminText('raw_material.apparatus'),
           value: candidate.apparatusOptions.join(', '),
         ),
       ],
       action: FilledButton.icon(
         onPressed: onAssign,
         icon: const Icon(Icons.link_rounded),
-        label: const Text('Orderga ulash'),
+        label: Text(context.l10n.adminText('raw_material.assign_to_order')),
       ),
       iconColor: scheme.onSecondaryContainer,
       iconBackground: scheme.secondaryContainer,
@@ -1421,19 +1471,37 @@ class _ManualAssignmentDetailsSheet extends StatelessWidget {
       title: title,
       subtitle: assignment.itemCode,
       details: [
-        _MaterialInfoRow(label: 'QR', value: assignment.barcode),
-        _MaterialInfoRow(label: 'Zakaz', value: assignment.orderId),
-        _MaterialInfoRow(label: 'Aparat', value: assignment.apparatus),
-        _MaterialInfoRow(label: 'Ombor', value: assignment.stockWarehouse),
-        _MaterialInfoRow(label: 'Guruh', value: assignment.itemGroup),
+        _MaterialInfoRow(
+          label: context.l10n.adminText('raw_material.qr'),
+          value: assignment.barcode,
+        ),
+        _MaterialInfoRow(
+          label: context.l10n.adminText('raw_material.order_label'),
+          value: assignment.orderId,
+        ),
+        _MaterialInfoRow(
+          label: context.l10n.adminText('raw_material.apparatus'),
+          value: assignment.apparatus,
+        ),
+        _MaterialInfoRow(
+          label: context.l10n.adminText('raw_material.warehouse'),
+          value: assignment.stockWarehouse,
+        ),
+        _MaterialInfoRow(
+          label: context.l10n.adminText('raw_material.group'),
+          value: assignment.itemGroup,
+        ),
         if (assignment.stockQty > 0)
           _MaterialInfoRow(
-            label: 'Miqdor',
+            label: context.l10n.adminText('raw_material.quantity'),
             value: _formatQty(assignment.stockQty, assignment.stockUom),
           ),
         _MaterialInfoRow(
-          label: 'Status',
-          value: _assignmentStockStatusLabel(assignment.stockStatus),
+          label: context.l10n.adminText('raw_material.status'),
+          value: _assignmentStockStatusLabel(
+            assignment.stockStatus,
+            context.l10n,
+          ),
         ),
       ],
       action: OutlinedButton.icon(
@@ -1445,7 +1513,11 @@ class _ManualAssignmentDetailsSheet extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Icon(Icons.link_off_rounded),
-        label: Text(canUnlink ? 'Ulanishni uzish' : 'Uzib bo‘lmaydi'),
+        label: Text(
+          canUnlink
+              ? context.l10n.adminText('raw_material.unassign')
+              : context.l10n.adminText('raw_material.unassign_unavailable'),
+        ),
       ),
       iconColor: scheme.onPrimaryContainer,
       iconBackground: scheme.primaryContainer,
@@ -1672,49 +1744,65 @@ class _AssignmentTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _MaterialInfoRow(
-                          label: 'Zakaz',
+                          label: context.l10n.adminText(
+                            'raw_material.order_label',
+                          ),
                           value: assignment.orderId,
                         ),
                         _MaterialInfoRow(
-                          label: 'QR',
+                          label: context.l10n.adminText('raw_material.qr'),
                           value: assignment.barcode,
                         ),
                         _MaterialInfoRow(
-                          label: 'Aparat',
+                          label: context.l10n.adminText(
+                            'raw_material.apparatus',
+                          ),
                           value: assignment.apparatus,
                         ),
                         _MaterialInfoRow(
-                          label: 'Ombor',
+                          label:
+                              context.l10n.adminText('raw_material.warehouse'),
                           value: assignment.stockWarehouse,
                         ),
                         _MaterialInfoRow(
-                          label: 'Kod',
+                          label: context.l10n.adminText(
+                            'raw_material.item_code',
+                          ),
                           value: assignment.itemCode,
                         ),
                         _MaterialInfoRow(
-                          label: 'Nomi',
+                          label: context.l10n.adminText(
+                            'raw_material.item_name',
+                          ),
                           value: assignment.itemName,
                         ),
                         _MaterialInfoRow(
-                          label: 'Guruh',
+                          label: context.l10n.adminText('raw_material.group'),
                           value: assignment.itemGroup,
                         ),
                         _MaterialInfoRow(
-                          label: 'Status',
+                          label: context.l10n.adminText(
+                            'raw_material.status',
+                          ),
                           value: _assignmentStockStatusLabel(
                             assignment.stockStatus,
+                            context.l10n,
                           ),
                         ),
                         _MaterialInfoRow(
-                          label: 'Band zakaz',
+                          label: context.l10n.adminText(
+                            'raw_material.reserved_order',
+                          ),
                           value: assignment.reservedOrderId,
                         ),
                         _MaterialInfoRow(
-                          label: 'Kim uladi',
+                          label: context.l10n.adminText(
+                            'raw_material.assigned_by',
+                          ),
                           value: assignee,
                         ),
                         _MaterialInfoRow(
-                          label: 'Vaqt',
+                          label: context.l10n.adminText('raw_material.time'),
                           value: _formatAssignmentTimestamp(
                             assignment.assignedAt,
                           ),
@@ -1733,7 +1821,11 @@ class _AssignmentTile extends StatelessWidget {
                                       ),
                                     )
                                   : const Icon(Icons.link_off_rounded),
-                              label: const Text('Uzish'),
+                              label: Text(
+                                context.l10n.adminText(
+                                  'raw_material.unassign',
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -1794,7 +1886,7 @@ class _ScannedRawMaterialCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Homashyo ma’lumoti',
+                    context.l10n.adminText('raw_material.material_info'),
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -1809,16 +1901,31 @@ class _ScannedRawMaterialCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            _MaterialInfoRow(label: 'QR', value: barcode.trim()),
+            _MaterialInfoRow(
+              label: context.l10n.adminText('raw_material.qr'),
+              value: barcode.trim(),
+            ),
             if (detail != null) ...[
-              _MaterialInfoRow(label: 'Ombor', value: detail.warehouse),
-              _MaterialInfoRow(label: 'Turi', value: detail.itemGroup),
-              _MaterialInfoRow(label: 'Nomi', value: detail.itemName),
               _MaterialInfoRow(
-                label: 'Miqdori',
+                label: context.l10n.adminText('raw_material.warehouse'),
+                value: detail.warehouse,
+              ),
+              _MaterialInfoRow(
+                label: context.l10n.adminText('raw_material.type'),
+                value: detail.itemGroup,
+              ),
+              _MaterialInfoRow(
+                label: context.l10n.adminText('raw_material.item_name'),
+                value: detail.itemName,
+              ),
+              _MaterialInfoRow(
+                label: context.l10n.adminText('raw_material.quantity'),
                 value: _formatQty(detail.qty, detail.uom),
               ),
-              _MaterialInfoRow(label: 'Item code', value: detail.itemCode),
+              _MaterialInfoRow(
+                label: context.l10n.adminText('raw_material.item_code'),
+                value: detail.itemCode,
+              ),
             ],
             if (error.trim().isNotEmpty) ...[
               const SizedBox(height: 6),
@@ -1879,14 +1986,16 @@ class _MaterialInfoRow extends StatelessWidget {
   }
 }
 
-String _orderLabel(ProductionMapSaved order) {
+String _orderLabel(ProductionMapSaved order, AppLocalizations l10n) {
   final map = order.map;
   final code = map.code.trim().isNotEmpty
       ? map.code.trim()
       : map.orderNumber.trim().isNotEmpty
           ? map.orderNumber.trim()
           : map.id.trim();
-  final title = map.title.trim().isNotEmpty ? map.title.trim() : 'Zakaz';
+  final title = map.title.trim().isNotEmpty
+      ? map.title.trim()
+      : l10n.adminText('raw_material.order_fallback');
   return '$code · $title';
 }
 
@@ -1911,11 +2020,11 @@ String _assignmentAssignee(AdminRawMaterialAssignment assignment) {
   return assignment.assignedByRef.trim();
 }
 
-String _assignmentStockStatusLabel(String raw) {
+String _assignmentStockStatusLabel(String raw, AppLocalizations l10n) {
   return switch (raw.trim().toLowerCase()) {
-    'available' => 'Mavjud',
-    'reserved' => 'Band',
-    'consumed' => 'Ishlatilgan',
+    'available' => l10n.adminText('raw_material.status_available'),
+    'reserved' => l10n.adminText('label.reserved'),
+    'consumed' => l10n.adminText('raw_material.status_consumed'),
     '' => '',
     _ => raw.trim(),
   };
