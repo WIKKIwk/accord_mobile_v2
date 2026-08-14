@@ -359,14 +359,25 @@ extension MobileApiAdminItems on MobileApi {
       throw Exception('Admin apparatus failed');
     }
     final json = await decodeJsonListPayload(response.body);
-    return json
-        .map(
-          (item) => AdminApparatus.fromJson(
-            item as Map<String, dynamic>,
-          ),
-        )
-        .where((item) => item.name.trim().isNotEmpty)
-        .toList(growable: false);
+    final apparatus = <AdminApparatus>[];
+    for (final item in json) {
+      if (item is! Map) {
+        debugPrint('Admin apparatus list skipped a non-object item');
+        continue;
+      }
+      try {
+        final parsed = AdminApparatus.fromJson(
+          item.cast<String, dynamic>(),
+        );
+        if (parsed.name.trim().isNotEmpty) {
+          apparatus.add(parsed);
+        }
+      } catch (error, stackTrace) {
+        debugPrint('Admin apparatus item skipped: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+    return apparatus;
   }
 
   Future<AdminApparatusMasterOptions> adminApparatusMasterOptions() async {

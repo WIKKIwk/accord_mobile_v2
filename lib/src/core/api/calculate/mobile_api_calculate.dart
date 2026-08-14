@@ -71,10 +71,25 @@ extension MobileApiCalculate on MobileApi {
         statusCode: response.statusCode,
       );
     }
-    return (payload['materials'] as List? ?? const [])
-        .whereType<Map>()
-        .map((item) => CalculateMaterial.fromJson(item.cast<String, dynamic>()))
-        .toList(growable: false);
+    final materials = <CalculateMaterial>[];
+    final rawMaterials = payload['materials'];
+    if (rawMaterials is List) {
+      for (final item in rawMaterials) {
+        if (item is! Map) {
+          debugPrint('Calculate material list skipped a non-object item');
+          continue;
+        }
+        try {
+          materials.add(
+            CalculateMaterial.fromJson(item.cast<String, dynamic>()),
+          );
+        } catch (error, stackTrace) {
+          debugPrint('Calculate material item skipped: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        }
+      }
+    }
+    return materials;
   }
 
   Future<CalculateMaterial> upsertCalculateMaterial(

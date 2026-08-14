@@ -28,13 +28,15 @@ class AdminRolesScreen extends StatefulWidget {
 class _AdminRolesScreenState extends State<AdminRolesScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  late Future<_AdminRolesData> _future;
+  _AdminRolesData? _data;
+  bool _loading = true;
+  bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _future = _load();
+    _load();
   }
 
   @override
@@ -43,7 +45,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
     super.dispose();
   }
 
-  Future<_AdminRolesData> _load() async {
+  Future<_AdminRolesData> _fetch() async {
     final results = await Future.wait<Object>([
       MobileApi.instance.adminCapabilities(),
       MobileApi.instance.adminRoles(),
@@ -64,11 +66,44 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
     );
   }
 
-  Future<void> _reload() async {
-    setState(() {
-      _future = _load();
-    });
-    await _future;
+  Future<void> _load() async {
+    final hasExistingData = _data != null;
+    if (mounted) {
+      setState(() {
+        _loading = !hasExistingData;
+        _refreshing = true;
+      });
+    }
+    try {
+      final data = await _fetch();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _data = data;
+        _loading = false;
+        _refreshing = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _loading = false;
+        _refreshing = false;
+      });
+      if (hasExistingData) {
+        showAdminTopNotice(
+          context,
+          context.l10n.serverDisconnectedRetry,
+          icon: Icons.error_outline,
+        );
+      }
+    }
+  }
+
+  Future<void> _reload() {
+    return _load();
   }
 
   Future<void> _openRoleEditor(
@@ -92,7 +127,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
         return;
       }
       setState(() {
-        _future = Future<_AdminRolesData>.value(data.upsertRole(saved));
+        _data = (_data ?? data).upsertRole(saved);
       });
       showAdminTopNotice(
         context,
@@ -138,7 +173,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
         return;
       }
       setState(() {
-        _future = Future<_AdminRolesData>.value(data.upsertAssignment(saved));
+        _data = (_data ?? data).upsertAssignment(saved);
       });
       showAdminTopNotice(
         context,
@@ -164,44 +199,37 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
       selectedRouteName: AppRoutes.adminRoles,
       activeTab: AdminDockTab.settings,
       bottomDockFadeStrength: null,
-      child: FutureBuilder<_AdminRolesData>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: AppLoadingIndicator());
-          }
-          if (snapshot.hasError || !snapshot.hasData) {
-            return AppRetryState(onRetry: _reload);
-          }
-          final data = snapshot.data!;
-          return Column(
-            children: [
-              _AdminRoleTabs(controller: _tabController),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _RolesTab(
-                      data: data,
-                      bottomPadding: bottomPadding,
-                      onRefresh: _reload,
-                      onCreateRole: () => _openRoleEditor(data),
-                      onEditRole: (role) =>
-                          _openRoleEditor(data, initialRole: role),
-                    ),
-                    _AssignmentsTab(
-                      data: data,
-                      bottomPadding: bottomPadding,
-                      onRefresh: _reload,
-                      onAssign: (principal) => _assignRole(data, principal),
-                    ),
-                  ],
+      child: _data == null
+          ? _loading
+                ? const Center(child: AppLoadingIndicator())
+              : AppRetryState(onRetry: _reload)
+          : Column(
+              children: [
+                if (_refreshing) const LinearProgressIndicator(minHeight: 2),
+                _AdminRoleTabs(controller: _tabController),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _RolesTab(
+                        data: _data!,
+                        bottomPadding: bottomPadding,
+                        onRefresh: _reload,
+                        onCreateRole: () => _openRoleEditor(_data!),
+                        onEditRole: (role) =>
+                            _openRoleEditor(_data!, initialRole: role),
+                      ),
+                      _AssignmentsTab(
+                        data: _data!,
+                        bottomPadding: bottomPadding,
+                        onRefresh: _reload,
+                        onAssign: (principal) => _assignRole(_data!, principal),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
-      ),
+              ],
+            ),
     );
   }
 }

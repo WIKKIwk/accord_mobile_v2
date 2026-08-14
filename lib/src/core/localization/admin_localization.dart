@@ -1835,6 +1835,12 @@ const Map<String, Map<String, String>> adminTranslations = {
     'en': 'Could not load training data',
     'ru': 'Не удалось загрузить данные обучения',
   },
+  'admin.training.partial_load': {
+    'uz':
+        'Ayrim training ma’lumotlari yuklanmadi. Mavjud ma’lumotlar ko‘rsatilmoqda.',
+    'en': 'Some training data could not be loaded. Available data is shown.',
+    'ru': 'Часть данных обучения не загрузилась. Показаны доступные данные.',
+  },
   'admin.training.enabled': {
     'uz': 'Training rejimi yoqildi',
     'en': 'Training mode enabled',
@@ -2268,14 +2274,6 @@ const Map<String, Map<String, String>> adminTranslations = {
     'uz': 'Yopish',
     'en': 'Collapse',
     'ru': 'Свернуть',
-  },
-  'admin.training.intro': {
-    'uz':
-        'Training apparat bo‘yicha yoqiladi. Aparatni ochib, rejimni almashtiring yoki istalgan apparat ichidan Order ulash amalini bosing.',
-    'en':
-        'Training is enabled per machine. Open a machine to switch its mode, or use Attach order inside any machine.',
-    'ru':
-        'Обучение включается отдельно для каждого аппарата. Откройте аппарат, чтобы сменить режим, или нажмите «Привязать заказ» внутри любого аппарата.',
   },
   'admin.training.status_completed': {
     'uz': 'Tugallangan',

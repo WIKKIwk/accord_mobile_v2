@@ -55,6 +55,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   String? _expandedId;
   String? _restartingId;
   Map<String, AdminTrainingOrderStatus> _statuses = const {};
+  List<String> _loadWarnings = const [];
   Timer? _statusRefreshTimer;
   bool _statusRefreshInFlight = false;
 
@@ -75,77 +76,124 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
   }
 
   Future<void> _load() async {
+    final hadExistingData = _hasTrainingData;
     if (mounted) {
       setState(() {
-        _loading = true;
+        _loading = !hadExistingData;
         _error = null;
       });
     }
-    try {
-      final results = await Future.wait<Object>([
-        MobileApi.instance.adminTrainingApparatus(),
-        MobileApi.instance.adminTrainingProductionMaps(),
-        MobileApi.instance.adminTrainingRawMaterialAssignments(),
-        MobileApi.instance.calculateMaterials(),
-        MobileApi.instance.adminTrainingInputBatches(),
-      ]);
-      if (!mounted) {
-        return;
+    final results = await Future.wait<_AdminTrainingLoadPart>([
+      _loadTrainingPart(
+        'apparatus',
+        () => MobileApi.instance.adminTrainingApparatus(),
+      ),
+      _loadTrainingPart(
+        'orders',
+        () => MobileApi.instance.adminTrainingProductionMaps(),
+      ),
+      _loadTrainingPart(
+        'materials',
+        () => MobileApi.instance.adminTrainingRawMaterialAssignments(),
+      ),
+      _loadTrainingPart(
+        'calculate materials',
+        () => MobileApi.instance.calculateMaterials(),
+      ),
+      _loadTrainingPart(
+        'input batches',
+        () => MobileApi.instance.adminTrainingInputBatches(),
+      ),
+    ]);
+    final statuses = await _loadTrainingStatuses();
+    if (!mounted) {
+      return;
+    }
+    final apparatusResult = results[0].value;
+    final ordersResult = results[1].value;
+    final assignmentsResult = results[2].value;
+    final materialsResult = results[3].value;
+    final inputBatchesResult = results[4].value;
+    final failedSections = [
+      for (final result in results)
+        if (result.error != null) result.name,
+      if (statuses == null) 'statuses',
+    ];
+    final allDataRequestsFailed = results.every(
+      (result) => result.error != null,
+    );
+    setState(() {
+      if (apparatusResult is List<AdminApparatus>) {
+        _apparatus = [...apparatusResult]..sort(
+            (left, right) => left.name.toLowerCase().compareTo(
+                  right.name.toLowerCase(),
+                ),
+          );
       }
-      final apparatus = [...results[0] as List<AdminApparatus>]..sort(
-          (left, right) => left.name.toLowerCase().compareTo(
-                right.name.toLowerCase(),
-              ),
-        );
-      final orders = (results[1] as List<ProductionMapSaved>)
-          .where(
-            (order) => order.map.id.trim().startsWith('training-'),
-          )
-          .toList()
-        ..sort(
-          (left, right) => _trainingOrderLabel(left).toLowerCase().compareTo(
-                _trainingOrderLabel(right).toLowerCase(),
-              ),
-        );
-      final statuses = await _loadTrainingStatuses();
-      if (!mounted) {
-        return;
+      if (ordersResult is List<ProductionMapSaved>) {
+        _orders = ordersResult
+            .where(
+              (order) => order.map.id.trim().startsWith('training-'),
+            )
+            .toList()
+          ..sort(
+            (left, right) => _trainingOrderLabel(left).toLowerCase().compareTo(
+                  _trainingOrderLabel(right).toLowerCase(),
+                ),
+          );
       }
-      setState(() {
-        _apparatus = apparatus;
+      if (assignmentsResult is List<AdminRawMaterialAssignment>) {
+        _assignments = [...assignmentsResult];
+      }
+      if (materialsResult is List<CalculateMaterial>) {
         _materials = [
-          ...(results[3] as List<CalculateMaterial>)
-              .where((material) => material.active),
+          ...materialsResult.where((material) => material.active),
         ]..sort(
             (left, right) => left.name.toLowerCase().compareTo(
                   right.name.toLowerCase(),
                 ),
           );
-        _orders = orders;
-        _assignments = [
-          ...results[2] as List<AdminRawMaterialAssignment>,
-        ];
-        _inputBatches = [
-          ...results[4] as List<AdminProgressBatch>,
-        ];
-        _statuses = statuses ?? const <String, AdminTrainingOrderStatus>{};
-        _loading = false;
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
       }
-      setState(() {
-        _loading = false;
-        _error = context.l10n.adminText('training.load_failed');
-      });
+      if (inputBatchesResult is List<AdminProgressBatch>) {
+        _inputBatches = [...inputBatchesResult];
+      }
+      if (statuses != null) {
+        _statuses = statuses;
+      }
+      _loadWarnings = failedSections;
+      _loading = false;
+      _error = allDataRequestsFailed && !hadExistingData
+          ? context.l10n.adminText('training.load_failed')
+          : null;
+    });
+  }
+
+  bool get _hasTrainingData =>
+      _apparatus.isNotEmpty ||
+      _materials.isNotEmpty ||
+      _orders.isNotEmpty ||
+      _assignments.isNotEmpty ||
+      _inputBatches.isNotEmpty;
+
+  Future<_AdminTrainingLoadPart> _loadTrainingPart<T>(
+    String name,
+    Future<T> Function() loader,
+  ) async {
+    try {
+      return _AdminTrainingLoadPart(name: name, value: await loader());
+    } catch (error, stackTrace) {
+      debugPrint('Admin training $name load failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return _AdminTrainingLoadPart(name: name, error: error);
     }
   }
 
   Future<Map<String, AdminTrainingOrderStatus>?> _loadTrainingStatuses() async {
     try {
       return await MobileApi.instance.adminTrainingOrderStatuses();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Admin training statuses load failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
       return null;
     }
   }
@@ -159,7 +207,8 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       final statuses = await _loadTrainingStatuses();
       if (mounted) {
         final nextStatuses = statuses;
-        if (nextStatuses != null) {
+        if (nextStatuses != null &&
+            !_trainingStatusesEqual(_statuses, nextStatuses)) {
           setState(() => _statuses = nextStatuses);
         }
       }
@@ -994,29 +1043,42 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                       bottomPadding,
                     ),
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .tertiaryContainer
-                                .withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.school_outlined),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(l10n.adminText('training.intro')),
-                              ),
-                            ],
+                      if (_loadWarnings.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .errorContainer
+                                  .withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onErrorContainer,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    l10n.adminText('training.partial_load'),
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onErrorContainer,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
                       const SizedBox(height: 14),
                       if (_apparatus.isEmpty)
                         Padding(
@@ -1088,6 +1150,48 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       ),
     );
   }
+}
+
+class _AdminTrainingLoadPart {
+  const _AdminTrainingLoadPart({
+    required this.name,
+    this.value,
+    this.error,
+  });
+
+  final String name;
+  final Object? value;
+  final Object? error;
+}
+
+bool _trainingStatusesEqual(
+  Map<String, AdminTrainingOrderStatus> left,
+  Map<String, AdminTrainingOrderStatus> right,
+) {
+  if (left.length != right.length) {
+    return false;
+  }
+  for (final entry in left.entries) {
+    final next = right[entry.key];
+    if (next == null || !_trainingStatusEqual(entry.value, next)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _trainingStatusEqual(
+  AdminTrainingOrderStatus left,
+  AdminTrainingOrderStatus right,
+) {
+  return left.orderId == right.orderId &&
+      left.apparatus == right.apparatus &&
+      left.state == right.state &&
+      left.action == right.action &&
+      left.actorRef == right.actorRef &&
+      left.actorDisplayName == right.actorDisplayName &&
+      left.updatedAtUnix == right.updatedAtUnix &&
+      left.completedAtUnix == right.completedAtUnix;
 }
 
 enum _TrainingOrderStatusTone { pending, inProgress, paused, completed }

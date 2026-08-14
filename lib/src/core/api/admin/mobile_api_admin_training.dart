@@ -241,7 +241,14 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       return apparatus;
     }
-    final modes = await adminTrainingApparatusModes();
+    Map<String, bool> modes;
+    try {
+      modes = await adminTrainingApparatusModes();
+    } catch (error, stackTrace) {
+      debugPrint('Admin training apparatus modes load failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return apparatus;
+    }
     return apparatus
         .map(
           (item) => item.copyWith(
@@ -566,13 +573,22 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     }
     final payload = await decodeJsonPayload(response.body);
     if (payload is List) {
-      return payload
-          .map(
-            (item) => ProductionMapSaved.fromJson(
-              (item as Map).cast<String, dynamic>(),
-            ),
-          )
-          .toList(growable: false);
+      final maps = <ProductionMapSaved>[];
+      for (final item in payload) {
+        if (item is! Map) {
+          debugPrint('Admin training map list skipped a non-object item');
+          continue;
+        }
+        try {
+          maps.add(
+            ProductionMapSaved.fromJson(item.cast<String, dynamic>()),
+          );
+        } catch (error, stackTrace) {
+          debugPrint('Admin training map item skipped: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        }
+      }
+      return maps;
     }
     return [
       ProductionMapSaved.fromJson((payload as Map).cast<String, dynamic>()),
@@ -745,12 +761,24 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
     }
     final payload = await decodeJsonMapPayload(response.body);
     final raw = payload['batches'];
-    return [
-      if (raw is List)
-        for (final item in raw)
-          if (item is Map)
+    final batches = <AdminProgressBatch>[];
+    if (raw is List) {
+      for (final item in raw) {
+        if (item is! Map) {
+          debugPrint('Admin training batch list skipped a non-object item');
+          continue;
+        }
+        try {
+          batches.add(
             AdminProgressBatch.fromJson(item.cast<String, dynamic>()),
-    ];
+          );
+        } catch (error, stackTrace) {
+          debugPrint('Admin training batch item skipped: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        }
+      }
+    }
+    return batches;
   }
 
   Future<List<AdminProgressBatch>> adminGenerateTrainingInputBatches({
@@ -1090,13 +1118,24 @@ extension MobileApiAdminTrainingWorkspace on MobileApi {
       );
     }
     final payload = await decodeJsonListPayload(response.body);
-    return payload
-        .map(
-          (item) => AdminRawMaterialAssignment.fromJson(
-            (item as Map).cast<String, dynamic>(),
-          ),
-        )
-        .toList(growable: false);
+    final assignments = <AdminRawMaterialAssignment>[];
+    for (final item in payload) {
+      if (item is! Map) {
+        debugPrint(
+          'Admin training material assignment list skipped a non-object item',
+        );
+        continue;
+      }
+      try {
+        assignments.add(
+          AdminRawMaterialAssignment.fromJson(item.cast<String, dynamic>()),
+        );
+      } catch (error, stackTrace) {
+        debugPrint('Admin training material assignment item skipped: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+    return assignments;
   }
 
   Future<void> adminDeleteTrainingRawMaterial({
