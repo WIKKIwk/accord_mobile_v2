@@ -137,7 +137,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('worker group can be assigned to an apparatus from edit mode', (
+  testWidgets('worker group editor does not assign apparatus', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 1400));
@@ -176,17 +176,68 @@ void main() {
     await tester.tap(find.byIcon(Icons.edit_outlined).last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('worker-group-apparatus-picker')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Laminatsiya 1').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Saqlash').last);
+    expect(
+        find.byKey(const Key('worker-group-apparatus-picker')), findsNothing);
+    await tester.tap(find.byKey(const Key('worker-group-save')));
     await tester.pumpAndSettle();
 
     final assigned = await MobileApi.instance.adminWorkerGroups(
-      apparatus: 'Laminatsiya 1',
+      apparatus: 'worker-settings',
     );
     expect(assigned.map((group) => group.groupCode), contains('AB'));
+    expect(
+      (await MobileApi.instance.adminRoleAssignments()).where(
+        (assignment) => assignment.principalRole == UserRole.aparatchi,
+      ),
+      isEmpty,
+    );
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('worker apparatus can be assigned from the workers tab', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final worker = await MobileApi.instance.adminCreateWorker(
+      name: 'Aparat ishchisi',
+      level: 'Master',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminWorkerSettingsScreen(),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Aparat ishchisi'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('worker-apparatus-picker-${worker.id}')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Aparatchi aparatlari'), findsWidgets);
+    await tester.tap(find.text('Laminatsiya 1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('worker-apparatus-save')));
+    await tester.pumpAndSettle();
+
+    final assignments = await MobileApi.instance.adminRoleAssignments();
+    final assignment = assignments.firstWhere(
+      (item) => item.principalRef == worker.id,
+    );
+    expect(assignment.principalRole, UserRole.aparatchi);
+    expect(assignment.assignedApparatus, ['Laminatsiya 1']);
     expect(find.text('Laminatsiya 1'), findsWidgets);
     await tester.pump(const Duration(seconds: 2));
   });
@@ -235,7 +286,7 @@ void main() {
       find.byKey(const Key('worker-group-name-field')),
       'A laminatsiya',
     );
-    await tester.tap(find.text('Saqlash').last);
+    await tester.tap(find.byKey(const Key('worker-group-save')));
     await tester.pumpAndSettle();
 
     final groups = await MobileApi.instance.adminWorkerGroups();
@@ -309,7 +360,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Ishchilarni tasdiqlash'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Saqlash').last);
+    await tester.tap(find.byKey(const Key('worker-group-save')));
     await tester.pumpAndSettle();
 
     expect(find.text('B GURUH guruh sozlamalari'), findsNothing);
@@ -340,7 +391,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Ishchilarni tasdiqlash'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Saqlash').last);
+    await tester.tap(find.byKey(const Key('worker-group-save')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.add_rounded));

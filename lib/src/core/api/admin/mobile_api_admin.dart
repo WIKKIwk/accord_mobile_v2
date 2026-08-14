@@ -37,6 +37,9 @@ final List<AdminRawMaterialAssignment> _testModeRawMaterialAssignments = [];
 final Map<String, AdminQolipOrderNote> _testModeQolipOrderNotes = {};
 final List<AdminWorker> _testModeWorkers = [];
 final List<AdminWorkerGroup> _testModeWorkerGroups = [];
+final List<AdminRoleAssignment> _testModeRoleAssignments = [
+  ...TestModeDemoData.roleAssignments,
+];
 final Map<String, String> _testModeWorkerCodes = {};
 final List<AdminSystemUser> _testModeSystemUsers = [];
 final Map<String, String> _testModeSystemUserCodes = {};
@@ -798,6 +801,9 @@ void _testModeEnsurePendingApparatusMove({
 void resetMobileApiTestModeWorkerSettingsData() {
   _testModeWorkers.clear();
   _testModeWorkerGroups.clear();
+  _testModeRoleAssignments
+    ..clear()
+    ..addAll(TestModeDemoData.roleAssignments);
   _testModeWorkerCodes.clear();
   _testModeSystemUsers.clear();
   _testModeSystemUserCodes.clear();
@@ -9720,7 +9726,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<List<AdminRoleAssignment>> adminRoleAssignments() async {
     if (await TestModeController.instance.isEnabled()) {
-      return TestModeDemoData.roleAssignments;
+      return List<AdminRoleAssignment>.unmodifiable(_testModeRoleAssignments);
     }
     final response = await _sendAuthorized(
       () => _get(
@@ -10198,6 +10204,11 @@ extension MobileApiAdmin on MobileApi {
         throw Exception('Admin worker not found');
       }
       _testModeWorkers.removeWhere((worker) => worker.id == id);
+      _testModeRoleAssignments.removeWhere(
+        (assignment) =>
+            assignment.principalRole == UserRole.aparatchi &&
+            assignment.principalRef.trim() == id.trim(),
+      );
       _testModeWorkerCodes.remove(id);
       return;
     }
@@ -10427,6 +10438,34 @@ extension MobileApiAdmin on MobileApi {
   Future<AdminRoleAssignment> adminUpsertRoleAssignment(
     AdminRoleAssignment assignment,
   ) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final normalized = AdminRoleAssignment(
+        principalRole: assignment.principalRole,
+        principalRef: assignment.principalRef.trim(),
+        roleId: assignment.roleId.trim(),
+        assignedApparatus: assignment.assignedApparatus
+            .map((item) => item.trim())
+            .where((item) => item.isNotEmpty)
+            .toSet()
+            .toList(growable: false),
+        assignedItemGroups: assignment.assignedItemGroups
+            .map((item) => item.trim())
+            .where((item) => item.isNotEmpty)
+            .toSet()
+            .toList(growable: false),
+      );
+      final index = _testModeRoleAssignments.indexWhere(
+        (item) =>
+            item.principalRole == normalized.principalRole &&
+            item.principalRef.trim() == normalized.principalRef,
+      );
+      if (index >= 0) {
+        _testModeRoleAssignments[index] = normalized;
+      } else {
+        _testModeRoleAssignments.add(normalized);
+      }
+      return normalized;
+    }
     final response = await _sendAuthorized(
       () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/role-assignments'),

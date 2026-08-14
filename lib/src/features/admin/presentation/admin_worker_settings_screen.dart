@@ -12,6 +12,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import 'widgets/admin_apparatus_scope_picker.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
@@ -163,6 +164,18 @@ AdminWorkerGroup _newWorkerGroup(String code) {
   );
 }
 
+class _WorkerSettingsData {
+  const _WorkerSettingsData({
+    required this.workers,
+    required this.apparatus,
+    required this.assignmentsByWorker,
+  });
+
+  final List<AdminWorker> workers;
+  final List<AdminApparatus> apparatus;
+  final Map<String, AdminRoleAssignment> assignmentsByWorker;
+}
+
 class AdminWorkerSettingsScreen extends StatefulWidget {
   const AdminWorkerSettingsScreen({super.key});
 
@@ -173,12 +186,13 @@ class AdminWorkerSettingsScreen extends StatefulWidget {
 
 class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
     with SingleTickerProviderStateMixin {
-  late Future<List<AdminWorker>> _future;
+  late Future<_WorkerSettingsData> _future;
   late TabController _tabController;
   int _workersVersion = 0;
   int _groupsVersion = 0;
   String? _selectedWorkerId;
   String? _deactivatingWorkerId;
+  final Set<String> _savingApparatusWorkerIds = <String>{};
 
   @override
   void initState() {
@@ -193,14 +207,116 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
     super.dispose();
   }
 
-  Future<List<AdminWorker>> _load() {
-    return MobileApi.instance.adminWorkers();
+  void _notifyWorkerSettingsLoadFailure() {
+    if (!mounted) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('worker.load_failed'),
+        icon: Icons.error,
+      );
+    });
+  }
+
+  Future<List<AdminApparatus>> _loadWorkerApparatus() async {
+    try {
+      return await MobileApi.instance.adminApparatus(limit: 300);
+    } catch (_) {
+      _notifyWorkerSettingsLoadFailure();
+      return const <AdminApparatus>[];
+    }
+  }
+
+  Future<List<AdminRoleAssignment>> _loadWorkerRoleAssignments() async {
+    try {
+      return await MobileApi.instance.adminRoleAssignments();
+    } catch (_) {
+      _notifyWorkerSettingsLoadFailure();
+      return const <AdminRoleAssignment>[];
+    }
+  }
+
+  Future<_WorkerSettingsData> _load() async {
+    final results = await Future.wait<Object>([
+      MobileApi.instance.adminWorkers(),
+      _loadWorkerApparatus(),
+      _loadWorkerRoleAssignments(),
+    ]);
+    final assignments = results[2] as List<AdminRoleAssignment>;
+    return _WorkerSettingsData(
+      workers: results[0] as List<AdminWorker>,
+      apparatus: results[1] as List<AdminApparatus>,
+      assignmentsByWorker: {
+        for (final assignment in assignments)
+          if (assignment.principalRole == UserRole.aparatchi &&
+              assignment.principalRef.trim().isNotEmpty)
+            assignment.principalRef.trim(): assignment,
+      },
+    );
   }
 
   void _reload() {
     setState(() {
       _future = _load();
     });
+  }
+
+  Future<bool> _saveWorkerApparatus(
+    AdminWorker worker,
+    Set<String> selected,
+    AdminRoleAssignment? currentAssignment,
+  ) async {
+    final workerId = worker.id.trim();
+    if (workerId.isEmpty || _savingApparatusWorkerIds.contains(workerId)) {
+      return false;
+    }
+    final assignedApparatus = selected
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList(growable: true)
+      ..sort();
+    setState(() => _savingApparatusWorkerIds.add(workerId));
+    try {
+      await MobileApi.instance.adminUpsertRoleAssignment(
+        AdminRoleAssignment(
+          principalRole: UserRole.aparatchi,
+          principalRef: workerId,
+          roleId: currentAssignment?.roleId.trim().isNotEmpty == true
+              ? currentAssignment!.roleId.trim()
+              : 'aparatchi',
+          assignedApparatus: assignedApparatus,
+          assignedItemGroups:
+              currentAssignment?.assignedItemGroups ?? const <String>[],
+        ),
+      );
+      if (mounted) {
+        showAdminTopNotice(context, context.l10n.adminText('scope.saved'));
+        setState(() => _future = _load());
+      }
+      return true;
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText(
+            'scope.save_failed',
+            values: {'error': error},
+          ),
+          icon: Icons.error,
+        );
+      }
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() => _savingApparatusWorkerIds.remove(workerId));
+      }
+    }
   }
 
   Future<void> _updateLevel(AdminWorker worker, String level) async {
@@ -358,7 +474,6 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
 
   Future<void> _deactivateWorker(
     AdminWorker worker,
-    List<AdminWorker> currentWorkers,
   ) async {
     if (_deactivatingWorkerId != null) {
       return;
@@ -381,12 +496,9 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
       if (!mounted) {
         return;
       }
-      final remaining = currentWorkers
-          .where((item) => item.id != worker.id)
-          .toList(growable: false);
       setState(() {
         _selectedWorkerId = null;
-        _future = Future.value(remaining);
+        _future = _load();
         _workersVersion++;
         _groupsVersion++;
       });
@@ -626,7 +738,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
             116,
           ),
           children: [
-            FutureBuilder<List<AdminWorker>>(
+            FutureBuilder<_WorkerSettingsData>(
               future: _future,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -644,7 +756,8 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                     ),
                   );
                 }
-                final workers = snapshot.data ?? const <AdminWorker>[];
+                final data = snapshot.data;
+                final workers = data?.workers ?? const <AdminWorker>[];
                 if (workers.isEmpty) {
                   return Center(
                     child: Text(context.l10n.adminText('worker.empty')),
@@ -661,6 +774,13 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                           workers.length,
                         ),
                         worker: workers[index],
+                        apparatus: data?.apparatus ?? const <AdminApparatus>[],
+                        assignedApparatus: data
+                                ?.assignmentsByWorker[workers[index].id.trim()]
+                                ?.assignedApparatus ??
+                            const <String>[],
+                        savingApparatus: _savingApparatusWorkerIds
+                            .contains(workers[index].id.trim()),
                         expanded: _selectedWorkerId == workers[index].id,
                         onExpandedChanged: (expanded) {
                           setState(() {
@@ -672,9 +792,14 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                             unawaited(_openWorkerLevelPicker(workers[index])),
                         onEditName: () =>
                             unawaited(_openWorkerNameEditor(workers[index])),
+                        onSaveApparatus: (selected) => _saveWorkerApparatus(
+                          workers[index],
+                          selected,
+                          data?.assignmentsByWorker[workers[index].id.trim()],
+                        ),
                         deleting: _deactivatingWorkerId == workers[index].id,
                         onDelete: () => unawaited(
-                          _deactivateWorker(workers[index], workers),
+                          _deactivateWorker(workers[index]),
                         ),
                       ),
                   ],
@@ -1156,7 +1281,6 @@ class _WorkerGroupsTab extends StatefulWidget {
 
 class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
     with AutomaticKeepAliveClientMixin<_WorkerGroupsTab> {
-  List<AdminApparatus> _apparatus = const [];
   List<AdminWorker> _workers = const [];
   Map<String, AdminWorkerGroup> _groupsByCode = const {};
   bool _loading = true;
@@ -1193,18 +1317,15 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
     setState(() => _loading = true);
     try {
       final results = await Future.wait([
-        MobileApi.instance.adminApparatus(limit: 300),
         MobileApi.instance.adminWorkers(),
         MobileApi.instance.adminWorkerGroups(),
       ]).timeout(const Duration(seconds: 12));
       if (!mounted) {
         return;
       }
-      final apparatus = results[0] as List<AdminApparatus>;
-      final workers = results[1] as List<AdminWorker>;
-      final groups = results[2] as List<AdminWorkerGroup>;
+      final workers = results[0] as List<AdminWorker>;
+      final groups = results[1] as List<AdminWorkerGroup>;
       setState(() {
-        _apparatus = apparatus;
         _workers = workers;
         _loadedWorkersVersion = widget.workersVersion;
         _loadedGroupsVersion = widget.groupsVersion;
@@ -1268,9 +1389,18 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
         return;
       }
       setState(() {
-        _groupsByCode = {
+        final loadedGroups = <String, AdminWorkerGroup>{
           for (final group in groups) _groupKey(group.groupCode): group,
         };
+        final editingCode = _editingGroupCode;
+        final editingDraft =
+            editingCode == null ? null : _groupsByCode[editingCode];
+        if (editingCode != null &&
+            editingDraft != null &&
+            loadedGroups.containsKey(editingCode)) {
+          loadedGroups[editingCode] = editingDraft;
+        }
+        _groupsByCode = loadedGroups;
         _loadedGroupsVersion = widget.groupsVersion;
         if (_selectedGroupCode != null &&
             !_groupsByCode.containsKey(_selectedGroupCode)) {
@@ -1366,6 +1496,8 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
     final previousApparatus = original?.apparatus.trim();
     setState(() => _savingCodes.add(code));
     try {
+      // Keep the legacy group field for API/DB compatibility. Apparatus access
+      // is saved on each worker from the Workers tab.
       final saved = await MobileApi.instance.adminSaveWorkerGroup(
         group.copyWith(
           apparatus: group.apparatus.trim().isEmpty
@@ -1485,7 +1617,6 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
                     _WorkerGroupExpandableCard(
                       group: entry.value,
                       identityKey: entry.key,
-                      apparatus: _apparatus,
                       workers: _workers,
                       assignedWorkerGroups: _assignedWorkerGroups(
                         exceptGroupCode: entry.value.groupCode,
@@ -1530,7 +1661,6 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
   const _WorkerGroupExpandableCard({
     required this.group,
     required this.identityKey,
-    required this.apparatus,
     required this.workers,
     required this.assignedWorkerGroups,
     required this.expanded,
@@ -1545,7 +1675,6 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
 
   final AdminWorkerGroup group;
   final String identityKey;
-  final List<AdminApparatus> apparatus;
   final List<AdminWorker> workers;
   final Map<String, String> assignedWorkerGroups;
   final bool expanded;
@@ -1663,7 +1792,6 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                     child: _WorkerGroupExpandedControls(
                       group: group,
-                      apparatus: apparatus,
                       workers: workers,
                       assignedWorkerGroups: assignedWorkerGroups,
                       editing: editing,
@@ -1685,7 +1813,6 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
 class _WorkerGroupExpandedControls extends StatelessWidget {
   const _WorkerGroupExpandedControls({
     required this.group,
-    required this.apparatus,
     required this.workers,
     required this.assignedWorkerGroups,
     required this.editing,
@@ -1697,7 +1824,6 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
   });
 
   final AdminWorkerGroup group;
-  final List<AdminApparatus> apparatus;
   final List<AdminWorker> workers;
   final Map<String, String> assignedWorkerGroups;
   final bool editing;
@@ -1743,7 +1869,6 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
         if (editing) ...[
           _WorkerGroupScheduleFields(
             group: group,
-            apparatus: apparatus,
             onChanged: onChanged,
           ),
           const SizedBox(height: 12),
@@ -1784,6 +1909,7 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: FilledButton.icon(
+                  key: const Key('worker-group-save'),
                   onPressed: saving ? null : onSave,
                   icon: saving
                       ? const SizedBox.square(
@@ -1943,12 +2069,6 @@ class _WorkerGroupInfoRows extends StatelessWidget {
           value: _workerShiftLabel(group.shift, l10n),
         ),
         _WorkerGroupInfoRow(
-          label: l10n.adminText('worker.apparatus_label'),
-          value: group.apparatus == _workerGroupsScope
-              ? l10n.adminText('worker.apparatus_unselected')
-              : group.apparatus,
-        ),
-        _WorkerGroupInfoRow(
           label: l10n.adminText('worker.work_time'),
           value: '${group.startTime} - ${group.endTime}',
         ),
@@ -2016,21 +2136,14 @@ class _WorkerGroupInfoRow extends StatelessWidget {
 class _WorkerGroupScheduleFields extends StatelessWidget {
   const _WorkerGroupScheduleFields({
     required this.group,
-    required this.apparatus,
     required this.onChanged,
   });
 
   final AdminWorkerGroup group;
-  final List<AdminApparatus> apparatus;
   final ValueChanged<AdminWorkerGroup> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final selectedApparatus = apparatus.any(
-      (item) => item.name.trim() == group.apparatus.trim(),
-    )
-        ? group.apparatus.trim()
-        : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2043,32 +2156,6 @@ class _WorkerGroupScheduleFields extends StatelessWidget {
             filled: true,
           ),
           onChanged: (value) => onChanged(group.copyWith(groupCode: value)),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          key: const Key('worker-group-apparatus-picker'),
-          initialValue: selectedApparatus,
-          isExpanded: true,
-          decoration: InputDecoration(
-            labelText: context.l10n.adminText('worker.apparatus_label'),
-            filled: true,
-          ),
-          hint: Text(context.l10n.adminText('worker.apparatus_unselected')),
-          items: [
-            for (final item in apparatus)
-              DropdownMenuItem(
-                value: item.name,
-                child: Text(item.name, overflow: TextOverflow.ellipsis),
-              ),
-          ],
-          onChanged: apparatus.isEmpty
-              ? null
-              : (value) {
-                  if (value == null) {
-                    return;
-                  }
-                  onChanged(group.copyWith(apparatus: value));
-                },
         ),
         const SizedBox(height: 12),
         Text(
@@ -2234,20 +2321,28 @@ class _WorkerSettingsCard extends StatelessWidget {
   const _WorkerSettingsCard({
     required this.slot,
     required this.worker,
+    required this.apparatus,
+    required this.assignedApparatus,
+    required this.savingApparatus,
     required this.expanded,
     required this.onExpandedChanged,
     required this.onEditName,
     required this.onEditLevel,
+    required this.onSaveApparatus,
     required this.deleting,
     required this.onDelete,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminWorker worker;
+  final List<AdminApparatus> apparatus;
+  final List<String> assignedApparatus;
+  final bool savingApparatus;
   final bool expanded;
   final ValueChanged<bool> onExpandedChanged;
   final VoidCallback onEditName;
   final VoidCallback onEditLevel;
+  final Future<bool> Function(Set<String> selected) onSaveApparatus;
   final bool deleting;
   final VoidCallback onDelete;
 
@@ -2379,6 +2474,14 @@ class _WorkerSettingsCard extends StatelessWidget {
                           label: l10n.adminText('worker.id'),
                           value: worker.id,
                         ),
+                        const SizedBox(height: 4),
+                        _WorkerApparatusAssignmentField(
+                          workerId: worker.id,
+                          apparatus: apparatus,
+                          selected: assignedApparatus.toSet(),
+                          saving: savingApparatus,
+                          onSave: onSaveApparatus,
+                        ),
                         const SizedBox(height: 12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
@@ -2415,6 +2518,198 @@ class _WorkerSettingsCard extends StatelessWidget {
                 : const SizedBox.shrink(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _WorkerApparatusAssignmentField extends StatelessWidget {
+  const _WorkerApparatusAssignmentField({
+    required this.workerId,
+    required this.apparatus,
+    required this.selected,
+    required this.saving,
+    required this.onSave,
+  });
+
+  final String workerId;
+  final List<AdminApparatus> apparatus;
+  final Set<String> selected;
+  final bool saving;
+  final Future<bool> Function(Set<String> selected) onSave;
+
+  Future<void> _openPicker(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _WorkerApparatusAssignmentSheet(
+        apparatus: apparatus,
+        selected: selected,
+        onSave: onSave,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    final selectedNames = selected.toList()..sort();
+    final value = selectedNames.isEmpty
+        ? l10n.adminText('scope.none_selected')
+        : selectedNames.join(', ');
+    final enabled = !saving && apparatus.isNotEmpty;
+    return InkWell(
+      key: ValueKey('worker-apparatus-picker-$workerId'),
+      onTap: enabled ? () => unawaited(_openPicker(context)) : null,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: appSurfaceInputDecoration(
+          context,
+          labelText: l10n.adminText('scope.operator_title'),
+          prefixIcon: const Icon(Icons.precision_manufacturing_outlined),
+          suffixIcon: saving
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : const Icon(Icons.expand_more_rounded),
+        ).copyWith(enabled: enabled),
+        child: Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: enabled ? scheme.onSurface : scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkerApparatusAssignmentSheet extends StatefulWidget {
+  const _WorkerApparatusAssignmentSheet({
+    required this.apparatus,
+    required this.selected,
+    required this.onSave,
+  });
+
+  final List<AdminApparatus> apparatus;
+  final Set<String> selected;
+  final Future<bool> Function(Set<String> selected) onSave;
+
+  @override
+  State<_WorkerApparatusAssignmentSheet> createState() =>
+      _WorkerApparatusAssignmentSheetState();
+}
+
+class _WorkerApparatusAssignmentSheetState
+    extends State<_WorkerApparatusAssignmentSheet> {
+  late final Set<String> _selected = Set<String>.of(widget.selected);
+  bool _saving = false;
+
+  Future<void> _save() async {
+    if (_saving) {
+      return;
+    }
+    setState(() => _saving = true);
+    final saved = await widget.onSave(Set<String>.of(_selected));
+    if (!mounted) {
+      return;
+    }
+    if (saved) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _saving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return FractionallySizedBox(
+      heightFactor: 0.82,
+      child: Material(
+        color: scheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.adminText('scope.operator_title'),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed:
+                        _saving ? null : () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                children: [
+                  Text(
+                    l10n.adminText('scope.operator_description'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AdminApparatusScopePicker(
+                    apparatus: widget.apparatus,
+                    selected: _selected,
+                    onChanged: (apparatusName, checked) {
+                      setState(() {
+                        if (checked) {
+                          _selected.add(apparatusName);
+                        } else {
+                          _selected.remove(apparatusName);
+                        }
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            SafeArea(
+              top: false,
+              minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  key: const ValueKey('worker-apparatus-save'),
+                  onPressed: _saving ? null : _save,
+                  child: Text(
+                    _saving
+                        ? l10n.adminText('action.saving')
+                        : l10n.adminText('scope.save_action'),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
