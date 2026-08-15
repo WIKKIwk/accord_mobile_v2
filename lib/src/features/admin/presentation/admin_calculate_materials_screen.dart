@@ -230,7 +230,7 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
     _active = material?.active ?? true;
     _variants =
         material?.variants.map(_VariantControllers.fromVariant).toList() ??
-            [_VariantControllers()];
+            <_VariantControllers>[];
   }
 
   @override
@@ -256,7 +256,12 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
     final variants = <CalculateMaterialVariant>[];
     final seenMicrons = <int>{};
     for (final variant in _variants) {
-      final micron = int.tryParse(variant.micron.text.trim());
+      final micronText = variant.micron.text.trim();
+      final actualGsmText = variant.actualGsm.text.trim();
+      if (micronText.isEmpty && actualGsmText.isEmpty) {
+        continue;
+      }
+      final micron = int.tryParse(micronText);
       final actualGsm = _optionalDecimal(variant.actualGsm.text);
       if (micron == null || micron <= 0 || !seenMicrons.add(micron)) {
         setState(
@@ -281,6 +286,13 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
           actualGsm: actualGsm,
         ),
       );
+    }
+    if (density <= 0 && variants.isEmpty) {
+      setState(
+        () => _variantError =
+            context.l10n.adminText('material.validation_actual_gsm'),
+      );
+      return;
     }
     variants.sort((left, right) => left.micron.compareTo(right.micron));
     Navigator.of(context).pop(
@@ -440,6 +452,10 @@ class _VariantRow extends StatelessWidget {
               labelText: context.l10n.adminText('material.micron'),
             ),
             validator: (value) {
+              if ((value == null || value.trim().isEmpty) &&
+                  variant.actualGsm.text.trim().isEmpty) {
+                return null;
+              }
               final micron = int.tryParse(value?.trim() ?? '');
               return micron == null || micron <= 0
                   ? context.l10n.adminText('material.validation_invalid')
@@ -458,6 +474,10 @@ class _VariantRow extends StatelessWidget {
               labelText: context.l10n.adminText('material.actual_gsm'),
             ),
             validator: (value) {
+              if ((value == null || value.trim().isEmpty) &&
+                  variant.micron.text.trim().isEmpty) {
+                return null;
+              }
               if (value == null || value.trim().isEmpty) return null;
               final gsm = _decimal(value);
               return gsm == null || gsm <= 0
@@ -523,7 +543,9 @@ String _materialSubtitle(
   final microns = material.variants.map((item) => item.micron).join(', ');
   final inactive =
       material.active ? '' : ' • ${l10n.adminText('material.inactive_suffix')}';
-  return '$density • $microns mkr$inactive';
+  return microns.isEmpty
+      ? '$density$inactive'
+      : '$density • $microns mkr$inactive';
 }
 
 String _materialError(Object error, AppLocalizations l10n) {

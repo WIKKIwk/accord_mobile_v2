@@ -94,6 +94,30 @@ void main() {
     expect(response.results.single.totalGsm, closeTo(27.6, 0.001));
   });
 
+  test('density formula accepts an unlisted micron', () async {
+    final materials = await MobileApi.instance.calculateMaterials();
+    final pet = materials.firstWhere((item) => item.id == 'builtin-pet');
+
+    final response = await MobileApi.instance.calculate(
+      CalculateRequest(
+        kg: 1000,
+        frameProductSizeMm: 250,
+        frameCount: 3,
+        wastePercent: 0,
+        layers: [
+          CalculateLayerInput(
+            materialId: pet.id,
+            material: pet.name,
+            micron: '19',
+          ),
+        ],
+      ),
+    );
+
+    expect(response.results.single.filmGsm, closeTo(26.6, 0.001));
+    expect(response.results.single.totalGsm, closeTo(26.6, 0.001));
+  });
+
   test('PP default GSM matches manufacturer nominal substance', () async {
     final materials = await MobileApi.instance.calculateMaterials();
 

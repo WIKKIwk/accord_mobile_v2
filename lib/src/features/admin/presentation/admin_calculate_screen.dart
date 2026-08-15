@@ -313,27 +313,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     return filtered.skip(offset).take(limit).toList(growable: false);
   }
 
-  CalculateMaterial? _materialForLayer(_LayerControllers layer) {
-    final id = layer.materialId.trim();
-    if (id.isNotEmpty) {
-      for (final material in _materialCatalog) {
-        if (material.id == id) {
-          return material;
-        }
-      }
-    }
-    final key = _normalizeMaterialKey(layer.material.text);
-    if (key.isEmpty) {
-      return null;
-    }
-    for (final material in _materialCatalog) {
-      if (_normalizeMaterialKey(material.name) == key) {
-        return material;
-      }
-    }
-    return null;
-  }
-
   Future<void> _openLayerMaterialPicker(int index) async {
     if (index < 0 ||
         index >= _layers.length ||
@@ -373,85 +352,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       return;
     }
     final layer = _layers[index];
-    final currentMicron = layer.micron.text.trim();
-    final micronStillValid = picked.variants.any(
-      (variant) => variant.micron.toString() == currentMicron,
-    );
     setState(() {
       layer.materialId = picked.id;
       layer.material.text = picked.name;
-      if (!micronStillValid) {
-        layer.micron.clear();
-      }
     });
-  }
-
-  Future<void> _openLayerMicronPicker(int index) async {
-    if (index < 0 ||
-        index >= _layers.length ||
-        !await _ensureMaterialCatalog()) {
-      return;
-    }
-    final material = _materialForLayer(_layers[index]);
-    if (material == null) {
-      if (mounted) {
-        showAdminTopNotice(
-          context,
-          context.l10n.adminText('calculate.select_layer_material_first'),
-        );
-      }
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-    final picked = await showModalBottomSheet<CalculateMaterialVariant>(
-      context: context,
-      isDismissible: true,
-      enableDrag: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.32),
-      sheetAnimationStyle: kM3PickerSheetAnimation,
-      builder: (context) {
-        return M3AsyncPickerSheet<CalculateMaterialVariant>(
-          title: '${material.name} ${context.l10n.adminText('label.micron')}',
-          hintText: context.l10n.adminText('calculate.micron_search'),
-          pageSize: 50,
-          cacheKey: 'calculate:material:${material.id}:microns',
-          loadPage: (query, offset, limit) async {
-            final normalized = query.trim();
-            final variants = material.variants.where((variant) {
-              return normalized.isEmpty ||
-                  variant.micron.toString().contains(normalized);
-            }).toList(growable: false);
-            return variants.skip(offset).take(limit).toList(growable: false);
-          },
-          itemTitle: (item) => context.l10n.adminText(
-            'calculate.micron_value',
-            values: {'value': item.micron},
-          ),
-          itemSubtitle: (item) => context.l10n.adminText(
-            'calculate.gsm_value',
-            values: {
-              'value': _fmtInput(
-                item.actualGsm ??
-                    (material.densityGCm3 > 0
-                        ? item.micron * material.densityGCm3
-                        : item.coefficient * (1000000 / 60000)),
-              ),
-            },
-          ),
-          itemKey: (item) => '${material.id}:${item.micron}',
-          onSelected: (item) => Navigator.of(context).pop(item),
-        );
-      },
-    );
-    if (picked == null || !mounted || index >= _layers.length) {
-      return;
-    }
-    setState(() => _layers[index].micron.text = picked.micron.toString());
   }
 
   Future<void> _openMaterialCatalogManager() async {
@@ -1285,8 +1189,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             'calculate.layer_label',
             values: {'number': index + 1},
           ),
+          micronKey: ValueKey('calculate-layer-micron-$index'),
           onMaterialTap: () => _openLayerMaterialPicker(index),
-          onMicronTap: () => _openLayerMicronPicker(index),
           onRemove: index == 0 ? null : () => _removeLayer(index),
         ),
       OutlinedButton.icon(
@@ -2490,16 +2394,16 @@ class _LayerInputs extends StatelessWidget {
     required this.material,
     required this.micron,
     required this.materialLabel,
+    required this.micronKey,
     required this.onMaterialTap,
-    required this.onMicronTap,
     this.onRemove,
   });
 
   final TextEditingController material;
   final TextEditingController micron;
   final String materialLabel;
+  final Key micronKey;
   final VoidCallback onMaterialTap;
-  final VoidCallback onMicronTap;
   final VoidCallback? onRemove;
 
   @override
@@ -2520,11 +2424,18 @@ class _LayerInputs extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           flex: 2,
-          child: _PickerInput(
-            label: l10n.adminText('calculate.micron'),
-            value: micron.text,
-            required: true,
-            onTap: onMicronTap,
+          child: TextFormField(
+            key: micronKey,
+            controller: micron,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            textInputAction: TextInputAction.next,
+            decoration: appSurfaceInputDecoration(
+              context,
+              labelText: l10n.adminText('calculate.micron'),
+              suffixText: l10n.adminText('calculate.micron_suffix'),
+            ),
+            validator: (value) => _requiredPositiveNumber(value, l10n),
           ),
         ),
         if (onRemove != null) ...[
