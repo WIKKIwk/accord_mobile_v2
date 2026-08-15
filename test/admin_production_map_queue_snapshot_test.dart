@@ -60,6 +60,54 @@ void main() {
     expect(snapshot.orderCustomers['zakaz-visible-alt'], '555 kukuruz');
   });
 
+  test('live snapshot projects frozen control over stale queue data', () {
+    final snapshot = AdminProductionMapLiveSnapshot.fromJson({
+      'maps': const [],
+      'sequences': const {},
+      'visible_order_ids': const {
+        'Pechat': ['zakaz-frozen'],
+      },
+      'queue_states': const {
+        'Pechat': {'zakaz-frozen': 'paused'},
+      },
+      'queue_policies': const [],
+      'queue_action_controls': const {
+        'Pechat': {
+          'zakaz-frozen': {
+            'state': 'paused',
+            'allowed_actions': ['resume'],
+          },
+        },
+      },
+      'completed_orders': const [],
+      'completion_requests': const [],
+      'completion_request_decisions': const [],
+      'order_controls': const {
+        'zakaz-frozen': {'state': 'frozen'},
+      },
+      'order_statuses': const {
+        'zakaz-frozen': {
+          'order_status': 'in_progress',
+          'work_status': 'in_progress',
+          'flow_status': 'in_progress',
+        },
+      },
+    });
+
+    expect(snapshot.queueStates['Pechat']?['zakaz-frozen'], 'frozen');
+    expect(
+      snapshot.queueActionControls['Pechat']?['zakaz-frozen']?.state,
+      'frozen',
+    );
+    expect(
+      snapshot.queueActionControls['Pechat']?['zakaz-frozen']?.allowedActions,
+      isEmpty,
+    );
+    expect(snapshot.orderStatuses['zakaz-frozen']?.orderStatus, 'frozen');
+    expect(snapshot.orderStatuses['zakaz-frozen']?.workStatus, 'frozen');
+    expect(snapshot.orderStatuses['zakaz-frozen']?.flowStatus, 'frozen');
+  });
+
   test('production map definition keeps server customer name', () {
     final map = ProductionMapDefinition.fromJson({
       'id': 'zakaz-7657',

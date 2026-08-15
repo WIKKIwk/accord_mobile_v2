@@ -1,5 +1,109 @@
 part of 'admin_production_map_orders_screen.dart';
 
+class _WorkerFrozenOrderDetailsSheet extends StatelessWidget {
+  const _WorkerFrozenOrderDetailsSheet({required this.entry});
+
+  final _WorkerCompletedOrderEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final map = entry.order.map;
+    final title = _workerWipFirstNotEmpty([
+      map.orderNumber,
+      map.code,
+      map.title,
+      map.id,
+    ]);
+    final product = _workerWipFirstNotEmpty([map.title, map.productCode]);
+    final apparatus = entry.apparatus?.name.trim() ?? '';
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.72;
+
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                context.l10n.adminText('production.freeze_details'),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                [
+                  if (title.isNotEmpty) title,
+                  if (product.isNotEmpty && product != title) product,
+                  if (apparatus.isNotEmpty) apparatus,
+                ].join(' • '),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Card.filled(
+                color: scheme.primaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(Icons.lock_clock_rounded, color: scheme.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          entry.isFrozen
+                              ? context.l10n.productionText(
+                                  'worker.queue.status.frozen',
+                                )
+                              : context.l10n.adminText(
+                                  'production.unfreeze',
+                                ),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: scheme.onPrimaryContainer,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (entry.issueNote.trim().isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Card.filled(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          context.l10n.adminText('production.issue_note'),
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SelectableText(entry.issueNote.trim()),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _WorkerWipHistorySheet extends StatefulWidget {
   const _WorkerWipHistorySheet({
     required this.order,

@@ -6,18 +6,28 @@ class RawMaterialListAssignment {
   const RawMaterialListAssignment({
     required this.orderId,
     required this.orderLabel,
+    this.orderControl = AdminOrderControlState.active,
   });
 
   final String orderId;
   final String orderLabel;
+  final AdminOrderControlState orderControl;
+
+  bool get isFrozen => orderControl == AdminOrderControlState.frozen;
 }
 
 Map<String, RawMaterialListAssignment> rawMaterialListAssignmentsByBarcode({
   required List<AdminRawMaterialAssignment> assignments,
   required List<ProductionMapSaved> orders,
+  Map<String, AdminOrderControlState> orderControlsByOrderId = const {},
 }) {
   final ordersById = <String, ProductionMapSaved>{
     for (final order in orders) order.map.id.trim().toLowerCase(): order,
+  };
+  final normalizedOrderControls = <String, AdminOrderControlState>{
+    for (final entry in orderControlsByOrderId.entries)
+      if (entry.key.trim().isNotEmpty)
+        entry.key.trim().toLowerCase(): entry.value,
   };
   return <String, RawMaterialListAssignment>{
     for (final assignment in assignments)
@@ -28,6 +38,9 @@ Map<String, RawMaterialListAssignment> rawMaterialListAssignmentsByBarcode({
             ordersById[assignment.orderId.trim().toLowerCase()],
             assignment.orderId,
           ),
+          orderControl: normalizedOrderControls[
+                  assignment.orderId.trim().toLowerCase()] ??
+              AdminOrderControlState.active,
         ),
   };
 }

@@ -27,6 +27,7 @@ class _ReadOnlyQueueActionRequest {
     this.totalWaste,
     this.finishedGoodsKg,
     this.finishedGoodsMeter,
+    this.rezkaFrames = const [],
     this.uom = '',
     this.qrPayload = '',
     this.progressBatchId = '',
@@ -42,6 +43,8 @@ class _ReadOnlyQueueActionRequest {
     this.workerHandoff = false,
     this.removeRollFromApparatus = false,
     this.freezeRequestId = '',
+    this.freezeWithIssue = false,
+    this.issueNote = '',
   });
 
   final AdminApparatus apparatus;
@@ -62,6 +65,7 @@ class _ReadOnlyQueueActionRequest {
   final double? totalWaste;
   final double? finishedGoodsKg;
   final double? finishedGoodsMeter;
+  final List<Map<String, dynamic>> rezkaFrames;
   final String uom;
   final String qrPayload;
   final String progressBatchId;
@@ -77,6 +81,8 @@ class _ReadOnlyQueueActionRequest {
   final bool workerHandoff;
   final bool removeRollFromApparatus;
   final String freezeRequestId;
+  final bool freezeWithIssue;
+  final String issueNote;
 }
 
 class _WorkerWatchTab {
@@ -94,13 +100,17 @@ class _WorkerCompletedOrderEntry {
     required this.order,
     required this.apparatus,
     required this.status,
+    required this.issueNote,
   });
 
   final ProductionMapSaved order;
   final AdminApparatus? apparatus;
   final String status;
+  final String issueNote;
 
   bool get isInProgress => status.trim().toLowerCase() == 'in_progress';
+  bool get isFrozen => status.trim().toLowerCase() == 'frozen';
+  bool get hasFreezeIssue => isFrozen || issueNote.trim().isNotEmpty;
 }
 
 class _MoveApparatusDefaults {
@@ -246,6 +256,7 @@ _OrderCardTone _resolveOrderCardTone({
     return switch (apparatusState) {
       ApparatusQueueOrderState.inProgress => _OrderCardTone.inProgress,
       ApparatusQueueOrderState.paused => _OrderCardTone.paused,
+      ApparatusQueueOrderState.frozen => _OrderCardTone.frozen,
       ApparatusQueueOrderState.completed => _OrderCardTone.neutral,
       ApparatusQueueOrderState.pending => _OrderCardTone.neutral,
     };

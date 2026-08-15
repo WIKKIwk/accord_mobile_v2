@@ -515,9 +515,14 @@ class _MaterialStateAssetRow extends StatelessWidget {
     final assignedGreen = theme.brightness == Brightness.dark
         ? const Color(0xFF81C784)
         : const Color(0xFF2E7D32);
+    final assignedColor = orderAssignment?.isFrozen == true
+        ? (theme.brightness == Brightness.dark
+            ? const Color(0xFF81D4FA)
+            : const Color(0xFF0288D1))
+        : assignedGreen;
     final backgroundColor = assigned
         ? Color.alphaBlend(
-            assignedGreen.withValues(
+            assignedColor.withValues(
               alpha: theme.brightness == Brightness.dark ? 0.20 : 0.12,
             ),
             scheme.surfaceContainerLowest,
@@ -542,14 +547,14 @@ class _MaterialStateAssetRow extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: assigned
-                ? assignedGreen.withValues(alpha: 0.18)
+                ? assignedColor.withValues(alpha: 0.18)
                 : scheme.secondaryContainer,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             selected ? Icons.check_rounded : Icons.category_outlined,
             size: 16,
-            color: assigned ? assignedGreen : scheme.onSecondaryContainer,
+            color: assigned ? assignedColor : scheme.onSecondaryContainer,
           ),
         ),
       ),

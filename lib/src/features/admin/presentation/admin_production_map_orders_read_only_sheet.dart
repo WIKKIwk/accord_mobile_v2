@@ -237,9 +237,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           apparatus: isMaterialTaminotchi ? '' : apparatus,
         );
       } else {
-        final queueState = apparatusQueueOrderStateFromRaw(
-          _queueStates[orderId],
-        );
+        final queueState = _orderControlState == AdminOrderControlState.frozen
+            ? ApparatusQueueOrderState.frozen
+            : apparatusQueueOrderStateFromRaw(_queueStates[orderId]);
         if (queueState == ApparatusQueueOrderState.pending) {
           requirements =
               await MobileApi.instance.adminRawMaterialStartRequirements(
@@ -516,7 +516,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     String completionRequestNote = '',
     bool workerHandoff = false,
     bool removeRollFromApparatus = false,
+    bool freezeWithIssue = false,
+    String issueNote = '',
   }) async {
+    if (_orderControlState == AdminOrderControlState.frozen) {
+      return false;
+    }
     if (action == 'start' &&
         !_bypassStartMaterialScan &&
         !await _loadMaterialAssignments(showLoading: false)) {
@@ -579,6 +584,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               qolipCodes: qolipCodes,
               workerHandoff: workerHandoff,
               removeRollFromApparatus: removeRollFromApparatus,
+              freezeWithIssue: freezeWithIssue,
+              issueNote: issueNote,
               freezeRequestId:
                   action == 'pause' ? widget.initialPauseRequestId : '',
             ),
@@ -599,6 +606,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _actionInFlight = false;
         if (states != null) {
           _queueStates = states.states;
+          if (states.orderControl != null) {
+            _orderControlState = states.orderControl!;
+            _orderControls[widget.order.map.id.trim()] = states.orderControl!;
+          }
           if (nextActionControl != null) {
             _queueActionControl = nextActionControl;
           }
@@ -1219,6 +1230,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     bool workerHandoff = false,
     bool removeRollFromApparatus = false,
   }) async {
+    if (_orderControlState == AdminOrderControlState.frozen) {
+      return _ProgressActionOutcome.failed;
+    }
     final scope = returnedPaintWorkerDraftScope(
       actorRef: AppSession.instance.profile?.ref ?? '',
       orderId: widget.order.map.id,
@@ -1246,14 +1260,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       return _ProgressActionOutcome.cancelled;
     }
     final isTrainingOrder = widget.order.map.id.trim().startsWith('training-');
-    if (input.isCompletionRequest && !isTrainingOrder) {
+    if (input.isIssue && !isTrainingOrder) {
       final completed = await _runQueueAction(
-        action,
-        progressInput: input,
-        uom: 'm',
-        completionRequestNote: input.description,
-        workerHandoff: workerHandoff,
-        removeRollFromApparatus: removeRollFromApparatus,
+        'freeze',
+        freezeWithIssue: true,
+        issueNote: input.description,
       );
       return completed
           ? _ProgressActionOutcome.completed
@@ -1547,6 +1558,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       order: widget.order,
       apparatus: widget.apparatus,
       queueActionControl: _queueActionControl,
+      orderControlState: _orderControlState,
       materialAssignments: _materialAssignments,
       startMaterialAssignments: _startAssignments,
       intakeCandidateAssignments: _intakeCandidateAssignments,

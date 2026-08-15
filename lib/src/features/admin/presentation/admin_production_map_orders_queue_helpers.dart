@@ -279,6 +279,7 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     totalWaste: request.totalWaste,
     finishedGoodsKg: request.finishedGoodsKg,
     finishedGoodsMeter: request.finishedGoodsMeter,
+    rezkaFrames: request.rezkaFrames,
     uom: request.uom,
     qrPayload: request.qrPayload,
     progressBatchId: request.progressBatchId,
@@ -294,19 +295,11 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     workerHandoff: request.workerHandoff,
     removeRollFromApparatus: request.removeRollFromApparatus,
     freezeRequestId: request.freezeRequestId,
+    freezeWithIssue: request.freezeWithIssue,
+    issueNote: request.issueNote,
   );
 }
 
 Future<AdminApparatusQueueSnapshot> _loadQueueSnapshot() async {
-  try {
-    return await MobileApi.instance.adminProductionMapQueueSnapshot();
-  } catch (_) {
-    return const AdminApparatusQueueSnapshot(
-      sequences: {},
-      visibleOrderIds: {},
-      queueStates: {},
-      queuePolicies: {},
-      orderControls: {},
-    );
-  }
+  return MobileApi.instance.adminProductionMapQueueSnapshot();
 }

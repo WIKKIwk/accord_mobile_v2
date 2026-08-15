@@ -1,5 +1,42 @@
 part of 'admin_production_map_orders_screen.dart';
 
+class _RezkaFrameInput {
+  const _RezkaFrameInput({
+    required this.meterQty,
+    required this.kgQty,
+    required this.bobinaKg,
+    required this.diameter,
+  });
+
+  final double meterQty;
+  final double kgQty;
+  final double bobinaKg;
+  final double diameter;
+
+  Map<String, dynamic> toJson() => {
+        'produced_qty': meterQty,
+        'gross_qty': kgQty,
+        'finished_goods_kg': kgQty,
+        'finished_goods_meter': meterQty,
+        'bobina_kg': bobinaKg,
+        'diameter': diameter,
+      };
+}
+
+class _RezkaFrameControllers {
+  final meter = TextEditingController();
+  final kg = TextEditingController();
+  final bobina = TextEditingController();
+  final diameter = TextEditingController();
+
+  void dispose() {
+    meter.dispose();
+    kg.dispose();
+    bobina.dispose();
+    diameter.dispose();
+  }
+}
+
 class _ProgressQtyInput {
   const _ProgressQtyInput({
     this.meterQty,
@@ -18,8 +55,9 @@ class _ProgressQtyInput {
     this.returnedPaintItems = const [],
     this.returnedPaintImageId = '',
     this.description = '',
-    this.isCompletionRequest = false,
+    this.isIssue = false,
     this.fullCompletionReportRequired = false,
+    this.rezkaFrames = const [],
   });
 
   final double? meterQty;
@@ -38,8 +76,9 @@ class _ProgressQtyInput {
   final List<ReturnedPaintItemInput> returnedPaintItems;
   final String returnedPaintImageId;
   final String description;
-  final bool isCompletionRequest;
+  final bool isIssue;
   final bool fullCompletionReportRequired;
+  final List<_RezkaFrameInput> rezkaFrames;
 }
 
 Future<_ProgressQtyInput?> _showProgressQtyDialog(
@@ -172,6 +211,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final _descriptionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String _completionError = '';
+  late final List<_RezkaFrameControllers> _rezkaFrameControllers;
 
   ReturnedPaintDraft get _returnedPaintDraft => widget.returnedPaintDraft;
 
@@ -191,6 +231,39 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
 
   bool get _isRollRemoval => widget.removeRollFromApparatus;
 
+  int get _rezkaFrameCount {
+    final node = _rezkaNodeForStation(
+      map: widget.order.map,
+      station: widget.apparatus,
+    );
+    final count = node?.rezkaKadrCount ?? 0;
+    return count > 0 ? count : 0;
+  }
+
+  bool get _isRezkaProgressLabelAction => const {
+        'pause',
+        'detach_roll',
+        'roll_complete',
+        'complete',
+      }.contains(widget.action.trim().toLowerCase());
+
+  bool get _showRezkaFrameInputs =>
+      widget.isRezka &&
+      !_isAstatkaReport &&
+      !_isWorkerHandoff &&
+      !_isRollRemoval &&
+      _isRezkaProgressLabelAction &&
+      _rezkaFrameCount > 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _rezkaFrameControllers = [
+      for (var index = 0; index < _rezkaFrameCount; index += 1)
+        _RezkaFrameControllers(),
+    ];
+  }
+
   @override
   void dispose() {
     _descriptionController.dispose();
@@ -204,6 +277,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     _bobinaController.dispose();
     _kgController.dispose();
     _meterController.dispose();
+    for (final frame in _rezkaFrameControllers) {
+      frame.dispose();
+    }
     super.dispose();
   }
 
@@ -229,12 +305,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     required TextEditingController controller,
     required String label,
     required String error,
+    Key? key,
     String suffix = '',
     bool? requiredField,
     bool positive = false,
     bool allowZero = false,
   }) {
     return TextFormField(
+      key: key,
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: <TextInputFormatter>[
@@ -275,8 +353,43 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     return qty != null && qty.isFinite && qty > 0;
   }
 
+  List<_RezkaFrameInput>? _readRezkaFrameInputs() {
+    if (!_showRezkaFrameInputs) {
+      return const [];
+    }
+    final frames = <_RezkaFrameInput>[];
+    for (final frame in _rezkaFrameControllers) {
+      final meter = _parseQty(frame.meter.text);
+      final kg = _parseQty(frame.kg.text);
+      final bobina = _parseQty(frame.bobina.text);
+      final diameter = _parseQty(frame.diameter.text);
+      if (meter == null || meter <= 0 ||
+          kg == null || kg <= 0 ||
+          bobina == null || bobina <= 0 ||
+          diameter == null || diameter <= 0) {
+        return null;
+      }
+      frames.add(
+        _RezkaFrameInput(
+          meterQty: meter,
+          kgQty: kg,
+          bobinaKg: bobina,
+          diameter: diameter,
+        ),
+      );
+    }
+    return frames;
+  }
+
   void _submit() {
     setState(() => _completionError = '');
+    final description = _descriptionController.text.trim();
+    if (_isComplete && description.isNotEmpty) {
+      Navigator.of(context).pop(
+        _ProgressQtyInput(description: description, isIssue: true),
+      );
+      return;
+    }
     final formValid = _formKey.currentState?.validate() ?? false;
 
     final meterQty = _parseQty(_meterController.text);
@@ -343,10 +456,29 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         _parseQty(_rezkaLaminationWasteController.text);
     final rezkaEdgeWaste = _parseQty(_rezkaEdgeWasteController.text);
     final totalWaste = _parseQty(_wasteController.text);
-    final hasMeter = meterQty != null && meterQty.isFinite && meterQty > 0;
-    final hasKg = kgQty != null && kgQty.isFinite && kgQty > 0;
-    final hasBobina = bobinaKg != null && bobinaKg.isFinite && bobinaKg > 0;
-    final hasDiameter = diameter != null && diameter.isFinite && diameter > 0;
+    final rezkaFrameInputs = _readRezkaFrameInputs();
+    final firstRezkaFrame = rezkaFrameInputs?.isNotEmpty == true
+        ? rezkaFrameInputs!.first
+        : null;
+    final effectiveMeterQty = firstRezkaFrame?.meterQty ?? meterQty;
+    final effectiveKgQty = firstRezkaFrame?.kgQty ?? kgQty;
+    final effectiveBobinaKg = firstRezkaFrame?.bobinaKg ?? bobinaKg;
+    final effectiveDiameter = firstRezkaFrame?.diameter ?? diameter;
+    final hasMeter = effectiveMeterQty != null &&
+        effectiveMeterQty.isFinite &&
+        effectiveMeterQty > 0;
+    final hasKg = effectiveKgQty != null &&
+        effectiveKgQty.isFinite &&
+        effectiveKgQty > 0;
+    final hasBobina = effectiveBobinaKg != null &&
+        effectiveBobinaKg.isFinite &&
+        effectiveBobinaKg > 0;
+    final hasDiameter = effectiveDiameter != null &&
+        effectiveDiameter.isFinite &&
+        effectiveDiameter > 0;
+    final hasRezkaFrameMetrics = rezkaFrameInputs != null &&
+        rezkaFrameInputs.isNotEmpty &&
+        rezkaFrameInputs.length == _rezkaFrameCount;
     final hasPrintLeftover = printLeftoverRolls != null &&
         printLeftoverRolls.isFinite &&
         printLeftoverRolls > 0;
@@ -431,10 +563,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         hasRezkaBosmaWaste ||
         hasRezkaLaminationWaste ||
         hasRezkaEdgeWaste;
-    final rezkaMetricsReady = hasMeter &&
-        hasKg &&
-        hasBobina &&
-        hasDiameter &&
+    final rezkaMetricsReady = (_showRezkaFrameInputs
+            ? hasRezkaFrameMetrics
+            : hasMeter && hasKg && hasBobina && hasDiameter) &&
         (!_requiresFullCompletionReport || hasRezkaWaste);
     if (!widget.isBosma &&
         !widget.isLaminatsiya &&
@@ -469,10 +600,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     if (widget.isRezka && rezkaMetricsReady) {
       Navigator.of(context).pop(
         _ProgressQtyInput(
-          meterQty: meterQty,
-          kgQty: kgQty,
-          bobinaKg: bobinaKg,
-          diameter: diameter,
+          meterQty: effectiveMeterQty,
+          kgQty: effectiveKgQty,
+          bobinaKg: effectiveBobinaKg,
+          diameter: effectiveDiameter,
           totalWaste: totalWaste,
           rezkaBosmaWaste: rezkaBosmaWaste,
           rezkaLaminationWaste: rezkaLaminationWaste,
@@ -480,6 +611,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           returnedPaintItems: returnedPaintItems,
           returnedPaintImageId: returnedPaintImageId,
           fullCompletionReportRequired: _requiresFullCompletionReport,
+          rezkaFrames: rezkaFrameInputs ?? const [],
         ),
       );
       return;
@@ -505,26 +637,6 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     }
     if (_isComplete) {
       if (!formValid) return;
-      final description = _descriptionController.text.trim();
-      if (description.isNotEmpty) {
-        Navigator.of(context).pop(
-          _completionRequestInput(
-            meterQty: meterQty,
-            kgQty: kgQty,
-            bobinaKg: bobinaKg,
-            diameter: diameter,
-            returnInkKg: returnInkKg,
-            printLeftoverRolls: printLeftoverRolls,
-            filmLeftoverRolls: filmLeftoverRolls,
-            rezkaBosmaWaste: rezkaBosmaWaste,
-            rezkaLaminationWaste: rezkaLaminationWaste,
-            rezkaEdgeWaste: rezkaEdgeWaste,
-            totalWaste: totalWaste,
-            description: description,
-          ),
-        );
-        return;
-      }
       setState(() {
         _completionError = context.l10n.productionText(
           'worker.progress.qty.completion_reason',
@@ -534,74 +646,94 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     }
   }
 
-  _ProgressQtyInput _completionRequestInput({
-    required double? meterQty,
-    required double? kgQty,
-    required double? bobinaKg,
-    required double? diameter,
-    required double? returnInkKg,
-    required double? printLeftoverRolls,
-    required double? filmLeftoverRolls,
-    required double? rezkaBosmaWaste,
-    required double? rezkaLaminationWaste,
-    required double? rezkaEdgeWaste,
-    required double? totalWaste,
-    required String description,
-  }) {
-    if (widget.isBosma) {
-      return _ProgressQtyInput(
-        finishedGoodsMeter: meterQty,
-        finishedGoodsKg: kgQty,
-        bobinaKg: bobinaKg,
-        returnInkKg: returnInkKg,
-        totalWaste: totalWaste,
-        description: description,
-        returnedPaintItems: _returnedPaintItems,
-        returnedPaintImageId: _returnedPaintDraft.image?.imageId.trim() ?? '',
-        isCompletionRequest: true,
-      );
-    }
-    if (widget.isLaminatsiya) {
-      return _ProgressQtyInput(
-        finishedGoodsMeter: meterQty,
-        finishedGoodsKg: kgQty,
-        bobinaKg: bobinaKg,
-        laminationPrintLeftoverRolls: printLeftoverRolls,
-        laminationFilmLeftoverRolls: filmLeftoverRolls,
-        totalWaste: totalWaste,
-        description: description,
-        returnedPaintItems: _returnedPaintItems,
-        returnedPaintImageId: _returnedPaintDraft.image?.imageId.trim() ?? '',
-        isCompletionRequest: true,
-        fullCompletionReportRequired: true,
-      );
-    }
-    if (widget.isRezka) {
-      return _ProgressQtyInput(
-        meterQty: meterQty,
-        kgQty: kgQty,
-        bobinaKg: bobinaKg,
-        diameter: diameter,
-        totalWaste: totalWaste,
-        rezkaBosmaWaste: rezkaBosmaWaste,
-        rezkaLaminationWaste: rezkaLaminationWaste,
-        rezkaEdgeWaste: rezkaEdgeWaste,
-        description: description,
-        returnedPaintItems: _returnedPaintItems,
-        returnedPaintImageId: _returnedPaintDraft.image?.imageId.trim() ?? '',
-        isCompletionRequest: true,
-        fullCompletionReportRequired: true,
-      );
-    }
-    return _ProgressQtyInput(
-      meterQty: meterQty,
-      kgQty: kgQty,
-      bobinaKg: bobinaKg,
-      description: description,
-      returnedPaintItems: _returnedPaintItems,
-      returnedPaintImageId: _returnedPaintDraft.image?.imageId.trim() ?? '',
-      isCompletionRequest: true,
-      fullCompletionReportRequired: true,
+  Widget _rezkaFrameSection(
+    BuildContext context,
+    int index,
+    _RezkaFrameControllers frame,
+  ) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final requiredError = (String label) => context.l10n.productionText(
+          'worker.daily.required_field',
+          values: {'label': label},
+        );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            context.l10n.productionText(
+              'worker.progress.qty.rezka_frame',
+              values: {'index': index + 1},
+            ),
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: scheme.primary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _qtyField(
+            key: ValueKey<String>('rezka-frame-$index-meter'),
+            controller: frame.meter,
+            label: context.l10n.productionText(
+              'worker.daily.field.length',
+            ),
+            error: requiredError(
+              context.l10n.productionText('worker.daily.field.length'),
+            ),
+            suffix: context.l10n.productionText(
+              'worker.progress.qty.unit.meter',
+            ),
+            requiredField: true,
+            positive: true,
+          ),
+          const SizedBox(height: 10),
+          _qtyField(
+            key: ValueKey<String>('rezka-frame-$index-kg'),
+            controller: frame.kg,
+            label: context.l10n.productionText('worker.daily.field.weight'),
+            error: requiredError(
+              context.l10n.productionText('worker.daily.field.weight'),
+            ),
+            suffix: context.l10n.productionText('worker.progress.qty.unit.kg'),
+            requiredField: true,
+            positive: true,
+          ),
+          const SizedBox(height: 10),
+          _qtyField(
+            key: ValueKey<String>('rezka-frame-$index-bobina'),
+            controller: frame.bobina,
+            label: context.l10n.productionText('worker.daily.field.roll'),
+            error: context.l10n.productionText(
+              'worker.progress.qty.roll_required',
+            ),
+            suffix: context.l10n.productionText('worker.progress.qty.unit.kg'),
+            requiredField: true,
+            positive: true,
+          ),
+          const SizedBox(height: 10),
+          _qtyField(
+            key: ValueKey<String>('rezka-frame-$index-diameter'),
+            controller: frame.diameter,
+            label: context.l10n.productionText(
+              'worker.daily.field.diameter',
+            ),
+            error: requiredError(
+              context.l10n.productionText('worker.daily.field.diameter'),
+            ),
+            suffix: context.l10n.productionText('worker.progress.qty.unit.mm'),
+            requiredField: true,
+            positive: true,
+          ),
+        ],
+      ),
     );
   }
 
@@ -725,27 +857,29 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _progressQtySectionLabel(
-                          context,
-                          context.l10n.productionText(
-                            'worker.progress.qty.standard',
+                        if (!_showRezkaFrameInputs) ...[
+                          _progressQtySectionLabel(
+                            context,
+                            context.l10n.productionText(
+                              'worker.progress.qty.standard',
+                            ),
                           ),
-                        ),
-                        _qtyField(
-                          controller: _bobinaController,
-                          label: context.l10n.productionText(
-                            'worker.daily.field.roll',
+                          _qtyField(
+                            controller: _bobinaController,
+                            label: context.l10n.productionText(
+                              'worker.daily.field.roll',
+                            ),
+                            error: context.l10n.productionText(
+                              'worker.progress.qty.roll_required',
+                            ),
+                            suffix: context.l10n.productionText(
+                              'worker.progress.qty.unit.kg',
+                            ),
+                            requiredField: true,
+                            positive: true,
                           ),
-                          error: context.l10n.productionText(
-                            'worker.progress.qty.roll_required',
-                          ),
-                          suffix: context.l10n.productionText(
-                            'worker.progress.qty.unit.kg',
-                          ),
-                          requiredField: true,
-                          positive: true,
-                        ),
-                        const SizedBox(height: 10),
+                          const SizedBox(height: 10),
+                        ],
                         if ((_requiresFullCompletionReport ||
                                 _isWorkerHandoff ||
                                 _isAstatkaReport) &&
@@ -960,7 +1094,24 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           ),
                           const SizedBox(height: 10),
                         ],
-                        if (!_isWorkerHandoff) ...[
+                        if (_showRezkaFrameInputs) ...[
+                          _progressQtySectionLabel(
+                            context,
+                            context.l10n.productionText(
+                              'worker.progress.qty.rezka_frames',
+                              values: {'count': _rezkaFrameCount},
+                            ),
+                          ),
+                          for (var index = 0;
+                              index < _rezkaFrameControllers.length;
+                              index += 1)
+                            _rezkaFrameSection(
+                              context,
+                              index,
+                              _rezkaFrameControllers[index],
+                            ),
+                        ],
+                        if (!_isWorkerHandoff && !_showRezkaFrameInputs) ...[
                           _progressQtySectionLabel(
                             context,
                             hasDetailedMetrics
@@ -1096,8 +1247,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             ),
                           ),
                         ],
-                        if (_requiresFullCompletionReport ||
-                            _isAstatkaReport) ...[
+                        if (_isComplete || _isAstatkaReport) ...[
                           const SizedBox(height: 6),
                           _progressQtySectionLabel(
                             context,

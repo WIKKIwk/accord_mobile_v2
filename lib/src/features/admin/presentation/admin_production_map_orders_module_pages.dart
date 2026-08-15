@@ -659,6 +659,7 @@ class _WorkerWatchBody extends StatelessWidget {
       visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
       sequenceByApparatus: sequenceByApparatus,
       queueStatesByApparatus: queueStatesByApparatus,
+      orderControlsByOrderId: orderControlsByOrderId,
       workerMode: true,
       query: searchQuery,
     );
@@ -993,7 +994,8 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
                 for (var index = 0; index < orders.length; index++)
                   Builder(
                     builder: (context) {
-                      final partial = orders[index].isInProgress;
+                      final frozen = orders[index].isFrozen;
+                      final partial = !frozen && orders[index].isInProgress;
                       return _SequenceOrderRow(
                         slot:
                             M3SegmentedListGeometry.standaloneListSlotForIndex(
@@ -1004,28 +1006,42 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
                         index: index,
                         readOnly: true,
                         onTap: () => onTapOrder(orders[index]),
-                        backgroundColor: partial
-                            ? const Color(0xFFFFECB3)
-                            : const Color(0xFFC8E6C9),
-                        titleColor: partial
-                            ? const Color(0xFF6D4C00)
-                            : const Color(0xFF18361B),
-                        secondaryColor: partial
-                            ? const Color(0xFF8A6A00)
-                            : const Color(0xFF3F6042),
-                        statusLabel: partial
+                        backgroundColor: frozen
+                            ? const Color(0xFFBBDEFB)
+                            : partial
+                                ? const Color(0xFFFFECB3)
+                                : const Color(0xFFC8E6C9),
+                        titleColor: frozen
+                            ? const Color(0xFF0D47A1)
+                            : partial
+                                ? const Color(0xFF6D4C00)
+                                : const Color(0xFF18361B),
+                        secondaryColor: frozen
+                            ? const Color(0xFF1565C0)
+                            : partial
+                                ? const Color(0xFF8A6A00)
+                                : const Color(0xFF3F6042),
+                        statusLabel: frozen
                             ? context.l10n.productionText(
-                                'worker.queue.status.completed_partial',
+                                'worker.queue.status.frozen',
                               )
-                            : context.l10n.productionText(
-                                'worker.queue.status.completed',
-                              ),
-                        statusBackgroundColor: partial
-                            ? const Color(0xFFFFD54F)
-                            : const Color(0xFFA5D6A7),
-                        statusForegroundColor: partial
-                            ? const Color(0xFF6D4C00)
-                            : const Color(0xFF18361B),
+                            : partial
+                                ? context.l10n.productionText(
+                                    'worker.queue.status.completed_partial',
+                                  )
+                                : context.l10n.productionText(
+                                    'worker.queue.status.completed',
+                                  ),
+                        statusBackgroundColor: frozen
+                            ? const Color(0xFF64B5F6)
+                            : partial
+                                ? const Color(0xFFFFD54F)
+                                : const Color(0xFFA5D6A7),
+                        statusForegroundColor: frozen
+                            ? const Color(0xFF0D47A1)
+                            : partial
+                                ? const Color(0xFF6D4C00)
+                                : const Color(0xFF18361B),
                       );
                     },
                   ),

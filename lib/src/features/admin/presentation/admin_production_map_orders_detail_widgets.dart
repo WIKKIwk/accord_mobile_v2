@@ -529,6 +529,7 @@ class _SequenceStepTile extends StatelessWidget {
     return switch (status) {
       ApparatusQueueOrderState.inProgress => const Color(0xFF8A4B00),
       ApparatusQueueOrderState.paused => const Color(0xFF9B1C1C),
+      ApparatusQueueOrderState.frozen => const Color(0xFF1565C0),
       ApparatusQueueOrderState.completed => _completedGreen,
       ApparatusQueueOrderState.pending => scheme.onPrimaryContainer,
       null => scheme.onSurfaceVariant,
@@ -539,6 +540,7 @@ class _SequenceStepTile extends StatelessWidget {
     return switch (status) {
       ApparatusQueueOrderState.inProgress => const Color(0xFFFFECB3),
       ApparatusQueueOrderState.paused => const Color(0xFFFFCDD2),
+      ApparatusQueueOrderState.frozen => const Color(0xFFBBDEFB),
       ApparatusQueueOrderState.completed => const Color(0xFFC8E6C9),
       ApparatusQueueOrderState.pending => scheme.primaryContainer,
       null => scheme.surfaceContainerHighest,
@@ -555,6 +557,9 @@ class _SequenceStepTile extends StatelessWidget {
         ),
       ApparatusQueueOrderState.paused => context.l10n.productionText(
           'worker.queue.status.paused',
+        ),
+      ApparatusQueueOrderState.frozen => context.l10n.productionText(
+          'worker.freeze.active',
         ),
       ApparatusQueueOrderState.completed => context.l10n.productionText(
           'worker.queue.status.completed',

@@ -1424,6 +1424,11 @@ class AppLocalizations {
       'en': 'Completed',
       'ru': 'Завершено',
     },
+    'worker.queue.status.frozen': {
+      'uz': 'Muzlatilgan',
+      'en': 'Frozen',
+      'ru': 'Заморожено',
+    },
     'worker.queue.status.pending': {
       'uz': 'Navbatda',
       'en': 'Queued',
@@ -2869,9 +2874,9 @@ class AppLocalizations {
       'ru': 'Для каждого WIP будет создан отдельный QR-код',
     },
     'worker.split.same': {
-      'uz': 'Har bir WIPning metraj va kg miqdori bir xil bo‘ladi',
-      'en': 'Each WIP will have the same length and weight',
-      'ru': 'Метраж и вес каждого WIP будут одинаковыми',
+      'uz': 'Har bir WIP uchun alohida metraj, kg, babina va diametr kiriting',
+      'en': 'Enter length, weight, core, and diameter separately for each WIP',
+      'ru': 'Для каждого WIP введите отдельно метраж, вес, втулку и диаметр',
     },
     'worker.split.label_length': {
       'uz': 'Etiketka uzunligi: {length} mm',
@@ -4061,6 +4066,16 @@ class AppLocalizations {
       'uz': 'Tayyor mahsulot',
       'en': 'Finished product',
       'ru': 'Готовая продукция',
+    },
+    'worker.progress.qty.rezka_frames': {
+      'uz': 'Kadrlar ({count} ta)',
+      'en': 'Frames ({count})',
+      'ru': 'Кадры ({count} шт.)',
+    },
+    'worker.progress.qty.rezka_frame': {
+      'uz': '{index}-kadr',
+      'en': 'Frame {index}',
+      'ru': '{index}-й кадр',
     },
     'worker.progress.qty.returned_paint_and_waste': {
       'uz': 'Qaytim va chiqindi',

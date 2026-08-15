@@ -352,6 +352,8 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
   String freezeRequestId = '',
   bool workerHandoff = false,
   bool removeRollFromApparatus = false,
+  bool freezeWithIssue = false,
+  String issueNote = '',
 }) {
   return _ReadOnlyQueueActionRequest(
     apparatus: prepared.apparatus,
@@ -378,6 +380,10 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     totalWaste: progressInput?.totalWaste,
     finishedGoodsKg: progressInput?.finishedGoodsKg,
     finishedGoodsMeter: progressInput?.finishedGoodsMeter,
+    rezkaFrames: [
+      for (final frame in progressInput?.rezkaFrames ?? const [])
+        frame.toJson(),
+    ],
     uom: uom,
     qrPayload: _queueActionQrPayload(
       action: action,
@@ -402,6 +408,8 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     workerHandoff: workerHandoff,
     removeRollFromApparatus: removeRollFromApparatus,
     freezeRequestId: freezeRequestId,
+    freezeWithIssue: freezeWithIssue,
+    issueNote: issueNote,
   );
 }
 
@@ -562,15 +570,17 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required Set<String> scannedMaterialBarcodes,
   required bool canManageQueue,
   required AdminApparatusQueueOrderActionControl? queueActionControl,
+  required AdminOrderControlState orderControlState,
   required AdminProgressBatch? startInputProgressBatch,
   required bool skipStartMaterialScan,
 }) {
   final map = order.map;
   final orderId = map.id.trim();
   final station = apparatus?.name.trim() ?? '';
-  final queueState = apparatusQueueOrderStateFromRaw(
-    queueActionControl?.state,
-  );
+  final orderFrozen = orderControlState == AdminOrderControlState.frozen;
+  final queueState = orderFrozen
+      ? ApparatusQueueOrderState.frozen
+      : apparatusQueueOrderStateFromRaw(queueActionControl?.state);
   final previousStageValue = queueActionControl?.previousStage.trim() ?? '';
   final previousStage = previousStageValue.isEmpty ? null : previousStageValue;
   final bypassMaterialGate = _laminatsiyaMaterialGateBypassed(
@@ -616,22 +626,28 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
       );
   final previousStageStartReady =
       !previousProgressRequired || previousStageReady || acceptedPreviousWip;
-  final showStart = canManageQueue &&
+  final showStart = !orderFrozen &&
+      canManageQueue &&
       queueActionControl?.allows('start') == true &&
       queueState == ApparatusQueueOrderState.pending &&
       previousStageStartReady;
-  final showPause = canManageQueue &&
+  final showPause = !orderFrozen &&
+      canManageQueue &&
       queueActionControl?.allows('pause') == true &&
       queueState == ApparatusQueueOrderState.inProgress;
-  final showRollComplete = canManageQueue &&
+  final showRollComplete = !orderFrozen &&
+      canManageQueue &&
       queueActionControl?.allows('roll_complete') == true &&
       queueState == ApparatusQueueOrderState.inProgress;
-  final showComplete = canManageQueue &&
+  final showComplete = !orderFrozen &&
+      canManageQueue &&
       queueActionControl?.allows('complete') == true &&
       queueState == ApparatusQueueOrderState.inProgress;
-  final showResume = canManageQueue &&
+  final showResume = !orderFrozen &&
+      canManageQueue &&
       queueActionControl?.allows('resume') == true &&
-      queueState == ApparatusQueueOrderState.paused;
+      (queueState == ApparatusQueueOrderState.paused ||
+          queueState == ApparatusQueueOrderState.frozen);
   return _ReadOnlyOrderDetailUiState(
     orderId: orderId,
     station: station,
@@ -648,10 +664,12 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
             : materialRequirements.requiresMaterial ||
                 materialRequirements.normalizedAssignedBarcodes.isNotEmpty,
     allMaterialsScanned: allMaterialsScanned,
-    showStartMaterials: queueState == ApparatusQueueOrderState.pending &&
+    showStartMaterials: !orderFrozen &&
+        queueState == ApparatusQueueOrderState.pending &&
         materialRequirements != null,
-    showIntakeCandidates: queueState == ApparatusQueueOrderState.inProgress ||
-        queueState == ApparatusQueueOrderState.paused,
+    showIntakeCandidates: !orderFrozen &&
+        (queueState == ApparatusQueueOrderState.inProgress ||
+            queueState == ApparatusQueueOrderState.paused),
     previousStage: previousStage,
     previousProgressRequired: previousProgressRequired,
     previousProgressReady: !previousProgressRequired || acceptedPreviousWip,
@@ -660,7 +678,8 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     showRollComplete: showRollComplete,
     showComplete: showComplete,
     showResume: showResume,
-    showWaitingForPrevious: canManageQueue &&
+    showWaitingForPrevious: !orderFrozen &&
+        canManageQueue &&
         previousStage != null &&
         !previousStageStartReady &&
         queueState == ApparatusQueueOrderState.pending,

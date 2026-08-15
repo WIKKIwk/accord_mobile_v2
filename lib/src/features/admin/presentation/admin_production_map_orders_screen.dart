@@ -398,6 +398,9 @@ class _AdminProductionMapOrdersScreenState
     setState(() {
       _queueStatesByApparatus[apparatusKey] = result.states;
       _orderStatusesByOrderId[orderId] = result.orderStatus;
+      if (result.orderControl != null) {
+        _orderControlsByOrderId[orderId] = result.orderControl!;
+      }
     });
     if (_queueActionSentCompletionRequest(
       completionRequestNote: completionRequestNote,
@@ -606,8 +609,10 @@ class _AdminProductionMapOrdersScreenState
       );
       final hasInProgressOrder = _orders.any(
         (order) =>
+            _orderControlsByOrderId[order.map.id.trim()] !=
+                AdminOrderControlState.frozen &&
             apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]) ==
-            ApparatusQueueOrderState.inProgress,
+                ApparatusQueueOrderState.inProgress,
       );
       if (!hasInProgressOrder) {
         await _refreshWorkerCompletedOrders();
@@ -657,6 +662,10 @@ class _AdminProductionMapOrdersScreenState
   }) {
     ProductionMapSaved? firstOrderInState(ApparatusQueueOrderState expected) {
       for (final order in _orders) {
+        if (_orderControlsByOrderId[order.map.id.trim()] ==
+            AdminOrderControlState.frozen) {
+          continue;
+        }
         if (apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]) ==
             expected) {
           return order;
@@ -753,6 +762,10 @@ class _AdminProductionMapOrdersScreenState
               const <String>[],
         ) ||
         !supportsAstatka) {
+      return;
+    }
+    if (_orderControlsByOrderId[order.map.id.trim()] ==
+        AdminOrderControlState.frozen) {
       return;
     }
     final queueStates = _queueStatesForApparatus(
@@ -908,6 +921,9 @@ class _AdminProductionMapOrdersScreenState
     final orderId = order.map.id.trim();
     final control =
         _orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
+    final hasFrozenQueueState = _queueStatesByApparatus.values.any(
+      (states) => states[orderId]?.trim().toLowerCase() == 'frozen',
+    );
     final action = await showModalBottomSheet<_OrderLongPressAction>(
       context: context,
       showDragHandle: true,
@@ -915,15 +931,23 @@ class _AdminProductionMapOrdersScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (control == AdminOrderControlState.active) ...[
-              ListTile(
-                leading: const Icon(Icons.ac_unit_rounded),
-                title: Text(context.l10n.adminText('production.freeze')),
-                onTap: () => Navigator.pop(
-                  context,
-                  _OrderLongPressAction.freeze,
-                ),
+            if (control == AdminOrderControlState.active && hasFrozenQueueState)
+              const ListTile(
+                enabled: false,
+                leading: Icon(Icons.sync_problem_rounded),
+                title: Text('Navbat holati sinxron emas'),
+                subtitle: Text('Server holati yangilanishi kutilmoqda'),
               ),
+            if (control == AdminOrderControlState.active) ...[
+              if (!hasFrozenQueueState)
+                ListTile(
+                  leading: const Icon(Icons.ac_unit_rounded),
+                  title: Text(context.l10n.adminText('production.freeze')),
+                  onTap: () => Navigator.pop(
+                    context,
+                    _OrderLongPressAction.freeze,
+                  ),
+                ),
               ListTile(
                 leading: Icon(
                   Icons.delete_outline_rounded,
@@ -1081,6 +1105,10 @@ class _AdminProductionMapOrdersScreenState
   }
 
   void _showCompletedOrderDetail(_WorkerCompletedOrderEntry entry) {
+    if (entry.hasFreezeIssue) {
+      _showWorkerFrozenOrderDetails(entry);
+      return;
+    }
     if (entry.isInProgress) {
       _showWorkerWipHistory(entry);
       return;
@@ -1091,6 +1119,16 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     _showWatchOrderDetail(apparatus: apparatus, order: entry.order);
+  }
+
+  void _showWorkerFrozenOrderDetails(_WorkerCompletedOrderEntry entry) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _WorkerFrozenOrderDetailsSheet(entry: entry),
+    );
   }
 
   void _showWorkerWipHistory(_WorkerCompletedOrderEntry entry) {
@@ -1143,6 +1181,7 @@ class _AdminProductionMapOrdersScreenState
       visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
       sequenceByApparatus: _sequenceByApparatus,
       queueStatesByApparatus: _queueStatesByApparatus,
+      orderControlsByOrderId: _orderControlsByOrderId,
       workerMode: widget.workerMode,
       query: _searchQuery,
     );

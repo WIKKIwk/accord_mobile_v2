@@ -137,6 +137,7 @@ String _closedLogActionLabel(String action) {
   return switch (action.trim()) {
     'start' => 'Boshladi',
     'pause' => 'Pauza qildi',
+    'freeze' => 'Muzlatdi',
     'detach_roll' => 'Rulonni yechdi',
     'resume' => 'Davom ettirdi',
     'roll_complete' => 'Rulonni tugatdi',

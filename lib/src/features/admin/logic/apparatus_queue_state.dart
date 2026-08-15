@@ -1,6 +1,12 @@
 import 'production_map_pechat_rules.dart';
 
-enum ApparatusQueueOrderState { pending, inProgress, paused, completed }
+enum ApparatusQueueOrderState {
+  pending,
+  inProgress,
+  paused,
+  frozen,
+  completed,
+}
 
 ApparatusQueueOrderState apparatusQueueOrderStateFromRaw(String? raw) {
   switch (raw?.trim().toLowerCase()) {
@@ -8,6 +14,8 @@ ApparatusQueueOrderState apparatusQueueOrderStateFromRaw(String? raw) {
       return ApparatusQueueOrderState.inProgress;
     case 'paused':
       return ApparatusQueueOrderState.paused;
+    case 'frozen':
+      return ApparatusQueueOrderState.frozen;
     case 'completed':
       return ApparatusQueueOrderState.completed;
     default:
@@ -24,22 +32,28 @@ ApparatusQueueOrderState? queueActivityStateForOrder({
     return null;
   }
 
-  var activityState = false;
+  var hasInProgress = false;
+  var hasPaused = false;
   for (final states in queueStatesByApparatus.values) {
     for (final entry in states.entries) {
       if (entry.key.trim() != normalizedOrderId) {
         continue;
       }
       final state = apparatusQueueOrderStateFromRaw(entry.value);
-      if (state == ApparatusQueueOrderState.paused) {
-        return ApparatusQueueOrderState.paused;
+      if (state == ApparatusQueueOrderState.frozen) {
+        return ApparatusQueueOrderState.frozen;
       }
       if (state == ApparatusQueueOrderState.inProgress) {
-        activityState = true;
+        hasInProgress = true;
+      } else if (state == ApparatusQueueOrderState.paused) {
+        hasPaused = true;
       }
     }
   }
-  return activityState ? ApparatusQueueOrderState.inProgress : null;
+  if (hasPaused) {
+    return ApparatusQueueOrderState.paused;
+  }
+  return hasInProgress ? ApparatusQueueOrderState.inProgress : null;
 }
 
 List<String> effectiveQueueSequence({
@@ -120,6 +134,7 @@ String? firstActionableQueueOrderId({
     }
     final state = apparatusQueueOrderStateFromRaw(states[normalized]);
     if (state == ApparatusQueueOrderState.completed ||
+        state == ApparatusQueueOrderState.frozen ||
         state == ApparatusQueueOrderState.paused ||
         state == ApparatusQueueOrderState.inProgress) {
       continue;

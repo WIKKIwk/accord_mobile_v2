@@ -345,6 +345,53 @@ void main() {
             ));
   });
 
+  test('worker issue sends frozen intent and reads frozen control', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Aparatchi',
+      legalName: '',
+      ref: 'ap-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final result = await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: 'Pechat',
+        orderId: 'zakaz-1',
+        action: 'freeze',
+        freezeWithIssue: true,
+        issueNote: 'Printer stopped',
+      );
+
+      expect(result.states, {'zakaz-1': 'frozen'});
+      expect(result.orderStatus.orderStatus, 'frozen');
+      expect(result.orderStatus.workStatus, 'frozen');
+      expect(result.orderControl, AdminOrderControlState.frozen);
+      expect(result.completionRequest, isNull);
+      expect(result.printJobs, isEmpty);
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/production-maps/queue-action '
+          '{"apparatus":"Pechat","order_id":"zakaz-1","action":"freeze",'
+          '"freeze_with_issue":true,"issue_note":"Printer stopped"}',
+        ),
+      );
+      expect(
+          seenRequests.join('\n'), isNot(contains('completion_request_note')));
+      expect(seenRequests.join('\n'), isNot(contains('produced_qty')));
+      expect(seenRequests.join('\n'), isNot(contains('returned_paint')));
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              queueActionIssue: true,
+            ));
+  });
+
   test('worker roll removal sends canonical detach roll action', () async {
     final seenRequests = <String>[];
     AppSession.instance.token = 'token';
@@ -672,8 +719,7 @@ void main() {
     expect(resumed.progressBatch, isNull);
   });
 
-  test('test mode completed queue history includes paused work in progress',
-      () async {
+  test('test mode completed queue excludes paused work in progress', () async {
     await TestModeController.instance.setEnabled(true);
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.aparatchi,
@@ -717,11 +763,9 @@ void main() {
 
     final history =
         await MobileApi.instance.adminCompletedProductionMapOrders();
-    expect(history, hasLength(2));
-    expect(history[0].orderId, 'zakaz-history-paused');
-    expect(history[0].status, 'in_progress');
-    expect(history[1].orderId, 'zakaz-history-complete');
-    expect(history[1].status, 'completed');
+    expect(history, hasLength(1));
+    expect(history.single.orderId, 'zakaz-history-complete');
+    expect(history.single.status, 'completed');
   });
 
   test('wip batches endpoint sends filters and parses current location',
@@ -1574,6 +1618,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
     this.queueActionCompleteMetrics = false,
     this.queueActionLaminatsiyaMetrics = false,
     this.queueActionRezkaMetrics = false,
+    this.queueActionIssue = false,
   });
 
   final List<String> seenRequests;
@@ -1587,6 +1632,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
   final bool queueActionCompleteMetrics;
   final bool queueActionLaminatsiyaMetrics;
   final bool queueActionRezkaMetrics;
+  final bool queueActionIssue;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -1739,6 +1785,16 @@ class _RawMaterialApiHttpClient implements HttpClient {
                         : const {
                             'states': {'zakaz-1': 'in_progress'},
                           };
+        if (queueActionIssue) {
+          body = const {
+            'states': {'zakaz-1': 'frozen'},
+            'order_status': {
+              'order_status': 'in_progress',
+              'work_status': 'frozen',
+            },
+            'order_control': {'state': 'frozen'},
+          };
+        }
       case 'POST /v1/mobile/admin/production-maps/progress-qr/lookup':
         body = const {
           'ok': true,

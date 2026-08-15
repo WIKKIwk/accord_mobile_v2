@@ -259,6 +259,98 @@ void main() {
     },
   );
 
+  test('test mode rezka persists and prints distinct frame measurements',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    const orderId = 'zakaz-rezka-frame-values';
+    const apparatus = 'Rezka';
+    await MobileApi.instance.adminSaveProductionMap(
+      const ProductionMapDefinition(
+        id: orderId,
+        productCode: 'REZKA-FRAMES',
+        title: 'Rezka frame values',
+        nodes: [
+          ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+          ProductionMapNode(
+            id: 'rezka',
+            kind: 'apparatus',
+            title: apparatus,
+            rezkaKadrCount: 3,
+          ),
+          ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+        ],
+        edges: [
+          ProductionMapEdge(from: 'start', to: 'rezka'),
+          ProductionMapEdge(from: 'rezka', to: 'end'),
+        ],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+    );
+
+    final result = await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'complete',
+      rezkaBosmaWaste: 1,
+      totalWaste: 1,
+      uom: 'm',
+      rezkaFrames: const [
+        {
+          'produced_qty': 90,
+          'gross_qty': 11,
+          'finished_goods_kg': 10.6,
+          'finished_goods_meter': 89,
+          'bobina_kg': 0.3,
+          'diameter': 45.1,
+        },
+        {
+          'produced_qty': 80,
+          'gross_qty': 10,
+          'finished_goods_kg': 9.2,
+          'finished_goods_meter': 78,
+          'bobina_kg': 0.2,
+          'diameter': 44.8,
+        },
+        {
+          'produced_qty': 70,
+          'gross_qty': 9,
+          'finished_goods_kg': 8.1,
+          'finished_goods_meter': 68,
+          'bobina_kg': 0.4,
+          'diameter': 44.2,
+        },
+      ],
+    );
+
+    expect(result.progressBatches, hasLength(3));
+    expect(result.printJobs, hasLength(3));
+    expect(
+      result.progressBatches.map((batch) => batch.qrPayload).toSet(),
+      hasLength(3),
+    );
+    expect(
+      result.progressBatches.map((batch) => batch.finishedGoodsKg),
+      [10.6, 9.2, 8.1],
+    );
+    expect(
+      result.progressBatches.map((batch) => batch.finishedGoodsMeter),
+      [89, 78, 68],
+    );
+    expect(
+      result.progressBatches.map((batch) => batch.diameter),
+      [45.1, 44.8, 44.2],
+    );
+    expect(result.printJobs.map((job) => job.grossQty), [11, 10, 9]);
+  });
+
   test('started alternative apparatus locks the whole alternative group', () {
     const map = ProductionMapDefinition(
       id: 'zakaz-edit-policy-group',
@@ -5474,7 +5566,7 @@ void main() {
     );
     expect(
       find.textContaining(
-          'Har bir WIPning metraj va kg miqdori bir xil bo‘ladi'),
+          'Har bir WIP uchun alohida metraj, kg, babina va diametr kiriting'),
       findsOneWidget,
     );
   });
@@ -5555,13 +5647,9 @@ void main() {
 
     await tester.tap(find.text('Tugallangan'));
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('completed context').first);
-    await tester.pumpAndSettle();
 
-    expect(find.text('WIP tafsilotlari'), findsOneWidget);
-    expect(find.byKey(const ValueKey('worker-wip-count')), findsOneWidget);
-    expect(find.textContaining('WIP yaratilgan'), findsOneWidget);
-    expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
+    expect(find.textContaining('completed context'), findsNothing);
+    expect(find.text('WIP tafsilotlari'), findsNothing);
   });
 
   testWidgets('later stage detail keeps previous progress QR scan visible', (

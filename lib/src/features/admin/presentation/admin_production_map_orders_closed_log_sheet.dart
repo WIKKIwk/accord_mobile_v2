@@ -133,7 +133,7 @@ class _ClosedOrderLogDetailsSheet extends StatelessWidget {
                       value: log.eventId.trim(),
                       selectable: true,
                     ),
-                  if (log.completedWithIssue && log.issueNote.trim().isNotEmpty)
+                  if (log.issueNote.trim().isNotEmpty)
                     _ClosedLogDetailRow(
                       label: context.l10n.adminText('production.issue_note'),
                       value: log.issueNote.trim(),

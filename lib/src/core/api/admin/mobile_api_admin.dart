@@ -637,8 +637,16 @@ void _testModeSyncScheduleReservationStatus({
     final current = reservation.status.trim().toLowerCase();
     final next = status.trim().toLowerCase();
     final allowed = current == next ||
-        (next == 'active' && (current == 'planned' || current == 'paused')) ||
+        (next == 'active' &&
+            (current == 'planned' ||
+                current == 'paused' ||
+                current == 'frozen')) ||
         (next == 'paused' && current == 'active') ||
+        (next == 'frozen' &&
+            (current == 'planned' ||
+                current == 'active' ||
+                current == 'paused')) ||
+        (next == 'paused' && current == 'frozen') ||
         (next == 'completed' &&
             (current == 'planned' ||
                 current == 'active' ||
@@ -901,6 +909,8 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
                 ));
       final queueActionable = state == ApparatusQueueOrderState.inProgress ||
           state == ApparatusQueueOrderState.paused ||
+          (state == ApparatusQueueOrderState.frozen &&
+              orderControl == AdminOrderControlState.active) ||
           actionableOrderId == orderId ||
           (state == ApparatusQueueOrderState.pending &&
               previousStage != null &&
@@ -954,13 +964,22 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
               allowedActions.add('resume');
             }
             break;
+          case ApparatusQueueOrderState.frozen:
+            if (orderControl == AdminOrderControlState.active) {
+              allowedActions.add('resume');
+            }
+            break;
           case ApparatusQueueOrderState.completed:
             break;
         }
       }
 
       apparatusControls[orderId.trim()] = AdminApparatusQueueOrderActionControl(
-        state: state.name == 'inProgress' ? 'in_progress' : state.name,
+        state: orderControl == AdminOrderControlState.frozen
+            ? 'frozen'
+            : state.name == 'inProgress'
+                ? 'in_progress'
+                : state.name,
         allowedActions: allowedActions.toSet(),
         previousStage: previousStage ?? '',
         previousStageReady: previousStageReady,
@@ -1193,6 +1212,88 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
   );
 }
 
+Set<String> _frozenOrderIds(
+  Map<String, AdminOrderControlState> orderControls,
+) {
+  return {
+    for (final entry in orderControls.entries)
+      if (entry.value == AdminOrderControlState.frozen) entry.key.trim(),
+  };
+}
+
+Map<String, String> _normalizeFrozenQueueStates({
+  required Map<String, String> states,
+  required Map<String, AdminOrderControlState> orderControls,
+}) {
+  final frozenIds = _frozenOrderIds(orderControls);
+  if (frozenIds.isEmpty) return Map<String, String>.unmodifiable(states);
+  final normalized = Map<String, String>.from(states);
+  for (final orderId in normalized.keys.toList()) {
+    if (frozenIds.contains(orderId.trim())) {
+      normalized[orderId] = 'frozen';
+    }
+  }
+  return Map<String, String>.unmodifiable(normalized);
+}
+
+Map<String, Map<String, String>> _normalizeFrozenQueueStatesByApparatus({
+  required Map<String, Map<String, String>> states,
+  required Map<String, AdminOrderControlState> orderControls,
+}) {
+  return Map<String, Map<String, String>>.unmodifiable({
+    for (final entry in states.entries)
+      entry.key: _normalizeFrozenQueueStates(
+        states: entry.value,
+        orderControls: orderControls,
+      ),
+  });
+}
+
+Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+    _normalizeFrozenQueueActionControls({
+  required Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      controls,
+  required Map<String, AdminOrderControlState> orderControls,
+}) {
+  final frozenIds = _frozenOrderIds(orderControls);
+  if (frozenIds.isEmpty) return controls;
+  return Map<String,
+      Map<String, AdminApparatusQueueOrderActionControl>>.unmodifiable({
+    for (final apparatusEntry in controls.entries)
+      apparatusEntry.key:
+          Map<String, AdminApparatusQueueOrderActionControl>.unmodifiable({
+        for (final orderEntry in apparatusEntry.value.entries)
+          orderEntry.key: frozenIds.contains(orderEntry.key.trim())
+              ? AdminApparatusQueueOrderActionControl(
+                  state: 'frozen',
+                  previousStage: orderEntry.value.previousStage,
+                  previousStageReady: orderEntry.value.previousStageReady,
+                  completeRequiresFullReport:
+                      orderEntry.value.completeRequiresFullReport,
+                )
+              : orderEntry.value,
+      }),
+  });
+}
+
+Map<String, AdminProductionOrderStatusDetail> _normalizeFrozenOrderStatuses({
+  required Map<String, AdminProductionOrderStatusDetail> statuses,
+  required Map<String, AdminOrderControlState> orderControls,
+}) {
+  final frozenIds = _frozenOrderIds(orderControls);
+  if (frozenIds.isEmpty) return statuses;
+  return Map<String, AdminProductionOrderStatusDetail>.unmodifiable({
+    for (final entry in statuses.entries)
+      entry.key: frozenIds.contains(entry.key.trim())
+          ? entry.value.copyWith(
+              orderStatus: 'frozen',
+              workStatus: 'frozen',
+              flowStatus: 'frozen',
+            )
+          : entry.value,
+  });
+}
+
 class AdminApparatusQueueSnapshot {
   const AdminApparatusQueueSnapshot({
     required this.sequences,
@@ -1265,6 +1366,7 @@ AdminOrderControlState? _applyTestModeOrderControl(
   }
   final started = states.any((state) => state != 'pending');
   final hasActiveWork = states.contains('in_progress');
+  final hasFrozenState = states.any((state) => state == 'frozen');
   final completed = _testModeProductionMaps
       .where((saved) => saved.map.id.trim() == orderId)
       .map((saved) => saved.map)
@@ -1305,6 +1407,12 @@ AdminOrderControlState? _applyTestModeOrderControl(
           message: 'Tugallangan buyurtmani muzlatib bo‘lmaydi',
         );
       }
+      if (hasFrozenState) {
+        throw const MobileApiException(
+          code: 'order_frozen',
+          message: 'Buyurtma boshqa apparatda muzlatilgan',
+        );
+      }
       final next = hasActiveWork
           ? AdminOrderControlState.freezeRequested
           : AdminOrderControlState.frozen;
@@ -1324,6 +1432,18 @@ AdminOrderControlState? _applyTestModeOrderControl(
         throw const MobileApiException(
           code: 'order_control_action_not_allowed',
           message: 'Buyurtmaning hozirgi holatida bu amal mumkin emas',
+        );
+      }
+      for (final entry in _testModeApparatusQueueStates.entries) {
+        final state = entry.value[orderId]?.trim().toLowerCase();
+        if (state != 'frozen') {
+          continue;
+        }
+        entry.value[orderId] = 'paused';
+        _testModeSyncScheduleReservationStatus(
+          orderId: orderId,
+          apparatus: entry.key,
+          status: 'paused',
         );
       }
       _testModeOrderControls[orderId] = AdminOrderControlState.active;
@@ -1438,12 +1558,14 @@ class AdminCompletedQueueOrder {
     required this.orderId,
     required this.completedAtUnix,
     this.status = 'completed',
+    this.issueNote = '',
   });
 
   final String apparatus;
   final String orderId;
   final int completedAtUnix;
   final String status;
+  final String issueNote;
 
   factory AdminCompletedQueueOrder.fromJson(Map<String, dynamic> json) {
     final status = json['status']?.toString().trim() ?? '';
@@ -1452,6 +1574,7 @@ class AdminCompletedQueueOrder {
       orderId: json['order_id']?.toString() ?? '',
       completedAtUnix: (json['completed_at_unix'] as num?)?.toInt() ?? 0,
       status: status.isEmpty ? 'completed' : status,
+      issueNote: json['issue_note']?.toString() ?? '',
     );
   }
 }
@@ -2385,6 +2508,32 @@ class AdminProductionOrderStatusDetail {
           (json['completed_with_issue_count'] as num?)?.toInt() ?? 0,
     );
   }
+
+  AdminProductionOrderStatusDetail copyWith({
+    String? orderStatus,
+    String? workStatus,
+    String? flowStatus,
+  }) {
+    return AdminProductionOrderStatusDetail(
+      orderStatus: orderStatus ?? this.orderStatus,
+      workStatus: workStatus ?? this.workStatus,
+      flowStatus: flowStatus ?? this.flowStatus,
+      stockStatus: stockStatus,
+      totalWipCount: totalWipCount,
+      waitingWipCount: waitingWipCount,
+      inUseWipCount: inUseWipCount,
+      processedWipCount: processedWipCount,
+      waitingNextStageCount: waitingNextStageCount,
+      consumedByNextStageCount: consumedByNextStageCount,
+      freeWipCount: freeWipCount,
+      acceptedWipCount: acceptedWipCount,
+      activeSessionCount: activeSessionCount,
+      pausedSessionCount: pausedSessionCount,
+      rollDetachedSessionCount: rollDetachedSessionCount,
+      completedQueueCount: completedQueueCount,
+      completedWithIssueCount: completedWithIssueCount,
+    );
+  }
 }
 
 class AdminWorkerRunSession {
@@ -3076,6 +3225,7 @@ class AdminApparatusQueueActionResult {
   const AdminApparatusQueueActionResult({
     required this.states,
     this.orderStatus = const AdminProductionOrderStatusDetail(),
+    this.orderControl,
     this.progressBatch,
     this.progressBatches = const [],
     this.completionRequest,
@@ -3085,6 +3235,7 @@ class AdminApparatusQueueActionResult {
 
   final Map<String, String> states;
   final AdminProductionOrderStatusDetail orderStatus;
+  final AdminOrderControlState? orderControl;
   final AdminProgressBatch? progressBatch;
   final List<AdminProgressBatch> progressBatches;
   final AdminCompletionRequestNotification? completionRequest;
@@ -3767,6 +3918,7 @@ class AdminProductionMapLiveSnapshot {
     final completedRaw = json['completed_orders'];
     final completionRequestsRaw = json['completion_requests'];
     final completionRequestDecisionsRaw = json['completion_request_decisions'];
+    final orderControls = _parseAdminOrderControls(json['order_controls']);
     return AdminProductionMapLiveSnapshot(
       maps: [
         if (mapsRaw is List)
@@ -3777,19 +3929,29 @@ class AdminProductionMapLiveSnapshot {
         json['sequences'],
       ),
       visibleOrderIds: _parseRequiredProductionMapVisibleOrderIds(json),
-      queueStates: MobileApi.instance.parseApparatusQueueStateMap(
-        json['queue_states'],
+      queueStates: _normalizeFrozenQueueStatesByApparatus(
+        states: MobileApi.instance.parseApparatusQueueStateMap(
+          json['queue_states'],
+        ),
+        orderControls: orderControls,
       ),
       queuePolicies: MobileApi.instance.parseApparatusQueuePolicyMap(
         json['queue_policies'],
       ),
-      queueActionControls: _parseAdminQueueActionControls(
-        json['queue_action_controls'],
+      queueActionControls: _normalizeFrozenQueueActionControls(
+        controls: _parseAdminQueueActionControls(
+          json['queue_action_controls'],
+        ),
+        orderControls: orderControls,
       ),
       completedOrders: [
         if (completedRaw is List)
           for (final item in completedRaw)
-            AdminCompletedQueueOrder.fromJson(item as Map<String, dynamic>),
+            if ((item as Map)['status']?.toString().trim().toLowerCase() ==
+                'completed')
+              AdminCompletedQueueOrder.fromJson(
+                item.cast<String, dynamic>(),
+              ),
       ],
       completionRequests: [
         if (completionRequestsRaw is List)
@@ -3805,9 +3967,12 @@ class AdminProductionMapLiveSnapshot {
               (item as Map).cast<String, dynamic>(),
             ),
       ],
-      orderControls: _parseAdminOrderControls(json['order_controls']),
+      orderControls: orderControls,
       orderCustomers: _stringMapOfStrings(json['order_customers']),
-      orderStatuses: _parseAdminOrderStatuses(json['order_statuses']),
+      orderStatuses: _normalizeFrozenOrderStatuses(
+        statuses: _parseAdminOrderStatuses(json['order_statuses']),
+        orderControls: orderControls,
+      ),
     );
   }
 }
@@ -5732,23 +5897,27 @@ extension MobileApiAdmin on MobileApi {
 
   Future<AdminApparatusQueueSnapshot> adminProductionMapQueueSnapshot() async {
     if (await TestModeController.instance.isEnabled()) {
+      final orderControls = Map<String, AdminOrderControlState>.unmodifiable(
+        _testModeOrderControls,
+      );
       return AdminApparatusQueueSnapshot(
         sequences: {
           for (final entry in _testModeApparatusSequences.entries)
             entry.key: List<String>.unmodifiable(entry.value),
         },
         visibleOrderIds: _testModeVisibleOrderIdsByApparatus(),
-        queueStates: {
-          for (final entry in _testModeApparatusQueueStates.entries)
-            entry.key: Map<String, String>.unmodifiable(entry.value),
-        },
+        queueStates: _normalizeFrozenQueueStatesByApparatus(
+          states: {
+            for (final entry in _testModeApparatusQueueStates.entries)
+              entry.key: Map<String, String>.unmodifiable(entry.value),
+          },
+          orderControls: orderControls,
+        ),
         queuePolicies: Map<String, AdminApparatusQueuePolicy>.unmodifiable(
           _testModeApparatusQueuePolicies,
         ),
         queueActionControls: _testModeQueueActionControls(),
-        orderControls: Map<String, AdminOrderControlState>.unmodifiable(
-          _testModeOrderControls,
-        ),
+        orderControls: orderControls,
         orderCustomers: {
           for (final saved in _testModeProductionMaps)
             if (saved.map.id.trim().isNotEmpty &&
@@ -5771,17 +5940,27 @@ extension MobileApiAdmin on MobileApi {
       throw _adminProductionMapException(response, 'production_map_sequence');
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final orderControls = _parseAdminOrderControls(payload['order_controls']);
     return AdminApparatusQueueSnapshot(
       sequences: parseApparatusSequenceMap(payload['sequences']),
       visibleOrderIds: _parseRequiredProductionMapVisibleOrderIds(payload),
-      queueStates: parseApparatusQueueStateMap(payload['queue_states']),
-      queuePolicies: parseApparatusQueuePolicyMap(payload['queue_policies']),
-      queueActionControls: _parseAdminQueueActionControls(
-        payload['queue_action_controls'],
+      queueStates: _normalizeFrozenQueueStatesByApparatus(
+        states: parseApparatusQueueStateMap(payload['queue_states']),
+        orderControls: orderControls,
       ),
-      orderControls: _parseAdminOrderControls(payload['order_controls']),
+      queuePolicies: parseApparatusQueuePolicyMap(payload['queue_policies']),
+      queueActionControls: _normalizeFrozenQueueActionControls(
+        controls: _parseAdminQueueActionControls(
+          payload['queue_action_controls'],
+        ),
+        orderControls: orderControls,
+      ),
+      orderControls: orderControls,
       orderCustomers: _stringMapOfStrings(payload['order_customers']),
-      orderStatuses: _parseAdminOrderStatuses(payload['order_statuses']),
+      orderStatuses: _normalizeFrozenOrderStatuses(
+        statuses: _parseAdminOrderStatuses(payload['order_statuses']),
+        orderControls: orderControls,
+      ),
       qolipOrderNotes: _parseAdminQolipOrderNotes(
         payload['qolip_order_notes'],
       ),
@@ -5917,7 +6096,9 @@ extension MobileApiAdmin on MobileApi {
       final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
       return [
         for (final item in _testModeCompletedQueueOrders)
-          if (item.actorRef == actorRef) item.order,
+          if (item.actorRef == actorRef &&
+              item.order.status.trim().toLowerCase() == 'completed')
+            item.order,
       ];
     }
     final response = await _sendAuthorized(
@@ -7430,6 +7611,7 @@ extension MobileApiAdmin on MobileApi {
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
+    List<Map<String, dynamic>> rezkaFrames = const [],
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -7464,6 +7646,7 @@ extension MobileApiAdmin on MobileApi {
       totalWaste: totalWaste,
       finishedGoodsKg: finishedGoodsKg,
       finishedGoodsMeter: finishedGoodsMeter,
+      rezkaFrames: rezkaFrames,
       uom: uom,
       qrPayload: qrPayload,
       progressBatchId: progressBatchId,
@@ -8074,6 +8257,7 @@ extension MobileApiAdmin on MobileApi {
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
+    List<Map<String, dynamic>> rezkaFrames = const [],
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -8089,7 +8273,29 @@ extension MobileApiAdmin on MobileApi {
     bool workerHandoff = false,
     bool removeRollFromApparatus = false,
     String freezeRequestId = '',
+    bool freezeWithIssue = false,
+    String issueNote = '',
   }) async {
+    final trimmedIssueNote = issueNote.trim();
+    if (freezeWithIssue && trimmedIssueNote.isEmpty) {
+      throw const MobileApiException(
+        code: 'issue_note_required',
+        message: 'Muammo izohini kiriting',
+      );
+    }
+    if (freezeWithIssue && action != 'freeze') {
+      throw const MobileApiException(
+        code: 'freeze_with_issue_only_on_freeze',
+        message: 'Muammo bilan yakunlash faqat muzlatish amalida mumkin',
+      );
+    }
+    if (action == 'freeze' && !freezeWithIssue) {
+      throw const MobileApiException(
+        code: 'freeze_action_requires_issue',
+        message: 'Muzlatish amalida muammo izohi majburiy',
+      );
+    }
+    final issueFreezeRequested = action == 'freeze' && freezeWithIssue;
     if (await TestModeController.instance.isEnabled()) {
       final knownKeys = {
         ..._testModeApparatusSequences.keys,
@@ -8109,10 +8315,25 @@ extension MobileApiAdmin on MobileApi {
         );
       }
       if (control == AdminOrderControlState.freezeRequested &&
-          action != 'pause') {
+          action != 'pause' &&
+          !issueFreezeRequested) {
         throw const MobileApiException(
           code: 'order_freeze_requested',
           message: 'Buyurtmani muzlatish uchun worker pauzasi kutilmoqda',
+        );
+      }
+      final frozenOnAnotherApparatus =
+          _testModeApparatusQueueStates.entries.any(
+        (entry) =>
+            entry.key != storageKey &&
+            entry.value[orderId.trim()]?.trim().toLowerCase() == 'frozen',
+      );
+      if (issueFreezeRequested &&
+          control == AdminOrderControlState.active &&
+          frozenOnAnotherApparatus) {
+        throw const MobileApiException(
+          code: 'order_frozen',
+          message: 'Buyurtma boshqa apparatda muzlatilgan',
         );
       }
       final actionableStates = Map<String, String>.from(states)
@@ -8173,8 +8394,87 @@ extension MobileApiAdmin on MobileApi {
       final current = apparatusQueueOrderStateFromRaw(states[orderId.trim()]);
       final isRezka = apparatus.trim().toLowerCase().contains('rezka');
       final isPauseOrDetach = action == 'pause' || action == 'detach_roll';
+      final isRezkaProgressAction =
+          isPauseOrDetach || action == 'roll_complete' || action == 'complete';
       bool isPositive(double? value) =>
           value != null && value.isFinite && value > 0;
+      double? frameMetric(Map<String, dynamic> frame, String key) {
+        final value = frame[key];
+        return value is num ? value.toDouble() : null;
+      }
+
+      final configuredRezkaKadrCount = isRezka
+          ? _testModeRezkaKadrCount(
+              orderId: orderId,
+              apparatus: apparatus,
+            )
+          : null;
+      final hasExplicitRezkaFrameMetrics = isRezka &&
+          rezkaFrames.isNotEmpty &&
+          configuredRezkaKadrCount != null &&
+          rezkaFrames.length == configuredRezkaKadrCount &&
+          rezkaFrames.every(
+            (frame) =>
+                isPositive(
+                  frameMetric(frame, 'produced_qty') ??
+                      frameMetric(frame, 'finished_goods_meter'),
+                ) &&
+                isPositive(
+                  frameMetric(frame, 'gross_qty') ??
+                      frameMetric(frame, 'finished_goods_kg'),
+                ) &&
+                isPositive(frameMetric(frame, 'diameter')),
+          );
+      if (rezkaFrames.isNotEmpty && (!isRezka || !isRezkaProgressAction)) {
+        throw const MobileApiException(
+          code: 'rezka_frames_only_on_rezka_progress',
+          message: 'Kadr qiymatlari faqat Rezka progress amalida yuboriladi',
+        );
+      }
+      if (isRezkaProgressAction &&
+          rezkaFrames.isNotEmpty &&
+          configuredRezkaKadrCount != null &&
+          rezkaFrames.length != configuredRezkaKadrCount) {
+        throw const MobileApiException(
+          code: 'rezka_frame_count_mismatch',
+          message: 'Kadr qiymatlari soni sozlangan kadr soniga teng emas',
+        );
+      }
+      if (isRezkaProgressAction &&
+          rezkaFrames.isNotEmpty &&
+          configuredRezkaKadrCount != null &&
+          rezkaFrames.length == configuredRezkaKadrCount &&
+          !hasExplicitRezkaFrameMetrics) {
+        throw const MobileApiException(
+          code: 'rezka_progress_metrics_required',
+          message: 'Har bir kadr uchun metraj, og‘irlik va diametrni kiriting',
+        );
+      }
+      if (issueFreezeRequested) {
+        if (current != ApparatusQueueOrderState.inProgress) {
+          throw const MobileApiException(
+            code: 'queue_action_not_allowed',
+            message: 'Muammo faqat jarayondagi zakaz uchun bildiriladi',
+          );
+        }
+        states[orderId.trim()] = 'frozen';
+        _testModeOrderControls[orderId.trim()] = AdminOrderControlState.frozen;
+        _testModeApparatusQueueStates[storageKey] = states;
+        _testModeSyncScheduleReservationStatus(
+          orderId: orderId,
+          apparatus: storageKey,
+          status: 'frozen',
+        );
+        return AdminApparatusQueueActionResult(
+          states: Map<String, String>.unmodifiable(states),
+          orderStatus: const AdminProductionOrderStatusDetail(
+            orderStatus: 'frozen',
+            workStatus: 'frozen',
+            flowStatus: 'frozen',
+          ),
+          orderControl: AdminOrderControlState.frozen,
+        );
+      }
       final hasRezkaQuantityMetrics = isPositive(
             producedQty ?? finishedGoodsMeter,
           ) &&
@@ -8186,11 +8486,20 @@ extension MobileApiAdmin on MobileApi {
         rezkaLaminationWaste,
         rezkaEdgeWaste,
       ].any(isPositive);
+      final hasRezkaFrameWaste = rezkaFrames.any(
+        (frame) => [
+          frameMetric(frame, 'total_waste'),
+          frameMetric(frame, 'rezka_bosma_waste'),
+          frameMetric(frame, 'rezka_lamination_waste'),
+          frameMetric(frame, 'rezka_edge_waste'),
+        ].any(isPositive),
+      );
       if (isRezka &&
           (isPauseOrDetach ||
               action == 'roll_complete' ||
               action == 'complete') &&
-          (!hasRezkaQuantityMetrics || !hasRezkaDiameter)) {
+          (!hasExplicitRezkaFrameMetrics &&
+              (!hasRezkaQuantityMetrics || !hasRezkaDiameter))) {
         throw const MobileApiException(
           code: 'rezka_progress_metrics_required',
           message: 'Rezka uchun metraj, og‘irlik va diametrni kiriting',
@@ -8200,11 +8509,7 @@ extension MobileApiAdmin on MobileApi {
           (isPauseOrDetach ||
               action == 'roll_complete' ||
               action == 'complete') &&
-          _testModeRezkaKadrCount(
-                orderId: orderId,
-                apparatus: apparatus,
-              ) ==
-              null) {
+          configuredRezkaKadrCount == null) {
         throw const MobileApiException(
           code: 'rezka_kadr_count_required',
           message: 'Rezka uchun kadr soni sozlanmagan',
@@ -8294,7 +8599,8 @@ extension MobileApiAdmin on MobileApi {
       if (isRezka &&
           action == 'complete' &&
           !allowPartialStationCompletion &&
-          !hasRezkaWaste) {
+          !hasRezkaWaste &&
+          !hasRezkaFrameWaste) {
         throw const MobileApiException(
           code: 'rezka_progress_metrics_required',
           message: 'Yakuniy Rezka tugatishida chiqindi hisoboti shart',
@@ -8632,12 +8938,6 @@ extension MobileApiAdmin on MobileApi {
         _testModeActiveProgressInputByQueue[queueInputKey] =
             updatedInput.qrPayload;
         states[orderId.trim()] = 'paused';
-        _testModeRecordCompletedQueueOrder(
-          actorRef: AppSession.instance.profile?.ref.trim() ?? '',
-          apparatus: storageKey,
-          orderId: orderId.trim(),
-          status: 'in_progress',
-        );
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
           apparatus: storageKey,
@@ -8667,11 +8967,9 @@ extension MobileApiAdmin on MobileApi {
                 status: action == 'detach_roll' ? 'roll_detached' : 'paused',
                 producedQty: qty,
                 uom: uom.trim().isEmpty ? 'm' : uom.trim(),
-                frameCount: _testModeRezkaKadrCount(
-                  orderId: orderId,
-                  apparatus: apparatus,
-                )!,
+                frameCount: configuredRezkaKadrCount!,
                 inputBatch: activeInputBatch,
+                rezkaFrames: rezkaFrames,
                 diameter: diameter,
                 laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
                 laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
@@ -8710,12 +9008,6 @@ extension MobileApiAdmin on MobileApi {
           _testModeProgressBatchesByQr[batch.qrPayload] = batch;
         }
         states[orderId.trim()] = 'paused';
-        _testModeRecordCompletedQueueOrder(
-          actorRef: AppSession.instance.profile?.ref.trim() ?? '',
-          apparatus: storageKey,
-          orderId: orderId.trim(),
-          status: 'in_progress',
-        );
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
           apparatus: storageKey,
@@ -8753,11 +9045,9 @@ extension MobileApiAdmin on MobileApi {
           status: 'completed',
           producedQty: producedQty ?? finishedGoodsMeter ?? 1,
           uom: uom.trim().isEmpty ? 'm' : uom.trim(),
-          frameCount: _testModeRezkaKadrCount(
-            orderId: orderId,
-            apparatus: apparatus,
-          )!,
+          frameCount: configuredRezkaKadrCount!,
           inputBatch: activeInputBatch,
+          rezkaFrames: rezkaFrames,
           diameter: diameter,
           rezkaBosmaWaste: rezkaBosmaWaste,
           rezkaLaminationWaste: rezkaLaminationWaste,
@@ -8805,7 +9095,8 @@ extension MobileApiAdmin on MobileApi {
           printJobs: List<UsbRpsPrintRequest>.unmodifiable(printJobs),
         );
       } else if (action == 'resume') {
-        if (current != ApparatusQueueOrderState.paused) {
+        if (current != ApparatusQueueOrderState.paused &&
+            current != ApparatusQueueOrderState.frozen) {
           throw const MobileApiException(
             code: 'queue_action_not_allowed',
             message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
@@ -8972,6 +9263,7 @@ extension MobileApiAdmin on MobileApi {
             !hasCompleteMetrics &&
             !hasLaminatsiyaCompleteMetrics &&
             !hasRezkaQuantityMetrics &&
+            !hasExplicitRezkaFrameMetrics &&
             grossQty == null;
         if (zeroMetricCodes.isNotEmpty || missingOutputWithReason) {
           final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
@@ -9017,6 +9309,7 @@ extension MobileApiAdmin on MobileApi {
                   apparatus: apparatus,
                 )!,
                 inputBatch: activeInputBatch,
+                rezkaFrames: rezkaFrames,
                 diameter: diameter,
                 returnInkKg: returnInkKg,
                 laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
@@ -9074,15 +9367,18 @@ extension MobileApiAdmin on MobileApi {
         _testModeApparatusQueueStates[storageKey] = states;
         final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
         final completedOrderId = orderId.trim();
-        if (actorRef.isNotEmpty && completedOrderId.isNotEmpty) {
+        final historyStatus = _testModeQueueHistoryStatus(
+          orderId: completedOrderId,
+          fallbackStatus: 'completed',
+        );
+        if (actorRef.isNotEmpty &&
+            completedOrderId.isNotEmpty &&
+            historyStatus == 'completed') {
           _testModeRecordCompletedQueueOrder(
             actorRef: actorRef,
             apparatus: storageKey,
             orderId: completedOrderId,
-            status: _testModeQueueHistoryStatus(
-              orderId: completedOrderId,
-              fallbackStatus: 'completed',
-            ),
+            status: historyStatus,
           );
         }
         if (returnedPaintItems.isNotEmpty ||
@@ -9204,6 +9500,8 @@ extension MobileApiAdmin on MobileApi {
           'apparatus': apparatus,
           'order_id': orderId,
           'action': action,
+          if (freezeWithIssue) 'freeze_with_issue': true,
+          if (freezeWithIssue) 'issue_note': trimmedIssueNote,
           if (freezeRequestId.trim().isNotEmpty)
             'freeze_request_id': freezeRequestId.trim(),
           if (trimmedBarcodes.isNotEmpty) 'material_barcodes': trimmedBarcodes,
@@ -9229,6 +9527,7 @@ extension MobileApiAdmin on MobileApi {
           if (finishedGoodsKg != null) 'finished_goods_kg': finishedGoodsKg,
           if (finishedGoodsMeter != null)
             'finished_goods_meter': finishedGoodsMeter,
+          if (rezkaFrames.isNotEmpty) 'rezka_frames': rezkaFrames,
           if (uom.trim().isNotEmpty) 'uom': uom.trim(),
           if (qrPayload.trim().isNotEmpty) 'qr_payload': qrPayload.trim(),
           if (progressBatchId.trim().isNotEmpty)
@@ -9260,8 +9559,28 @@ extension MobileApiAdmin on MobileApi {
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
     final raw = payload['states'];
+    final rawOrderControl = payload['order_control'];
+    final orderControl = rawOrderControl is Map
+        ? AdminOrderControlState.fromRaw(rawOrderControl['state'])
+        : null;
+    final orderStatus = _normalizeFrozenOrderStatuses(
+      statuses: {
+        orderId.trim(): AdminProductionOrderStatusDetail.fromJson(
+          payload['order_status'],
+        ),
+      },
+      orderControls: orderControl == AdminOrderControlState.frozen
+          ? {orderId.trim(): AdminOrderControlState.frozen}
+          : const {},
+    )[orderId.trim()]!;
     if (raw is! Map) {
-      return const AdminApparatusQueueActionResult(states: {});
+      return AdminApparatusQueueActionResult(
+        states: orderControl == AdminOrderControlState.frozen
+            ? {orderId.trim(): 'frozen'}
+            : const {},
+        orderStatus: orderStatus,
+        orderControl: orderControl,
+      );
     }
     final progressRaw = payload['progress_batch'];
     final progressBatches = <AdminProgressBatch>[
@@ -9298,14 +9617,19 @@ extension MobileApiAdmin on MobileApi {
     final legacyPrintJob = printRaw is Map && printRaw['ok'] == true
         ? UsbRpsPrintRequest.fromPrintJson(printRaw.cast<String, dynamic>())
         : (printJobs.isEmpty ? null : printJobs.first);
+    final parsedStates = <String, String>{
+      for (final entry in raw.entries)
+        entry.key.toString(): entry.value.toString(),
+    };
     return AdminApparatusQueueActionResult(
-      states: {
-        for (final entry in raw.entries)
-          entry.key.toString(): entry.value.toString(),
-      },
-      orderStatus: AdminProductionOrderStatusDetail.fromJson(
-        payload['order_status'],
+      states: _normalizeFrozenQueueStates(
+        states: parsedStates,
+        orderControls: orderControl == AdminOrderControlState.frozen
+            ? {orderId.trim(): AdminOrderControlState.frozen}
+            : const {},
       ),
+      orderStatus: orderStatus,
+      orderControl: orderControl,
       progressBatch: legacyProgressBatch,
       progressBatches: progressBatches,
       completionRequest: requestRaw is Map
@@ -9554,14 +9878,16 @@ extension MobileApiAdmin on MobileApi {
         warehouse: 'Ijrochi: ${batch.executorName}',
         printer: normalizedPrinter.isEmpty ? 'godex' : normalizedPrinter,
         printMode: normalizedPrintMode.isEmpty ? 'label' : normalizedPrintMode,
-        grossQty: batch.finishedGoodsKg ?? batch.producedQty,
+        grossQty: (batch.payloadJson['gross_qty'] as num?)?.toDouble() ??
+            batch.finishedGoodsKg ??
+            batch.producedQty,
         unit: 'kg',
         tareEnabled: (batch.bobinaKg ?? 0) > 0,
         tareKg: batch.bobinaKg ?? 0,
         printCount: boundedPrintCount,
         labelKind: 'progress',
         executorName: batch.executorName,
-        progressQty: batch.producedQty,
+        progressQty: batch.finishedGoodsMeter ?? batch.producedQty,
         progressUnit: batch.uom.isEmpty ? 'm' : batch.uom,
         customerName: batch.payloadJson['customer_name']?.toString() ?? '',
       );
@@ -11446,6 +11772,7 @@ void _testModeRecordCompletedQueueOrder({
   required String apparatus,
   required String orderId,
   required String status,
+  String issueNote = '',
 }) {
   final normalizedActorRef = actorRef.trim();
   final normalizedOrderId = orderId.trim();
@@ -11466,6 +11793,7 @@ void _testModeRecordCompletedQueueOrder({
         orderId: normalizedOrderId,
         completedAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
         status: status.trim().isEmpty ? 'completed' : status.trim(),
+        issueNote: issueNote.trim(),
       ),
     ),
   );
@@ -11740,6 +12068,7 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
   required String uom,
   required int frameCount,
   required AdminProgressBatch? inputBatch,
+  List<Map<String, dynamic>> rezkaFrames = const [],
   double? diameter,
   double? returnInkKg,
   double? laminationPrintLeftoverRolls,
@@ -11774,36 +12103,101 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
       }
     }
   }
+  AdminProgressBatch buildFrame(int index) {
+    final frame = index < rezkaFrames.length
+        ? rezkaFrames[index]
+        : const <String, dynamic>{};
+    double? frameMetric(String key) {
+      final value = frame[key];
+      return value is num ? value.toDouble() : null;
+    }
+
+    final explicitFrameValues = rezkaFrames.isNotEmpty;
+    final frameProducedQty = explicitFrameValues
+        ? (frameMetric('produced_qty') ??
+            frameMetric('finished_goods_meter') ??
+            producedQty)
+        : producedQty;
+    final frameFinishedGoodsKg = explicitFrameValues
+        ? (frameMetric('finished_goods_kg') ??
+            frameMetric('gross_qty') ??
+            finishedGoodsKg)
+        : finishedGoodsKg;
+    final frameFinishedGoodsMeter = explicitFrameValues
+        ? (frameMetric('finished_goods_meter') ??
+            frameMetric('produced_qty') ??
+            finishedGoodsMeter)
+        : finishedGoodsMeter;
+    final frameGrossQty = explicitFrameValues
+        ? (frameMetric('gross_qty') ??
+            frameMetric('finished_goods_kg') ??
+            frameFinishedGoodsKg)
+        : null;
+    final frameHasWaste = [
+      'rezka_bosma_waste',
+      'rezka_lamination_waste',
+      'rezka_edge_waste',
+      'total_waste',
+    ].any(frame.containsKey);
+    final frameRezkaBosmaWaste = explicitFrameValues
+        ? (frameHasWaste
+            ? frameMetric('rezka_bosma_waste')
+            : (index == 0 ? rezkaBosmaWaste : null))
+        : (index == 0 ? rezkaBosmaWaste : null);
+    final frameRezkaLaminationWaste = explicitFrameValues
+        ? (frameHasWaste
+            ? frameMetric('rezka_lamination_waste')
+            : (index == 0 ? rezkaLaminationWaste : null))
+        : (index == 0 ? rezkaLaminationWaste : null);
+    final frameRezkaEdgeWaste = explicitFrameValues
+        ? (frameHasWaste
+            ? frameMetric('rezka_edge_waste')
+            : (index == 0 ? rezkaEdgeWaste : null))
+        : (index == 0 ? rezkaEdgeWaste : null);
+    final frameTotalWaste = explicitFrameValues
+        ? (frameHasWaste
+            ? frameMetric('total_waste')
+            : (index == 0 ? totalWaste : null))
+        : (index == 0 ? totalWaste : null);
+    final frameDiameter = explicitFrameValues
+        ? (frameMetric('diameter') ?? diameter)
+        : (index == 0 ? diameter : null);
+    final frameBobinaKg = explicitFrameValues
+        ? (frameMetric('bobina_kg') ?? frameMetric('babina_kg'))
+        : (index == 0 ? bobinaKg : null);
+    return _testModeProgressBatch(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: action,
+      status: status,
+      producedQty: frameProducedQty ?? producedQty,
+      uom: uom,
+      batchIdOverride: '$baseBatchId:frame:${index + 1}',
+      parentBatchId: parentBatchId,
+      diameter: frameDiameter,
+      returnInkKg: index == 0 ? returnInkKg : null,
+      laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
+      laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
+      rezkaBosmaWaste: frameRezkaBosmaWaste,
+      rezkaLaminationWaste: frameRezkaLaminationWaste,
+      rezkaEdgeWaste: frameRezkaEdgeWaste,
+      totalWaste: frameTotalWaste,
+      finishedGoodsKg: frameFinishedGoodsKg,
+      finishedGoodsMeter: frameFinishedGoodsMeter,
+      bobinaKg: frameBobinaKg,
+      payloadJson: {
+        'rezka_frame_index': index + 1,
+        'rezka_frame_count': frameCount,
+        'rezka_output_kind': 'frame',
+        'rezka_metrics_owner': explicitFrameValues || index == 0,
+        if (frameGrossQty != null) 'gross_qty': frameGrossQty,
+        if (labelLength != null) 'rezka_label_length': labelLength,
+      },
+    );
+  }
+
   return [
-    for (var index = 0; index < frameCount; index += 1)
-      _testModeProgressBatch(
-        apparatus: apparatus,
-        orderId: orderId,
-        action: action,
-        status: status,
-        producedQty: producedQty,
-        uom: uom,
-        batchIdOverride: '$baseBatchId:frame:${index + 1}',
-        parentBatchId: parentBatchId,
-        diameter: index == 0 ? diameter : null,
-        returnInkKg: index == 0 ? returnInkKg : null,
-        laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
-        laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
-        rezkaBosmaWaste: index == 0 ? rezkaBosmaWaste : null,
-        rezkaLaminationWaste: index == 0 ? rezkaLaminationWaste : null,
-        rezkaEdgeWaste: index == 0 ? rezkaEdgeWaste : null,
-        totalWaste: index == 0 ? totalWaste : null,
-        finishedGoodsKg: finishedGoodsKg,
-        finishedGoodsMeter: finishedGoodsMeter,
-        bobinaKg: index == 0 ? bobinaKg : null,
-        payloadJson: {
-          'rezka_frame_index': index + 1,
-          'rezka_frame_count': frameCount,
-          'rezka_output_kind': 'frame',
-          'rezka_metrics_owner': index == 0,
-          if (labelLength != null) 'rezka_label_length': labelLength,
-        },
-      ),
+    for (var index = 0; index < frameCount; index += 1) buildFrame(index)
   ];
 }
 
@@ -11822,11 +12216,13 @@ List<UsbRpsPrintRequest> _testModeProgressPrintJobs({
         warehouse: 'Ijrochi: ${batch.executorName}',
         printer: printer.trim().isEmpty ? 'godex' : printer.trim(),
         printMode: printMode.trim().isEmpty ? 'label' : printMode.trim(),
-        grossQty: batch.finishedGoodsKg ?? batch.producedQty,
+        grossQty: (batch.payloadJson['gross_qty'] as num?)?.toDouble() ??
+            batch.finishedGoodsKg ??
+            batch.producedQty,
         unit: 'kg',
         labelKind: 'progress',
         executorName: batch.executorName,
-        progressQty: batch.producedQty,
+        progressQty: batch.finishedGoodsMeter ?? batch.producedQty,
         progressUnit: batch.uom.isEmpty ? 'm' : batch.uom,
         tareEnabled: (batch.bobinaKg ?? 0) > 0,
         tareKg: batch.bobinaKg ?? 0,

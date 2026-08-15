@@ -708,6 +708,9 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
           l10n.adminText('factory_map.filter.in_progress'),
         ApparatusQueueOrderState.paused =>
           l10n.adminText('training.status_paused'),
+        ApparatusQueueOrderState.frozen => l10n.productionText(
+            'worker.freeze.active',
+          ),
         ApparatusQueueOrderState.completed =>
           l10n.adminText('factory_map.filter.completed'),
         ApparatusQueueOrderState.pending =>
@@ -717,6 +720,7 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
   Color _statusColor(ColorScheme scheme) => switch (widget.state) {
         ApparatusQueueOrderState.inProgress => const Color(0xFF2E7D32),
         ApparatusQueueOrderState.paused => const Color(0xFFC62828),
+        ApparatusQueueOrderState.frozen => const Color(0xFF1565C0),
         ApparatusQueueOrderState.completed => scheme.outline,
         ApparatusQueueOrderState.pending => scheme.primary,
       };

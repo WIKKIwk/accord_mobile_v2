@@ -92,6 +92,7 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
   required Map<String, List<String>> visibleOrderIdsByApparatus,
   required Map<String, List<String>> sequenceByApparatus,
   required Map<String, Map<String, String>> queueStatesByApparatus,
+  required Map<String, AdminOrderControlState> orderControlsByOrderId,
   required bool workerMode,
   required String query,
 }) {
@@ -106,9 +107,15 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
   );
   final activeOrders = visibleOrders
       .where(
-        (order) =>
-            apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]) !=
-                ApparatusQueueOrderState.completed,
+        (order) {
+          final orderId = order.map.id.trim();
+          final state = apparatusQueueOrderStateFromRaw(states[orderId]);
+          final orderControl =
+              orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
+          return state != ApparatusQueueOrderState.completed &&
+              state != ApparatusQueueOrderState.frozen &&
+              orderControl != AdminOrderControlState.frozen;
+        },
       )
       .toList(growable: false);
   final sequence = _sequenceOrderIdsForApparatus(
