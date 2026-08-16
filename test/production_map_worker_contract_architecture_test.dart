@@ -91,8 +91,13 @@ void main() {
     expect(fakeServer, isNot(contains('_testModeTrainingPreviousStage')));
     expect(fakeServer, isNot(contains('_testModeProgressBatchesByQr')));
     expect(fakeServer, isNot(contains('_testModeRawMaterialRules')));
-    expect(fakeServer, contains('AdminQueueInteractionMode.requeuedReady'));
-    expect(fakeServer, contains('AdminQueueInteractionMode.requeuedWaiting'));
+    expect(fakeServer, contains('_testModeQueueActionControlFixtures'));
+    expect(fakeServer, isNot(contains('_testModeApparatusSequences')));
+    expect(fakeServer, isNot(contains('_testModeApparatusQueueStates')));
+    expect(fakeServer, isNot(contains('_testModeVisibleOrderIdsByApparatus')));
+    expect(fakeServer, isNot(contains('_testModeRequeuedOrderIds')));
+    expect(fakeServer, isNot(contains('readyPendingOrderId')));
+    expect(fakeServer, isNot(contains('allowedActions.add(')));
   });
 
   test('worker sends the selected pause action unchanged', () {

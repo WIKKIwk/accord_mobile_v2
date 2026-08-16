@@ -179,6 +179,30 @@ void main() {
       );
       var snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
       expect(
+        snapshot.queueActionControls[apparatus]?[frozenOrderId],
+        isNull,
+      );
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: apparatus,
+        orderId: frozenOrderId,
+        control: const AdminApparatusQueueOrderActionControl(
+          state: 'in_progress',
+          allowedActions: {'pause', 'freeze', 'complete'},
+          hasOnlyKnownActions: true,
+          completeRequiresFullReport: true,
+          interaction: AdminQueueWorkerInteraction(
+            mode: AdminQueueInteractionMode.inProgress,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+            materialScanRequired: false,
+            assignedMaterialsDisplayOnly: false,
+            materialIntakeAllowed: true,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired,
+            qolipMode: AdminQueueQolipMode.notRequired,
+          ),
+        ),
+      );
+      snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+      expect(
         snapshot.queueActionControls[apparatus]?[frozenOrderId]?.allowedActions,
         contains('freeze'),
       );
@@ -190,6 +214,25 @@ void main() {
         issueNote: 'Sinov muammosi',
       );
 
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: apparatus,
+        orderId: frozenOrderId,
+        control: const AdminApparatusQueueOrderActionControl(
+          state: 'frozen',
+          allowedActions: {},
+          hasOnlyKnownActions: true,
+          interaction: AdminQueueWorkerInteraction(
+            mode: AdminQueueInteractionMode.frozen,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+            materialScanRequired: false,
+            assignedMaterialsDisplayOnly: true,
+            materialIntakeAllowed: false,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired,
+            qolipMode: AdminQueueQolipMode.notRequired,
+            blockingReasonCode: 'order_frozen',
+          ),
+        ),
+      );
       snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
       expect(snapshot.sequences[apparatus], [nextOrderId]);
       expect(
@@ -200,6 +243,25 @@ void main() {
       await MobileApi.instance.adminProductionMapOrderControl(
         orderId: frozenOrderId,
         action: AdminOrderControlAction.unfreeze,
+      );
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: apparatus,
+        orderId: frozenOrderId,
+        control: const AdminApparatusQueueOrderActionControl(
+          state: 'pending',
+          allowedActions: {},
+          hasOnlyKnownActions: true,
+          interaction: AdminQueueWorkerInteraction(
+            mode: AdminQueueInteractionMode.requeuedWaiting,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+            materialScanRequired: false,
+            assignedMaterialsDisplayOnly: true,
+            materialIntakeAllowed: false,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired,
+            qolipMode: AdminQueueQolipMode.notRequired,
+            blockingReasonCode: 'waiting_sequence',
+          ),
+        ),
       );
       snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
       expect(snapshot.sequences[apparatus], [nextOrderId, frozenOrderId]);
@@ -225,6 +287,24 @@ void main() {
         apparatus: apparatus,
         orderId: nextOrderId,
         action: 'complete',
+      );
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: apparatus,
+        orderId: frozenOrderId,
+        control: const AdminApparatusQueueOrderActionControl(
+          state: 'pending',
+          allowedActions: {'resume'},
+          hasOnlyKnownActions: true,
+          interaction: AdminQueueWorkerInteraction(
+            mode: AdminQueueInteractionMode.requeuedReady,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+            materialScanRequired: false,
+            assignedMaterialsDisplayOnly: true,
+            materialIntakeAllowed: false,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired,
+            qolipMode: AdminQueueQolipMode.notRequired,
+          ),
+        ),
       );
       snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
       expect(

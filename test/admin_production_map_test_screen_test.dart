@@ -5009,6 +5009,36 @@ void main() {
       ),
       AdminOrderControlState.freezeRequested,
     );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: apparatus,
+      orderId: orderId,
+      control: AdminApparatusQueueOrderActionControl(
+        state: 'in_progress',
+        allowedActions: const {'pause'},
+        hasOnlyKnownActions: true,
+        interaction: const AdminQueueWorkerInteraction(
+          mode: AdminQueueInteractionMode.freezeRequested,
+          startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+          materialScanRequired: false,
+          assignedMaterialsDisplayOnly: true,
+          materialIntakeAllowed: false,
+          previousWipMode: AdminQueuePreviousWipMode.notRequired,
+          qolipMode: AdminQueueQolipMode.notRequired,
+          blockingReasonCode: 'order_freeze_requested',
+        ),
+        freezeRequest: AdminProductionOrderFreezeDetails(
+          requestId: 'test-freeze-$orderId',
+          status: 'pending',
+          targetSessionId: 'test-session-$orderId',
+          targetApparatus: apparatus,
+          targetWorkerRole: 'aparatchi',
+          targetWorkerRef: 'worker-freeze-safe-stop',
+          targetWorkerDisplayName: 'Aparatchi',
+          requestedAtUnix: 0,
+          transitionedAtUnix: 0,
+        ),
+      ),
+    );
 
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
