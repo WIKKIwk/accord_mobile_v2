@@ -1103,6 +1103,7 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
           );
           allowedActions.add('pause');
           if (!freezeRequested) {
+            allowedActions.add('freeze');
             allowedActions.add('complete');
             completeRequiresFullReport = true;
           }

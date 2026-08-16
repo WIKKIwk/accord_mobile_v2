@@ -177,6 +177,11 @@ void main() {
         orderId: frozenOrderId,
         action: 'start',
       );
+      var snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+      expect(
+        snapshot.queueActionControls[apparatus]?[frozenOrderId]?.allowedActions,
+        contains('freeze'),
+      );
       await MobileApi.instance.adminApparatusQueueActionResult(
         apparatus: apparatus,
         orderId: frozenOrderId,
@@ -185,7 +190,7 @@ void main() {
         issueNote: 'Sinov muammosi',
       );
 
-      var snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+      snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
       expect(snapshot.sequences[apparatus], [nextOrderId]);
       expect(
         snapshot.frozenOrdersByApparatus[apparatus]?.single.issueNote,
