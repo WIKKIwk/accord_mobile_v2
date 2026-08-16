@@ -105,19 +105,17 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
     apparatus,
     queueStatesByApparatus: queueStatesByApparatus,
   );
-  final activeOrders = visibleOrders
-      .where(
-        (order) {
-          final orderId = order.map.id.trim();
-          final state = apparatusQueueOrderStateFromRaw(states[orderId]);
-          final orderControl =
-              orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
-          return state != ApparatusQueueOrderState.completed &&
-              state != ApparatusQueueOrderState.frozen &&
-              orderControl != AdminOrderControlState.frozen;
-        },
-      )
-      .toList(growable: false);
+  final activeOrders = visibleOrders.where(
+    (order) {
+      final orderId = order.map.id.trim();
+      final state = apparatusQueueOrderStateFromRaw(states[orderId]);
+      final orderControl =
+          orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
+      return state != ApparatusQueueOrderState.completed &&
+          state != ApparatusQueueOrderState.frozen &&
+          orderControl != AdminOrderControlState.frozen;
+    },
+  ).toList(growable: false);
   final sequence = _sequenceOrderIdsForApparatus(
     apparatus,
     sequenceByApparatus: sequenceByApparatus,
@@ -149,4 +147,36 @@ List<ProductionMapSaved> _applyApparatusOrderSequence({
       if (byId.containsKey(id)) byId.remove(id)!,
     ...byId.values,
   ];
+}
+
+List<AdminFrozenQueueOrder> _productionMapFrozenOrdersForApparatus({
+  required AdminApparatus apparatus,
+  required Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus,
+  required String query,
+}) {
+  final title = apparatus.name.trim();
+  final matching = <AdminFrozenQueueOrder>[];
+  final seen = <String>{};
+  for (final entry in frozenOrdersByApparatus.entries) {
+    if (!_apparatusTitlesMatch(entry.key, title)) {
+      continue;
+    }
+    for (final frozen in entry.value) {
+      if (seen.add(frozen.orderId.trim())) {
+        matching.add(frozen);
+      }
+    }
+  }
+  final normalizedQuery = query.trim().toLowerCase();
+  if (normalizedQuery.isEmpty) {
+    return matching;
+  }
+  return matching
+      .where(
+        (frozen) =>
+            frozen.orderId.toLowerCase().contains(normalizedQuery) ||
+            frozen.issueNote.toLowerCase().contains(normalizedQuery) ||
+            frozen.apparatus.toLowerCase().contains(normalizedQuery),
+      )
+      .toList(growable: false);
 }

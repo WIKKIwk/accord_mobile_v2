@@ -1,8 +1,12 @@
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('production map live snapshot parses backend visible order ids', () {
     final snapshot = AdminProductionMapLiveSnapshot.fromJson({
       'ok': true,
@@ -34,6 +38,17 @@ void main() {
           'completed_with_issue_count': 1,
         },
       },
+      'frozen_orders_by_apparatus': const {
+        'Pechat': [
+          {
+            'order_id': 'zakaz-frozen',
+            'apparatus': 'Pechat',
+            'issue_note': 'Val notekis chiqdi',
+            'frozen_at_unix': 1710000000,
+            'frozen_by': 'Aparatchi',
+          },
+        ],
+      },
     });
 
     expect(
@@ -58,6 +73,143 @@ void main() {
       1,
     );
     expect(snapshot.orderCustomers['zakaz-visible-alt'], '555 kukuruz');
+    expect(
+      snapshot.frozenOrdersByApparatus['Pechat']?.single.issueNote,
+      'Val notekis chiqdi',
+    );
+    expect(
+      snapshot.frozenOrdersByApparatus['Pechat']?.single.orderId,
+      'zakaz-frozen',
+    );
+  });
+
+  test('test mode issue freeze removes and unfreeze requeues at the tail',
+      () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    await TestModeController.instance.setEnabled(true);
+    resetMobileApiTestModeData();
+    const apparatus = 'Godex aparat - DEMO';
+    const frozenOrderId = 'zakaz-frozen-test-mode';
+    const nextOrderId = 'zakaz-next-test-mode';
+
+    const frozenMap = ProductionMapDefinition(
+      id: frozenOrderId,
+      productCode: 'FREEZE-1',
+      title: 'Freeze test order',
+      nodes: [
+        ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+        ProductionMapNode(
+          id: 'apparatus',
+          kind: 'apparatus',
+          title: apparatus,
+        ),
+        ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+      ],
+      edges: [
+        ProductionMapEdge(from: 'start', to: 'apparatus'),
+        ProductionMapEdge(from: 'apparatus', to: 'end'),
+      ],
+    );
+    const nextMap = ProductionMapDefinition(
+      id: nextOrderId,
+      productCode: 'FREEZE-2',
+      title: 'Next test order',
+      nodes: [
+        ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+        ProductionMapNode(
+          id: 'apparatus',
+          kind: 'apparatus',
+          title: apparatus,
+        ),
+        ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+      ],
+      edges: [
+        ProductionMapEdge(from: 'start', to: 'apparatus'),
+        ProductionMapEdge(from: 'apparatus', to: 'end'),
+      ],
+    );
+
+    try {
+      await MobileApi.instance.adminSaveProductionMap(frozenMap);
+      await MobileApi.instance.adminSaveProductionMap(nextMap);
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: apparatus,
+        orderIds: const [frozenOrderId, nextOrderId],
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: apparatus,
+        orderId: frozenOrderId,
+        action: 'start',
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: apparatus,
+        orderId: frozenOrderId,
+        action: 'freeze',
+        freezeWithIssue: true,
+        issueNote: 'Sinov muammosi',
+      );
+
+      var snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+      expect(snapshot.sequences[apparatus], [nextOrderId]);
+      expect(
+        snapshot.frozenOrdersByApparatus[apparatus]?.single.issueNote,
+        'Sinov muammosi',
+      );
+
+      await MobileApi.instance.adminProductionMapOrderControl(
+        orderId: frozenOrderId,
+        action: AdminOrderControlAction.unfreeze,
+      );
+      snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+      expect(snapshot.sequences[apparatus], [nextOrderId, frozenOrderId]);
+      expect(
+        snapshot.queueStates[apparatus]?[frozenOrderId],
+        'pending',
+      );
+      expect(
+        snapshot.queueActionControls[apparatus]?[frozenOrderId]?.allowedActions,
+        isEmpty,
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: apparatus,
+        orderId: nextOrderId,
+        action: 'start',
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: apparatus,
+        orderId: nextOrderId,
+        action: 'complete',
+      );
+      snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+      expect(
+        snapshot.queueActionControls[apparatus]?[frozenOrderId]?.allowedActions,
+        contains('resume'),
+      );
+      await expectLater(
+        MobileApi.instance.adminApparatusQueueActionResult(
+          apparatus: apparatus,
+          orderId: frozenOrderId,
+          action: 'start',
+        ),
+        throwsA(
+          isA<MobileApiException>().having(
+            (error) => error.code,
+            'code',
+            'queue_action_not_allowed',
+          ),
+        ),
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: apparatus,
+        orderId: frozenOrderId,
+        action: 'resume',
+      );
+      snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+      expect(snapshot.queueStates[apparatus]?[frozenOrderId], 'in_progress');
+    } finally {
+      resetMobileApiTestModeData();
+      await TestModeController.instance.setEnabled(false);
+    }
   });
 
   test('live snapshot projects frozen control over stale queue data', () {

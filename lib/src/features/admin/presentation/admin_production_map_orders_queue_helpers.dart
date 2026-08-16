@@ -12,6 +12,7 @@ bool _queueSnapshotChanged({
   required Map<String, String> orderCustomersByOrderId,
   required Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId,
   required Map<String, AdminQolipOrderNote> qolipOrderNotesByOrderId,
+  required Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus,
 }) {
   if (sequenceByApparatus.length != snapshot.sequences.length ||
       visibleOrderIdsByApparatus.length != snapshot.visibleOrderIds.length ||
@@ -21,7 +22,9 @@ bool _queueSnapshotChanged({
           snapshot.queueActionControls.length ||
       orderControlsByOrderId.length != snapshot.orderControls.length ||
       orderStatusesByOrderId.length != snapshot.orderStatuses.length ||
-      qolipOrderNotesByOrderId.length != snapshot.qolipOrderNotes.length) {
+      qolipOrderNotesByOrderId.length != snapshot.qolipOrderNotes.length ||
+      frozenOrdersByApparatus.length !=
+          snapshot.frozenOrdersByApparatus.length) {
     return true;
   }
   for (final entry in snapshot.sequences.entries) {
@@ -89,7 +92,34 @@ bool _queueSnapshotChanged({
       return true;
     }
   }
+  for (final entry in snapshot.frozenOrdersByApparatus.entries) {
+    final current = frozenOrdersByApparatus[entry.key];
+    if (current == null || !_frozenOrdersEqual(current, entry.value)) {
+      return true;
+    }
+  }
   return false;
+}
+
+bool _frozenOrdersEqual(
+  List<AdminFrozenQueueOrder> left,
+  List<AdminFrozenQueueOrder> right,
+) {
+  if (left.length != right.length) {
+    return false;
+  }
+  for (var index = 0; index < left.length; index++) {
+    final current = left[index];
+    final next = right[index];
+    if (current.apparatus != next.apparatus ||
+        current.orderId != next.orderId ||
+        current.issueNote != next.issueNote ||
+        current.frozenAtUnix != next.frozenAtUnix ||
+        current.frozenBy != next.frozenBy) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool _queueActionControlsEqual(

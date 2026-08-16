@@ -15,6 +15,8 @@ final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
 final Map<String, _TestModeApparatusTransferReceipt>
     _testModeApparatusTransfers = {};
 final Map<String, AdminOrderControlState> _testModeOrderControls = {};
+final Map<String, String> _testModeFrozenIssueNotesByOrderId = {};
+final Set<String> _testModeRequeuedOrderIds = {};
 final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
     {};
 final Map<String, AdminApparatusCapacityProfile>
@@ -141,6 +143,8 @@ void resetMobileApiTestModeData() {
   _testModeApparatusQueueStates.clear();
   _testModeApparatusTransfers.clear();
   _testModeOrderControls.clear();
+  _testModeFrozenIssueNotesByOrderId.clear();
+  _testModeRequeuedOrderIds.clear();
   _testModeApparatusQueuePolicies.clear();
   _testModeApparatusCapacityProfiles.clear();
   _testModeApparatusDowntimes.clear();
@@ -842,6 +846,136 @@ Map<String, List<String>> _testModeVisibleOrderIdsByApparatus() {
   };
 }
 
+Map<String, List<AdminFrozenQueueOrder>> _testModeFrozenOrdersByApparatus() {
+  final result = <String, List<AdminFrozenQueueOrder>>{};
+  final seenOrderIds = <String>{};
+  for (final entry in _testModeApparatusQueueStates.entries) {
+    final apparatus = entry.key.trim();
+    if (apparatus.isEmpty) {
+      continue;
+    }
+    for (final stateEntry in entry.value.entries) {
+      final orderId = stateEntry.key.trim();
+      if (orderId.isEmpty ||
+          stateEntry.value.trim().toLowerCase() != 'frozen' ||
+          _testModeOrderControls[orderId] != AdminOrderControlState.frozen ||
+          !seenOrderIds.add(orderId)) {
+        continue;
+      }
+      result.putIfAbsent(apparatus, () => <AdminFrozenQueueOrder>[]).add(
+            AdminFrozenQueueOrder(
+              apparatus: apparatus,
+              orderId: orderId,
+              issueNote: _testModeFrozenIssueNotesByOrderId[orderId] ?? '',
+              frozenAtUnix: 0,
+              frozenBy: '',
+            ),
+          );
+    }
+  }
+  return {
+    for (final entry in result.entries)
+      entry.key: List<AdminFrozenQueueOrder>.unmodifiable(entry.value),
+  };
+}
+
+Map<String, List<String>> _testModeEffectiveQueueSequences() {
+  final visible = _testModeVisibleOrderIdsByApparatus();
+  final frozenIds = _frozenOrderIds(_testModeOrderControls);
+  final knownKeys = <String>{
+    ..._testModeApparatusSequences.keys,
+    ...visible.keys,
+  };
+  return {
+    for (final apparatus in knownKeys)
+      apparatus: List<String>.unmodifiable(
+        effectiveQueueSequence(
+          sequence: _testModeApparatusSequences[apparatus] ?? const [],
+          visibleOrderIds: visible[apparatus] ?? const [],
+        ).where((orderId) => !frozenIds.contains(orderId.trim())),
+      ),
+  };
+}
+
+void _testModeRemoveOrderFromQueueSequence(String orderId) {
+  final normalizedOrderId = orderId.trim();
+  if (normalizedOrderId.isEmpty) {
+    return;
+  }
+  for (final sequence in _testModeApparatusSequences.values) {
+    sequence.removeWhere((id) => id.trim() == normalizedOrderId);
+  }
+}
+
+void _testModeRequeueOrderAtTail(String orderId) {
+  final normalizedOrderId = orderId.trim();
+  if (normalizedOrderId.isEmpty) {
+    return;
+  }
+  final visible = _testModeVisibleOrderIdsByApparatus();
+  final knownKeys = <String>{
+    ..._testModeApparatusSequences.keys,
+    ...visible.keys,
+  };
+  final seenStorageKeys = <String>{};
+  for (final requestedApparatus in knownKeys) {
+    final storageKey =
+        resolveApparatusStorageKey(requestedApparatus, knownKeys);
+    if (!seenStorageKeys.add(storageKey)) {
+      continue;
+    }
+    final apparatusVisible = visible.entries
+        .where(
+          (candidate) => productionMapQueueApparatusTitlesMatch(
+            candidate.key,
+            requestedApparatus,
+          ),
+        )
+        .expand((candidate) => candidate.value);
+    final sequence = List<String>.from(
+      _testModeApparatusSequences[storageKey] ??
+          _testModeApparatusSequences[requestedApparatus] ??
+          const [],
+    )..removeWhere((id) => id.trim() == normalizedOrderId);
+    if (apparatusVisible.any((id) => id.trim() == normalizedOrderId)) {
+      sequence.add(normalizedOrderId);
+      _testModeApparatusSequences[storageKey] = sequence;
+    } else if (_testModeApparatusSequences.containsKey(storageKey)) {
+      _testModeApparatusSequences[storageKey] = sequence;
+    }
+  }
+}
+
+MapEntry<String, Map<String, String>>? _testModeFrozenQueueTarget(
+  String orderId,
+) {
+  final normalizedOrderId = orderId.trim();
+  if (normalizedOrderId.isEmpty) {
+    return null;
+  }
+  for (final entry in _testModeApparatusQueueStates.entries) {
+    if (apparatusQueueOrderStateFromRaw(entry.value[normalizedOrderId]) ==
+        ApparatusQueueOrderState.inProgress) {
+      return entry;
+    }
+  }
+  for (final entry in _testModeApparatusQueueStates.entries) {
+    if (apparatusQueueOrderStateFromRaw(entry.value[normalizedOrderId]) ==
+        ApparatusQueueOrderState.paused) {
+      return entry;
+    }
+  }
+  return null;
+}
+
+void _testModeFreezeOrderQueue(String orderId) {
+  final target = _testModeFrozenQueueTarget(orderId);
+  if (target != null) {
+    target.value[orderId.trim()] = 'frozen';
+  }
+  _testModeRemoveOrderFromQueueSequence(orderId);
+}
+
 Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
     _testModeQueueActionControls() {
   final visible = _testModeVisibleOrderIdsByApparatus();
@@ -860,7 +994,10 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
           _testModeApparatusSequences[apparatus] ??
           const [],
       visibleOrderIds: visible[storageKey] ?? visible[apparatus] ?? const [],
-    );
+    ).where((orderId) {
+      return _testModeOrderControls[orderId.trim()] !=
+          AdminOrderControlState.frozen;
+    }).toList(growable: false);
     final states = _testModeApparatusQueueStates[storageKey] ??
         _testModeApparatusQueueStates[apparatus] ??
         const <String, String>{};
@@ -885,6 +1022,7 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       final state = apparatusQueueOrderStateFromRaw(states[orderId]);
       final orderControl =
           _testModeOrderControls[orderId] ?? AdminOrderControlState.active;
+      final isRequeued = _testModeRequeuedOrderIds.contains(orderId.trim());
       final previousStage = order == null
           ? null
           : _testModeTrainingPreviousStage(
@@ -927,7 +1065,7 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
                     activeOrderId == null ||
                     activeOrderId == orderId ||
                     actionableOrderId == orderId)) {
-              allowedActions.add('start');
+              allowedActions.add(isRequeued ? 'resume' : 'start');
             }
             break;
           case ApparatusQueueOrderState.inProgress:
@@ -1305,6 +1443,7 @@ class AdminApparatusQueueSnapshot {
     this.orderCustomers = const {},
     this.orderStatuses = const {},
     this.qolipOrderNotes = const {},
+    this.frozenOrdersByApparatus = const {},
   });
 
   final Map<String, List<String>> sequences;
@@ -1317,6 +1456,7 @@ class AdminApparatusQueueSnapshot {
   final Map<String, String> orderCustomers;
   final Map<String, AdminProductionOrderStatusDetail> orderStatuses;
   final Map<String, AdminQolipOrderNote> qolipOrderNotes;
+  final Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus;
 }
 
 enum AdminOrderControlState {
@@ -1417,6 +1557,9 @@ AdminOrderControlState? _applyTestModeOrderControl(
           ? AdminOrderControlState.freezeRequested
           : AdminOrderControlState.frozen;
       _testModeOrderControls[orderId] = next;
+      if (next == AdminOrderControlState.frozen) {
+        _testModeFreezeOrderQueue(orderId);
+      }
       return next;
     case AdminOrderControlAction.cancelFreeze:
       if (current != AdminOrderControlState.freezeRequested) {
@@ -1434,18 +1577,24 @@ AdminOrderControlState? _applyTestModeOrderControl(
           message: 'Buyurtmaning hozirgi holatida bu amal mumkin emas',
         );
       }
+      MapEntry<String, Map<String, String>>? target;
       for (final entry in _testModeApparatusQueueStates.entries) {
-        final state = entry.value[orderId]?.trim().toLowerCase();
-        if (state != 'frozen') {
-          continue;
+        if (entry.value[orderId]?.trim().toLowerCase() == 'frozen') {
+          target = entry;
+          break;
         }
-        entry.value[orderId] = 'paused';
+      }
+      if (target != null) {
+        target.value[orderId] = 'pending';
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
-          apparatus: entry.key,
-          status: 'paused',
+          apparatus: target.key,
+          status: 'active',
         );
       }
+      _testModeRequeueOrderAtTail(orderId);
+      _testModeFrozenIssueNotesByOrderId.remove(orderId);
+      _testModeRequeuedOrderIds.add(orderId);
       _testModeOrderControls[orderId] = AdminOrderControlState.active;
       return AdminOrderControlState.active;
     case AdminOrderControlAction.delete:
@@ -1493,6 +1642,8 @@ AdminOrderControlState? _applyTestModeOrderControl(
         apparatusStates.remove(orderId);
       }
       _testModeOrderControls.remove(orderId);
+      _testModeFrozenIssueNotesByOrderId.remove(orderId);
+      _testModeRequeuedOrderIds.remove(orderId);
       return null;
   }
 }
@@ -1537,6 +1688,39 @@ Map<String, AdminQolipOrderNote> _parseAdminQolipOrderNotes(Object? raw) {
   return notes;
 }
 
+Map<String, List<AdminFrozenQueueOrder>> _parseAdminFrozenOrdersByApparatus(
+  Object? raw,
+) {
+  if (raw is! Map) {
+    return const {};
+  }
+  final result = <String, List<AdminFrozenQueueOrder>>{};
+  for (final entry in raw.entries) {
+    final apparatus = entry.key.toString().trim();
+    final rawOrders = entry.value;
+    if (apparatus.isEmpty || rawOrders is! List) {
+      continue;
+    }
+    final orders = <AdminFrozenQueueOrder>[];
+    for (final item in rawOrders) {
+      if (item is! Map) {
+        continue;
+      }
+      final frozen = AdminFrozenQueueOrder.fromJson(
+        item.cast<String, dynamic>(),
+        fallbackApparatus: apparatus,
+      );
+      if (frozen.orderId.trim().isNotEmpty) {
+        orders.add(frozen);
+      }
+    }
+    if (orders.isNotEmpty) {
+      result[apparatus] = List<AdminFrozenQueueOrder>.unmodifiable(orders);
+    }
+  }
+  return Map<String, List<AdminFrozenQueueOrder>>.unmodifiable(result);
+}
+
 Map<String, List<String>> _parseRequiredProductionMapVisibleOrderIds(
   Map<String, dynamic> json,
 ) {
@@ -1575,6 +1759,36 @@ class AdminCompletedQueueOrder {
       completedAtUnix: (json['completed_at_unix'] as num?)?.toInt() ?? 0,
       status: status.isEmpty ? 'completed' : status,
       issueNote: json['issue_note']?.toString() ?? '',
+    );
+  }
+}
+
+class AdminFrozenQueueOrder {
+  const AdminFrozenQueueOrder({
+    required this.apparatus,
+    required this.orderId,
+    required this.issueNote,
+    required this.frozenAtUnix,
+    required this.frozenBy,
+  });
+
+  final String apparatus;
+  final String orderId;
+  final String issueNote;
+  final int frozenAtUnix;
+  final String frozenBy;
+
+  factory AdminFrozenQueueOrder.fromJson(
+    Map<String, dynamic> json, {
+    String fallbackApparatus = '',
+  }) {
+    final apparatus = json['apparatus']?.toString().trim() ?? '';
+    return AdminFrozenQueueOrder(
+      apparatus: apparatus.isEmpty ? fallbackApparatus : apparatus,
+      orderId: json['order_id']?.toString() ?? '',
+      issueNote: json['issue_note']?.toString() ?? '',
+      frozenAtUnix: (json['frozen_at_unix'] as num?)?.toInt() ?? 0,
+      frozenBy: json['frozen_by']?.toString() ?? '',
     );
   }
 }
@@ -3896,6 +4110,7 @@ class AdminProductionMapLiveSnapshot {
     required this.orderControls,
     this.orderCustomers = const {},
     this.orderStatuses = const {},
+    this.frozenOrdersByApparatus = const {},
   });
 
   final List<ProductionMapSaved> maps;
@@ -3912,6 +4127,7 @@ class AdminProductionMapLiveSnapshot {
   final Map<String, AdminOrderControlState> orderControls;
   final Map<String, String> orderCustomers;
   final Map<String, AdminProductionOrderStatusDetail> orderStatuses;
+  final Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus;
 
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
     final mapsRaw = json['maps'];
@@ -3972,6 +4188,9 @@ class AdminProductionMapLiveSnapshot {
       orderStatuses: _normalizeFrozenOrderStatuses(
         statuses: _parseAdminOrderStatuses(json['order_statuses']),
         orderControls: orderControls,
+      ),
+      frozenOrdersByApparatus: _parseAdminFrozenOrdersByApparatus(
+        json['frozen_orders_by_apparatus'],
       ),
     );
   }
@@ -5901,10 +6120,7 @@ extension MobileApiAdmin on MobileApi {
         _testModeOrderControls,
       );
       return AdminApparatusQueueSnapshot(
-        sequences: {
-          for (final entry in _testModeApparatusSequences.entries)
-            entry.key: List<String>.unmodifiable(entry.value),
-        },
+        sequences: _testModeEffectiveQueueSequences(),
         visibleOrderIds: _testModeVisibleOrderIdsByApparatus(),
         queueStates: _normalizeFrozenQueueStatesByApparatus(
           states: {
@@ -5928,6 +6144,7 @@ extension MobileApiAdmin on MobileApi {
         qolipOrderNotes: Map<String, AdminQolipOrderNote>.unmodifiable(
           _testModeQolipOrderNotes,
         ),
+        frozenOrdersByApparatus: _testModeFrozenOrdersByApparatus(),
       );
     }
     final response = await _sendAuthorized(
@@ -5963,6 +6180,9 @@ extension MobileApiAdmin on MobileApi {
       ),
       qolipOrderNotes: _parseAdminQolipOrderNotes(
         payload['qolip_order_notes'],
+      ),
+      frozenOrdersByApparatus: _parseAdminFrozenOrdersByApparatus(
+        payload['frozen_orders_by_apparatus'],
       ),
     );
   }
@@ -8459,12 +8679,14 @@ extension MobileApiAdmin on MobileApi {
         }
         states[orderId.trim()] = 'frozen';
         _testModeOrderControls[orderId.trim()] = AdminOrderControlState.frozen;
+        _testModeFrozenIssueNotesByOrderId[orderId.trim()] = trimmedIssueNote;
         _testModeApparatusQueueStates[storageKey] = states;
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
           apparatus: storageKey,
           status: 'frozen',
         );
+        _testModeRemoveOrderFromQueueSequence(orderId);
         return AdminApparatusQueueActionResult(
           states: Map<String, String>.unmodifiable(states),
           orderStatus: const AdminProductionOrderStatusDetail(
@@ -8680,6 +8902,13 @@ extension MobileApiAdmin on MobileApi {
         }
       }
       if (action == 'start') {
+        if (_testModeRequeuedOrderIds.contains(orderId.trim())) {
+          throw const MobileApiException(
+            code: 'queue_action_not_allowed',
+            message:
+                'Muzlatishdan qaytgan order Resume orqali davom ettiriladi',
+          );
+        }
         if (hasPreviousStage && startInputBatch == null) {
           throw const MobileApiException(
             code: 'progress_qr_required',
@@ -9095,8 +9324,10 @@ extension MobileApiAdmin on MobileApi {
           printJobs: List<UsbRpsPrintRequest>.unmodifiable(printJobs),
         );
       } else if (action == 'resume') {
+        final requeued = _testModeRequeuedOrderIds.contains(orderId.trim());
         if (current != ApparatusQueueOrderState.paused &&
-            current != ApparatusQueueOrderState.frozen) {
+            current != ApparatusQueueOrderState.frozen &&
+            !(requeued && current == ApparatusQueueOrderState.pending)) {
           throw const MobileApiException(
             code: 'queue_action_not_allowed',
             message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
@@ -9197,6 +9428,7 @@ extension MobileApiAdmin on MobileApi {
           orderId: orderId,
         );
         states[orderId.trim()] = 'in_progress';
+        _testModeRequeuedOrderIds.remove(orderId.trim());
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
           apparatus: storageKey,

@@ -266,6 +266,7 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, AdminApparatusQueuePolicy> _queuePoliciesByApparatus = {};
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       _queueActionControlsByApparatus = {};
+  final Map<String, List<AdminFrozenQueueOrder>> _frozenOrdersByApparatus = {};
   final Map<String, AdminOrderControlState> _orderControlsByOrderId = {};
   final Map<String, AdminProductionOrderStatusDetail> _orderStatusesByOrderId =
       {};
@@ -277,8 +278,8 @@ class _AdminProductionMapOrdersScreenState
   AdminProductionWorkflowAuditReport? _workflowAudit;
   String? _workflowAuditError;
   bool _workflowAuditLoading = false;
-  bool _queueActionInFlight = false;
-  bool _orderControlActionInFlight = false;
+  final Set<String> _queueActionsInFlight = {};
+  final Set<String> _orderControlActionsInFlight = {};
   Map<String, double> _baseMetrajByMapId = const {};
   Map<String, double> _orderKgByMapId = const {};
   Map<String, String> _customerByMapId = const {};
@@ -357,11 +358,14 @@ class _AdminProductionMapOrdersScreenState
   Future<AdminApparatusQueueActionResult?> _handleQueueAction(
     _ReadOnlyQueueActionRequest request,
   ) async {
-    if (_queueActionInFlight) {
+    final apparatusKey = request.apparatus.name.trim();
+    final actionKey = '$apparatusKey|${request.order.map.id.trim()}';
+    if (!_queueActionsInFlight.add(actionKey)) {
       return null;
     }
-    final apparatusKey = request.apparatus.name.trim();
-    _setQueueActionInFlight(true);
+    if (mounted) {
+      setState(() {});
+    }
     try {
       final result = await _submitAdminApparatusQueueAction(
         request,
@@ -378,14 +382,10 @@ class _AdminProductionMapOrdersScreenState
       );
       return result;
     } finally {
-      _setQueueActionInFlight(false);
-    }
-  }
-
-  void _setQueueActionInFlight(bool value) {
-    _queueActionInFlight = value;
-    if (mounted) {
-      setState(() {});
+      _queueActionsInFlight.remove(actionKey);
+      if (mounted) {
+        setState(() {});
+      }
     }
   }
 
@@ -912,13 +912,13 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _showOrderActions(ProductionMapSaved order) async {
+    final orderId = order.map.id.trim();
     if (widget.readOnly ||
         widget.workerMode ||
         widget.supplyViewerMode ||
-        _orderControlActionInFlight) {
+        _orderControlActionsInFlight.contains(orderId)) {
       return;
     }
-    final orderId = order.map.id.trim();
     final control =
         _orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
     final hasFrozenQueueState = _queueStatesByApparatus.values.any(
@@ -1053,7 +1053,10 @@ class _AdminProductionMapOrdersScreenState
     AdminOrderControlAction action,
   ) async {
     final orderId = order.map.id.trim();
-    setState(() => _orderControlActionInFlight = true);
+    if (!_orderControlActionsInFlight.add(orderId)) {
+      return;
+    }
+    setState(() {});
     try {
       final next = await MobileApi.instance.adminProductionMapOrderControl(
         orderId: orderId,
@@ -1098,8 +1101,9 @@ class _AdminProductionMapOrdersScreenState
         );
       }
     } finally {
+      _orderControlActionsInFlight.remove(orderId);
       if (mounted) {
-        setState(() => _orderControlActionInFlight = false);
+        setState(() {});
       }
     }
   }
@@ -1301,6 +1305,7 @@ class _AdminProductionMapOrdersScreenState
                       sequenceByApparatus: _sequenceByApparatus,
                       visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
                       queueStatesByApparatus: _queueStatesByApparatus,
+                      frozenOrdersByApparatus: _frozenOrdersByApparatus,
                       orderStatusesByOrderId: _orderStatusesByOrderId,
                       orderControlsByOrderId: _orderControlsByOrderId,
                       searchQuery: _searchQuery,
@@ -1363,6 +1368,7 @@ class _AdminProductionMapOrdersScreenState
                               : _showWatchOrderDetail,
                       customerNameByMapId: _customerByMapId,
                       queueStatesByApparatus: _queueStatesByApparatus,
+                      frozenOrdersByApparatus: _frozenOrdersByApparatus,
                       orderStatusesByOrderId: _orderStatusesByOrderId,
                       qolipOrderNotesByOrderId: _qolipOrderNotesByOrderId,
                       sequenceInteractionHint: isQolipchi

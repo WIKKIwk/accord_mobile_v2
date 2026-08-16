@@ -120,6 +120,7 @@ extension _AdminProductionMapOrdersLiveState
         orderControls: snapshot.orderControls,
         orderCustomers: snapshot.orderCustomers,
         orderStatuses: snapshot.orderStatuses,
+        frozenOrdersByApparatus: snapshot.frozenOrdersByApparatus,
       );
       _completedWorkerOrders = snapshot.completedOrders;
       _completionRequests = snapshot.completionRequests;
@@ -216,6 +217,7 @@ extension _AdminProductionMapOrdersLiveState
         orderCustomersByOrderId: _customerByMapId,
         orderStatusesByOrderId: _orderStatusesByOrderId,
         qolipOrderNotesByOrderId: _qolipOrderNotesByOrderId,
+        frozenOrdersByApparatus: _frozenOrdersByApparatus,
       )) {
         return;
       }
@@ -230,6 +232,7 @@ extension _AdminProductionMapOrdersLiveState
           orderCustomers: queueSnapshot.orderCustomers,
           orderStatuses: queueSnapshot.orderStatuses,
           qolipOrderNotes: queueSnapshot.qolipOrderNotes,
+          frozenOrdersByApparatus: queueSnapshot.frozenOrdersByApparatus,
         );
       });
     } catch (error) {
@@ -257,6 +260,7 @@ extension _AdminProductionMapOrdersLiveState
     required Map<String, AdminOrderControlState> orderControls,
     required Map<String, String> orderCustomers,
     required Map<String, AdminProductionOrderStatusDetail> orderStatuses,
+    required Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus,
     Map<String, AdminQolipOrderNote>? qolipOrderNotes,
   }) {
     _sequenceByApparatus
@@ -274,6 +278,9 @@ extension _AdminProductionMapOrdersLiveState
     _queueActionControlsByApparatus
       ..clear()
       ..addAll(queueActionControls);
+    _frozenOrdersByApparatus
+      ..clear()
+      ..addAll(frozenOrdersByApparatus);
     _orderControlsByOrderId
       ..clear()
       ..addAll(orderControls);
