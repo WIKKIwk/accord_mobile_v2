@@ -175,9 +175,16 @@ Future<bool> showProductionMapFreezePauseFlow(
   final snapshot = results[1] as AdminApparatusQueueSnapshot;
   final target = AdminApparatus(name: normalizedApparatus);
   List<String> visibleOrderIds = const <String>[];
+  AdminApparatusQueueOrderActionControl? queueActionControl;
   for (final entry in snapshot.visibleOrderIds.entries) {
     if (productionMapWarehouseTitlesMatch(entry.key, normalizedApparatus)) {
       visibleOrderIds = entry.value;
+      break;
+    }
+  }
+  for (final entry in snapshot.queueActionControls.entries) {
+    if (productionMapWarehouseTitlesMatch(entry.key, normalizedApparatus)) {
+      queueActionControl = entry.value[normalizedOrderId];
       break;
     }
   }
@@ -189,12 +196,14 @@ Future<bool> showProductionMapFreezePauseFlow(
     builder: (context) => _ReadOnlyOrderDetailSheet(
       order: order,
       apparatus: target,
+      workerMode: true,
       canManageQueue: true,
       initialQueueStates: _queueStatesForApparatus(
         target,
         queueStatesByApparatus: snapshot.queueStates,
       ),
       queueStatesByApparatus: snapshot.queueStates,
+      queueActionControl: queueActionControl,
       queuePolicy: _queuePolicyForApparatus(
         target,
         queuePoliciesByApparatus: snapshot.queuePolicies,

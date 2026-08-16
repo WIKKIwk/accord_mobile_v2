@@ -400,7 +400,9 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     printTransport: printTransport,
     printer: printer,
     printMode: printMode,
-    completionRequestNote: completionRequestNote,
+    completionRequestNote: completionRequestNote.trim().isEmpty
+        ? progressInput?.description ?? ''
+        : completionRequestNote,
     returnedPaintItems: progressInput?.returnedPaintItems ?? const [],
     returnedPaintImageId: progressInput?.returnedPaintImageId ?? '',
     fullCompletionReportRequired:

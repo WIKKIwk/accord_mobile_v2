@@ -84,6 +84,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   DateTime? _lastQuickScanAt;
   AdminProgressBatch? _startInputProgressBatch;
   bool _actionInFlight = false;
+  bool _lastQueueActionPrintFailed = false;
   bool _materialIntakeInFlight = false;
   bool _materialIntakeMode = false;
   bool _materialsLoading = true;
@@ -501,6 +502,48 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return null;
   }
 
+  Future<AdminProductionOrderFreezeDetails?>
+      _loadAuthoritativeFreezeRequest() async {
+    try {
+      final control = await _loadCurrentQueueActionControl();
+      if (!mounted) return null;
+      final request = control?.freezeRequest;
+      final apparatus = widget.apparatus?.name.trim() ?? '';
+      final initialRequestId = widget.initialPauseRequestId.trim();
+      final valid = control != null &&
+          control.state.trim() == 'in_progress' &&
+          request != null &&
+          request.status.trim() == 'pending' &&
+          request.requestId.trim().isNotEmpty &&
+          request.targetSessionId.trim().isNotEmpty &&
+          productionMapWarehouseTitlesMatch(
+            request.targetApparatus,
+            apparatus,
+          ) &&
+          (initialRequestId.isEmpty ||
+              request.requestId.trim() == initialRequestId);
+      if (!valid) {
+        _showSheetNotice(
+          context.l10n.productionText(
+            'worker.freeze.safe_stop.metadata_missing',
+          ),
+        );
+        return null;
+      }
+      setState(() => _queueActionControl = control);
+      return request;
+    } catch (_) {
+      if (mounted) {
+        _showSheetNotice(
+          context.l10n.productionText(
+            'worker.freeze.safe_stop.metadata_missing',
+          ),
+        );
+      }
+      return null;
+    }
+  }
+
   Future<bool> _runQueueAction(
     String action, {
     _ProgressQtyInput? progressInput,
@@ -518,6 +561,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     bool removeRollFromApparatus = false,
     bool freezeWithIssue = false,
     String issueNote = '',
+    String freezeRequestId = '',
   }) async {
     if (_orderControlState == AdminOrderControlState.frozen) {
       return false;
@@ -561,7 +605,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (!mounted || qolipCodes == null) {
       return false;
     }
-    setState(() => _actionInFlight = true);
+    setState(() {
+      _actionInFlight = true;
+      _lastQueueActionPrintFailed = false;
+    });
     try {
       final states = await prepared
           .onQueueAction(
@@ -586,8 +633,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               removeRollFromApparatus: removeRollFromApparatus,
               freezeWithIssue: freezeWithIssue,
               issueNote: issueNote,
-              freezeRequestId:
-                  action == 'pause' ? widget.initialPauseRequestId : '',
+              freezeRequestId: freezeRequestId,
             ),
           )
           .timeout(_queueActionUiTimeout);
@@ -625,13 +671,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           _requiredQolips.clear();
           _qolipsExpanded = false;
         }
-        if (action == 'pause' &&
-            states != null &&
-            _orderControlState == AdminOrderControlState.freezeRequested) {
-          _orderControlState = AdminOrderControlState.frozen;
-          _orderControls[widget.order.map.id.trim()] =
-              AdminOrderControlState.frozen;
-        }
       });
       if (_queueActionShouldReloadMaterials(action: action, result: states)) {
         unawaited(_loadMaterialAssignments());
@@ -661,6 +700,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           }
         } catch (_) {
           if (mounted) {
+            _lastQueueActionPrintFailed = true;
             _showSheetNotice(
               context.l10n.productionText(
                 'worker.notice.action_print_failed',
@@ -1103,7 +1143,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _runInitialPauseFlow() async {
-    final outcome = await _runProgressAction('pause');
+    final outcome = await _runProgressAction(
+      _orderControlState == AdminOrderControlState.freezeRequested
+          ? 'detach_roll'
+          : 'pause',
+    );
     if (!mounted) return;
     if (outcome == _ProgressActionOutcome.completed) {
       Navigator.of(context).pop(true);
@@ -1233,6 +1277,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (_orderControlState == AdminOrderControlState.frozen) {
       return _ProgressActionOutcome.failed;
     }
+    final freezeRequestSafeStop =
+        _orderControlState == AdminOrderControlState.freezeRequested;
+    final freezeRequest =
+        freezeRequestSafeStop ? await _loadAuthoritativeFreezeRequest() : null;
+    if (freezeRequestSafeStop && freezeRequest == null) {
+      return _ProgressActionOutcome.failed;
+    }
     final scope = returnedPaintWorkerDraftScope(
       actorRef: AppSession.instance.profile?.ref ?? '',
       orderId: widget.order.map.id,
@@ -1255,11 +1306,29 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           fullCompletionReportRequired ?? _completionNeedsFullReport(action),
       workerHandoff: workerHandoff,
       removeRollFromApparatus: removeRollFromApparatus,
+      freezeRequestSafeStop: freezeRequestSafeStop,
     );
     if (!mounted || input == null) {
       return _ProgressActionOutcome.cancelled;
     }
     final isTrainingOrder = widget.order.map.id.trim().startsWith('training-');
+    if (input.isIssue && freezeRequestSafeStop && !isTrainingOrder) {
+      final completed = await _runQueueAction(
+        action,
+        progressInput: input,
+        freezeRequestId: freezeRequest!.requestId,
+      );
+      if (completed && mounted) {
+        _showSheetNotice(
+          context.l10n.productionText(
+            'worker.freeze.safe_stop.issue_success',
+          ),
+        );
+      }
+      return completed
+          ? _ProgressActionOutcome.completed
+          : _ProgressActionOutcome.failed;
+    }
     if (input.isIssue && !isTrainingOrder) {
       final completed = await _runQueueAction(
         'freeze',
@@ -1277,6 +1346,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         uom: 'm',
         workerHandoff: workerHandoff,
         removeRollFromApparatus: removeRollFromApparatus,
+        freezeRequestId: freezeRequest?.requestId ?? '',
       );
       return completed
           ? _ProgressActionOutcome.completed
@@ -1301,7 +1371,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       bluetoothPrinter: printerOption.bluetoothPrinter,
       workerHandoff: workerHandoff,
       removeRollFromApparatus: removeRollFromApparatus,
+      freezeRequestId: freezeRequest?.requestId ?? '',
     );
+    if (mounted &&
+        completed &&
+        freezeRequestSafeStop &&
+        !_lastQueueActionPrintFailed) {
+      _showSheetNotice(
+        context.l10n.productionText(
+          'worker.freeze.safe_stop.healthy_success',
+        ),
+      );
+    }
     if (completed && action == 'complete') {
       await ReturnedPaintDraftStore.instance.clear(scope);
       _returnedPaintDraft = null;
@@ -1581,7 +1662,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       steps: steps,
       uiState: uiState,
       pauseLabel: widget.workerMode
-          ? context.l10n.productionText('worker.action.detach_roll')
+          ? context.l10n.productionText(
+              _orderControlState == AdminOrderControlState.freezeRequested
+                  ? 'worker.freeze.safe_stop.action'
+                  : 'worker.action.detach_roll',
+            )
           : context.l10n.productionText('worker.action.pause'),
       queueStates: _queueStates,
       queueStatesByApparatus: widget.queueStatesByApparatus,

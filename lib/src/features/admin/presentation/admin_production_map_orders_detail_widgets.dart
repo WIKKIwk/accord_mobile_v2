@@ -1224,36 +1224,40 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: actionInFlight || orderFrozen ? null : onPause,
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                  if (showPause)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed:
+                            actionInFlight || orderFrozen ? null : onPause,
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
-                      ),
-                      child: Text(pauseLabel),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: actionInFlight ||
-                              orderControlState != AdminOrderControlState.active
-                          ? null
-                          : onComplete,
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: Text(
-                        context.l10n.productionText('worker.action.complete'),
+                        child: Text(pauseLabel),
                       ),
                     ),
-                  ),
+                  if (showPause && showComplete) const SizedBox(width: 10),
+                  if (showComplete)
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: actionInFlight ||
+                                orderControlState !=
+                                    AdminOrderControlState.active
+                            ? null
+                            : onComplete,
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(
+                          context.l10n.productionText('worker.action.complete'),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ],

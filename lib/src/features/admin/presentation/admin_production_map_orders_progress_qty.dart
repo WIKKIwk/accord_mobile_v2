@@ -94,6 +94,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   bool workerHandoff = false,
   bool removeRollFromApparatus = false,
   bool astatkaReport = false,
+  bool freezeRequestSafeStop = false,
 }) async {
   final draft = returnedPaintDraft ??
       await ReturnedPaintDraftStore.instance.load(
@@ -119,6 +120,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       workerHandoff: workerHandoff,
       removeRollFromApparatus: removeRollFromApparatus,
       astatkaReport: astatkaReport,
+      freezeRequestSafeStop: freezeRequestSafeStop,
     ),
   );
 }
@@ -133,6 +135,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   bool workerHandoff = false,
   bool removeRollFromApparatus = false,
   bool astatkaReport = false,
+  bool freezeRequestSafeStop = false,
 }) {
   final title = apparatus?.name ?? '';
   return _showProgressQtyDialog(
@@ -148,6 +151,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     workerHandoff: workerHandoff,
     removeRollFromApparatus: removeRollFromApparatus,
     astatkaReport: astatkaReport,
+    freezeRequestSafeStop: freezeRequestSafeStop,
   );
 }
 
@@ -179,6 +183,7 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.workerHandoff,
     required this.removeRollFromApparatus,
     required this.astatkaReport,
+    required this.freezeRequestSafeStop,
   });
 
   final String action;
@@ -192,6 +197,7 @@ class _ProgressQtyDialog extends StatefulWidget {
   final bool workerHandoff;
   final bool removeRollFromApparatus;
   final bool astatkaReport;
+  final bool freezeRequestSafeStop;
 
   @override
   State<_ProgressQtyDialog> createState() => _ProgressQtyDialogState();
@@ -230,6 +236,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   bool get _isAstatkaReport => widget.astatkaReport;
 
   bool get _isRollRemoval => widget.removeRollFromApparatus;
+
+  bool get _isFreezeRequestSafeStop => widget.freezeRequestSafeStop;
 
   int get _rezkaFrameCount {
     final node = _rezkaNodeForStation(
@@ -363,10 +371,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       final kg = _parseQty(frame.kg.text);
       final bobina = _parseQty(frame.bobina.text);
       final diameter = _parseQty(frame.diameter.text);
-      if (meter == null || meter <= 0 ||
-          kg == null || kg <= 0 ||
-          bobina == null || bobina <= 0 ||
-          diameter == null || diameter <= 0) {
+      if (meter == null ||
+          meter <= 0 ||
+          kg == null ||
+          kg <= 0 ||
+          bobina == null ||
+          bobina <= 0 ||
+          diameter == null ||
+          diameter <= 0) {
         return null;
       }
       frames.add(
@@ -384,6 +396,38 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   void _submit() {
     setState(() => _completionError = '');
     final description = _descriptionController.text.trim();
+    final hasRawOutput = <TextEditingController>[
+      _meterController,
+      _kgController,
+      _bobinaController,
+      _diameterController,
+      _printLeftoverController,
+      _filmLeftoverController,
+      _rezkaBosmaWasteController,
+      _rezkaLaminationWasteController,
+      _rezkaEdgeWasteController,
+      _wasteController,
+      for (final frame in _rezkaFrameControllers) ...[
+        frame.meter,
+        frame.kg,
+        frame.bobina,
+        frame.diameter,
+      ],
+    ].any((controller) => controller.text.trim().isNotEmpty);
+    if (_isFreezeRequestSafeStop && !hasRawOutput) {
+      if (description.isNotEmpty) {
+        Navigator.of(context).pop(
+          _ProgressQtyInput(description: description, isIssue: true),
+        );
+      } else {
+        setState(() {
+          _completionError = context.l10n.productionText(
+            'worker.freeze.safe_stop.output_or_issue_required',
+          );
+        });
+      }
+      return;
+    }
     if (_isComplete && description.isNotEmpty) {
       Navigator.of(context).pop(
         _ProgressQtyInput(description: description, isIssue: true),
@@ -457,9 +501,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final rezkaEdgeWaste = _parseQty(_rezkaEdgeWasteController.text);
     final totalWaste = _parseQty(_wasteController.text);
     final rezkaFrameInputs = _readRezkaFrameInputs();
-    final firstRezkaFrame = rezkaFrameInputs?.isNotEmpty == true
-        ? rezkaFrameInputs!.first
-        : null;
+    final firstRezkaFrame =
+        rezkaFrameInputs?.isNotEmpty == true ? rezkaFrameInputs!.first : null;
     final effectiveMeterQty = firstRezkaFrame?.meterQty ?? meterQty;
     final effectiveKgQty = firstRezkaFrame?.kgQty ?? kgQty;
     final effectiveBobinaKg = firstRezkaFrame?.bobinaKg ?? bobinaKg;
@@ -467,9 +510,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final hasMeter = effectiveMeterQty != null &&
         effectiveMeterQty.isFinite &&
         effectiveMeterQty > 0;
-    final hasKg = effectiveKgQty != null &&
-        effectiveKgQty.isFinite &&
-        effectiveKgQty > 0;
+    final hasKg =
+        effectiveKgQty != null && effectiveKgQty.isFinite && effectiveKgQty > 0;
     final hasBobina = effectiveBobinaKg != null &&
         effectiveBobinaKg.isFinite &&
         effectiveBobinaKg > 0;
@@ -545,6 +587,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           finishedGoodsMeter: meterQty,
           finishedGoodsKg: kgQty,
           bobinaKg: bobinaKg,
+          description: description,
         ),
       );
       return;
@@ -579,6 +622,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         bobinaKg: bobinaKg,
         returnedPaintItems: returnedPaintItems,
         returnedPaintImageId: returnedPaintImageId,
+        description: description,
       ));
       return;
     }
@@ -593,6 +637,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           returnedPaintItems: returnedPaintItems,
           returnedPaintImageId: returnedPaintImageId,
           fullCompletionReportRequired: _requiresFullCompletionReport,
+          description: description,
         ),
       );
       return;
@@ -612,6 +657,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           returnedPaintImageId: returnedPaintImageId,
           fullCompletionReportRequired: _requiresFullCompletionReport,
           rezkaFrames: rezkaFrameInputs ?? const [],
+          description: description,
         ),
       );
       return;
@@ -628,8 +674,17 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           returnedPaintItems: returnedPaintItems,
           returnedPaintImageId: returnedPaintImageId,
           fullCompletionReportRequired: _requiresFullCompletionReport,
+          description: description,
         ),
       );
+      return;
+    }
+    if (_isFreezeRequestSafeStop) {
+      setState(() {
+        _completionError = context.l10n.productionText(
+          'worker.freeze.safe_stop.output_incomplete',
+        );
+      });
       return;
     }
     if (_isComplete && !_requiresFullCompletionReport) {
@@ -750,47 +805,52 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
             _isWorkerHandoff ||
             _isAstatkaReport) &&
         !isBosma;
-    final title = _isAstatkaReport
-        ? context.l10n.productionText('worker.finish.title')
-        : _isWorkerHandoff
+    final title = _isFreezeRequestSafeStop
+        ? context.l10n.productionText('worker.freeze.safe_stop.title')
+        : _isAstatkaReport
             ? context.l10n.productionText('worker.finish.title')
-            : _isRollRemoval
-                ? context.l10n.productionText(
-                    'worker.progress.qty.title.remove_roll',
-                  )
-                : switch (widget.action) {
-                    'pause' => context.l10n.productionText(
-                        'worker.progress.qty.title.pause',
-                      ),
-                    'detach_roll' => context.l10n.productionText(
-                        'worker.progress.qty.title.detach_roll',
-                      ),
-                    'roll_complete' => context.l10n.productionText(
-                        'worker.progress.qty.title.roll_complete',
-                      ),
-                    _ => context.l10n.productionText(
-                        'worker.progress.qty.title.complete',
-                      ),
-                  };
-    final subtitle = _isAstatkaReport
-        ? context.l10n.productionText(
-            'worker.progress.qty.subtitle.astatka',
-          )
-        : _isWorkerHandoff
-            ? context.l10n.productionText(
-                'worker.progress.qty.subtitle.handoff',
-              )
-            : _isRollRemoval
-                ? context.l10n.productionText(
-                    'worker.progress.qty.subtitle.remove_roll',
-                  )
-                : _requiresFullCompletionReport
+            : _isWorkerHandoff
+                ? context.l10n.productionText('worker.finish.title')
+                : _isRollRemoval
                     ? context.l10n.productionText(
-                        'worker.progress.qty.subtitle.full_report',
+                        'worker.progress.qty.title.remove_roll',
                       )
-                    : context.l10n.productionText(
-                        'worker.progress.qty.subtitle.current',
-                      );
+                    : switch (widget.action) {
+                        'pause' => context.l10n.productionText(
+                            'worker.progress.qty.title.pause',
+                          ),
+                        'detach_roll' => context.l10n.productionText(
+                            'worker.progress.qty.title.detach_roll',
+                          ),
+                        'roll_complete' => context.l10n.productionText(
+                            'worker.progress.qty.title.roll_complete',
+                          ),
+                        _ => context.l10n.productionText(
+                            'worker.progress.qty.title.complete',
+                          ),
+                      };
+    final subtitle = _isFreezeRequestSafeStop
+        ? context.l10n
+            .productionText('worker.freeze.safe_stop.form_instruction')
+        : _isAstatkaReport
+            ? context.l10n.productionText(
+                'worker.progress.qty.subtitle.astatka',
+              )
+            : _isWorkerHandoff
+                ? context.l10n.productionText(
+                    'worker.progress.qty.subtitle.handoff',
+                  )
+                : _isRollRemoval
+                    ? context.l10n.productionText(
+                        'worker.progress.qty.subtitle.remove_roll',
+                      )
+                    : _requiresFullCompletionReport
+                        ? context.l10n.productionText(
+                            'worker.progress.qty.subtitle.full_report',
+                          )
+                        : context.l10n.productionText(
+                            'worker.progress.qty.subtitle.current',
+                          );
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -1247,7 +1307,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             ),
                           ),
                         ],
-                        if (_isComplete || _isAstatkaReport) ...[
+                        if (_isComplete ||
+                            _isAstatkaReport ||
+                            _isFreezeRequestSafeStop) ...[
                           const SizedBox(height: 6),
                           _progressQtySectionLabel(
                             context,
@@ -1265,9 +1327,13 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                   ? context.l10n.productionText(
                                       'worker.progress.qty.optional_note',
                                     )
-                                  : context.l10n.productionText(
-                                      'worker.progress.qty.reason',
-                                    ),
+                                  : _isFreezeRequestSafeStop
+                                      ? context.l10n.productionText(
+                                          'worker.freeze.safe_stop.issue_note',
+                                        )
+                                      : context.l10n.productionText(
+                                          'worker.progress.qty.reason',
+                                        ),
                               alignLabelWithHint: true,
                             ),
                             onChanged: (_) {

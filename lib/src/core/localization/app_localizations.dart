@@ -1490,6 +1490,11 @@ class AppLocalizations {
       'en': 'Remove roll',
       'ru': 'Снять рулон',
     },
+    'worker.freeze.safe_stop.action': {
+      'uz': 'Rulonni yechib muzlatish',
+      'en': 'Remove roll and freeze',
+      'ru': 'Снять рулон и заморозить',
+    },
     'worker.action.resume': {
       'uz': 'Davom ettirish',
       'en': 'Resume',
@@ -2718,10 +2723,61 @@ class AppLocalizations {
           'Заказ заморожен. Продолжить можно только после активации администратором.',
     },
     'worker.freeze.requested': {
-      'uz': 'Admin buyurtmani muzlatishni so‘radi. Pauza qiling.',
-      'en': 'An admin requested that this order be frozen. Pause the order.',
+      'uz':
+          'Admin muzlatishni so‘radi. Avval rulonni xavfsiz yeching yoki muammo sababini yozing.',
+      'en':
+          'An admin requested a freeze. Safely remove the roll first, or enter the issue reason.',
       'ru':
-          'Администратор запросил заморозку заказа. Поставьте заказ на паузу.',
+          'Администратор запросил заморозку. Сначала безопасно снимите рулон или укажите причину проблемы.',
+    },
+    'worker.freeze.safe_stop.title': {
+      'uz': 'Rulonni yechib muzlatish',
+      'en': 'Remove roll and freeze',
+      'ru': 'Снять рулон и заморозить',
+    },
+    'worker.freeze.safe_stop.form_instruction': {
+      'uz':
+          'Sog‘lom rulon bo‘lsa barcha miqdorlarni kiriting. Ishlab chiqarish imkonsiz bo‘lsa miqdorlarni bo‘sh qoldirib, faqat muammo izohini yozing.',
+      'en':
+          'For a healthy roll, enter every output quantity. If production output is impossible, leave quantities empty and enter only the issue note.',
+      'ru':
+          'Для исправного рулона введите все выходные значения. Если выпуск невозможен, оставьте количества пустыми и укажите только описание проблемы.',
+    },
+    'worker.freeze.safe_stop.issue_note': {
+      'uz': 'Muammo izohi',
+      'en': 'Issue note',
+      'ru': 'Описание проблемы',
+    },
+    'worker.freeze.safe_stop.output_or_issue_required': {
+      'uz': 'Miqdorlarni to‘liq kiriting yoki faqat muammo izohini yozing.',
+      'en': 'Enter all quantities or only the issue note.',
+      'ru': 'Введите все количества или только описание проблемы.',
+    },
+    'worker.freeze.safe_stop.output_incomplete': {
+      'uz':
+          'Miqdorlar to‘liq emas. Barcha majburiy qiymatlarni kiriting yoki maydonlarni tozalab, faqat muammo izohini yozing.',
+      'en':
+          'Output is incomplete. Enter every required value, or clear the quantity fields and enter only the issue note.',
+      'ru':
+          'Выходные данные неполные. Заполните все обязательные значения или очистите количества и укажите только описание проблемы.',
+    },
+    'worker.freeze.safe_stop.metadata_missing': {
+      'uz':
+          'Muzlatish so‘rovi ma’lumoti eskirgan yoki to‘liq emas. Navbatni yangilab qayta urinib ko‘ring.',
+      'en':
+          'The freeze request metadata is stale or incomplete. Refresh the queue and try again.',
+      'ru':
+          'Данные запроса на заморозку устарели или неполны. Обновите очередь и повторите попытку.',
+    },
+    'worker.freeze.safe_stop.healthy_success': {
+      'uz': 'Rulon yechildi va order muzlatildi',
+      'en': 'The roll was removed and the order was frozen',
+      'ru': 'Рулон снят, заказ заморожен',
+    },
+    'worker.freeze.safe_stop.issue_success': {
+      'uz': 'Order muammo bilan muzlatildi',
+      'en': 'The order was frozen with an issue',
+      'ru': 'Заказ заморожен с указанием проблемы',
     },
     'worker.materials.start': {
       'uz': 'Ish boshlash uchun homashyolar',

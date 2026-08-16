@@ -1122,6 +1122,22 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
         previousStage: previousStage ?? '',
         previousStageReady: previousStageReady,
         completeRequiresFullReport: completeRequiresFullReport,
+        freezeRequest: orderControl == AdminOrderControlState.freezeRequested
+            ? AdminProductionOrderFreezeDetails(
+                requestId: 'test-freeze-${orderId.trim()}',
+                status: 'pending',
+                targetSessionId: 'test-session-${orderId.trim()}',
+                targetApparatus: storageKey,
+                targetWorkerRole: _adminWarehouseRoleToJson(
+                  AppSession.instance.profile?.role ?? UserRole.aparatchi,
+                ),
+                targetWorkerRef: AppSession.instance.profile?.ref ?? '',
+                targetWorkerDisplayName:
+                    AppSession.instance.profile?.displayName ?? '',
+                requestedAtUnix: _testModeUnixSeconds(),
+                transitionedAtUnix: 0,
+              )
+            : null,
       );
     }
     if (apparatusControls.isNotEmpty) {
@@ -1282,6 +1298,7 @@ class AdminApparatusQueueOrderActionControl {
     this.previousStage = '',
     this.previousStageReady = false,
     this.completeRequiresFullReport = false,
+    this.freezeRequest,
   });
 
   final String state;
@@ -1289,6 +1306,7 @@ class AdminApparatusQueueOrderActionControl {
   final String previousStage;
   final bool previousStageReady;
   final bool completeRequiresFullReport;
+  final AdminProductionOrderFreezeDetails? freezeRequest;
 
   bool allows(String action) => allowedActions.contains(action.trim());
 
@@ -1311,6 +1329,11 @@ class AdminApparatusQueueOrderActionControl {
       previousStage: json['previous_stage']?.toString().trim() ?? '',
       previousStageReady: json['previous_stage_ready'] == true,
       completeRequiresFullReport: json['complete_requires_full_report'] == true,
+      freezeRequest: json['freeze_request'] is Map
+          ? AdminProductionOrderFreezeDetails.fromJson(
+              (json['freeze_request'] as Map).cast<String, dynamic>(),
+            )
+          : null,
     );
   }
 }
@@ -4407,6 +4430,10 @@ MobileApiException _adminProductionMapException(
         'Buyurtmani muzlatish uchun bir nechta faol sessiya topildi',
       'order_freeze_request_mismatch' =>
         'Muzlatish so‘rovi bu ish sessiyasiga tegishli emas',
+      'freeze_safe_stop_output_or_issue_note_required' =>
+        'Miqdorlarni to‘liq kiriting yoki faqat muammo izohini yozing',
+      'freeze_safe_stop_output_incomplete' =>
+        'Miqdorlar to‘liq emas. Barcha majburiy qiymatlarni kiriting yoki maydonlarni tozalab, faqat muammo izohini yozing',
       'store_failed' ||
       'production_map_store_failed' =>
         'Production map ma’lumotlarini saqlashda server xatosi',
@@ -8528,6 +8555,9 @@ extension MobileApiAdmin on MobileApi {
       );
       final control = _testModeOrderControls[orderId.trim()] ??
           AdminOrderControlState.active;
+      final freezeRequestSafeStop =
+          control == AdminOrderControlState.freezeRequested &&
+              (action == 'pause' || action == 'detach_roll');
       if (control == AdminOrderControlState.frozen) {
         throw const MobileApiException(
           code: 'order_frozen',
@@ -8536,10 +8566,18 @@ extension MobileApiAdmin on MobileApi {
       }
       if (control == AdminOrderControlState.freezeRequested &&
           action != 'pause' &&
+          action != 'detach_roll' &&
           !issueFreezeRequested) {
         throw const MobileApiException(
           code: 'order_freeze_requested',
           message: 'Buyurtmani muzlatish uchun worker pauzasi kutilmoqda',
+        );
+      }
+      if (freezeRequestSafeStop &&
+          freezeRequestId.trim() != 'test-freeze-${orderId.trim()}') {
+        throw const MobileApiException(
+          code: 'order_freeze_request_mismatch',
+          message: 'Muzlatish so‘rovi yangilangan. Sahifani qayta oching',
         );
       }
       final frozenOnAnotherApparatus =
@@ -9187,6 +9225,40 @@ extension MobileApiAdmin on MobileApi {
             message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
           );
         }
+        final hasFreezeSafeStopOutput = rezkaFrames.isNotEmpty ||
+            producedQty != null ||
+            grossQty != null ||
+            finishedGoodsMeter != null ||
+            finishedGoodsKg != null ||
+            bobinaKg != null ||
+            diameter != null ||
+            returnInkKg != null ||
+            laminationPrintLeftoverRolls != null ||
+            laminationFilmLeftoverRolls != null ||
+            rezkaBosmaWaste != null ||
+            rezkaLaminationWaste != null ||
+            rezkaEdgeWaste != null ||
+            totalWaste != null;
+        final freezeSafeStopIssueNote = completionRequestNote.trim();
+        if (freezeRequestSafeStop &&
+            !hasFreezeSafeStopOutput &&
+            freezeSafeStopIssueNote.isNotEmpty) {
+          states[orderId.trim()] = 'frozen';
+          _testModeOrderControls[orderId.trim()] =
+              AdminOrderControlState.frozen;
+          _testModeFrozenIssueNotesByOrderId[orderId.trim()] =
+              freezeSafeStopIssueNote;
+          _testModeSyncScheduleReservationStatus(
+            orderId: orderId,
+            apparatus: storageKey,
+            status: 'paused',
+          );
+          _testModeApparatusQueueStates[storageKey] = states;
+          return AdminApparatusQueueActionResult(
+            states: Map<String, String>.unmodifiable(states),
+            orderControl: AdminOrderControlState.frozen,
+          );
+        }
         final qty = producedQty ?? finishedGoodsMeter ?? 1;
         final outputBatches = isRezka
             ? _testModeRezkaProgressBatches(
@@ -9236,7 +9308,10 @@ extension MobileApiAdmin on MobileApi {
         for (final batch in outputBatches) {
           _testModeProgressBatchesByQr[batch.qrPayload] = batch;
         }
-        states[orderId.trim()] = 'paused';
+        states[orderId.trim()] =
+            control == AdminOrderControlState.freezeRequested
+                ? 'frozen'
+                : 'paused';
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
           apparatus: storageKey,
@@ -9255,6 +9330,9 @@ extension MobileApiAdmin on MobileApi {
         );
         return AdminApparatusQueueActionResult(
           states: Map<String, String>.unmodifiable(states),
+          orderControl: control == AdminOrderControlState.freezeRequested
+              ? AdminOrderControlState.frozen
+              : null,
           progressBatch: outputBatches.first,
           progressBatches: List<AdminProgressBatch>.unmodifiable(outputBatches),
           printJob: printJobs.isEmpty ? null : printJobs.first,

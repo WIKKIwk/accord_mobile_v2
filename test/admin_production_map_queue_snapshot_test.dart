@@ -18,6 +18,25 @@ void main() {
       },
       'queue_states': const {},
       'queue_policies': const [],
+      'queue_action_controls': const {
+        '7 ta rangli pechat': {
+          'zakaz-visible-alt': {
+            'state': 'in_progress',
+            'allowed_actions': ['pause', 'detach_roll'],
+            'freeze_request': {
+              'request_id': 'freeze-request-1',
+              'status': 'pending',
+              'target_session_id': 'session-1',
+              'target_apparatus': '7 ta rangli pechat',
+              'target_worker_role': 'aparatchi',
+              'target_worker_ref': 'worker-1',
+              'target_worker_display_name': 'Worker 1',
+              'requested_at_unix': 1710000000,
+              'transitioned_at_unix': 0,
+            },
+          },
+        },
+      },
       'completed_orders': const [],
       'completion_requests': const [],
       'completion_request_decisions': const [],
@@ -73,6 +92,13 @@ void main() {
       1,
     );
     expect(snapshot.orderCustomers['zakaz-visible-alt'], '555 kukuruz');
+    final freezeRequest = snapshot
+        .queueActionControls['7 ta rangli pechat']?['zakaz-visible-alt']
+        ?.freezeRequest;
+    expect(freezeRequest?.requestId, 'freeze-request-1');
+    expect(freezeRequest?.status, 'pending');
+    expect(freezeRequest?.targetSessionId, 'session-1');
+    expect(freezeRequest?.targetApparatus, '7 ta rangli pechat');
     expect(
       snapshot.frozenOrdersByApparatus['Pechat']?.single.issueNote,
       'Val notekis chiqdi',

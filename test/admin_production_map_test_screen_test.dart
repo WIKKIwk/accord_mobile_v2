@@ -4965,6 +4965,120 @@ void main() {
     expect(cardColor(), expectedTint(const Color(0xFF1565C0)));
   });
 
+  testWidgets(
+      'worker freeze request replaces finish with linked safe-stop issue flow',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Godex aparat - DEMO';
+    const orderId = 'zakaz-worker-freeze-safe-stop';
+    await AppSession.instance.setSession(
+      token: 'worker-freeze-safe-stop-token',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Aparatchi',
+        legalName: '',
+        ref: 'worker-freeze-safe-stop',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [apparatus],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Worker freeze safe stop',
+        productCode: 'FREEZE-SAFE-STOP',
+        apparatus: apparatus,
+        product: 'safe stop product',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+    );
+    expect(
+      await MobileApi.instance.adminProductionMapOrderControl(
+        orderId: orderId,
+        action: AdminOrderControlAction.freeze,
+      ),
+      AdminOrderControlState.freezeRequested,
+    );
+
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(apparatus));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Worker freeze safe stop').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rulonni yechib muzlatish'), findsOneWidget);
+    expect(find.text('Rulonni yechish'), findsNothing);
+    expect(find.text('Tugatish'), findsNothing);
+    await tester.tap(find.text('Rulonni yechib muzlatish'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rulonni yechib muzlatish'), findsWidgets);
+    expect(
+      find.textContaining('Sog‘lom rulon bo‘lsa barcha miqdorlarni kiriting'),
+      findsOneWidget,
+    );
+    expect(find.text('Metraj'), findsOneWidget);
+    expect(find.text('Og‘irlik'), findsOneWidget);
+    expect(find.text('Babina'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Muammo izohi'), findsOneWidget);
+
+    await tester.tap(find.text('Tasdiqlash'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+          'Miqdorlarni to‘liq kiriting yoki faqat muammo izohini yozing.'),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Muammo izohi'),
+      'Val nosozligi sabab mahsulot chiqmadi',
+    );
+    await tester.tap(find.text('Tasdiqlash'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Order muammo bilan muzlatildi'), findsOneWidget);
+    final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+    expect(snapshot.orderControls[orderId], AdminOrderControlState.frozen);
+    expect(snapshot.sequences[apparatus], isNot(contains(orderId)));
+    expect(
+      snapshot.frozenOrdersByApparatus[apparatus]?.single.issueNote,
+      'Val nosozligi sabab mahsulot chiqmadi',
+    );
+    expect(
+      await MobileApi.instance.adminWipBatches(orderId: orderId),
+      isEmpty,
+    );
+  });
+
   testWidgets('opened order cards color active laminatsiya stages', (
     tester,
   ) async {

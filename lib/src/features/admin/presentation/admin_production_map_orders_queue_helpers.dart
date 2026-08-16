@@ -138,6 +138,12 @@ bool _queueActionControlsEqual(
         control.previousStageReady != other.previousStageReady ||
         control.completeRequiresFullReport !=
             other.completeRequiresFullReport ||
+        control.freezeRequest?.requestId != other.freezeRequest?.requestId ||
+        control.freezeRequest?.status != other.freezeRequest?.status ||
+        control.freezeRequest?.targetApparatus !=
+            other.freezeRequest?.targetApparatus ||
+        control.freezeRequest?.targetSessionId !=
+            other.freezeRequest?.targetSessionId ||
         control.allowedActions.length != other.allowedActions.length ||
         !control.allowedActions.containsAll(other.allowedActions)) {
       return false;
