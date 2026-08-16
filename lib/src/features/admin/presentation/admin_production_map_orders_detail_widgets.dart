@@ -164,6 +164,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 assignedAssignments: uiState.assignedMaterialAssignments,
                 showStartMaterials: uiState.showStartMaterials,
                 showIntakeCandidates: uiState.showIntakeCandidates,
+                materialIntakeAllowed: uiState.materialIntakeAllowed,
                 materialsLoading: materialsLoading,
                 materialsError: materialsError,
                 scannedBarcodes: uiState.confirmedMaterialBarcodes,
@@ -184,6 +185,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 showComplete: uiState.showComplete,
                 showResume: uiState.showResume,
                 showWaitingForPrevious: uiState.showWaitingForPrevious,
+                showWaitingForSequence: uiState.showWaitingForSequence,
                 previousStage: uiState.previousStage,
                 previousProgressRequired: uiState.previousProgressRequired,
                 previousProgressReady: uiState.previousProgressReady,
@@ -705,6 +707,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.assignedAssignments,
     required this.showStartMaterials,
     required this.showIntakeCandidates,
+    required this.materialIntakeAllowed,
     required this.materialsLoading,
     required this.materialsError,
     required this.scannedBarcodes,
@@ -724,6 +727,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.showComplete,
     required this.showResume,
     required this.showWaitingForPrevious,
+    required this.showWaitingForSequence,
     required this.previousStage,
     required this.previousProgressRequired,
     required this.previousProgressReady,
@@ -767,6 +771,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final List<AdminRawMaterialAssignment> assignedAssignments;
   final bool showStartMaterials;
   final bool showIntakeCandidates;
+  final bool materialIntakeAllowed;
   final bool materialsLoading;
   final String materialsError;
   final Set<String> scannedBarcodes;
@@ -786,6 +791,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool showComplete;
   final bool showResume;
   final bool showWaitingForPrevious;
+  final bool showWaitingForSequence;
   final String? previousStage;
   final bool previousProgressRequired;
   final bool previousProgressReady;
@@ -839,15 +845,15 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           );
     final orderControlBlocked =
         orderControlState != AdminOrderControlState.active;
-    final orderFrozen = orderControlState == AdminOrderControlState.frozen;
     final hasActions = showStart ||
         showPause ||
         showRollComplete ||
         showComplete ||
         showResume ||
-        showWaitingForPrevious;
+        showWaitingForPrevious ||
+        showWaitingForSequence;
     final showRezkaInputProgressScan = previousProgressRequired && showStart;
-    final showMaterialIntake = showPause || showResume;
+    final showMaterialIntake = materialIntakeAllowed;
     final customer = customerName?.trim() ?? '';
     final product = productTitle.trim();
     final orderProductLabel = customer.isEmpty
@@ -934,7 +940,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                orderFrozen
+                orderControlState == AdminOrderControlState.frozen
                     ? context.l10n.productionText('worker.freeze.active')
                     : context.l10n.productionText('worker.freeze.requested'),
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -1092,9 +1098,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 !showEmbeddedQuickScanner)
               FilledButton.tonalIcon(
                 onPressed:
-                    actionInFlight || orderControlBlocked || allMaterialsScanned
-                        ? null
-                        : onScan,
+                    actionInFlight || allMaterialsScanned ? null : onScan,
                 icon: Icon(
                   allMaterialsScanned
                       ? Icons.check_circle_rounded
@@ -1124,8 +1128,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 requiresQolipScan &&
                 !showEmbeddedQuickScanner) ...[
               FilledButton.tonalIcon(
-                onPressed:
-                    actionInFlight || orderControlBlocked ? null : onQolipScan,
+                onPressed: actionInFlight ? null : onQolipScan,
                 icon: const Icon(Icons.qr_code_scanner_rounded),
                 label: Text(
                   qolipCodes.isEmpty
@@ -1163,9 +1166,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             if (showMaterialIntake) ...[
               FilledButton.tonalIcon(
                 key: const ValueKey('receive-additional-raw-material'),
-                onPressed: actionInFlight ||
-                        materialIntakeInFlight ||
-                        orderControlBlocked
+                onPressed: actionInFlight || materialIntakeInFlight
                     ? null
                     : onMaterialIntake,
                 icon: materialIntakeInFlight
@@ -1203,7 +1204,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             if (showStart)
               FilledButton.icon(
                 onPressed: actionInFlight ||
-                        orderControlBlocked ||
                         (hasMaterialAssignments && !allMaterialsScanned) ||
                         (requiresQolipScan && !qolipScanned) ||
                         !previousProgressReady
@@ -1227,8 +1227,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   if (showPause)
                     Expanded(
                       child: OutlinedButton(
-                        onPressed:
-                            actionInFlight || orderFrozen ? null : onPause,
+                        onPressed: actionInFlight ? null : onPause,
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),
                           shape: RoundedRectangleBorder(
@@ -1242,11 +1241,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   if (showComplete)
                     Expanded(
                       child: FilledButton(
-                        onPressed: actionInFlight ||
-                                orderControlState !=
-                                    AdminOrderControlState.active
-                            ? null
-                            : onComplete,
+                        onPressed: actionInFlight ? null : onComplete,
                         style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),
                           shape: RoundedRectangleBorder(
@@ -1264,10 +1259,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             if (showRollComplete) ...[
               const SizedBox(height: 10),
               FilledButton.icon(
-                onPressed: actionInFlight ||
-                        orderControlState != AdminOrderControlState.active
-                    ? null
-                    : onRollComplete,
+                onPressed: actionInFlight ? null : onRollComplete,
                 icon: const Icon(Icons.call_made_rounded),
                 label: Text(
                   context.l10n.productionText('worker.action.roll_complete'),
@@ -1283,8 +1275,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             if (showResume) ...[
               const SizedBox(height: 10),
               FilledButton.icon(
-                onPressed:
-                    actionInFlight || orderControlBlocked ? null : onResume,
+                onPressed: actionInFlight ? null : onResume,
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: Text(
                   context.l10n.productionText('worker.action.resume'),
@@ -1318,6 +1309,29 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                           ),
                         },
                       ),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (showWaitingForSequence) ...[
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.hourglass_top_rounded,
+                    color: scheme.onSurfaceVariant,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      context.l10n.productionText('worker.waiting.sequence'),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,

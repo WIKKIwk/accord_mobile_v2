@@ -463,7 +463,6 @@ class _AdminProductionMapOrdersScreenState
     bool startRollRemovalOnOpen = false,
     bool startResumeOnOpen = false,
     AdminProgressBatch? initialOrderSwitchBatch,
-    String initialOrderSwitchPreviousStage = '',
   }) {
     final mapId = order.map.id.trim();
     final sheetFuture = showModalBottomSheet<bool>(
@@ -507,7 +506,6 @@ class _AdminProductionMapOrdersScreenState
         progressDriverUrlPicker: widget.progressDriverUrlPicker,
         initialOrderControls: _orderControlsByOrderId,
         initialOrderSwitchBatch: initialOrderSwitchBatch,
-        initialOrderSwitchPreviousStage: initialOrderSwitchPreviousStage,
         startWorkerHandoffOnOpen: startWorkerHandoffOnOpen,
         startAstatkaOnOpen: startAstatkaOnOpen,
         startRollRemovalOnOpen: startRollRemovalOnOpen,
@@ -591,37 +589,33 @@ class _AdminProductionMapOrdersScreenState
         );
         return;
       }
-      ProductionMapSaved? targetOrder;
-      for (final order in _orders) {
-        if (order.map.id.trim() == targetOrderId) {
-          targetOrder = order;
-          break;
-        }
-      }
-      final target = targetOrder ??
-          await MobileApi.instance.adminProductionMap(targetOrderId);
+      await _refreshLive();
       if (!mounted) return;
-      final previousStage = productionMapPreviousWorkStageStation(
-        map: target.map,
-        station: station.name,
+      final targetControl = _queueActionControlForApparatus(
+        apparatus: station,
+        orderId: targetOrderId,
       );
-      if (previousStage == null) {
+      final targetOrderControl = _orderControlsByOrderId[targetOrderId] ??
+          AdminOrderControlState.active;
+      if (targetControl?.isConsistentWith(targetOrderControl) != true ||
+          targetControl?.allows('start') != true) {
         showAdminTopNotice(
           context,
-          context.l10n.productionText('worker.error.machine_flow'),
+          context.l10n.productionText('worker.error.sync'),
         );
         return;
       }
-      final states = _queueStatesForApparatus(
-        station,
-        queueStatesByApparatus: _queueStatesByApparatus,
-      );
       final hasInProgressOrder = _orders.any(
-        (order) =>
-            _orderControlsByOrderId[order.map.id.trim()] !=
-                AdminOrderControlState.frozen &&
-            apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]) ==
-                ApparatusQueueOrderState.inProgress,
+        (order) {
+          final control = _queueActionControlForApparatus(
+            apparatus: station!,
+            orderId: order.map.id,
+          );
+          return control?.interaction?.mode ==
+                  AdminQueueInteractionMode.inProgress ||
+              control?.interaction?.mode ==
+                  AdminQueueInteractionMode.freezeRequested;
+        },
       );
       if (!hasInProgressOrder) {
         await _refreshWorkerCompletedOrders();
@@ -629,7 +623,6 @@ class _AdminProductionMapOrdersScreenState
       }
       final currentOrder = _workerCurrentOrderForApparatus(
         apparatus: station,
-        states: states,
       );
       if (currentOrder == null) {
         showAdminTopNotice(
@@ -649,7 +642,6 @@ class _AdminProductionMapOrdersScreenState
         apparatus: station,
         order: currentOrder,
         initialOrderSwitchBatch: batch,
-        initialOrderSwitchPreviousStage: previousStage,
       );
     } catch (error) {
       if (!mounted) return;
@@ -667,23 +659,35 @@ class _AdminProductionMapOrdersScreenState
 
   ProductionMapSaved? _workerCurrentOrderForApparatus({
     required AdminApparatus apparatus,
-    required Map<String, String> states,
   }) {
-    ProductionMapSaved? firstOrderInState(ApparatusQueueOrderState expected) {
+    AdminQueueInteractionMode? modeFor(ProductionMapSaved order) {
+      final orderId = order.map.id.trim();
+      final control = _queueActionControlForApparatus(
+        apparatus: apparatus,
+        orderId: orderId,
+      );
+      final orderControl =
+          _orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
+      return control?.isConsistentWith(orderControl) == true
+          ? control?.interaction?.mode
+          : null;
+    }
+
+    ProductionMapSaved? firstOrderInMode(
+      Set<AdminQueueInteractionMode> expected,
+    ) {
       for (final order in _orders) {
-        if (_orderControlsByOrderId[order.map.id.trim()] ==
-            AdminOrderControlState.frozen) {
-          continue;
-        }
-        if (apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]) ==
-            expected) {
+        if (expected.contains(modeFor(order))) {
           return order;
         }
       }
       return null;
     }
 
-    final activeOrder = firstOrderInState(ApparatusQueueOrderState.inProgress);
+    final activeOrder = firstOrderInMode({
+      AdminQueueInteractionMode.inProgress,
+      AdminQueueInteractionMode.freezeRequested,
+    });
     if (activeOrder != null) {
       return activeOrder;
     }
@@ -707,11 +711,9 @@ class _AdminProductionMapOrdersScreenState
       if (order == null) {
         continue;
       }
-      final state = apparatusQueueOrderStateFromRaw(
-        states[order.map.id.trim()],
-      );
-      if (state == ApparatusQueueOrderState.paused ||
-          state == ApparatusQueueOrderState.completed) {
+      final mode = modeFor(order);
+      if (mode == AdminQueueInteractionMode.paused ||
+          mode == AdminQueueInteractionMode.completed) {
         return order;
       }
     }

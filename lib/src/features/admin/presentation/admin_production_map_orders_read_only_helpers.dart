@@ -156,88 +156,9 @@ Future<_MaterialScanResult?> _scanMaterialAssignmentFromDialog({
   );
 }
 
-bool _progressBatchMatchesPreviousStage({
-  required AdminProgressBatch batch,
-  required String orderId,
-  required String previousStage,
-}) {
-  final action = batch.action.trim().toLowerCase();
-  final status = batch.status.trim().toLowerCase();
-  final matchesOrder = batch.orderId.trim() == orderId;
-  final matchesStage = productionMapWarehouseTitlesMatch(
-    batch.apparatus,
-    previousStage,
-  );
-  final usableAction = action == 'pause' ||
-      action == 'detach_roll' ||
-      action == 'roll_complete' ||
-      action == 'complete';
-  final usableStatus = status == 'paused' ||
-      status == 'roll_detached' ||
-      status == 'completed' ||
-      status == 'resumed';
-  return matchesOrder && matchesStage && usableAction && usableStatus;
-}
-
-bool _progressBatchCanFeedStation({
-  required AdminProgressBatch batch,
-  required String station,
-}) {
-  final nextApparatus = batch.nextApparatus.trim();
-  return nextApparatus.isEmpty ||
-      productionMapNextStageTitleMatchesApparatus(nextApparatus, station);
-}
-
 bool _progressBatchCanBeScanned(AdminProgressBatch batch) {
   final wipStatus = batch.wipStatus.trim().toLowerCase();
   return wipStatus.isEmpty || wipStatus == 'waiting';
-}
-
-bool _laminatsiyaMaterialScanCanBeSkippedForWip({
-  required String station,
-  required String? previousStage,
-  required List<AdminProgressBatch> inputProgressBatches,
-}) {
-  if (!productionMapIsLaminatsiyaApparatus(station) || previousStage == null) {
-    return false;
-  }
-  return inputProgressBatches.any((batch) {
-    final nextApparatus = batch.nextApparatus.trim();
-    final wipStatus = batch.wipStatus.trim().toLowerCase();
-    if (wipStatus != 'waiting' &&
-        wipStatus != 'in_use' &&
-        wipStatus != 'processed') {
-      return false;
-    }
-    if (!productionMapWarehouseTitlesMatch(batch.apparatus, previousStage) ||
-        (nextApparatus.isNotEmpty &&
-            !productionMapNextStageTitleMatchesApparatus(
-              nextApparatus,
-              station,
-            ))) {
-      return false;
-    }
-    if (wipStatus == 'waiting') {
-      return true;
-    }
-    final processedBy = batch.processedByApparatus.trim().isEmpty
-        ? batch.currentApparatus
-        : batch.processedByApparatus;
-    return productionMapWarehouseTitlesMatch(processedBy, station);
-  });
-}
-
-bool _laminatsiyaMaterialGateBypassed({
-  required String station,
-  required AdminRawMaterialStartRequirements? materialRequirements,
-  required bool skipStartMaterialScan,
-}) {
-  if (skipStartMaterialScan) {
-    return true;
-  }
-  return productionMapIsLaminatsiyaApparatus(station) &&
-      materialRequirements != null &&
-      materialRequirements.normalizedAssignedBarcodes.isEmpty;
 }
 
 AdminProgressBatch? _matchingInputProgressBatch({
@@ -250,7 +171,7 @@ AdminProgressBatch? _matchingInputProgressBatch({
     final sameQr = item.qrPayload.trim().isNotEmpty &&
         item.qrPayload.trim().toUpperCase() ==
             batch.qrPayload.trim().toUpperCase();
-    if ((sameBatch || sameQr) && _progressBatchCanBeScanned(item)) {
+    if (sameBatch || sameQr) {
       return item;
     }
   }
@@ -415,32 +336,22 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
   );
 }
 
-bool _apparatusRequiresQolipScan(String apparatus) {
-  return productionMapApparatusRequiresQolipScan(apparatus);
-}
-
 String? _queueActionStartBlockReason({
   required String action,
   required AdminRawMaterialStartRequirements? materialRequirements,
   required bool materialsLoading,
   required String materialsError,
-  required ProductionMapDefinition map,
-  required String station,
   required AdminProgressBatch? startInputProgressBatch,
+  required bool materialScanRequired,
+  required bool previousWipRequired,
   required bool qolipScanRequired,
   required bool qolipScanned,
-  required bool skipStartMaterialScan,
   required AppLocalizations l10n,
 }) {
   if (action != 'start') {
     return null;
   }
-  final bypassMaterialGate = _laminatsiyaMaterialGateBypassed(
-    station: station,
-    materialRequirements: materialRequirements,
-    skipStartMaterialScan: skipStartMaterialScan,
-  );
-  if (!bypassMaterialGate) {
+  if (materialScanRequired) {
     if (materialsLoading) {
       return l10n.productionText('worker.error.rule_loading');
     }
@@ -473,10 +384,7 @@ String? _queueActionStartBlockReason({
   if (qolipScanRequired && !qolipScanned) {
     return l10n.productionText('worker.error.scan_molds');
   }
-  final previousStage = station.isEmpty
-      ? null
-      : productionMapPreviousWorkStageStation(map: map, station: station);
-  if (previousStage != null && startInputProgressBatch == null) {
+  if (previousWipRequired && startInputProgressBatch == null) {
     return l10n.productionText('worker.error.scan_previous');
   }
   return null;
@@ -516,22 +424,19 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   required AdminRawMaterialStartRequirements? materialRequirements,
   required bool materialsLoading,
   required String materialsError,
-  required ProductionMapSaved order,
+  required AdminApparatusQueueOrderActionControl? queueActionControl,
   required Set<String> scannedMaterialBarcodes,
   required AdminProgressBatch? startInputProgressBatch,
   required bool qolipScanned,
-  required bool skipStartMaterialScan,
   required AppLocalizations l10n,
 }) {
   if (apparatus == null || onQueueAction == null || actionInFlight) {
     return null;
   }
-  final station = apparatus.name.trim();
-  final bypassMaterialGate = _laminatsiyaMaterialGateBypassed(
-    station: station,
-    materialRequirements: materialRequirements,
-    skipStartMaterialScan: skipStartMaterialScan,
-  );
+  final interaction = queueActionControl?.interaction;
+  if (interaction == null) return null;
+  final bypassMaterialGate = interaction.startMaterialsMode !=
+      AdminQueueStartMaterialsMode.scanRequired;
   final stationMaterialAssignments =
       (materialRequirements == null || bypassMaterialGate)
           ? const <AdminRawMaterialAssignment>[]
@@ -551,12 +456,13 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
       materialRequirements: materialRequirements,
       materialsLoading: materialsLoading,
       materialsError: materialsError,
-      map: order.map,
-      station: station,
       startInputProgressBatch: inputProgressBatch,
-      qolipScanRequired: _apparatusRequiresQolipScan(station),
+      materialScanRequired: interaction.materialScanRequired,
+      previousWipRequired:
+          interaction.previousWipMode == AdminQueuePreviousWipMode.scanRequired,
+      qolipScanRequired:
+          interaction.qolipMode == AdminQueueQolipMode.scanRequired,
       qolipScanned: qolipScanned,
-      skipStartMaterialScan: skipStartMaterialScan,
       l10n: l10n,
     ),
   );
@@ -574,22 +480,18 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required AdminApparatusQueueOrderActionControl? queueActionControl,
   required AdminOrderControlState orderControlState,
   required AdminProgressBatch? startInputProgressBatch,
-  required bool skipStartMaterialScan,
 }) {
   final map = order.map;
   final orderId = map.id.trim();
   final station = apparatus?.name.trim() ?? '';
-  final orderFrozen = orderControlState == AdminOrderControlState.frozen;
-  final queueState = orderFrozen
-      ? ApparatusQueueOrderState.frozen
-      : apparatusQueueOrderStateFromRaw(queueActionControl?.state);
+  final contractSynchronized = queueActionControl != null &&
+      queueActionControl.isConsistentWith(orderControlState);
+  final interaction =
+      contractSynchronized ? queueActionControl.interaction : null;
   final previousStageValue = queueActionControl?.previousStage.trim() ?? '';
   final previousStage = previousStageValue.isEmpty ? null : previousStageValue;
-  final bypassMaterialGate = _laminatsiyaMaterialGateBypassed(
-    station: station,
-    materialRequirements: materialRequirements,
-    skipStartMaterialScan: skipStartMaterialScan,
-  );
+  final bypassMaterialGate = interaction?.startMaterialsMode !=
+      AdminQueueStartMaterialsMode.scanRequired;
   final stationMaterialAssignments = materialRequirements == null
       ? const <AdminRawMaterialAssignment>[]
       : startMaterialAssignments;
@@ -612,44 +514,25 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
       materialRequirements == null || bypassMaterialGate
           ? 0
           : materialRequirements.matchedScanCount;
-  final previousStageReady = queueActionControl?.previousStageReady ?? false;
-  final previousProgressRequired = previousStage != null;
-  final acceptedPreviousWip = previousProgressRequired &&
-      startInputProgressBatch != null &&
-      _progressBatchCanBeScanned(startInputProgressBatch) &&
-      _progressBatchMatchesPreviousStage(
-        batch: startInputProgressBatch,
-        orderId: orderId,
-        previousStage: previousStage,
-      ) &&
-      _progressBatchCanFeedStation(
-        batch: startInputProgressBatch,
-        station: station,
-      );
-  final previousStageStartReady =
-      !previousProgressRequired || previousStageReady || acceptedPreviousWip;
-  final showStart = !orderFrozen &&
+  final previousProgressRequired =
+      interaction?.previousWipMode == AdminQueuePreviousWipMode.scanRequired;
+  final acceptedPreviousWip =
+      previousProgressRequired && startInputProgressBatch != null;
+  final showStart = contractSynchronized &&
       canManageQueue &&
-      queueActionControl?.allows('start') == true &&
-      queueState == ApparatusQueueOrderState.pending &&
-      previousStageStartReady;
-  final showPause = !orderFrozen &&
+      queueActionControl.allows('start');
+  final showPause = contractSynchronized &&
       canManageQueue &&
-      queueActionControl?.allows('pause') == true &&
-      queueState == ApparatusQueueOrderState.inProgress;
-  final showRollComplete = !orderFrozen &&
+      queueActionControl.allows('pause');
+  final showRollComplete = contractSynchronized &&
       canManageQueue &&
-      queueActionControl?.allows('roll_complete') == true &&
-      queueState == ApparatusQueueOrderState.inProgress;
-  final showComplete = !orderFrozen &&
+      queueActionControl.allows('roll_complete');
+  final showComplete = contractSynchronized &&
       canManageQueue &&
-      queueActionControl?.allows('complete') == true &&
-      queueState == ApparatusQueueOrderState.inProgress;
-  final showResume = !orderFrozen &&
+      queueActionControl.allows('complete');
+  final showResume = contractSynchronized &&
       canManageQueue &&
-      queueActionControl?.allows('resume') == true &&
-      (queueState == ApparatusQueueOrderState.paused ||
-          queueState == ApparatusQueueOrderState.frozen);
+      queueActionControl.allows('resume');
   return _ReadOnlyOrderDetailUiState(
     orderId: orderId,
     station: station,
@@ -666,12 +549,15 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
             : materialRequirements.requiresMaterial ||
                 materialRequirements.normalizedAssignedBarcodes.isNotEmpty,
     allMaterialsScanned: allMaterialsScanned,
-    showStartMaterials: !orderFrozen &&
-        queueState == ApparatusQueueOrderState.pending &&
-        materialRequirements != null,
-    showIntakeCandidates: !orderFrozen &&
-        (queueState == ApparatusQueueOrderState.inProgress ||
-            queueState == ApparatusQueueOrderState.paused),
+    showStartMaterials: contractSynchronized &&
+        interaction?.startMaterialsMode ==
+            AdminQueueStartMaterialsMode.scanRequired,
+    showIntakeCandidates:
+        contractSynchronized && (interaction?.materialIntakeAllowed ?? false),
+    materialIntakeAllowed:
+        contractSynchronized && (interaction?.materialIntakeAllowed ?? false),
+    qolipScanRequired: contractSynchronized &&
+        interaction?.qolipMode == AdminQueueQolipMode.scanRequired,
     previousStage: previousStage,
     previousProgressRequired: previousProgressRequired,
     previousProgressReady: !previousProgressRequired || acceptedPreviousWip,
@@ -680,11 +566,14 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     showRollComplete: showRollComplete,
     showComplete: showComplete,
     showResume: showResume,
-    showWaitingForPrevious: !orderFrozen &&
+    showWaitingForPrevious: contractSynchronized &&
         canManageQueue &&
-        previousStage != null &&
-        !previousStageStartReady &&
-        queueState == ApparatusQueueOrderState.pending,
+        interaction?.previousWipMode == AdminQueuePreviousWipMode.waiting,
+    showWaitingForSequence: contractSynchronized &&
+        canManageQueue &&
+        interaction?.blockingReasonCode == 'waiting_sequence',
+    contractSynchronized: contractSynchronized,
+    blockingReasonCode: interaction?.blockingReasonCode ?? '',
   );
 }
 

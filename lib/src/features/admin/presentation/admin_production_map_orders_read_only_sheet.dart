@@ -22,7 +22,6 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.progressDriverUrlPicker,
     this.initialOrderControls = const {},
     this.initialOrderSwitchBatch,
-    this.initialOrderSwitchPreviousStage = '',
     this.initialPauseRequestId = '',
     this.startPauseOnOpen = false,
     this.startWorkerHandoffOnOpen = false,
@@ -48,7 +47,6 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final Map<String, AdminOrderControlState> initialOrderControls;
   final AdminProgressBatch? initialOrderSwitchBatch;
-  final String initialOrderSwitchPreviousStage;
   final String initialPauseRequestId;
   final bool startPauseOnOpen;
   final bool startWorkerHandoffOnOpen;
@@ -113,9 +111,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         Map<String, AdminOrderControlState>.from(widget.initialOrderControls);
     _orderControlState = _orderControls[widget.order.map.id.trim()] ??
         AdminOrderControlState.active;
-    unawaited(_loadMaterialAssignments());
-    unawaited(_loadInputProgressBatches());
-    unawaited(_loadQolipRequirements());
+    unawaited(_loadInteractionContractAndSections());
     if (widget.startPauseOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_runInitialPauseFlow());
@@ -170,6 +166,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     super.didUpdateWidget(oldWidget);
     final oldStation = oldWidget.apparatus?.name.trim() ?? '';
     final station = widget.apparatus?.name.trim() ?? '';
+    if (!_actionInFlight) {
+      _queueActionControl = widget.queueActionControl;
+    }
     if (oldWidget.order.map.id.trim() != widget.order.map.id.trim() ||
         oldStation != station) {
       _scannedMaterialBarcodes.clear();
@@ -196,14 +195,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _intakeCandidateAssignments = const [];
       _materialsError = '';
       _materialsLoading = true;
-      unawaited(_loadMaterialAssignments());
-      unawaited(_loadInputProgressBatches());
-      unawaited(_loadQolipRequirements());
+      unawaited(_loadInteractionContractAndSections());
     }
     if (_actionInFlight) {
       return;
     }
-    _queueActionControl = widget.queueActionControl;
     if (station.isEmpty) {
       return;
     }
@@ -214,6 +210,39 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (!mapEquals(_queueStates, nextStates)) {
       setState(() => _queueStates = Map<String, String>.from(nextStates));
     }
+  }
+
+  Future<void> _loadInteractionContractAndSections() async {
+    if (_queueActionControl?.isConsistentWith(_orderControlState) != true) {
+      try {
+        final refreshed = await _loadCurrentQueueActionControl();
+        if (!mounted) return;
+        if (refreshed?.isConsistentWith(_orderControlState) == true) {
+          setState(() => _queueActionControl = refreshed);
+        } else {
+          debugPrint(
+            'Invalid production interaction contract for '
+            '${widget.order.map.id.trim()} at '
+            '${widget.apparatus?.name.trim() ?? ''}',
+          );
+          _showSheetNotice(
+            context.l10n.productionText('worker.error.sync'),
+          );
+        }
+      } catch (error) {
+        if (!mounted) return;
+        debugPrint('Production interaction contract refresh failed: $error');
+        _showSheetNotice(
+          context.l10n.productionText('worker.error.sync'),
+        );
+      }
+    }
+    if (!mounted) return;
+    await Future.wait([
+      _loadMaterialAssignments(),
+      _loadInputProgressBatches(),
+      _loadQolipRequirements(),
+    ]);
   }
 
   Future<bool> _loadMaterialAssignments({bool showLoading = true}) async {
@@ -238,10 +267,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           apparatus: isMaterialTaminotchi ? '' : apparatus,
         );
       } else {
-        final queueState = _orderControlState == AdminOrderControlState.frozen
-            ? ApparatusQueueOrderState.frozen
-            : apparatusQueueOrderStateFromRaw(_queueStates[orderId]);
-        if (queueState == ApparatusQueueOrderState.pending) {
+        final interaction = _queueActionControl?.interaction;
+        if (_queueActionControl?.isConsistentWith(_orderControlState) == true &&
+            interaction?.startMaterialsMode ==
+                AdminQueueStartMaterialsMode.scanRequired) {
           requirements =
               await MobileApi.instance.adminRawMaterialStartRequirements(
             orderId: orderId,
@@ -269,8 +298,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             orderId: orderId,
             apparatus: apparatus,
           );
-          if (queueState == ApparatusQueueOrderState.inProgress ||
-              queueState == ApparatusQueueOrderState.paused) {
+          if (_queueActionControl?.isConsistentWith(_orderControlState) ==
+                  true &&
+              interaction?.materialIntakeAllowed == true) {
             intakeCandidates =
                 await MobileApi.instance.adminRawMaterialIntakeCandidates(
               orderId: orderId,
@@ -386,7 +416,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   Future<void> _loadQolipRequirements() async {
     final apparatus = widget.apparatus?.name.trim() ?? '';
     final orderId = widget.order.map.id.trim();
-    if (!_apparatusRequiresQolipScan(apparatus)) {
+    if (_queueActionControl?.isConsistentWith(_orderControlState) != true ||
+        _queueActionControl?.interaction?.qolipMode !=
+            AdminQueueQolipMode.scanRequired) {
       return;
     }
     if (mounted) {
@@ -449,22 +481,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         scannedQolipCodes: _scannedQolipCodes.values,
       );
 
-  bool get _laminatsiyaWipMaterialScanCanBeSkipped {
-    final station = widget.apparatus?.name.trim() ?? '';
-    final previousStage = _queueActionControl?.previousStage.trim();
-    return _laminatsiyaMaterialScanCanBeSkippedForWip(
-      station: station,
-      previousStage:
-          previousStage == null || previousStage.isEmpty ? null : previousStage,
-      inputProgressBatches: _availableInputProgressBatches,
-    );
-  }
-
-  bool get _bypassStartMaterialScan => _laminatsiyaMaterialGateBypassed(
-        station: widget.apparatus?.name.trim() ?? '',
-        materialRequirements: _materialStartRequirements,
-        skipStartMaterialScan: _laminatsiyaWipMaterialScanCanBeSkipped,
-      );
+  bool get _bypassStartMaterialScan =>
+      _queueActionControl?.interaction?.startMaterialsMode !=
+      AdminQueueStartMaterialsMode.scanRequired;
 
   bool _completionNeedsFullReport(String action) {
     return action == 'complete' &&
@@ -563,7 +582,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     String issueNote = '',
     String freezeRequestId = '',
   }) async {
-    if (_orderControlState == AdminOrderControlState.frozen) {
+    final l10n = context.l10n;
+    if (_queueActionControl?.isConsistentWith(_orderControlState) != true ||
+        _queueActionControl?.allows(action) != true) {
       return false;
     }
     if (action == 'start' &&
@@ -572,7 +593,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (mounted) {
         _showSheetNotice(
           _materialsError.isEmpty
-              ? context.l10n.productionText('worker.error.rule_failed')
+              ? l10n.productionText('worker.error.rule_failed')
               : _materialsError,
         );
       }
@@ -581,18 +602,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final prepared = _prepareReadOnlyQueueAction(
       action: action,
       apparatus: widget.apparatus,
-      order: widget.order,
       onQueueAction: widget.onQueueAction,
       actionInFlight: _actionInFlight,
       materialAssignments: _startAssignments,
       materialRequirements: _materialStartRequirements,
       materialsLoading: _materialsLoading,
       materialsError: _materialsError,
+      queueActionControl: _queueActionControl,
       scannedMaterialBarcodes: _scannedMaterialBarcodes,
       startInputProgressBatch: _startInputProgressBatch,
       qolipScanned: _allRequiredQolipsScanned,
-      skipStartMaterialScan: _laminatsiyaWipMaterialScanCanBeSkipped,
-      l10n: context.l10n,
+      l10n: l10n,
     );
     if (prepared == null) {
       return false;
@@ -747,7 +767,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     _PreparedReadOnlyQueueAction prepared,
   ) {
     if (action != 'start' ||
-        !_apparatusRequiresQolipScan(prepared.apparatus.name)) {
+        _queueActionControl?.interaction?.qolipMode !=
+            AdminQueueQolipMode.scanRequired) {
       return const [];
     }
     if (_scannedQolipCodes.isNotEmpty) {
@@ -888,7 +909,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
 
       Object? scanError;
-      if (_apparatusRequiresQolipScan(station)) {
+      if (_queueActionControl?.interaction?.qolipMode ==
+          AdminQueueQolipMode.scanRequired) {
         try {
           final validation =
               await MobileApi.instance.adminValidateProductionMapQolipDetails(
@@ -962,36 +984,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     AdminProgressBatch batch,
     String previousStage,
   ) async {
-    if (!_progressBatchMatchesPreviousStage(
-      batch: batch,
-      orderId: widget.order.map.id.trim(),
-      previousStage: previousStage,
-    )) {
-      if (mounted) {
-        setState(
-          () => _quickScanStatus = context.l10n.productionText(
-            'worker.error.previous_stage_qr',
-          ),
-        );
-      }
-      return false;
-    }
     final latest = await _fetchInputProgressBatches(previousStage);
     if (!mounted) {
       return false;
     }
-    final match = _matchingInputProgressBatch(batches: latest, batch: batch);
-    if (match == null) {
-      setState(() {
-        _availableInputProgressBatches = latest;
-        _inputProgressLoading = false;
-        _inputProgressError = '';
-        _quickScanStatus = context.l10n.productionText(
-          'worker.error.wip_not_in_order',
-        );
-      });
-      return false;
-    }
+    final match =
+        _matchingInputProgressBatch(batches: latest, batch: batch) ?? batch;
     setState(() {
       _availableInputProgressBatches = latest;
       _startInputProgressBatch = match;
@@ -1004,72 +1002,51 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return true;
   }
 
-  bool _progressBatchCanStartForStation({
-    required AdminProgressBatch batch,
-    required String previousStage,
-    required String station,
-  }) {
-    final action = batch.action.trim().toLowerCase();
-    final status = batch.status.trim().toLowerCase();
-    return batch.orderId.trim().isNotEmpty &&
-        batch.wipStatus.trim().toLowerCase() == 'waiting' &&
-        productionMapWarehouseTitlesMatch(batch.apparatus, previousStage) &&
-        (batch.nextApparatus.trim().isEmpty ||
-            productionMapNextStageTitleMatchesApparatus(
-              batch.nextApparatus,
-              station,
-            )) &&
-        (action == 'pause' ||
-            action == 'detach_roll' ||
-            action == 'roll_complete' ||
-            action == 'complete') &&
-        (status == 'paused' ||
-            status == 'roll_detached' ||
-            status == 'completed' ||
-            status == 'resumed');
-  }
-
   Future<bool> _confirmAndSwitchToScannedOrder({
     required AdminProgressBatch batch,
-    required String previousStage,
     required String station,
   }) async {
-    if (!_progressBatchCanStartForStation(
-      batch: batch,
-      previousStage: previousStage,
-      station: station,
-    )) {
-      if (mounted) {
-        setState(
-          () => _quickScanStatus = context.l10n.productionText(
-            'worker.error.wip_machine_mismatch',
-          ),
-        );
-      }
+    final targetOrderId = batch.orderId.trim();
+    if (targetOrderId.isEmpty) {
       return false;
     }
-    final currentOrderId = widget.order.map.id.trim();
-    final targetOrderId = batch.orderId.trim();
-    final currentState = apparatusQueueOrderStateFromRaw(
-      _queueStates[currentOrderId],
-    );
+    final snapshot = await MobileApi.instance
+        .adminProductionMapQueueSnapshot()
+        .timeout(_queueActionControlRefreshTimeout);
+    if (!mounted) return false;
+    AdminApparatusQueueOrderActionControl? targetControl;
+    for (final entry in snapshot.queueActionControls.entries) {
+      if (productionMapQueueApparatusTitlesMatch(entry.key, station)) {
+        targetControl = entry.value[targetOrderId];
+        break;
+      }
+    }
+    final targetOrderControl =
+        snapshot.orderControls[targetOrderId] ?? AdminOrderControlState.active;
+    if (targetControl?.isConsistentWith(targetOrderControl) != true ||
+        targetControl?.allows('start') != true) {
+      _showSheetNotice(context.l10n.productionText('worker.error.sync'));
+      return false;
+    }
+    final currentInteraction = _queueActionControl?.interaction;
     final usesTimelineAstatka = productionMapApparatusUsesTimelineAstatka(
       widget.apparatus?.name ?? '',
     );
     final confirmed = await showM3ConfirmDialog(
           context: context,
           title: context.l10n.productionText('worker.order.switch.title'),
-          message: currentState == ApparatusQueueOrderState.inProgress
-              ? context.l10n.productionText(
-                  'worker.order.switch.complete_current',
-                )
-              : usesTimelineAstatka
+          message:
+              currentInteraction?.mode == AdminQueueInteractionMode.inProgress
                   ? context.l10n.productionText(
-                      'worker.order.switch.report_current',
+                      'worker.order.switch.complete_current',
                     )
-                  : context.l10n.productionText(
-                      'worker.order.switch.stop_current',
-                    ),
+                  : usesTimelineAstatka
+                      ? context.l10n.productionText(
+                          'worker.order.switch.report_current',
+                        )
+                      : context.l10n.productionText(
+                          'worker.order.switch.stop_current',
+                        ),
           cancelLabel: context.l10n.productionText('worker.action.no'),
           confirmLabel: context.l10n.productionText(
             'worker.order.switch.confirm',
@@ -1080,7 +1057,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (!confirmed || !mounted) {
       return false;
     }
-    if (currentState == ApparatusQueueOrderState.inProgress) {
+    if (_queueActionControl?.allows('complete') == true) {
       final outcome = await _runProgressAction(
         'complete',
         fullCompletionReportRequired: true,
@@ -1089,8 +1066,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         return false;
       }
     } else if (usesTimelineAstatka &&
-        (currentState == ApparatusQueueOrderState.paused ||
-            currentState == ApparatusQueueOrderState.completed)) {
+        (currentInteraction?.mode == AdminQueueInteractionMode.paused ||
+            currentInteraction?.mode == AdminQueueInteractionMode.completed)) {
       final outcome = await _runAstatkaReport();
       if (outcome != _ProgressActionOutcome.completed || !mounted) {
         return false;
@@ -1253,14 +1230,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   Future<void> _runInitialOrderSwitchFlow() async {
     final batch = widget.initialOrderSwitchBatch;
-    final previousStage = widget.initialOrderSwitchPreviousStage.trim();
     final station = widget.apparatus?.name.trim() ?? '';
-    if (batch == null || previousStage.isEmpty || station.isEmpty) {
+    if (batch == null || station.isEmpty) {
       return;
     }
     final switched = await _confirmAndSwitchToScannedOrder(
       batch: batch,
-      previousStage: previousStage,
       station: station,
     );
     if (switched && mounted) {
@@ -1569,7 +1544,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       return;
     }
     final previousStage = _queueActionControl?.previousStage.trim();
-    if (previousStage == null || previousStage.isEmpty) {
+    if (_queueActionControl?.isConsistentWith(_orderControlState) != true ||
+        _queueActionControl?.interaction?.previousWipMode !=
+            AdminQueuePreviousWipMode.scanRequired ||
+        previousStage == null ||
+        previousStage.isEmpty) {
       return;
     }
     setState(() {
@@ -1613,22 +1592,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   ) async {
     final station = widget.apparatus?.name.trim() ?? '';
     final batches = await MobileApi.instance.adminWipBatches(
-      status: 'all',
+      status: 'waiting',
       apparatus: previousStage,
       nextApparatus: station,
       orderId: widget.order.map.id.trim(),
       limit: 250,
     );
-    return [
-      for (final batch in batches)
-        if (_progressBatchMatchesPreviousStage(
-              batch: batch,
-              orderId: widget.order.map.id.trim(),
-              previousStage: previousStage,
-            ) &&
-            _progressBatchCanFeedStation(batch: batch, station: station))
-          batch,
-    ];
+    return batches;
   }
 
   @override
@@ -1647,9 +1617,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       scannedMaterialBarcodes: _scannedMaterialBarcodes,
       canManageQueue: widget.canManageQueue,
       startInputProgressBatch: _startInputProgressBatch,
-      skipStartMaterialScan: _laminatsiyaWipMaterialScanCanBeSkipped,
     );
-    final requiresQolipScan = _apparatusRequiresQolipScan(uiState.station);
+    final requiresQolipScan = uiState.qolipScanRequired;
     final qolipScanAllowsStart =
         !requiresQolipScan || _allRequiredQolipsScanned;
     return _ReadOnlyOrderDetailContent(
@@ -1663,7 +1632,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       uiState: uiState,
       pauseLabel: widget.workerMode
           ? context.l10n.productionText(
-              _orderControlState == AdminOrderControlState.freezeRequested
+              _queueActionControl?.interaction?.mode ==
+                      AdminQueueInteractionMode.freezeRequested
                   ? 'worker.freeze.safe_stop.action'
                   : 'worker.action.detach_roll',
             )
@@ -1688,7 +1658,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       quickScanStatus: _quickScanStatus,
       quickScanInFlight: _quickScanInFlight,
       showQuickScanner: uiState.showStart ||
-          (_materialIntakeMode && (uiState.showPause || uiState.showResume)),
+          (_materialIntakeMode && uiState.materialIntakeAllowed),
       onQuickScan: _handleQuickScan,
       requiresQolipScan: requiresQolipScan,
       qolipScanned: qolipScanAllowsStart,
@@ -1722,9 +1692,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           : () => unawaited(_scanStartInputProgressQr(uiState.previousStage!)),
       onQolipScan: () => unawaited(_scanQolip()),
       onStart: () => unawaited(_runQueueAction('start')),
-      onPause: () => unawaited(
-        _runProgressAction(widget.workerMode ? 'detach_roll' : 'pause'),
-      ),
+      onPause: () => unawaited(_runProgressAction('pause')),
       onRollComplete: () => unawaited(_runProgressAction('roll_complete')),
       onComplete: () => unawaited(_runProgressAction('complete')),
       onResume: () => unawaited(_runQueueAction('resume')),

@@ -19,6 +19,8 @@ final Map<String, String> _testModeFrozenIssueNotesByOrderId = {};
 final Set<String> _testModeRequeuedOrderIds = {};
 final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
     {};
+final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+    _testModeQueueActionControlFixtures = {};
 final Map<String, AdminApparatusCapacityProfile>
     _testModeApparatusCapacityProfiles = {};
 final Map<String, AdminApparatusDowntime> _testModeApparatusDowntimes = {};
@@ -126,6 +128,18 @@ void setMobileApiTestModeForceProductionMapMenuLoadFailure(bool value) {
   _testModeForceProductionMapMenuLoadFailure = value;
 }
 
+void setMobileApiTestModeQueueActionControlFixture({
+  required String apparatus,
+  required String orderId,
+  required AdminApparatusQueueOrderActionControl control,
+}) {
+  final normalizedApparatus = apparatus.trim();
+  final normalizedOrderId = orderId.trim();
+  if (normalizedApparatus.isEmpty || normalizedOrderId.isEmpty) return;
+  _testModeQueueActionControlFixtures.putIfAbsent(
+      normalizedApparatus, () => {})[normalizedOrderId] = control;
+}
+
 void resetMobileApiTestModeData() {
   _testModeProductionMaps.clear();
   _testModeAdminItemDetailOverrides.clear();
@@ -146,6 +160,7 @@ void resetMobileApiTestModeData() {
   _testModeFrozenIssueNotesByOrderId.clear();
   _testModeRequeuedOrderIds.clear();
   _testModeApparatusQueuePolicies.clear();
+  _testModeQueueActionControlFixtures.clear();
   _testModeApparatusCapacityProfiles.clear();
   _testModeApparatusDowntimes.clear();
   _testModeApparatusScheduleReservations.clear();
@@ -897,6 +912,15 @@ Map<String, List<String>> _testModeEffectiveQueueSequences() {
   };
 }
 
+Set<String> _frozenOrderIds(
+  Map<String, AdminOrderControlState> orderControls,
+) {
+  return {
+    for (final entry in orderControls.entries)
+      if (entry.value == AdminOrderControlState.frozen) entry.key.trim(),
+  };
+}
+
 void _testModeRemoveOrderFromQueueSequence(String orderId) {
   final normalizedOrderId = orderId.trim();
   if (normalizedOrderId.isEmpty) {
@@ -978,11 +1002,12 @@ void _testModeFreezeOrderQueue(String orderId) {
 
 Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
     _testModeQueueActionControls() {
+  // This is a narrow fake server response. Widget code consumes this contract
+  // exactly as it consumes a live backend response; it never derives controls.
   final visible = _testModeVisibleOrderIdsByApparatus();
   final knownKeys = <String>{
     ..._testModeApparatusSequences.keys,
     ..._testModeApparatusQueueStates.keys,
-    ..._testModeApparatusQueuePolicies.keys,
     ...visible.keys,
   };
   final result = <String, Map<String, AdminApparatusQueueOrderActionControl>>{};
@@ -1001,115 +1026,126 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
     final states = _testModeApparatusQueueStates[storageKey] ??
         _testModeApparatusQueueStates[apparatus] ??
         const <String, String>{};
-    final policy = _effectiveTestModeQueuePolicy(apparatus, storageKey).policy;
-    String? activeOrderId;
-    for (final orderId in sequence) {
-      if (apparatusQueueOrderStateFromRaw(states[orderId]) ==
-          ApparatusQueueOrderState.inProgress) {
-        activeOrderId = orderId;
-        break;
-      }
-    }
-    final actionableOrderId = firstActionableQueueOrderId(
-      sequence: sequence,
-      states: states,
-      visibleOrderIds: visible[storageKey] ?? visible[apparatus] ?? const [],
-    );
+    final activeOrderId = sequence.cast<String?>().firstWhere(
+          (orderId) =>
+              apparatusQueueOrderStateFromRaw(states[orderId]) ==
+              ApparatusQueueOrderState.inProgress,
+          orElse: () => null,
+        );
+    final readyPendingOrderId = activeOrderId == null
+        ? sequence.cast<String?>().firstWhere(
+              (orderId) =>
+                  apparatusQueueOrderStateFromRaw(states[orderId]) ==
+                  ApparatusQueueOrderState.pending,
+              orElse: () => null,
+            )
+        : null;
     final apparatusControls = <String, AdminApparatusQueueOrderActionControl>{};
 
     for (final orderId in sequence) {
-      final order = _testModeOrderById(orderId)?.map;
       final state = apparatusQueueOrderStateFromRaw(states[orderId]);
       final orderControl =
           _testModeOrderControls[orderId] ?? AdminOrderControlState.active;
       final isRequeued = _testModeRequeuedOrderIds.contains(orderId.trim());
-      final previousStage = order == null
-          ? null
-          : _testModeTrainingPreviousStage(
-              map: order,
-              station: apparatus,
-            );
-      final usesVirtualTrainingInput = order != null &&
-          _testModeUsesVirtualTrainingInput(
-            map: order,
-            station: apparatus,
-          );
-      final previousStageReady = order != null &&
-          (usesVirtualTrainingInput
-              ? _testModeTrainingInputBatchGeneratedOrderIds.contains(
-                  orderId.trim(),
-                )
-              : productionMapOrderReadyForStation(
-                  map: order,
-                  orderId: orderId,
-                  station: apparatus,
-                  queueStatesByApparatus: _testModeApparatusQueueStates,
-                ));
-      final queueActionable = state == ApparatusQueueOrderState.inProgress ||
-          state == ApparatusQueueOrderState.paused ||
-          (state == ApparatusQueueOrderState.frozen &&
-              orderControl == AdminOrderControlState.active) ||
-          actionableOrderId == orderId ||
-          (state == ApparatusQueueOrderState.pending &&
-              previousStage != null &&
-              previousStageReady &&
-              (activeOrderId == null || activeOrderId == orderId));
       final allowedActions = <String>[];
       var completeRequiresFullReport = false;
-
-      if (queueActionable && orderControl != AdminOrderControlState.frozen) {
-        switch (state) {
-          case ApparatusQueueOrderState.pending:
-            if (orderControl == AdminOrderControlState.active &&
-                (policy == ApparatusQueuePolicy.freePick ||
-                    activeOrderId == null ||
-                    activeOrderId == orderId ||
-                    actionableOrderId == orderId)) {
-              allowedActions.add(isRequeued ? 'resume' : 'start');
-            }
-            break;
-          case ApparatusQueueOrderState.inProgress:
-            if (orderControl == AdminOrderControlState.active ||
-                orderControl == AdminOrderControlState.freezeRequested) {
-              allowedActions.add('pause');
-            }
-            if (orderControl == AdminOrderControlState.active) {
-              final hasUnprocessedPreviousWip = previousStage != null &&
-                  (!previousStageReady ||
-                      _testModeProgressBatchesByQr.values.any(
-                        (batch) =>
-                            batch.orderId.trim() == orderId.trim() &&
-                            productionMapWarehouseTitlesMatch(
-                              batch.apparatus,
-                              previousStage,
-                            ) &&
-                            (batch.nextApparatus.trim().isEmpty ||
-                                productionMapNextStageTitleMatchesApparatus(
-                                  batch.nextApparatus,
-                                  apparatus,
-                                )) &&
-                            batch.wipStatus.trim().toLowerCase() == 'waiting',
-                      ));
-              allowedActions.add('complete');
-              completeRequiresFullReport =
-                  !(productionMapIsLaminatsiyaApparatus(storageKey) ||
-                          productionMapIsRezkaApparatus(storageKey)) ||
-                      !hasUnprocessedPreviousWip;
-            }
-            break;
-          case ApparatusQueueOrderState.paused:
-            if (orderControl == AdminOrderControlState.active) {
-              allowedActions.add('resume');
-            }
-            break;
-          case ApparatusQueueOrderState.frozen:
-            if (orderControl == AdminOrderControlState.active) {
-              allowedActions.add('resume');
-            }
-            break;
-          case ApparatusQueueOrderState.completed:
-            break;
-        }
+      late final AdminQueueWorkerInteraction interaction;
+      switch (state) {
+        case ApparatusQueueOrderState.pending:
+          final ready = orderControl == AdminOrderControlState.active &&
+              readyPendingOrderId == orderId;
+          if (isRequeued) {
+            interaction = AdminQueueWorkerInteraction(
+              mode: ready
+                  ? AdminQueueInteractionMode.requeuedReady
+                  : AdminQueueInteractionMode.requeuedWaiting,
+              startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+              materialScanRequired: false,
+              assignedMaterialsDisplayOnly: true,
+              materialIntakeAllowed: false,
+              previousWipMode: AdminQueuePreviousWipMode.notRequired,
+              qolipMode: AdminQueueQolipMode.notRequired,
+              blockingReasonCode: ready ? '' : 'waiting_sequence',
+            );
+            if (ready) allowedActions.add('resume');
+          } else {
+            interaction = AdminQueueWorkerInteraction(
+              mode: ready
+                  ? AdminQueueInteractionMode.freshStart
+                  : AdminQueueInteractionMode.freshStartBlocked,
+              startMaterialsMode: ready
+                  ? AdminQueueStartMaterialsMode.scanRequired
+                  : AdminQueueStartMaterialsMode.hidden,
+              materialScanRequired: ready,
+              assignedMaterialsDisplayOnly: !ready,
+              materialIntakeAllowed: false,
+              previousWipMode: AdminQueuePreviousWipMode.notRequired,
+              qolipMode: AdminQueueQolipMode.notRequired,
+              blockingReasonCode: ready ? '' : 'waiting_sequence',
+            );
+            if (ready) allowedActions.add('start');
+          }
+          break;
+        case ApparatusQueueOrderState.inProgress:
+          final freezeRequested =
+              orderControl == AdminOrderControlState.freezeRequested;
+          interaction = AdminQueueWorkerInteraction(
+            mode: freezeRequested
+                ? AdminQueueInteractionMode.freezeRequested
+                : AdminQueueInteractionMode.inProgress,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+            materialScanRequired: false,
+            assignedMaterialsDisplayOnly: freezeRequested,
+            materialIntakeAllowed: !freezeRequested,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired,
+            qolipMode: AdminQueueQolipMode.notRequired,
+            blockingReasonCode: freezeRequested ? 'order_freeze_requested' : '',
+          );
+          allowedActions.add('pause');
+          if (!freezeRequested) {
+            allowedActions.add('complete');
+            completeRequiresFullReport = true;
+          }
+          break;
+        case ApparatusQueueOrderState.paused:
+          final freezeRequested =
+              orderControl == AdminOrderControlState.freezeRequested;
+          interaction = AdminQueueWorkerInteraction(
+            mode: freezeRequested
+                ? AdminQueueInteractionMode.freezeRequested
+                : AdminQueueInteractionMode.paused,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+            materialScanRequired: false,
+            assignedMaterialsDisplayOnly: freezeRequested,
+            materialIntakeAllowed: !freezeRequested,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired,
+            qolipMode: AdminQueueQolipMode.notRequired,
+          );
+          if (!freezeRequested) allowedActions.add('resume');
+          break;
+        case ApparatusQueueOrderState.frozen:
+          interaction = const AdminQueueWorkerInteraction(
+            mode: AdminQueueInteractionMode.frozen,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+            materialScanRequired: false,
+            assignedMaterialsDisplayOnly: true,
+            materialIntakeAllowed: false,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired,
+            qolipMode: AdminQueueQolipMode.notRequired,
+            blockingReasonCode: 'order_frozen',
+          );
+          break;
+        case ApparatusQueueOrderState.completed:
+          interaction = const AdminQueueWorkerInteraction(
+            mode: AdminQueueInteractionMode.completed,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+            materialScanRequired: false,
+            assignedMaterialsDisplayOnly: true,
+            materialIntakeAllowed: false,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired,
+            qolipMode: AdminQueueQolipMode.notRequired,
+          );
+          break;
       }
 
       apparatusControls[orderId.trim()] = AdminApparatusQueueOrderActionControl(
@@ -1119,8 +1155,8 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
                 ? 'in_progress'
                 : state.name,
         allowedActions: allowedActions.toSet(),
-        previousStage: previousStage ?? '',
-        previousStageReady: previousStageReady,
+        interaction: interaction,
+        hasOnlyKnownActions: true,
         completeRequiresFullReport: completeRequiresFullReport,
         freezeRequest: orderControl == AdminOrderControlState.freezeRequested
             ? AdminProductionOrderFreezeDetails(
@@ -1143,6 +1179,14 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
     if (apparatusControls.isNotEmpty) {
       result[storageKey] = Map.unmodifiable(apparatusControls);
     }
+  }
+  for (final fixtureEntry in _testModeQueueActionControlFixtures.entries) {
+    final storageKey = resolveApparatusStorageKey(fixtureEntry.key, knownKeys);
+    result[storageKey] = Map.unmodifiable({
+      ...(result[storageKey] ??
+          const <String, AdminApparatusQueueOrderActionControl>{}),
+      ...fixtureEntry.value,
+    });
   }
   return Map.unmodifiable(result);
 }
@@ -1291,10 +1335,136 @@ class AdminQolipOrderNoteDetails {
   }
 }
 
+enum AdminQueueInteractionMode {
+  freshStart,
+  freshStartBlocked,
+  requeuedWaiting,
+  requeuedReady,
+  inProgress,
+  freezeRequested,
+  paused,
+  frozen,
+  completed,
+  waitingPreviousStage;
+
+  static AdminQueueInteractionMode? tryParse(Object? raw) {
+    return switch (raw?.toString().trim()) {
+      'fresh_start' => AdminQueueInteractionMode.freshStart,
+      'fresh_start_blocked' => AdminQueueInteractionMode.freshStartBlocked,
+      'requeued_waiting' => AdminQueueInteractionMode.requeuedWaiting,
+      'requeued_ready' => AdminQueueInteractionMode.requeuedReady,
+      'in_progress' => AdminQueueInteractionMode.inProgress,
+      'freeze_requested' => AdminQueueInteractionMode.freezeRequested,
+      'paused' => AdminQueueInteractionMode.paused,
+      'frozen' => AdminQueueInteractionMode.frozen,
+      'completed' => AdminQueueInteractionMode.completed,
+      'waiting_previous_stage' =>
+        AdminQueueInteractionMode.waitingPreviousStage,
+      _ => null,
+    };
+  }
+}
+
+enum AdminQueueStartMaterialsMode {
+  hidden,
+  scanRequired;
+
+  static AdminQueueStartMaterialsMode? tryParse(Object? raw) {
+    return switch (raw?.toString().trim()) {
+      'hidden' => AdminQueueStartMaterialsMode.hidden,
+      'scan_required' => AdminQueueStartMaterialsMode.scanRequired,
+      _ => null,
+    };
+  }
+}
+
+enum AdminQueuePreviousWipMode {
+  notRequired,
+  scanRequired,
+  waiting;
+
+  static AdminQueuePreviousWipMode? tryParse(Object? raw) {
+    return switch (raw?.toString().trim()) {
+      'not_required' => AdminQueuePreviousWipMode.notRequired,
+      'scan_required' => AdminQueuePreviousWipMode.scanRequired,
+      'waiting' => AdminQueuePreviousWipMode.waiting,
+      _ => null,
+    };
+  }
+}
+
+enum AdminQueueQolipMode {
+  notRequired,
+  scanRequired;
+
+  static AdminQueueQolipMode? tryParse(Object? raw) {
+    return switch (raw?.toString().trim()) {
+      'not_required' => AdminQueueQolipMode.notRequired,
+      'scan_required' => AdminQueueQolipMode.scanRequired,
+      _ => null,
+    };
+  }
+}
+
+class AdminQueueWorkerInteraction {
+  const AdminQueueWorkerInteraction({
+    required this.mode,
+    required this.startMaterialsMode,
+    required this.materialScanRequired,
+    required this.assignedMaterialsDisplayOnly,
+    required this.materialIntakeAllowed,
+    required this.previousWipMode,
+    required this.qolipMode,
+    this.blockingReasonCode = '',
+  });
+
+  final AdminQueueInteractionMode mode;
+  final AdminQueueStartMaterialsMode startMaterialsMode;
+  final bool materialScanRequired;
+  final bool assignedMaterialsDisplayOnly;
+  final bool materialIntakeAllowed;
+  final AdminQueuePreviousWipMode previousWipMode;
+  final AdminQueueQolipMode qolipMode;
+  final String blockingReasonCode;
+
+  static AdminQueueWorkerInteraction? tryFromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final json = raw.cast<String, dynamic>();
+    final mode = AdminQueueInteractionMode.tryParse(json['mode']);
+    final startMaterialsMode =
+        AdminQueueStartMaterialsMode.tryParse(json['start_materials_mode']);
+    final previousWipMode =
+        AdminQueuePreviousWipMode.tryParse(json['previous_wip_mode']);
+    final qolipMode = AdminQueueQolipMode.tryParse(json['qolip_mode']);
+    if (mode == null ||
+        startMaterialsMode == null ||
+        previousWipMode == null ||
+        qolipMode == null ||
+        json['material_scan_required'] is! bool ||
+        json['assigned_materials_display_only'] is! bool ||
+        json['material_intake_allowed'] is! bool) {
+      return null;
+    }
+    return AdminQueueWorkerInteraction(
+      mode: mode,
+      startMaterialsMode: startMaterialsMode,
+      materialScanRequired: json['material_scan_required'] as bool,
+      assignedMaterialsDisplayOnly:
+          json['assigned_materials_display_only'] as bool,
+      materialIntakeAllowed: json['material_intake_allowed'] as bool,
+      previousWipMode: previousWipMode,
+      qolipMode: qolipMode,
+      blockingReasonCode: json['blocking_reason_code']?.toString().trim() ?? '',
+    );
+  }
+}
+
 class AdminApparatusQueueOrderActionControl {
   const AdminApparatusQueueOrderActionControl({
     this.state = '',
     this.allowedActions = const {},
+    this.interaction,
+    this.hasOnlyKnownActions = false,
     this.previousStage = '',
     this.previousStageReady = false,
     this.completeRequiresFullReport = false,
@@ -1303,6 +1473,8 @@ class AdminApparatusQueueOrderActionControl {
 
   final String state;
   final Set<String> allowedActions;
+  final AdminQueueWorkerInteraction? interaction;
+  final bool hasOnlyKnownActions;
   final String previousStage;
   final bool previousStageReady;
   final bool completeRequiresFullReport;
@@ -1310,22 +1482,85 @@ class AdminApparatusQueueOrderActionControl {
 
   bool allows(String action) => allowedActions.contains(action.trim());
 
+  bool get contractValid {
+    final value = interaction;
+    if (value == null || !hasOnlyKnownActions) return false;
+    for (final action in allowedActions) {
+      final compatible = switch (action) {
+        'start' => value.mode == AdminQueueInteractionMode.freshStart,
+        'resume' => value.mode == AdminQueueInteractionMode.requeuedReady ||
+            value.mode == AdminQueueInteractionMode.paused,
+        'pause' => value.mode == AdminQueueInteractionMode.inProgress ||
+            value.mode == AdminQueueInteractionMode.freezeRequested,
+        'roll_complete' ||
+        'complete' =>
+          value.mode == AdminQueueInteractionMode.inProgress,
+        'detach_roll' || 'freeze' => true,
+        _ => false,
+      };
+      if (!compatible) return false;
+    }
+    if (value.startMaterialsMode == AdminQueueStartMaterialsMode.scanRequired &&
+        !value.materialScanRequired) {
+      return false;
+    }
+    return true;
+  }
+
+  bool isConsistentWith(AdminOrderControlState orderControlState) {
+    if (!contractValid) return false;
+    final mode = interaction!.mode;
+    if (interaction!.previousWipMode != AdminQueuePreviousWipMode.notRequired &&
+        previousStage.trim().isEmpty) {
+      return false;
+    }
+    if (orderControlState == AdminOrderControlState.frozen) {
+      return mode == AdminQueueInteractionMode.frozen && allowedActions.isEmpty;
+    }
+    if (mode == AdminQueueInteractionMode.frozen || state == 'frozen') {
+      return false;
+    }
+    if (orderControlState == AdminOrderControlState.freezeRequested) {
+      return mode == AdminQueueInteractionMode.freezeRequested;
+    }
+    return mode != AdminQueueInteractionMode.freezeRequested;
+  }
+
   factory AdminApparatusQueueOrderActionControl.fromJson(
     Map<String, dynamic> json,
   ) {
+    const knownActions = {
+      'start',
+      'pause',
+      'detach_roll',
+      'resume',
+      'roll_complete',
+      'complete',
+      'freeze',
+    };
     final actions = <String>{};
+    var hasOnlyKnownActions = true;
     final rawActions = json['allowed_actions'];
     if (rawActions is List) {
       for (final rawAction in rawActions) {
         final action = rawAction?.toString().trim();
         if (action != null && action.isNotEmpty) {
           actions.add(action);
+          if (!knownActions.contains(action)) {
+            hasOnlyKnownActions = false;
+          }
         }
       }
+    } else {
+      hasOnlyKnownActions = false;
     }
     return AdminApparatusQueueOrderActionControl(
       state: json['state']?.toString().trim() ?? '',
       allowedActions: Set<String>.unmodifiable(actions),
+      interaction: AdminQueueWorkerInteraction.tryFromJson(
+        json['interaction'],
+      ),
+      hasOnlyKnownActions: hasOnlyKnownActions,
       previousStage: json['previous_stage']?.toString().trim() ?? '',
       previousStageReady: json['previous_stage_ready'] == true,
       completeRequiresFullReport: json['complete_requires_full_report'] == true,
@@ -1371,88 +1606,6 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       Map<String, AdminApparatusQueueOrderActionControl>>.unmodifiable(
     result,
   );
-}
-
-Set<String> _frozenOrderIds(
-  Map<String, AdminOrderControlState> orderControls,
-) {
-  return {
-    for (final entry in orderControls.entries)
-      if (entry.value == AdminOrderControlState.frozen) entry.key.trim(),
-  };
-}
-
-Map<String, String> _normalizeFrozenQueueStates({
-  required Map<String, String> states,
-  required Map<String, AdminOrderControlState> orderControls,
-}) {
-  final frozenIds = _frozenOrderIds(orderControls);
-  if (frozenIds.isEmpty) return Map<String, String>.unmodifiable(states);
-  final normalized = Map<String, String>.from(states);
-  for (final orderId in normalized.keys.toList()) {
-    if (frozenIds.contains(orderId.trim())) {
-      normalized[orderId] = 'frozen';
-    }
-  }
-  return Map<String, String>.unmodifiable(normalized);
-}
-
-Map<String, Map<String, String>> _normalizeFrozenQueueStatesByApparatus({
-  required Map<String, Map<String, String>> states,
-  required Map<String, AdminOrderControlState> orderControls,
-}) {
-  return Map<String, Map<String, String>>.unmodifiable({
-    for (final entry in states.entries)
-      entry.key: _normalizeFrozenQueueStates(
-        states: entry.value,
-        orderControls: orderControls,
-      ),
-  });
-}
-
-Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
-    _normalizeFrozenQueueActionControls({
-  required Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
-      controls,
-  required Map<String, AdminOrderControlState> orderControls,
-}) {
-  final frozenIds = _frozenOrderIds(orderControls);
-  if (frozenIds.isEmpty) return controls;
-  return Map<String,
-      Map<String, AdminApparatusQueueOrderActionControl>>.unmodifiable({
-    for (final apparatusEntry in controls.entries)
-      apparatusEntry.key:
-          Map<String, AdminApparatusQueueOrderActionControl>.unmodifiable({
-        for (final orderEntry in apparatusEntry.value.entries)
-          orderEntry.key: frozenIds.contains(orderEntry.key.trim())
-              ? AdminApparatusQueueOrderActionControl(
-                  state: 'frozen',
-                  previousStage: orderEntry.value.previousStage,
-                  previousStageReady: orderEntry.value.previousStageReady,
-                  completeRequiresFullReport:
-                      orderEntry.value.completeRequiresFullReport,
-                )
-              : orderEntry.value,
-      }),
-  });
-}
-
-Map<String, AdminProductionOrderStatusDetail> _normalizeFrozenOrderStatuses({
-  required Map<String, AdminProductionOrderStatusDetail> statuses,
-  required Map<String, AdminOrderControlState> orderControls,
-}) {
-  final frozenIds = _frozenOrderIds(orderControls);
-  if (frozenIds.isEmpty) return statuses;
-  return Map<String, AdminProductionOrderStatusDetail>.unmodifiable({
-    for (final entry in statuses.entries)
-      entry.key: frozenIds.contains(entry.key.trim())
-          ? entry.value.copyWith(
-              orderStatus: 'frozen',
-              workStatus: 'frozen',
-              flowStatus: 'frozen',
-            )
-          : entry.value,
-  });
 }
 
 class AdminApparatusQueueSnapshot {
@@ -4168,20 +4321,14 @@ class AdminProductionMapLiveSnapshot {
         json['sequences'],
       ),
       visibleOrderIds: _parseRequiredProductionMapVisibleOrderIds(json),
-      queueStates: _normalizeFrozenQueueStatesByApparatus(
-        states: MobileApi.instance.parseApparatusQueueStateMap(
-          json['queue_states'],
-        ),
-        orderControls: orderControls,
+      queueStates: MobileApi.instance.parseApparatusQueueStateMap(
+        json['queue_states'],
       ),
       queuePolicies: MobileApi.instance.parseApparatusQueuePolicyMap(
         json['queue_policies'],
       ),
-      queueActionControls: _normalizeFrozenQueueActionControls(
-        controls: _parseAdminQueueActionControls(
-          json['queue_action_controls'],
-        ),
-        orderControls: orderControls,
+      queueActionControls: _parseAdminQueueActionControls(
+        json['queue_action_controls'],
       ),
       completedOrders: [
         if (completedRaw is List)
@@ -4208,10 +4355,7 @@ class AdminProductionMapLiveSnapshot {
       ],
       orderControls: orderControls,
       orderCustomers: _stringMapOfStrings(json['order_customers']),
-      orderStatuses: _normalizeFrozenOrderStatuses(
-        statuses: _parseAdminOrderStatuses(json['order_statuses']),
-        orderControls: orderControls,
-      ),
+      orderStatuses: _parseAdminOrderStatuses(json['order_statuses']),
       frozenOrdersByApparatus: _parseAdminFrozenOrdersByApparatus(
         json['frozen_orders_by_apparatus'],
       ),
@@ -6149,13 +6293,10 @@ extension MobileApiAdmin on MobileApi {
       return AdminApparatusQueueSnapshot(
         sequences: _testModeEffectiveQueueSequences(),
         visibleOrderIds: _testModeVisibleOrderIdsByApparatus(),
-        queueStates: _normalizeFrozenQueueStatesByApparatus(
-          states: {
-            for (final entry in _testModeApparatusQueueStates.entries)
-              entry.key: Map<String, String>.unmodifiable(entry.value),
-          },
-          orderControls: orderControls,
-        ),
+        queueStates: {
+          for (final entry in _testModeApparatusQueueStates.entries)
+            entry.key: Map<String, String>.unmodifiable(entry.value),
+        },
         queuePolicies: Map<String, AdminApparatusQueuePolicy>.unmodifiable(
           _testModeApparatusQueuePolicies,
         ),
@@ -6188,23 +6329,14 @@ extension MobileApiAdmin on MobileApi {
     return AdminApparatusQueueSnapshot(
       sequences: parseApparatusSequenceMap(payload['sequences']),
       visibleOrderIds: _parseRequiredProductionMapVisibleOrderIds(payload),
-      queueStates: _normalizeFrozenQueueStatesByApparatus(
-        states: parseApparatusQueueStateMap(payload['queue_states']),
-        orderControls: orderControls,
-      ),
+      queueStates: parseApparatusQueueStateMap(payload['queue_states']),
       queuePolicies: parseApparatusQueuePolicyMap(payload['queue_policies']),
-      queueActionControls: _normalizeFrozenQueueActionControls(
-        controls: _parseAdminQueueActionControls(
-          payload['queue_action_controls'],
-        ),
-        orderControls: orderControls,
+      queueActionControls: _parseAdminQueueActionControls(
+        payload['queue_action_controls'],
       ),
       orderControls: orderControls,
       orderCustomers: _stringMapOfStrings(payload['order_customers']),
-      orderStatuses: _normalizeFrozenOrderStatuses(
-        statuses: _parseAdminOrderStatuses(payload['order_statuses']),
-        orderControls: orderControls,
-      ),
+      orderStatuses: _parseAdminOrderStatuses(payload['order_statuses']),
       qolipOrderNotes: _parseAdminQolipOrderNotes(
         payload['qolip_order_notes'],
       ),
@@ -9873,21 +10005,12 @@ extension MobileApiAdmin on MobileApi {
     final orderControl = rawOrderControl is Map
         ? AdminOrderControlState.fromRaw(rawOrderControl['state'])
         : null;
-    final orderStatus = _normalizeFrozenOrderStatuses(
-      statuses: {
-        orderId.trim(): AdminProductionOrderStatusDetail.fromJson(
-          payload['order_status'],
-        ),
-      },
-      orderControls: orderControl == AdminOrderControlState.frozen
-          ? {orderId.trim(): AdminOrderControlState.frozen}
-          : const {},
-    )[orderId.trim()]!;
+    final orderStatus = AdminProductionOrderStatusDetail.fromJson(
+      payload['order_status'],
+    );
     if (raw is! Map) {
       return AdminApparatusQueueActionResult(
-        states: orderControl == AdminOrderControlState.frozen
-            ? {orderId.trim(): 'frozen'}
-            : const {},
+        states: const {},
         orderStatus: orderStatus,
         orderControl: orderControl,
       );
@@ -9932,12 +10055,7 @@ extension MobileApiAdmin on MobileApi {
         entry.key.toString(): entry.value.toString(),
     };
     return AdminApparatusQueueActionResult(
-      states: _normalizeFrozenQueueStates(
-        states: parsedStates,
-        orderControls: orderControl == AdminOrderControlState.frozen
-            ? {orderId.trim(): AdminOrderControlState.frozen}
-            : const {},
-      ),
+      states: Map<String, String>.unmodifiable(parsedStates),
       orderStatus: orderStatus,
       orderControl: orderControl,
       progressBatch: legacyProgressBatch,

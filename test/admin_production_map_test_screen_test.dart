@@ -5814,6 +5814,26 @@ void main() {
       grossQty: 9,
       uom: 'm',
     );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: 'Laminatsiya 1',
+      orderId: 'zakaz-worker-previous-qr',
+      control: const AdminApparatusQueueOrderActionControl(
+        state: 'pending',
+        allowedActions: {'start'},
+        hasOnlyKnownActions: true,
+        previousStage: '7 ta rangli bosma aparat',
+        previousStageReady: true,
+        interaction: AdminQueueWorkerInteraction(
+          mode: AdminQueueInteractionMode.freshStart,
+          startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+          materialScanRequired: false,
+          assignedMaterialsDisplayOnly: true,
+          materialIntakeAllowed: false,
+          previousWipMode: AdminQueuePreviousWipMode.scanRequired,
+          qolipMode: AdminQueueQolipMode.notRequired,
+        ),
+      ),
+    );
 
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -5896,6 +5916,36 @@ void main() {
         apparatus: 'Laminatsiya 1',
         orderIds: const ['zakaz-worker-lamin-wait'],
       );
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: 'Laminatsiya 1',
+        orderId: 'zakaz-worker-lamin-wait',
+        control: const AdminApparatusQueueOrderActionControl(
+          state: 'pending',
+          allowedActions: {},
+          hasOnlyKnownActions: true,
+          previousStage: '7 ta rangli bosma aparat',
+          previousStageReady: false,
+          interaction: AdminQueueWorkerInteraction(
+            mode: AdminQueueInteractionMode.waitingPreviousStage,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+            materialScanRequired: false,
+            assignedMaterialsDisplayOnly: true,
+            materialIntakeAllowed: false,
+            previousWipMode: AdminQueuePreviousWipMode.waiting,
+            qolipMode: AdminQueueQolipMode.notRequired,
+            blockingReasonCode: 'waiting_previous_stage',
+          ),
+        ),
+      );
+      final waitingSnapshot =
+          await MobileApi.instance.adminProductionMapQueueSnapshot();
+      expect(
+        waitingSnapshot
+            .queueActionControls['Laminatsiya 1']?['zakaz-worker-lamin-wait']
+            ?.interaction
+            ?.mode,
+        AdminQueueInteractionMode.waitingPreviousStage,
+      );
 
       await _usePhoneViewport(tester);
       await tester.pumpWidget(
@@ -5925,8 +5975,9 @@ void main() {
       expect(find.text('Oldingi bosqich QR'), findsNothing);
       expect(find.text('Scan'), findsNothing);
       expect(
-        find.text(
-            'Oldingi bosqich tugallanguncha kutilmoqda: 7 ta rangli bosma aparat'),
+        find.textContaining(
+          'Oldingi bosqich tugallanguncha kutilmoqda: 7 ta rangli bosma',
+        ),
         findsOneWidget,
       );
       expect(find.text('2 / 5 bosqich'), findsOneWidget);
@@ -6252,6 +6303,132 @@ void main() {
       findsWidgets,
     );
   });
+
+  testWidgets(
+    'worker renders backend requeued-ready contract and resumes the order',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      const apparatus = 'Godex aparat - CONTRACT';
+      const requeuedOrderId = 'zakaz-contract-requeued';
+      const nextOrderId = 'zakaz-contract-next';
+      await AppSession.instance.setSession(
+        token: 'worker-contract-token',
+        profile: const SessionProfile(
+          role: UserRole.aparatchi,
+          displayName: 'Contract worker',
+          legalName: '',
+          ref: 'worker-contract',
+          phone: '',
+          avatarUrl: '',
+          capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+          assignedApparatus: [apparatus],
+        ),
+      );
+      await MobileApi.instance.adminCreateApparatus(apparatus);
+      for (final order in const [
+        (requeuedOrderId, 'Requeued contract order', 'RC-1'),
+        (nextOrderId, 'Next contract order', 'RC-2'),
+      ]) {
+        await MobileApi.instance.adminSaveProductionMap(
+          _productionOrderMap(
+            id: order.$1,
+            title: order.$2,
+            productCode: order.$3,
+            apparatus: apparatus,
+            product: order.$2,
+          ),
+        );
+      }
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: apparatus,
+        orderIds: const [requeuedOrderId, nextOrderId],
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: apparatus,
+        orderId: requeuedOrderId,
+        action: 'start',
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: apparatus,
+        orderId: requeuedOrderId,
+        action: 'freeze',
+        freezeWithIssue: true,
+        issueNote: 'Contract test issue',
+      );
+      await MobileApi.instance.adminProductionMapOrderControl(
+        orderId: requeuedOrderId,
+        action: AdminOrderControlAction.unfreeze,
+      );
+
+      await _usePhoneViewport(tester);
+      Future<void> pumpWorkerScreen() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(useMaterial3: true),
+            locale: const Locale('uz'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const AdminProductionMapOrdersScreen(
+              readOnly: true,
+              workerMode: true,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await pumpWorkerScreen();
+      await tester.tap(
+        find.byKey(const ValueKey('worker-order-$requeuedOrderId')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Boshlash'), findsNothing);
+      expect(find.text('Davom ettirish'), findsNothing);
+      expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
+      expect(
+        find.text('Buyurtma apparat navbatidagi o‘z vaqtini kutmoqda'),
+        findsOneWidget,
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: apparatus,
+        orderId: nextOrderId,
+        action: 'start',
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: apparatus,
+        orderId: nextOrderId,
+        action: 'complete',
+      );
+
+      await pumpWorkerScreen();
+      await tester.tap(
+        find.byKey(const ValueKey('worker-order-$requeuedOrderId')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Davom ettirish'), findsOneWidget);
+      expect(find.text('Boshlash'), findsNothing);
+      expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
+      await tester.tap(find.text('Davom ettirish'));
+      await tester.pumpAndSettle();
+
+      final snapshot =
+          await MobileApi.instance.adminProductionMapQueueSnapshot();
+      expect(
+        snapshot.queueStates[apparatus]?[requeuedOrderId],
+        'in_progress',
+      );
+    },
+  );
 }
 
 Future<void> _completeQolipScan(WidgetTester tester) async {

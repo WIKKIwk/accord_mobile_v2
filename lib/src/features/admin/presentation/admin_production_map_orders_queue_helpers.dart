@@ -138,6 +138,21 @@ bool _queueActionControlsEqual(
         control.previousStageReady != other.previousStageReady ||
         control.completeRequiresFullReport !=
             other.completeRequiresFullReport ||
+        control.contractValid != other.contractValid ||
+        control.interaction?.mode != other.interaction?.mode ||
+        control.interaction?.startMaterialsMode !=
+            other.interaction?.startMaterialsMode ||
+        control.interaction?.materialScanRequired !=
+            other.interaction?.materialScanRequired ||
+        control.interaction?.assignedMaterialsDisplayOnly !=
+            other.interaction?.assignedMaterialsDisplayOnly ||
+        control.interaction?.materialIntakeAllowed !=
+            other.interaction?.materialIntakeAllowed ||
+        control.interaction?.previousWipMode !=
+            other.interaction?.previousWipMode ||
+        control.interaction?.qolipMode != other.interaction?.qolipMode ||
+        control.interaction?.blockingReasonCode !=
+            other.interaction?.blockingReasonCode ||
         control.freezeRequest?.requestId != other.freezeRequest?.requestId ||
         control.freezeRequest?.status != other.freezeRequest?.status ||
         control.freezeRequest?.targetApparatus !=

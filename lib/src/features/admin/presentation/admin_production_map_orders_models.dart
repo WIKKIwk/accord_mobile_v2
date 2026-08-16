@@ -159,6 +159,8 @@ class _ReadOnlyOrderDetailUiState {
     required this.allMaterialsScanned,
     required this.showStartMaterials,
     required this.showIntakeCandidates,
+    required this.materialIntakeAllowed,
+    required this.qolipScanRequired,
     required this.previousStage,
     required this.previousProgressRequired,
     required this.previousProgressReady,
@@ -168,6 +170,9 @@ class _ReadOnlyOrderDetailUiState {
     required this.showComplete,
     required this.showResume,
     required this.showWaitingForPrevious,
+    required this.showWaitingForSequence,
+    required this.contractSynchronized,
+    required this.blockingReasonCode,
   });
 
   final String orderId;
@@ -188,6 +193,8 @@ class _ReadOnlyOrderDetailUiState {
   final bool allMaterialsScanned;
   final bool showStartMaterials;
   final bool showIntakeCandidates;
+  final bool materialIntakeAllowed;
+  final bool qolipScanRequired;
   final String? previousStage;
   final bool previousProgressRequired;
   final bool previousProgressReady;
@@ -197,6 +204,9 @@ class _ReadOnlyOrderDetailUiState {
   final bool showComplete;
   final bool showResume;
   final bool showWaitingForPrevious;
+  final bool showWaitingForSequence;
+  final bool contractSynchronized;
+  final String blockingReasonCode;
 
   int get scannedCount => materialScannedCount;
 }

@@ -3428,6 +3428,13 @@ class AppLocalizations {
       'en': 'The action could not be completed',
       'ru': 'Не удалось выполнить действие',
     },
+    'worker.error.sync': {
+      'uz': 'Ish holati server bilan sinxron emas. Sahifani yangilang.',
+      'en':
+          'The work state is not synchronized with the server. Refresh the page.',
+      'ru':
+          'Состояние работы не синхронизировано с сервером. Обновите страницу.',
+    },
     'worker.error.rule_loading': {
       'uz': 'Homashyo qoidasi yuklanmoqda',
       'en': 'Loading material rules',
@@ -3554,6 +3561,11 @@ class AppLocalizations {
       'uz': 'Oldingi bosqich tugallanguncha kutilmoqda: {stage}',
       'en': 'Waiting for the previous stage to finish: {stage}',
       'ru': 'Ожидание завершения предыдущего этапа: {stage}',
+    },
+    'worker.waiting.sequence': {
+      'uz': 'Buyurtma apparat navbatidagi o‘z vaqtini kutmoqda',
+      'en': 'The order is waiting for its turn in the machine queue',
+      'ru': 'Заказ ожидает своей очереди на аппарате',
     },
     'worker.material.group.dynamic': {
       'uz': '{apparatus} uchun biriktirilgan',

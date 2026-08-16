@@ -23,6 +23,16 @@ void main() {
           'zakaz-visible-alt': {
             'state': 'in_progress',
             'allowed_actions': ['pause', 'detach_roll'],
+            'interaction': {
+              'mode': 'freeze_requested',
+              'start_materials_mode': 'hidden',
+              'material_scan_required': false,
+              'assigned_materials_display_only': true,
+              'material_intake_allowed': false,
+              'previous_wip_mode': 'not_required',
+              'qolip_mode': 'not_required',
+              'blocking_reason_code': 'order_freeze_requested',
+            },
             'freeze_request': {
               'request_id': 'freeze-request-1',
               'status': 'pending',
@@ -196,6 +206,11 @@ void main() {
         snapshot.queueActionControls[apparatus]?[frozenOrderId]?.allowedActions,
         isEmpty,
       );
+      expect(
+        snapshot
+            .queueActionControls[apparatus]?[frozenOrderId]?.interaction?.mode,
+        AdminQueueInteractionMode.requeuedWaiting,
+      );
       await MobileApi.instance.adminApparatusQueueActionResult(
         apparatus: apparatus,
         orderId: nextOrderId,
@@ -210,6 +225,16 @@ void main() {
       expect(
         snapshot.queueActionControls[apparatus]?[frozenOrderId]?.allowedActions,
         contains('resume'),
+      );
+      expect(
+        snapshot
+            .queueActionControls[apparatus]?[frozenOrderId]?.interaction?.mode,
+        AdminQueueInteractionMode.requeuedReady,
+      );
+      expect(
+        snapshot.queueActionControls[apparatus]?[frozenOrderId]?.interaction
+            ?.startMaterialsMode,
+        AdminQueueStartMaterialsMode.hidden,
       );
       await expectLater(
         MobileApi.instance.adminApparatusQueueActionResult(
@@ -238,7 +263,7 @@ void main() {
     }
   });
 
-  test('live snapshot projects frozen control over stale queue data', () {
+  test('live snapshot preserves stale server data and fails closed', () {
     final snapshot = AdminProductionMapLiveSnapshot.fromJson({
       'maps': const [],
       'sequences': const {},
@@ -254,6 +279,15 @@ void main() {
           'zakaz-frozen': {
             'state': 'paused',
             'allowed_actions': ['resume'],
+            'interaction': {
+              'mode': 'paused',
+              'start_materials_mode': 'hidden',
+              'material_scan_required': false,
+              'assigned_materials_display_only': false,
+              'material_intake_allowed': true,
+              'previous_wip_mode': 'not_required',
+              'qolip_mode': 'not_required',
+            },
           },
         },
       },
@@ -272,18 +306,84 @@ void main() {
       },
     });
 
-    expect(snapshot.queueStates['Pechat']?['zakaz-frozen'], 'frozen');
+    expect(snapshot.queueStates['Pechat']?['zakaz-frozen'], 'paused');
     expect(
       snapshot.queueActionControls['Pechat']?['zakaz-frozen']?.state,
-      'frozen',
+      'paused',
     );
     expect(
       snapshot.queueActionControls['Pechat']?['zakaz-frozen']?.allowedActions,
-      isEmpty,
+      contains('resume'),
     );
-    expect(snapshot.orderStatuses['zakaz-frozen']?.orderStatus, 'frozen');
-    expect(snapshot.orderStatuses['zakaz-frozen']?.workStatus, 'frozen');
-    expect(snapshot.orderStatuses['zakaz-frozen']?.flowStatus, 'frozen');
+    final control = snapshot.queueActionControls['Pechat']?['zakaz-frozen'];
+    expect(control?.contractValid, isTrue);
+    expect(
+      control?.isConsistentWith(AdminOrderControlState.frozen),
+      isFalse,
+    );
+    expect(snapshot.orderStatuses['zakaz-frozen']?.orderStatus, 'in_progress');
+    expect(snapshot.orderStatuses['zakaz-frozen']?.workStatus, 'in_progress');
+    expect(snapshot.orderStatuses['zakaz-frozen']?.flowStatus, 'in_progress');
+  });
+
+  test('worker interaction contract controls requeue and input sections', () {
+    AdminApparatusQueueOrderActionControl parse({
+      required String state,
+      required List<String> actions,
+      required String mode,
+      required String startMaterialsMode,
+      bool materialScanRequired = false,
+    }) {
+      return AdminApparatusQueueOrderActionControl.fromJson({
+        'state': state,
+        'allowed_actions': actions,
+        'interaction': {
+          'mode': mode,
+          'start_materials_mode': startMaterialsMode,
+          'material_scan_required': materialScanRequired,
+          'assigned_materials_display_only': true,
+          'material_intake_allowed': false,
+          'previous_wip_mode': 'not_required',
+          'qolip_mode': 'not_required',
+        },
+      });
+    }
+
+    final requeuedReady = parse(
+      state: 'pending',
+      actions: const ['resume'],
+      mode: 'requeued_ready',
+      startMaterialsMode: 'hidden',
+    );
+    expect(requeuedReady.contractValid, isTrue);
+    expect(requeuedReady.allows('resume'), isTrue);
+    expect(requeuedReady.allows('start'), isFalse);
+    expect(
+      requeuedReady.interaction?.startMaterialsMode,
+      AdminQueueStartMaterialsMode.hidden,
+    );
+
+    final pausedWithoutResume = parse(
+      state: 'paused',
+      actions: const [],
+      mode: 'paused',
+      startMaterialsMode: 'hidden',
+    );
+    expect(pausedWithoutResume.contractValid, isTrue);
+    expect(pausedWithoutResume.allows('resume'), isFalse);
+
+    final freshStart = parse(
+      state: 'pending',
+      actions: const ['start'],
+      mode: 'fresh_start',
+      startMaterialsMode: 'scan_required',
+      materialScanRequired: true,
+    );
+    expect(freshStart.contractValid, isTrue);
+    expect(
+      freshStart.interaction?.startMaterialsMode,
+      AdminQueueStartMaterialsMode.scanRequired,
+    );
   });
 
   test('production map definition keeps server customer name', () {
