@@ -528,6 +528,13 @@ class _WorkerAssignmentSummaryCard extends StatelessWidget {
     }
 
     final groups = detail?.assignedGroups ?? const <AdminWorkerGroup>[];
+    final assignedApparatus = <String>{
+      ...?detail?.assignedApparatus,
+      ...groups.map((group) => group.apparatus),
+    }
+        .map((apparatus) => apparatus.trim())
+        .where((apparatus) => apparatus.isNotEmpty)
+        .toList(growable: false);
     return AppSegmentSurfaceCard(
       key: const ValueKey('admin-worker-detail-activity-summary'),
       child: Column(
@@ -540,17 +547,17 @@ class _WorkerAssignmentSummaryCard extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 12),
-          if (groups.isEmpty)
+          if (assignedApparatus.isEmpty)
             _WorkerAssignmentSummaryLine(
               label: l10n.adminText('label.apparatus'),
               value: l10n.adminText('detail.no_assignment'),
             )
           else
-            for (var index = 0; index < groups.length; index++) ...[
+            for (var index = 0; index < assignedApparatus.length; index++) ...[
               if (index > 0) const Divider(height: 20),
               _WorkerAssignmentSummaryLine(
                 label: l10n.adminText('label.apparatus'),
-                value: _workerGroupSummary(l10n, groups[index]),
+                value: assignedApparatus[index],
               ),
             ],
         ],

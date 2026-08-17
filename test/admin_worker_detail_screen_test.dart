@@ -1,7 +1,10 @@
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_worker_detail_screen.dart';
 import 'package:accord_mobile_v2/src/features/chat/models/chat_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -18,6 +21,14 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: AdminWorkerDetailScreen(
           entry: entry,
           chatTarget: const ChatDirectoryEntry(
@@ -47,13 +58,8 @@ void main() {
               codeLocked: false,
               codeRetryAfterSec: 0,
             ),
-            assignedGroups: [
-              AdminWorkerGroup(
-                apparatus: '7 ta rangli pechat',
-                groupCode: 'A',
-                shift: 'kunduz',
-              ),
-            ],
+            assignedApparatus: ['7 ta rangli pechat'],
+            assignedGroups: [],
             activeSessions: [],
             recentBatches: [],
             recentLogs: [],
@@ -71,7 +77,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Xabar yozish'), findsOneWidget);
-    expect(find.text('Ish faoliyati'), findsOneWidget);
+    expect(find.text('Ish faoliyati tafsilotlari').last, findsOneWidget);
     expect(find.text('7 ta rangli pechat'), findsOneWidget);
     expect(find.text('Joriy ish'), findsNothing);
     expect(find.text('Hozir aktiv zakaz yo‘q'), findsNothing);
@@ -117,6 +123,14 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: AdminWorkerDetailScreen(
           entry: entry,
           detailLoader: (_) async => const AdminWorkerDetail(

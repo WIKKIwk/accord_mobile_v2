@@ -2937,6 +2937,7 @@ Map<String, String> _stringMapOfStrings(Object? raw) {
 class AdminWorkerProfileDetail {
   const AdminWorkerProfileDetail({
     required this.worker,
+    this.assignedApparatus = const [],
     required this.assignedGroups,
     required this.activeSessions,
     required this.recentBatches,
@@ -2944,6 +2945,7 @@ class AdminWorkerProfileDetail {
   });
 
   final AdminWorkerDetail worker;
+  final List<String> assignedApparatus;
   final List<AdminWorkerGroup> assignedGroups;
   final List<AdminWorkerRunSession> activeSessions;
   final List<AdminProgressBatch> recentBatches;
@@ -2954,6 +2956,10 @@ class AdminWorkerProfileDetail {
       worker: AdminWorkerDetail.fromJson(
         (json['worker'] as Map? ?? const {}).cast<String, dynamic>(),
       ),
+      assignedApparatus: [
+        for (final item in (json['assigned_apparatus'] as List? ?? const []))
+          if (item.toString().trim().isNotEmpty) item.toString().trim(),
+      ],
       assignedGroups: [
         for (final item in (json['assigned_groups'] as List? ?? const []))
           AdminWorkerGroup.fromJson((item as Map).cast<String, dynamic>()),

@@ -88,10 +88,37 @@ class _WorkerProfileBody extends StatelessWidget {
             _InfoRow(l10n.adminText('detail.item_code'), worker.code),
           ],
         ),
+        _WorkerApparatusCard(apparatus: detail.assignedApparatus),
         _WorkerGroupsCard(groups: detail.assignedGroups),
         _ActiveSessionsCard(sessions: detail.activeSessions),
         _ProgressBatchesCard(batches: detail.recentBatches),
         _RecentLogsCard(logs: detail.recentLogs),
+      ],
+    );
+  }
+}
+
+class _WorkerApparatusCard extends StatelessWidget {
+  const _WorkerApparatusCard({required this.apparatus});
+
+  final List<String> apparatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final names = apparatus
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    return _InfoCard(
+      title: l10n.adminText('label.apparatus'),
+      rows: [
+        _InfoRow(
+          l10n.adminText('label.status'),
+          names.isEmpty
+              ? l10n.adminText('detail.assigned_none')
+              : names.join(', '),
+        ),
       ],
     );
   }
