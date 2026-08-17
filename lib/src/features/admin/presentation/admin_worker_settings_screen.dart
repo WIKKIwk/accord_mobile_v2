@@ -151,6 +151,13 @@ String _workerDeletionDependencyLabel(
 String _workerGroupCodeKey(String code) =>
     code.trim().split(RegExp(r'\s+')).join(' ').toUpperCase();
 
+Set<String> _normalizedApparatusNames(Iterable<String> values) {
+  return {
+    for (final value in values)
+      if (value.trim().isNotEmpty) value.trim().toLowerCase(),
+  };
+}
+
 AdminWorkerGroup _newWorkerGroup(String code) {
   return AdminWorkerGroup(
     apparatus: _workerGroupsScope,
@@ -281,6 +288,27 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
         .toSet()
         .toList(growable: true)
       ..sort();
+    final currentApparatus = _normalizedApparatusNames(
+      currentAssignment?.assignedApparatus ?? const <String>[],
+    );
+    final nextApparatus = _normalizedApparatusNames(assignedApparatus);
+    final assignmentAlreadySaved = currentAssignment != null &&
+        currentApparatus.length == nextApparatus.length &&
+        currentApparatus.containsAll(nextApparatus);
+    if (assignmentAlreadySaved) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          assignedApparatus.isEmpty
+              ? context.l10n.adminText('scope.already_saved')
+              : context.l10n.adminText(
+                  'scope.already_assigned',
+                  values: {'apparatus': assignedApparatus.join(', ')},
+                ),
+        );
+      }
+      return true;
+    }
     setState(() => _savingApparatusWorkerIds.add(workerId));
     try {
       await MobileApi.instance.adminUpsertRoleAssignment(
@@ -297,7 +325,9 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
       );
       if (mounted) {
         showAdminTopNotice(context, context.l10n.adminText('scope.saved'));
-        setState(() => _future = _load());
+        setState(() {
+          _future = _load();
+        });
       }
       return true;
     } catch (error) {

@@ -6988,6 +6988,16 @@ const Map<String, Map<String, String>> adminTranslations = {
     'en': 'Equipment assignments saved',
     'ru': 'Назначения оборудования сохранены',
   },
+  'admin.scope.already_saved': {
+    'uz': 'Aparat biriktirmalari bu foydalanuvchi uchun allaqachon saqlangan',
+    'en': 'Equipment assignments are already saved for this user',
+    'ru': 'Назначения оборудования для этого пользователя уже сохранены',
+  },
+  'admin.scope.already_assigned': {
+    'uz': '{apparatus} bu foydalanuvchi uchun allaqachon saqlangan',
+    'en': '{apparatus} is already saved for this user',
+    'ru': '{apparatus} уже сохранено для этого пользователя',
+  },
   'admin.scope.save_failed': {
     'uz': 'Aparat biriktirmalari saqlanmadi: {error}',
     'en': 'Equipment assignments could not be saved: {error}',

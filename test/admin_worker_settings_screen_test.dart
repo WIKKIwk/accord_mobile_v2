@@ -242,6 +242,58 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
+  testWidgets('worker apparatus duplicate assignment is reported clearly', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final worker = await MobileApi.instance.adminCreateWorker(
+      name: 'Aparati allaqachon biriktirilgan ishchi',
+      level: 'Master',
+    );
+    await MobileApi.instance.adminUpsertRoleAssignment(
+      AdminRoleAssignment(
+        principalRole: UserRole.aparatchi,
+        principalRef: worker.id,
+        roleId: 'aparatchi',
+        assignedApparatus: const ['Laminatsiya 1'],
+        assignedItemGroups: const [],
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminWorkerSettingsScreen(),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Aparati allaqachon biriktirilgan ishchi'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('worker-apparatus-picker-${worker.id}')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('worker-apparatus-save')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Laminatsiya 1 bu foydalanuvchi uchun allaqachon saqlangan'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
   testWidgets('worker group name can be renamed from edit mode',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(430, 1400));
