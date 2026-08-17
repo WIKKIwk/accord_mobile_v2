@@ -28,36 +28,32 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Face ID is used to unlock the app securely and speed up sign-in for this device.</string>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>The app uses Bluetooth to find and print labels on the XP-P323B printer.</string>
-	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>The app uses Bluetooth to connect to the XP-P323B printer.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>The app needs camera access to capture photos and videos for operational workflows and chat.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>The app needs microphone access to record voice messages and videos for chat.</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_gscale-mobileapi._tcp</string>
-		<string>_rp-scale._tcp</string>
-	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>The app uses Bluetooth to find and print labels on the XP-P323B printer.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>The app uses Bluetooth to connect to the XP-P323B printer.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_gscale-mobileapi._tcp</string>
+		<string>_rp-scale._tcp</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>The app needs camera access to capture photos and videos for operational workflows and chat.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID is used to unlock the app securely and speed up sign-in for this device.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>The app needs local network access to find and connect to the RP Scale printer service.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>The app needs microphone access to record voice messages and videos for chat.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Saved archive pages are added to Photos so you can review and share them later.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>The app needs photo library access to choose images and videos for chat and other workflows.</string>
-	<key>UIFileSharingEnabled</key>
-	<true/>
-	<key>io.flutter.embedded_views_preview</key>
-	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -81,6 +77,8 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIFileSharingEnabled</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -98,5 +96,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>io.flutter.embedded_views_preview</key>
+	<true/>
 </dict>
 </plist>
