@@ -4153,11 +4153,9 @@ class AdminProductionMapLiveSnapshot {
       completedOrders: [
         if (completedRaw is List)
           for (final item in completedRaw)
-            if ((item as Map)['status']?.toString().trim().toLowerCase() ==
-                'completed')
-              AdminCompletedQueueOrder.fromJson(
-                item.cast<String, dynamic>(),
-              ),
+            AdminCompletedQueueOrder.fromJson(
+              (item as Map).cast<String, dynamic>(),
+            ),
       ],
       completionRequests: [
         if (completionRequestsRaw is List)
@@ -6295,9 +6293,7 @@ extension MobileApiAdmin on MobileApi {
       final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
       return [
         for (final item in _testModeCompletedQueueOrders)
-          if (item.actorRef == actorRef &&
-              item.order.status.trim().toLowerCase() == 'completed')
-            item.order,
+          if (item.actorRef == actorRef) item.order,
       ];
     }
     final response = await _sendAuthorized(
@@ -9630,12 +9626,13 @@ extension MobileApiAdmin on MobileApi {
         final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
         final completedOrderId = orderId.trim();
         final historyStatus = _testModeQueueHistoryStatus(
+          apparatus: storageKey,
           orderId: completedOrderId,
           fallbackStatus: 'completed',
         );
         if (actorRef.isNotEmpty &&
             completedOrderId.isNotEmpty &&
-            historyStatus == 'completed') {
+            historyStatus.isNotEmpty) {
           _testModeRecordCompletedQueueOrder(
             actorRef: actorRef,
             apparatus: storageKey,
@@ -11972,6 +11969,7 @@ AdminApparatusQueuePolicy _effectiveTestModeQueuePolicy(
 }
 
 String _testModeQueueHistoryStatus({
+  required String apparatus,
   required String orderId,
   required String fallbackStatus,
 }) {
@@ -11980,39 +11978,12 @@ String _testModeQueueHistoryStatus({
   if (normalizedFallback != 'completed') {
     return 'in_progress';
   }
-  ProductionMapSaved? saved;
-  for (final candidate in _testModeProductionMaps) {
-    if (candidate.map.id.trim() == normalizedOrderId) {
-      saved = candidate;
-      break;
-    }
-  }
-  if (saved == null) {
-    return normalizedFallback;
-  }
-  final apparatusTitles = <String>[];
-  final seenTitles = <String>{};
-  for (final node in saved.map.nodes) {
-    if (node.kind != 'apparatus') continue;
-    final title = (node.alternativeAssignedTitle.trim().isEmpty
-            ? node.title
-            : node.alternativeAssignedTitle)
-        .trim();
-    if (title.isNotEmpty && seenTitles.add(title.toLowerCase())) {
-      apparatusTitles.add(title);
-    }
-  }
-  if (apparatusTitles.isEmpty) {
-    return normalizedFallback;
-  }
-  final fullyCompleted = apparatusTitles.every(
-    (title) => _testModeApparatusQueueStates.entries.any(
-      (entry) =>
-          productionMapWarehouseTitlesMatch(entry.key, title) &&
-          entry.value[normalizedOrderId]?.trim().toLowerCase() == 'completed',
-    ),
+  final stageCompleted = _testModeApparatusQueueStates.entries.any(
+    (entry) =>
+        productionMapWarehouseTitlesMatch(entry.key, apparatus) &&
+        entry.value[normalizedOrderId]?.trim().toLowerCase() == 'completed',
   );
-  return fullyCompleted ? 'completed' : 'in_progress';
+  return stageCompleted ? 'completed' : 'in_progress';
 }
 
 void _testModeRecordCompletedQueueOrder({

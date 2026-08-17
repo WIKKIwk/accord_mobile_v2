@@ -5715,7 +5715,8 @@ void main() {
     );
   });
 
-  testWidgets('worker in-progress history opens WIP details', (
+  testWidgets(
+      'worker stage completion remains visible while later stage is pending', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
@@ -5763,12 +5764,6 @@ void main() {
       grossQty: 9,
       uom: 'm',
     );
-    await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: 'Laminatsiya 1',
-      orderId: 'zakaz-worker-completed-context',
-      action: 'start',
-    );
-
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
       MaterialApp(
@@ -5792,8 +5787,7 @@ void main() {
     await tester.tap(find.text('Tugallangan'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('completed context'), findsNothing);
-    expect(find.text('WIP tafsilotlari'), findsNothing);
+    expect(find.textContaining('completed context'), findsOneWidget);
   });
 
   testWidgets('later stage detail keeps previous progress QR scan visible', (

@@ -10,9 +10,6 @@ List<_WorkerCompletedOrderEntry> _workerCompletedOrders({
   final seen = <String>{};
   final entries = <_WorkerCompletedOrderEntry>[];
   for (final completed in completedOrders) {
-    if (completed.status.trim().toLowerCase() != 'completed') {
-      continue;
-    }
     final orderId = completed.orderId.trim();
     if (orderId.isEmpty || !seen.add(orderId)) {
       continue;

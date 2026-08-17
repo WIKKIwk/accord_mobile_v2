@@ -7,6 +7,41 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('live snapshot keeps actor stage-history statuses', () {
+    final snapshot = AdminProductionMapLiveSnapshot.fromJson({
+      'ok': true,
+      'maps': const [],
+      'sequences': const {},
+      'visible_order_ids': const {},
+      'queue_states': const {},
+      'queue_policies': const [],
+      'queue_action_controls': const {},
+      'completed_orders': const [
+        {
+          'apparatus': 'Pechat',
+          'order_id': 'zakaz-stage-history',
+          'status': 'completed',
+        },
+        {
+          'apparatus': 'Laminatsiya 1',
+          'order_id': 'zakaz-partial-history',
+          'status': 'in_progress',
+        },
+      ],
+      'completion_requests': const [],
+      'completion_request_decisions': const [],
+      'order_controls': const {},
+      'order_statuses': const {},
+      'frozen_orders_by_apparatus': const {},
+    });
+
+    expect(snapshot.completedOrders, hasLength(2));
+    expect(snapshot.completedOrders[0].status, 'completed');
+    expect(snapshot.completedOrders[0].apparatus, 'Pechat');
+    expect(snapshot.completedOrders[1].status, 'in_progress');
+    expect(snapshot.completedOrders[1].apparatus, 'Laminatsiya 1');
+  });
+
   test('production map live snapshot parses backend visible order ids', () {
     final snapshot = AdminProductionMapLiveSnapshot.fromJson({
       'ok': true,
