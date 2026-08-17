@@ -692,6 +692,134 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     );
   }
 
+  Future<void> _moveQolips(List<QolipLocationEntry> items) async {
+    final selected = items
+        .where((item) => item.id.trim().isNotEmpty)
+        .toList(growable: false);
+    if (selected.isEmpty) {
+      return;
+    }
+    final l10n = context.l10n;
+    final source = selected.first;
+    final availableBlocks = qolipMoveTargetBlocks(
+      blocks: _orderedBlocks,
+      source: source,
+      supportsCrossBlockMove: _supportsCrossBlockMove,
+    );
+    final targetBlock = await _pickQolipBlock(availableBlocks);
+    if (targetBlock == null || !mounted) {
+      return;
+    }
+    final movingInsideSourceBlock = targetBlock.name.trim().toLowerCase() ==
+        source.block.trim().toLowerCase();
+    final cellLabel = await showQolipCellPickerSheet(
+      context,
+      title: l10n.qolipText(
+        'home.select_cell',
+        values: {'block': targetBlock.name},
+      ),
+      excludeCellLabel: movingInsideSourceBlock ? source.locationLabel : null,
+    );
+    if (cellLabel == null || !mounted) {
+      return;
+    }
+    final normalizedCell = normalizeQolipCellLabel(cellLabel);
+    final columnNumber = normalizedCell == null
+        ? null
+        : int.tryParse(normalizedCell.substring(1));
+    if (normalizedCell == null || columnNumber == null) {
+      return;
+    }
+
+    try {
+      final moved = await MobileApi.instance.qolipMoveLocations(
+        locations: selected,
+        targetBlock: targetBlock,
+        rowLetter: normalizedCell.substring(0, 1),
+        columnNumber: columnNumber,
+      );
+      if (!mounted) {
+        return;
+      }
+      final refreshed = await _refreshMovedBlocks([
+        ...selected.map((item) => item.block),
+        targetBlock.name,
+        ...moved.map((item) => item.block),
+      ]);
+      if (!mounted) {
+        return;
+      }
+      final movedByCode = <String, QolipLocationEntry>{
+        for (final item in moved) item.qolipCode.trim().toLowerCase(): item,
+      };
+      final targetLocations =
+          refreshed[targetBlock.name.trim().toLowerCase()] ??
+              const <QolipLocationEntry>[];
+      final allConfirmed = selected.every((item) {
+        final movedItem = movedByCode[item.qolipCode.trim().toLowerCase()];
+        return movedItem != null &&
+            qolipMoveReachedTarget(
+              moved: movedItem,
+              targetBlock: targetBlock,
+              qolipCode: item.qolipCode,
+              rowLetter: normalizedCell.substring(0, 1),
+              columnNumber: columnNumber,
+            ) &&
+            targetLocations.any(
+              (location) =>
+                  location.id == movedItem.id &&
+                  location.qolipCode.trim().toLowerCase() ==
+                      item.qolipCode.trim().toLowerCase(),
+            );
+      });
+      if (!allConfirmed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.qolipText(
+                'transfer.target_unconfirmed',
+                values: {
+                  'location': '${targetBlock.name} / $normalizedCell',
+                },
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+      _showBlockTab(targetBlock);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.qolipText(
+              'transfer.moved',
+              values: {
+                'item': l10n.qolipCount(selected.length),
+                'block': targetBlock.name,
+                'cell': normalizedCell,
+              },
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            qolipErrorMessage(
+              error,
+              fallback: l10n.qolipText('transfer.failed'),
+              l10n: l10n,
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _takeQolip(QolipLocationEntry item) async {
     final taken = await showModalBottomSheet<bool>(
       context: context,
@@ -1653,6 +1781,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                             ),
                             onPrintCellQr: _printCellQr,
                             onMove: _moveQolip,
+                            onMoveSelected: _moveQolips,
                             onMoveToCell: (
                               item,
                               rowLetter,
@@ -2107,6 +2236,7 @@ class _QolipBlockGrid extends StatelessWidget {
     required this.onAttachAt,
     required this.onPrintCellQr,
     required this.onMove,
+    required this.onMoveSelected,
     required this.onMoveToCell,
     required this.onTake,
   });
@@ -2130,6 +2260,7 @@ class _QolipBlockGrid extends StatelessWidget {
     QolipLocationEntry item, {
     String? excludeCellLabel,
   }) onMove;
+  final Future<void> Function(List<QolipLocationEntry> items) onMoveSelected;
   final Future<bool> Function(
     QolipLocationEntry item,
     String rowLetter,
@@ -2362,6 +2493,7 @@ class _QolipBlockGrid extends StatelessWidget {
       movableIn: movableIn,
       onTake: onTake,
       onMoveOut: (item) => onMove(item, excludeCellLabel: cellLabel),
+      onMoveSelected: onMoveSelected,
       onMoveToCell: (item) => onMoveToCell(
         item,
         rowLetter,
@@ -2404,11 +2536,14 @@ class _QolipBlockGrid extends StatelessWidget {
     required List<QolipLocationEntry> movableIn,
     required Future<void> Function(QolipLocationEntry item) onTake,
     required Future<void> Function(QolipLocationEntry item) onMoveOut,
+    required Future<void> Function(List<QolipLocationEntry> items)
+        onMoveSelected,
     required Future<bool> Function(QolipLocationEntry item) onMoveToCell,
     required Future<void> Function() onAdd,
   }) async {
     final scheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
+    final selectedKeys = <String>{};
     final action = await showModalBottomSheet<Object>(
       context: context,
       showDragHandle: true,
@@ -2417,98 +2552,152 @@ class _QolipBlockGrid extends StatelessWidget {
       backgroundColor: scheme.surface,
       builder: (context) {
         final maxHeight = MediaQuery.sizeOf(context).height * 0.82;
-        return ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: maxHeight),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  l10n.qolipText(
-                    'home.cell',
-                    values: {'cell': cellLabel},
-                  ),
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                const SizedBox(height: 12),
-                Flexible(
-                  fit: FlexFit.loose,
-                  child: ListView(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    children: [
-                      for (final item in items) ...[
-                        _QolipCellActionTile(
-                          item: item,
-                          onTake: () => Navigator.of(context).pop(
-                            _QolipCellItemSelection(
-                              item: item,
-                              action: _QolipCellItemAction.take,
-                            ),
-                          ),
-                          onMove: () => Navigator.of(context).pop(
-                            _QolipCellItemSelection(
-                              item: item,
-                              action: _QolipCellItemAction.moveOut,
-                            ),
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final selectionMode = selectedKeys.isNotEmpty;
+            final selectedItems = items
+                .where((item) => selectedKeys.contains(item.id))
+                .toList(growable: false);
+
+            void toggleSelection(QolipLocationEntry item) {
+              setSheetState(() {
+                if (!selectedKeys.add(item.id)) {
+                  selectedKeys.remove(item.id);
+                }
+              });
+            }
+
+            return ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxHeight),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            selectionMode
+                                ? l10n.qolipCount(selectedItems.length)
+                                : l10n.qolipText(
+                                    'home.cell',
+                                    values: {'cell': cellLabel},
+                                  ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w800),
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        if (selectionMode)
+                          IconButton.filled(
+                            key: const ValueKey('qolip-bulk-move-button'),
+                            onPressed: () => Navigator.of(context).pop(
+                              _QolipCellBulkMoveSelection(
+                                items: selectedItems,
+                              ),
+                            ),
+                            tooltip: l10n.qolipText('home.move'),
+                            icon: const Icon(
+                              Icons.drive_file_move_outlined,
+                            ),
+                          ),
                       ],
+                    ),
+                    const SizedBox(height: 12),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: ListView(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        children: [
+                          for (final item in items) ...[
+                            _QolipCellActionTile(
+                              item: item,
+                              selected: selectedKeys.contains(item.id),
+                              onLongPress: () => toggleSelection(item),
+                              onTap: selectionMode
+                                  ? () => toggleSelection(item)
+                                  : null,
+                              onTake: selectionMode
+                                  ? null
+                                  : () => Navigator.of(context).pop(
+                                        _QolipCellItemSelection(
+                                          item: item,
+                                          action: _QolipCellItemAction.take,
+                                        ),
+                                      ),
+                              onMove: selectionMode
+                                  ? null
+                                  : () => Navigator.of(context).pop(
+                                        _QolipCellItemSelection(
+                                          item: item,
+                                          action: _QolipCellItemAction.moveOut,
+                                        ),
+                                      ),
+                            ),
+                            const SizedBox(height: 4),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    if (unplaced.isNotEmpty) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.tonalIcon(
+                          onPressed: selectionMode
+                              ? null
+                              : () => Navigator.of(context)
+                                  .pop(_QolipCellSheetAction.placeUnplaced),
+                          icon: const Icon(Icons.warning_amber_rounded),
+                          label: Text(
+                            l10n.qolipText(
+                              'home.unplaced_molds',
+                              values: {'count': unplaced.length},
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                     ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                if (unplaced.isNotEmpty) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.tonalIcon(
-                      onPressed: () => Navigator.of(context)
-                          .pop(_QolipCellSheetAction.placeUnplaced),
-                      icon: const Icon(Icons.warning_amber_rounded),
-                      label: Text(
-                        l10n.qolipText(
-                          'home.unplaced_molds',
-                          values: {'count': unplaced.length},
+                    if (movableIn.isNotEmpty) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.tonalIcon(
+                          onPressed: selectionMode
+                              ? null
+                              : () => Navigator.of(context)
+                                  .pop(_QolipCellSheetAction.moveIn),
+                          icon: const Icon(Icons.move_down_rounded),
+                          label: Text(
+                            l10n.qolipText(
+                              'home.move_from_other',
+                              values: {'count': movableIn.length},
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                if (movableIn.isNotEmpty) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.tonalIcon(
-                      onPressed: () => Navigator.of(context)
-                          .pop(_QolipCellSheetAction.moveIn),
-                      icon: const Icon(Icons.move_down_rounded),
-                      label: Text(
-                        l10n.qolipText(
-                          'home.move_from_other',
-                          values: {'count': movableIn.length},
-                        ),
+                      const SizedBox(height: 8),
+                    ],
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: selectionMode
+                            ? null
+                            : () => Navigator.of(context)
+                                .pop(_QolipCellSheetAction.add),
+                        icon: const Icon(Icons.add_location_alt_rounded),
+                        label: Text(l10n.qolipText('home.add_here')),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: () =>
-                        Navigator.of(context).pop(_QolipCellSheetAction.add),
-                    icon: const Icon(Icons.add_location_alt_rounded),
-                    label: Text(l10n.qolipText('home.add_here')),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -2548,6 +2737,10 @@ class _QolipBlockGrid extends StatelessWidget {
         case _QolipCellItemAction.moveOut:
           await onMoveOut(action.item);
       }
+      return;
+    }
+    if (action is _QolipCellBulkMoveSelection) {
+      await onMoveSelected(action.items);
     }
   }
 
@@ -2610,6 +2803,12 @@ class _QolipCellItemSelection {
 
   final QolipLocationEntry item;
   final _QolipCellItemAction action;
+}
+
+class _QolipCellBulkMoveSelection {
+  const _QolipCellBulkMoveSelection({required this.items});
+
+  final List<QolipLocationEntry> items;
 }
 
 class _QolipGridTable extends StatelessWidget {
@@ -2802,6 +3001,7 @@ class _GridDataCell extends StatelessWidget {
     final foreground = highlighted ? green : scheme.onSecondaryContainer;
 
     return Material(
+      key: ValueKey<String>('qolip-grid-cell-$cellLabel'),
       color: background,
       elevation: filled ? 1 : 0,
       shadowColor: scheme.shadow.withValues(alpha: 0.12),
@@ -2901,13 +3101,19 @@ class _QolipSearchBadge extends StatelessWidget {
 class _QolipCellActionTile extends StatelessWidget {
   const _QolipCellActionTile({
     required this.item,
+    required this.selected,
+    required this.onLongPress,
+    this.onTap,
     required this.onTake,
     required this.onMove,
   });
 
   final QolipLocationEntry item;
-  final VoidCallback onTake;
-  final VoidCallback onMove;
+  final bool selected;
+  final VoidCallback onLongPress;
+  final VoidCallback? onTap;
+  final VoidCallback? onTake;
+  final VoidCallback? onMove;
 
   @override
   Widget build(BuildContext context) {
@@ -2916,60 +3122,76 @@ class _QolipCellActionTile extends StatelessWidget {
     final l10n = context.l10n;
     final title = item.itemName.trim().isEmpty ? item.qolipCode : item.itemName;
     return Material(
-      color: scheme.surfaceContainerHighest.withValues(alpha: 0.64),
+      color: selected
+          ? scheme.secondaryContainer
+          : scheme.surfaceContainerHighest.withValues(alpha: 0.64),
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-        child: Row(
-          children: [
-            Icon(Icons.layers_rounded, size: 20, color: scheme.primary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+          child: Row(
+            children: [
+              Icon(Icons.layers_rounded, size: 20, color: scheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${item.qolipCode} • ${item.size} • ${l10n.qolipCount(item.quantity)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
+                    const SizedBox(height: 2),
+                    Text(
+                      '${item.qolipCode} • ${item.size} • ${l10n.qolipCount(item.quantity)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: selected
+                            ? scheme.onSecondaryContainer
+                            : scheme.onSurfaceVariant,
+                      ),
                     ),
+                  ],
+                ),
+              ),
+              if (selected) ...[
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: scheme.primary,
+                ),
+              ] else ...[
+                const SizedBox(width: 6),
+                FilledButton.tonal(
+                  onPressed: onMove,
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(0, 34),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 6),
-            FilledButton.tonal(
-              onPressed: onMove,
-              style: FilledButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                minimumSize: const Size(0, 34),
-              ),
-              child: Text(l10n.qolipText('home.move')),
-            ),
-            const SizedBox(width: 6),
-            FilledButton.tonal(
-              onPressed: onTake,
-              style: FilledButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                minimumSize: const Size(0, 34),
-              ),
-              child: Text(l10n.qolipText('home.take')),
-            ),
-          ],
+                  child: Text(l10n.qolipText('home.move')),
+                ),
+                const SizedBox(width: 6),
+                FilledButton.tonal(
+                  onPressed: onTake,
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    minimumSize: const Size(0, 34),
+                  ),
+                  child: Text(l10n.qolipText('home.take')),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

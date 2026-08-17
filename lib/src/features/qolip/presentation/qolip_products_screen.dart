@@ -20,6 +20,7 @@ import '../qolip_search_matcher.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_home_screen.dart'
     show
+        QolipPrinterOption,
         qolipPrinterChoiceForDriver,
         showQolipPrinterPicker,
         showQolipProductSpecSheet;
@@ -47,6 +48,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   final Set<String> _selectedContainerKeys = <String>{};
   final Set<String> _selectedQolipCodes = <String>{};
   bool _deleting = false;
+  bool _printing = false;
 
   @override
   void initState() {
@@ -293,6 +295,66 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     }
   }
 
+  List<QolipProduct> _selectedProducts() {
+    final selectedCodes = _selectedQolipCodes
+        .map((code) => code.trim().toLowerCase())
+        .where((code) => code.isNotEmpty)
+        .toSet();
+    return [
+      for (final product in _cachedProducts ?? const <QolipProduct>[])
+        if (selectedCodes.contains(product.qolipCode.trim().toLowerCase()))
+          product,
+    ];
+  }
+
+  Future<void> _printSelection() async {
+    if (_printing || _deleting || _selectedQolipCodes.isEmpty) {
+      return;
+    }
+    final products = _selectedProducts();
+    if (products.isEmpty) {
+      return;
+    }
+    final option = await showQolipPrinterPicker(context);
+    if (!mounted || option == null) {
+      return;
+    }
+    setState(() => _printing = true);
+    final failedCodes = <String>[];
+    try {
+      for (final product in products) {
+        try {
+          await _printQolipCodeQrWithOption(product, option);
+        } catch (_) {
+          failedCodes.add(product.qolipCode.trim());
+        }
+      }
+      if (!mounted) {
+        return;
+      }
+      final l10n = context.l10n;
+      final message = failedCodes.isEmpty
+          ? l10n.qolipText(
+              'products.printed',
+              values: {'count': products.length},
+            )
+          : l10n.qolipText(
+              'products.printed_partial',
+              values: {
+                'success': products.length - failedCodes.length,
+                'failed': failedCodes.length,
+              },
+            );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) {
+        setState(() => _printing = false);
+      }
+    }
+  }
+
   Widget _selectionTitle(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
@@ -301,7 +363,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     return Row(
       children: [
         IconButton(
-          onPressed: _deleting ? null : _cancelSelection,
+          onPressed: _deleting || _printing ? null : _cancelSelection,
           icon: const Icon(Icons.close_rounded),
           tooltip: l10n.qolipText('products.selection_cancel'),
         ),
@@ -320,7 +382,19 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
           ),
         ),
         IconButton.filled(
-          onPressed: _deleting ? null : _deleteSelection,
+          onPressed: _deleting || _printing ? null : _printSelection,
+          style: IconButton.styleFrom(foregroundColor: scheme.onPrimary),
+          icon: _printing
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.print_outlined),
+          tooltip: l10n.qolipText('products.selection_print'),
+        ),
+        const SizedBox(width: 6),
+        IconButton.filled(
+          onPressed: _deleting || _printing ? null : _deleteSelection,
           style: IconButton.styleFrom(foregroundColor: scheme.onPrimary),
           icon: _deleting
               ? const SizedBox.square(
@@ -562,11 +636,19 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   }
 
   Future<String?> _reprintQolipCodeQr(QolipProduct product) async {
-    final code = product.qolipCode.trim();
     final option = await showQolipPrinterPicker(context);
     if (!mounted || option == null) {
       throw StateError('Printer tanlanmadi');
     }
+    await _printQolipCodeQrWithOption(product, option);
+    return null;
+  }
+
+  Future<void> _printQolipCodeQrWithOption(
+    QolipProduct product,
+    QolipPrinterOption option,
+  ) async {
+    final code = product.qolipCode.trim();
     final printer = option.transport.isLocal
         ? option.transport.isBluetooth
             ? option.bluetoothPrinter!.printer
@@ -598,7 +680,6 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
         transport: option.transport,
       );
     }
-    return null;
   }
 
   @override

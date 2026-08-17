@@ -31,6 +31,8 @@ final List<AdminCompletionRequestNotification> _testModeCompletionRequests = [];
 final List<AdminCompletionRequestDecisionNotification>
     _testModeCompletionRequestDecisions = [];
 final Map<String, AdminProgressBatch> _testModeProgressBatchesByQr = {};
+final Map<String, List<Map<String, dynamic>>> _testModeRezkaFrameIssuesByQueue =
+    {};
 final Map<String, String> _testModeActiveProgressInputByQueue = {};
 final Map<String, int> _testModeOrderStartedAtUnix = {};
 final List<AdminLaminatsiyaAstatkaReport> _testModeLaminatsiyaAstatkaReports =
@@ -168,6 +170,7 @@ void resetMobileApiTestModeData() {
   _testModeCompletionRequests.clear();
   _testModeCompletionRequestDecisions.clear();
   _testModeProgressBatchesByQr.clear();
+  _testModeRezkaFrameIssuesByQueue.clear();
   _legacyTrainingInputBatchesByOrderId.clear();
   _resetTestModeTrainingInputBatches();
   _testModeActiveProgressInputByQueue.clear();
@@ -4260,6 +4263,15 @@ MobileApiException _adminProductionMapException(
         'Buyurtmaning hozirgi holatida bu amal mumkin emas',
       'order_delete_blocked' =>
         details.isEmpty ? 'Buyurtmani o‘chirib bo‘lmaydi' : details.join('\n'),
+      'order_reset_confirmation_required' => 'Order reset tasdig‘i topilmadi',
+      'order_reset_unavailable' => 'Order reset xizmati mavjud emas',
+      'order_reset_failed' => 'Orderlar tozalanmadi',
+      'order_reset_verification_failed' =>
+        'Order reset yakuniy tekshiruvdan o‘tmadi',
+      'order_reset_test_mode_unsupported' =>
+        'Order reset test rejimida mavjud emas',
+      'backup_failed' => 'Resetdan oldingi backup olinmadi',
+      'backup_timed_out' => 'Resetdan oldingi backup vaqti tugadi',
       'previous_stage_not_completed' =>
         'Oldingi bosqich tugallanguncha kutilmoqda',
       'apparatus_not_assigned' => 'Bu aparat sizga biriktirilmagan',
@@ -4275,6 +4287,8 @@ MobileApiException _adminProductionMapException(
         'Rezina razmeri 1050 mm dan katta bo‘lsa laminatsiya mumkin emas',
       'rezka_progress_metrics_required' =>
         'Rezka uchun barcha majburiy fieldlarni kiriting',
+      'rezka_frame_issue_only_on_roll_progress' =>
+        'Kadr muammosi faqat Rezka tugatish amalida belgilanadi',
       'rezka_kadr_count_required' =>
         'Rezka uchun kadr soni production mapda sozlanmagan',
       'rezka_final_roll_required' =>
@@ -5112,6 +5126,26 @@ extension MobileApiAdmin on MobileApi {
     return AdminServerMonitorReport.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
+  }
+
+  Future<void> adminResetOrders() async {
+    if (await TestModeController.instance.isEnabled()) {
+      throw const MobileApiException(
+        code: 'order_reset_test_mode_unsupported',
+        message: 'Order reset test rejimida mavjud emas',
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('$baseUrl/v1/mobile/admin/emergency-reset/orders'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'confirmation': 'RESET ORDERS'}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'order_reset_failed');
+    }
   }
 
   Future<AdminServerMonitorBackupSnapshot> adminStartBackup() async {
@@ -8621,21 +8655,33 @@ extension MobileApiAdmin on MobileApi {
               apparatus: apparatus,
             )
           : null;
+      final hasRezkaFrameIssues = rezkaFrames.any(
+        (frame) => (frame['issue_note']?.toString().trim() ?? '').isNotEmpty,
+      );
+      if (hasRezkaFrameIssues &&
+          action != 'roll_complete' &&
+          action != 'complete') {
+        throw const MobileApiException(
+          code: 'rezka_frame_issue_only_on_roll_progress',
+          message: 'Kadr muammosi faqat Rezka tugatish amalida belgilanadi',
+        );
+      }
       final hasExplicitRezkaFrameMetrics = isRezka &&
           rezkaFrames.isNotEmpty &&
           configuredRezkaKadrCount != null &&
           rezkaFrames.length == configuredRezkaKadrCount &&
           rezkaFrames.every(
             (frame) =>
-                isPositive(
-                  frameMetric(frame, 'produced_qty') ??
-                      frameMetric(frame, 'finished_goods_meter'),
-                ) &&
-                isPositive(
-                  frameMetric(frame, 'gross_qty') ??
-                      frameMetric(frame, 'finished_goods_kg'),
-                ) &&
-                isPositive(frameMetric(frame, 'diameter')),
+                (frame['issue_note']?.toString().trim() ?? '').isNotEmpty ||
+                (isPositive(
+                      frameMetric(frame, 'produced_qty') ??
+                          frameMetric(frame, 'finished_goods_meter'),
+                    ) &&
+                    isPositive(
+                      frameMetric(frame, 'gross_qty') ??
+                          frameMetric(frame, 'finished_goods_kg'),
+                    ) &&
+                    isPositive(frameMetric(frame, 'diameter'))),
           );
       if (rezkaFrames.isNotEmpty && (!isRezka || !isRezkaProgressAction)) {
         throw const MobileApiException(
@@ -9299,6 +9345,19 @@ extension MobileApiAdmin on MobileApi {
             message: 'Rulonni faqat faol Rezka orderida tugatish mumkin',
           );
         }
+        final frameCount = configuredRezkaKadrCount;
+        if (frameCount == null) {
+          throw const MobileApiException(
+            code: 'rezka_kadr_count_required',
+            message: 'Rezka uchun kadr soni sozlanmagan',
+          );
+        }
+        final rezkaFrameIssues = _testModeRezkaFrameIssues(
+          rezkaFrames: rezkaFrames,
+          frameCount: frameCount,
+          inputProgressBatchId: activeInputBatch?.batchId ?? '',
+        );
+        _testModeRezkaFrameIssuesByQueue[queueInputKey] = rezkaFrameIssues;
         final outputBatches = _testModeRezkaProgressBatches(
           apparatus: storageKey,
           orderId: orderId.trim(),
@@ -9306,7 +9365,7 @@ extension MobileApiAdmin on MobileApi {
           status: 'completed',
           producedQty: producedQty ?? finishedGoodsMeter ?? 1,
           uom: uom.trim().isEmpty ? 'm' : uom.trim(),
-          frameCount: configuredRezkaKadrCount!,
+          frameCount: frameCount,
           inputBatch: activeInputBatch,
           rezkaFrames: rezkaFrames,
           diameter: diameter,
@@ -9317,6 +9376,7 @@ extension MobileApiAdmin on MobileApi {
           finishedGoodsKg: finishedGoodsKg ?? grossQty,
           finishedGoodsMeter: finishedGoodsMeter ?? producedQty,
           bobinaKg: bobinaKg,
+          rezkaFrameIssues: rezkaFrameIssues,
         );
         for (final batch in outputBatches) {
           _testModeProgressBatchesByQr[batch.qrPayload] = batch;
@@ -9326,6 +9386,7 @@ extension MobileApiAdmin on MobileApi {
             batch: activeInputBatch,
             apparatus: storageKey,
             orderId: orderId,
+            rezkaFrameIssues: rezkaFrameIssues,
           );
           _testModeProgressBatchesByQr[processedInput.qrPayload] =
               processedInput;
@@ -9350,7 +9411,7 @@ extension MobileApiAdmin on MobileApi {
         );
         return AdminApparatusQueueActionResult(
           states: Map<String, String>.unmodifiable(states),
-          progressBatch: outputBatches.first,
+          progressBatch: outputBatches.isEmpty ? null : outputBatches.first,
           progressBatches: List<AdminProgressBatch>.unmodifiable(outputBatches),
           printJob: printJobs.isEmpty ? null : printJobs.first,
           printJobs: List<UsbRpsPrintRequest>.unmodifiable(printJobs),
@@ -9558,6 +9619,28 @@ extension MobileApiAdmin on MobileApi {
             completionRequest: _testModeCompletionRequests.first,
           );
         }
+        final rezkaFrameCount = isRezka
+            ? _testModeRezkaKadrCount(
+                orderId: orderId,
+                apparatus: apparatus,
+              )
+            : null;
+        final rezkaFrameIssues = isRezka && rezkaFrameCount != null
+            ? _testModeRezkaFrameIssues(
+                rezkaFrames: rezkaFrames,
+                frameCount: rezkaFrameCount,
+                inputProgressBatchId: activeInputBatch?.batchId ?? '',
+              )
+            : const <Map<String, dynamic>>[];
+        if (isRezka && rezkaFrameCount == null) {
+          throw const MobileApiException(
+            code: 'rezka_kadr_count_required',
+            message: 'Rezka uchun kadr soni sozlanmagan',
+          );
+        }
+        if (isRezka) {
+          _testModeRezkaFrameIssuesByQueue[queueInputKey] = rezkaFrameIssues;
+        }
         final outputBatches = isRezka
             ? _testModeRezkaProgressBatches(
                 apparatus: storageKey,
@@ -9568,10 +9651,7 @@ extension MobileApiAdmin on MobileApi {
                 uom: uom.trim().isEmpty && finishedGoodsMeter != null
                     ? 'm'
                     : (uom.trim().isEmpty ? 'kg' : uom.trim()),
-                frameCount: _testModeRezkaKadrCount(
-                  orderId: orderId,
-                  apparatus: apparatus,
-                )!,
+                frameCount: rezkaFrameCount!,
                 inputBatch: activeInputBatch,
                 rezkaFrames: rezkaFrames,
                 diameter: diameter,
@@ -9588,6 +9668,7 @@ extension MobileApiAdmin on MobileApi {
                 finishedGoodsKg: finishedGoodsKg ?? grossQty,
                 finishedGoodsMeter: finishedGoodsMeter ?? producedQty,
                 bobinaKg: bobinaKg,
+                rezkaFrameIssues: rezkaFrameIssues,
               )
             : [
                 _testModeProgressBatch(
@@ -9620,12 +9701,13 @@ extension MobileApiAdmin on MobileApi {
             batch: activeInputBatch,
             apparatus: storageKey,
             orderId: orderId,
+            rezkaFrameIssues: rezkaFrameIssues,
           );
           _testModeProgressBatchesByQr[processedInput.qrPayload] =
               processedInput;
         }
         _testModeActiveProgressInputByQueue.remove(queueInputKey);
-        final batch = outputBatches.first;
+        final batch = outputBatches.isEmpty ? null : outputBatches.first;
         states[orderId.trim()] =
             hasUnprocessedPreviousWip ? 'pending' : 'completed';
         _testModeApparatusQueueStates[storageKey] = states;
@@ -12274,14 +12356,39 @@ AdminProgressBatch _testModeMarkProgressInputProcessed({
   required AdminProgressBatch batch,
   required String apparatus,
   required String orderId,
+  List<Map<String, dynamic>> rezkaFrameIssues = const [],
 }) {
+  final payloadJson = <String, dynamic>{...batch.payloadJson};
+  if (rezkaFrameIssues.isNotEmpty) {
+    payloadJson['rezka_frame_issues'] = rezkaFrameIssues;
+    payloadJson['rezka_issue'] = true;
+  }
   return batch.copyWith(
     wipStatus: 'processed',
     currentApparatus: apparatus,
     currentLocation: apparatus,
     processedBySessionId: 'test-session-${orderId.trim()}',
     processedByApparatus: apparatus,
+    payloadJson: payloadJson,
   );
+}
+
+List<Map<String, dynamic>> _testModeRezkaFrameIssues({
+  required List<Map<String, dynamic>> rezkaFrames,
+  required int frameCount,
+  required String inputProgressBatchId,
+}) {
+  return [
+    for (var index = 0; index < rezkaFrames.length; index += 1)
+      if ((rezkaFrames[index]['issue_note']?.toString().trim() ?? '')
+          .isNotEmpty)
+        {
+          'frame_index': index + 1,
+          'frame_count': frameCount,
+          'issue_note': rezkaFrames[index]['issue_note'].toString().trim(),
+          'input_progress_batch_id': inputProgressBatchId.trim(),
+        },
+  ];
 }
 
 List<AdminProgressBatch> _testModeRezkaProgressBatches({
@@ -12305,6 +12412,7 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
   double? finishedGoodsKg,
   double? finishedGoodsMeter,
   double? bobinaKg,
+  List<Map<String, dynamic>> rezkaFrameIssues = const [],
 }) {
   final baseBatchId = _testModeProductionProgressBatchId(
     apparatus: apparatus,
@@ -12395,7 +12503,7 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
       orderId: orderId,
       action: action,
       status: status,
-      producedQty: frameProducedQty ?? producedQty,
+      producedQty: frameProducedQty,
       uom: uom,
       batchIdOverride: '$baseBatchId:frame:${index + 1}',
       parentBatchId: parentBatchId,
@@ -12417,12 +12525,16 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
         'rezka_metrics_owner': explicitFrameValues || index == 0,
         if (frameGrossQty != null) 'gross_qty': frameGrossQty,
         if (labelLength != null) 'rezka_label_length': labelLength,
+        if (rezkaFrameIssues.isNotEmpty) 'rezka_frame_issues': rezkaFrameIssues,
       },
     );
   }
 
   return [
-    for (var index = 0; index < frameCount; index += 1) buildFrame(index)
+    for (var index = 0; index < frameCount; index += 1)
+      if (index >= rezkaFrames.length ||
+          (rezkaFrames[index]['issue_note']?.toString().trim() ?? '').isEmpty)
+        buildFrame(index)
   ];
 }
 

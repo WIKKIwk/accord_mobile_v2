@@ -2,24 +2,29 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _RezkaFrameInput {
   const _RezkaFrameInput({
-    required this.meterQty,
-    required this.kgQty,
-    required this.bobinaKg,
-    required this.diameter,
+    this.meterQty,
+    this.kgQty,
+    this.bobinaKg,
+    this.diameter,
+    this.issueNote = '',
   });
 
-  final double meterQty;
-  final double kgQty;
-  final double bobinaKg;
-  final double diameter;
+  final double? meterQty;
+  final double? kgQty;
+  final double? bobinaKg;
+  final double? diameter;
+  final String issueNote;
+
+  bool get isIssue => issueNote.trim().isNotEmpty;
 
   Map<String, dynamic> toJson() => {
-        'produced_qty': meterQty,
-        'gross_qty': kgQty,
-        'finished_goods_kg': kgQty,
-        'finished_goods_meter': meterQty,
-        'bobina_kg': bobinaKg,
-        'diameter': diameter,
+        if (meterQty != null) 'produced_qty': meterQty,
+        if (kgQty != null) 'gross_qty': kgQty,
+        if (kgQty != null) 'finished_goods_kg': kgQty,
+        if (meterQty != null) 'finished_goods_meter': meterQty,
+        if (bobinaKg != null) 'bobina_kg': bobinaKg,
+        if (diameter != null) 'diameter': diameter,
+        if (issueNote.trim().isNotEmpty) 'issue_note': issueNote.trim(),
       };
 }
 
@@ -28,8 +33,10 @@ class _RezkaFrameControllers {
   final kg = TextEditingController();
   final bobina = TextEditingController();
   final diameter = TextEditingController();
+  final issueNote = TextEditingController();
 
   void dispose() {
+    issueNote.dispose();
     meter.dispose();
     kg.dispose();
     bobina.dispose();
@@ -218,6 +225,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final _formKey = GlobalKey<FormState>();
   String _completionError = '';
   late final List<_RezkaFrameControllers> _rezkaFrameControllers;
+  final Set<int> _rezkaFrameIssuePrompted = <int>{};
 
   ReturnedPaintDraft get _returnedPaintDraft => widget.returnedPaintDraft;
 
@@ -270,6 +278,29 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       for (var index = 0; index < _rezkaFrameCount; index += 1)
         _RezkaFrameControllers(),
     ];
+    for (final frame in _rezkaFrameControllers) {
+      frame.meter.addListener(_onRezkaFrameInputChanged);
+      frame.kg.addListener(_onRezkaFrameInputChanged);
+      frame.bobina.addListener(_onRezkaFrameInputChanged);
+      frame.diameter.addListener(_onRezkaFrameInputChanged);
+      frame.issueNote.addListener(_onRezkaFrameInputChanged);
+    }
+  }
+
+  void _onRezkaFrameInputChanged() {
+    if (!mounted) {
+      return;
+    }
+    for (var index = 0; index < _rezkaFrameControllers.length; index += 1) {
+      final frame = _rezkaFrameControllers[index];
+      if (_rezkaFrameMetricsComplete(frame)) {
+        _rezkaFrameIssuePrompted.remove(index);
+        if (frame.issueNote.text.trim().isNotEmpty) {
+          frame.issueNote.clear();
+        }
+      }
+    }
+    setState(() {});
   }
 
   @override
@@ -361,24 +392,58 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     return qty != null && qty.isFinite && qty > 0;
   }
 
-  List<_RezkaFrameInput>? _readRezkaFrameInputs() {
+  bool _rezkaFrameMetricsComplete(_RezkaFrameControllers frame) {
+    final values = [
+      _parseQty(frame.meter.text),
+      _parseQty(frame.kg.text),
+      _parseQty(frame.bobina.text),
+      _parseQty(frame.diameter.text),
+    ];
+    return values.every(
+      (value) => value != null && value.isFinite && value > 0,
+    );
+  }
+
+  bool _rezkaFrameHasAnyMetric(_RezkaFrameControllers frame) {
+    return [frame.meter, frame.kg, frame.bobina, frame.diameter].any(
+      (controller) => controller.text.trim().isNotEmpty,
+    );
+  }
+
+  bool _rezkaFrameIssueAllowed(
+    int index,
+    _RezkaFrameControllers frame,
+  ) {
+    return (widget.action == 'roll_complete' || widget.action == 'complete') &&
+        widget.isRezka &&
+        _rezkaFrameIssuePrompted.contains(index) &&
+        !_rezkaFrameMetricsComplete(frame);
+  }
+
+  List<_RezkaFrameInput>? _readRezkaFrameInputs({
+    String fallbackIssueNote = '',
+  }) {
     if (!_showRezkaFrameInputs) {
       return const [];
     }
     final frames = <_RezkaFrameInput>[];
-    for (final frame in _rezkaFrameControllers) {
+    for (var index = 0; index < _rezkaFrameControllers.length; index += 1) {
+      final frame = _rezkaFrameControllers[index];
       final meter = _parseQty(frame.meter.text);
       final kg = _parseQty(frame.kg.text);
       final bobina = _parseQty(frame.bobina.text);
       final diameter = _parseQty(frame.diameter.text);
-      if (meter == null ||
-          meter <= 0 ||
-          kg == null ||
-          kg <= 0 ||
-          bobina == null ||
-          bobina <= 0 ||
-          diameter == null ||
-          diameter <= 0) {
+      final issueNote = frame.issueNote.text.trim().isEmpty
+          ? fallbackIssueNote.trim()
+          : frame.issueNote.text.trim();
+      if (issueNote.isNotEmpty) {
+        if (!_rezkaFrameIssueAllowed(index, frame)) {
+          return null;
+        }
+        frames.add(_RezkaFrameInput(issueNote: issueNote));
+        continue;
+      }
+      if (!_rezkaFrameMetricsComplete(frame)) {
         return null;
       }
       frames.add(
@@ -414,6 +479,24 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         frame.diameter,
       ],
     ].any((controller) => controller.text.trim().isNotEmpty);
+    final frameIssueMode = _showRezkaFrameInputs &&
+        !_isFreezeRequestSafeStop &&
+        (widget.action == 'roll_complete' || widget.action == 'complete');
+    if (frameIssueMode) {
+      final incompleteFrameIndexes = [
+        for (var index = 0; index < _rezkaFrameControllers.length; index += 1)
+          if (!_rezkaFrameMetricsComplete(_rezkaFrameControllers[index])) index,
+      ];
+      final hasNewIncompleteFrame = incompleteFrameIndexes.any(
+        (index) => !_rezkaFrameIssuePrompted.contains(index),
+      );
+      if (hasNewIncompleteFrame) {
+        setState(() {
+          _rezkaFrameIssuePrompted.addAll(incompleteFrameIndexes);
+        });
+        return;
+      }
+    }
     if (_isFreezeRequestSafeStop && !hasRawOutput) {
       if (description.isNotEmpty) {
         Navigator.of(context).pop(
@@ -428,7 +511,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       }
       return;
     }
-    if (_isComplete && description.isNotEmpty) {
+    if (_isComplete && description.isNotEmpty && !_showRezkaFrameInputs) {
       Navigator.of(context).pop(
         _ProgressQtyInput(description: description, isIssue: true),
       );
@@ -500,9 +583,35 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         _parseQty(_rezkaLaminationWasteController.text);
     final rezkaEdgeWaste = _parseQty(_rezkaEdgeWasteController.text);
     final totalWaste = _parseQty(_wasteController.text);
-    final rezkaFrameInputs = _readRezkaFrameInputs();
-    final firstRezkaFrame =
-        rezkaFrameInputs?.isNotEmpty == true ? rezkaFrameInputs!.first : null;
+    final allFrameMetricsEmpty = _rezkaFrameControllers.every(
+      (frame) => !_rezkaFrameHasAnyMetric(frame),
+    );
+    final frameIssueFallback =
+        (widget.action == 'roll_complete' || widget.action == 'complete') &&
+            widget.isRezka &&
+            allFrameMetricsEmpty
+        ? description
+        : '';
+    final rezkaFrameInputs = _readRezkaFrameInputs(
+      fallbackIssueNote: frameIssueFallback,
+    );
+    if (_showRezkaFrameInputs && rezkaFrameInputs == null) {
+      setState(() {
+        _completionError = context.l10n.productionText(
+          widget.action == 'roll_complete'
+              ? 'worker.freeze.safe_stop.output_or_issue_required'
+              : 'worker.progress.qty.completion_reason',
+        );
+      });
+      return;
+    }
+    _RezkaFrameInput? firstRezkaFrame;
+    for (final frame in rezkaFrameInputs ?? const <_RezkaFrameInput>[]) {
+      if (!frame.isIssue) {
+        firstRezkaFrame = frame;
+        break;
+      }
+    }
     final effectiveMeterQty = firstRezkaFrame?.meterQty ?? meterQty;
     final effectiveKgQty = firstRezkaFrame?.kgQty ?? kgQty;
     final effectiveBobinaKg = firstRezkaFrame?.bobinaKg ?? bobinaKg;
@@ -521,6 +630,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final hasRezkaFrameMetrics = rezkaFrameInputs != null &&
         rezkaFrameInputs.isNotEmpty &&
         rezkaFrameInputs.length == _rezkaFrameCount;
+    final allRezkaFramesIssue = hasRezkaFrameMetrics &&
+        rezkaFrameInputs.every((frame) => frame.isIssue);
     final hasPrintLeftover = printLeftoverRolls != null &&
         printLeftoverRolls.isFinite &&
         printLeftoverRolls > 0;
@@ -609,7 +720,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final rezkaMetricsReady = (_showRezkaFrameInputs
             ? hasRezkaFrameMetrics
             : hasMeter && hasKg && hasBobina && hasDiameter) &&
-        (!_requiresFullCompletionReport || hasRezkaWaste);
+        (!_requiresFullCompletionReport || hasRezkaWaste || allRezkaFramesIssue);
     if (!widget.isBosma &&
         !widget.isLaminatsiya &&
         !widget.isRezka &&
@@ -712,6 +823,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           'worker.daily.required_field',
           values: {'label': label},
         );
+    final issueAllowed = _rezkaFrameIssueAllowed(index, frame);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -746,7 +858,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
             suffix: context.l10n.productionText(
               'worker.progress.qty.unit.meter',
             ),
-            requiredField: true,
+            requiredField: issueAllowed ? false : true,
             positive: true,
           ),
           const SizedBox(height: 10),
@@ -758,7 +870,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
               context.l10n.productionText('worker.daily.field.weight'),
             ),
             suffix: context.l10n.productionText('worker.progress.qty.unit.kg'),
-            requiredField: true,
+            requiredField: issueAllowed ? false : true,
             positive: true,
           ),
           const SizedBox(height: 10),
@@ -770,7 +882,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
               'worker.progress.qty.roll_required',
             ),
             suffix: context.l10n.productionText('worker.progress.qty.unit.kg'),
-            requiredField: true,
+            requiredField: issueAllowed ? false : true,
             positive: true,
           ),
           const SizedBox(height: 10),
@@ -784,9 +896,36 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
               context.l10n.productionText('worker.daily.field.diameter'),
             ),
             suffix: context.l10n.productionText('worker.progress.qty.unit.mm'),
-            requiredField: true,
+            requiredField: issueAllowed ? false : true,
             positive: true,
           ),
+          if (issueAllowed) ...[
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: frame.issueNote,
+              minLines: 2,
+              maxLines: 4,
+              decoration: appSurfaceInputDecoration(
+                context,
+                labelText: context.l10n.productionText(
+                  'worker.freeze.safe_stop.issue_note',
+                ),
+                alignLabelWithHint: true,
+              ),
+              validator: (value) {
+                if (value?.trim().isNotEmpty == true ||
+                    (_descriptionController.text.trim().isNotEmpty &&
+                        _rezkaFrameControllers.every(
+                          (candidate) => !_rezkaFrameHasAnyMetric(candidate),
+                        ))) {
+                  return null;
+                }
+                return context.l10n.productionText(
+                  'worker.freeze.safe_stop.output_or_issue_required',
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -1308,6 +1447,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           ),
                         ],
                         if (_isComplete ||
+                            (widget.action == 'roll_complete' && isRezka) ||
                             _isAstatkaReport ||
                             _isFreezeRequestSafeStop) ...[
                           const SizedBox(height: 6),
@@ -1327,7 +1467,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                   ? context.l10n.productionText(
                                       'worker.progress.qty.optional_note',
                                     )
-                                  : _isFreezeRequestSafeStop
+                                  : (_isFreezeRequestSafeStop ||
+                                          (widget.action == 'roll_complete' &&
+                                              isRezka))
                                       ? context.l10n.productionText(
                                           'worker.freeze.safe_stop.issue_note',
                                         )

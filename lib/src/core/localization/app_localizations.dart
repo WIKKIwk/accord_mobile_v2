@@ -4927,10 +4927,25 @@ class AppLocalizations {
       'en': 'Delete selected',
       'ru': 'Удалить выбранные',
     },
+    'qolip.products.selection_print': {
+      'uz': 'Tanlangan QR’larni chop etish',
+      'en': 'Print selected QR codes',
+      'ru': 'Печатать выбранные QR-коды',
+    },
     'qolip.products.selection_summary': {
       'uz': '{total}/{selected} ta tanlandi',
       'en': '{selected} of {total} selected',
       'ru': 'Выбрано: {selected} из {total}',
+    },
+    'qolip.products.printed': {
+      'uz': '{count} ta qolip QR chop etildi',
+      'en': '{count} mold QR codes printed',
+      'ru': 'QR-коды форм напечатаны: {count}',
+    },
+    'qolip.products.printed_partial': {
+      'uz': '{success} ta QR chop etildi, {failed} tasi chop etilmadi',
+      'en': '{success} QR codes printed, {failed} failed',
+      'ru': 'Напечатано QR: {success}, с ошибкой: {failed}',
     },
     'qolip.products.qr_title': {
       'uz': 'Qolip QR',

@@ -329,6 +329,11 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       routeName: AppRoutes.adminSettings,
     ),
     _AdminHomeAction(
+      title: l10n.adminText('emergency_reset.title'),
+      icon: Icons.delete_sweep_outlined,
+      routeName: AppRoutes.adminEmergencyReset,
+    ),
+    _AdminHomeAction(
       title: l10n.adminActivityTitle,
       icon: Icons.history_outlined,
       routeName: AppRoutes.adminActivity,

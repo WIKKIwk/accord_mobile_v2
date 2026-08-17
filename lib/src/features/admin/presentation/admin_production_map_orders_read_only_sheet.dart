@@ -1327,6 +1327,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           ? _ProgressActionOutcome.completed
           : _ProgressActionOutcome.failed;
     }
+    final hasHealthyRezkaFrame = input.rezkaFrames.isEmpty ||
+        input.rezkaFrames.any((frame) => !frame.isIssue);
+    if ((action == 'roll_complete' || action == 'complete') &&
+        !hasHealthyRezkaFrame &&
+        !isTrainingOrder) {
+      final completed = await _runQueueAction(
+        action,
+        progressInput: input,
+        uom: 'm',
+      );
+      return completed
+          ? _ProgressActionOutcome.completed
+          : _ProgressActionOutcome.failed;
+    }
     final printerOption = await _pickProgressPrinter(
       context,
       widget.progressDriverUrlPicker,

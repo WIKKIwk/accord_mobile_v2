@@ -84,6 +84,12 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.adminTraining,
     ),
     RoleNavigationDrawerDestination(
+      icon: Icons.delete_sweep_outlined,
+      selectedIcon: Icons.delete_sweep_rounded,
+      label: l10n.adminText('emergency_reset.title'),
+      routeName: AppRoutes.adminEmergencyReset,
+    ),
+    RoleNavigationDrawerDestination(
       icon: Icons.warehouse_outlined,
       selectedIcon: Icons.warehouse_rounded,
       label: l10n.adminWarehousesNavTitle,

@@ -1795,6 +1795,227 @@ const Map<String, Map<String, String>> adminTranslations = {
     'ru':
         '{product} завершён. Источник: {source}. Сейчас: {place}. Следующий этап: {step}. Количество: {quantity}.{worker}',
   },
+  'admin.emergency_reset.title': {
+    'uz': 'Favqulodda reset',
+    'en': 'Emergency reset',
+    'ru': 'Аварийный сброс',
+  },
+  'admin.emergency_reset.warning_title': {
+    'uz': 'Diqqat: qaytarib bo‘lmaydigan amal',
+    'en': 'Warning: irreversible action',
+    'ru': 'Внимание: необратимое действие',
+  },
+  'admin.emergency_reset.warning_body': {
+    'uz':
+        'Order reseti avval verified full backup olib, keyin tozalashni bajaradi. Qolgan scope’lar hozircha faqat ro‘yxat sifatida turibdi.',
+    'en':
+        'Order reset creates a verified full backup first and then performs the cleanup. The remaining scopes are list-only for now.',
+    'ru':
+        'Сброс заказов сначала создаёт проверенную полную backup-копию, а затем выполняет очистку. Остальные области пока только отображаются.',
+  },
+  'admin.emergency_reset.scopes_title': {
+    'uz': 'Reset qilinadigan ma’lumotlar',
+    'en': 'Data reset scopes',
+    'ru': 'Области сброса данных',
+  },
+  'admin.emergency_reset.scopes_subtitle': {
+    'uz':
+        'Keyingi bosqichda har bir bo‘lim uchun alohida tasdiq, backend endpoint va audit log qo‘shiladi.',
+    'en':
+        'Each scope will later get its own confirmation, backend endpoint, and audit log.',
+    'ru':
+        'Позже для каждой области будут добавлены отдельное подтверждение, backend endpoint и audit log.',
+  },
+  'admin.emergency_reset.backend_pending': {
+    'uz': 'Backend ulanmagan',
+    'en': 'Backend not connected',
+    'ru': 'Backend не подключён',
+  },
+  'admin.emergency_reset.backend_ready': {
+    'uz': 'Backend ulangan',
+    'en': 'Backend connected',
+    'ru': 'Backend подключён',
+  },
+  'admin.emergency_reset.action_pending': {
+    'uz': 'Reset keyin ulanadi',
+    'en': 'Reset will be connected later',
+    'ru': 'Сброс будет подключён позже',
+  },
+  'admin.emergency_reset.action_orders': {
+    'uz': 'Orderlarni tozalash',
+    'en': 'Reset orders',
+    'ru': 'Сбросить заказы',
+  },
+  'admin.emergency_reset.action_resetting': {
+    'uz': 'Tozalanmoqda...',
+    'en': 'Resetting...',
+    'ru': 'Сбрасывается...',
+  },
+  'admin.emergency_reset.next_step_title': {
+    'uz': 'Keyingi bosqich',
+    'en': 'Next step',
+    'ru': 'Следующий этап',
+  },
+  'admin.emergency_reset.next_step_body': {
+    'uz':
+        'Backend qismida scope bo‘yicha xavfsiz reset, ikki bosqichli tasdiq va administrator audit yozuvi implement qilinadi.',
+    'en':
+        'The backend will add scoped reset operations, two-step confirmation, and an administrator audit record.',
+    'ru':
+        'В backend будут добавлены scoped reset-операции, двухэтапное подтверждение и audit-запись администратора.',
+  },
+  'admin.emergency_reset.training.title': {
+    'uz': 'Training ma’lumotlari',
+    'en': 'Training data',
+    'ru': 'Данные обучения',
+  },
+  'admin.emergency_reset.training.description': {
+    'uz':
+        'Training orderlari, queue holatlari, WIP/input batchlar va test homashyolarini tozalash.',
+    'en':
+        'Clear training orders, queue states, WIP/input batches, and test materials.',
+    'ru':
+        'Очистить учебные заказы, состояния очередей, WIP/input batch и тестовое сырьё.',
+  },
+  'admin.emergency_reset.training.scope': {
+    'uz': 'Faqat training workspace',
+    'en': 'Training workspace only',
+    'ru': 'Только training workspace',
+  },
+  'admin.emergency_reset.orders.title': {
+    'uz': 'Barcha orderlar',
+    'en': 'All orders',
+    'ru': 'Все заказы',
+  },
+  'admin.emergency_reset.orders.description': {
+    'uz':
+        'Production map, queue, progress/WIP va orderga bog‘langan operatsion yozuvlarni tozalash.',
+    'en':
+        'Clear production maps, queues, progress/WIP, and order-linked operational records.',
+    'ru':
+        'Очистить production map, очереди, progress/WIP и связанные с заказами операционные записи.',
+  },
+  'admin.emergency_reset.orders.scope': {
+    'uz': 'Production ma’lumotlari',
+    'en': 'Production data',
+    'ru': 'Production data',
+  },
+  'admin.emergency_reset.orders.confirm_title': {
+    'uz': 'Barcha orderlarni tozalash',
+    'en': 'Reset all orders',
+    'ru': 'Сбросить все заказы',
+  },
+  'admin.emergency_reset.orders.confirm_body': {
+    'uz':
+        'Avval to‘liq verified backup olinadi. Keyin barcha orderlar va ularga bog‘liq queue, WIP, homashyo biriktirmasi, consume holati hamda Qolip checkout’lari order ochilmagan holatga qaytariladi.',
+    'en':
+        'A verified full backup is created first. Then all orders and their queues, WIP, raw-material assignments/consumption, and Qolip checkouts are returned to the pre-order state.',
+    'ru':
+        'Сначала создаётся полная проверенная backup-копия. Затем все заказы, их очереди, WIP, назначения/расход сырья и checkout Qolip возвращаются в состояние до создания заказа.',
+  },
+  'admin.emergency_reset.orders.confirm_action': {
+    'uz': 'RESET ORDERS',
+    'en': 'RESET ORDERS',
+    'ru': 'RESET ORDERS',
+  },
+  'admin.emergency_reset.orders.completed': {
+    'uz': 'Barcha orderlar va bog‘liq ma’lumotlar tozalandi',
+    'en': 'All orders and linked data were reset',
+    'ru': 'Все заказы и связанные данные сброшены',
+  },
+  'admin.emergency_reset.orders.failed': {
+    'uz': 'Order reset bajarilmadi',
+    'en': 'Order reset failed',
+    'ru': 'Сброс заказов не выполнен',
+  },
+  'admin.emergency_reset.qolip.title': {
+    'uz': 'Qolip qoldiqlari',
+    'en': 'Qolip stock',
+    'ru': 'Остатки Qolip',
+  },
+  'admin.emergency_reset.qolip.description': {
+    'uz':
+        'Qolip location, checkout/return va yacheyka bo‘yicha saqlangan miqdorlarni reset qilish.',
+    'en':
+        'Reset Qolip locations, checkout/return records, and cell quantities.',
+    'ru':
+        'Сбросить locations Qolip, записи checkout/return и количества по ячейкам.',
+  },
+  'admin.emergency_reset.qolip.scope': {
+    'uz': 'Qolip ombori',
+    'en': 'Qolip warehouse',
+    'ru': 'Склад Qolip',
+  },
+  'admin.emergency_reset.warehouse.title': {
+    'uz': 'Ombor kirimlari va stock',
+    'en': 'Warehouse receipts and stock',
+    'ru': 'Приходы и остатки на складах',
+  },
+  'admin.emergency_reset.warehouse.description': {
+    'uz':
+        'GScale receiptlar, xomashyo stocki, tayyor mahsulot va ombor harakatlarini reset qilish.',
+    'en':
+        'Reset GScale receipts, raw-material stock, finished goods, and warehouse movements.',
+    'ru':
+        'Сбросить GScale receipts, остатки сырья, готовую продукцию и складские движения.',
+  },
+  'admin.emergency_reset.warehouse.scope': {
+    'uz': 'Barcha omborlar',
+    'en': 'All warehouses',
+    'ru': 'Все склады',
+  },
+  'admin.emergency_reset.users.title': {
+    'uz': 'Foydalanuvchilar va rollar',
+    'en': 'Users and roles',
+    'ru': 'Пользователи и роли',
+  },
+  'admin.emergency_reset.users.description': {
+    'uz':
+        'Userlar, workerlar, capability/role assignment va demo login ma’lumotlarini tozalash.',
+    'en':
+        'Clear users, workers, capability/role assignments, and demo login data.',
+    'ru':
+        'Очистить пользователей, workers, назначения capability/role и demo login данные.',
+  },
+  'admin.emergency_reset.users.scope': {
+    'uz': 'Identity va access',
+    'en': 'Identity and access',
+    'ru': 'Identity и access',
+  },
+  'admin.emergency_reset.notifications.title': {
+    'uz': 'Chat va bildirishnomalar',
+    'en': 'Chat and notifications',
+    'ru': 'Чаты и уведомления',
+  },
+  'admin.emergency_reset.notifications.description': {
+    'uz':
+        'Chat xabarlari, media, notification va push tokenlarni reset qilish.',
+    'en': 'Reset chat messages, media, notifications, and push tokens.',
+    'ru': 'Сбросить сообщения чатов, media, уведомления и push token.',
+  },
+  'admin.emergency_reset.notifications.scope': {
+    'uz': 'Runtime kommunikatsiya',
+    'en': 'Runtime communication',
+    'ru': 'Runtime communication',
+  },
+  'admin.emergency_reset.all.title': {
+    'uz': 'Butun demo workspace',
+    'en': 'Entire demo workspace',
+    'ru': 'Всё demo workspace',
+  },
+  'admin.emergency_reset.all.description': {
+    'uz':
+        'Yuqoridagi barcha scope’larni birgalikda tozalash. Production ma’lumotlari uchun alohida himoya talab qilinadi.',
+    'en':
+        'Clear all scopes above together. Production data must have an additional safety barrier.',
+    'ru':
+        'Очистить все области выше вместе. Для production данных требуется дополнительная защита.',
+  },
+  'admin.emergency_reset.all.scope': {
+    'uz': 'Eng yuqori xavf darajasi',
+    'en': 'Highest risk level',
+    'ru': 'Максимальный уровень риска',
+  },
   'admin.training.title': {
     'uz': 'Training',
     'en': 'Training',

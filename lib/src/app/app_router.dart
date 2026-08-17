@@ -43,6 +43,7 @@ import '../features/admin/presentation/admin_server_monitor_screen.dart';
 import '../features/admin/presentation/admin_supplier_create_screen.dart';
 import '../features/admin/presentation/admin_customer_create_screen.dart';
 import '../features/admin/presentation/admin_customer_detail_screen.dart';
+import '../features/admin/presentation/admin_emergency_reset_screen.dart';
 import '../features/admin/presentation/admin_supplier_detail_screen.dart';
 import '../features/admin/presentation/admin_supplier_items_add_screen.dart';
 import '../features/admin/presentation/admin_supplier_items_view_screen.dart';
@@ -166,6 +167,7 @@ class AppRoutes {
   static const String adminCreateHub = '/admin-create-hub';
   static const String adminSettings = '/admin-settings';
   static const String adminTraining = '/admin-training';
+  static const String adminEmergencyReset = '/admin-emergency-reset';
   static const String adminTelegram = '/admin-telegram';
   static const String adminRoles = '/admin-roles';
   static const String adminNotifications = '/admin-notifications';
@@ -239,6 +241,7 @@ class AppRouter {
     AppRoutes.adminCreateHub,
     AppRoutes.adminSettings,
     AppRoutes.adminTraining,
+    AppRoutes.adminEmergencyReset,
     AppRoutes.adminTelegram,
     AppRoutes.adminRoles,
     AppRoutes.adminNotifications,
@@ -521,6 +524,8 @@ class AppRouter {
         return _buildAdminSettingsRoute(settings, const AdminSettingsScreen());
       case AppRoutes.adminTraining:
         return _buildRoute(settings, const AdminTrainingScreen());
+      case AppRoutes.adminEmergencyReset:
+        return _buildRoute(settings, const AdminEmergencyResetScreen());
       case AppRoutes.adminTelegram:
         return _buildRoute(settings, const AdminTelegramScreen());
       case AppRoutes.adminRoles:
@@ -955,6 +960,7 @@ class AppRouter {
       'admin.access',
       'production.map.manage',
     },
+    AppRoutes.adminEmergencyReset: {'admin.access'},
     AppRoutes.adminTelegram: {'admin.settings.read'},
     AppRoutes.adminRoles: {'role.capability.read'},
     AppRoutes.adminNotifications: {'admin.access', 'production.map.manage'},

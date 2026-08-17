@@ -1294,6 +1294,96 @@ extension MobileApiQolip on MobileApi {
     );
   }
 
+  Future<List<QolipLocationEntry>> qolipMoveLocations({
+    required List<QolipLocationEntry> locations,
+    required QolipBlock targetBlock,
+    required String rowLetter,
+    required int columnNumber,
+  }) async {
+    final selected = <QolipLocationEntry>[];
+    final seenIds = <String>{};
+    for (final location in locations) {
+      final id = location.id.trim();
+      if (id.isEmpty || !seenIds.add(id)) {
+        throw const MobileApiException(
+          code: 'location_invalid',
+          message: 'location_invalid',
+        );
+      }
+      selected.add(location);
+    }
+    if (selected.isEmpty) {
+      throw const MobileApiException(
+        code: 'location_invalid',
+        message: 'location_invalid',
+      );
+    }
+
+    if (await TestModeController.instance.isEnabled()) {
+      final snapshot = List<QolipLocationEntry>.of(_testModeQolipLocations);
+      try {
+        final moved = <QolipLocationEntry>[];
+        for (final location in selected) {
+          moved.add(
+            await qolipMoveLocation(
+              locationId: location.id,
+              targetBlock: targetBlock,
+              quantity: location.quantity,
+              rowLetter: rowLetter,
+              columnNumber: columnNumber,
+            ),
+          );
+        }
+        return moved;
+      } catch (_) {
+        _testModeQolipLocations
+          ..clear()
+          ..addAll(snapshot);
+        rethrow;
+      }
+    }
+
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/locations/move-batch'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'moves': [
+            for (final location in selected)
+              {
+                'location_id': location.id.trim(),
+                'block': targetBlock.name.trim(),
+                'warehouse': targetBlock.warehouse.trim(),
+                'quantity': location.quantity,
+                'row_letter': rowLetter.trim().toUpperCase(),
+                'column_number': columnNumber,
+              },
+          ],
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _qolipApiException(
+        response,
+        fallbackCode: 'qolip_location_move_batch_failed',
+        fallbackMessage: 'Tanlangan qoliplar ko‘chirilmay qoldi.',
+      );
+    }
+    final data = await decodeJsonMapPayload(response.body);
+    final rawLocations = data['locations'];
+    if (rawLocations is! List || rawLocations.length != selected.length) {
+      throw const MobileApiException(
+        code: 'qolip_location_move_batch_invalid_response',
+        message: 'Tanlangan qoliplar ko‘chirish javobi noto‘g‘ri.',
+      );
+    }
+    return [
+      for (final item in rawLocations)
+        QolipLocationEntry.fromJson((item as Map).cast<String, dynamic>()),
+    ];
+  }
+
   Future<QolipCellQrPrintResult> qolipPrintCellQr({
     required QolipBlock block,
     required String rowLetter,
