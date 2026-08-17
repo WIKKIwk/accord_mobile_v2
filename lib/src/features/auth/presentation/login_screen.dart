@@ -14,6 +14,16 @@ import '../../../core/widgets/display/motion_widgets.dart';
 import '../../shared/models/app_models.dart';
 import 'welcome_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+bool loginCodeUsesNumericKeyboard(String code) {
+  final trimmed = code.trim();
+  if (trimmed.length < 2) {
+    return true;
+  }
+
+  return const {'40', '50', '80'}.contains(trimmed.substring(0, 2));
+}
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, this.onBack, this.useSharedBackground = false});
@@ -41,6 +51,11 @@ class _LoginScreenState extends State<LoginScreen> {
   bool get _canSubmit =>
       phoneController.text.trim().isNotEmpty &&
       codeController.text.trim().isNotEmpty;
+
+  bool get _numericRolePrefixSelected {
+    final code = codeController.text.trim();
+    return code.length >= 2 && loginCodeUsesNumericKeyboard(code);
+  }
 
   @override
   void initState() {
@@ -417,6 +432,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                               focusNode: codeFocusNode,
                                               textInputAction:
                                                   TextInputAction.done,
+                                              keyboardType:
+                                                  loginCodeUsesNumericKeyboard(
+                                                codeController.text,
+                                              )
+                                                      ? TextInputType.number
+                                                      : TextInputType.text,
+                                              inputFormatters:
+                                                  _numericRolePrefixSelected
+                                                      ? [
+                                                          FilteringTextInputFormatter
+                                                              .digitsOnly,
+                                                        ]
+                                                      : null,
                                               autocorrect: false,
                                               enableSuggestions: false,
                                               onSubmitted: (_) {
@@ -426,7 +454,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                               },
                                               decoration: InputDecoration(
                                                 labelText: l10n.codeLabel,
-                                                hintText: '10XXXXXXXXXX',
+                                                hintText:
+                                                    _numericRolePrefixSelected
+                                                        ? '40XXXXXXXXXX'
+                                                        : '10XXXXXXXXXX',
                                                 prefixIcon: const Icon(
                                                   Icons.password_outlined,
                                                 ),
