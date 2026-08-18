@@ -103,6 +103,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   bool get _materialIntakeInFlight => _materialIntakeActiveCount > 0;
 
+  bool get _isTrainingOrder =>
+      widget.order.map.id.trim().startsWith('training-');
+
   bool get _allowMaterialUnlink =>
       AppSession.instance.profile?.role == UserRole.materialTaminotchi;
 
@@ -357,7 +360,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   List<AdminRawMaterialAssignment> _startMaterialAssignments() {
-    if (_materialStartRequirements == null) return const [];
+    if (_materialStartRequirements == null) {
+      // Training materials are attached to the training order even when the
+      // backend intentionally hides the normal start-material gate.
+      return _isTrainingOrder ? _materialAssignments : const [];
+    }
     return _startAssignments;
   }
 
