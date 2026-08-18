@@ -218,7 +218,6 @@ class _PreparedReadOnlyQueueAction {
     required this.materialAssignments,
     required this.scannedMaterialBarcodes,
     required this.startInputProgressBatch,
-    required this.bypassStartMaterialScan,
     this.blockReason,
   });
 
@@ -227,7 +226,6 @@ class _PreparedReadOnlyQueueAction {
   final List<AdminRawMaterialAssignment> materialAssignments;
   final Set<String> scannedMaterialBarcodes;
   final AdminProgressBatch? startInputProgressBatch;
-  final bool bypassStartMaterialScan;
   final String? blockReason;
 }
 

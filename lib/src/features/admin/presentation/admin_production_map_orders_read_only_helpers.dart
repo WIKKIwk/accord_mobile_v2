@@ -280,13 +280,11 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     apparatus: prepared.apparatus,
     order: order,
     action: action,
-    materialBarcodes: prepared.bypassStartMaterialScan && action == 'start'
-        ? const []
-        : _queueActionMaterialBarcodes(
-            action: action,
-            assignments: prepared.materialAssignments,
-            scannedBarcodes: prepared.scannedMaterialBarcodes,
-          ),
+    materialBarcodes: _queueActionMaterialBarcodes(
+      action: action,
+      assignments: prepared.materialAssignments,
+      scannedBarcodes: prepared.scannedMaterialBarcodes,
+    ),
     qolipCodes: qolipCodes,
     producedQty: progressInput?.meterQty,
     grossQty: progressInput?.kgQty,
@@ -438,22 +436,13 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   }
   final interaction = queueActionControl?.interaction;
   if (interaction == null) return null;
-  final bypassMaterialGate = interaction.startMaterialsMode !=
-      AdminQueueStartMaterialsMode.scanRequired;
-  final stationMaterialAssignments =
-      (materialRequirements == null || bypassMaterialGate)
-          ? const <AdminRawMaterialAssignment>[]
-          : materialAssignments;
   final inputProgressBatch = startInputProgressBatch;
   return _PreparedReadOnlyQueueAction(
     apparatus: apparatus,
     onQueueAction: onQueueAction,
-    materialAssignments: stationMaterialAssignments,
-    scannedMaterialBarcodes: Set<String>.unmodifiable(
-      bypassMaterialGate ? const <String>{} : scannedMaterialBarcodes,
-    ),
+    materialAssignments: materialAssignments,
+    scannedMaterialBarcodes: Set<String>.unmodifiable(scannedMaterialBarcodes),
     startInputProgressBatch: inputProgressBatch,
-    bypassStartMaterialScan: bypassMaterialGate,
     blockReason: _queueActionStartBlockReason(
       action: action,
       materialRequirements: materialRequirements,

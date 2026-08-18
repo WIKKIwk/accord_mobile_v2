@@ -687,7 +687,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       apparatus: widget.apparatus,
       onQueueAction: widget.onQueueAction,
       actionInFlight: _actionInFlight,
-      materialAssignments: _startAssignments,
+      materialAssignments: _startMaterialAssignments(),
       materialRequirements: _materialStartRequirements,
       materialsLoading: _materialsLoading,
       materialsError: _materialsError,
