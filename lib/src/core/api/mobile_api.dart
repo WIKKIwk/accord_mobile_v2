@@ -98,6 +98,7 @@ class MobileApi {
   static const int werkaPickerLimit = 50;
 
   static const String compiledBaseUrl = ServerEndpointStore.compiledBaseUrl;
+  static const Duration _requestTimeout = Duration(seconds: 10);
 
   static String get baseUrl => ServerEndpointStore.instance.baseUrl;
 
@@ -112,9 +113,9 @@ class MobileApi {
         method: 'GET',
         uri: uri,
         headers: headers,
-      );
+      ).timeout(_requestTimeout);
     }
-    return http.get(uri, headers: headers);
+    return http.get(uri, headers: headers).timeout(_requestTimeout);
   }
 
   Future<http.Response> _post(
@@ -129,9 +130,11 @@ class MobileApi {
         uri: uri,
         headers: headers,
         body: body,
-      );
+      ).timeout(_requestTimeout);
     }
-    return http.post(uri, headers: headers, body: body);
+    return http.post(uri, headers: headers, body: body).timeout(
+      _requestTimeout,
+    );
   }
 
   Future<http.Response> _put(
@@ -146,9 +149,11 @@ class MobileApi {
         uri: uri,
         headers: headers,
         body: body,
-      );
+      ).timeout(_requestTimeout);
     }
-    return http.put(uri, headers: headers, body: body);
+    return http.put(uri, headers: headers, body: body).timeout(
+      _requestTimeout,
+    );
   }
 
   Future<http.Response> _delete(
@@ -163,13 +168,15 @@ class MobileApi {
         uri: uri,
         headers: headers,
         body: body,
-      );
+      ).timeout(_requestTimeout);
     }
-    return http.delete(uri, headers: headers, body: body);
+    return http.delete(uri, headers: headers, body: body).timeout(
+      _requestTimeout,
+    );
   }
 
   Future<http.Response> _directGet(Uri uri) {
-    return http.get(uri).timeout(const Duration(seconds: 7));
+    return http.get(uri).timeout(_requestTimeout);
   }
 
   Future<http.Response> _directPost(
@@ -177,9 +184,9 @@ class MobileApi {
     Map<String, String>? headers,
     Object? body,
   }) {
-    return http
-        .post(uri, headers: headers, body: body)
-        .timeout(const Duration(seconds: 7));
+    return http.post(uri, headers: headers, body: body).timeout(
+      _requestTimeout,
+    );
   }
 
   String requireToken() {

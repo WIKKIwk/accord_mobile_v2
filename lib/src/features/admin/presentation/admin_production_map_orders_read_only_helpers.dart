@@ -394,6 +394,9 @@ String _readOnlyQueueActionErrorText(
   Object error,
   AppLocalizations l10n,
 ) {
+  if (error is TimeoutException) {
+    return l10n.productionText('worker.error.network_timeout');
+  }
   return error is MobileApiException
       ? l10n.productionErrorMessage(
           error.code,

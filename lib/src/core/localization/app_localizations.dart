@@ -3428,6 +3428,11 @@ class AppLocalizations {
       'en': 'The action could not be completed',
       'ru': 'Не удалось выполнить действие',
     },
+    'worker.error.network_timeout': {
+      'uz': 'Internet yoki server javob bermadi. Qayta urinib ko‘ring',
+      'en': 'The internet or server did not respond. Try again.',
+      'ru': 'Интернет или сервер не ответил. Повторите попытку.',
+    },
     'worker.error.sync': {
       'uz': 'Ish holati server bilan sinxron emas. Sahifani yangilang.',
       'en':

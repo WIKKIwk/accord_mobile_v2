@@ -254,9 +254,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final apparatus = widget.apparatus?.name.trim() ?? '';
     final isMaterialTaminotchi =
         AppSession.instance.profile?.role == UserRole.materialTaminotchi;
-    if (showLoading && mounted) {
+    if (mounted) {
       setState(() {
-        _materialsLoading = true;
+        if (showLoading) {
+          _materialsLoading = true;
+        }
         _materialsError = '';
       });
     }
@@ -348,9 +350,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _intakeCandidateAssignments = const [];
         _materialStartRequirements = null;
         _materialsLoading = false;
-        _materialsError = error is MobileApiException
-            ? error.message
-            : context.l10n.productionText('worker.error.rule_failed');
+        _materialsError = _readOnlyQueueActionErrorText(error, context.l10n);
       });
       return false;
     }
@@ -871,8 +871,16 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         await _receiveAdditionalMaterialFromQuickScan(normalized);
         return;
       }
-      await _loadMaterialAssignments(showLoading: false);
+      final materialLoadSucceeded =
+          await _loadMaterialAssignments(showLoading: false);
       if (!mounted) return;
+      if (!materialLoadSucceeded) {
+        final errorText = _materialsError.trim();
+        if (errorText.isNotEmpty) {
+          setState(() => _quickScanStatus = errorText);
+        }
+        return;
+      }
       final orderId = widget.order.map.id.trim();
       final station = widget.apparatus?.name.trim() ?? '';
       final assignments = _startMaterialAssignments();
@@ -886,7 +894,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         if (!alreadyScanned && mounted) {
           setState(() => _scannedMaterialBarcodes.add(key));
         }
-        await _loadMaterialAssignments(showLoading: false);
+        final materialRefreshSucceeded =
+            await _loadMaterialAssignments(showLoading: false);
+        if (!mounted) return;
+        if (!materialRefreshSucceeded && _materialsError.trim().isNotEmpty) {
+          setState(() => _quickScanStatus = _materialsError);
+          return;
+        }
         if (mounted) {
           final complete = _materialStartRequirements?.scanSatisfied == true;
           setState(() {
