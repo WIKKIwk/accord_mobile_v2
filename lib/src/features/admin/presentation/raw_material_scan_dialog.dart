@@ -56,11 +56,13 @@ class ProductionQuickScannerPanel extends StatefulWidget {
     required this.onCodeDetected,
     required this.statusText,
     this.busy = false,
+    this.allowConcurrentDetections = false,
   });
 
   final Future<void> Function(String rawValue) onCodeDetected;
   final String statusText;
   final bool busy;
+  final bool allowConcurrentDetections;
 
   @override
   State<ProductionQuickScannerPanel> createState() =>
@@ -71,8 +73,10 @@ class _ProductionQuickScannerPanelState
     extends State<ProductionQuickScannerPanel> {
   MobileScannerController? _controller;
   final _manualController = TextEditingController();
-  bool _processing = false;
+  int _activeDetections = 0;
   bool _manualEntryVisible = false;
+
+  bool get _processing => _activeDetections > 0;
 
   @override
   void initState() {
@@ -124,19 +128,36 @@ class _ProductionQuickScannerPanelState
   }
 
   Future<void> _handleDetect(BarcodeCapture capture) async {
-    if (_processing || widget.busy) {
+    if (!widget.allowConcurrentDetections && (_processing || widget.busy)) {
       return;
     }
     final rawValue = _firstBarcodeValue(capture);
     if (rawValue.isEmpty) {
       return;
     }
-    setState(() => _processing = true);
+
+    final operation = _handleDetectedValue(rawValue);
+    if (widget.allowConcurrentDetections) {
+      unawaited(operation);
+      return;
+    }
+    await operation;
+  }
+
+  Future<void> _handleDetectedValue(String rawValue) async {
+    if (!mounted) {
+      return;
+    }
+    setState(() => _activeDetections += 1);
     try {
       await widget.onCodeDetected(rawValue);
     } finally {
       if (mounted) {
-        setState(() => _processing = false);
+        setState(() {
+          _activeDetections = _activeDetections > 0
+              ? _activeDetections - 1
+              : 0;
+        });
       }
     }
   }
@@ -164,13 +185,20 @@ class _ProductionQuickScannerPanelState
   }
 
   Future<void> _handleManualValue(String value) async {
-    setState(() => _processing = true);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _activeDetections += 1);
     try {
       await widget.onCodeDetected(value);
       _manualController.clear();
     } finally {
       if (mounted) {
-        setState(() => _processing = false);
+        setState(() {
+          _activeDetections = _activeDetections > 0
+              ? _activeDetections - 1
+              : 0;
+        });
       }
     }
   }

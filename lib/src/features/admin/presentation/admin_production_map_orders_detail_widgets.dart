@@ -27,6 +27,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.quickScanStatus,
     required this.quickScanInFlight,
     required this.showQuickScanner,
+    required this.allowConcurrentQuickScanner,
     required this.onQuickScan,
     required this.summaryExpanded,
     required this.onToggleSummaryExpanded,
@@ -83,6 +84,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final String quickScanStatus;
   final bool quickScanInFlight;
   final bool showQuickScanner;
+  final bool allowConcurrentQuickScanner;
   final Future<void> Function(String rawValue) onQuickScan;
   final bool summaryExpanded;
   final VoidCallback onToggleSummaryExpanded;
@@ -148,6 +150,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 ProductionQuickScannerPanel(
                   statusText: quickScanStatus,
                   busy: quickScanInFlight,
+                  allowConcurrentDetections: allowConcurrentQuickScanner,
                   onCodeDetected: onQuickScan,
                 ),
                 const SizedBox(height: 10),

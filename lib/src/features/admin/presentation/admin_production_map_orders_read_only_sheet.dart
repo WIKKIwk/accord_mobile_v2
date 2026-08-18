@@ -77,13 +77,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   String _qolipRequirementsError = '';
   String _quickScanStatus = '';
   String _quickScanLocaleCode = '';
-  bool _quickScanInFlight = false;
-  String _lastQuickScanValue = '';
-  DateTime? _lastQuickScanAt;
+  final Set<String> _seenQuickScanValues = <String>{};
+  int _quickScanActiveCount = 0;
+  int _materialIntakeActiveCount = 0;
+  int _materialLoadGeneration = 0;
   AdminProgressBatch? _startInputProgressBatch;
   bool _actionInFlight = false;
   bool _lastQueueActionPrintFailed = false;
-  bool _materialIntakeInFlight = false;
   bool _materialIntakeMode = false;
   bool _materialsLoading = true;
   String _materialsError = '';
@@ -98,6 +98,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   ReturnedPaintDraft? _returnedPaintDraft;
   String _returnedPaintDraftScope = '';
   String _unlinkingMaterialBarcode = '';
+
+  bool get _quickScanInFlight => _quickScanActiveCount > 0;
+
+  bool get _materialIntakeInFlight => _materialIntakeActiveCount > 0;
 
   bool get _allowMaterialUnlink =>
       AppSession.instance.profile?.role == UserRole.materialTaminotchi;
@@ -182,8 +186,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _qolipsExpanded = false;
       _quickScanStatus = context.l10n.productionText('worker.scanner.prompt');
       _materialIntakeMode = false;
-      _lastQuickScanValue = '';
-      _lastQuickScanAt = null;
+      _seenQuickScanValues.clear();
       _startInputProgressBatch = null;
       _availableInputProgressBatches = const [];
       _inputProgressError = '';
@@ -246,6 +249,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<bool> _loadMaterialAssignments({bool showLoading = true}) async {
+    final loadGeneration = ++_materialLoadGeneration;
     final orderId = widget.order.map.id.trim();
     final apparatus = widget.apparatus?.name.trim() ?? '';
     final isMaterialTaminotchi =
@@ -310,6 +314,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         }
       }
       if (!mounted ||
+          loadGeneration != _materialLoadGeneration ||
           widget.order.map.id.trim() != orderId ||
           (widget.apparatus?.name.trim() ?? '') != apparatus) {
         return false;
@@ -334,7 +339,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       });
       return true;
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || loadGeneration != _materialLoadGeneration) {
         return false;
       }
       setState(() {
@@ -847,31 +852,25 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   Future<void> _handleQuickScan(String rawValue) async {
     final normalized = rawMaterialBarcodeFromQr(rawValue).trim();
-    if (normalized.isEmpty) {
+    final scanKey = normalized.toUpperCase();
+    if (normalized.isEmpty || !_seenQuickScanValues.add(scanKey)) {
       return;
     }
-    final now = DateTime.now();
-    if (_lastQuickScanValue == normalized &&
-        _lastQuickScanAt != null &&
-        now.difference(_lastQuickScanAt!) < const Duration(seconds: 2)) {
+    if (!mounted) {
       return;
     }
-    _lastQuickScanValue = normalized;
-    _lastQuickScanAt = now;
-    if (_materialIntakeMode) {
-      await _receiveAdditionalMaterialFromQuickScan(normalized);
-      return;
-    }
-    if (mounted) {
-      setState(() {
-        _quickScanInFlight = true;
-        _quickScanStatus = context.l10n.productionText(
-          'worker.scanner.checking',
-        );
-      });
-    }
+    setState(() {
+      _quickScanActiveCount += 1;
+      _quickScanStatus = context.l10n.productionText(
+        'worker.scanner.checking',
+      );
+    });
 
     try {
+      if (_materialIntakeMode) {
+        await _receiveAdditionalMaterialFromQuickScan(normalized);
+        return;
+      }
       await _loadMaterialAssignments(showLoading: false);
       if (!mounted) return;
       final orderId = widget.order.map.id.trim();
@@ -975,7 +974,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
     } finally {
       if (mounted) {
-        setState(() => _quickScanInFlight = false);
+        setState(() {
+          _quickScanActiveCount = _quickScanActiveCount > 0
+              ? _quickScanActiveCount - 1
+              : 0;
+        });
       }
     }
   }
@@ -1074,7 +1077,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
     }
     setState(() {
-      _quickScanInFlight = true;
+      _quickScanActiveCount += 1;
       _quickScanStatus = context.l10n.productionText(
         'worker.order.switch.starting',
       );
@@ -1114,7 +1117,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       return false;
     } finally {
       if (mounted) {
-        setState(() => _quickScanInFlight = false);
+        setState(() {
+          _quickScanActiveCount = _quickScanActiveCount > 0
+              ? _quickScanActiveCount - 1
+              : 0;
+        });
       }
     }
   }
@@ -1456,7 +1463,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _receiveAdditionalMaterialFromQuickScan(String barcode) async {
-    if (_materialIntakeInFlight) return;
     final orderId = widget.order.map.id.trim();
     final apparatus = widget.apparatus?.name.trim() ?? '';
     if (orderId.isEmpty || apparatus.isEmpty) {
@@ -1467,8 +1473,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     if (mounted) {
       setState(() {
-        _quickScanInFlight = true;
-        _materialIntakeInFlight = true;
+        _materialIntakeActiveCount += 1;
         _quickScanStatus = context.l10n.productionText(
           'worker.scanner.receiving_material',
         );
@@ -1491,7 +1496,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       final hasRemainingCandidates = _intakeCandidateAssignments.isNotEmpty;
       setState(() {
         _intakeCandidatesExpanded = true;
-        _materialIntakeMode = hasRemainingCandidates;
+        _materialIntakeMode =
+            hasRemainingCandidates || _materialIntakeActiveCount > 1;
         _quickScanStatus = hasRemainingCandidates
             ? context.l10n.productionText(
                 'worker.notice.material_received',
@@ -1520,8 +1526,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     } finally {
       if (mounted) {
         setState(() {
-          _quickScanInFlight = false;
-          _materialIntakeInFlight = false;
+          _materialIntakeActiveCount = _materialIntakeActiveCount > 0
+              ? _materialIntakeActiveCount - 1
+              : 0;
         });
       }
     }
@@ -1673,6 +1680,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       quickScanInFlight: _quickScanInFlight,
       showQuickScanner: uiState.showStart ||
           (_materialIntakeMode && uiState.materialIntakeAllowed),
+      allowConcurrentQuickScanner: widget.workerMode,
       onQuickScan: _handleQuickScan,
       requiresQolipScan: requiresQolipScan,
       qolipScanned: qolipScanAllowsStart,
