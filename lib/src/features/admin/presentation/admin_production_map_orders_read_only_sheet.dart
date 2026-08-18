@@ -3,6 +3,20 @@ part of 'admin_production_map_orders_screen.dart';
 const _queueActionUiTimeout = Duration(seconds: 20);
 const _queueActionControlRefreshTimeout = Duration(seconds: 5);
 
+class _MaterialAssignmentsSnapshot {
+  const _MaterialAssignmentsSnapshot({
+    required this.assignments,
+    required this.startAssignments,
+    required this.intakeCandidateAssignments,
+    required this.requirements,
+  });
+
+  final List<AdminRawMaterialAssignment> assignments;
+  final List<AdminRawMaterialAssignment> startAssignments;
+  final List<AdminRawMaterialAssignment> intakeCandidateAssignments;
+  final AdminRawMaterialStartRequirements? requirements;
+}
+
 class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   const _ReadOnlyOrderDetailSheet({
     required this.order,
@@ -251,12 +265,133 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     ]);
   }
 
+  Future<_MaterialAssignmentsSnapshot> _fetchMaterialAssignments({
+    required String orderId,
+    required String apparatus,
+    required List<String> materialBarcodes,
+  }) async {
+    final isMaterialTaminotchi =
+        AppSession.instance.profile?.role == UserRole.materialTaminotchi;
+    late final List<AdminRawMaterialAssignment> assignments;
+    var startAssignments = const <AdminRawMaterialAssignment>[];
+    var intakeCandidates = const <AdminRawMaterialAssignment>[];
+    AdminRawMaterialStartRequirements? requirements;
+    if (apparatus.isEmpty || isMaterialTaminotchi) {
+      assignments = await MobileApi.instance.adminRawMaterialAssignments(
+        orderId: orderId,
+        apparatus: isMaterialTaminotchi ? '' : apparatus,
+      );
+    } else {
+      final interaction = _queueActionControl?.interaction;
+      if (_queueActionControl?.isConsistentWith(_orderControlState) == true &&
+          interaction?.startMaterialsMode ==
+              AdminQueueStartMaterialsMode.scanRequired) {
+        requirements =
+            await MobileApi.instance.adminRawMaterialStartRequirements(
+          orderId: orderId,
+          apparatus: apparatus,
+          materialBarcodes: materialBarcodes,
+        );
+        assignments = requirements.assignments
+            .where(
+              (assignment) => productionMapWarehouseTitlesMatch(
+                assignment.apparatus,
+                apparatus,
+              ),
+            )
+            .toList(growable: false);
+        startAssignments = requirements.startAssignments
+            .where(
+              (assignment) => productionMapWarehouseTitlesMatch(
+                assignment.apparatus,
+                apparatus,
+              ),
+            )
+            .toList(growable: false);
+      } else {
+        assignments = await MobileApi.instance.adminRawMaterialAssignments(
+          orderId: orderId,
+          apparatus: apparatus,
+        );
+        if (_queueActionControl?.isConsistentWith(_orderControlState) ==
+                true &&
+            interaction?.materialIntakeAllowed == true) {
+          intakeCandidates =
+              await MobileApi.instance.adminRawMaterialIntakeCandidates(
+            orderId: orderId,
+            apparatus: apparatus,
+          );
+        }
+      }
+    }
+    return _MaterialAssignmentsSnapshot(
+      assignments: assignments,
+      startAssignments: startAssignments,
+      intakeCandidateAssignments: intakeCandidates,
+      requirements: requirements,
+    );
+  }
+
+  void _applyMaterialAssignmentsSnapshot(
+    _MaterialAssignmentsSnapshot snapshot,
+  ) {
+    final eligibleBarcodes = snapshot.requirements == null
+        ? null
+        : snapshot.startAssignments
+            .map((assignment) => _materialBarcodeKey(assignment.barcode))
+            .toSet();
+    setState(() {
+      _materialAssignments = snapshot.assignments;
+      _startAssignments = snapshot.startAssignments;
+      _intakeCandidateAssignments = snapshot.intakeCandidateAssignments;
+      _materialStartRequirements = snapshot.requirements;
+      if (eligibleBarcodes != null) {
+        _scannedMaterialBarcodes.removeWhere(
+          (barcode) => !eligibleBarcodes.contains(barcode),
+        );
+      }
+      _materialsLoading = false;
+      _materialsError = '';
+    });
+  }
+
+  bool _materialContextIsCurrent(String orderId, String apparatus) {
+    return mounted &&
+        widget.order.map.id.trim() == orderId &&
+        (widget.apparatus?.name.trim() ?? '') == apparatus;
+  }
+
+  bool _scannedMaterialBarcodesMatch(Set<String> expected) {
+    return expected.length == _scannedMaterialBarcodes.length &&
+        expected.every(_scannedMaterialBarcodes.contains);
+  }
+
+  void _applyMaterialAssignmentsSnapshotIfCurrent({
+    required _MaterialAssignmentsSnapshot snapshot,
+    required String orderId,
+    required String apparatus,
+    required Set<String> expectedScannedBarcodes,
+  }) {
+    if (!_materialContextIsCurrent(orderId, apparatus) ||
+        !_scannedMaterialBarcodesMatch(expectedScannedBarcodes)) {
+      return;
+    }
+    _applyMaterialAssignmentsSnapshot(snapshot);
+  }
+
+  List<AdminRawMaterialAssignment> _materialAssignmentsForScan(
+    _MaterialAssignmentsSnapshot snapshot,
+  ) {
+    if (snapshot.requirements == null) {
+      return _isTrainingOrder ? snapshot.assignments : const [];
+    }
+    return snapshot.startAssignments;
+  }
+
   Future<bool> _loadMaterialAssignments({bool showLoading = true}) async {
     final loadGeneration = ++_materialLoadGeneration;
     final orderId = widget.order.map.id.trim();
     final apparatus = widget.apparatus?.name.trim() ?? '';
-    final isMaterialTaminotchi =
-        AppSession.instance.profile?.role == UserRole.materialTaminotchi;
     if (mounted) {
       setState(() {
         if (showLoading) {
@@ -266,82 +401,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       });
     }
     try {
-      late final List<AdminRawMaterialAssignment> assignments;
-      var startAssignments = const <AdminRawMaterialAssignment>[];
-      var intakeCandidates = const <AdminRawMaterialAssignment>[];
-      AdminRawMaterialStartRequirements? requirements;
-      if (apparatus.isEmpty || isMaterialTaminotchi) {
-        assignments = await MobileApi.instance.adminRawMaterialAssignments(
-          orderId: orderId,
-          apparatus: isMaterialTaminotchi ? '' : apparatus,
-        );
-      } else {
-        final interaction = _queueActionControl?.interaction;
-        if (_queueActionControl?.isConsistentWith(_orderControlState) == true &&
-            interaction?.startMaterialsMode ==
-                AdminQueueStartMaterialsMode.scanRequired) {
-          requirements =
-              await MobileApi.instance.adminRawMaterialStartRequirements(
-            orderId: orderId,
-            apparatus: apparatus,
-            materialBarcodes: _scannedMaterialBarcodes.toList(growable: false),
-          );
-          assignments = requirements.assignments
-              .where(
-                (assignment) => productionMapWarehouseTitlesMatch(
-                  assignment.apparatus,
-                  apparatus,
-                ),
-              )
-              .toList(growable: false);
-          startAssignments = requirements.startAssignments
-              .where(
-                (assignment) => productionMapWarehouseTitlesMatch(
-                  assignment.apparatus,
-                  apparatus,
-                ),
-              )
-              .toList(growable: false);
-        } else {
-          assignments = await MobileApi.instance.adminRawMaterialAssignments(
-            orderId: orderId,
-            apparatus: apparatus,
-          );
-          if (_queueActionControl?.isConsistentWith(_orderControlState) ==
-                  true &&
-              interaction?.materialIntakeAllowed == true) {
-            intakeCandidates =
-                await MobileApi.instance.adminRawMaterialIntakeCandidates(
-              orderId: orderId,
-              apparatus: apparatus,
-            );
-          }
-        }
-      }
+      final snapshot = await _fetchMaterialAssignments(
+        orderId: orderId,
+        apparatus: apparatus,
+        materialBarcodes: _scannedMaterialBarcodes.toList(growable: false),
+      );
       if (!mounted ||
           loadGeneration != _materialLoadGeneration ||
           widget.order.map.id.trim() != orderId ||
           (widget.apparatus?.name.trim() ?? '') != apparatus) {
         return false;
       }
-      final eligibleBarcodes = requirements == null
-          ? null
-          : startAssignments
-              .map((assignment) => _materialBarcodeKey(assignment.barcode))
-              .toSet();
-      setState(() {
-        _materialAssignments = assignments;
-        _startAssignments = startAssignments;
-        _intakeCandidateAssignments = intakeCandidates;
-        _materialStartRequirements = requirements;
-        if (eligibleBarcodes != null) {
-          _scannedMaterialBarcodes.removeWhere(
-            (barcode) => !eligibleBarcodes.contains(barcode),
-          );
-        }
-        _materialsLoading = false;
-        _materialsError = '';
-      });
+      _applyMaterialAssignmentsSnapshot(snapshot);
       return true;
     } catch (error) {
       if (!mounted || loadGeneration != _materialLoadGeneration) {
@@ -878,19 +949,24 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         await _receiveAdditionalMaterialFromQuickScan(normalized);
         return;
       }
-      final materialLoadSucceeded =
-          await _loadMaterialAssignments(showLoading: false);
-      if (!mounted) return;
-      if (!materialLoadSucceeded) {
-        final errorText = _materialsError.trim();
-        if (errorText.isNotEmpty) {
-          setState(() => _quickScanStatus = errorText);
-        }
-        return;
-      }
       final orderId = widget.order.map.id.trim();
       final station = widget.apparatus?.name.trim() ?? '';
-      final assignments = _startMaterialAssignments();
+      final scannedBeforeLoad = Set<String>.from(_scannedMaterialBarcodes);
+      final snapshot = await _fetchMaterialAssignments(
+        orderId: orderId,
+        apparatus: station,
+        materialBarcodes: scannedBeforeLoad.toList(growable: false),
+      );
+      if (!_materialContextIsCurrent(orderId, station)) {
+        return;
+      }
+      _applyMaterialAssignmentsSnapshotIfCurrent(
+        snapshot: snapshot,
+        orderId: orderId,
+        apparatus: station,
+        expectedScannedBarcodes: scannedBeforeLoad,
+      );
+      final assignments = _materialAssignmentsForScan(snapshot);
       final material = _materialAssignmentForScannedBarcode(
         assignments: assignments,
         barcode: normalized,
@@ -901,15 +977,21 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         if (!alreadyScanned && mounted) {
           setState(() => _scannedMaterialBarcodes.add(key));
         }
-        final materialRefreshSucceeded =
-            await _loadMaterialAssignments(showLoading: false);
-        if (!mounted) return;
-        if (!materialRefreshSucceeded && _materialsError.trim().isNotEmpty) {
-          setState(() => _quickScanStatus = _materialsError);
-          return;
-        }
+        final scannedAfterMatch = Set<String>.from(_scannedMaterialBarcodes);
+        final refreshedSnapshot = await _fetchMaterialAssignments(
+          orderId: orderId,
+          apparatus: station,
+          materialBarcodes: scannedAfterMatch.toList(growable: false),
+        );
+        if (!_materialContextIsCurrent(orderId, station)) return;
+        _applyMaterialAssignmentsSnapshotIfCurrent(
+          snapshot: refreshedSnapshot,
+          orderId: orderId,
+          apparatus: station,
+          expectedScannedBarcodes: scannedAfterMatch,
+        );
         if (mounted) {
-          final complete = _materialStartRequirements?.scanSatisfied == true;
+          final complete = refreshedSnapshot.requirements?.scanSatisfied == true;
           setState(() {
             _quickScanStatus = complete
                 ? context.l10n.productionText(
@@ -929,6 +1011,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
 
       Object? scanError;
+      var retryableScanFailure = false;
       if (_queueActionControl?.interaction?.qolipMode ==
           AdminQueueQolipMode.scanRequired) {
         try {
@@ -965,6 +1048,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           return;
         } catch (error) {
           scanError = error;
+          retryableScanFailure = _quickScanErrorAllowsRetry(error);
           // The same QR may be a progress QR on a later production stage.
         }
       }
@@ -982,15 +1066,33 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           return;
         } catch (error) {
           scanError ??= error;
+          retryableScanFailure =
+              retryableScanFailure || _quickScanErrorAllowsRetry(error);
           // Unknown QR values are reported below and scanning continues.
         }
       }
 
+      if (retryableScanFailure ||
+          (scanError != null && _quickScanErrorAllowsRetry(scanError))) {
+        _seenQuickScanValues.remove(scanKey);
+      }
       if (mounted) {
         setState(() {
           _quickScanStatus = scanError == null
               ? context.l10n.productionText('worker.error.machine_flow')
               : _readOnlyQueueActionErrorText(scanError, context.l10n);
+        });
+      }
+    } catch (error) {
+      if (_quickScanErrorAllowsRetry(error)) {
+        _seenQuickScanValues.remove(scanKey);
+      }
+      if (mounted) {
+        setState(() {
+          _quickScanStatus = _readOnlyQueueActionErrorText(
+            error,
+            context.l10n,
+          );
         });
       }
     } finally {
@@ -1002,6 +1104,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         });
       }
     }
+  }
+
+  bool _quickScanErrorAllowsRetry(Object error) {
+    return error is TimeoutException || error is http.ClientException;
   }
 
   Future<bool> _acceptProgressBatch(

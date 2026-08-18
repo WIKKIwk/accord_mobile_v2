@@ -55,6 +55,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 part 'admin_production_map_orders_helpers.dart';
 part 'admin_production_map_orders_detail_widgets.dart';
