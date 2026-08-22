@@ -57,7 +57,7 @@ void main() {
         '7 ta rangli pechat': {
           'zakaz-visible-alt': {
             'state': 'in_progress',
-            'allowed_actions': ['pause', 'detach_roll'],
+            'allowed_actions': ['pause'],
             'interaction': {
               'mode': 'freeze_requested',
               'start_materials_mode': 'hidden',
@@ -68,6 +68,8 @@ void main() {
               'qolip_mode': 'not_required',
               'blocking_reason_code': 'order_freeze_requested',
             },
+            'previous_stage_ready': false,
+            'complete_requires_full_report': false,
             'freeze_request': {
               'request_id': 'freeze-request-1',
               'status': 'pending',
@@ -375,6 +377,25 @@ void main() {
         orderId: frozenOrderId,
         action: 'resume',
       );
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: apparatus,
+        orderId: frozenOrderId,
+        control: const AdminApparatusQueueOrderActionControl(
+          state: 'in_progress',
+          allowedActions: {'pause', 'freeze', 'complete'},
+          hasOnlyKnownActions: true,
+          completeRequiresFullReport: true,
+          interaction: AdminQueueWorkerInteraction(
+            mode: AdminQueueInteractionMode.inProgress,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+            materialScanRequired: false,
+            assignedMaterialsDisplayOnly: false,
+            materialIntakeAllowed: true,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired,
+            qolipMode: AdminQueueQolipMode.notRequired,
+          ),
+        ),
+      );
       snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
       expect(snapshot.queueStates[apparatus]?[frozenOrderId], 'in_progress');
     } finally {
@@ -408,6 +429,8 @@ void main() {
               'previous_wip_mode': 'not_required',
               'qolip_mode': 'not_required',
             },
+            'previous_stage_ready': false,
+            'complete_requires_full_report': false,
           },
         },
       },
@@ -466,6 +489,8 @@ void main() {
           'previous_wip_mode': 'not_required',
           'qolip_mode': 'not_required',
         },
+        'previous_stage_ready': false,
+        'complete_requires_full_report': false,
       });
     }
 
@@ -518,6 +543,104 @@ void main() {
 
     expect(map.customerName, '555 kukuruz');
     expect(map.toJson()['customer_name'], '555 kukuruz');
+  });
+
+  test('worker action controls reject contradictory action modes', () {
+    final freezeOnPaused = AdminApparatusQueueOrderActionControl.fromJson({
+      'state': 'paused',
+      'allowed_actions': ['freeze'],
+      'interaction': {
+        'mode': 'paused',
+        'start_materials_mode': 'hidden',
+        'material_scan_required': false,
+        'assigned_materials_display_only': false,
+        'material_intake_allowed': true,
+        'previous_wip_mode': 'not_required',
+        'qolip_mode': 'not_required',
+      },
+      'previous_stage_ready': false,
+      'complete_requires_full_report': false,
+    });
+    expect(freezeOnPaused.contractValid, isFalse);
+
+    final resumeOnInProgress = AdminApparatusQueueOrderActionControl.fromJson({
+      'state': 'in_progress',
+      'allowed_actions': ['resume'],
+      'interaction': {
+        'mode': 'in_progress',
+        'start_materials_mode': 'hidden',
+        'material_scan_required': false,
+        'assigned_materials_display_only': false,
+        'material_intake_allowed': true,
+        'previous_wip_mode': 'not_required',
+        'qolip_mode': 'not_required',
+      },
+      'previous_stage_ready': false,
+      'complete_requires_full_report': false,
+    });
+    expect(resumeOnInProgress.contractValid, isFalse);
+  });
+
+  test('live snapshot rejects unknown queue states and state mismatches', () {
+    final base = <String, dynamic>{
+      'maps': const [],
+      'sequences': const {'Pechat': ['order-1']},
+      'visible_order_ids': const {'Pechat': ['order-1']},
+      'queue_policies': const [],
+      'order_controls': const {},
+    };
+
+    expect(
+      () => AdminProductionMapLiveSnapshot.fromJson({
+        ...base,
+        'queue_states': const {
+          'Pechat': {'order-1': 'not_a_backend_state'},
+        },
+        'queue_action_controls': const {},
+      }),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'production_map_snapshot_contract_invalid',
+        ),
+      ),
+    );
+
+    expect(
+      () => AdminProductionMapLiveSnapshot.fromJson({
+        ...base,
+        'queue_states': const {
+          'Pechat': {'order-1': 'paused'},
+        },
+        'queue_action_controls': const {
+          'Pechat': {
+            'order-1': {
+              'state': 'pending',
+              'allowed_actions': ['start'],
+              'interaction': {
+                'mode': 'fresh_start',
+                'start_materials_mode': 'hidden',
+                'material_scan_required': false,
+                'assigned_materials_display_only': false,
+                'material_intake_allowed': true,
+                'previous_wip_mode': 'not_required',
+                'qolip_mode': 'not_required',
+              },
+              'previous_stage_ready': false,
+              'complete_requires_full_report': false,
+            },
+          },
+        },
+      }),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'production_map_snapshot_contract_invalid',
+        ),
+      ),
+    );
   });
 
   test('production map live snapshot requires backend visible order ids', () {

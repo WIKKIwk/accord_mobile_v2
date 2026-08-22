@@ -9,11 +9,25 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  test('route guard stays open before a session is loaded', () {
+  test('route guard denies protected routes before a session is loaded', () {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
 
-    expect(AppRouter.canOpenRoute(AppRoutes.werkaArchive), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.werkaArchive), isFalse);
+  });
+
+  test('route guard denies protected routes when profile is present without token', () {
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.werka,
+      displayName: 'Scale operator',
+      legalName: '',
+      ref: 'werka',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['werka.access'],
+    );
+
+    expect(AppRouter.canOpenRoute(AppRoutes.werkaHome), isFalse);
   });
 
   test('route access follows session capabilities', () {

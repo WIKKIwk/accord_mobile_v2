@@ -173,6 +173,7 @@ class _ReadOnlyOrderDetailUiState {
     required this.showWaitingForSequence,
     required this.contractSynchronized,
     required this.blockingReasonCode,
+    required this.showBackendBlockingState,
   });
 
   final String orderId;
@@ -207,6 +208,7 @@ class _ReadOnlyOrderDetailUiState {
   final bool showWaitingForSequence;
   final bool contractSynchronized;
   final String blockingReasonCode;
+  final bool showBackendBlockingState;
 
   int get scannedCount => materialScannedCount;
 }

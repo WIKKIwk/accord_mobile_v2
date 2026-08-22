@@ -25,7 +25,11 @@ UserRole userRoleFromJson(String? value) {
                           ? UserRole.materialTaminotchi
                           : roleValue == 'admin'
                               ? UserRole.admin
-                              : UserRole.supplier;
+                              : roleValue == 'supplier'
+                                  ? UserRole.supplier
+                                  : (throw FormatException(
+                                      'Unsupported user role: $value',
+                                    ));
 }
 
 String userRoleToJson(UserRole role) {
@@ -1812,10 +1816,7 @@ class SessionProfile {
   }
 
   List<String> get effectiveCapabilities {
-    if (capabilities.isNotEmpty) {
-      return capabilities;
-    }
-    return _defaultCapabilitiesForRole(role);
+    return capabilities;
   }
 
   bool hasCapability(String code) {
@@ -1846,7 +1847,7 @@ class SessionProfile {
 
   UserRole? get accessRole {
     if (!hasExplicitCapabilities) {
-      return role;
+      return null;
     }
     if (hasCapability('admin.access')) {
       return UserRole.admin;
@@ -1894,79 +1895,6 @@ class SessionProfile {
       assignedItemGroups: assignedItemGroups ?? this.assignedItemGroups,
       assignedWarehouses: assignedWarehouses ?? this.assignedWarehouses,
     );
-  }
-}
-
-List<String> _defaultCapabilitiesForRole(UserRole role) {
-  switch (role) {
-    case UserRole.supplier:
-      return const [
-        'supplier.access',
-        'push.token.manage',
-        'supplier.avatar.manage',
-      ];
-    case UserRole.werka:
-      return const [
-        'werka.access',
-        'push.token.manage',
-        'gscale.catalog.read',
-        'gscale.print',
-        'rps.batch.manage',
-      ];
-    case UserRole.customer:
-      return const ['customer.access'];
-    case UserRole.aparatchi:
-      return const [
-        'apparatus.queue.read',
-        'returned_paint.request.create',
-      ];
-    case UserRole.qolipchi:
-      return const ['qolip.manage'];
-    case UserRole.boyoqchi:
-      return const [
-        'boyoqchi.access',
-        'returned_paint.request.read',
-      ];
-    case UserRole.materialTaminotchi:
-      return const [
-        'gscale.catalog.read',
-        'gscale.print',
-        'rps.batch.manage',
-        'catalog.item.create',
-        'raw_material.assign',
-      ];
-    case UserRole.admin:
-      return const [
-        'admin.access',
-        'role.capability.read',
-        'role.capability.manage',
-        'admin.settings.read',
-        'admin.settings.manage',
-        'catalog.item.read',
-        'catalog.item.create',
-        'catalog.item_group.read',
-        'catalog.item_group.manage',
-        'catalog.item.bulk_move',
-        'party.supplier.read',
-        'party.supplier.manage',
-        'party.supplier.item.assign',
-        'party.supplier.code.manage',
-        'party.customer.read',
-        'party.customer.manage',
-        'party.customer.item.assign',
-        'party.customer.code.manage',
-        'admin.activity.read',
-        'werka.code.manage',
-        'production.map.manage',
-        'factory.location.manage',
-        'returned_paint.request.create',
-        'apparatus.queue.read',
-        'gscale.catalog.read',
-        'gscale.print',
-        'rps.batch.manage',
-        'rezka.split.manage',
-        'qolip.manage',
-      ];
   }
 }
 

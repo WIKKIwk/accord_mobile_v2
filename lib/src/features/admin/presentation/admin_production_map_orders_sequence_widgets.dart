@@ -87,8 +87,10 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
         customerName: widget.customerNameByMapId[order.map.id.trim()] ?? '',
         tone: _resolveOrderCardTone(
           orderStatus: widget.orderStatusesByOrderId[order.map.id.trim()],
-          orderControl: widget.orderControlsByOrderId[order.map.id.trim()] ??
-              AdminOrderControlState.active,
+          orderControl: adminProductionMapOrderControlFor(
+            widget.orderControlsByOrderId,
+            order.map.id.trim(),
+          ),
           apparatusState: apparatusQueueOrderStateFromRaw(
             widget.queueStates[order.map.id.trim()],
           ),

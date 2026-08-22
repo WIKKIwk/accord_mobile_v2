@@ -120,6 +120,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   bool get _isTrainingOrder =>
       widget.order.map.id.trim().startsWith('training-');
 
+  bool get _queueActionContractSynchronized =>
+      _queueActionControl?.isConsistentWith(
+            _orderControlState,
+            queueState: _queueStates[widget.order.map.id.trim()],
+          ) ==
+          true;
+
   bool get _allowMaterialUnlink =>
       AppSession.instance.profile?.role == UserRole.materialTaminotchi;
 
@@ -130,8 +137,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     _queueActionControl = widget.queueActionControl;
     _orderControls =
         Map<String, AdminOrderControlState>.from(widget.initialOrderControls);
-    _orderControlState = _orderControls[widget.order.map.id.trim()] ??
-        AdminOrderControlState.active;
+    _orderControlState = adminProductionMapOrderControlFor(
+      _orderControls,
+      widget.order.map.id.trim(),
+    );
     unawaited(_loadInteractionContractAndSections());
     if (widget.startPauseOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -233,11 +242,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _loadInteractionContractAndSections() async {
-    if (_queueActionControl?.isConsistentWith(_orderControlState) != true) {
+    if (!_queueActionContractSynchronized) {
       try {
         final refreshed = await _loadCurrentQueueActionControl();
         if (!mounted) return;
-        if (refreshed?.isConsistentWith(_orderControlState) == true) {
+        if (refreshed?.isConsistentWith(
+              _orderControlState,
+              queueState: _queueStates[widget.order.map.id.trim()],
+            ) ==
+            true) {
           setState(() => _queueActionControl = refreshed);
         } else {
           debugPrint(
@@ -245,6 +258,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             '${widget.order.map.id.trim()} at '
             '${widget.apparatus?.name.trim() ?? ''}',
           );
+          setState(() => _queueActionControl = null);
           _showSheetNotice(
             context.l10n.productionText('worker.error.sync'),
           );
@@ -252,6 +266,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       } catch (error) {
         if (!mounted) return;
         debugPrint('Production interaction contract refresh failed: $error');
+        setState(() => _queueActionControl = null);
         _showSheetNotice(
           context.l10n.productionText('worker.error.sync'),
         );
@@ -283,7 +298,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       );
     } else {
       final interaction = _queueActionControl?.interaction;
-      if (_queueActionControl?.isConsistentWith(_orderControlState) == true &&
+      if (_queueActionContractSynchronized &&
           interaction?.startMaterialsMode ==
               AdminQueueStartMaterialsMode.scanRequired) {
         requirements =
@@ -313,8 +328,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           orderId: orderId,
           apparatus: apparatus,
         );
-        if (_queueActionControl?.isConsistentWith(_orderControlState) ==
-                true &&
+        if (_queueActionContractSynchronized &&
             interaction?.materialIntakeAllowed == true) {
           intakeCandidates =
               await MobileApi.instance.adminRawMaterialIntakeCandidates(
@@ -499,7 +513,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   Future<void> _loadQolipRequirements() async {
     final apparatus = widget.apparatus?.name.trim() ?? '';
     final orderId = widget.order.map.id.trim();
-    if (_queueActionControl?.isConsistentWith(_orderControlState) != true ||
+    if (!_queueActionContractSynchronized ||
         _queueActionControl?.interaction?.qolipMode !=
             AdminQueueQolipMode.scanRequired) {
       return;
@@ -598,7 +612,26 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         .timeout(_queueActionControlRefreshTimeout);
     for (final entry in snapshot.queueActionControls.entries) {
       if (productionMapQueueApparatusTitlesMatch(entry.key, apparatus)) {
-        return entry.value[orderId];
+        final control = entry.value[orderId];
+        final nextQueueStates = snapshot.queueStates[entry.key];
+        final nextOrderControl = snapshot.orderControlFor(orderId);
+        if (mounted) {
+          setState(() {
+            _queueStates = Map<String, String>.from(nextQueueStates ?? const {});
+            _orderControls = Map<String, AdminOrderControlState>.from(
+              snapshot.orderControls,
+            );
+            _orderControlState = nextOrderControl;
+          });
+        }
+        if (control?.isConsistentWith(
+              nextOrderControl,
+              queueState: snapshot.queueStates[entry.key]?[orderId],
+            ) !=
+            true) {
+          return null;
+        }
+        return control;
       }
     }
     return null;
@@ -666,10 +699,35 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     String freezeRequestId = '',
   }) async {
     final l10n = context.l10n;
-    if (_queueActionControl?.isConsistentWith(_orderControlState) != true ||
+    if (!_queueActionContractSynchronized ||
         _queueActionControl?.allows(action) != true) {
       return false;
     }
+    AdminApparatusQueueOrderActionControl? latestControl;
+    try {
+      latestControl = await _loadCurrentQueueActionControl();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _queueActionControl = null);
+        _showSheetNotice(l10n.productionText('worker.error.sync'));
+      }
+      return false;
+    }
+    if (!mounted) {
+      return false;
+    }
+    final latestQueueState = _queueStates[widget.order.map.id.trim()];
+    if (latestControl?.isConsistentWith(
+              _orderControlState,
+              queueState: latestQueueState,
+            ) !=
+            true ||
+        latestControl?.allows(action) != true) {
+      setState(() => _queueActionControl = latestControl);
+      _showSheetNotice(l10n.productionText('worker.error.sync'));
+      return false;
+    }
+    setState(() => _queueActionControl = latestControl);
     if (action == 'start' &&
         !_bypassStartMaterialScan &&
         !await _loadMaterialAssignments(showLoading: false)) {
@@ -759,9 +817,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             _orderControlState = states.orderControl!;
             _orderControls[widget.order.map.id.trim()] = states.orderControl!;
           }
-          if (nextActionControl != null) {
-            _queueActionControl = nextActionControl;
-          }
+          _queueActionControl = nextActionControl;
         }
         if (_queueActionShouldClearStartInputProgress(
           action: action,
@@ -777,6 +833,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       });
       if (_queueActionShouldReloadMaterials(action: action, result: states)) {
         unawaited(_loadMaterialAssignments());
+      }
+      if (states != null && nextActionControl == null && mounted) {
+        _showSheetNotice(
+          context.l10n.productionText('worker.error.sync'),
+        );
       }
       if (states != null) {
         unawaited(_loadInputProgressBatches());
@@ -1145,15 +1206,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         .timeout(_queueActionControlRefreshTimeout);
     if (!mounted) return false;
     AdminApparatusQueueOrderActionControl? targetControl;
+    String? targetQueueState;
     for (final entry in snapshot.queueActionControls.entries) {
       if (productionMapQueueApparatusTitlesMatch(entry.key, station)) {
         targetControl = entry.value[targetOrderId];
+        targetQueueState = snapshot.queueStates[entry.key]?[targetOrderId];
         break;
       }
     }
-    final targetOrderControl =
-        snapshot.orderControls[targetOrderId] ?? AdminOrderControlState.active;
-    if (targetControl?.isConsistentWith(targetOrderControl) != true ||
+    final targetOrderControl = snapshot.orderControlFor(targetOrderId);
+    if (targetControl?.isConsistentWith(
+          targetOrderControl,
+          queueState: targetQueueState,
+        ) !=
+        true ||
         targetControl?.allows('start') != true) {
       _showSheetNotice(context.l10n.productionText('worker.error.sync'));
       return false;
@@ -1692,7 +1758,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       return;
     }
     final previousStage = _queueActionControl?.previousStage.trim();
-    if (_queueActionControl?.isConsistentWith(_orderControlState) != true ||
+    if (!_queueActionContractSynchronized ||
         _queueActionControl?.interaction?.previousWipMode !=
             AdminQueuePreviousWipMode.scanRequired ||
         previousStage == null ||
@@ -1758,6 +1824,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       apparatus: widget.apparatus,
       queueActionControl: _queueActionControl,
       orderControlState: _orderControlState,
+      queueState: _queueStates[widget.order.map.id.trim()],
       materialAssignments: _materialAssignments,
       startMaterialAssignments: _startAssignments,
       intakeCandidateAssignments: _intakeCandidateAssignments,
@@ -1778,6 +1845,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       customerName: widget.customerName,
       steps: steps,
       uiState: uiState,
+      showContractWarning: widget.workerMode && widget.canManageQueue,
       pauseLabel: widget.workerMode
           ? context.l10n.productionText(
               _queueActionControl?.interaction?.mode ==

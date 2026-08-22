@@ -258,7 +258,7 @@ void main() {
     expect(userRoleToJson(UserRole.materialTaminotchi), 'material_taminotchi');
   });
 
-  test('empty capability profile falls back to default role access', () {
+  test('empty capability profile has no client-side role fallback', () {
     const profile = SessionProfile(
       role: UserRole.werka,
       displayName: 'Werka',
@@ -268,8 +268,10 @@ void main() {
       avatarUrl: '',
     );
 
-    expect(profile.hasCapability('werka.access'), isTrue);
-    expect(profile.hasCapability('gscale.print'), isTrue);
+    expect(profile.hasCapability('werka.access'), isFalse);
+    expect(profile.hasCapability('gscale.print'), isFalse);
+    expect(profile.accessRole, isNull);
+    expect(profile.hasWorkspaceAccess, isFalse);
   });
 
   test('legacy profile with null assigned warehouses is safe', () {

@@ -21,6 +21,7 @@ bool _queueSnapshotChanged({
       queueActionControlsByApparatus.length !=
           snapshot.queueActionControls.length ||
       orderControlsByOrderId.length != snapshot.orderControls.length ||
+      orderCustomersByOrderId.length != snapshot.orderCustomers.length ||
       orderStatusesByOrderId.length != snapshot.orderStatuses.length ||
       qolipOrderNotesByOrderId.length != snapshot.qolipOrderNotes.length ||
       frozenOrdersByApparatus.length !=

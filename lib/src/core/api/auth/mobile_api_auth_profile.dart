@@ -46,12 +46,21 @@ extension MobileApiAuthProfile on MobileApi {
       throw _MobileLoginException(response.statusCode);
     }
 
-    final Map<String, dynamic> json =
-        jsonDecode(response.body) as Map<String, dynamic>;
-    final String token = json['token'] as String? ?? '';
-    final profileJson = Map<String, dynamic>.from(
-      json['profile'] as Map<String, dynamic>,
-    );
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map) {
+      throw _MobileLoginException(response.statusCode);
+    }
+    final json = Map<String, dynamic>.from(decoded);
+    final rawToken = json['token'];
+    if (rawToken is! String || rawToken.trim().isEmpty) {
+      throw _MobileLoginException(response.statusCode);
+    }
+    final rawProfile = json['profile'];
+    if (rawProfile is! Map) {
+      throw _MobileLoginException(response.statusCode);
+    }
+    final String token = rawToken.trim();
+    final profileJson = Map<String, dynamic>.from(rawProfile);
     profileJson['capabilities'] = json['capabilities'] as List<dynamic>? ?? [];
     profileJson['assigned_apparatus'] =
         json['assigned_apparatus'] as List<dynamic>? ?? [];
@@ -68,9 +77,6 @@ extension MobileApiAuthProfile on MobileApi {
             json['werka_home'] is Map<String, dynamic>
         ? WerkaHomeData.fromJson(json['werka_home'] as Map<String, dynamic>)
         : null;
-    if (token.trim().isEmpty) {
-      throw _MobileLoginException(response.statusCode);
-    }
     return _MobileLoginResult(
       token: token,
       profile: profile,
@@ -211,26 +217,20 @@ extension MobileApiAuthProfile on MobileApi {
   }
 
   SessionProfile _profilePreservingCapabilities(Map<String, dynamic> json) {
-    if (!json.containsKey('capabilities')) {
-      json = Map<String, dynamic>.from(json);
-      json['capabilities'] = AppSession.instance.profile?.capabilities ?? [];
-    }
-    if (!json.containsKey('assigned_apparatus')) {
-      json = Map<String, dynamic>.from(json);
-      json['assigned_apparatus'] =
-          AppSession.instance.profile?.assignedApparatus ?? [];
-    }
-    if (!json.containsKey('assigned_item_groups')) {
-      json = Map<String, dynamic>.from(json);
-      json['assigned_item_groups'] =
-          AppSession.instance.profile?.assignedItemGroups ?? [];
-    }
-    if (!json.containsKey('assigned_warehouses')) {
-      json = Map<String, dynamic>.from(json);
-      json['assigned_warehouses'] =
-          AppSession.instance.profile?.assignedWarehouses ?? [];
-    }
-    return SessionProfile.fromJson(json);
+    final profileJson = Map<String, dynamic>.from(json);
+    profileJson['capabilities'] = json['capabilities'] is List
+        ? json['capabilities']
+        : const <dynamic>[];
+    profileJson['assigned_apparatus'] = json['assigned_apparatus'] is List
+        ? json['assigned_apparatus']
+        : const <dynamic>[];
+    profileJson['assigned_item_groups'] = json['assigned_item_groups'] is List
+        ? json['assigned_item_groups']
+        : const <dynamic>[];
+    profileJson['assigned_warehouses'] = json['assigned_warehouses'] is List
+        ? json['assigned_warehouses']
+        : const <dynamic>[];
+    return SessionProfile.fromJson(profileJson);
   }
 }
 

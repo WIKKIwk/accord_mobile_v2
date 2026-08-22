@@ -5096,6 +5096,25 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Order muammo bilan muzlatildi'), findsOneWidget);
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: apparatus,
+      orderId: orderId,
+      control: const AdminApparatusQueueOrderActionControl(
+        state: 'frozen',
+        allowedActions: {},
+        hasOnlyKnownActions: true,
+        interaction: AdminQueueWorkerInteraction(
+          mode: AdminQueueInteractionMode.frozen,
+          startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+          materialScanRequired: false,
+          assignedMaterialsDisplayOnly: true,
+          materialIntakeAllowed: false,
+          previousWipMode: AdminQueuePreviousWipMode.notRequired,
+          qolipMode: AdminQueueQolipMode.notRequired,
+          blockingReasonCode: 'order_frozen',
+        ),
+      ),
+    );
     final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
     expect(snapshot.orderControls[orderId], AdminOrderControlState.frozen);
     expect(snapshot.sequences[apparatus], isNot(contains(orderId)));

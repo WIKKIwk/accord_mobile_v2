@@ -831,13 +831,14 @@ class AppRouter {
         routeName == AppRoutes.pinSetupConfirm) {
       return true;
     }
-    final profile = AppSession.instance.profile;
-    if (profile == null) {
-      return true;
+    final session = AppSession.instance;
+    if (!session.isLoggedIn) {
+      return false;
     }
+    final profile = session.profile!;
     final required = _routeCapabilities[routeName];
     if (required == null) {
-      return true;
+      return false;
     }
     return profile.hasAnyCapability(required);
   }

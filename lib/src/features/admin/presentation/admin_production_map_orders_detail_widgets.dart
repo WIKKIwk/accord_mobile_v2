@@ -10,6 +10,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.customerName,
     required this.steps,
     required this.uiState,
+    required this.showContractWarning,
     required this.pauseLabel,
     required this.queueStates,
     required this.queueStatesByApparatus,
@@ -67,6 +68,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final String? customerName;
   final List<ProductionMapNode> steps;
   final _ReadOnlyOrderDetailUiState uiState;
+  final bool showContractWarning;
   final String pauseLabel;
   final Map<String, String> queueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
@@ -162,6 +164,10 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   l10n: context.l10n,
                 ),
                 customerName: customerName,
+                contractSynchronized: uiState.contractSynchronized,
+                showContractWarning: showContractWarning,
+                blockingReasonCode: uiState.blockingReasonCode,
+                showBackendBlockingState: uiState.showBackendBlockingState,
                 startAssignments: uiState.materialAssignments,
                 intakeCandidateAssignments: uiState.intakeCandidateAssignments,
                 assignedAssignments: uiState.assignedMaterialAssignments,
@@ -705,6 +711,10 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.orderCode,
     required this.productTitle,
     required this.customerName,
+    required this.contractSynchronized,
+    required this.showContractWarning,
+    required this.blockingReasonCode,
+    required this.showBackendBlockingState,
     required this.startAssignments,
     required this.intakeCandidateAssignments,
     required this.assignedAssignments,
@@ -769,6 +779,10 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final String orderCode;
   final String productTitle;
   final String? customerName;
+  final bool contractSynchronized;
+  final bool showContractWarning;
+  final String blockingReasonCode;
+  final bool showBackendBlockingState;
   final List<AdminRawMaterialAssignment> startAssignments;
   final List<AdminRawMaterialAssignment> intakeCandidateAssignments;
   final List<AdminRawMaterialAssignment> assignedAssignments;
@@ -855,6 +869,18 @@ class _OrderStartUnifiedCard extends StatelessWidget {
         showResume ||
         showWaitingForPrevious ||
         showWaitingForSequence;
+    final showContractSyncNotice = showContractWarning && !contractSynchronized;
+    final showBackendBlockingNotice = showBackendBlockingState &&
+        !orderControlBlocked &&
+        !showWaitingForPrevious &&
+        !showWaitingForSequence;
+    final backendBlockingText = switch (blockingReasonCode.trim()) {
+      'raw_material_assignment_required' => context.l10n.productionText(
+          'worker.error.incomplete_material_groups',
+        ),
+      'order_frozen' => context.l10n.productionText('worker.freeze.active'),
+      _ => context.l10n.productionText('worker.error.sync'),
+    };
     final showRezkaInputProgressScan = previousProgressRequired && showStart;
     final showMaterialIntake = materialIntakeAllowed;
     final customer = customerName?.trim() ?? '';
@@ -948,6 +974,40 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                     : context.l10n.productionText('worker.freeze.requested'),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onErrorContainer,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (showContractSyncNotice) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: scheme.errorContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                context.l10n.productionText('worker.error.sync'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onErrorContainer,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (showBackendBlockingNotice) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                backendBlockingText,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
                 ),
               ),

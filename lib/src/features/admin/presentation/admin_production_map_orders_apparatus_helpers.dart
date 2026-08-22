@@ -109,8 +109,10 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
     (order) {
       final orderId = order.map.id.trim();
       final state = apparatusQueueOrderStateFromRaw(states[orderId]);
-      final orderControl =
-          orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
+      final orderControl = adminProductionMapOrderControlFor(
+        orderControlsByOrderId,
+        orderId,
+      );
       return state != ApparatusQueueOrderState.completed &&
           state != ApparatusQueueOrderState.frozen &&
           orderControl != AdminOrderControlState.frozen;

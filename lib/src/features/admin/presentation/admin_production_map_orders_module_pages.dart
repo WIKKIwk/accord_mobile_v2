@@ -842,9 +842,10 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                     tone: _resolveOrderCardTone(
                       orderStatus:
                           orderStatusesByOrderId[orders[index].map.id.trim()],
-                      orderControl:
-                          orderControlsByOrderId[orders[index].map.id.trim()] ??
-                              AdminOrderControlState.active,
+                      orderControl: adminProductionMapOrderControlFor(
+                        orderControlsByOrderId,
+                        orders[index].map.id.trim(),
+                      ),
                       apparatusState: apparatusQueueOrderStateFromRaw(
                         queueStates[orders[index].map.id.trim()],
                       ),

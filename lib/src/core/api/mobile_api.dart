@@ -191,10 +191,11 @@ class MobileApi {
 
   String requireToken() {
     final String? token = AppSession.instance.token;
-    if (token == null || token.isEmpty) {
+    final normalizedToken = token?.trim();
+    if (normalizedToken == null || normalizedToken.isEmpty) {
       throw Exception('No session token');
     }
-    return token;
+    return normalizedToken;
   }
 
   Uri adminWarehouseLiveUri() {

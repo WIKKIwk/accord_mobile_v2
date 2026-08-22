@@ -257,7 +257,10 @@ class _AdminProductionMapOrdersScreenState
   bool _liveRefreshQueued = false;
   bool _mapsRefreshInFlight = false;
   bool _queueSnapshotRefreshInFlight = false;
+  bool _queueSnapshotRefreshQueued = false;
+  bool _queueSnapshotContractError = false;
   int _liveStreamGeneration = 0;
+  int _queueSnapshotGeneration = 0;
   StreamSubscription<AdminProductionMapLiveSnapshot>? _liveStreamSubscription;
   Timer? _queueSnapshotPollTimer;
   String _searchQuery = '';
@@ -406,6 +409,8 @@ class _AdminProductionMapOrdersScreenState
     required AdminApparatusQueueActionResult result,
   }) {
     setState(() {
+      _queueSnapshotGeneration++;
+      _queueActionControlsByApparatus.clear();
       _queueStatesByApparatus[apparatusKey] = result.states;
       _orderStatusesByOrderId[orderId] = result.orderStatus;
       if (result.orderControl != null) {
@@ -596,9 +601,19 @@ class _AdminProductionMapOrdersScreenState
         apparatus: station,
         orderId: targetOrderId,
       );
-      final targetOrderControl = _orderControlsByOrderId[targetOrderId] ??
-          AdminOrderControlState.active;
-      if (targetControl?.isConsistentWith(targetOrderControl) != true ||
+      final targetOrderControl = adminProductionMapOrderControlFor(
+        _orderControlsByOrderId,
+        targetOrderId,
+      );
+      final targetQueueState = _queueStatesForApparatus(
+        station,
+        queueStatesByApparatus: _queueStatesByApparatus,
+      )[targetOrderId];
+      if (targetControl?.isConsistentWith(
+            targetOrderControl,
+            queueState: targetQueueState,
+          ) !=
+          true ||
           targetControl?.allows('start') != true) {
         showAdminTopNotice(
           context,
@@ -667,9 +682,19 @@ class _AdminProductionMapOrdersScreenState
         apparatus: apparatus,
         orderId: orderId,
       );
-      final orderControl =
-          _orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
-      return control?.isConsistentWith(orderControl) == true
+      final orderControl = adminProductionMapOrderControlFor(
+        _orderControlsByOrderId,
+        orderId,
+      );
+      final queueState = _queueStatesForApparatus(
+        apparatus,
+        queueStatesByApparatus: _queueStatesByApparatus,
+      )[orderId];
+      return control?.isConsistentWith(
+            orderControl,
+            queueState: queueState,
+          ) ==
+          true
           ? control?.interaction?.mode
           : null;
     }
@@ -931,8 +956,17 @@ class _AdminProductionMapOrdersScreenState
         _orderControlActionsInFlight.contains(orderId)) {
       return;
     }
-    final control =
-        _orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
+    if (_queueSnapshotContractError) {
+      showAdminTopNotice(
+        context,
+        context.l10n.productionText('worker.error.sync'),
+      );
+      return;
+    }
+    final control = adminProductionMapOrderControlFor(
+      _orderControlsByOrderId,
+      orderId,
+    );
     final hasFrozenQueueState = _queueStatesByApparatus.values.any(
       (states) => states[orderId]?.trim().toLowerCase() == 'frozen',
     );
@@ -1065,6 +1099,13 @@ class _AdminProductionMapOrdersScreenState
     AdminOrderControlAction action,
   ) async {
     final orderId = order.map.id.trim();
+    if (_queueSnapshotContractError) {
+      showAdminTopNotice(
+        context,
+        context.l10n.productionText('worker.error.sync'),
+      );
+      return;
+    }
     if (!_orderControlActionsInFlight.add(orderId)) {
       return;
     }

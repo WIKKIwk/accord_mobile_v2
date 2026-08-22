@@ -434,6 +434,9 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   if (apparatus == null || onQueueAction == null || actionInFlight) {
     return null;
   }
+  if (queueActionControl?.contractValid != true) {
+    return null;
+  }
   final interaction = queueActionControl?.interaction;
   if (interaction == null) return null;
   final inputProgressBatch = startInputProgressBatch;
@@ -471,15 +474,19 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required bool canManageQueue,
   required AdminApparatusQueueOrderActionControl? queueActionControl,
   required AdminOrderControlState orderControlState,
+  String? queueState,
   required AdminProgressBatch? startInputProgressBatch,
 }) {
   final map = order.map;
   final orderId = map.id.trim();
   final station = apparatus?.name.trim() ?? '';
-  final contractSynchronized = queueActionControl != null &&
-      queueActionControl.isConsistentWith(orderControlState);
-  final interaction =
-      contractSynchronized ? queueActionControl.interaction : null;
+  final contractValid = queueActionControl?.contractValid == true;
+  final contractSynchronized = contractValid &&
+      queueActionControl!.isConsistentWith(
+        orderControlState,
+        queueState: queueState,
+      );
+  final interaction = contractValid ? queueActionControl?.interaction : null;
   final previousStageValue = queueActionControl?.previousStage.trim() ?? '';
   final previousStage = previousStageValue.isEmpty ? null : previousStageValue;
   final bypassMaterialGate = interaction?.startMaterialsMode !=
@@ -566,6 +573,15 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
         interaction?.blockingReasonCode == 'waiting_sequence',
     contractSynchronized: contractSynchronized,
     blockingReasonCode: interaction?.blockingReasonCode ?? '',
+    showBackendBlockingState: canManageQueue &&
+        contractValid &&
+        const {
+          AdminQueueInteractionMode.freshStartBlocked,
+          AdminQueueInteractionMode.requeuedWaiting,
+          AdminQueueInteractionMode.waitingPreviousStage,
+          AdminQueueInteractionMode.paused,
+          AdminQueueInteractionMode.frozen,
+        }.contains(interaction?.mode),
   );
 }
 
