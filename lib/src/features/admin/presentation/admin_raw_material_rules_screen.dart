@@ -13,6 +13,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../shared/models/app_models.dart';
+import '../logic/canonical_apparatus_display.dart';
 import '../models/admin_item_group_tree_entry.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
@@ -57,10 +58,10 @@ class _AdminRawMaterialSettingsScreenState
   late Future<_RawMaterialRulesData> _future;
   late TabController _tabController;
   late final bool _materialAssignmentMode;
+  List<AdminApparatus> _apparatus = const [];
   List<AdminRawMaterialRule> _rules = const [];
   List<AdminRawMaterialRequirementGroup> _selectedRequirementGroups = const [];
-  String _selectedApparatus = '';
-  bool _selectedRequiresMaterial = false;
+  String _selectedApparatusId = '';
   AdminRawMaterialStartPolicy _selectedStartPolicy =
       AdminRawMaterialStartPolicy.stateAll;
   bool _saving = false;
@@ -98,14 +99,27 @@ class _AdminRawMaterialSettingsScreenState
     final rules = results[1] as List<AdminRawMaterialRule>;
     final itemGroups = results[2] as List<AdminItemGroupTreeEntry>;
     final rawMaterialGroups = _rawMaterialGroupsFrom(itemGroups);
-    _rules = rules;
-    if (_selectedApparatus.isEmpty && apparatus.isNotEmpty) {
-      _selectedApparatus = apparatus.first.name.trim();
-      _fillGroupsFor(_selectedApparatus);
+    _apparatus = apparatus;
+    final apparatusById = {
+      for (final item in apparatus) item.id.trim(): item,
+    };
+    _rules = [
+      for (final rule in rules)
+        if (apparatusById[rule.apparatusId] case final matched?)
+          rule.copyWith(apparatus: matched.name.trim())
+        else
+          throw FormatException(
+            'Raw-material projection references unknown apparatus_id: '
+            '${rule.apparatusId}',
+          ),
+    ];
+    if (_selectedApparatusId.isEmpty && apparatus.isNotEmpty) {
+      _selectedApparatusId = apparatus.first.id.trim();
+      _fillGroupsFor(_selectedApparatusId);
     }
     return _RawMaterialRulesData(
       apparatus: apparatus,
-      rules: rules,
+      rules: _rules,
       rawMaterialGroups: rawMaterialGroups,
     );
   }
@@ -132,28 +146,25 @@ class _AdminRawMaterialSettingsScreenState
     Navigator.of(context).pushReplacementNamed(routeName);
   }
 
-  void _fillGroupsFor(String apparatus) {
-    final normalized = apparatus.trim();
-    final rule = _ruleFor(normalized);
+  void _fillGroupsFor(String apparatusId) {
+    final rule = _ruleFor(apparatusId);
     if (rule != null) {
       _selectedRequirementGroups = _effectiveRequirementGroupsFor(rule);
       _groupsController.text = _requirementGroupsSummary(
         _selectedRequirementGroups,
       );
-      _selectedRequiresMaterial = rule.requiresMaterial;
       _selectedStartPolicy = rule.startPolicy;
       return;
     }
     _groupsController.clear();
     _selectedRequirementGroups = const [];
-    _selectedRequiresMaterial = false;
     _selectedStartPolicy = AdminRawMaterialStartPolicy.stateAll;
   }
 
-  AdminRawMaterialRule? _ruleFor(String apparatus) {
-    final normalized = apparatus.trim();
+  AdminRawMaterialRule? _ruleFor(String apparatusId) {
+    final normalized = apparatusId.trim();
     for (final rule in _rules) {
-      if (rule.apparatus.trim() == normalized) {
+      if (rule.apparatusId == normalized) {
         return rule;
       }
     }
@@ -163,7 +174,7 @@ class _AdminRawMaterialSettingsScreenState
   void _replaceRule(AdminRawMaterialRule saved) {
     _rules = [
       for (final rule in _rules)
-        if (rule.apparatus.trim() != saved.apparatus.trim()) rule,
+        if (rule.apparatusId != saved.apparatusId) rule,
       saved,
     ];
   }
@@ -195,10 +206,18 @@ class _AdminRawMaterialSettingsScreenState
   }
 
   Future<void> _save() async {
-    final apparatus = _selectedApparatus.trim();
+    final apparatusId = _selectedApparatusId.trim();
+    AdminApparatus? apparatus;
+    for (final item in _apparatus) {
+      if (item.id == apparatusId) {
+        apparatus = item;
+        break;
+      }
+    }
+    final currentRule = _ruleFor(apparatusId);
     final requirementGroups = _selectedRequirementGroups;
     final groups = _itemGroupsFromRequirementGroups(requirementGroups);
-    if (apparatus.isEmpty || groups.isEmpty || _saving) {
+    if (apparatus == null || currentRule == null || groups.isEmpty || _saving) {
       showAdminTopNotice(
         context,
         context.l10n.adminText('raw_material.apparatus_group_required'),
@@ -209,7 +228,8 @@ class _AdminRawMaterialSettingsScreenState
     try {
       final saved = await MobileApi.instance.adminSaveRawMaterialRule(
         apparatus: apparatus,
-        requiresMaterial: _selectedRequiresMaterial,
+        currentRule: currentRule,
+        requiresMaterial: currentRule.requiresMaterial,
         startPolicy: _selectedStartPolicy,
         itemGroups: groups,
         requirementGroups: requirementGroups,
@@ -223,7 +243,6 @@ class _AdminRawMaterialSettingsScreenState
         _groupsController.text = _requirementGroupsSummary(
           _selectedRequirementGroups,
         );
-        _selectedRequiresMaterial = saved.requiresMaterial;
         _selectedStartPolicy = saved.startPolicy;
       });
       showAdminTopNotice(
@@ -251,8 +270,7 @@ class _AdminRawMaterialSettingsScreenState
     AdminApparatus apparatus,
     bool requiresMaterial,
   ) async {
-    final apparatusName = apparatus.name.trim();
-    final rule = _ruleFor(apparatusName);
+    final rule = _ruleFor(apparatus.id);
     if (rule == null || rule.itemGroups.isEmpty || _saving) {
       showAdminTopNotice(
         context,
@@ -263,7 +281,8 @@ class _AdminRawMaterialSettingsScreenState
     setState(() => _saving = true);
     try {
       final saved = await MobileApi.instance.adminSaveRawMaterialRule(
-        apparatus: apparatusName,
+        apparatus: apparatus,
+        currentRule: rule,
         requiresMaterial: requiresMaterial,
         startPolicy: rule.startPolicy,
         itemGroups: rule.itemGroups,
@@ -282,9 +301,6 @@ class _AdminRawMaterialSettingsScreenState
       }
       setState(() {
         _replaceRule(saved);
-        if (_selectedApparatus.trim() == saved.apparatus.trim()) {
-          _selectedRequiresMaterial = saved.requiresMaterial;
-        }
       });
       showAdminTopNotice(
         context,
@@ -401,14 +417,14 @@ class _AdminRawMaterialSettingsScreenState
                         children: [
                           _RuleEditor(
                             apparatus: data.apparatus,
-                            selectedApparatus: _selectedApparatus,
+                            selectedApparatusId: _selectedApparatusId,
                             rawMaterialGroups: data.rawMaterialGroups,
                             groupsController: _groupsController,
                             selectedStartPolicy: _selectedStartPolicy,
                             saving: _saving,
                             onApparatusChanged: (value) {
                               setState(() {
-                                _selectedApparatus = value;
+                                _selectedApparatusId = value;
                                 _fillGroupsFor(value);
                               });
                             },
@@ -434,11 +450,18 @@ class _AdminRawMaterialSettingsScreenState
                                       _rules.length,
                                     ),
                                     rule: _rules[index],
+                                    apparatusName:
+                                        canonicalApparatusDisplayLabel(
+                                      _rules[index].apparatusId,
+                                      data.apparatus,
+                                    ),
                                     onTap: () {
                                       setState(() {
-                                        _selectedApparatus =
-                                            _rules[index].apparatus;
-                                        _fillGroupsFor(_rules[index].apparatus);
+                                        _selectedApparatusId =
+                                            _rules[index].apparatusId;
+                                        _fillGroupsFor(
+                                          _rules[index].apparatusId,
+                                        );
                                       });
                                       _tabController.animateTo(
                                         _rawMaterialSettingsTabIndex(
@@ -577,7 +600,7 @@ String _requirementGroupSummary(AdminRawMaterialRequirementGroup group) {
 class _RuleEditor extends StatelessWidget {
   const _RuleEditor({
     required this.apparatus,
-    required this.selectedApparatus,
+    required this.selectedApparatusId,
     required this.rawMaterialGroups,
     required this.groupsController,
     required this.selectedStartPolicy,
@@ -589,7 +612,7 @@ class _RuleEditor extends StatelessWidget {
   });
 
   final List<AdminApparatus> apparatus;
-  final String selectedApparatus;
+  final String selectedApparatusId;
   final List<String> rawMaterialGroups;
   final TextEditingController groupsController;
   final AdminRawMaterialStartPolicy selectedStartPolicy;
@@ -615,9 +638,9 @@ class _RuleEditor extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             DropdownButtonFormField<String>(
-              key: ValueKey(selectedApparatus),
+              key: ValueKey(selectedApparatusId),
               initialValue:
-                  selectedApparatus.isEmpty ? null : selectedApparatus,
+                  selectedApparatusId.isEmpty ? null : selectedApparatusId,
               decoration: appSurfaceInputDecoration(
                 context,
                 labelText: context.l10n.adminText('worker.apparatus_label'),
@@ -625,7 +648,7 @@ class _RuleEditor extends StatelessWidget {
               items: [
                 for (final item in apparatus)
                   DropdownMenuItem(
-                    value: item.name.trim(),
+                    value: item.id,
                     child: Text(item.name.trim()),
                   ),
               ],
@@ -1006,11 +1029,13 @@ class _RuleTile extends StatelessWidget {
   const _RuleTile({
     required this.slot,
     required this.rule,
+    required this.apparatusName,
     required this.onTap,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminRawMaterialRule rule;
+  final String apparatusName;
   final VoidCallback onTap;
 
   @override
@@ -1046,7 +1071,7 @@ class _RuleTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  rule.apparatus,
+                  apparatusName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleMedium?.copyWith(
@@ -1112,9 +1137,8 @@ class _RequiredMaterialsTab extends StatelessWidget {
       onChanged;
 
   AdminRawMaterialRule? _ruleFor(AdminApparatus apparatus) {
-    final normalized = apparatus.name.trim();
     for (final rule in rules) {
-      if (rule.apparatus.trim() == normalized) {
+      if (rule.apparatusId == apparatus.id) {
         return rule;
       }
     }

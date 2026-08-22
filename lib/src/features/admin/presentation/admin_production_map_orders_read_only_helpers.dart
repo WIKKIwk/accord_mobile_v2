@@ -8,11 +8,6 @@ Map<String, String> _queueStatesForStation(
   if (direct != null) {
     return direct;
   }
-  for (final entry in queueStatesByApparatus.entries) {
-    if (productionMapQueueApparatusTitlesMatch(entry.key, station)) {
-      return entry.value;
-    }
-  }
   return const {};
 }
 
@@ -479,7 +474,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
 }) {
   final map = order.map;
   final orderId = map.id.trim();
-  final station = apparatus?.name.trim() ?? '';
+  final station = apparatus?.id.trim() ?? '';
   final contractValid = queueActionControl?.contractValid == true;
   final contractSynchronized = contractValid &&
       queueActionControl!.isConsistentWith(
@@ -590,33 +585,19 @@ ProductionMapNode? _rezkaNodeForStation({
   required String station,
 }) {
   final trimmedStation = station.trim();
-  if (trimmedStation.isEmpty ||
-      !productionMapIsRezkaApparatus(trimmedStation)) {
+  if (trimmedStation.isEmpty) {
     return null;
   }
-  final rezkaNodes = _linearProductionMapNodes(map)
-      .where(
-        (node) =>
-            node.kind == 'apparatus' &&
-            (productionMapIsRezkaApparatus(node.title) ||
-                productionMapIsRezkaApparatus(node.alternativeAssignedTitle)),
-      )
-      .toList(growable: false);
-  for (final node in rezkaNodes) {
-    if (_rezkaNodeMatchesStation(node, trimmedStation)) {
+  for (final node in _linearProductionMapNodes(map)) {
+    if (node.kind == 'apparatus' &&
+        productionMapNodeMatchesStation(
+          node: node,
+          station: trimmedStation,
+        )) {
       return node;
     }
   }
-  return rezkaNodes.isEmpty ? null : rezkaNodes.first;
-}
-
-bool _rezkaNodeMatchesStation(ProductionMapNode node, String station) {
-  return productionMapWarehouseTitlesMatch(node.title, station) ||
-      (node.alternativeAssignedTitle.trim().isNotEmpty &&
-          productionMapWarehouseTitlesMatch(
-            node.alternativeAssignedTitle,
-            station,
-          ));
+  return null;
 }
 
 List<String> _rezkaWipSplitInstructionLines({

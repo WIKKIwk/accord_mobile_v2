@@ -25,6 +25,7 @@ class AppSession {
         currentProfile != null &&
         currentProfile.ref.trim().isNotEmpty;
   }
+
   bool get isTestModeSession => token == 'test-mode-token';
   String get homeRoute {
     if (!isLoggedIn) {
@@ -147,7 +148,8 @@ class AppSession {
       throw ArgumentError.value(token, 'token', 'must not be empty');
     }
     if (profile.ref.trim().isEmpty) {
-      throw ArgumentError.value(profile.ref, 'profile.ref', 'must not be empty');
+      throw ArgumentError.value(
+          profile.ref, 'profile.ref', 'must not be empty');
     }
     final previousProfile = this.profile;
     final previousKey = previousProfile == null

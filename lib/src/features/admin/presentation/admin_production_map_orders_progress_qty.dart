@@ -144,15 +144,16 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   bool astatkaReport = false,
   bool freezeRequestSafeStop = false,
 }) {
-  final title = apparatus?.name ?? '';
+  final apparatusId = apparatus?.id ?? '';
+  final operation = apparatus?.operation.trim() ?? '';
   return _showProgressQtyDialog(
     context,
     action,
     order: order,
-    apparatus: title,
-    isBosma: productionMapIsPechatApparatus(title),
-    isLaminatsiya: productionMapIsLaminatsiyaApparatus(title),
-    isRezka: productionMapIsRezkaApparatus(title),
+    apparatus: apparatusId,
+    isBosma: operation == 'print',
+    isLaminatsiya: operation == 'laminate',
+    isRezka: operation == 'cut',
     returnedPaintDraft: returnedPaintDraft,
     fullCompletionReportRequired: fullCompletionReportRequired,
     workerHandoff: workerHandoff,
@@ -588,10 +589,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     );
     final frameIssueFallback =
         (widget.action == 'roll_complete' || widget.action == 'complete') &&
-            widget.isRezka &&
-            allFrameMetricsEmpty
-        ? description
-        : '';
+                widget.isRezka &&
+                allFrameMetricsEmpty
+            ? description
+            : '';
     final rezkaFrameInputs = _readRezkaFrameInputs(
       fallbackIssueNote: frameIssueFallback,
     );
@@ -720,7 +721,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final rezkaMetricsReady = (_showRezkaFrameInputs
             ? hasRezkaFrameMetrics
             : hasMeter && hasKg && hasBobina && hasDiameter) &&
-        (!_requiresFullCompletionReport || hasRezkaWaste || allRezkaFramesIssue);
+        (!_requiresFullCompletionReport ||
+            hasRezkaWaste ||
+            allRezkaFramesIssue);
     if (!widget.isBosma &&
         !widget.isLaminatsiya &&
         !widget.isRezka &&

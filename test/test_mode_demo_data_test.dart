@@ -75,22 +75,15 @@ void main() {
     expect(warehouses.single.warehouse, 'Xomashyo ombori - DEMO');
   });
 
-  test('test mode filters apparatus warehouses by parent', () async {
+  test('warehouse catalog never exposes apparatus as legacy warehouses',
+      () async {
     await TestModeController.instance.setEnabled(true);
 
     final warehouses = await MobileApi.instance.adminWarehouses(
       parent: 'aparat - A',
     );
 
-    expect(warehouses.map((item) => item.warehouse), [
-      'Godex aparat - DEMO',
-      '7 ta rangli bosma aparat',
-      '8 ta rangli bosma aparat',
-      '9 ta rangli bosma aparat',
-      'Flexo pechat',
-      'Laminatsiya 1',
-      'Laminatsiya 2',
-    ]);
+    expect(warehouses, isEmpty);
   });
 
   test('test mode exposes apparatus through its own typed catalog', () async {

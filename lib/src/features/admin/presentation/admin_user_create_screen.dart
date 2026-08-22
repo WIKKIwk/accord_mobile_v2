@@ -849,12 +849,12 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
                   AdminApparatusScopePicker(
                     apparatus: apparatus,
                     selected: selectedApparatus,
-                    onChanged: (apparatusName, checked) {
+                    onChanged: (apparatusId, checked) {
                       setState(() {
                         if (checked) {
-                          selectedApparatus.add(apparatusName);
+                          selectedApparatus.add(apparatusId);
                         } else {
-                          selectedApparatus.remove(apparatusName);
+                          selectedApparatus.remove(apparatusId);
                         }
                       });
                     },

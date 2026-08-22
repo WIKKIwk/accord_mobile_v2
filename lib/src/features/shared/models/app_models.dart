@@ -28,8 +28,7 @@ UserRole userRoleFromJson(String? value) {
                               : roleValue == 'supplier'
                                   ? UserRole.supplier
                                   : (throw FormatException(
-                                      'Unsupported user role: $value',
-                                    ));
+                                      'Unsupported user role: $value'));
 }
 
 String userRoleToJson(UserRole role) {
@@ -48,6 +47,43 @@ String userRoleToJson(UserRole role) {
                           : role == UserRole.admin
                               ? 'admin'
                               : 'supplier';
+}
+
+bool canonicalApparatusIdIsValid(String value) {
+  final normalized = value.trim();
+  if (normalized.isEmpty ||
+      normalized.length > 128 ||
+      normalized != normalized.toLowerCase() ||
+      normalized.contains(RegExp(r'\s'))) {
+    return false;
+  }
+  final parts = normalized.split(':');
+  return parts.length >= 3 &&
+      parts.first == 'apparatus' &&
+      parts[1].isNotEmpty &&
+      parts.skip(2).every((part) => part.isNotEmpty);
+}
+
+List<String> _canonicalApparatusIdListFromJson(Object? raw) {
+  if (raw == null) return const [];
+  if (raw is! List) {
+    throw const FormatException('Canonical apparatus ID list is invalid');
+  }
+  final result = <String>[];
+  for (final item in raw) {
+    final apparatusId = item.toString().trim();
+    if (!canonicalApparatusIdIsValid(apparatusId)) {
+      throw const FormatException('Canonical apparatus ID list is invalid');
+    }
+    if (!result.contains(apparatusId)) {
+      result.add(apparatusId);
+    }
+  }
+  return List<String>.unmodifiable(result);
+}
+
+bool canonicalAasxSha256IsValid(String value) {
+  return RegExp(r'^[0-9a-f]{64}$').hasMatch(value.trim());
 }
 
 String userRoleLabel(UserRole role) {
@@ -273,9 +309,7 @@ class AdminApparatusCapabilityProfile {
         (validToUnix == null || unixSeconds < validToUnix!);
   }
 
-  factory AdminApparatusCapabilityProfile.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory AdminApparatusCapabilityProfile.fromJson(Map<String, dynamic> json) {
     return AdminApparatusCapabilityProfile(
       code: json['code']?.toString().trim().toLowerCase() ?? '',
       level: (json['level'] as num?)?.toInt() ?? 1,
@@ -298,7 +332,7 @@ class AdminApparatus {
   const AdminApparatus({
     required this.name,
     this.id = '',
-    this.source = 'custom',
+    this.source = 'canonical',
     this.sortOrder = 10000,
     this.family = 'other',
     this.kind = 'other',
@@ -307,6 +341,24 @@ class AdminApparatus {
     this.colorStations,
     this.factoryMapObjectId = '',
     this.trainingEnabled = false,
+    this.sourceRevision = 0,
+    this.sourceAasxSha256 = '',
+    this.description = '',
+    this.equipmentClassId = '',
+    this.physicalAssetId = '',
+    this.enterpriseId = '',
+    this.siteId = '',
+    this.areaId = '',
+    this.workCenterId = '',
+    this.workUnitId = '',
+    this.operation = '',
+    this.technology = '',
+    this.maxWebWidthMm,
+    this.virtualTasks = 'disabled',
+    this.capabilityCompatibleReroute = false,
+    this.trainingQueueEnabled = false,
+    this.trainingMaterialTrackingEnabled = false,
+    this.lifecycleState = 'active',
   });
 
   final String id;
@@ -320,6 +372,24 @@ class AdminApparatus {
   final int? colorStations;
   final String factoryMapObjectId;
   final bool trainingEnabled;
+  final int sourceRevision;
+  final String sourceAasxSha256;
+  final String description;
+  final String equipmentClassId;
+  final String physicalAssetId;
+  final String enterpriseId;
+  final String siteId;
+  final String areaId;
+  final String workCenterId;
+  final String workUnitId;
+  final String operation;
+  final String technology;
+  final int? maxWebWidthMm;
+  final String virtualTasks;
+  final bool capabilityCompatibleReroute;
+  final bool trainingQueueEnabled;
+  final bool trainingMaterialTrackingEnabled;
+  final String lifecycleState;
 
   AdminApparatus copyWith({
     String? id,
@@ -333,6 +403,24 @@ class AdminApparatus {
     int? colorStations,
     String? factoryMapObjectId,
     bool? trainingEnabled,
+    int? sourceRevision,
+    String? sourceAasxSha256,
+    String? description,
+    String? equipmentClassId,
+    String? physicalAssetId,
+    String? enterpriseId,
+    String? siteId,
+    String? areaId,
+    String? workCenterId,
+    String? workUnitId,
+    String? operation,
+    String? technology,
+    int? maxWebWidthMm,
+    String? virtualTasks,
+    bool? capabilityCompatibleReroute,
+    bool? trainingQueueEnabled,
+    bool? trainingMaterialTrackingEnabled,
+    String? lifecycleState,
   }) {
     return AdminApparatus(
       id: id ?? this.id,
@@ -346,80 +434,182 @@ class AdminApparatus {
       colorStations: colorStations ?? this.colorStations,
       factoryMapObjectId: factoryMapObjectId ?? this.factoryMapObjectId,
       trainingEnabled: trainingEnabled ?? this.trainingEnabled,
+      sourceRevision: sourceRevision ?? this.sourceRevision,
+      sourceAasxSha256: sourceAasxSha256 ?? this.sourceAasxSha256,
+      description: description ?? this.description,
+      equipmentClassId: equipmentClassId ?? this.equipmentClassId,
+      physicalAssetId: physicalAssetId ?? this.physicalAssetId,
+      enterpriseId: enterpriseId ?? this.enterpriseId,
+      siteId: siteId ?? this.siteId,
+      areaId: areaId ?? this.areaId,
+      workCenterId: workCenterId ?? this.workCenterId,
+      workUnitId: workUnitId ?? this.workUnitId,
+      operation: operation ?? this.operation,
+      technology: technology ?? this.technology,
+      maxWebWidthMm: maxWebWidthMm ?? this.maxWebWidthMm,
+      virtualTasks: virtualTasks ?? this.virtualTasks,
+      capabilityCompatibleReroute:
+          capabilityCompatibleReroute ?? this.capabilityCompatibleReroute,
+      trainingQueueEnabled: trainingQueueEnabled ?? this.trainingQueueEnabled,
+      trainingMaterialTrackingEnabled: trainingMaterialTrackingEnabled ??
+          this.trainingMaterialTrackingEnabled,
+      lifecycleState: lifecycleState ?? this.lifecycleState,
     );
   }
 
-  bool get isDefault => source == 'default';
-  bool get isPechat =>
-      family.trim().toLowerCase() == 'pechat' ||
-      capabilities.any((item) => item.trim().toLowerCase() == 'print') ||
-      capabilityProfiles.any((item) => item.code == 'print' && item.enabled);
-  bool get isFlexo =>
-      kind.trim().toLowerCase() == 'flexo' ||
-      capabilities.any((item) => item.trim().toLowerCase() == 'flexo') ||
-      capabilityProfiles.any((item) => item.code == 'flexo' && item.enabled);
+  bool get isDefault => id.startsWith('apparatus:default:');
+  bool get isPechat => operation == 'print';
+  bool get isFlexo => technology == 'flexographic';
+  bool get isActive => lifecycleState == 'active';
 
   factory AdminApparatus.fromJson(Map<String, dynamic> json) {
-    final name =
-        (json['name'] as String?) ?? (json['warehouse'] as String?) ?? '';
-    final inferred = _inferAdminApparatusMasterData(name);
-    final capabilities = (json['capabilities'] as List<dynamic>? ?? const [])
-        .map((item) => item.toString().trim().toLowerCase())
-        .where((item) => item.isNotEmpty)
-        .toSet()
-        .toList(growable: false);
-    final family = (json['family'] as String?)?.trim() ?? '';
-    final kind = (json['kind'] as String?)?.trim() ?? '';
-    final capabilityProfiles = [
-      if (json['capability_profiles'] is List)
-        for (final item in json['capability_profiles'] as List)
-          if (item is Map)
-            AdminApparatusCapabilityProfile.fromJson(
-              item.cast<String, dynamic>(),
-            ),
-    ];
-    final effectiveProfiles = capabilityProfiles.isEmpty
-        ? [
-            for (final capability
-                in capabilities.isEmpty ? inferred.capabilities : capabilities)
-              AdminApparatusCapabilityProfile(code: capability),
-          ]
-        : capabilityProfiles;
+    final rawProjection = json['runtime_projection'];
+    final projection =
+        rawProjection is Map ? rawProjection.cast<String, dynamic>() : json;
+    final display = projection['display'];
+    final displayMap =
+        display is Map ? display.cast<String, dynamic>() : const {};
+    final hierarchy = projection['hierarchy'];
+    final hierarchyMap =
+        hierarchy is Map ? hierarchy.cast<String, dynamic>() : const {};
+    final executionProfile = projection['execution_profile'];
+    final executionMap = executionProfile is Map
+        ? executionProfile.cast<String, dynamic>()
+        : const {};
+    final placement = projection['placement'];
+    final placementMap =
+        placement is Map ? placement.cast<String, dynamic>() : const {};
+    final training = projection['training'];
+    final trainingMap =
+        training is Map ? training.cast<String, dynamic>() : const {};
+    final lifecycle = projection['lifecycle'];
+    final lifecycleMap =
+        lifecycle is Map ? lifecycle.cast<String, dynamic>() : const {};
+    final id = projection['apparatus_id']?.toString().trim() ?? '';
+    final name = displayMap['display_name']?.toString().trim() ?? '';
+    final sourceRevision =
+        (projection['source_revision'] as num?)?.toInt() ?? 0;
+    final sourceAasxSha256 =
+        projection['source_aasx_sha256']?.toString().trim() ?? '';
+    if (!canonicalApparatusIdIsValid(id) ||
+        name.isEmpty ||
+        sourceRevision < 1 ||
+        !canonicalAasxSha256IsValid(sourceAasxSha256)) {
+      throw const FormatException(
+        'Canonical apparatus identity, display and source metadata are required',
+      );
+    }
+    final rawCapabilities = projection['capabilities'];
+    final capabilityProfiles = <AdminApparatusCapabilityProfile>[];
+    if (rawCapabilities is Map) {
+      for (final entry in rawCapabilities.entries) {
+        final code = entry.key.toString().trim().toLowerCase();
+        final level = (entry.value as num?)?.toInt() ??
+            int.tryParse(entry.value.toString()) ??
+            1;
+        if (code.isNotEmpty) {
+          capabilityProfiles.add(
+            AdminApparatusCapabilityProfile(code: code, level: level),
+          );
+        }
+      }
+    } else if (rawCapabilities is List) {
+      for (final rawCapability in rawCapabilities) {
+        if (rawCapability is! Map) continue;
+        final profile = AdminApparatusCapabilityProfile.fromJson(
+          rawCapability.cast<String, dynamic>(),
+        );
+        if (profile.code.isNotEmpty) capabilityProfiles.add(profile);
+      }
+    }
+    capabilityProfiles.sort((left, right) => left.code.compareTo(right.code));
+    final operation = executionMap['operation']?.toString().trim() ?? '';
+    final technology = executionMap['technology']?.toString().trim() ?? '';
+    if (operation.isEmpty || technology.isEmpty) {
+      throw const FormatException(
+        'Canonical apparatus execution profile is required',
+      );
+    }
     return AdminApparatus(
-      id: (json['id'] as String?)?.trim().isNotEmpty == true
-          ? (json['id'] as String).trim()
-          : 'apparatus:${name.trim().toLowerCase()}',
+      id: id,
       name: name,
-      source: json['source'] as String? ?? 'custom',
-      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 10000,
-      family: family.isEmpty ? inferred.family : family.toLowerCase(),
-      kind: kind.isEmpty ? inferred.kind : kind.toLowerCase(),
-      capabilities: capabilities.isEmpty ? inferred.capabilities : capabilities,
-      capabilityProfiles: effectiveProfiles,
-      colorStations:
-          (json['color_stations'] as num?)?.toInt() ?? inferred.colorStations,
+      source: 'canonical',
+      sortOrder: (displayMap['catalog_order'] as num?)?.toInt() ??
+          (projection['sort_order'] as num?)?.toInt() ??
+          10000,
+      family: _adminApparatusFamilyForOperation(operation),
+      kind: _adminApparatusKindForTechnology(technology),
+      capabilities: [for (final profile in capabilityProfiles) profile.code],
+      capabilityProfiles: capabilityProfiles,
+      colorStations: (executionMap['color_station_count'] as num?)?.toInt(),
       factoryMapObjectId:
-          (json['factory_map_object_id'] as String?)?.trim() ?? '',
-      trainingEnabled: json['training_enabled'] as bool? ?? false,
+          placementMap['factory_map_object_id']?.toString().trim() ?? '',
+      trainingEnabled: trainingMap['enabled'] == true,
+      sourceRevision: sourceRevision,
+      sourceAasxSha256: sourceAasxSha256,
+      description: displayMap['description']?.toString() ?? '',
+      equipmentClassId:
+          projection['equipment_class_id']?.toString().trim() ?? '',
+      physicalAssetId: projection['physical_asset_id']?.toString().trim() ?? '',
+      enterpriseId: hierarchyMap['enterprise_id']?.toString().trim() ?? '',
+      siteId: hierarchyMap['site_id']?.toString().trim() ?? '',
+      areaId: hierarchyMap['area_id']?.toString().trim() ?? '',
+      workCenterId: hierarchyMap['work_center_id']?.toString().trim() ?? '',
+      workUnitId: hierarchyMap['work_unit_id']?.toString().trim() ?? '',
+      operation: operation,
+      technology: technology,
+      maxWebWidthMm: (executionMap['max_web_width_mm'] as num?)?.toInt(),
+      virtualTasks:
+          executionMap['virtual_tasks']?.toString().trim() ?? 'disabled',
+      capabilityCompatibleReroute:
+          executionMap['capability_compatible_reroute'] == true,
+      trainingQueueEnabled: trainingMap['queue_enabled'] == true,
+      trainingMaterialTrackingEnabled:
+          trainingMap['material_tracking_enabled'] == true,
+      lifecycleState: lifecycleMap['state']?.toString().trim() ??
+          (projection['active'] == false ? 'retired' : 'active'),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'name': name,
-      'source': source,
-      'sort_order': sortOrder,
-      'family': family,
-      'kind': kind,
-      'capabilities': capabilities,
-      'capability_profiles': [
-        for (final profile in capabilityProfiles) profile.toJson(),
-      ],
-      if (colorStations != null) 'color_stations': colorStations,
-      if (factoryMapObjectId.trim().isNotEmpty)
-        'factory_map_object_id': factoryMapObjectId.trim(),
-      'training_enabled': trainingEnabled,
+      'apparatus_id': id,
+      'source_revision': sourceRevision,
+      'source_aasx_sha256': sourceAasxSha256,
+      'display': {
+        'display_name': name,
+        'description': description,
+        'catalog_order': sortOrder,
+      },
+      'equipment_class_id': equipmentClassId,
+      'physical_asset_id': physicalAssetId,
+      'hierarchy': {
+        'enterprise_id': enterpriseId,
+        'site_id': siteId,
+        'area_id': areaId,
+        'work_center_id': workCenterId,
+        'work_unit_id': workUnitId,
+      },
+      'capabilities': {
+        for (final profile in capabilityProfiles) profile.code: profile.level,
+      },
+      'execution_profile': {
+        'operation': operation,
+        'technology': technology,
+        'color_station_count': colorStations,
+        if (maxWebWidthMm != null) 'max_web_width_mm': maxWebWidthMm,
+        'virtual_tasks': virtualTasks,
+        'capability_compatible_reroute': capabilityCompatibleReroute,
+      },
+      'placement': factoryMapObjectId.trim().isEmpty
+          ? null
+          : {'factory_map_object_id': factoryMapObjectId.trim()},
+      'training': {
+        'enabled': trainingEnabled,
+        'queue_enabled': trainingQueueEnabled,
+        'material_tracking_enabled': trainingMaterialTrackingEnabled,
+      },
+      'lifecycle': {'state': lifecycleState, 'retirement_reason': null},
     };
   }
 }
@@ -449,166 +639,88 @@ class AdminApparatusMasterOptions {
   }
 
   factory AdminApparatusMasterOptions.fromJson(Map<String, dynamic> json) {
-    final families = <String>[];
-    final rawFamilies = json['families'];
-    if (rawFamilies is List) {
-      for (final item in rawFamilies) {
-        final value = item.toString().trim().toLowerCase();
-        if (value.isNotEmpty && !families.contains(value)) {
-          families.add(value);
-        }
-      }
+    if (json['contract'] != 'canonical_apparatus_revision') {
+      throw const FormatException('Unsupported apparatus options contract');
     }
-
+    final vocabulary = json['vocabulary'];
+    if (vocabulary is! Map) {
+      throw const FormatException('Canonical apparatus vocabulary is missing');
+    }
+    final rawVocabulary = vocabulary.cast<String, dynamic>();
+    final operations = _canonicalStringList(
+      rawVocabulary['execution_operations'],
+    );
+    final technologies = _canonicalStringList(
+      rawVocabulary['process_technologies'],
+    );
+    final families = operations
+        .map(_adminApparatusFamilyForOperation)
+        .where((value) => value != 'other')
+        .toList(growable: false);
     final kindsByFamily = <String, List<String>>{};
-    final rawKinds = json['kinds_by_family'];
-    if (rawKinds is Map) {
-      for (final entry in rawKinds.entries) {
-        final family = entry.key.toString().trim().toLowerCase();
-        if (family.isEmpty || entry.value is! List) {
-          continue;
-        }
-        final kinds = <String>[];
-        for (final item in entry.value as List) {
-          final value = item.toString().trim().toLowerCase();
-          if (value.isNotEmpty && !kinds.contains(value)) {
-            kinds.add(value);
-          }
-        }
-        kindsByFamily[family] = kinds;
-      }
+    for (final technology in technologies) {
+      final operation = _adminApparatusOperationForTechnology(technology);
+      final family = _adminApparatusFamilyForOperation(operation);
+      final kind = _adminApparatusKindForTechnology(technology);
+      if (family == 'other' || kind == 'other') continue;
+      kindsByFamily.putIfAbsent(family, () => <String>[]).add(kind);
     }
-
-    final capabilities = <String>[];
-    final rawCapabilities = json['capabilities'];
-    if (rawCapabilities is List) {
-      for (final item in rawCapabilities) {
-        final value = item.toString().trim().toLowerCase();
-        if (value.isNotEmpty && !capabilities.contains(value)) {
-          capabilities.add(value);
-        }
-      }
-    }
+    final capabilities = _canonicalStringList(
+      rawVocabulary['equipment_capabilities'],
+    );
 
     return AdminApparatusMasterOptions(
       families: families,
       kindsByFamily: kindsByFamily,
       capabilities: capabilities,
       colorStationsMin: (json['color_stations_min'] as num?)?.toInt() ?? 1,
-      colorStationsMax: (json['color_stations_max'] as num?)?.toInt() ?? 24,
-    );
-  }
-
-  factory AdminApparatusMasterOptions.fallback() {
-    return const AdminApparatusMasterOptions(
-      families: [
-        'pechat',
-        'laminatsiya',
-        'rezka',
-        'paket',
-        'kley',
-        'other',
-      ],
-      kindsByFamily: {
-        'pechat': ['color_pechat', 'flexo'],
-        'laminatsiya': ['laminatsiya', 'extruder_laminatsiya'],
-        'rezka': ['rezka'],
-        'paket': ['paket'],
-        'kley': ['holodniy_kley'],
-        'other': ['other'],
-      },
-      capabilities: [
-        'print',
-        'pechat',
-        'flexo',
-        'laminate',
-        'cut',
-        'package',
-        'glue',
-        'apparatus',
-      ],
-      colorStationsMin: 1,
-      colorStationsMax: 24,
+      colorStationsMax: 32,
     );
   }
 }
 
-class _AdminApparatusMasterData {
-  const _AdminApparatusMasterData({
-    required this.family,
-    required this.kind,
-    required this.capabilities,
-    this.colorStations,
-  });
-
-  final String family;
-  final String kind;
-  final List<String> capabilities;
-  final int? colorStations;
+List<String> _canonicalStringList(Object? raw) {
+  if (raw is! List) return const [];
+  return [
+    for (final item in raw)
+      if (item.toString().trim().isNotEmpty)
+        item.toString().trim().toLowerCase(),
+  ];
 }
 
-_AdminApparatusMasterData _inferAdminApparatusMasterData(String name) {
-  final normalized = name.trim().toLowerCase();
-  if (const ['fleksa', 'fleska', 'flex', 'flexe', 'flexo']
-      .any(normalized.contains)) {
-    return const _AdminApparatusMasterData(
-      family: 'pechat',
-      kind: 'flexo',
-      capabilities: ['print', 'pechat', 'flexo'],
-    );
-  }
-  final colorMatch = RegExp(
-    r'\b([789])\s*(?:ta)?\s*rangli(?:\s*(?:pechat|val|aparat))?\b',
-    caseSensitive: false,
-  ).firstMatch(normalized);
-  if (colorMatch != null) {
-    return _AdminApparatusMasterData(
-      family: 'pechat',
-      kind: 'color_pechat',
-      capabilities: const ['print', 'pechat'],
-      colorStations: int.tryParse(colorMatch.group(1) ?? ''),
-    );
-  }
-  if (normalized.contains('extruder') && normalized.contains('laminatsiya')) {
-    return const _AdminApparatusMasterData(
-      family: 'laminatsiya',
-      kind: 'extruder_laminatsiya',
-      capabilities: ['laminate'],
-    );
-  }
-  if (normalized.contains('laminatsiya')) {
-    return const _AdminApparatusMasterData(
-      family: 'laminatsiya',
-      kind: 'laminatsiya',
-      capabilities: ['laminate'],
-    );
-  }
-  if (normalized.contains('rezka')) {
-    return const _AdminApparatusMasterData(
-      family: 'rezka',
-      kind: 'rezka',
-      capabilities: ['cut'],
-    );
-  }
-  if (normalized.contains('paket')) {
-    return const _AdminApparatusMasterData(
-      family: 'paket',
-      kind: 'paket',
-      capabilities: ['package'],
-    );
-  }
-  if (normalized.contains('kley')) {
-    return const _AdminApparatusMasterData(
-      family: 'kley',
-      kind: 'holodniy_kley',
-      capabilities: ['glue'],
-    );
-  }
-  return const _AdminApparatusMasterData(
-    family: 'other',
-    kind: 'other',
-    capabilities: ['apparatus'],
-  );
+String _adminApparatusFamilyForOperation(String operation) {
+  return switch (operation.trim().toLowerCase()) {
+    'print' => 'pechat',
+    'laminate' => 'laminatsiya',
+    'cut' => 'rezka',
+    'package' => 'paket',
+    'glue' => 'kley',
+    _ => 'other',
+  };
+}
+
+String _adminApparatusKindForTechnology(String technology) {
+  return switch (technology.trim().toLowerCase()) {
+    'rotogravure' => 'color_pechat',
+    'flexographic' => 'flexo',
+    'adhesive_lamination' => 'laminatsiya',
+    'extrusion_lamination' => 'extruder_laminatsiya',
+    'slitting' => 'rezka',
+    'bag_making' => 'paket',
+    'cold_glue' => 'holodniy_kley',
+    _ => 'other',
+  };
+}
+
+String _adminApparatusOperationForTechnology(String technology) {
+  return switch (technology.trim().toLowerCase()) {
+    'rotogravure' || 'flexographic' => 'print',
+    'adhesive_lamination' || 'extrusion_lamination' => 'laminate',
+    'slitting' => 'cut',
+    'bag_making' => 'package',
+    'cold_glue' => 'glue',
+    _ => '',
+  };
 }
 
 class AdminFactoryLocation {
@@ -637,9 +749,7 @@ class AdminFactoryLocation {
       active: json['active'] != false,
       apparatus: (json['apparatus'] as List<dynamic>? ?? const [])
           .whereType<Map>()
-          .map(
-            (item) => AdminApparatus.fromJson(item.cast<String, dynamic>()),
-          )
+          .map((item) => AdminApparatus.fromJson(item.cast<String, dynamic>()))
           .toList(growable: false),
       createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
       updatedAtUnix: (json['updated_at_unix'] as num?)?.toInt() ?? 0,
@@ -1072,32 +1182,6 @@ class QolipCodeQr {
       itemGroup: json['item_group']?.toString() ?? '',
       size: (json['size'] as num?)?.toInt() ?? 0,
     );
-  }
-}
-
-class AdminApparatusGroup {
-  const AdminApparatusGroup({required this.name, required this.apparatus});
-
-  final String name;
-  final List<String> apparatus;
-
-  factory AdminApparatusGroup.fromJson(Map<String, dynamic> json) {
-    return AdminApparatusGroup(
-      name: json['name'] as String? ?? '',
-      apparatus: (json['apparatus'] as List<dynamic>? ?? const [])
-          .map((item) => item.toString())
-          .toList(growable: false),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name.trim(),
-      'apparatus': apparatus
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .toList(growable: false),
-    };
   }
 }
 
@@ -1784,10 +1868,9 @@ class SessionProfile {
       capabilities: (json['capabilities'] as List<dynamic>? ?? const [])
           .map((item) => item as String)
           .toList(growable: false),
-      assignedApparatus:
-          (json['assigned_apparatus'] as List<dynamic>? ?? const [])
-              .map((item) => item as String)
-              .toList(growable: false),
+      assignedApparatus: _canonicalApparatusIdListFromJson(
+        json['assigned_apparatus'],
+      ),
       assignedItemGroups:
           (json['assigned_item_groups'] as List<dynamic>? ?? const [])
               .map((item) => item as String)
@@ -2007,10 +2090,9 @@ class AdminRoleAssignment {
       principalRole: userRoleFromJson(json['principal_role'] as String?),
       principalRef: json['principal_ref'] as String? ?? '',
       roleId: json['role_id'] as String? ?? '',
-      assignedApparatus:
-          (json['assigned_apparatus'] as List<dynamic>? ?? const [])
-              .map((item) => item as String)
-              .toList(growable: false),
+      assignedApparatus: _canonicalApparatusIdListFromJson(
+        json['assigned_apparatus'],
+      ),
       assignedItemGroups:
           (json['assigned_item_groups'] as List<dynamic>? ?? const [])
               .map((item) => item as String)
@@ -2217,12 +2299,7 @@ class AdminWorker {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'phone': phone,
-      'level': level,
-    };
+    return {'id': id, 'name': name, 'phone': phone, 'level': level};
   }
 
   AdminWorker copyWith({
@@ -2370,6 +2447,7 @@ class AdminSystemUserDetail {
 class AdminWorkerGroup {
   const AdminWorkerGroup({
     required this.apparatus,
+    this.apparatusId = '',
     required this.groupCode,
     required this.shift,
     this.startTime = '08:00',
@@ -2382,6 +2460,7 @@ class AdminWorkerGroup {
   });
 
   final String apparatus;
+  final String apparatusId;
   final String groupCode;
   final String shift;
   final String startTime;
@@ -2393,8 +2472,13 @@ class AdminWorkerGroup {
   final List<AdminWorker> workers;
 
   factory AdminWorkerGroup.fromJson(Map<String, dynamic> json) {
+    final apparatusId = json['apparatus_id']?.toString().trim() ?? '';
+    if (!canonicalApparatusIdIsValid(apparatusId)) {
+      throw const FormatException('Canonical apparatus ID is required');
+    }
     return AdminWorkerGroup(
       apparatus: json['apparatus'] as String? ?? '',
+      apparatusId: apparatusId,
       groupCode: json['group_code'] as String? ?? '',
       shift: json['shift'] as String? ?? '',
       startTime: json['start_time'] as String? ?? '08:00',
@@ -2416,6 +2500,7 @@ class AdminWorkerGroup {
   Map<String, dynamic> toJson() {
     return {
       'apparatus': apparatus,
+      if (apparatusId.isNotEmpty) 'apparatus_id': apparatusId,
       'group_code': groupCode,
       'shift': shift,
       'start_time': startTime,
@@ -2429,6 +2514,7 @@ class AdminWorkerGroup {
 
   AdminWorkerGroup copyWith({
     String? apparatus,
+    String? apparatusId,
     String? groupCode,
     String? shift,
     String? startTime,
@@ -2441,6 +2527,7 @@ class AdminWorkerGroup {
   }) {
     return AdminWorkerGroup(
       apparatus: apparatus ?? this.apparatus,
+      apparatusId: apparatusId ?? this.apparatusId,
       groupCode: groupCode ?? this.groupCode,
       shift: shift ?? this.shift,
       startTime: startTime ?? this.startTime,
@@ -2525,8 +2612,9 @@ class AdminUserListPage {
   factory AdminUserListPage.fromJson(Map<String, dynamic> json) {
     return AdminUserListPage(
       items: (json['items'] as List<dynamic>? ?? const [])
-          .map((item) =>
-              AdminUserListEntry.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) => AdminUserListEntry.fromJson(item as Map<String, dynamic>),
+          )
           .toList(),
       hasMore: json['has_more'] as bool? ?? false,
     );

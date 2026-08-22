@@ -5,6 +5,7 @@ import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../shared/models/app_models.dart';
+import '../logic/canonical_apparatus_display.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_shell.dart';
 import 'package:flutter/material.dart';
@@ -278,6 +279,7 @@ class _AdminFactoryLocationsScreenState
                                 index++)
                               _FactoryLocationTile(
                                 location: _locations[index],
+                                apparatusCatalog: _apparatus,
                                 slot: M3SegmentedListGeometry
                                     .standaloneListSlotForIndex(
                                   index,
@@ -301,6 +303,7 @@ class _AdminFactoryLocationsScreenState
 class _FactoryLocationTile extends StatelessWidget {
   const _FactoryLocationTile({
     required this.location,
+    required this.apparatusCatalog,
     required this.slot,
     required this.disabled,
     required this.onEdit,
@@ -309,6 +312,7 @@ class _FactoryLocationTile extends StatelessWidget {
   });
 
   final AdminFactoryLocation location;
+  final List<AdminApparatus> apparatusCatalog;
   final M3SegmentVerticalSlot slot;
   final bool disabled;
   final VoidCallback onEdit;
@@ -378,7 +382,14 @@ class _FactoryLocationTile extends StatelessWidget {
                   if (location.apparatus.isNotEmpty) ...[
                     const SizedBox(height: 9),
                     Text(
-                      location.apparatus.map((item) => item.name).join(', '),
+                      location.apparatus
+                          .map(
+                            (item) => canonicalApparatusDisplayLabel(
+                              item.id,
+                              apparatusCatalog,
+                            ),
+                          )
+                          .join(', '),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),

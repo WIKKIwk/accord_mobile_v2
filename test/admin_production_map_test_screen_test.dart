@@ -6,6 +6,7 @@ import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:accord_mobile_v2/src/features/admin/logic/production_map_pechat_rules.dart';
 import 'package:accord_mobile_v2/src/features/admin/logic/production_map_edit_policy.dart';
+import 'package:accord_mobile_v2/src/features/admin/logic/canonical_apparatus_groups.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
@@ -17,6 +18,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+const _godexId = 'apparatus:test:godex-demo';
+const _print7Id = 'apparatus:default:bosma_7';
+const _print8Id = 'apparatus:default:bosma_8';
+const _print9Id = 'apparatus:default:bosma_9';
+const _flexoId = 'apparatus:default:asset-005';
+const _lamination1Id = 'apparatus:default:asset-007';
+const _lamination2Id = 'apparatus:default:asset-008';
+const _rezkaId = 'apparatus:default:asset-010';
+
+String _fixtureApparatusName(String apparatusId) => switch (apparatusId) {
+      _godexId => 'Godex aparat - DEMO',
+      _print7Id => '7 ta rangli bosma aparat',
+      _print8Id => '8 ta rangli bosma aparat',
+      _print9Id => '9 ta rangli bosma aparat',
+      _flexoId => 'Flexo pechat',
+      _lamination1Id => 'Laminatsiya 1',
+      _lamination2Id => 'Laminatsiya 2',
+      _rezkaId => 'Rezka',
+      _ => throw ArgumentError.value(
+          apparatusId,
+          'apparatusId',
+          'Unknown canonical apparatus fixture',
+        ),
+    };
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +58,7 @@ void main() {
       ref: 'ADMIN-001',
       phone: '',
       avatarUrl: '',
+      capabilities: ['admin.access'],
     );
   });
 
@@ -39,48 +66,70 @@ void main() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
     setMobileApiTestModeForceProductionMapMenuLoadFailure(false);
+    setMobileApiTestModeForceProductionMapQueueSnapshotLoadFailure(false);
+    setMobileApiTestModeForceCompletedProductionMapOrdersLoadFailure(false);
   });
 
-  test('admin apparatus groups normalize default bosma names', () async {
+  test('canonical operation derives the bosma apparatus group', () async {
     await TestModeController.instance.setEnabled(true);
-    await MobileApi.instance.adminSaveApparatusGroup(
-      const AdminApparatusGroup(
-        name: 'pechat',
-        apparatus: [
-          '7 ta rangli pechat',
-          '8 ta rangli pechat',
-          '9 ta rangli pechat',
-        ],
-      ),
+    final groups = canonicalApparatusGroups(
+      await MobileApi.instance.adminApparatus(limit: 500),
     );
+    final bosma = groups.singleWhere((group) => group.operation == 'print');
 
-    final groups = await MobileApi.instance.adminApparatusGroups();
-    final bosmaGroups = groups
-        .where((group) => group.name == 'Bosma aparat')
-        .toList(growable: false);
-
-    expect(bosmaGroups, hasLength(1));
-    expect(bosmaGroups.single.apparatus, [
-      '7 ta rangli bosma aparat',
-      '8 ta rangli bosma aparat',
-      '9 ta rangli bosma aparat',
-      'Flexo pechat',
-    ]);
-    expect(groups.any((group) => group.name == 'pechat'), isFalse);
+    expect(
+      bosma.apparatus.map((item) => item.name),
+      containsAll([
+        '7 ta rangli bosma aparat',
+        '8 ta rangli bosma aparat',
+        '9 ta rangli bosma aparat',
+        'Flexo pechat',
+      ]),
+    );
+    expect(bosma.apparatus.every((item) => isCanonicalApparatusId(item.id)),
+        isTrue);
+    expect(
+      bosma.apparatus.singleWhere((item) => item.name == 'Flexo pechat').id,
+      'apparatus:default:asset-005',
+    );
+    expect(
+      groups
+          .singleWhere((group) => group.operation == 'laminate')
+          .apparatus
+          .singleWhere((item) => item.name == 'Laminatsiya 1')
+          .id,
+      'apparatus:default:asset-007',
+    );
+    expect(
+      groups
+          .singleWhere((group) => group.operation == 'cut')
+          .apparatus
+          .singleWhere((item) => item.name == 'Rezka')
+          .id,
+      'apparatus:default:asset-010',
+    );
   });
 
-  test('flexo-only apparatus group normalizes to bosma', () async {
+  test('renamed flexo remains in print group by canonical operation', () async {
     await TestModeController.instance.setEnabled(true);
-    await MobileApi.instance.adminSaveApparatusGroup(
-      const AdminApparatusGroup(
-        name: 'Flexo bosma',
-        apparatus: ['Flexo pechat'],
-      ),
+    final catalog = await MobileApi.instance.adminApparatus(limit: 500);
+    final flexo = catalog.singleWhere((item) => item.name == 'Flexo pechat');
+    final renamed = await MobileApi.instance.adminCreateApparatus(
+      'F-01',
+      id: flexo.id,
+      family: flexo.family,
+      kind: flexo.kind,
+      capabilities: flexo.capabilities,
+      capabilityProfiles: flexo.capabilityProfiles,
     );
+    final groups = canonicalApparatusGroups(
+      await MobileApi.instance.adminApparatus(limit: 500),
+    );
+    final bosma = groups.singleWhere((group) => group.operation == 'print');
 
-    final groups = await MobileApi.instance.adminApparatusGroups();
-    final bosma = groups.singleWhere((group) => group.name == 'Bosma aparat');
-    expect(bosma.apparatus, contains('Flexo pechat'));
+    expect(renamed.id, flexo.id);
+    expect(bosma.apparatus.any((item) => item.id == flexo.id), isTrue);
+    expect(bosma.apparatus.any((item) => item.name == 'F-01'), isTrue);
   });
 
   test(
@@ -88,8 +137,8 @@ void main() {
     () async {
       await TestModeController.instance.setEnabled(true);
       const orderId = 'zakaz-rezka-smart-flow';
-      const laminatsiya = 'Laminatsiya 1';
-      const rezka = 'Rezka';
+      const laminatsiya = _lamination1Id;
+      const rezka = _rezkaId;
       await MobileApi.instance.adminSaveProductionMap(
         const ProductionMapDefinition(
           id: orderId,
@@ -100,12 +149,14 @@ void main() {
             ProductionMapNode(
               id: 'laminatsiya',
               kind: 'apparatus',
-              title: laminatsiya,
+              title: 'Laminatsiya 1',
+              apparatusId: laminatsiya,
             ),
             ProductionMapNode(
               id: 'rezka',
               kind: 'apparatus',
-              title: rezka,
+              title: 'Rezka',
+              apparatusId: rezka,
               rezkaKadrCount: 4,
             ),
             ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
@@ -185,6 +236,7 @@ void main() {
         action: 'pause',
         producedQty: 45,
         grossQty: 6,
+        diameter: 45,
         uom: 'm',
       );
       expect(paused.progressBatches, hasLength(4));
@@ -214,6 +266,7 @@ void main() {
         action: 'complete',
         producedQty: 45,
         grossQty: 6,
+        diameter: 45,
         uom: 'm',
       );
       expect(partial.states[orderId], 'pending');
@@ -250,6 +303,7 @@ void main() {
         action: 'complete',
         producedQty: 40,
         grossQty: 5,
+        diameter: 44,
         rezkaEdgeWaste: 1,
         uom: 'm',
       );
@@ -263,7 +317,7 @@ void main() {
       () async {
     await TestModeController.instance.setEnabled(true);
     const orderId = 'zakaz-rezka-frame-values';
-    const apparatus = 'Rezka';
+    const apparatus = _rezkaId;
     await MobileApi.instance.adminSaveProductionMap(
       const ProductionMapDefinition(
         id: orderId,
@@ -274,7 +328,8 @@ void main() {
           ProductionMapNode(
             id: 'rezka',
             kind: 'apparatus',
-            title: apparatus,
+            title: 'Rezka',
+            apparatusId: apparatus,
             rezkaKadrCount: 3,
           ),
           ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
@@ -362,15 +417,19 @@ void main() {
           id: 'seven-color',
           kind: 'apparatus',
           title: '7 ta rangli bosma aparat',
+          apparatusId: _print7Id,
           alternativeGroupId: 'bosma',
           alternativeAssignedTitle: '7 ta rangli bosma aparat',
+          alternativeAssignedApparatusId: _print7Id,
         ),
         ProductionMapNode(
           id: 'eight-color',
           kind: 'apparatus',
           title: '8 ta rangli bosma aparat',
+          apparatusId: _print8Id,
           alternativeGroupId: 'bosma',
           alternativeAssignedTitle: '7 ta rangli bosma aparat',
+          alternativeAssignedApparatusId: _print7Id,
         ),
         ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
       ],
@@ -380,7 +439,7 @@ void main() {
     final locked = productionMapLockedNodeIds(
       map: map,
       queueStatesByApparatus: const {
-        '7 ta rangli bosma aparat': {
+        _print7Id: {
           'zakaz-edit-policy-group': 'completed',
         },
       },
@@ -405,25 +464,30 @@ void main() {
           GlobalWidgetsLocalizations.delegate,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const AdminProductionMapTestScreen(),
+        home: const AdminProductionMapTestScreen(templateOnly: true),
       ),
     );
     await tester.pumpAndSettle();
 
-    await _tapMapTool(tester, 'Aparat');
+    await _tapMapTool(tester, 'Paket apparati');
     await tester.pumpAndSettle();
-    expect(find.text('Aparat tanlang'), findsOneWidget);
-
-    await tester.ensureVisible(find.text('Aparat tanlang'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Aparat tanlang'));
-    await tester.pumpAndSettle();
-    expect(find.text('Aparat tanlang'), findsWidgets);
-
     await tester.tap(find.text('Godex aparat - DEMO').last);
     await tester.pumpAndSettle();
 
     expect(find.text('Godex aparat - DEMO'), findsWidgets);
+
+    await tester.tap(find.byKey(const ValueKey('production-map-save')));
+    await tester.pumpAndSettle();
+    final saved = (await MobileApi.instance.adminProductionMaps()).singleWhere(
+      (item) => item.map.nodes.any(
+        (node) => node.apparatusId == _godexId,
+      ),
+    );
+    final apparatusNode = saved.map.nodes.singleWhere(
+      (node) => node.apparatusId == _godexId,
+    );
+    expect(apparatusNode.apparatusId, _godexId);
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('production map opened from zakaz uses linear apparatus flow', (
@@ -535,9 +599,11 @@ void main() {
           id: 'apparatus-7',
           kind: 'apparatus',
           title: '7 ta rangli bosma aparat',
+          apparatusId: _print7Id,
           alternativeGroupId: 'pechat-group',
           alternativeGroupLabel: 'pechat',
           alternativeAssignedTitle: '8 ta rangli bosma aparat',
+          alternativeAssignedApparatusId: _print8Id,
         ),
         ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
       ],
@@ -629,6 +695,7 @@ void main() {
                 id: 'apparatus',
                 kind: 'apparatus',
                 title: 'Pechat',
+                apparatusId: _print7Id,
                 x: 420,
                 y: 164,
               ),
@@ -853,6 +920,8 @@ void main() {
 
       await _tapMapTool(tester, 'Rezka');
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Rezka').last);
+      await tester.pumpAndSettle();
       expect(find.text('Buyurtma bo‘yicha'), findsOneWidget);
 
       await tester.tap(find.text('Kadr bo‘yicha'));
@@ -992,7 +1061,7 @@ void main() {
           id: 'zakaz-9468',
           title: 'Parallel skip cleanup',
           productCode: 'ITEM-PARALLEL-SKIP-CLEANUP',
-          apparatus: 'Godex aparat - DEMO',
+          apparatusId: _godexId,
           product: 'parallel skip cleanup product',
         ),
       );
@@ -1139,6 +1208,7 @@ void main() {
                 id: 'apparatus_1',
                 kind: 'apparatus',
                 title: '7 ta rangli bosma aparat',
+                apparatusId: _print7Id,
                 alternativeGroupId: 'alt_pechat_1',
                 alternativeGroupLabel: 'pechat',
                 x: 280,
@@ -1148,6 +1218,7 @@ void main() {
                 id: 'apparatus_2',
                 kind: 'apparatus',
                 title: '8 ta rangli bosma aparat',
+                apparatusId: _print8Id,
                 alternativeGroupId: 'alt_pechat_1',
                 alternativeGroupLabel: 'pechat',
                 x: 560,
@@ -1304,6 +1375,7 @@ void main() {
       id: 'apparatus_1',
       kind: 'apparatus',
       title: 'Godex aparat - DEMO',
+      apparatusId: _godexId,
     );
     const task = ProductionMapNode(
       id: 'task_1',
@@ -1374,7 +1446,12 @@ void main() {
     );
     expect(
       productionMapApparatusMatchesOrder(
-        const AdminApparatus(name: '7 ta rangli bosma aparat'),
+        const AdminApparatus(
+          name: '7 ta rangli bosma aparat',
+          operation: 'print',
+          technology: 'rotogravure',
+          colorStations: 7,
+        ),
         screenshotOrderContext,
       ),
       isTrue,
@@ -1437,6 +1514,9 @@ void main() {
         productionMapApparatusMatchesOrder(
           const AdminApparatus(
             name: '7 ta rangli bosma aparat',
+            operation: 'print',
+            technology: 'rotogravure',
+            colorStations: 7,
           ),
           context,
         ),
@@ -1446,6 +1526,9 @@ void main() {
         productionMapApparatusMatchesOrder(
           const AdminApparatus(
             name: '8 ta rangli bosma aparat',
+            operation: 'print',
+            technology: 'rotogravure',
+            colorStations: 8,
           ),
           context,
         ),
@@ -1455,6 +1538,9 @@ void main() {
         productionMapApparatusMatchesOrder(
           const AdminApparatus(
             name: '9 ta rangli bosma aparat',
+            operation: 'print',
+            technology: 'rotogravure',
+            colorStations: 9,
           ),
           context,
         ),
@@ -1464,6 +1550,8 @@ void main() {
         productionMapApparatusMatchesOrder(
           const AdminApparatus(
             name: 'Godex aparat - DEMO',
+            operation: 'package',
+            technology: 'bag_making',
           ),
           context,
         ),
@@ -1482,6 +1570,9 @@ void main() {
         productionMapApparatusMatchesOrder(
           const AdminApparatus(
             name: '8 ta rangli bosma aparat',
+            operation: 'print',
+            technology: 'rotogravure',
+            colorStations: 8,
           ),
           smallRubberContext,
         ),
@@ -1512,6 +1603,9 @@ void main() {
           productionMapApparatusMatchesOrder(
             const AdminApparatus(
               name: '7 ta rangli bosma aparat',
+              operation: 'print',
+              technology: 'rotogravure',
+              colorStations: 7,
             ),
             context,
           ),
@@ -1521,6 +1615,9 @@ void main() {
           productionMapApparatusMatchesOrder(
             const AdminApparatus(
               name: '8 ta rangli bosma aparat',
+              operation: 'print',
+              technology: 'rotogravure',
+              colorStations: 8,
             ),
             context,
           ),
@@ -1530,6 +1627,8 @@ void main() {
           productionMapApparatusMatchesOrder(
             const AdminApparatus(
               name: 'Flexo pechat',
+              operation: 'print',
+              technology: 'flexographic',
             ),
             context,
           ),
@@ -1539,6 +1638,8 @@ void main() {
           productionMapApparatusMatchesOrder(
             const AdminApparatus(
               name: 'Laminatsiya - A',
+              operation: 'laminate',
+              technology: 'adhesive_lamination',
             ),
             context,
           ),
@@ -1553,6 +1654,8 @@ void main() {
     () {
       const laminatsiya = AdminApparatus(
         name: 'Laminatsiya - A',
+        operation: 'laminate',
+        technology: 'adhesive_lamination',
       );
       const allowedContext = ProductionMapOrderContext(
         orderName: 'Allowed order',
@@ -1649,8 +1752,6 @@ void main() {
         ),
         isFalse,
       );
-      expect(productionMapPechatColorCount('9 ta rangli aparat'), 9);
-      expect(productionMapPechatColorCount('7 ta rangli'), 7);
       expect(
         productionMapPechatCanMoveOrder(
           apparatusColorCount: 7,
@@ -1681,10 +1782,7 @@ void main() {
         title: 'Alternative move order',
         productCode: 'ALT-MOVE',
         product: 'alternative move product',
-        apparatus: const [
-          '7 ta rangli bosma aparat',
-          '8 ta rangli bosma aparat'
-        ],
+        apparatusIds: const [_print7Id, _print8Id],
         rollCount: 7,
         widthMm: 650,
       );
@@ -1695,6 +1793,7 @@ void main() {
               node.kind == 'apparatus'
                   ? node.copyWith(
                       alternativeAssignedTitle: '7 ta rangli bosma aparat',
+                      alternativeAssignedApparatusId: _print7Id,
                     )
                   : node,
           ],
@@ -1703,8 +1802,8 @@ void main() {
 
       final moved = await MobileApi.instance.adminMoveProductionMapOrdersBatch(
         mapIds: const ['zakaz-alt-move'],
-        fromApparatus: '7 ta rangli bosma aparat',
-        toApparatus: '8 ta rangli bosma aparat',
+        fromApparatus: _print7Id,
+        toApparatus: _print8Id,
       );
 
       expect(_apparatusTitles(moved, 'zakaz-alt-move'), [
@@ -1732,7 +1831,7 @@ void main() {
         title: 'Laminatsiya alternative move',
         productCode: 'LAMIN-ALT',
         product: 'laminatsiya product',
-        apparatus: const ['Laminatsiya 1', 'Laminatsiya 2'],
+        apparatusIds: const [_lamination1Id, _lamination2Id],
         rollCount: 7,
         widthMm: 900,
       );
@@ -1741,7 +1840,10 @@ void main() {
           nodes: [
             for (final node in map.nodes)
               node.kind == 'apparatus'
-                  ? node.copyWith(alternativeAssignedTitle: 'Laminatsiya 1')
+                  ? node.copyWith(
+                      alternativeAssignedTitle: 'Laminatsiya 1',
+                      alternativeAssignedApparatusId: _lamination1Id,
+                    )
                   : node,
           ],
         ),
@@ -1749,8 +1851,8 @@ void main() {
 
       final moved = await MobileApi.instance.adminMoveProductionMapOrdersBatch(
         mapIds: const ['zakaz-lamin-alt-move'],
-        fromApparatus: 'Laminatsiya 1',
-        toApparatus: 'Laminatsiya 2',
+        fromApparatus: _lamination1Id,
+        toApparatus: _lamination2Id,
       );
       expect(_alternativeAssignedTitles(moved, 'zakaz-lamin-alt-move'), [
         'Laminatsiya 2',
@@ -1760,8 +1862,8 @@ void main() {
       expect(
         () => MobileApi.instance.adminMoveProductionMapOrdersBatch(
           mapIds: const ['zakaz-lamin-alt-move'],
-          fromApparatus: 'Laminatsiya 2',
-          toApparatus: 'Paket aparat',
+          fromApparatus: _lamination2Id,
+          toApparatus: _godexId,
         ),
         throwsA(isA<MobileApiException>()),
       );
@@ -1850,7 +1952,8 @@ void main() {
         id: 'zakaz-9876',
         title: 'Old zakaz',
         productCode: 'OLD-ITEM',
-        apparatus: 'Paket aparat',
+        apparatusId: _godexId,
+        apparatusName: 'Paket aparat',
         product: 'old product',
         orderNumber: '9876',
       ),
@@ -2010,6 +2113,47 @@ void main() {
     expect(find.byType(AppRefreshIndicator), findsOneWidget);
   });
 
+  testWidgets('queue snapshot failure keeps opened orders visible', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-queue-degraded',
+        title: 'Queue degraded order',
+        productCode: 'QUEUE-DEGRADED',
+        apparatusId: _print8Id,
+        product: 'queue degraded product',
+      ),
+    );
+    setMobileApiTestModeForceProductionMapQueueSnapshotLoadFailure(true);
+    await _usePhoneViewport(tester);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Queue degraded order'), findsOneWidget);
+    expect(
+        find.text('Ish rejasi navbati serverdan yuklanmadi'), findsOneWidget);
+    expect(
+      find.text('Production map ma’lumotlarini saqlashda server xatosi'),
+      findsNothing,
+    );
+  });
+
   testWidgets(
     'opened production map order info sheet shows readable order details',
     (tester) async {
@@ -2019,7 +2163,8 @@ void main() {
           id: 'zakaz-rounded-a',
           title: 'Rounded order A',
           productCode: 'ROUND-A',
-          apparatus: 'Paynet',
+          apparatusId: _godexId,
+          apparatusName: 'Paynet',
           product: 'rounded product A',
           rollCount: 7,
           widthMm: 650,
@@ -2033,7 +2178,8 @@ void main() {
           id: 'zakaz-rounded-b',
           title: 'Rounded order B',
           productCode: 'ROUND-B',
-          apparatus: 'Paynet',
+          apparatusId: _godexId,
+          apparatusName: 'Paynet',
           product: 'rounded product B',
           rollCount: 7,
           widthMm: 650,
@@ -2127,7 +2273,7 @@ void main() {
         id: 'zakaz-sequence-a',
         title: 'Paket order A',
         productCode: 'PKT-A',
-        apparatus: 'Godex aparat - DEMO',
+        apparatusId: _godexId,
         product: 'paket mahsulot A',
       ),
     );
@@ -2136,7 +2282,7 @@ void main() {
         id: 'zakaz-sequence-b',
         title: 'Paket order B',
         productCode: 'PKT-B',
-        apparatus: 'Godex aparat - DEMO',
+        apparatusId: _godexId,
         product: 'paket mahsulot B',
       ),
     );
@@ -2186,9 +2332,14 @@ void main() {
         id: 'zakaz-supply-sequence-order',
         title: 'Supply sequence order',
         productCode: 'SUPPLY-SEQ',
-        apparatus: 'Godex aparat - DEMO',
+        apparatusId: _godexId,
         product: 'supply product',
       ),
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _godexId,
+      orderId: 'zakaz-supply-sequence-order',
+      control: _freshStartQueueControl(),
     );
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.qolipchi,
@@ -2259,8 +2410,8 @@ void main() {
       ref: 'material_taminotchi',
       phone: '',
       avatarUrl: '',
-      capabilities: ['raw_material.assign'],
-      assignedApparatus: ['Godex aparat - DEMO'],
+      capabilities: ['raw_material.assign', 'gscale.print'],
+      assignedApparatus: [_godexId],
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -2283,14 +2434,14 @@ void main() {
     await tester.tap(find.byIcon(Icons.menu_rounded));
     await tester.pumpAndSettle();
 
-    expect(find.text('Tarozilar rejimi'), findsOneWidget);
+    expect(find.text('Kirim'), findsWidgets);
     expect(find.text('Ketma-ketlik'), findsOneWidget);
   });
 
   testWidgets('qolipchi sequence long press keeps a returned qolip note',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Godex aparat - DEMO';
+    const apparatus = _godexId;
     const orderId = 'zakaz-qolip-sequence-note';
     const product = QolipProduct(
       code: 'QOLIP-SEQUENCE-ITEM',
@@ -2312,7 +2463,7 @@ void main() {
         id: orderId,
         title: 'Qolip sequence order',
         productCode: product.code,
-        apparatus: apparatus,
+        apparatusId: apparatus,
         product: product.name,
       ),
     );
@@ -2436,14 +2587,14 @@ void main() {
   testWidgets('qolipchi can add a qolip from an empty order note sheet',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Godex aparat - DEMO';
+    const apparatus = _godexId;
     const orderId = 'zakaz-qolip-inline-add';
     await MobileApi.instance.adminSaveProductionMap(
       _productionOrderMap(
         id: orderId,
         title: 'Inline qolip order',
         productCode: 'DEMO-HOTLUNCH',
-        apparatus: apparatus,
+        apparatusId: apparatus,
         product: 'Hotlunch',
       ),
     );
@@ -2518,25 +2669,36 @@ void main() {
       'material supplier sequence opens details on tap and assignment on long press',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Godex aparat - DEMO';
-    const secondApparatus = 'Laminatsiya 1';
+    const apparatus = _godexId;
+    const secondApparatus = _lamination1Id;
     const orderId = 'zakaz-supply-sequence-actions';
+    const canonicalApparatus = AdminApparatus(
+      id: apparatus,
+      name: 'Godex aparat - DEMO',
+      sourceRevision: 1,
+    );
     await MobileApi.instance.adminSaveProductionMap(
       _twoStageProductionOrderMap(
         id: orderId,
         title: 'Material action order',
         productCode: 'SUPPLY-ACTIONS',
         product: 'material action product',
-        firstApparatus: apparatus,
-        secondApparatus: secondApparatus,
+        firstApparatusId: apparatus,
+        secondApparatusId: secondApparatus,
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
       apparatus: apparatus,
       orderIds: const [orderId],
     );
-    await MobileApi.instance.adminSaveRawMaterialRule(
+    setMobileApiTestModeQueueActionControlFixture(
       apparatus: apparatus,
+      orderId: orderId,
+      control: _freshStartQueueControl(),
+    );
+    await MobileApi.instance.adminSaveRawMaterialRule(
+      apparatus: canonicalApparatus,
+      currentRule: _testRawMaterialRule(canonicalApparatus),
       itemGroups: const ['Kraska'],
     );
     AppSession.instance.profile = const SessionProfile(
@@ -2594,11 +2756,11 @@ void main() {
 
     await tester.longPress(find.textContaining('Material action order'));
     await tester.pumpAndSettle();
-    expect(find.text('Orderga homashyo ulash'), findsOneWidget);
+    expect(find.text('Buyurtmaga homashyo ulash'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('sequence-apparatus-filter')),
-        matching: find.text('Aparat: $apparatus'),
+        matching: find.text('Aparat: ${_fixtureApparatusName(apparatus)}'),
       ),
       findsOneWidget,
     );
@@ -2650,7 +2812,7 @@ void main() {
     expect(find.text('Ulash · 1'), findsOneWidget);
     await tester.tap(find.text('Ulash · 1'));
     await tester.pumpAndSettle();
-    expect(find.text('1 ta homashyo orderga ulandi'), findsOneWidget);
+    expect(find.text('1 ta homashyo buyurtmaga ulandi'), findsOneWidget);
     expect(find.text('Demo kraska'), findsNothing);
     await MobileApi.instance.adminAssignRawMaterialToOrder(
       orderId: orderId,
@@ -2680,14 +2842,19 @@ void main() {
       'material supplier can unlink an available material from sequence details',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Godex aparat - DEMO';
+    const apparatus = _godexId;
     const orderId = 'zakaz-supply-sequence-unlink';
+    const canonicalApparatus = AdminApparatus(
+      id: apparatus,
+      name: 'Godex aparat - DEMO',
+      sourceRevision: 1,
+    );
     await MobileApi.instance.adminSaveProductionMap(
       _productionOrderMap(
         id: orderId,
         title: 'Material unlink order',
         productCode: 'SUPPLY-UNLINK',
-        apparatus: apparatus,
+        apparatusId: apparatus,
         product: 'material unlink product',
       ),
     );
@@ -2695,8 +2862,14 @@ void main() {
       apparatus: apparatus,
       orderIds: const [orderId],
     );
-    await MobileApi.instance.adminSaveRawMaterialRule(
+    setMobileApiTestModeQueueActionControlFixture(
       apparatus: apparatus,
+      orderId: orderId,
+      control: _freshStartQueueControl(),
+    );
+    await MobileApi.instance.adminSaveRawMaterialRule(
+      apparatus: canonicalApparatus,
+      currentRule: _testRawMaterialRule(canonicalApparatus),
       itemGroups: const ['Kraska'],
     );
     await MobileApi.instance.adminAssignRawMaterialToOrder(
@@ -2768,14 +2941,19 @@ void main() {
       'material supplier empty assignment explains the minimum roll width',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = '8 ta rangli bosma aparat';
+    const apparatus = _print8Id;
     const orderId = 'zakaz-supply-sequence-empty';
+    const canonicalApparatus = AdminApparatus(
+      id: apparatus,
+      name: '8 ta rangli bosma aparat',
+      sourceRevision: 1,
+    );
     await MobileApi.instance.adminSaveProductionMap(
       _productionOrderMap(
         id: orderId,
         title: 'Material empty order',
         productCode: 'SUPPLY-EMPTY',
-        apparatus: apparatus,
+        apparatusId: apparatus,
         product: 'material empty product',
         rollCount: 8,
         widthMm: 987,
@@ -2786,7 +2964,8 @@ void main() {
       orderIds: const [orderId],
     );
     await MobileApi.instance.adminSaveRawMaterialRule(
-      apparatus: apparatus,
+      apparatus: canonicalApparatus,
+      currentRule: _testRawMaterialRule(canonicalApparatus),
       itemGroups: const ['Rulon'],
     );
     AppSession.instance.profile = const SessionProfile(
@@ -2846,17 +3025,25 @@ void main() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Godex aparat - DEMO';
+    const apparatus = _godexId;
     const orderId = 'zakaz-sequence-state-policy';
     const stagedBarcode = 'RM-STATE-READY';
     const unstagedBarcode = 'RM-NOT-STAGED';
+    const canonicalApparatus = AdminApparatus(
+      id: apparatus,
+      name: 'Godex aparat - DEMO',
+      sourceRevision: 1,
+    );
     const stateLocation = InventoryLocation(
       id: 'inventory_location:state:godex',
       kind: InventoryLocationKind.state,
       name: 'Godex State',
       factoryLocationId: 'state_godex',
       apparatus: [
-        InventoryLocationApparatus(id: 'godex', name: apparatus),
+        InventoryLocationApparatus(
+          id: apparatus,
+          name: 'Godex aparat - DEMO',
+        ),
       ],
     );
     seedMobileApiInventoryMovementTestData(
@@ -2886,7 +3073,7 @@ void main() {
         id: orderId,
         title: 'State policy order',
         productCode: 'STATE-1',
-        apparatus: apparatus,
+        apparatusId: apparatus,
         product: 'state policy product',
       ),
     );
@@ -2895,7 +3082,8 @@ void main() {
       orderIds: const [orderId],
     );
     await MobileApi.instance.adminSaveRawMaterialRule(
-      apparatus: apparatus,
+      apparatus: canonicalApparatus,
+      currentRule: _testRawMaterialRule(canonicalApparatus),
       startPolicy: AdminRawMaterialStartPolicy.stateAll,
       itemGroups: const ['Kraska'],
     );
@@ -2908,6 +3096,11 @@ void main() {
       orderId: orderId,
       apparatus: apparatus,
       barcode: unstagedBarcode,
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: apparatus,
+      orderId: orderId,
+      control: _freshStartQueueControl(materialScanRequired: true),
     );
 
     await _usePhoneViewport(tester);
@@ -3000,7 +3193,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text(apparatus));
+    await tester.tap(find.text('Godex aparat - DEMO'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
     await tester.pumpAndSettle();
@@ -3030,7 +3223,7 @@ void main() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Godex aparat - DEMO';
+    const apparatus = _godexId;
     const completedOrderId = 'zakaz-admin-sequence-completed';
     const pendingOrderId = 'zakaz-admin-sequence-pending';
     await MobileApi.instance.adminSaveProductionMap(
@@ -3039,8 +3232,8 @@ void main() {
         title: 'Admin sequence completed order',
         productCode: 'ASC-A',
         product: 'admin sequence completed product',
-        firstApparatus: apparatus,
-        secondApparatus: 'Laminatsiya 1',
+        firstApparatusId: apparatus,
+        secondApparatusId: _lamination1Id,
       ),
     );
     await MobileApi.instance.adminSaveProductionMap(
@@ -3048,7 +3241,7 @@ void main() {
         id: pendingOrderId,
         title: 'Admin sequence pending order',
         productCode: 'ASC-B',
-        apparatus: apparatus,
+        apparatusId: apparatus,
         product: 'admin sequence pending product',
       ),
     );
@@ -3057,7 +3250,7 @@ void main() {
       orderIds: const [completedOrderId, pendingOrderId],
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: 'Laminatsiya 1',
+      apparatus: _lamination1Id,
       orderIds: const [completedOrderId],
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
@@ -3104,7 +3297,9 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.text('Aparat: $apparatus'));
+    await tester.tap(
+      find.text('Aparat: ${_fixtureApparatusName(apparatus)}'),
+    );
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(
@@ -3116,7 +3311,7 @@ void main() {
     expect(find.text('1 ta zakaz'), findsOneWidget);
     expect(
       find.byKey(
-        const ValueKey('sequence-Laminatsiya 1-$completedOrderId'),
+        const ValueKey('sequence-$_lamination1Id-$completedOrderId'),
       ),
       findsOneWidget,
     );
@@ -3131,7 +3326,7 @@ void main() {
         id: 'zakaz-order-actions',
         title: 'Action menu order',
         productCode: 'ACTION-1',
-        apparatus: 'Godex aparat - DEMO',
+        apparatusId: _godexId,
         product: 'action product',
       ),
     );
@@ -3173,14 +3368,14 @@ void main() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Godex aparat - DEMO';
+    const apparatus = _godexId;
     const orderId = 'zakaz-map-action-selected';
     await MobileApi.instance.adminSaveProductionMap(
       _productionOrderMap(
         id: orderId,
         title: 'Selected map action order',
         productCode: 'MAP-ACTION-1',
-        apparatus: apparatus,
+        apparatusId: apparatus,
         product: 'selected product',
       ),
     );
@@ -3238,14 +3433,14 @@ void main() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Godex aparat - DEMO';
+    const apparatus = _godexId;
     const orderId = 'zakaz-order-control-states';
     await MobileApi.instance.adminSaveProductionMap(
       _productionOrderMap(
         id: orderId,
         title: 'Control state order',
         productCode: 'CONTROL-1',
-        apparatus: apparatus,
+        apparatusId: apparatus,
         product: 'control product',
       ),
     );
@@ -3300,6 +3495,7 @@ void main() {
       orderId: orderId,
       action: 'pause',
       producedQty: 1,
+      freezeRequestId: 'test-freeze-$orderId',
     );
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
@@ -3319,7 +3515,7 @@ void main() {
         id: 'zakaz-move-ok',
         title: 'Move ok order',
         productCode: 'MOVE-OK',
-        apparatus: '8 ta rangli bosma aparat',
+        apparatusId: _print8Id,
         product: 'move ok product',
         rollCount: 7,
         widthMm: 650,
@@ -3331,7 +3527,7 @@ void main() {
         id: 'zakaz-move-blocked',
         title: 'Move blocked order',
         productCode: 'MOVE-BLOCK',
-        apparatus: '8 ta rangli bosma aparat',
+        apparatusId: _print8Id,
         product: 'move blocked product',
         rollCount: 8,
         widthMm: 700,
@@ -3342,7 +3538,7 @@ void main() {
         id: 'zakaz-move-target',
         title: 'Move target order',
         productCode: 'MOVE-TARGET',
-        apparatus: '7 ta rangli bosma aparat',
+        apparatusId: _print7Id,
         product: 'move target product',
         rollCount: 7,
         widthMm: 650,
@@ -3420,7 +3616,7 @@ void main() {
           id: 'zakaz-ui-flexo-node-only',
           title: 'ABCD Family',
           productCode: 'ABCD Family',
-          apparatus: 'Flexo pechat',
+          apparatusId: _flexoId,
           product: 'ABCD Family',
           orderNumber: '1119',
           rollCount: 7,
@@ -3432,7 +3628,7 @@ void main() {
           id: 'zakaz-ui-color-node-only',
           title: 'Imperator salyami',
           productCode: 'Imperator salyami',
-          apparatus: '7 ta rangli bosma aparat',
+          apparatusId: _print7Id,
           product: 'Imperator salyami',
           orderNumber: '0002',
           rollCount: 7,
@@ -3479,8 +3675,8 @@ void main() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    const source = '7 ta rangli bosma aparat';
-    const target = '8 ta rangli bosma aparat';
+    const source = _print7Id;
+    const target = _print8Id;
     const orderId = 'zakaz-paused-ui-transfer';
     const targetOrderId = 'zakaz-paused-ui-target';
     await MobileApi.instance.adminSaveProductionMap(
@@ -3488,7 +3684,7 @@ void main() {
         id: orderId,
         title: 'Paused UI transfer order',
         productCode: 'PUT-1',
-        apparatus: source,
+        apparatusId: source,
         product: 'paused UI transfer product',
         rollCount: 7,
         widthMm: 650,
@@ -3499,7 +3695,7 @@ void main() {
         id: targetOrderId,
         title: 'Paused UI target order',
         productCode: 'PUT-2',
-        apparatus: target,
+        apparatusId: target,
         product: 'paused UI target product',
         rollCount: 7,
         widthMm: 650,
@@ -3561,7 +3757,7 @@ void main() {
     expect(snapshot.queueStates[source]?[orderId], isNull);
     expect(snapshot.queueStates[target]?[orderId], 'paused');
     final maps = await MobileApi.instance.adminProductionMaps();
-    expect(_apparatusTitle(maps, orderId), target);
+    expect(_apparatusTitle(maps, orderId), '8 ta rangli bosma aparat');
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -3575,7 +3771,7 @@ void main() {
           id: 'zakaz-batch-move-$index',
           title: 'Batch move order ${index + 1}',
           productCode: 'BATCH-$index',
-          apparatus: '7 ta rangli bosma aparat',
+          apparatusId: _print7Id,
           product: 'batch move product ${index + 1}',
           rollCount: 7,
           widthMm: 650,
@@ -3588,10 +3784,7 @@ void main() {
         title: 'Batch move order ${index + 1}',
         productCode: 'BATCH-$index',
         product: 'batch move product ${index + 1}',
-        apparatus: const [
-          '7 ta rangli bosma aparat',
-          '8 ta rangli bosma aparat'
-        ],
+        apparatusIds: const [_print7Id, _print8Id],
         rollCount: 7,
         widthMm: 650,
       );
@@ -3602,6 +3795,7 @@ void main() {
               node.kind == 'apparatus'
                   ? node.copyWith(
                       alternativeAssignedTitle: '7 ta rangli bosma aparat',
+                      alternativeAssignedApparatusId: _print7Id,
                     )
                   : node,
           ],
@@ -3613,7 +3807,7 @@ void main() {
         id: 'zakaz-batch-move-target',
         title: 'Batch move target order',
         productCode: 'BATCH-TARGET',
-        apparatus: '8 ta rangli bosma aparat',
+        apparatusId: _print8Id,
         product: 'batch move target product',
         rollCount: 7,
         widthMm: 650,
@@ -3677,7 +3871,7 @@ void main() {
           id: 'zakaz-move-9-only',
           title: 'Nine color rubber order',
           productCode: 'MOVE-9',
-          apparatus: '8 ta rangli bosma aparat',
+          apparatusId: _print8Id,
           product: 'nine color product',
           rollCount: 7,
           widthMm: 1250,
@@ -3719,7 +3913,7 @@ void main() {
           id: 'zakaz-direct-pechat',
           title: 'Direct pechat order',
           productCode: 'DIRECT-7',
-          apparatus: '7 ta rangli bosma aparat',
+          apparatusId: _print7Id,
           product: 'direct product',
           rollCount: 7,
           widthMm: 650,
@@ -3789,10 +3983,7 @@ void main() {
           title: 'Unassigned alternative move order',
           productCode: 'ALT-UNASSIGNED-MOVE',
           product: 'unassigned alternative move product',
-          apparatus: const [
-            '7 ta rangli bosma aparat',
-            '8 ta rangli bosma aparat',
-          ],
+          apparatusIds: const [_print7Id, _print8Id],
           rollCount: 7,
           widthMm: 650,
         ),
@@ -3927,7 +4118,7 @@ void main() {
         id: 'zakaz-resize-a',
         title: 'Resize top order',
         productCode: 'RESIZE-A',
-        apparatus: '7 ta rangli bosma aparat',
+        apparatusId: _print7Id,
         product: 'resize product a',
         rollCount: 7,
         widthMm: 650,
@@ -3938,7 +4129,7 @@ void main() {
         id: 'zakaz-resize-b',
         title: 'Resize bottom order',
         productCode: 'RESIZE-B',
-        apparatus: '8 ta rangli bosma aparat',
+        apparatusId: _print8Id,
         product: 'resize product b',
         rollCount: 7,
         widthMm: 650,
@@ -3985,10 +4176,7 @@ void main() {
           title: 'Skipped pechat order',
           productCode: 'SKIP-78',
           product: 'skipped product',
-          apparatus: const [
-            '7 ta rangli bosma aparat',
-            '8 ta rangli bosma aparat'
-          ],
+          apparatusIds: const [_print7Id, _print8Id],
           rollCount: 7,
           widthMm: 650,
         ),
@@ -3999,7 +4187,7 @@ void main() {
           title: 'Skipped nine order',
           productCode: 'SKIP-9',
           product: 'skipped nine product',
-          apparatus: const ['9 ta rangli bosma aparat'],
+          apparatusIds: const [_print9Id],
           rollCount: 9,
           widthMm: 900,
         ),
@@ -4009,7 +4197,7 @@ void main() {
           id: 'zakaz-skip-target-7',
           title: 'Skip target seven order',
           productCode: 'SKIP-TARGET-7',
-          apparatus: '7 ta rangli bosma aparat',
+          apparatusId: _print7Id,
           product: 'skip target seven product',
           rollCount: 7,
           widthMm: 650,
@@ -4020,7 +4208,7 @@ void main() {
           id: 'zakaz-skip-target-8',
           title: 'Skip target eight order',
           productCode: 'SKIP-TARGET-8',
-          apparatus: '8 ta rangli bosma aparat',
+          apparatusId: _print8Id,
           product: 'skip target product',
           rollCount: 7,
           widthMm: 650,
@@ -4182,10 +4370,7 @@ void main() {
         title: 'Visible skipped order',
         productCode: 'VISIBLE-SKIP',
         product: 'visible skipped product',
-        apparatus: const [
-          '7 ta rangli bosma aparat',
-          '8 ta rangli bosma aparat',
-        ],
+        apparatusIds: const [_print7Id, _print8Id],
         rollCount: 7,
         widthMm: 650,
       ),
@@ -4194,11 +4379,11 @@ void main() {
     final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
 
     expect(
-      snapshot.visibleOrderIds['7 ta rangli bosma aparat'],
+      snapshot.visibleOrderIds[_print7Id],
       contains('zakaz-visible-skip'),
     );
     expect(
-      snapshot.visibleOrderIds['8 ta rangli bosma aparat'],
+      snapshot.visibleOrderIds[_print8Id],
       contains('zakaz-visible-skip'),
     );
   });
@@ -4212,12 +4397,9 @@ void main() {
       title: 'Skipped laminatsiya order',
       productCode: 'LAM-SKIP',
       product: 'laminatsiya skipped product',
-      firstGroupApparatus: const [
-        '7 ta rangli bosma aparat',
-        '8 ta rangli bosma aparat'
-      ],
-      secondGroupApparatus: const ['Laminatsiya 1', 'Laminatsiya 2'],
-      firstGroupAssignedTitle: '7 ta rangli bosma aparat',
+      firstGroupApparatusIds: const [_print7Id, _print8Id],
+      secondGroupApparatusIds: const [_lamination1Id, _lamination2Id],
+      firstGroupAssignedApparatusId: _print7Id,
       rollCount: 7,
       widthMm: 650,
     );
@@ -4278,7 +4460,7 @@ void main() {
         phone: '',
         avatarUrl: '',
         capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-        assignedApparatus: ['7 ta rangli bosma aparat'],
+        assignedApparatus: [_print7Id],
       ),
     );
     await MobileApi.instance.adminSaveProductionMap(
@@ -4286,7 +4468,7 @@ void main() {
         id: 'zakaz-worker-queue',
         title: 'Worker queue order',
         productCode: 'WRK-A',
-        apparatus: '7 ta rangli bosma aparat',
+        apparatusId: _print7Id,
         product: 'worker mahsulot',
       ).copyWith(customerName: '555 kukuruz'),
     );
@@ -4295,13 +4477,20 @@ void main() {
         id: 'zakaz-worker-queue-2',
         title: 'Worker queue order 2',
         productCode: 'WRK-B',
-        apparatus: '7 ta rangli bosma aparat',
+        apparatusId: _print7Id,
         product: 'worker mahsulot 2',
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: '7 ta rangli bosma aparat',
+      apparatus: _print7Id,
       orderIds: const ['zakaz-worker-queue', 'zakaz-worker-queue-2'],
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _print7Id,
+      orderId: 'zakaz-worker-queue',
+      control: _freshStartQueueControl(
+        qolipMode: AdminQueueQolipMode.scanRequired,
+      ),
     );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -4327,14 +4516,14 @@ void main() {
     expect(find.text('Buyurtmalar'), findsNothing);
     expect(find.text('Ochilgan zakaz qidirish'), findsOneWidget);
     expect(find.text('Godex aparat - DEMO'), findsOneWidget);
-    expect(find.text('7 ta rangli bosma'), findsOneWidget);
+    expect(find.text('7 ta rangli bosma aparat'), findsOneWidget);
     expect(find.text('Aparatlar'), findsNothing);
     expect(find.textContaining('Worker queue order'), findsNWidgets(2));
     expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
     expect(find.text('Sizning aparatingiz'), findsOneWidget);
     expect(find.text('Boshlash'), findsNothing);
 
-    await tester.tap(find.text('7 ta rangli bosma'));
+    await tester.tap(find.text('7 ta rangli bosma aparat'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.textContaining('worker-queue').first);
@@ -4343,6 +4532,11 @@ void main() {
     expect(find.text('Boshlash'), findsOneWidget);
     expect(find.text('Tugatish'), findsNothing);
 
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _print7Id,
+      orderId: 'zakaz-worker-queue',
+      control: _inProgressQueueControl(completeRequiresFullReport: true),
+    );
     await tester.tap(find.text('Boshlash'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -4358,10 +4552,10 @@ void main() {
         tester.getTopLeft(find.text('Qaytim va chiqindi')).dy;
     final jamiChiqindiY = tester.getTopLeft(find.text('Jami chiqindi')).dy;
     final qaytarilganBoyoqY =
-        tester.getTopLeft(find.text("Qaytarilgan bo'yoq")).dy;
+        tester.getTopLeft(find.text('Qaytarilgan bo‘yoq')).dy;
     expect(tayyorMahsulotY, lessThan(qaytimChiqindiY));
     expect(jamiChiqindiY, lessThan(qaytarilganBoyoqY));
-    await tester.tap(find.text("Qaytarilgan bo'yoq"));
+    await tester.tap(find.text('Qaytarilgan bo‘yoq'));
     await tester.pumpAndSettle();
     for (final paint in const [
       'Oq',
@@ -4563,7 +4757,7 @@ void main() {
       '12',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, "Og'irlik"),
+      find.widgetWithText(TextFormField, 'Og‘irlik'),
       '3',
     );
     await tester.tap(find.text('Tasdiqlash'));
@@ -4580,7 +4774,7 @@ void main() {
     'worker laminatsiya long press records astatka without changing queue state',
     (tester) async {
       await TestModeController.instance.setEnabled(true);
-      const logicalApparatus = 'Laminatsiya';
+      const logicalApparatus = _lamination1Id;
       const physicalApparatus = 'Laminatsiya 1';
       const orderId = 'zakaz-worker-laminatsiya-handoff-card';
       await AppSession.instance.setSession(
@@ -4601,7 +4795,7 @@ void main() {
           id: orderId,
           title: 'Worker laminatsiya handoff card',
           productCode: 'WLHC',
-          apparatus: logicalApparatus,
+          apparatusId: logicalApparatus,
           product: 'worker laminatsiya mahsuloti',
         ),
       );
@@ -4616,6 +4810,11 @@ void main() {
       );
       final beforeAstatka =
           await MobileApi.instance.adminProductionMapQueueSnapshot();
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: logicalApparatus,
+        orderId: orderId,
+        control: _inProgressQueueControl(completeRequiresFullReport: true),
+      );
 
       await _usePhoneViewport(tester);
       await tester.pumpWidget(
@@ -4645,7 +4844,7 @@ void main() {
 
       expect(find.text('Ishimni tugatish'), findsNWidgets(2));
       expect(find.text('Metraj'), findsNothing);
-      expect(find.text("Og'irlik"), findsNothing);
+      expect(find.text('Og‘irlik'), findsNothing);
 
       await tester.tap(
         find.widgetWithText(FilledButton, 'Ishimni tugatish'),
@@ -4656,7 +4855,7 @@ void main() {
       expect(find.text('Jami chiqindi'), findsOneWidget);
       expect(find.text('Babina'), findsOneWidget);
       expect(find.text('Metraj'), findsOneWidget);
-      expect(find.text("Og'irlik"), findsOneWidget);
+      expect(find.text('Og‘irlik'), findsOneWidget);
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Bosmadan ortgan rulon'),
         '0',
@@ -4678,7 +4877,7 @@ void main() {
         '1',
       );
       await tester.enterText(
-        find.widgetWithText(TextFormField, "Og'irlik"),
+        find.widgetWithText(TextFormField, 'Og‘irlik'),
         '1',
       );
       await tester.tap(find.text('Tasdiqlash'));
@@ -4706,7 +4905,7 @@ void main() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Rezka';
+    const apparatus = _rezkaId;
     const orderId = 'zakaz-worker-material-intake';
     const candidateBarcode = 'ROLL-WORKER-ASSIGNED';
     const stateLocation = InventoryLocation(
@@ -4715,7 +4914,7 @@ void main() {
       name: 'Rezka State',
       factoryLocationId: 'state_rezka_intake',
       apparatus: [
-        InventoryLocationApparatus(id: 'rezka-intake', name: apparatus),
+        InventoryLocationApparatus(id: apparatus, name: 'Rezka'),
       ],
     );
     seedMobileApiInventoryMovementTestData(
@@ -4753,13 +4952,12 @@ void main() {
         assignedApparatus: [apparatus],
       ),
     );
-    await MobileApi.instance.adminCreateApparatus(apparatus);
     await MobileApi.instance.adminSaveProductionMap(
       _productionOrderMap(
         id: orderId,
         title: 'Worker material intake',
         productCode: 'WMI-A',
-        apparatus: apparatus,
+        apparatusId: apparatus,
         product: 'worker material product',
       ),
     );
@@ -4776,6 +4974,11 @@ void main() {
       orderId: orderId,
       apparatus: apparatus,
       barcode: candidateBarcode,
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: apparatus,
+      orderId: orderId,
+      control: _inProgressQueueControl(materialIntakeAllowed: true),
     );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -4797,7 +5000,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text(apparatus));
+    await tester.tap(find.text('Rezka'));
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('worker-material-intake').first);
     await tester.pumpAndSettle();
@@ -4861,7 +5064,7 @@ void main() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Godex aparat - DEMO';
+    const apparatus = _godexId;
     const orderId = 'zakaz-worker-status-colors';
     await AppSession.instance.setSession(
       token: 'worker-status-colors-token',
@@ -4881,7 +5084,7 @@ void main() {
         id: orderId,
         title: 'Worker status colors',
         productCode: 'WSC',
-        apparatus: apparatus,
+        apparatusId: apparatus,
         product: 'worker status colors product',
       ),
     );
@@ -4969,7 +5172,7 @@ void main() {
       'worker freeze request replaces finish with linked safe-stop issue flow',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Godex aparat - DEMO';
+    const apparatus = _godexId;
     const orderId = 'zakaz-worker-freeze-safe-stop';
     await AppSession.instance.setSession(
       token: 'worker-freeze-safe-stop-token',
@@ -4989,7 +5192,7 @@ void main() {
         id: orderId,
         title: 'Worker freeze safe stop',
         productCode: 'FREEZE-SAFE-STOP',
-        apparatus: apparatus,
+        apparatusId: apparatus,
         product: 'safe stop product',
       ),
     );
@@ -5059,7 +5262,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text(apparatus));
+    await tester.tap(find.text('Godex aparat - DEMO'));
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Worker freeze safe stop').first);
     await tester.pumpAndSettle();
@@ -5132,14 +5335,14 @@ void main() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Laminatsiya 1';
+    const apparatus = _lamination1Id;
     const orderId = 'zakaz-opened-laminatsiya-status-colors';
     await MobileApi.instance.adminSaveProductionMap(
       _productionOrderMap(
         id: orderId,
         title: 'Opened laminatsiya status colors',
         productCode: 'OLSC',
-        apparatus: apparatus,
+        apparatusId: apparatus,
         product: 'opened laminatsiya status colors product',
       ),
     );
@@ -5209,14 +5412,14 @@ void main() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Laminatsiya 1';
+    const apparatus = _lamination1Id;
     const orderId = 'zakaz-opened-laminatsiya-live-pause';
     await MobileApi.instance.adminSaveProductionMap(
       _productionOrderMap(
         id: orderId,
         title: 'Opened laminatsiya live pause',
         productCode: 'OLLP',
-        apparatus: apparatus,
+        apparatusId: apparatus,
         product: 'opened laminatsiya live pause product',
       ),
     );
@@ -5292,7 +5495,7 @@ void main() {
         phone: '',
         avatarUrl: '',
         capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-        assignedApparatus: ['7 ta rangli bosma aparat'],
+        assignedApparatus: [_print7Id],
       ),
     );
     await MobileApi.instance.adminSaveProductionMap(
@@ -5300,7 +5503,7 @@ void main() {
         id: 'zakaz-worker-completed-1',
         title: 'Worker completed order 1',
         productCode: 'WCD-A',
-        apparatus: '7 ta rangli bosma aparat',
+        apparatusId: _print7Id,
         product: 'worker completed mahsulot 1',
       ),
     );
@@ -5309,16 +5512,26 @@ void main() {
         id: 'zakaz-worker-completed-2',
         title: 'Worker completed order 2',
         productCode: 'WCD-B',
-        apparatus: '7 ta rangli bosma aparat',
+        apparatusId: _print7Id,
         product: 'worker completed mahsulot 2',
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: '7 ta rangli bosma aparat',
+      apparatus: _print7Id,
       orderIds: const [
         'zakaz-worker-completed-1',
         'zakaz-worker-completed-2',
       ],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: _print7Id,
+      orderId: 'zakaz-worker-completed-1',
+      action: 'start',
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _print7Id,
+      orderId: 'zakaz-worker-completed-1',
+      control: _inProgressQueueControl(completeRequiresFullReport: true),
     );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -5346,12 +5559,12 @@ void main() {
 
     await tester.tap(find.textContaining('worker-completed-1').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Boshlash'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await _completeQolipScan(tester);
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Babina'),
+      '4',
+    );
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Jami chiqindi'),
       '2',
@@ -5361,10 +5574,10 @@ void main() {
       '12',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, "Og'irlik"),
+      find.widgetWithText(TextFormField, 'Og‘irlik'),
       '3',
     );
-    await tester.tap(find.text("Qaytarilgan bo'yoq"));
+    await tester.tap(find.text('Qaytarilgan bo‘yoq'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Oq'));
     await tester.pumpAndSettle();
@@ -5393,12 +5606,25 @@ void main() {
     await tester.tap(find.byTooltip('Orqaga'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Tasdiqlash'));
+    await tester.pump();
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _print7Id,
+      orderId: 'zakaz-worker-completed-1',
+      control: _completedQueueControl(),
+    );
     await tester.pumpAndSettle();
-    await tester.tapAt(const Offset(20, 20));
+    final completedSnapshot =
+        await MobileApi.instance.adminProductionMapQueueSnapshot();
+    expect(
+      completedSnapshot.queueStates[_print7Id]?['zakaz-worker-completed-1'],
+      'completed',
+    );
+    Navigator.of(tester.element(find.byType(BottomSheet).first)).pop();
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Worker completed order 1'), findsNothing);
 
+    await tester.ensureVisible(find.text('Tugallangan'));
     await tester.tap(find.text('Tugallangan'));
     await tester.pumpAndSettle();
 
@@ -5420,7 +5646,7 @@ void main() {
         phone: '',
         avatarUrl: '',
         capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-        assignedApparatus: ['7 ta rangli bosma'],
+        assignedApparatus: [_print7Id],
       ),
     );
     await MobileApi.instance.adminSaveProductionMap(
@@ -5428,13 +5654,23 @@ void main() {
         id: 'zakaz-bosma-dialog',
         title: 'Bosma dialog order',
         productCode: 'BSD-A',
-        apparatus: '7 ta rangli bosma',
+        apparatusId: _print7Id,
         product: 'bosma dialog mahsulot',
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: '7 ta rangli bosma',
+      apparatus: _print7Id,
       orderIds: const ['zakaz-bosma-dialog'],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: _print7Id,
+      orderId: 'zakaz-bosma-dialog',
+      action: 'start',
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _print7Id,
+      orderId: 'zakaz-bosma-dialog',
+      control: _inProgressQueueControl(completeRequiresFullReport: true),
     );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -5456,21 +5692,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('7 ta rangli bosma'));
+    await tester.tap(find.text('7 ta rangli bosma aparat'));
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('bosma-dialog').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Boshlash'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await _completeQolipScan(tester);
-
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
 
-    expect(find.text("Qaytarilgan bo'yoq"), findsOneWidget);
-    expect(find.text('Jami chiqindi'), findsNothing);
-    expect(find.text("Og'irlik"), findsOneWidget);
+    expect(find.text('Qaytarilgan bo‘yoq'), findsOneWidget);
+    expect(find.text('Jami chiqindi'), findsOneWidget);
+    expect(find.text('Og‘irlik'), findsOneWidget);
     expect(find.text('Metraj'), findsOneWidget);
 
     await tester.tap(find.text('Bekor qilish'));
@@ -5478,9 +5709,9 @@ void main() {
     await tester.tap(find.text('Rulonni yechish'));
     await tester.pumpAndSettle();
 
-    expect(find.text("Qaytarilgan bo'yoq"), findsNothing);
-    expect(find.text('Jami chiqindi'), findsOneWidget);
-    expect(find.text("Og'irlik"), findsOneWidget);
+    expect(find.text('Qaytarilgan bo‘yoq'), findsNothing);
+    expect(find.text('Jami chiqindi'), findsNothing);
+    expect(find.text('Og‘irlik'), findsOneWidget);
     expect(find.text('Metraj'), findsOneWidget);
   });
 
@@ -5498,7 +5729,7 @@ void main() {
         phone: '',
         avatarUrl: '',
         capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-        assignedApparatus: ['Laminatsiya 1'],
+        assignedApparatus: [_lamination1Id],
       ),
     );
     await MobileApi.instance.adminSaveProductionMap(
@@ -5506,13 +5737,23 @@ void main() {
         id: 'zakaz-laminatsiya-dialog',
         title: 'Laminatsiya dialog order',
         productCode: 'LMD-A',
-        apparatus: 'Laminatsiya 1',
+        apparatusId: _lamination1Id,
         product: 'laminatsiya dialog mahsulot',
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: 'Laminatsiya 1',
+      apparatus: _lamination1Id,
       orderIds: const ['zakaz-laminatsiya-dialog'],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: _lamination1Id,
+      orderId: 'zakaz-laminatsiya-dialog',
+      action: 'start',
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _lamination1Id,
+      orderId: 'zakaz-laminatsiya-dialog',
+      control: _inProgressQueueControl(completeRequiresFullReport: true),
     );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -5538,16 +5779,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('laminatsiya-dialog').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Boshlash'));
-    await tester.pumpAndSettle();
-
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
 
     expect(find.text('Bosmadan ortgan rulon'), findsOneWidget);
     expect(find.text('Plyonkadan ortgan rulon'), findsOneWidget);
     expect(find.text('Jami chiqindi'), findsOneWidget);
-    expect(find.text("Og'irlik"), findsOneWidget);
+    expect(find.text('Og‘irlik'), findsOneWidget);
     expect(find.text('Metraj'), findsOneWidget);
 
     await tester.tap(find.text('Bekor qilish'));
@@ -5558,7 +5796,7 @@ void main() {
     expect(find.text('Bosmadan ortgan rulon'), findsNothing);
     expect(find.text('Plyonkadan ortgan rulon'), findsNothing);
     expect(find.text('Jami chiqindi'), findsNothing);
-    expect(find.text("Og'irlik"), findsOneWidget);
+    expect(find.text('Og‘irlik'), findsOneWidget);
     expect(find.text('Metraj'), findsOneWidget);
   });
 
@@ -5576,22 +5814,31 @@ void main() {
         phone: '',
         avatarUrl: '',
         capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-        assignedApparatus: ['Rezka'],
+        assignedApparatus: [_rezkaId],
       ),
     );
-    await MobileApi.instance.adminCreateApparatus('Rezka');
     await MobileApi.instance.adminSaveProductionMap(
       _productionOrderMap(
         id: 'zakaz-rezka-dialog',
         title: 'Rezka dialog order',
         productCode: 'RZD-A',
-        apparatus: 'Rezka',
+        apparatusId: _rezkaId,
         product: 'rezka dialog mahsulot',
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: 'Rezka',
+      apparatus: _rezkaId,
       orderIds: const ['zakaz-rezka-dialog'],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: _rezkaId,
+      orderId: 'zakaz-rezka-dialog',
+      action: 'start',
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _rezkaId,
+      orderId: 'zakaz-rezka-dialog',
+      control: _inProgressQueueControl(completeRequiresFullReport: true),
     );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -5617,19 +5864,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('rezka-dialog').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Boshlash'));
-    await tester.pumpAndSettle();
-
     expect(find.text('Rulonni tugatish'), findsNothing);
 
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
 
     expect(find.text('Diametr'), findsOneWidget);
-    expect(find.text('Bosmachining chiqindisi'), findsOneWidget);
+    expect(find.text('Bosma chiqindisi'), findsOneWidget);
     expect(find.text('Laminatsiya chiqindisi'), findsOneWidget);
     expect(
-      find.text('Tayyor mahsulot chetidan chiqqan chiqindi'),
+      find.text('Chet chiqindisi'),
       findsOneWidget,
     );
 
@@ -5639,14 +5883,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Chiqindilar'), findsNothing);
-    expect(find.text('Bosmachining chiqindisi'), findsNothing);
+    expect(find.text('Bosma chiqindisi'), findsNothing);
     expect(find.text('Laminatsiya chiqindisi'), findsNothing);
     expect(
-      find.text('Tayyor mahsulot chetidan chiqqan chiqindi'),
+      find.text('Chet chiqindisi'),
       findsNothing,
     );
     expect(find.text('Metraj'), findsOneWidget);
-    expect(find.text("Og'irlik"), findsOneWidget);
+    expect(find.text('Og‘irlik'), findsOneWidget);
     expect(find.text('Diametr'), findsOneWidget);
   });
 
@@ -5664,17 +5908,16 @@ void main() {
         phone: '',
         avatarUrl: '',
         capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-        assignedApparatus: ['Rezka'],
+        assignedApparatus: [_rezkaId],
       ),
     );
-    await MobileApi.instance.adminCreateApparatus('Rezka');
     final map = _twoStageProductionOrderMap(
       id: 'zakaz-rezka-split',
       title: 'Rezka split order',
       productCode: 'RZS-A',
       product: 'rezka split mahsulot',
-      firstApparatus: '7 ta rangli bosma aparat',
-      secondApparatus: 'Rezka',
+      firstApparatusId: _print7Id,
+      secondApparatusId: _rezkaId,
     );
     await MobileApi.instance.adminSaveProductionMap(
       map.copyWith(
@@ -5690,8 +5933,13 @@ void main() {
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: 'Rezka',
+      apparatus: _rezkaId,
       orderIds: const ['zakaz-rezka-split'],
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _rezkaId,
+      orderId: 'zakaz-rezka-split',
+      control: _freshStartQueueControl(),
     );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -5749,7 +5997,7 @@ void main() {
         phone: '',
         avatarUrl: '',
         capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-        assignedApparatus: ['7 ta rangli bosma aparat'],
+        assignedApparatus: [_print7Id],
       ),
     );
     await MobileApi.instance.adminSaveProductionMap(
@@ -5758,30 +6006,35 @@ void main() {
         title: 'Worker completed context',
         productCode: 'WCC',
         product: 'worker context mahsulot',
-        firstApparatus: '7 ta rangli bosma aparat',
-        secondApparatus: 'Laminatsiya 1',
+        firstApparatusId: _print7Id,
+        secondApparatusId: _lamination1Id,
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: '7 ta rangli bosma aparat',
+      apparatus: _print7Id,
       orderIds: const ['zakaz-worker-completed-context'],
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: 'Laminatsiya 1',
+      apparatus: _lamination1Id,
       orderIds: const ['zakaz-worker-completed-context'],
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: '7 ta rangli bosma aparat',
+      apparatus: _print7Id,
       orderId: 'zakaz-worker-completed-context',
       action: 'start',
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: '7 ta rangli bosma aparat',
+      apparatus: _print7Id,
       orderId: 'zakaz-worker-completed-context',
       action: 'complete',
       producedQty: 12,
       grossQty: 9,
       uom: 'm',
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _print7Id,
+      orderId: 'zakaz-worker-completed-context',
+      control: _completedQueueControl(),
     );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -5803,10 +6056,101 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('Tugallangan'));
     await tester.tap(find.text('Tugallangan'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('completed context'), findsOneWidget);
+  });
+
+  testWidgets(
+      'worker completed history failure keeps cached stage and exposes retry', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await AppSession.instance.setSession(
+      token: 'worker-completed-history-failure-token',
+      profile: const SessionProfile(
+        role: UserRole.werka,
+        displayName: 'Aparatchi',
+        legalName: '',
+        ref: 'worker-completed-history-failure',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [_print7Id],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _twoStageProductionOrderMap(
+        id: 'zakaz-worker-history-failure',
+        title: 'Worker history retained',
+        productCode: 'WHR',
+        product: 'worker history mahsulot',
+        firstApparatusId: _print7Id,
+        secondApparatusId: _lamination1Id,
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: _print7Id,
+      orderIds: const ['zakaz-worker-history-failure'],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: _print7Id,
+      orderId: 'zakaz-worker-history-failure',
+      action: 'start',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: _print7Id,
+      orderId: 'zakaz-worker-history-failure',
+      action: 'complete',
+      producedQty: 12,
+      grossQty: 9,
+      uom: 'm',
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _print7Id,
+      orderId: 'zakaz-worker-history-failure',
+      control: _completedQueueControl(),
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Tugallangan'));
+    await tester.tap(find.text('Tugallangan'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('history retained'), findsOneWidget);
+
+    setMobileApiTestModeForceCompletedProductionMapOrdersLoadFailure(true);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('history retained'), findsOneWidget);
+    expect(find.text('Yakunlangan orderlar yuklanmadi'), findsOneWidget);
+
+    setMobileApiTestModeForceCompletedProductionMapOrdersLoadFailure(false);
+    await tester.tap(find.text('Qayta urinish'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('history retained'), findsOneWidget);
+    expect(find.text('Yakunlangan orderlar yuklanmadi'), findsNothing);
   });
 
   testWidgets('later stage detail keeps previous progress QR scan visible', (
@@ -5823,7 +6167,7 @@ void main() {
         phone: '',
         avatarUrl: '',
         capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-        assignedApparatus: ['Laminatsiya 1'],
+        assignedApparatus: [_lamination1Id],
       ),
     );
     await MobileApi.instance.adminSaveProductionMap(
@@ -5832,25 +6176,25 @@ void main() {
         title: 'Worker previous QR',
         productCode: 'WPQ',
         product: 'worker previous qr product',
-        firstApparatus: '7 ta rangli bosma aparat',
-        secondApparatus: 'Laminatsiya 1',
+        firstApparatusId: _print7Id,
+        secondApparatusId: _lamination1Id,
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: '7 ta rangli bosma aparat',
+      apparatus: _print7Id,
       orderIds: const ['zakaz-worker-previous-qr'],
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: 'Laminatsiya 1',
+      apparatus: _lamination1Id,
       orderIds: const ['stale-zakaz'],
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: '7 ta rangli bosma aparat',
+      apparatus: _print7Id,
       orderId: 'zakaz-worker-previous-qr',
       action: 'start',
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: '7 ta rangli bosma aparat',
+      apparatus: _print7Id,
       orderId: 'zakaz-worker-previous-qr',
       action: 'complete',
       producedQty: 12,
@@ -5858,13 +6202,13 @@ void main() {
       uom: 'm',
     );
     setMobileApiTestModeQueueActionControlFixture(
-      apparatus: 'Laminatsiya 1',
+      apparatus: _lamination1Id,
       orderId: 'zakaz-worker-previous-qr',
       control: const AdminApparatusQueueOrderActionControl(
         state: 'pending',
         allowedActions: {'start'},
         hasOnlyKnownActions: true,
-        previousStage: '7 ta rangli bosma aparat',
+        previousStage: _print7Id,
         previousStageReady: true,
         interaction: AdminQueueWorkerInteraction(
           mode: AdminQueueInteractionMode.freshStart,
@@ -5929,6 +6273,212 @@ void main() {
   });
 
   testWidgets(
+    'only current waiting previous-stage WIP can arm Start',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      await AppSession.instance.setSession(
+        token: 'worker-lamin-processed-wip-token',
+        profile: const SessionProfile(
+          role: UserRole.aparatchi,
+          displayName: 'Laminatsiya aparatchi',
+          legalName: '',
+          ref: 'worker-lamin-processed-wip',
+          phone: '',
+          avatarUrl: '',
+          capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+          assignedApparatus: [_lamination1Id],
+        ),
+      );
+      const usedOrderId = 'zakaz-worker-processed-wip';
+      const targetOrderId = 'zakaz-worker-waiting-wip';
+      await MobileApi.instance.adminSaveProductionMap(
+        _twoStageProductionOrderMap(
+          id: usedOrderId,
+          title: 'Worker processed WIP',
+          productCode: 'WPW',
+          product: 'used WIP source',
+          firstApparatusId: _print7Id,
+          secondApparatusId: _lamination1Id,
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: _print7Id,
+        orderIds: const [usedOrderId],
+      );
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: _lamination1Id,
+        orderIds: const [usedOrderId],
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: _print7Id,
+        orderId: usedOrderId,
+        action: 'start',
+      );
+      final processedInput = await MobileApi.instance
+          .adminApparatusQueueActionResult(
+            apparatus: _print7Id,
+            orderId: usedOrderId,
+            action: 'complete',
+            producedQty: 15,
+            grossQty: 10,
+            uom: 'm',
+          )
+          .then((result) => result.progressBatch!);
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: _lamination1Id,
+        orderId: usedOrderId,
+        action: 'start',
+        qrPayload: processedInput.qrPayload,
+        progressBatchId: processedInput.batchId,
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: _lamination1Id,
+        orderId: usedOrderId,
+        action: 'complete',
+        producedQty: 4,
+        grossQty: 8,
+        bobinaKg: 12,
+        finishedGoodsMeter: 4,
+        finishedGoodsKg: 8,
+        totalWaste: 1,
+        laminationPrintLeftoverRolls: 0,
+        laminationFilmLeftoverRolls: 0,
+        completionRequestNote: 'Qoldiq yo‘q',
+        uom: 'm',
+      );
+      final sourceBatches = await MobileApi.instance.adminWipBatches(
+        status: 'all',
+        orderId: usedOrderId,
+      );
+      expect(
+        sourceBatches
+            .singleWhere((batch) => batch.batchId == processedInput.batchId)
+            .wipStatus,
+        isNot('waiting'),
+      );
+
+      await MobileApi.instance.adminSaveProductionMap(
+        _twoStageProductionOrderMap(
+          id: targetOrderId,
+          title: 'Worker waiting WIP',
+          productCode: 'WWW',
+          product: 'waiting WIP target',
+          firstApparatusId: _print7Id,
+          secondApparatusId: _lamination1Id,
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: _print7Id,
+        orderIds: const [usedOrderId, targetOrderId],
+      );
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: _lamination1Id,
+        orderIds: const [usedOrderId, targetOrderId],
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: _print7Id,
+        orderId: targetOrderId,
+        action: 'start',
+      );
+      final waitingInput = await MobileApi.instance
+          .adminApparatusQueueActionResult(
+            apparatus: _print7Id,
+            orderId: targetOrderId,
+            action: 'complete',
+            producedQty: 12,
+            grossQty: 9,
+            uom: 'm',
+          )
+          .then((result) => result.progressBatch!);
+      final targetBatches = await MobileApi.instance.adminWipBatches(
+        status: 'all',
+        orderId: targetOrderId,
+      );
+      expect(
+        targetBatches
+            .singleWhere((batch) => batch.batchId == waitingInput.batchId)
+            .wipStatus,
+        'waiting',
+      );
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: _lamination1Id,
+        orderId: targetOrderId,
+        control: const AdminApparatusQueueOrderActionControl(
+          state: 'pending',
+          allowedActions: {'start'},
+          hasOnlyKnownActions: true,
+          previousStage: _print7Id,
+          previousStageReady: true,
+          interaction: AdminQueueWorkerInteraction(
+            mode: AdminQueueInteractionMode.freshStart,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+            materialScanRequired: false,
+            assignedMaterialsDisplayOnly: true,
+            materialIntakeAllowed: false,
+            previousWipMode: AdminQueuePreviousWipMode.scanRequired,
+            qolipMode: AdminQueueQolipMode.notRequired,
+          ),
+        ),
+      );
+
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapOrdersScreen(
+            readOnly: true,
+            workerMode: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Laminatsiya 1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Worker waiting WIP').first);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('production-quick-scanner-manual')),
+        processedInput.qrPayload,
+      );
+      await tester.tap(find.byTooltip('Qabul qilish'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Oldingi bosqich tasdiqlandi'), findsNothing);
+      expect(find.text('Bu QR oldingi bosqichga mos emas'), findsOneWidget);
+      final startButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Boshlash'),
+      );
+      expect(startButton.onPressed, isNull);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('production-quick-scanner-manual')),
+        waitingInput.qrPayload,
+      );
+      await tester.tap(find.byTooltip('Qabul qilish'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Oldingi bosqich tasdiqlandi'), findsWidgets);
+      final armedStartButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Boshlash'),
+      );
+      expect(armedStartButton.onPressed, isNotNull);
+    },
+  );
+
+  testWidgets(
     'later stage waits for previous apparatus before showing progress QR scan',
     (tester) async {
       await TestModeController.instance.setEnabled(true);
@@ -5942,7 +6492,7 @@ void main() {
           phone: '',
           avatarUrl: '',
           capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-          assignedApparatus: ['Laminatsiya 1'],
+          assignedApparatus: [_lamination1Id],
         ),
       );
       await MobileApi.instance.adminSaveProductionMap(
@@ -5951,22 +6501,22 @@ void main() {
           title: 'Worker lamin wait',
           productCode: 'WLW',
           product: 'worker lamin wait product',
-          firstApparatus: '7 ta rangli bosma aparat',
-          secondApparatus: 'Laminatsiya 1',
+          firstApparatusId: _print7Id,
+          secondApparatusId: _lamination1Id,
         ),
       );
       await MobileApi.instance.adminSaveProductionMapSequence(
-        apparatus: 'Laminatsiya 1',
+        apparatus: _lamination1Id,
         orderIds: const ['zakaz-worker-lamin-wait'],
       );
       setMobileApiTestModeQueueActionControlFixture(
-        apparatus: 'Laminatsiya 1',
+        apparatus: _lamination1Id,
         orderId: 'zakaz-worker-lamin-wait',
         control: const AdminApparatusQueueOrderActionControl(
           state: 'pending',
           allowedActions: {},
           hasOnlyKnownActions: true,
-          previousStage: '7 ta rangli bosma aparat',
+          previousStage: _print7Id,
           previousStageReady: false,
           interaction: AdminQueueWorkerInteraction(
             mode: AdminQueueInteractionMode.waitingPreviousStage,
@@ -5984,7 +6534,7 @@ void main() {
           await MobileApi.instance.adminProductionMapQueueSnapshot();
       expect(
         waitingSnapshot
-            .queueActionControls['Laminatsiya 1']?['zakaz-worker-lamin-wait']
+            .queueActionControls[_lamination1Id]?['zakaz-worker-lamin-wait']
             ?.interaction
             ?.mode,
         AdminQueueInteractionMode.waitingPreviousStage,
@@ -6030,6 +6580,7 @@ void main() {
   testWidgets('production map sheet closes when tapping the dimmed barrier', (
     tester,
   ) async {
+    await TestModeController.instance.setEnabled(true);
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
       MaterialApp(
@@ -6061,6 +6612,7 @@ void main() {
   testWidgets('production map page shows default condition flow', (
     tester,
   ) async {
+    await TestModeController.instance.setEnabled(true);
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
       MaterialApp(
@@ -6094,6 +6646,7 @@ void main() {
   testWidgets('production map formula field shows human variable editor', (
     tester,
   ) async {
+    await TestModeController.instance.setEnabled(true);
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
       MaterialApp(
@@ -6149,6 +6702,7 @@ void main() {
   testWidgets('production map edge delete button removes an outgoing edge', (
     tester,
   ) async {
+    await TestModeController.instance.setEnabled(true);
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
       MaterialApp(
@@ -6203,6 +6757,7 @@ void main() {
           id: 'locked-apparatus',
           kind: 'apparatus',
           title: 'Locked apparatus',
+          apparatusId: 'apparatus:test:locked-editor',
           x: 420,
           y: 164,
         ),
@@ -6210,6 +6765,7 @@ void main() {
           id: 'future-apparatus',
           kind: 'apparatus',
           title: 'Future apparatus',
+          apparatusId: 'apparatus:test:future-editor',
           x: 420,
           y: 296,
         ),
@@ -6313,6 +6869,7 @@ void main() {
   testWidgets('production map branch adds condition with open branch handles', (
     tester,
   ) async {
+    await TestModeController.instance.setEnabled(true);
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
       MaterialApp(
@@ -6351,7 +6908,8 @@ void main() {
     'worker renders backend requeued-ready contract and resumes the order',
     (tester) async {
       await TestModeController.instance.setEnabled(true);
-      const apparatus = 'Godex aparat - CONTRACT';
+      const apparatus = 'apparatus:test:godex-contract';
+      const apparatusName = 'Godex aparat - CONTRACT';
       const requeuedOrderId = 'zakaz-contract-requeued';
       const nextOrderId = 'zakaz-contract-next';
       await AppSession.instance.setSession(
@@ -6367,7 +6925,10 @@ void main() {
           assignedApparatus: [apparatus],
         ),
       );
-      await MobileApi.instance.adminCreateApparatus(apparatus);
+      await MobileApi.instance.adminCreateApparatus(
+        apparatusName,
+        id: apparatus,
+      );
       for (final order in const [
         (requeuedOrderId, 'Requeued contract order', 'RC-1'),
         (nextOrderId, 'Next contract order', 'RC-2'),
@@ -6377,7 +6938,8 @@ void main() {
             id: order.$1,
             title: order.$2,
             productCode: order.$3,
-            apparatus: apparatus,
+            apparatusId: apparatus,
+            apparatusName: apparatusName,
             product: order.$2,
           ),
         );
@@ -6401,6 +6963,11 @@ void main() {
       await MobileApi.instance.adminProductionMapOrderControl(
         orderId: requeuedOrderId,
         action: AdminOrderControlAction.unfreeze,
+      );
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: apparatus,
+        orderId: requeuedOrderId,
+        control: _requeuedQueueControl(ready: false),
       );
 
       await _usePhoneViewport(tester);
@@ -6451,6 +7018,11 @@ void main() {
         orderId: nextOrderId,
         action: 'complete',
       );
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: apparatus,
+        orderId: requeuedOrderId,
+        control: _requeuedQueueControl(ready: true),
+      );
 
       await pumpWorkerScreen();
       await tester.tap(
@@ -6462,6 +7034,11 @@ void main() {
       expect(find.text('Boshlash'), findsNothing);
       expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
       await tester.tap(find.text('Davom ettirish'));
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: apparatus,
+        orderId: requeuedOrderId,
+        control: _inProgressQueueControl(completeRequiresFullReport: true),
+      );
       await tester.pumpAndSettle();
 
       final snapshot =
@@ -6526,16 +7103,22 @@ ProductionMapDefinition _alternativeProductionOrderMap({
   required String title,
   required String productCode,
   required String product,
-  required List<String> apparatus,
+  required List<String> apparatusIds,
+  List<String> apparatusNames = const [],
   double? rollCount,
   double? widthMm,
 }) {
+  assert(
+      apparatusNames.isEmpty || apparatusNames.length == apparatusIds.length);
   final apparatusNodes = [
-    for (var index = 0; index < apparatus.length; index++)
+    for (var index = 0; index < apparatusIds.length; index++)
       ProductionMapNode(
         id: 'apparatus-$index',
         kind: 'apparatus',
-        title: apparatus[index],
+        title: apparatusNames.isEmpty
+            ? _fixtureApparatusName(apparatusIds[index])
+            : apparatusNames[index],
+        apparatusId: apparatusIds[index],
         alternativeGroupId: 'alt-$id',
         alternativeGroupLabel: 'pechat',
       ),
@@ -6570,29 +7153,45 @@ ProductionMapDefinition _chainedAlternativeProductionOrderMap({
   required String title,
   required String productCode,
   required String product,
-  required List<String> firstGroupApparatus,
-  required List<String> secondGroupApparatus,
-  required String firstGroupAssignedTitle,
+  required List<String> firstGroupApparatusIds,
+  List<String> firstGroupApparatusNames = const [],
+  required List<String> secondGroupApparatusIds,
+  List<String> secondGroupApparatusNames = const [],
+  required String firstGroupAssignedApparatusId,
+  String firstGroupAssignedTitle = '',
   double? rollCount,
   double? widthMm,
 }) {
+  assert(firstGroupApparatusNames.isEmpty ||
+      firstGroupApparatusNames.length == firstGroupApparatusIds.length);
+  assert(secondGroupApparatusNames.isEmpty ||
+      secondGroupApparatusNames.length == secondGroupApparatusIds.length);
   final firstGroupNodes = [
-    for (var index = 0; index < firstGroupApparatus.length; index++)
+    for (var index = 0; index < firstGroupApparatusIds.length; index++)
       ProductionMapNode(
         id: 'first-apparatus-$index',
         kind: 'apparatus',
-        title: firstGroupApparatus[index],
+        title: firstGroupApparatusNames.isEmpty
+            ? _fixtureApparatusName(firstGroupApparatusIds[index])
+            : firstGroupApparatusNames[index],
+        apparatusId: firstGroupApparatusIds[index],
         alternativeGroupId: 'alt-first-$id',
         alternativeGroupLabel: 'pechat',
-        alternativeAssignedTitle: firstGroupAssignedTitle,
+        alternativeAssignedTitle: firstGroupAssignedTitle.isEmpty
+            ? _fixtureApparatusName(firstGroupAssignedApparatusId)
+            : firstGroupAssignedTitle,
+        alternativeAssignedApparatusId: firstGroupAssignedApparatusId,
       ),
   ];
   final secondGroupNodes = [
-    for (var index = 0; index < secondGroupApparatus.length; index++)
+    for (var index = 0; index < secondGroupApparatusIds.length; index++)
       ProductionMapNode(
         id: 'second-apparatus-$index',
         kind: 'apparatus',
-        title: secondGroupApparatus[index],
+        title: secondGroupApparatusNames.isEmpty
+            ? _fixtureApparatusName(secondGroupApparatusIds[index])
+            : secondGroupApparatusNames[index],
+        apparatusId: secondGroupApparatusIds[index],
         alternativeGroupId: 'alt-second-$id',
         alternativeGroupLabel: 'laminatsiya',
       ),
@@ -6630,7 +7229,8 @@ ProductionMapDefinition _productionOrderMap({
   required String id,
   required String title,
   required String productCode,
-  required String apparatus,
+  required String apparatusId,
+  String apparatusName = '',
   required String product,
   String orderNumber = '',
   double? rollCount,
@@ -6644,7 +7244,10 @@ ProductionMapDefinition _productionOrderMap({
       ProductionMapNode(
         id: index == 0 ? 'apparatus' : 'apparatus-$index',
         kind: 'apparatus',
-        title: apparatus,
+        title: apparatusName.isEmpty
+            ? _fixtureApparatusName(apparatusId)
+            : apparatusName,
+        apparatusId: apparatusId,
       ),
   ];
   return ProductionMapDefinition(
@@ -6683,8 +7286,10 @@ ProductionMapDefinition _twoStageProductionOrderMap({
   required String title,
   required String productCode,
   required String product,
-  required String firstApparatus,
-  required String secondApparatus,
+  required String firstApparatusId,
+  required String secondApparatusId,
+  String firstApparatusName = '',
+  String secondApparatusName = '',
 }) {
   return ProductionMapDefinition(
     id: id,
@@ -6700,12 +7305,18 @@ ProductionMapDefinition _twoStageProductionOrderMap({
       ProductionMapNode(
         id: 'first-apparatus',
         kind: 'apparatus',
-        title: firstApparatus,
+        title: firstApparatusName.isEmpty
+            ? _fixtureApparatusName(firstApparatusId)
+            : firstApparatusName,
+        apparatusId: firstApparatusId,
       ),
       ProductionMapNode(
         id: 'second-apparatus',
         kind: 'apparatus',
-        title: secondApparatus,
+        title: secondApparatusName.isEmpty
+            ? _fixtureApparatusName(secondApparatusId)
+            : secondApparatusName,
+        apparatusId: secondApparatusId,
       ),
       ProductionMapNode(
         id: 'end',
@@ -6947,4 +7558,102 @@ List<String> _alternativeAssignedTitles(
 
 Future<String?> _testProgressDriverUrlPicker(BuildContext _) async {
   return 'test://progress-printer';
+}
+
+AdminApparatusQueueOrderActionControl _freshStartQueueControl({
+  bool materialScanRequired = false,
+  AdminQueueQolipMode qolipMode = AdminQueueQolipMode.notRequired,
+}) {
+  return AdminApparatusQueueOrderActionControl(
+    state: 'pending',
+    allowedActions: const {'start'},
+    hasOnlyKnownActions: true,
+    interaction: AdminQueueWorkerInteraction(
+      mode: AdminQueueInteractionMode.freshStart,
+      startMaterialsMode: materialScanRequired
+          ? AdminQueueStartMaterialsMode.scanRequired
+          : AdminQueueStartMaterialsMode.hidden,
+      materialScanRequired: materialScanRequired,
+      assignedMaterialsDisplayOnly: true,
+      materialIntakeAllowed: false,
+      previousWipMode: AdminQueuePreviousWipMode.notRequired,
+      qolipMode: qolipMode,
+    ),
+  );
+}
+
+AdminApparatusQueueOrderActionControl _inProgressQueueControl({
+  bool materialIntakeAllowed = false,
+  bool completeRequiresFullReport = false,
+}) {
+  return AdminApparatusQueueOrderActionControl(
+    state: 'in_progress',
+    allowedActions: const {
+      'pause',
+      'detach_roll',
+      'complete',
+      'freeze',
+    },
+    hasOnlyKnownActions: true,
+    completeRequiresFullReport: completeRequiresFullReport,
+    interaction: AdminQueueWorkerInteraction(
+      mode: AdminQueueInteractionMode.inProgress,
+      startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+      materialScanRequired: false,
+      assignedMaterialsDisplayOnly: true,
+      materialIntakeAllowed: materialIntakeAllowed,
+      previousWipMode: AdminQueuePreviousWipMode.notRequired,
+      qolipMode: AdminQueueQolipMode.notRequired,
+    ),
+  );
+}
+
+AdminApparatusQueueOrderActionControl _completedQueueControl() {
+  return const AdminApparatusQueueOrderActionControl(
+    state: 'completed',
+    allowedActions: {},
+    hasOnlyKnownActions: true,
+    interaction: AdminQueueWorkerInteraction(
+      mode: AdminQueueInteractionMode.completed,
+      startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+      materialScanRequired: false,
+      assignedMaterialsDisplayOnly: true,
+      materialIntakeAllowed: false,
+      previousWipMode: AdminQueuePreviousWipMode.notRequired,
+      qolipMode: AdminQueueQolipMode.notRequired,
+    ),
+  );
+}
+
+AdminApparatusQueueOrderActionControl _requeuedQueueControl({
+  required bool ready,
+}) {
+  return AdminApparatusQueueOrderActionControl(
+    state: 'pending',
+    allowedActions: ready ? const {'resume'} : const {},
+    hasOnlyKnownActions: true,
+    interaction: AdminQueueWorkerInteraction(
+      mode: ready
+          ? AdminQueueInteractionMode.requeuedReady
+          : AdminQueueInteractionMode.requeuedWaiting,
+      startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+      materialScanRequired: false,
+      assignedMaterialsDisplayOnly: true,
+      materialIntakeAllowed: false,
+      previousWipMode: AdminQueuePreviousWipMode.notRequired,
+      qolipMode: AdminQueueQolipMode.notRequired,
+      blockingReasonCode: ready ? '' : 'waiting_sequence',
+    ),
+  );
+}
+
+AdminRawMaterialRule _testRawMaterialRule(AdminApparatus apparatus) {
+  return AdminRawMaterialRule(
+    apparatusId: apparatus.id,
+    sourceRevision: apparatus.sourceRevision,
+    sourceAasxSha256: '',
+    apparatus: apparatus.id,
+    requiresMaterial: false,
+    itemGroups: const [],
+  );
 }

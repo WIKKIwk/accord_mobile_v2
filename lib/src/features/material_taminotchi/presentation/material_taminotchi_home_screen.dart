@@ -8,9 +8,11 @@ import '../../../core/widgets/display/motion_widgets.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../admin/logic/canonical_apparatus_display.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/admin_raw_material_assignment_screen.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
+import '../../shared/models/app_models.dart';
 import 'widgets/material_taminotchi_dock.dart';
 import 'widgets/material_taminotchi_navigation_drawer.dart';
 import 'package:flutter/material.dart';
@@ -26,11 +28,23 @@ class MaterialTaminotchiHistoryScreen extends StatefulWidget {
 class _MaterialTaminotchiHistoryScreenState
     extends State<MaterialTaminotchiHistoryScreen> {
   late Future<List<AdminRawMaterialEvent>> _historyFuture;
+  List<AdminApparatus> _apparatusCatalog = const [];
 
   @override
   void initState() {
     super.initState();
     _historyFuture = _loadHistory();
+    unawaited(_loadApparatusCatalog());
+  }
+
+  Future<void> _loadApparatusCatalog() async {
+    try {
+      final apparatus = await MobileApi.instance.adminApparatus(limit: 10000);
+      if (!mounted) return;
+      setState(() => _apparatusCatalog = apparatus);
+    } catch (_) {
+      // The exact ApparatusId remains visible if display projection fails.
+    }
   }
 
   Future<List<AdminRawMaterialEvent>> _loadHistory() {
@@ -69,7 +83,10 @@ class _MaterialTaminotchiHistoryScreenState
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.32),
-      builder: (sheetContext) => _MaterialHistoryDetailsSheet(event: event),
+      builder: (sheetContext) => _MaterialHistoryDetailsSheet(
+        event: event,
+        apparatusCatalog: _apparatusCatalog,
+      ),
     );
   }
 
@@ -103,6 +120,7 @@ class _MaterialTaminotchiHistoryScreenState
           children: [
             _MaterialHistoryPanel(
               future: _historyFuture,
+              apparatusCatalog: _apparatusCatalog,
               maxItems: 100,
               onEventTap: (event) => _showHistoryDetails(event),
               onRetry: () {
@@ -321,12 +339,14 @@ class _MaterialTaminotchiHomeScreenState
 class _MaterialHistoryPanel extends StatelessWidget {
   const _MaterialHistoryPanel({
     required this.future,
+    required this.apparatusCatalog,
     required this.onRetry,
     required this.onEventTap,
     this.maxItems = 6,
   });
 
   final Future<List<AdminRawMaterialEvent>> future;
+  final List<AdminApparatus> apparatusCatalog;
   final VoidCallback onRetry;
   final ValueChanged<AdminRawMaterialEvent> onEventTap;
   final int maxItems;
@@ -371,6 +391,7 @@ class _MaterialHistoryPanel extends StatelessWidget {
                         visible.length,
                       ),
                       event: visible[i],
+                      apparatusCatalog: apparatusCatalog,
                       onTap: () => onEventTap(visible[i]),
                     ),
                 ],
@@ -458,11 +479,13 @@ class _MaterialHistoryCard extends StatelessWidget {
   const _MaterialHistoryCard({
     required this.slot,
     required this.event,
+    required this.apparatusCatalog,
     required this.onTap,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminRawMaterialEvent event;
+  final List<AdminApparatus> apparatusCatalog;
   final VoidCallback onTap;
 
   @override
@@ -506,7 +529,7 @@ class _MaterialHistoryCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        _materialHistorySubtitle(event),
+                        _materialHistorySubtitle(event, apparatusCatalog),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -545,9 +568,13 @@ class _MaterialHistoryCard extends StatelessWidget {
 }
 
 class _MaterialHistoryDetailsSheet extends StatelessWidget {
-  const _MaterialHistoryDetailsSheet({required this.event});
+  const _MaterialHistoryDetailsSheet({
+    required this.event,
+    required this.apparatusCatalog,
+  });
 
   final AdminRawMaterialEvent event;
+  final List<AdminApparatus> apparatusCatalog;
 
   @override
   Widget build(BuildContext context) {
@@ -609,7 +636,7 @@ class _MaterialHistoryDetailsSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _materialHistorySubtitle(event),
+                        _materialHistorySubtitle(event, apparatusCatalog),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                           height: 1.25,
@@ -621,7 +648,10 @@ class _MaterialHistoryDetailsSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 18),
-            for (final detail in _materialHistoryDetails(event))
+            for (final detail in _materialHistoryDetails(
+              event,
+              apparatusCatalog,
+            ))
               _MaterialHistoryDetailLine(
                 label: detail.label,
                 value: detail.value,
@@ -862,6 +892,7 @@ IconData _materialHistoryIcon(String type) {
 
 List<({String label, String value})> _materialHistoryDetails(
   AdminRawMaterialEvent event,
+  List<AdminApparatus> apparatusCatalog,
 ) {
   final details = <({String label, String value})>[];
 
@@ -890,7 +921,10 @@ List<({String label, String value})> _materialHistoryDetails(
         : '$before → $after',
   );
   add('Zakaz', event.orderId);
-  add('Apparat', event.apparatus);
+  add(
+    'Apparat',
+    canonicalApparatusDisplayLabel(event.apparatus, apparatusCatalog),
+  );
 
   final actor = [
     event.actorDisplayName.trim(),
@@ -993,11 +1027,15 @@ String _materialHistoryTitle(AdminRawMaterialEvent event) {
   };
 }
 
-String _materialHistorySubtitle(AdminRawMaterialEvent event) {
+String _materialHistorySubtitle(
+  AdminRawMaterialEvent event,
+  List<AdminApparatus> apparatusCatalog,
+) {
   final parts = <String>[
     if (event.warehouse.trim().isNotEmpty) event.warehouse.trim(),
     if (event.orderId.trim().isNotEmpty) 'Zakaz ${event.orderId.trim()}',
-    if (event.apparatus.trim().isNotEmpty) event.apparatus.trim(),
+    if (event.apparatus.trim().isNotEmpty)
+      canonicalApparatusDisplayLabel(event.apparatus, apparatusCatalog),
     if (event.barcode.trim().isNotEmpty) event.barcode.trim(),
   ];
   return parts.join(' • ');

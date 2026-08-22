@@ -273,7 +273,7 @@ String returnedPaintWorkerDraftScope({
   required String orderId,
   required String apparatus,
 }) =>
-    'worker:${actorRef.trim()}:${orderId.trim()}:${apparatus.trim().toLowerCase()}';
+    'worker:${actorRef.trim()}:${orderId.trim()}:${apparatus.trim()}';
 
 String returnedPaintBoyoqchiDraftScope({
   required String actorRef,

@@ -11,6 +11,11 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const _print7Id = 'apparatus:default:bosma_7';
+const _print8Id = 'apparatus:default:bosma_8';
+const _print7Name = '7 ta rangli bosma aparat';
+const _print8Name = '8 ta rangli bosma aparat';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -45,7 +50,8 @@ void main() {
         id: 'zakaz-4444',
         title: 'Locked order',
         productCode: 'LOCK-4444',
-        apparatus: '7 ta rangli pechat',
+        apparatus: _print7Name,
+        apparatusId: _print7Id,
         product: 'locked product',
         orderNumber: '4444',
       ),
@@ -103,6 +109,7 @@ void main() {
           title: 'Seven to eight',
           productCode: 'SE-7100',
           apparatus: '7 ta rangli pechat - A',
+          apparatusId: _print7Id,
           product: 'dual pechat order',
           orderNumber: '7100',
           rollCount: 7,
@@ -112,8 +119,8 @@ void main() {
 
       final moved = await MobileApi.instance.adminMoveProductionMapOrdersBatch(
         mapIds: const ['zakaz-7100'],
-        fromApparatus: '7 ta rangli pechat',
-        toApparatus: '8 ta rangli pechat',
+        fromApparatus: _print7Id,
+        toApparatus: _print8Id,
       );
       expect(moved, hasLength(1));
       expect(
@@ -121,7 +128,7 @@ void main() {
             .where((node) => node.kind == 'apparatus')
             .map((node) => node.title)
             .first,
-        '8 ta rangli pechat',
+        _print8Name,
       );
     },
   );
@@ -131,14 +138,15 @@ void main() {
     resetMobileApiTestModeData();
     addTearDown(resetMobileApiTestModeData);
     const orderId = 'zakaz-paused-transfer';
-    const source = '7 ta rangli pechat';
-    const target = '8 ta rangli pechat';
+    const source = _print7Id;
+    const target = _print8Id;
     await MobileApi.instance.adminSaveProductionMap(
       _productionOrderMap(
         id: orderId,
         title: 'Paused transfer order',
         productCode: 'TRANSFER-1',
-        apparatus: source,
+        apparatus: _print7Name,
+        apparatusId: source,
         product: 'paused transfer product',
         orderNumber: '7601',
         rollCount: 7,
@@ -198,7 +206,7 @@ void main() {
       moved.map.nodes
           .where((node) => node.kind == 'apparatus')
           .map((node) => node.title),
-      contains(target),
+      contains(_print8Name),
     );
     expect(replay.map.nodes, moved.map.nodes);
     final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
@@ -214,21 +222,31 @@ void main() {
       title: 'Flexo paket zakaz',
       productCode: 'FLEXO-001',
       apparatus: 'Flexo pechat - A',
+      apparatusId: 'apparatus:test:flexo-a',
       product: 'vitagum flexo zip paket',
       orderNumber: '8756',
       rollCount: 7,
       widthMm: 650,
     );
 
-    expect(productionMapIsFlexoOrder(map), isTrue);
     expect(
       productionMapCanMoveOrderToApparatus(
         nodes: map.nodes,
-        fromApparatus: 'Flexo pechat - A',
-        toApparatus: '8 ta rangli pechat - A',
+        fromApparatus: const AdminApparatus(
+          id: 'apparatus:test:flexo-a',
+          name: 'Flexo pechat - A',
+          operation: 'print',
+          technology: 'flexographic',
+        ),
+        toApparatus: const AdminApparatus(
+          id: 'apparatus:test:color-print-8',
+          name: '8 ta rangli pechat - A',
+          operation: 'print',
+          technology: 'rotogravure',
+          colorStations: 8,
+        ),
         rollCount: map.rollCount,
         widthMm: map.widthMm,
-        isFlexoOrder: productionMapIsFlexoOrder(map),
       ),
       isFalse,
     );
@@ -240,7 +258,8 @@ void main() {
         id: 'zakaz-7001',
         title: 'Batch A',
         productCode: 'B-A',
-        apparatus: '7 ta rangli pechat',
+        apparatus: _print7Name,
+        apparatusId: _print7Id,
         product: 'batch A',
         orderNumber: '7001',
         rollCount: 7,
@@ -252,7 +271,8 @@ void main() {
         id: 'zakaz-7002',
         title: 'Batch B',
         productCode: 'B-B',
-        apparatus: '7 ta rangli pechat',
+        apparatus: _print7Name,
+        apparatusId: _print7Id,
         product: 'batch B',
         orderNumber: '7002',
         rollCount: 7,
@@ -263,8 +283,8 @@ void main() {
     await expectLater(
       MobileApi.instance.adminMoveProductionMapOrdersBatch(
         mapIds: const ['zakaz-7001', 'zakaz-missing'],
-        fromApparatus: '7 ta rangli pechat',
-        toApparatus: '8 ta rangli pechat',
+        fromApparatus: _print7Id,
+        toApparatus: _print8Id,
       ),
       throwsA(isA<MobileApiException>()),
     );
@@ -276,13 +296,13 @@ void main() {
           .where((node) => node.kind == 'apparatus')
           .map((node) => node.title)
           .first;
-      expect(apparatus, '7 ta rangli pechat');
+      expect(apparatus, _print7Name);
     }
 
     final moved = await MobileApi.instance.adminMoveProductionMapOrdersBatch(
       mapIds: const ['zakaz-7001', 'zakaz-7002'],
-      fromApparatus: '7 ta rangli pechat',
-      toApparatus: '8 ta rangli pechat',
+      fromApparatus: _print7Id,
+      toApparatus: _print8Id,
     );
     expect(moved, hasLength(2));
     for (final saved in moved) {
@@ -290,7 +310,7 @@ void main() {
           .where((node) => node.kind == 'apparatus')
           .map((node) => node.title)
           .first;
-      expect(apparatus, '8 ta rangli pechat');
+      expect(apparatus, _print8Name);
     }
   });
 
@@ -304,7 +324,8 @@ void main() {
             id: 'zakaz-$number',
             title: 'Stress $number',
             productCode: 'S-$number',
-            apparatus: '7 ta rangli pechat',
+            apparatus: _print7Name,
+            apparatusId: _print7Id,
             product: 'stress $number',
             orderNumber: number,
             rollCount: 7,
@@ -318,8 +339,8 @@ void main() {
       ];
       final moved = await MobileApi.instance.adminMoveProductionMapOrdersBatch(
         mapIds: ids,
-        fromApparatus: '7 ta rangli pechat',
-        toApparatus: '8 ta rangli pechat',
+        fromApparatus: _print7Id,
+        toApparatus: _print8Id,
       );
       expect(moved, hasLength(30));
 
@@ -330,7 +351,7 @@ void main() {
             .where((node) => node.kind == 'apparatus')
             .map((node) => node.title)
             .first;
-        expect(apparatus, '8 ta rangli pechat');
+        expect(apparatus, _print8Name);
       }
     },
   );
@@ -343,7 +364,8 @@ void main() {
           id: 'zakaz-mix-direct-1',
           title: 'Mix direct 1',
           productCode: 'MIX-D1',
-          apparatus: '7 ta rangli pechat',
+          apparatus: _print7Name,
+          apparatusId: _print7Id,
           product: 'mix direct 1',
           orderNumber: '8101',
           rollCount: 7,
@@ -355,7 +377,8 @@ void main() {
           id: 'zakaz-mix-direct-2',
           title: 'Mix direct 2',
           productCode: 'MIX-D2',
-          apparatus: '7 ta rangli pechat',
+          apparatus: _print7Name,
+          apparatusId: _print7Id,
           product: 'mix direct 2',
           orderNumber: '8102',
           rollCount: 7,
@@ -371,7 +394,8 @@ void main() {
           orderNumber: '8103',
           rollCount: 7,
           widthMm: 650,
-          assigned: '7 ta rangli pechat',
+          assignedTitle: _print7Name,
+          assignedId: _print7Id,
         ),
       );
       await MobileApi.instance.adminSaveProductionMap(
@@ -383,7 +407,8 @@ void main() {
           orderNumber: '8104',
           rollCount: 7,
           widthMm: 650,
-          assigned: '7 ta rangli pechat',
+          assignedTitle: _print7Name,
+          assignedId: _print7Id,
         ),
       );
 
@@ -395,8 +420,8 @@ void main() {
       ];
       final moved = await MobileApi.instance.adminMoveProductionMapOrdersBatch(
         mapIds: ids,
-        fromApparatus: '7 ta rangli pechat',
-        toApparatus: '8 ta rangli pechat',
+        fromApparatus: _print7Id,
+        toApparatus: _print8Id,
       );
       expect(moved, hasLength(4));
 
@@ -407,7 +432,7 @@ void main() {
             .where((node) => node.kind == 'apparatus')
             .map((node) => node.title)
             .first;
-        expect(apparatus, '8 ta rangli pechat');
+        expect(apparatus, _print8Name);
       }
       for (final id in ids.skip(2)) {
         final map = maps.firstWhere((item) => item.map.id == id);
@@ -416,7 +441,7 @@ void main() {
             .map((node) => node.alternativeAssignedTitle)
             .where((title) => title.trim().isNotEmpty)
             .toSet();
-        expect(assigned, {'8 ta rangli pechat'});
+        expect(assigned, {_print8Name});
       }
     },
   );
@@ -433,11 +458,13 @@ void main() {
           orderNumber: '8768',
           rollCount: 7,
           widthMm: 640,
-          assigned: '8 ta rangli pechat - A',
+          assignedTitle: '8 ta rangli pechat - A',
+          assignedId: _print8Id,
           apparatusTitles: const [
             '7 ta rangli pechat - A',
             '7 ta rangli pechat - A',
           ],
+          apparatusIds: const [_print7Id, _print8Id],
         ),
       );
       await MobileApi.instance.adminSaveProductionMap(
@@ -449,11 +476,13 @@ void main() {
           orderNumber: '9875',
           rollCount: 7,
           widthMm: 630,
-          assigned: '8 ta rangli pechat - A',
+          assignedTitle: '8 ta rangli pechat - A',
+          assignedId: _print8Id,
           apparatusTitles: const [
             '7 ta rangli pechat - A',
             '7 ta rangli pechat - A',
           ],
+          apparatusIds: const [_print7Id, _print8Id],
         ),
       );
       await MobileApi.instance.adminSaveProductionMap(
@@ -465,19 +494,21 @@ void main() {
           orderNumber: '6564',
           rollCount: 7,
           widthMm: 630,
-          assigned: '8 ta rangli pechat - A',
+          assignedTitle: '8 ta rangli pechat - A',
+          assignedId: _print8Id,
           apparatusTitles: const [
             '7 ta rangli pechat - A',
             '7 ta rangli pechat - A',
           ],
+          apparatusIds: const [_print7Id, _print8Id],
         ),
       );
 
       const ids = ['zakaz-real-8768', 'zakaz-real-9875', 'zakaz-real-6564'];
       final moved = await MobileApi.instance.adminMoveProductionMapOrdersBatch(
         mapIds: ids,
-        fromApparatus: '8 ta rangli pechat - A',
-        toApparatus: '7 ta rangli pechat - A',
+        fromApparatus: _print8Id,
+        toApparatus: _print7Id,
       );
       expect(moved, hasLength(3));
 
@@ -489,7 +520,7 @@ void main() {
             .map((node) => node.alternativeAssignedTitle)
             .where((title) => title.trim().isNotEmpty)
             .toSet();
-        expect(assigned, {'7 ta rangli pechat - A'});
+        expect(assigned, {_print7Name});
       }
     },
   );
@@ -506,18 +537,20 @@ void main() {
           orderNumber: '8110',
           rollCount: 7,
           widthMm: 630,
-          assigned: '7 ta rangli pechat - A',
+          assignedTitle: '7 ta rangli pechat - A',
+          assignedId: _print7Id,
           apparatusTitles: const [
             '7 ta rangli pechat - A',
             '7 ta rangli pechat - A',
           ],
+          apparatusIds: const [_print7Id, _print8Id],
         ),
       );
 
       final moved = await MobileApi.instance.adminMoveProductionMapOrdersBatch(
         mapIds: const ['zakaz-real-title-preserve'],
-        fromApparatus: '7 ta rangli pechat - A',
-        toApparatus: '8 ta rangli pechat - A',
+        fromApparatus: _print7Id,
+        toApparatus: _print8Id,
       );
       expect(moved, hasLength(1));
 
@@ -529,7 +562,7 @@ void main() {
         '7 ta rangli pechat - A',
       });
       expect(apparatus.map((node) => node.alternativeAssignedTitle).toSet(), {
-        '8 ta rangli pechat - A',
+        _print8Name,
       });
     },
   );
@@ -544,7 +577,8 @@ void main() {
             id: 'zakaz-9001',
             title: 'Atomic fail',
             productCode: 'AF-9001',
-            apparatus: '7 ta rangli pechat',
+            apparatus: _print7Name,
+            apparatusId: _print7Id,
             product: 'atomic fail',
             orderNumber: '9001',
           ),
@@ -589,16 +623,18 @@ void main() {
   test(
     'sequence save failure does not persist reordered ids on server',
     () async {
+      final before =
+          (await MobileApi.instance.adminProductionMapSequences())[_print8Id];
       setMobileApiTestModeForceSequenceSaveFailure(true);
       await expectLater(
         MobileApi.instance.adminSaveProductionMapSequence(
-          apparatus: '8 ta rangli pechat',
+          apparatus: _print8Id,
           orderIds: const ['zakaz-seq-b', 'zakaz-seq-a'],
         ),
         throwsA(isA<MobileApiException>()),
       );
       final sequences = await MobileApi.instance.adminProductionMapSequences();
-      expect(sequences['8 ta rangli pechat'], isNull);
+      expect(sequences[_print8Id], before);
     },
   );
 }
@@ -608,6 +644,7 @@ ProductionMapDefinition _productionOrderMap({
   required String title,
   required String productCode,
   required String apparatus,
+  required String apparatusId,
   required String product,
   String orderNumber = '',
   double? rollCount,
@@ -622,7 +659,12 @@ ProductionMapDefinition _productionOrderMap({
     widthMm: widthMm,
     nodes: [
       const ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
-      ProductionMapNode(id: 'apparatus', kind: 'apparatus', title: apparatus),
+      ProductionMapNode(
+        id: 'apparatus',
+        kind: 'apparatus',
+        title: apparatus,
+        apparatusId: apparatusId,
+      ),
       ProductionMapNode(
         id: 'end',
         kind: 'end',
@@ -645,12 +687,15 @@ ProductionMapDefinition _alternativeProductionOrderMap({
   required String orderNumber,
   required double rollCount,
   required double widthMm,
-  required String assigned,
+  required String assignedTitle,
+  required String assignedId,
   List<String> apparatusTitles = const [
-    '7 ta rangli pechat',
-    '8 ta rangli pechat',
+    _print7Name,
+    _print8Name,
   ],
+  List<String> apparatusIds = const [_print7Id, _print8Id],
 }) {
+  assert(apparatusTitles.length == apparatusIds.length);
   return ProductionMapDefinition(
     id: id,
     productCode: productCode,
@@ -665,9 +710,11 @@ ProductionMapDefinition _alternativeProductionOrderMap({
           id: 'apparatus-$index',
           kind: 'apparatus',
           title: apparatusTitles[index],
+          apparatusId: apparatusIds[index],
           alternativeGroupId: 'alt-$id',
           alternativeGroupLabel: 'pechat',
-          alternativeAssignedTitle: assigned,
+          alternativeAssignedTitle: assignedTitle,
+          alternativeAssignedApparatusId: assignedId,
         ),
       ProductionMapNode(
         id: 'end',

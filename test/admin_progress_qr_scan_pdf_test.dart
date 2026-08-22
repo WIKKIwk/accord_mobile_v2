@@ -7,6 +7,11 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/admin_progress_
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_progress_qr_scan_pdf.dart';
 
 void main() {
+  const apparatusNamesById = {
+    'apparatus:default:asset-010': 'Rezka',
+    'apparatus:default:asset-007': 'Laminatsiya 1',
+  };
+
   test('progress QR PDF is a human-readable product passport', () {
     final report = AdminProgressQrReport.fromJson({
       'scanned_batch': _batchJson('batch-old', 'qr-old'),
@@ -34,12 +39,12 @@ void main() {
         'active_session_count': 1,
       },
       'queue_states': {
-        'Rezka': {'order-1': 'in_progress'},
+        'apparatus:default:asset-010': {'order-1': 'in_progress'},
       },
       'logs': [
         {
           'event_id': 'event-transfer',
-          'apparatus': 'Rezka',
+          'apparatus': 'apparatus:default:asset-010',
           'order_id': 'order-1',
           'action': 'resume',
           'from_state': 'paused',
@@ -50,8 +55,8 @@ void main() {
           'created_at_unix': 1785665340,
           'transfer': {
             'transfer_id': 'transfer-1',
-            'from_apparatus': 'Rezka',
-            'to_apparatus': 'Laminatsiya 1',
+            'from_apparatus': 'apparatus:default:asset-010',
+            'to_apparatus': 'apparatus:default:asset-007',
             'reason': 'apparatus_issue',
             'session_id': 'session-1',
             'progress_batch_id': 'batch-current',
@@ -61,7 +66,7 @@ void main() {
             'request_id': 'freeze-1',
             'status': 'transitioned',
             'target_session_id': 'session-1',
-            'target_apparatus': 'Rezka',
+            'target_apparatus': 'apparatus:default:asset-010',
             'target_worker_role': 'worker',
             'target_worker_ref': 'worker-1',
             'target_worker_display_name': 'Rezka',
@@ -90,7 +95,7 @@ void main() {
       'run_sessions': [
         {
           'session_id': 'session-1',
-          'apparatus': 'Rezka',
+          'apparatus': 'apparatus:default:asset-010',
           'order_id': 'order-1',
           'status': 'active',
           'worker_role': 'worker',
@@ -110,9 +115,15 @@ void main() {
       },
     });
 
-    final pdf = AdminProgressQrScanPdf.buildProgress(report);
+    final pdf = AdminProgressQrScanPdf.buildProgress(
+      report,
+      apparatusNamesById: apparatusNamesById,
+    );
     final source = utf8.decode(pdf);
-    final passport = buildProgressQrPassport(report).toPlainText();
+    final passport = buildProgressQrPassport(
+      report,
+      apparatusNamesById: apparatusNamesById,
+    ).toPlainText();
 
     expect(
       passport,
@@ -176,7 +187,7 @@ Map<String, dynamic> _batchJson(String batchId, String qrPayload) {
     'session_id': 'session-1',
     'started_at_unix': 1785665340,
     'completed_at_unix': 0,
-    'apparatus': 'Rezka',
+    'apparatus': 'apparatus:default:asset-010',
     'order_id': 'order-1',
     'action': 'pause',
     'status': 'paused',
@@ -196,9 +207,10 @@ Map<String, dynamic> _batchJson(String batchId, String qrPayload) {
       'flow_status': 'waiting_next_stage',
       'stock_status': '',
     },
-    'current_apparatus': 'Rezka',
+    'current_apparatus': 'apparatus:default:asset-010',
+    'current_apparatus_key': 'apparatus:default:asset-010',
     'current_location': 'Rezka chiqim',
-    'next_apparatus': 'Laminatsiya 1',
+    'next_apparatus': 'apparatus:default:asset-007',
     'bobina_kg': 5,
     'payload_json': {
       'input_progress_qr_payload': qrPayload,

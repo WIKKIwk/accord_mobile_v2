@@ -3,11 +3,13 @@ part of 'admin_production_map_orders_screen.dart';
 class _CompletionRequestsSection extends StatelessWidget {
   const _CompletionRequestsSection({
     required this.requests,
+    required this.apparatusCatalog,
     required this.expandedRequestId,
     required this.onExpandedChanged,
   });
 
   final List<AdminCompletionRequestNotification> requests;
+  final List<AdminApparatus> apparatusCatalog;
   final String? expandedRequestId;
   final void Function(AdminCompletionRequestNotification request, bool expanded)
       onExpandedChanged;
@@ -46,6 +48,10 @@ class _CompletionRequestsSection extends StatelessWidget {
                   requests.length,
                 ),
                 request: requests[index],
+                apparatusLabel: canonicalApparatusDisplayLabel(
+                  requests[index].apparatus,
+                  apparatusCatalog,
+                ),
                 expanded: expandedRequestId == requests[index].eventId.trim(),
                 onExpandedChanged: (expanded) =>
                     onExpandedChanged(requests[index], expanded),
@@ -61,12 +67,14 @@ class _CompletionRequestRow extends StatelessWidget {
   const _CompletionRequestRow({
     required this.slot,
     required this.request,
+    required this.apparatusLabel,
     required this.expanded,
     required this.onExpandedChanged,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminCompletionRequestNotification request;
+  final String apparatusLabel;
   final bool expanded;
   final ValueChanged<bool> onExpandedChanged;
 
@@ -99,18 +107,14 @@ class _CompletionRequestRow extends StatelessWidget {
             'worker.completion.zero_subtitle',
             values: {
               'worker': worker,
-              'apparatus': context.l10n.productionApparatusName(
-                request.apparatus,
-              ),
+              'apparatus': apparatusLabel,
             },
           )
         : context.l10n.productionText(
             'worker.completion.remainder_subtitle',
             values: {
               'worker': worker,
-              'apparatus': context.l10n.productionApparatusName(
-                request.apparatus,
-              ),
+              'apparatus': apparatusLabel,
             },
           );
 
@@ -199,7 +203,10 @@ class _CompletionRequestRow extends StatelessWidget {
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: expanded
-                ? _CompletionRequestDetail(request: request)
+                ? _CompletionRequestDetail(
+                    request: request,
+                    apparatusLabel: apparatusLabel,
+                  )
                 : const SizedBox.shrink(),
           ),
         ],
@@ -209,9 +216,13 @@ class _CompletionRequestRow extends StatelessWidget {
 }
 
 class _CompletionRequestDetail extends StatelessWidget {
-  const _CompletionRequestDetail({required this.request});
+  const _CompletionRequestDetail({
+    required this.request,
+    required this.apparatusLabel,
+  });
 
   final AdminCompletionRequestNotification request;
+  final String apparatusLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -222,7 +233,7 @@ class _CompletionRequestDetail extends StatelessWidget {
         '${context.l10n.productionText('worker.completion.product')}: ${request.orderTitle.trim()}',
       if (request.productCode.trim().isNotEmpty)
         '${context.l10n.productionText('worker.completion.code')}: ${request.productCode.trim()}',
-      '${context.l10n.productionText('worker.detail.kind.machine')}: ${context.l10n.productionApparatusName(request.apparatus)}',
+      '${context.l10n.productionText('worker.detail.kind.machine')}: $apparatusLabel',
       '${context.l10n.productionText('worker.completion.worker')}: ${_closedActorLabel(
         displayName: request.workerDisplayName,
         role: request.workerRole,

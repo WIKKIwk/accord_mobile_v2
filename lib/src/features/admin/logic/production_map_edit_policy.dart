@@ -1,6 +1,5 @@
 import '../models/production_map_models.dart';
 import 'apparatus_queue_state.dart';
-import 'production_map_pechat_rules.dart';
 
 Set<String> productionMapLockedNodeIds({
   required ProductionMapDefinition map,
@@ -26,10 +25,8 @@ Set<String> productionMapLockedNodeIds({
     if (node.kind != 'apparatus') {
       continue;
     }
-    final title = productionMapEffectiveApparatusTitle(node);
-    if (startedApparatus.any(
-      (apparatus) => productionMapWarehouseTitlesMatch(title, apparatus),
-    )) {
+    final apparatusId = productionMapEffectiveApparatusId(node);
+    if (startedApparatus.contains(apparatusId)) {
       lockedNodeIds.add(node.id.trim());
     }
   }
@@ -51,9 +48,9 @@ Set<String> productionMapLockedNodeIds({
   return Set<String>.unmodifiable(lockedNodeIds);
 }
 
-String productionMapEffectiveApparatusTitle(ProductionMapNode node) {
-  final assigned = node.alternativeAssignedTitle.trim();
-  return assigned.isEmpty ? node.title.trim() : assigned;
+String productionMapEffectiveApparatusId(ProductionMapNode node) {
+  final assigned = node.alternativeAssignedApparatusId.trim();
+  return assigned.isEmpty ? node.apparatusId.trim() : assigned;
 }
 
 bool productionMapIncomingEdgeIsLocked(

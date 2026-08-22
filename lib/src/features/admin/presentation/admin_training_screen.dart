@@ -19,7 +19,6 @@ import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../admin/logic/production_map_chain.dart';
-import '../../admin/logic/production_map_pechat_rules.dart';
 import '../../admin/models/production_map_models.dart';
 import '../../shared/models/app_models.dart';
 import 'admin_calculate_screen.dart';
@@ -125,33 +124,28 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     setState(() {
       if (apparatusResult is List<AdminApparatus>) {
         _apparatus = [...apparatusResult]..sort(
-            (left, right) => left.name.toLowerCase().compareTo(
-                  right.name.toLowerCase(),
-                ),
+            (left, right) =>
+                left.name.toLowerCase().compareTo(right.name.toLowerCase()),
           );
       }
       if (ordersResult is List<ProductionMapSaved>) {
         _orders = ordersResult
-            .where(
-              (order) => order.map.id.trim().startsWith('training-'),
-            )
+            .where((order) => order.map.id.trim().startsWith('training-'))
             .toList()
           ..sort(
-            (left, right) => _trainingOrderLabel(left).toLowerCase().compareTo(
-                  _trainingOrderLabel(right).toLowerCase(),
-                ),
+            (left, right) => _trainingOrderLabel(left)
+                .toLowerCase()
+                .compareTo(_trainingOrderLabel(right).toLowerCase()),
           );
       }
       if (assignmentsResult is List<AdminRawMaterialAssignment>) {
         _assignments = [...assignmentsResult];
       }
       if (materialsResult is List<CalculateMaterial>) {
-        _materials = [
-          ...materialsResult.where((material) => material.active),
-        ]..sort(
-            (left, right) => left.name.toLowerCase().compareTo(
-                  right.name.toLowerCase(),
-                ),
+        _materials = [...materialsResult.where((material) => material.active)]
+          ..sort(
+            (left, right) =>
+                left.name.toLowerCase().compareTo(right.name.toLowerCase()),
           );
       }
       if (inputBatchesResult is List<AdminProgressBatch>) {
@@ -227,7 +221,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     setState(() => _savingId = apparatus.id);
     try {
       await MobileApi.instance.adminSetTrainingApparatusMode(
-        apparatus: apparatus.name,
+        apparatus: apparatus,
         enabled: enabled,
       );
       if (!mounted) {
@@ -281,9 +275,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     }
     setState(() => _restartingId = apparatus.id);
     try {
-      await MobileApi.instance.adminRestartTraining(
-        apparatus: apparatus.name,
-      );
+      await MobileApi.instance.adminRestartTraining(apparatus: apparatus.id);
       if (!mounted) {
         return;
       }
@@ -334,6 +326,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         arguments: AdminCalculateArgs(
           trainingMode: true,
           trainingApparatus: apparatus.name,
+          trainingApparatusId: apparatus.id,
         ),
       );
       if (!mounted || result != true) {
@@ -375,9 +368,8 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
             context: context,
             showDragHandle: true,
             useSafeArea: true,
-            builder: (context) => _TrainingApparatusPicker(
-              apparatus: available,
-            ),
+            builder: (context) =>
+                _TrainingApparatusPicker(apparatus: available),
           );
     if (!mounted || apparatus == null) {
       return;
@@ -492,6 +484,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       showDragHandle: true,
       builder: (context) => _TrainingOrderDetailsSheet(
         order: order,
+        apparatusCatalog: _apparatus,
         assignments: [
           for (final assignment in _assignments)
             if (assignment.orderId.trim() == order.map.id.trim()) assignment,
@@ -572,15 +565,19 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         payload: batch.qrPayload,
         itemName: batch.labelItemName,
         previewKey: ValueKey('training-input-batch-qr-${batch.batchId}'),
-        reprintButtonKey:
-            ValueKey('training-input-batch-qr-reprint-${batch.batchId}'),
+        reprintButtonKey: ValueKey(
+          'training-input-batch-qr-reprint-${batch.batchId}',
+        ),
         details: [
           RpsQrDetail(l10n.adminText('training.batch_id'), batch.batchId),
           RpsQrDetail(l10n.adminText('training.order_label'), batch.orderId),
-          RpsQrDetail(l10n.adminText('training.stage'), batch.apparatus),
+          RpsQrDetail(
+            l10n.adminText('training.stage'),
+            _trainingApparatusDisplayName(batch.apparatus, _apparatus),
+          ),
           RpsQrDetail(
             l10n.adminText('training.next_apparatus'),
-            batch.nextApparatus,
+            _trainingApparatusDisplayName(batch.nextApparatus, _apparatus),
           ),
           RpsQrDetail(
             l10n.adminText('training.quantity'),
@@ -593,8 +590,9 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         ],
         onReprint: () => _reprintTrainingInputBatch(batch),
         onDelete: () => _deleteTrainingInputBatch(batch),
-        deleteButtonKey:
-            ValueKey('training-input-batch-qr-delete-${batch.batchId}'),
+        deleteButtonKey: ValueKey(
+          'training-input-batch-qr-delete-${batch.batchId}',
+        ),
         errorMessage: (error) => error is MobileApiException
             ? error.message
             : error.toString().replaceFirst('Bad state: ', ''),
@@ -624,9 +622,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     );
   }
 
-  Future<String?> _reprintTrainingInputBatch(
-    AdminProgressBatch batch,
-  ) async {
+  Future<String?> _reprintTrainingInputBatch(AdminProgressBatch batch) async {
     final qrPayload = batch.qrPayload.trim();
     if (qrPayload.isEmpty) {
       throw StateError(context.l10n.adminText('training.batch_code_missing'));
@@ -724,9 +720,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     }
   }
 
-  void _showTrainingMaterialDetails(
-    AdminRawMaterialAssignment assignment,
-  ) {
+  void _showTrainingMaterialDetails(AdminRawMaterialAssignment assignment) {
     final itemName = assignment.itemName.trim().isEmpty
         ? context.l10n.adminText('training.material_fallback')
         : assignment.itemName.trim();
@@ -744,8 +738,9 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         payload: assignment.barcode,
         itemName: itemName,
         previewKey: ValueKey('training-material-qr-${assignment.barcode}'),
-        reprintButtonKey:
-            ValueKey('training-material-qr-reprint-${assignment.barcode}'),
+        reprintButtonKey: ValueKey(
+          'training-material-qr-reprint-${assignment.barcode}',
+        ),
         details: [
           RpsQrDetail(
             this.context.l10n.adminText('label.item_code'),
@@ -755,17 +750,17 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
             this.context.l10n.adminText('label.group'),
             assignment.itemGroup,
           ),
-          RpsQrDetail(
-            this.context.l10n.adminText('label.quantity'),
-            quantity,
-          ),
+          RpsQrDetail(this.context.l10n.adminText('label.quantity'), quantity),
           RpsQrDetail(
             this.context.l10n.adminText('label.warehouse'),
             assignment.stockWarehouse,
           ),
           RpsQrDetail(
             this.context.l10n.adminText('label.apparatus'),
-            assignment.apparatus,
+            _trainingApparatusDisplayName(
+              assignment.apparatus,
+              _apparatus,
+            ),
           ),
           RpsQrDetail(
             this.context.l10n.adminText('label.status'),
@@ -841,17 +836,21 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     if (_linkingMaterialOrderId != null) {
       return null;
     }
-    final apparatus = order.map.nodes
+    final apparatusId = order.map.nodes
         .where((node) => node.kind == 'apparatus')
-        .map((node) => node.title.trim())
-        .firstWhere((title) => title.isNotEmpty, orElse: () => '');
-    if (orderId.isEmpty || apparatus.isEmpty) {
+        .map((node) => node.apparatusId.trim())
+        .firstWhere((id) => id.isNotEmpty, orElse: () => '');
+    if (orderId.isEmpty || apparatusId.isEmpty) {
       showAdminTopNotice(
         context,
         context.l10n.adminText('training.order_apparatus_missing'),
       );
       return null;
     }
+    final apparatusName = _trainingApparatusDisplayName(
+      apparatusId,
+      _apparatus,
+    );
     if (_materials.isEmpty) {
       showAdminTopNotice(
         context,
@@ -868,7 +867,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         useSafeArea: true,
         showDragHandle: true,
         builder: (context) => _TrainingMaterialLinkSheet(
-          apparatus: apparatus,
+          apparatus: apparatusName,
           materials: _materials,
         ),
       );
@@ -894,8 +893,8 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         epc: barcode,
         itemCode: itemCode,
         itemName: itemName,
-        apparatus: apparatus,
-        warehouse: 'Training: $apparatus',
+        apparatus: apparatusName,
+        warehouse: 'Training: $apparatusName',
         printer: printer.printer.trim().isEmpty ? 'godex' : printer.printer,
         printMode:
             printer.printMode.trim().isEmpty ? 'label' : printer.printMode,
@@ -906,7 +905,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       await _printTrainingLabel(printer, printRequest);
       final assignment = await MobileApi.instance.adminLinkTrainingRawMaterial(
         orderId: orderId,
-        apparatus: apparatus,
+        apparatus: apparatusId,
         materialId: draft.material.id,
         materialName: draft.material.name,
         micron: draft.micron,
@@ -995,22 +994,16 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         if (order.map.nodes.any(
           (node) =>
               node.kind == 'apparatus' &&
-              productionMapWarehouseTitlesMatch(node.title, apparatus.name),
+              node.apparatusId.trim() == apparatus.id.trim(),
         ))
           order,
     ];
   }
 
-  List<AdminRawMaterialAssignment> _assignmentsFor(
-    AdminApparatus apparatus,
-  ) {
+  List<AdminRawMaterialAssignment> _assignmentsFor(AdminApparatus apparatus) {
     return [
       for (final assignment in _assignments)
-        if (productionMapWarehouseTitlesMatch(
-          assignment.apparatus,
-          apparatus.name,
-        ))
-          assignment,
+        if (assignment.apparatus.trim() == apparatus.id.trim()) assignment,
     ];
   }
 
@@ -1049,7 +1042,9 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: Theme.of(context)
+                              color: Theme.of(
+                                context,
+                              )
                                   .colorScheme
                                   .errorContainer
                                   .withValues(alpha: 0.55),
@@ -1060,18 +1055,18 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                               children: [
                                 Icon(
                                   Icons.warning_amber_rounded,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onErrorContainer,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onErrorContainer,
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
                                     l10n.adminText('training.partial_load'),
                                     style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onErrorContainer,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onErrorContainer,
                                     ),
                                   ),
                                 ),
@@ -1130,9 +1125,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                                 },
                                 onTrainingChanged: (enabled) =>
                                     _setTrainingEnabled(
-                                  _apparatus[index],
-                                  enabled,
-                                ),
+                                        _apparatus[index], enabled),
                                 onLinkOrder: () =>
                                     _openOrderForApparatus(_apparatus[index]),
                                 onRestart: () =>
@@ -1153,11 +1146,7 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
 }
 
 class _AdminTrainingLoadPart {
-  const _AdminTrainingLoadPart({
-    required this.name,
-    this.value,
-    this.error,
-  });
+  const _AdminTrainingLoadPart({required this.name, this.value, this.error});
 
   final String name;
   final Object? value;
@@ -1227,10 +1216,7 @@ String _trainingOrderStatusLabel(
   }
 }
 
-String _trainingRawMaterialStatusLabel(
-  AppLocalizations l10n,
-  String status,
-) {
+String _trainingRawMaterialStatusLabel(AppLocalizations l10n, String status) {
   switch (status.trim().toLowerCase()) {
     case 'available':
       return l10n.adminText('stock.status.available');
@@ -1339,9 +1325,7 @@ class _TrainingApparatusTile extends StatelessWidget {
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
     );
     final completedCount = orders
-        .where(
-          (order) => statuses[order.map.id.trim()]?.isCompleted == true,
-        )
+        .where((order) => statuses[order.map.id.trim()]?.isCompleted == true)
         .length;
     final assignmentsByOrderId = <String, List<AdminRawMaterialAssignment>>{};
     for (final assignment in assignments) {
@@ -1433,9 +1417,7 @@ class _TrainingApparatusTile extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      key: ValueKey(
-                        'admin-training-details-${apparatus.id}',
-                      ),
+                      key: ValueKey('admin-training-details-${apparatus.id}'),
                       tooltip: expanded
                           ? l10n.adminText('training.collapse')
                           : l10n.adminText('training.expand'),
@@ -1528,8 +1510,9 @@ class _TrainingApparatusTile extends StatelessWidget {
                                     ),
                                   )
                                 : const Icon(Icons.link_rounded),
-                            label:
-                                Text(l10n.adminText('training.attach_order')),
+                            label: Text(
+                              l10n.adminText('training.attach_order'),
+                            ),
                           ),
                         ),
                         if (orders.isNotEmpty) ...[
@@ -1537,6 +1520,7 @@ class _TrainingApparatusTile extends StatelessWidget {
                           for (final order in orders)
                             _TrainingOrderCard(
                               order: order,
+                              apparatusCatalog: [apparatus],
                               status: statuses[order.map.id.trim()],
                               assignments:
                                   assignmentsByOrderId[order.map.id.trim()] ??
@@ -1572,6 +1556,7 @@ class _TrainingApparatusTile extends StatelessWidget {
 class _TrainingOrderCard extends StatefulWidget {
   const _TrainingOrderCard({
     required this.order,
+    required this.apparatusCatalog,
     required this.status,
     required this.assignments,
     required this.inputBatches,
@@ -1587,6 +1572,7 @@ class _TrainingOrderCard extends StatefulWidget {
   });
 
   final ProductionMapSaved order;
+  final List<AdminApparatus> apparatusCatalog;
   final AdminTrainingOrderStatus? status;
   final List<AdminRawMaterialAssignment> assignments;
   final List<AdminProgressBatch> inputBatches;
@@ -1628,9 +1614,7 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
         color: status == null
             ? scheme.surfaceContainerHighest.withValues(alpha: 0.32)
             : color.withValues(alpha: 0.10),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
@@ -1716,8 +1700,9 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                           for (final assignment in widget.assignments)
                             Builder(
                               builder: (context) {
-                                final materialKey =
-                                    _trainingMaterialKey(assignment);
+                                final materialKey = _trainingMaterialKey(
+                                  assignment,
+                                );
                                 final deleting =
                                     widget.deletingMaterialKey == materialKey;
                                 return ListTile(
@@ -1773,14 +1758,14 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                                       ),
                                     ],
                                   ),
-                                  onTap: () => widget.onAssignmentTap(
-                                    assignment,
-                                  ),
+                                  onTap: () =>
+                                      widget.onAssignmentTap(assignment),
                                 );
                               },
                             ),
                           if (_trainingOrderNeedsGeneratedInputBatch(
                             widget.order.map,
+                            widget.apparatusCatalog,
                           ))
                             Padding(
                               padding: const EdgeInsets.only(top: 4, bottom: 4),
@@ -1852,6 +1837,7 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
 class _TrainingOrderDetailsSheet extends StatefulWidget {
   const _TrainingOrderDetailsSheet({
     required this.order,
+    required this.apparatusCatalog,
     required this.assignments,
     required this.inputBatches,
     required this.onLinkMaterial,
@@ -1861,6 +1847,7 @@ class _TrainingOrderDetailsSheet extends StatefulWidget {
   });
 
   final ProductionMapSaved order;
+  final List<AdminApparatus> apparatusCatalog;
   final List<AdminRawMaterialAssignment> assignments;
   final List<AdminProgressBatch> inputBatches;
   final Future<AdminRawMaterialAssignment?> Function() onLinkMaterial;
@@ -1938,9 +1925,7 @@ class _TrainingOrderDetailsSheetState
     }
   }
 
-  Future<void> _deleteMaterial(
-    AdminRawMaterialAssignment assignment,
-  ) async {
+  Future<void> _deleteMaterial(AdminRawMaterialAssignment assignment) async {
     final materialKey = _trainingMaterialKey(assignment);
     if (_deletingMaterialKey != null) {
       return;
@@ -1971,8 +1956,15 @@ class _TrainingOrderDetailsSheetState
     final map = widget.order.map;
     final apparatus = map.nodes
         .where(
-            (node) => node.kind == 'apparatus' && node.title.trim().isNotEmpty)
-        .map((node) => node.title.trim())
+          (node) =>
+              node.kind == 'apparatus' && node.apparatusId.trim().isNotEmpty,
+        )
+        .map(
+          (node) => _trainingApparatusDisplayName(
+            node.apparatusId,
+            widget.apparatusCatalog,
+          ),
+        )
         .join(', ');
     final stages = map.nodes
         .where((node) => node.kind == 'task' && node.title.trim().isNotEmpty)
@@ -2069,9 +2061,7 @@ class _TrainingOrderDetailsSheetState
                       label: l10n.adminText('training.roll_count'),
                       value: l10n.adminText(
                         'training.roll_count_value',
-                        values: {
-                          'value': formatRawQuantity(map.rollCount!),
-                        },
+                        values: {'value': formatRawQuantity(map.rollCount!)},
                       ),
                     ),
                   if (map.widthMm != null && map.widthMm! > 0)
@@ -2115,7 +2105,10 @@ class _TrainingOrderDetailsSheetState
                       : l10n.adminText('training.material_link'),
                 ),
               ),
-              if (_trainingOrderNeedsGeneratedInputBatch(map)) ...[
+              if (_trainingOrderNeedsGeneratedInputBatch(
+                map,
+                widget.apparatusCatalog,
+              )) ...[
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: _generatingInputBatch ? null : _generateInputBatch,
@@ -2152,8 +2145,9 @@ class _TrainingOrderDetailsSheetState
                                 _trainingMaterialKey(assignment)
                             ? const SizedBox.square(
                                 dimension: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : IconButton(
                                 tooltip: l10n.adminText(
@@ -2162,9 +2156,7 @@ class _TrainingOrderDetailsSheetState
                                 onPressed: () {
                                   unawaited(_deleteMaterial(assignment));
                                 },
-                                icon: const Icon(
-                                  Icons.delete_outline_rounded,
-                                ),
+                                icon: const Icon(Icons.delete_outline_rounded),
                               ),
                       ),
                   ],
@@ -2272,15 +2264,13 @@ class _TrainingMaterialLinkSheetState
     final micron = int.tryParse(_micronController.text.trim());
     if (_material == null || micron == null || micron <= 0) {
       setState(() {
-        _validationMessage = context.l10n.adminText(
-          'training.micron_required',
-        );
+        _validationMessage = context.l10n.adminText('training.micron_required');
       });
       return;
     }
-    Navigator.of(context).pop(
-      _TrainingMaterialLinkDraft(material: _material!, micron: micron),
-    );
+    Navigator.of(
+      context,
+    ).pop(_TrainingMaterialLinkDraft(material: _material!, micron: micron));
   }
 
   @override
@@ -2453,24 +2443,46 @@ String _trainingOrderLabel(ProductionMapSaved saved) {
   return values.isEmpty ? map.id : values.join(' · ');
 }
 
-bool _trainingOrderNeedsGeneratedInputBatch(ProductionMapDefinition map) {
+bool _trainingOrderNeedsGeneratedInputBatch(
+  ProductionMapDefinition map,
+  Iterable<AdminApparatus> apparatusCatalog,
+) {
+  final operationById = {
+    for (final apparatus in apparatusCatalog)
+      apparatus.id.trim(): apparatus.operation.trim().toLowerCase(),
+  };
   return map.nodes.any((node) {
+    final operation = operationById[node.apparatusId.trim()];
     if (node.kind != 'apparatus' ||
-        (!productionMapIsLaminatsiyaApparatus(node.title) &&
-            !productionMapIsRezkaApparatus(node.title))) {
+        (operation != 'laminate' && operation != 'cut')) {
       return false;
     }
     return productionMapPreviousWorkStageStation(
           map: map,
-          station: node.title,
+          station: node.apparatusId,
         ) ==
         null;
   });
 }
 
+String _trainingApparatusDisplayName(
+  String apparatusId,
+  Iterable<AdminApparatus> catalog,
+) {
+  final normalized = apparatusId.trim();
+  if (normalized == 'training-input:bosma') return 'Bosma aparat';
+  if (normalized == 'training-input:laminatsiya') {
+    return 'Laminatsiya aparat';
+  }
+  for (final apparatus in catalog) {
+    if (apparatus.id.trim() == normalized) return apparatus.name.trim();
+  }
+  return normalized;
+}
+
 String _trainingMaterialKey(AdminRawMaterialAssignment assignment) {
   return '${assignment.orderId.trim()}::'
-      '${assignment.apparatus.trim().toLowerCase()}::'
+      '${assignment.apparatus.trim()}::'
       '${assignment.barcode.trim().toUpperCase()}';
 }
 

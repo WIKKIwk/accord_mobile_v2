@@ -18,6 +18,7 @@ import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import '../logic/canonical_apparatus_display.dart';
 import '../logic/production_map_chain.dart';
 import '../models/production_map_models.dart';
 import 'raw_material_scan_dialog.dart';
@@ -115,6 +116,7 @@ class _AdminRawMaterialAssignmentPanelState
   late final TabController _tabController;
   late Future<_RawMaterialAssignmentData> _future;
   List<AdminRawMaterialAssignment> _assignments = const [];
+  List<AdminApparatus> _apparatusCatalog = const [];
   List<AdminRawMaterialAssignmentCandidate> _manualCandidates = const [];
   String _selectedOrderId = '';
   String _scannedBarcode = '';
@@ -197,9 +199,11 @@ class _AdminRawMaterialAssignmentPanelState
     final results = await Future.wait<Object>([
       MobileApi.instance.adminRawMaterialAssignmentOrders(),
       MobileApi.instance.adminRawMaterialAssignments(),
+      MobileApi.instance.adminApparatus(limit: 10000),
     ]);
     final orders = results[0] as List<ProductionMapSaved>;
     final assignments = results[1] as List<AdminRawMaterialAssignment>;
+    _apparatusCatalog = results[2] as List<AdminApparatus>;
     _assignments = assignments;
     if (_selectedOrderId.isEmpty && orders.isNotEmpty) {
       _selectedOrderId = orders.first.map.id.trim();
@@ -336,8 +340,11 @@ class _AdminRawMaterialAssignmentPanelState
     if (normalizedLeft.isEmpty || normalizedRight.isEmpty) {
       return normalizedLeft.isEmpty && normalizedRight.isEmpty;
     }
-    return productionMapStationTitlesMatch(normalizedLeft, normalizedRight);
+    return normalizedLeft == normalizedRight;
   }
+
+  String _apparatusLabel(String apparatusId) =>
+      canonicalApparatusDisplayLabel(apparatusId, _apparatusCatalog);
 
   String _selectedOrderLabel(List<ProductionMapSaved> orders) {
     for (final order in orders) {
@@ -610,7 +617,7 @@ class _AdminRawMaterialAssignmentPanelState
                             Navigator.of(dialogContext).pop(option),
                         icon:
                             const Icon(Icons.precision_manufacturing_outlined),
-                        label: Text(option),
+                        label: Text(_apparatusLabel(option)),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -644,6 +651,7 @@ class _AdminRawMaterialAssignmentPanelState
       barrierColor: Colors.black.withValues(alpha: 0.32),
       builder: (sheetContext) => _ManualCandidateDetailsSheet(
         candidate: candidate,
+        apparatusCatalog: _apparatusCatalog,
         onAssign: () => Navigator.of(sheetContext).pop(true),
       ),
     );
@@ -717,6 +725,7 @@ class _AdminRawMaterialAssignmentPanelState
       barrierColor: Colors.black.withValues(alpha: 0.32),
       builder: (sheetContext) => _ManualAssignmentDetailsSheet(
         assignment: assignment,
+        apparatusCatalog: _apparatusCatalog,
         unlinking: _unlinkingAssignmentKey == _assignmentKey(assignment),
         onUnlink: () => Navigator.of(sheetContext).pop(true),
       ),
@@ -826,6 +835,7 @@ class _AdminRawMaterialAssignmentPanelState
                     _assignments.length,
                   ),
                   assignment: _assignments[index],
+                  apparatusCatalog: _apparatusCatalog,
                   expanded: _expandedAssignmentKey ==
                       _assignmentKey(_assignments[index]),
                   unlinking: _unlinkingAssignmentKey ==
@@ -851,10 +861,7 @@ class _AdminRawMaterialAssignmentPanelState
           (assignment) =>
               assignment.orderId.trim() == _selectedOrderId.trim() &&
               (_selectedApparatus.trim().isEmpty ||
-                  productionMapStationTitlesMatch(
-                    assignment.apparatus,
-                    _selectedApparatus,
-                  )),
+                  assignment.apparatus.trim() == _selectedApparatus.trim()),
         )
         .toList(growable: false);
     return ListView(
@@ -892,7 +899,7 @@ class _AdminRawMaterialAssignmentPanelState
                       for (final apparatus in _apparatusOptions)
                         AdminFilterChipOption<String>(
                           value: apparatus,
-                          label: apparatus,
+                          label: _apparatusLabel(apparatus),
                           key: ValueKey(
                             'raw-material-apparatus-option-$apparatus',
                           ),
@@ -1396,10 +1403,12 @@ class _ManualAssignmentListRow extends StatelessWidget {
 class _ManualCandidateDetailsSheet extends StatelessWidget {
   const _ManualCandidateDetailsSheet({
     required this.candidate,
+    required this.apparatusCatalog,
     required this.onAssign,
   });
 
   final AdminRawMaterialAssignmentCandidate candidate;
+  final List<AdminApparatus> apparatusCatalog;
   final VoidCallback onAssign;
 
   @override
@@ -1432,7 +1441,10 @@ class _ManualCandidateDetailsSheet extends StatelessWidget {
         ),
         _MaterialInfoRow(
           label: context.l10n.adminText('raw_material.apparatus'),
-          value: candidate.apparatusOptions.join(', '),
+          value: canonicalApparatusDisplayLabels(
+            candidate.apparatusOptions,
+            apparatusCatalog,
+          ).join(', '),
         ),
       ],
       action: FilledButton.icon(
@@ -1449,11 +1461,13 @@ class _ManualCandidateDetailsSheet extends StatelessWidget {
 class _ManualAssignmentDetailsSheet extends StatelessWidget {
   const _ManualAssignmentDetailsSheet({
     required this.assignment,
+    required this.apparatusCatalog,
     required this.unlinking,
     required this.onUnlink,
   });
 
   final AdminRawMaterialAssignment assignment;
+  final List<AdminApparatus> apparatusCatalog;
   final bool unlinking;
   final VoidCallback onUnlink;
 
@@ -1481,7 +1495,10 @@ class _ManualAssignmentDetailsSheet extends StatelessWidget {
         ),
         _MaterialInfoRow(
           label: context.l10n.adminText('raw_material.apparatus'),
-          value: assignment.apparatus,
+          value: canonicalApparatusDisplayLabel(
+            assignment.apparatus,
+            apparatusCatalog,
+          ),
         ),
         _MaterialInfoRow(
           label: context.l10n.adminText('raw_material.warehouse'),
@@ -1629,6 +1646,7 @@ class _AssignmentTile extends StatelessWidget {
   const _AssignmentTile({
     required this.slot,
     required this.assignment,
+    required this.apparatusCatalog,
     required this.expanded,
     required this.unlinking,
     required this.onExpandedChanged,
@@ -1637,6 +1655,7 @@ class _AssignmentTile extends StatelessWidget {
 
   final M3SegmentVerticalSlot slot;
   final AdminRawMaterialAssignment assignment;
+  final List<AdminApparatus> apparatusCatalog;
   final bool expanded;
   final bool unlinking;
   final ValueChanged<bool> onExpandedChanged;
@@ -1647,7 +1666,10 @@ class _AssignmentTile extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final summary = [
-      assignment.apparatus,
+      canonicalApparatusDisplayLabel(
+        assignment.apparatus,
+        apparatusCatalog,
+      ),
       assignment.itemName,
       assignment.itemGroup,
     ].where((item) => item.trim().isNotEmpty).join(' · ');
@@ -1757,7 +1779,10 @@ class _AssignmentTile extends StatelessWidget {
                           label: context.l10n.adminText(
                             'raw_material.apparatus',
                           ),
-                          value: assignment.apparatus,
+                          value: canonicalApparatusDisplayLabel(
+                            assignment.apparatus,
+                            apparatusCatalog,
+                          ),
                         ),
                         _MaterialInfoRow(
                           label:

@@ -6,6 +6,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../shared/models/app_models.dart';
+import '../logic/canonical_apparatus_display.dart';
 import '../../admin/models/production_map_models.dart';
 import 'widgets/admin_top_notice.dart';
 
@@ -30,8 +31,9 @@ class _AdminApparatusCapacityPanelState
     extends State<AdminApparatusCapacityPanel> {
   final TextEditingController _capacitySlots = TextEditingController(text: '1');
   final TextEditingController _setupMinutes = TextEditingController(text: '0');
-  final TextEditingController _cleanupMinutes =
-      TextEditingController(text: '0');
+  final TextEditingController _cleanupMinutes = TextEditingController(
+    text: '0',
+  );
   final TextEditingController _efficiency = TextEditingController(text: '100');
   final TextEditingController _workingWindows = TextEditingController();
   final TextEditingController _capabilities = TextEditingController();
@@ -65,8 +67,7 @@ class _AdminApparatusCapacityPanelState
     final apparatus = _selectedApparatus;
     if (apparatus == null) return null;
     for (final profile in _snapshot.profiles) {
-      if (profile.apparatusId == apparatus.id ||
-          profile.apparatus.toLowerCase() == apparatus.name.toLowerCase()) {
+      if (profile.apparatusId == apparatus.id) {
         return profile;
       }
     }
@@ -142,8 +143,9 @@ class _AdminApparatusCapacityPanelState
       profile?.workingWindows ?? const [],
     );
     final masterCapabilities = apparatus.capabilityProfiles.isEmpty
-        ? apparatus.capabilities
-            .map((capability) => MapEntry<String, int>(capability, 1))
+        ? apparatus.capabilities.map(
+            (capability) => MapEntry<String, int>(capability, 1),
+          )
         : apparatus.capabilityProfiles.map(
             (profile) => MapEntry<String, int>(profile.code, profile.level),
           );
@@ -175,9 +177,7 @@ class _AdminApparatusCapacityPanelState
     final normalized = raw.trim();
     if (normalized.isEmpty) return true;
     final windowsByWeekday = <int, List<List<int>>>{};
-    final pattern = RegExp(
-      r'^\s*([1-7])\s*:\s*(\d{1,4})\s*-\s*(\d{1,4})\s*$',
-    );
+    final pattern = RegExp(r'^\s*([1-7])\s*:\s*(\d{1,4})\s*-\s*(\d{1,4})\s*$');
     for (final token in normalized.split(RegExp(r'[;\n]'))) {
       final match = pattern.firstMatch(token);
       if (match == null) return false;
@@ -187,9 +187,10 @@ class _AdminApparatusCapacityPanelState
       if (startMinute < 0 || endMinute > 1440 || startMinute >= endMinute) {
         return false;
       }
-      windowsByWeekday
-          .putIfAbsent(weekday, () => <List<int>>[])
-          .add([startMinute, endMinute]);
+      windowsByWeekday.putIfAbsent(weekday, () => <List<int>>[]).add([
+        startMinute,
+        endMinute,
+      ]);
     }
     for (final windows in windowsByWeekday.values) {
       windows.sort((left, right) => left.first.compareTo(right.first));
@@ -204,9 +205,7 @@ class _AdminApparatusCapacityPanelState
 
   List<AdminApparatusWorkingWindow> _parseWorkingWindows(String raw) {
     if (raw.trim().isEmpty) return const [];
-    final pattern = RegExp(
-      r'^\s*([1-7])\s*:\s*(\d{1,4})\s*-\s*(\d{1,4})\s*$',
-    );
+    final pattern = RegExp(r'^\s*([1-7])\s*:\s*(\d{1,4})\s*-\s*(\d{1,4})\s*$');
     return [
       for (final token in raw.trim().split(RegExp(r'[;\n]')))
         if (pattern.firstMatch(token) case final match?)
@@ -251,12 +250,9 @@ class _AdminApparatusCapacityPanelState
   }
 
   bool _sameSchedulingFamily(AdminApparatus left, AdminApparatus right) {
-    if (left.isPechat || right.isPechat) {
-      return left.isPechat && right.isPechat && left.isFlexo == right.isFlexo;
-    }
-    final leftFamily = left.family.trim().toLowerCase();
-    final rightFamily = right.family.trim().toLowerCase();
-    return leftFamily.isNotEmpty && leftFamily == rightFamily;
+    return left.operation.isNotEmpty &&
+        left.operation == right.operation &&
+        left.technology == right.technology;
   }
 
   Future<void> _saveProfile() async {
@@ -283,24 +279,27 @@ class _AdminApparatusCapacityPanelState
       );
       return;
     }
-    final capabilityEntries = _parseCapabilities(_capabilities.text);
     setState(() => _saving = true);
     try {
       await MobileApi.instance.adminSaveApparatusCapacityProfile(
         AdminApparatusCapacityProfile(
           apparatusId: apparatus.id,
           apparatus: apparatus.name,
+          sourceRevision:
+              _selectedProfile?.sourceRevision ?? apparatus.sourceRevision,
+          sourceAasxSha256:
+              _selectedProfile?.sourceAasxSha256 ?? apparatus.sourceAasxSha256,
           capacitySlots: slots,
           setupMinutes: setup,
           cleanupMinutes: cleanup,
           efficiencyPercent: efficiency,
           finiteCapacity: _finiteCapacity,
           workingWindows: _parseWorkingWindows(_workingWindows.text),
-          capabilities: [for (final entry in capabilityEntries) entry.key],
+          capabilities: apparatus.capabilities,
           capabilityLevels: {
-            for (final entry in capabilityEntries) entry.key: entry.value,
+            for (final profile in apparatus.capabilityProfiles)
+              profile.code: profile.level,
           },
-          notes: _notes.text,
         ),
       );
       await _load(showLoading: false);
@@ -481,21 +480,15 @@ class _AdminApparatusCapacityPanelState
       );
     }
     final selected = _selectedApparatus;
-    final selectedKey = selected?.name.trim().toLowerCase();
     final reservations = _snapshot.reservations
         .where(
           (reservation) =>
-              selected == null ||
-              reservation.apparatusId == selected.id ||
-              reservation.apparatus.trim().toLowerCase() == selectedKey,
+              selected == null || reservation.apparatusId == selected.id,
         )
         .toList(growable: false);
     final downtimes = _snapshot.downtimes
         .where(
-          (downtime) =>
-              selected == null ||
-              downtime.apparatusId == selected.id ||
-              downtime.apparatus.trim().toLowerCase() == selectedKey,
+          (downtime) => selected == null || downtime.apparatusId == selected.id,
         )
         .toList(growable: false);
     return ColoredBox(
@@ -595,9 +588,7 @@ class _AdminApparatusCapacityPanelState
                       ? null
                       : (value) => setState(() => _finiteCapacity = value),
                   title: Text(l10n.adminText('capacity.finite_title')),
-                  subtitle: Text(
-                    l10n.adminText('capacity.finite_description'),
-                  ),
+                  subtitle: Text(l10n.adminText('capacity.finite_description')),
                 ),
                 TextField(
                   controller: _workingWindows,
@@ -605,13 +596,16 @@ class _AdminApparatusCapacityPanelState
                   decoration: _decoration(
                     l10n.adminText('capacity.working_windows'),
                   ).copyWith(
-                    helperText: l10n.adminText('capacity.working_windows_help'),
+                    helperText: l10n.adminText(
+                      'capacity.working_windows_help',
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _capabilities,
                   maxLines: 2,
+                  readOnly: true,
                   decoration: _decoration(
                     l10n.adminText('capacity.capabilities'),
                   ),
@@ -620,6 +614,7 @@ class _AdminApparatusCapacityPanelState
                 TextField(
                   controller: _notes,
                   maxLines: 2,
+                  readOnly: true,
                   decoration: _decoration(l10n.adminText('capacity.notes')),
                 ),
                 const SizedBox(height: 10),
@@ -755,7 +750,12 @@ class _AdminApparatusCapacityPanelState
                             : Icons.event_available_outlined,
                       ),
                       title: Text(
-                          '${reservation.orderId} • ${reservation.apparatus}'),
+                        '${reservation.orderId} • '
+                        '${canonicalApparatusDisplayLabel(
+                          reservation.apparatusId,
+                          widget.apparatus,
+                        )}',
+                      ),
                       subtitle: Text(
                         '${_formatUnix(reservation.startsAtUnix)} — ${_formatUnix(reservation.endsAtUnix)} • ${reservation.status}',
                       ),
@@ -779,10 +779,10 @@ class _AdminApparatusCapacityPanelState
                     Expanded(
                       child: Text(
                         l10n.adminText('capacity.downtime_title'),
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                     ),
                     IconButton(
@@ -821,7 +821,12 @@ class _AdminApparatusCapacityPanelState
                     contentPadding: EdgeInsets.zero,
                     dense: true,
                     leading: const Icon(Icons.build_circle_outlined),
-                    title: Text('${downtime.apparatus} • ${downtime.reason}'),
+                    title: Text(
+                      '${canonicalApparatusDisplayLabel(
+                        downtime.apparatusId,
+                        widget.apparatus,
+                      )} • ${downtime.reason}',
+                    ),
                     subtitle: Text(
                       '${_formatUnix(downtime.startsAtUnix)} — ${_formatUnix(downtime.endsAtUnix)}',
                     ),

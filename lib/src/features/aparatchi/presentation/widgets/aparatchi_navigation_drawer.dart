@@ -2,7 +2,7 @@ import '../../../../app/app_router.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/session/state/app_session.dart';
 import '../../../../core/widgets/navigation/role_navigation_drawer.dart';
-import '../../../admin/logic/production_map_pechat_rules.dart';
+import '../../../admin/logic/canonical_apparatus_groups.dart';
 import '../../../shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 
@@ -25,10 +25,7 @@ class AparatchiNavigationDrawer extends StatelessWidget {
     final showDailyWork = profile != null &&
         profile.role == UserRole.aparatchi &&
         profile.assignedApparatus.any(
-          (apparatus) =>
-              productionMapIsPechatApparatus(apparatus) ||
-              productionMapIsRezkaApparatus(apparatus) ||
-              productionMapIsLaminatsiyaApparatus(apparatus),
+          isCanonicalApparatusId,
         );
     return RoleNavigationDrawer(
       selectedIndex: selectedIndex,

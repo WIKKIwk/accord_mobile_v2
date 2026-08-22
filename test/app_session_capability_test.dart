@@ -22,7 +22,7 @@ void main() {
       'display_name': 'Scale operator',
       'ref': 'werka',
       'capabilities': ['gscale.print', 'rps.batch.manage'],
-      'assigned_apparatus': ['Godex aparat - DEMO'],
+      'assigned_apparatus': ['apparatus:test:godex-demo'],
       'assigned_item_groups': ['Kraska', 'Kley'],
       'assigned_warehouses': ['Xomashyo ombori - DEMO'],
     });
@@ -33,7 +33,7 @@ void main() {
       'gscale.print',
       'rps.batch.manage',
     ]);
-    expect(profile.assignedApparatus, ['Godex aparat - DEMO']);
+    expect(profile.assignedApparatus, ['apparatus:test:godex-demo']);
     expect(profile.assignedItemGroups, ['Kraska', 'Kley']);
     expect(profile.assignedWarehouses, ['Xomashyo ombori - DEMO']);
     expect(profile.toJson()['assigned_item_groups'], ['Kraska', 'Kley']);

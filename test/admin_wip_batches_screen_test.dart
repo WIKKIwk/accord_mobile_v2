@@ -7,7 +7,7 @@ void main() {
     final batches = [
       _batch('one', '7 ta rangli pechat chiqim'),
       _batch('two', 'Laminatsiya 1'),
-      _batch('three', '7 ta rangli pechat'),
+      _batch('three', '7 ta rangli pechat chiqim'),
       _batch('four', '7 ta rangli pechat chiqim', wipStatus: 'in_use'),
     ];
 
@@ -40,10 +40,10 @@ void main() {
     expect(filtered.every((batch) => batch.wipStatus == 'waiting'), isTrue);
   });
 
-  test('waiting location canonicalizes legacy apparatus-only location', () {
-    final batch = _batch('one', '7 ta rangli pechat');
+  test('empty waiting location falls back to exact apparatus id', () {
+    final batch = _batch('one', '');
 
-    expect(canonicalWaitingLocation(batch), '7 ta rangli pechat chiqim');
+    expect(canonicalWaitingLocation(batch), 'apparatus:default:bosma_7');
   });
 
   test('completed final output with no next apparatus stays free WIP', () {
@@ -98,7 +98,7 @@ void main() {
       'Bosma chiqim',
       action: 'pause',
       status: 'paused',
-      nextApparatus: 'Laminatsiya',
+      nextApparatus: 'apparatus:default:asset-007',
     );
 
     expect(isFinalFreeWip(batch), isFalse);
@@ -107,7 +107,7 @@ void main() {
         'action': 'pause',
         'status': 'paused',
         'wip_status': 'waiting',
-        'next_apparatus': 'Laminatsiya',
+        'next_apparatus': 'apparatus:default:asset-007',
       }).flowStatus,
       'waiting_next_stage',
     );
@@ -126,7 +126,7 @@ AdminProgressBatch _batch(
   return AdminProgressBatch(
     batchId: id,
     sessionId: 'session-$id',
-    apparatus: '7 ta rangli pechat',
+    apparatus: 'apparatus:default:bosma_7',
     orderId: 'zakaz-$id',
     action: action,
     status: status,
@@ -142,7 +142,7 @@ AdminProgressBatch _batch(
       wipStatus: wipStatus,
       flowStatus: flowStatus,
     ),
-    currentApparatus: '7 ta rangli pechat',
+    currentApparatus: 'apparatus:default:bosma_7',
     currentLocation: currentLocation,
     nextApparatus: nextApparatus,
   );

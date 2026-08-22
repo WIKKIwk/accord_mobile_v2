@@ -8,6 +8,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart' show AppRefreshIndicator;
 import '../logic/admin_aparatchi_assignment.dart';
+import '../logic/canonical_apparatus_display.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_apparatus_scope_picker.dart';
 import 'widgets/admin_dock.dart';
@@ -201,7 +202,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
       bottomDockFadeStrength: null,
       child: _data == null
           ? _loading
-                ? const Center(child: AppLoadingIndicator())
+              ? const Center(child: AppLoadingIndicator())
               : AppRetryState(onRetry: _reload)
           : Column(
               children: [
@@ -504,6 +505,7 @@ class _AssignmentsTab extends StatelessWidget {
                   principal: principals[index],
                   assignedRole: data.roleForPrincipal(principals[index]),
                   assignment: data.assignmentForPrincipal(principals[index]),
+                  apparatus: data.apparatus,
                   slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                     index,
                     principals.length,
@@ -523,6 +525,7 @@ class _RoleAssignmentTile extends StatelessWidget {
     required this.principal,
     required this.assignedRole,
     required this.assignment,
+    required this.apparatus,
     required this.slot,
     required this.onAssign,
   });
@@ -530,6 +533,7 @@ class _RoleAssignmentTile extends StatelessWidget {
   final _RolePrincipal principal;
   final AdminRoleDefinition? assignedRole;
   final AdminRoleAssignment? assignment;
+  final List<AdminApparatus> apparatus;
   final M3SegmentVerticalSlot slot;
   final VoidCallback onAssign;
 
@@ -538,6 +542,10 @@ class _RoleAssignmentTile extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final l10n = context.l10n;
+    final assignedApparatusLabels = canonicalApparatusDisplayLabels(
+      assignment?.assignedApparatus ?? const <String>[],
+      apparatus,
+    );
     final radius = M3SegmentedListGeometry.borderRadius(
       slot,
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
@@ -600,11 +608,10 @@ class _RoleAssignmentTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyMedium,
                   ),
-                  if (assignment != null &&
-                      assignment!.assignedApparatus.isNotEmpty) ...[
+                  if (assignedApparatusLabels.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
-                      '${assignment!.assignedApparatus.length} ta aparat: ${assignment!.assignedApparatus.join(', ')}',
+                      '${assignedApparatusLabels.length} ta aparat: ${assignedApparatusLabels.join(', ')}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -832,12 +839,12 @@ class _RoleAssignmentSheetBodyState extends State<_RoleAssignmentSheetBody> {
                     AdminApparatusScopePicker(
                       apparatus: widget.apparatus,
                       selected: _assignedApparatus,
-                      onChanged: (apparatusName, checked) {
+                      onChanged: (apparatusId, checked) {
                         setState(() {
                           if (checked) {
-                            _assignedApparatus.add(apparatusName);
+                            _assignedApparatus.add(apparatusId);
                           } else {
-                            _assignedApparatus.remove(apparatusName);
+                            _assignedApparatus.remove(apparatusId);
                           }
                         });
                       },

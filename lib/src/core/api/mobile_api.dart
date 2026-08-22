@@ -1,4 +1,5 @@
 import '../../features/admin/logic/apparatus_queue_state.dart';
+import '../../features/admin/logic/canonical_apparatus_groups.dart';
 import '../../features/admin/logic/production_map_chain.dart';
 import '../../features/admin/logic/production_map_pechat_rules.dart';
 import '../../features/shared/models/app_models.dart';
@@ -99,11 +100,28 @@ class MobileApi {
 
   static const String compiledBaseUrl = ServerEndpointStore.compiledBaseUrl;
   static const Duration _requestTimeout = Duration(seconds: 10);
+  int _canonicalMutationCounter = 0;
 
   static String get baseUrl => ServerEndpointStore.instance.baseUrl;
 
   Map<String, String> _headers(String token) {
     return {'Authorization': 'Bearer $token'};
+  }
+
+  String _nextCanonicalMutationIdempotencyKey(String operation) {
+    _canonicalMutationCounter++;
+    final micros = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+    final counter = _canonicalMutationCounter.toRadixString(36);
+    return 'mobile:canonical-apparatus:$operation:$micros-$counter';
+  }
+
+  Map<String, String> _canonicalMutationHeaders(
+    String token,
+    String idempotencyKey,
+  ) {
+    return _headers(token)
+      ..['Content-Type'] = 'application/json'
+      ..['idempotency-key'] = idempotencyKey;
   }
 
   Future<http.Response> _get(Uri uri, {Map<String, String>? headers}) {
@@ -132,9 +150,9 @@ class MobileApi {
         body: body,
       ).timeout(_requestTimeout);
     }
-    return http.post(uri, headers: headers, body: body).timeout(
-      _requestTimeout,
-    );
+    return http
+        .post(uri, headers: headers, body: body)
+        .timeout(_requestTimeout);
   }
 
   Future<http.Response> _put(
@@ -151,9 +169,26 @@ class MobileApi {
         body: body,
       ).timeout(_requestTimeout);
     }
-    return http.put(uri, headers: headers, body: body).timeout(
-      _requestTimeout,
-    );
+    return http.put(uri, headers: headers, body: body).timeout(_requestTimeout);
+  }
+
+  Future<http.Response> _patch(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) {
+    if (NativeIrohTransport.hasEndpointTicket &&
+        !ServerEndpointStore.instance.isRuntimeOverride) {
+      return NativeIrohTransport.send(
+        method: 'PATCH',
+        uri: uri,
+        headers: headers,
+        body: body,
+      ).timeout(_requestTimeout);
+    }
+    return http
+        .patch(uri, headers: headers, body: body)
+        .timeout(_requestTimeout);
   }
 
   Future<http.Response> _delete(
@@ -170,9 +205,9 @@ class MobileApi {
         body: body,
       ).timeout(_requestTimeout);
     }
-    return http.delete(uri, headers: headers, body: body).timeout(
-      _requestTimeout,
-    );
+    return http
+        .delete(uri, headers: headers, body: body)
+        .timeout(_requestTimeout);
   }
 
   Future<http.Response> _directGet(Uri uri) {
@@ -184,9 +219,9 @@ class MobileApi {
     Map<String, String>? headers,
     Object? body,
   }) {
-    return http.post(uri, headers: headers, body: body).timeout(
-      _requestTimeout,
-    );
+    return http
+        .post(uri, headers: headers, body: body)
+        .timeout(_requestTimeout);
   }
 
   String requireToken() {

@@ -16,7 +16,9 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.werkaArchive), isFalse);
   });
 
-  test('route guard denies protected routes when profile is present without token', () {
+  test(
+      'route guard denies protected routes when profile is present without token',
+      () {
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.werka,
       displayName: 'Scale operator',
@@ -166,7 +168,7 @@ void main() {
       phone: '',
       avatarUrl: '',
       capabilities: ['apparatus.queue.read'],
-      assignedApparatus: ['Laminatsiya 1'],
+      assignedApparatus: ['apparatus:default:asset-007'],
     );
 
     expect(AppRouter.canOpenRoute(AppRoutes.apparatusDailyWork), isTrue);

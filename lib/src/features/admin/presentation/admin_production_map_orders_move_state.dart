@@ -62,7 +62,7 @@ extension _AdminProductionMapOrdersMoveState
         orders.map((order) => order.map.id).toList(growable: false);
     final moved = orders.removeAt(oldIndex);
     orders.insert(newIndex, moved);
-    final apparatusKey = apparatus.name.trim();
+    final apparatusKey = apparatus.id.trim();
     final orderIds =
         orders.map((order) => order.map.id).toList(growable: false);
     _updateScreenState(() {
@@ -200,7 +200,7 @@ extension _AdminProductionMapOrdersMoveState
       return;
     }
     if (widget.readOnly ||
-        from.name.trim() == to.name.trim() ||
+        from.id.trim() == to.id.trim() ||
         _isMoveUnassignedApparatus(from) ||
         _isMoveUnassignedApparatus(to) ||
         orders.isEmpty) {
@@ -265,8 +265,8 @@ extension _AdminProductionMapOrdersMoveState
         final order = pausedOrders[index];
         final saved = await MobileApi.instance.adminTransferProductionMapOrder(
           orderId: order.map.id,
-          fromApparatus: from.name,
-          toApparatus: to.name,
+          fromApparatus: from.id,
+          toApparatus: to.id,
           reason: transferReason!,
           idempotencyKey:
               'app-transfer-${order.map.id.trim()}-$transferTimestamp-$index',
@@ -279,8 +279,8 @@ extension _AdminProductionMapOrdersMoveState
           mapIds: pendingOrders
               .map((order) => order.map.id)
               .toList(growable: false),
-          fromApparatus: from.name,
-          toApparatus: to.name,
+          fromApparatus: from.id,
+          toApparatus: to.id,
         );
         savedById.addAll(
           _savedProductionMapOrdersByIdOrThrow(

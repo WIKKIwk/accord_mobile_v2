@@ -8,12 +8,24 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
+import '../logic/canonical_apparatus_display.dart';
 import 'widgets/admin_dock.dart';
 
+typedef AdminWorkerProfileLoader = Future<AdminWorkerProfileDetail> Function();
+typedef AdminWorkerProfileApparatusLoader = Future<List<AdminApparatus>>
+    Function();
+
 class AdminWorkerProfileDetailScreen extends StatefulWidget {
-  const AdminWorkerProfileDetailScreen({super.key, required this.entry});
+  const AdminWorkerProfileDetailScreen({
+    super.key,
+    required this.entry,
+    this.detailLoader,
+    this.apparatusLoader,
+  });
 
   final AdminUserListEntry entry;
+  final AdminWorkerProfileLoader? detailLoader;
+  final AdminWorkerProfileApparatusLoader? apparatusLoader;
 
   @override
   State<AdminWorkerProfileDetailScreen> createState() =>
@@ -22,7 +34,7 @@ class AdminWorkerProfileDetailScreen extends StatefulWidget {
 
 class _AdminWorkerProfileDetailScreenState
     extends State<AdminWorkerProfileDetailScreen> {
-  late Future<AdminWorkerProfileDetail> _future;
+  late Future<_WorkerProfileViewData> _future;
 
   @override
   void initState() {
@@ -30,8 +42,17 @@ class _AdminWorkerProfileDetailScreenState
     _future = _load();
   }
 
-  Future<AdminWorkerProfileDetail> _load() {
-    return MobileApi.instance.adminWorkerProfileDetail(widget.entry.id);
+  Future<_WorkerProfileViewData> _load() async {
+    final results = await Future.wait<Object>([
+      widget.detailLoader?.call() ??
+          MobileApi.instance.adminWorkerProfileDetail(widget.entry.id),
+      widget.apparatusLoader?.call() ??
+          MobileApi.instance.adminApparatus(limit: 10000),
+    ]);
+    return _WorkerProfileViewData(
+      detail: results[0] as AdminWorkerProfileDetail,
+      apparatus: results[1] as List<AdminApparatus>,
+    );
   }
 
   Future<void> _refresh() async {
@@ -48,7 +69,7 @@ class _AdminWorkerProfileDetailScreenState
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
       bottom: const AdminDock(activeTab: AdminDockTab.user),
-      child: FutureBuilder<AdminWorkerProfileDetail>(
+      child: FutureBuilder<_WorkerProfileViewData>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
@@ -59,7 +80,10 @@ class _AdminWorkerProfileDetailScreenState
           }
           return RefreshIndicator(
             onRefresh: _refresh,
-            child: _WorkerProfileBody(detail: snapshot.data!),
+            child: _WorkerProfileBody(
+              detail: snapshot.data!.detail,
+              apparatus: snapshot.data!.apparatus,
+            ),
           );
         },
       ),
@@ -67,10 +91,24 @@ class _AdminWorkerProfileDetailScreenState
   }
 }
 
-class _WorkerProfileBody extends StatelessWidget {
-  const _WorkerProfileBody({required this.detail});
+class _WorkerProfileViewData {
+  const _WorkerProfileViewData({
+    required this.detail,
+    required this.apparatus,
+  });
 
   final AdminWorkerProfileDetail detail;
+  final List<AdminApparatus> apparatus;
+}
+
+class _WorkerProfileBody extends StatelessWidget {
+  const _WorkerProfileBody({
+    required this.detail,
+    required this.apparatus,
+  });
+
+  final AdminWorkerProfileDetail detail;
+  final List<AdminApparatus> apparatus;
 
   @override
   Widget build(BuildContext context) {
@@ -88,28 +126,44 @@ class _WorkerProfileBody extends StatelessWidget {
             _InfoRow(l10n.adminText('detail.item_code'), worker.code),
           ],
         ),
-        _WorkerApparatusCard(apparatus: detail.assignedApparatus),
-        _WorkerGroupsCard(groups: detail.assignedGroups),
-        _ActiveSessionsCard(sessions: detail.activeSessions),
-        _ProgressBatchesCard(batches: detail.recentBatches),
-        _RecentLogsCard(logs: detail.recentLogs),
+        _WorkerApparatusCard(
+          apparatusIds: detail.assignedApparatus,
+          apparatus: apparatus,
+        ),
+        _WorkerGroupsCard(
+          groups: detail.assignedGroups,
+          apparatus: apparatus,
+        ),
+        _ActiveSessionsCard(
+          sessions: detail.activeSessions,
+          apparatus: apparatus,
+        ),
+        _ProgressBatchesCard(
+          batches: detail.recentBatches,
+          apparatus: apparatus,
+        ),
+        _RecentLogsCard(
+          logs: detail.recentLogs,
+          apparatus: apparatus,
+        ),
       ],
     );
   }
 }
 
 class _WorkerApparatusCard extends StatelessWidget {
-  const _WorkerApparatusCard({required this.apparatus});
+  const _WorkerApparatusCard({
+    required this.apparatusIds,
+    required this.apparatus,
+  });
 
-  final List<String> apparatus;
+  final List<String> apparatusIds;
+  final List<AdminApparatus> apparatus;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final names = apparatus
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
+    final names = canonicalApparatusDisplayLabels(apparatusIds, apparatus);
     return _InfoCard(
       title: l10n.adminText('label.apparatus'),
       rows: [
@@ -125,9 +179,13 @@ class _WorkerApparatusCard extends StatelessWidget {
 }
 
 class _WorkerGroupsCard extends StatelessWidget {
-  const _WorkerGroupsCard({required this.groups});
+  const _WorkerGroupsCard({
+    required this.groups,
+    required this.apparatus,
+  });
 
   final List<AdminWorkerGroup> groups;
+  final List<AdminApparatus> apparatus;
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +204,7 @@ class _WorkerGroupsCard extends StatelessWidget {
       rows: [
         for (final group in groups)
           _InfoRow(
-            group.apparatus,
+            canonicalApparatusDisplayLabel(group.apparatusId, apparatus),
             [
               group.groupCode,
               group.shift,
@@ -160,9 +218,13 @@ class _WorkerGroupsCard extends StatelessWidget {
 }
 
 class _ActiveSessionsCard extends StatelessWidget {
-  const _ActiveSessionsCard({required this.sessions});
+  const _ActiveSessionsCard({
+    required this.sessions,
+    required this.apparatus,
+  });
 
   final List<AdminWorkerRunSession> sessions;
+  final List<AdminApparatus> apparatus;
 
   @override
   Widget build(BuildContext context) {
@@ -181,7 +243,7 @@ class _ActiveSessionsCard extends StatelessWidget {
       rows: [
         for (final session in sessions)
           _InfoRow(
-            session.apparatus,
+            canonicalApparatusDisplayLabel(session.apparatus, apparatus),
             '${session.orderId} • ${session.status}',
           ),
       ],
@@ -190,9 +252,13 @@ class _ActiveSessionsCard extends StatelessWidget {
 }
 
 class _ProgressBatchesCard extends StatelessWidget {
-  const _ProgressBatchesCard({required this.batches});
+  const _ProgressBatchesCard({
+    required this.batches,
+    required this.apparatus,
+  });
 
   final List<AdminProgressBatch> batches;
+  final List<AdminApparatus> apparatus;
 
   @override
   Widget build(BuildContext context) {
@@ -213,7 +279,7 @@ class _ProgressBatchesCard extends StatelessWidget {
           _InfoRow(
             batch.orderId,
             [
-              batch.apparatus,
+              canonicalApparatusDisplayLabel(batch.apparatus, apparatus),
               batch.status,
               '${_formatNumber(batch.producedQty)} ${batch.uom}'.trim(),
               if (batch.finishedGoodsKg != null)
@@ -228,9 +294,13 @@ class _ProgressBatchesCard extends StatelessWidget {
 }
 
 class _RecentLogsCard extends StatelessWidget {
-  const _RecentLogsCard({required this.logs});
+  const _RecentLogsCard({
+    required this.logs,
+    required this.apparatus,
+  });
 
   final List<AdminProductionOrderLogEntry> logs;
+  final List<AdminApparatus> apparatus;
 
   @override
   Widget build(BuildContext context) {
@@ -249,7 +319,8 @@ class _RecentLogsCard extends StatelessWidget {
       rows: [
         for (final log in logs)
           _InfoRow(
-            '${_actionLabel(l10n, log.action)} • ${log.apparatus}',
+            '${_actionLabel(l10n, log.action)} • '
+            '${canonicalApparatusDisplayLabel(log.apparatus, apparatus)}',
             [
               log.orderId,
               '${log.fromState} → ${log.toState}',

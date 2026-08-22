@@ -8,7 +8,7 @@ void main() {
       assignments: const [
         AdminRawMaterialAssignment(
           orderId: 'zakaz-frozen',
-          apparatus: 'Pechat',
+          apparatus: 'apparatus:default:bosma_7',
           barcode: 'RM-001',
           itemCode: 'INK-1',
           itemName: 'Kraska',

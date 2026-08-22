@@ -59,9 +59,10 @@ extension _AdminProductionMapOrdersLiveState
           return;
         }
         final wasLoading = _loading;
-        _invalidateQueueSnapshotContract(
-          context.l10n.productionText('worker.error.sync'),
-        );
+        // A transient live-stream disconnect does not invalidate the last
+        // successfully loaded queue snapshot. The REST refresh below is the
+        // fallback authority and will surface a warning only if that snapshot
+        // request also fails or violates its contract.
         await _refreshLive(initial: wasLoading);
       }
       if (!mounted || generation != _liveStreamGeneration) {
@@ -128,10 +129,13 @@ extension _AdminProductionMapOrdersLiveState
         frozenOrdersByApparatus: snapshot.frozenOrdersByApparatus,
       );
       _completedWorkerOrders = snapshot.completedOrders;
+      _workerCompletedHistoryError = false;
+      _workerCompletedHistoryErrorMessage = null;
       _completionRequests = snapshot.completionRequests;
       _loading = false;
       if (_queueSnapshotContractError) {
         _queueSnapshotContractError = false;
+        _queueSnapshotErrorMessage = null;
         _loadError = null;
       }
     });
@@ -233,7 +237,7 @@ extension _AdminProductionMapOrdersLiveState
         if (_queueSnapshotContractError) {
           _updateScreenState(() {
             _queueSnapshotContractError = false;
-            _loadError = null;
+            _queueSnapshotErrorMessage = null;
           });
         }
         return;
@@ -253,7 +257,7 @@ extension _AdminProductionMapOrdersLiveState
         );
         if (_queueSnapshotContractError) {
           _queueSnapshotContractError = false;
-          _loadError = null;
+          _queueSnapshotErrorMessage = null;
         }
       });
     } catch (error) {
@@ -293,8 +297,8 @@ extension _AdminProductionMapOrdersLiveState
         frozenOrdersByApparatus: const {},
       );
       _queueSnapshotContractError = true;
+      _queueSnapshotErrorMessage ??= message;
       _loading = false;
-      _loadError = message;
     });
   }
 
@@ -354,9 +358,19 @@ extension _AdminProductionMapOrdersLiveState
       }
       _updateScreenState(() {
         _completedWorkerOrders = completed;
+        _workerCompletedHistoryError = false;
+        _workerCompletedHistoryErrorMessage = null;
       });
-    } catch (_) {
-      return;
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _updateScreenState(() {
+        _workerCompletedHistoryError = true;
+        _workerCompletedHistoryErrorMessage = error is MobileApiException
+            ? error.message
+            : context.l10n.productionText('worker.error.sync');
+      });
     }
   }
 

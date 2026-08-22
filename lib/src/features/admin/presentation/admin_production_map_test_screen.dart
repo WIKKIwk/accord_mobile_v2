@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/navigation/app_navigation_bar.dart';
 import '../../../core/widgets/navigation/dock_gesture_overlay.dart';
@@ -11,6 +12,7 @@ import '../../../core/widgets/navigation/dock_system_bottom_inset.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import '../logic/canonical_apparatus_groups.dart';
 import '../logic/production_map_pechat_rules.dart';
 import '../logic/production_map_edit_policy.dart';
 import '../models/production_map_models.dart';
@@ -80,7 +82,9 @@ class _AdminProductionMapTestScreenState
   late String _savedOrderMapId;
   CalculateOrderTemplate? _templateDraft;
   CalculateOrderTemplate? _lastSavedTemplate;
-  List<AdminApparatusGroup> _apparatusGroups = const [];
+  List<AdminApparatus> _apparatusCatalog = const [];
+  bool _apparatusCatalogLoading = true;
+  Object? _apparatusCatalogError;
 
   @override
   void initState() {
@@ -111,7 +115,7 @@ class _AdminProductionMapTestScreenState
     _orderNumber = savedMap?.orderNumber.trim() ?? '';
     _savedOrderMapId = savedMap?.id.trim() ?? '';
     _templateDraft = widget.orderContext?.templateDraft;
-    unawaited(_loadApparatusGroups());
+    unawaited(_loadCanonicalApparatusCatalog());
   }
 
   void _updateScreenState(VoidCallback callback) {
@@ -193,6 +197,7 @@ class _AdminProductionMapTestScreenState
             Positioned.fill(
               child: _ProductionMapCanvas(
                 readOnly: widget.readOnly,
+                apparatusCatalog: _apparatusCatalog,
                 lockedNodeIds: _lockedNodeIds,
                 nodes: nodes,
                 edges: edges,

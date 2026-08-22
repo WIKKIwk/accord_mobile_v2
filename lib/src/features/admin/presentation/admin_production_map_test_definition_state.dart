@@ -19,14 +19,33 @@ extension _AdminProductionMapTestDefinitionState
     }
   }
 
-  Future<void> _loadApparatusGroups() async {
+  Future<void> _loadCanonicalApparatusCatalog() async {
+    if (mounted) {
+      _updateScreenState(() {
+        _apparatusCatalogLoading = true;
+        _apparatusCatalogError = null;
+      });
+    }
     try {
-      final groups = await MobileApi.instance.adminApparatusGroups();
+      final apparatus = await MobileApi.instance.adminApparatus(limit: 500);
       if (mounted) {
-        _updateScreenState(() => _apparatusGroups = groups);
+        _updateScreenState(() {
+          _apparatusCatalog = List<AdminApparatus>.unmodifiable(
+            apparatus.where((item) => item.isActive),
+          );
+          _apparatusCatalogLoading = false;
+          _apparatusCatalogError = null;
+        });
       }
-    } catch (_) {
-      return;
+    } catch (error, stackTrace) {
+      debugPrint('Production-map canonical apparatus load failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        _updateScreenState(() {
+          _apparatusCatalogLoading = false;
+          _apparatusCatalogError = error;
+        });
+      }
     }
   }
 
@@ -96,12 +115,12 @@ extension _AdminProductionMapTestDefinitionState
         return;
       }
     }
-    final orderNumber = _orderMode && _orderNumberLocked
-        ? _orderNumber.trim()
-        : null;
+    final orderNumber =
+        _orderMode && _orderNumberLocked ? _orderNumber.trim() : null;
     _updateScreenState(() => _savingMap = true);
     try {
       final definition = _currentMapDefinition(orderNumber: orderNumber);
+      _validateCanonicalApparatusReferences(definition);
       final draft = _templateDraft;
       if (draft != null) {
         final templateDefinition = definition.withoutAlternativeAssignments();
@@ -150,6 +169,29 @@ extension _AdminProductionMapTestDefinitionState
     } finally {
       if (mounted) {
         _updateScreenState(() => _savingMap = false);
+      }
+    }
+  }
+
+  void _validateCanonicalApparatusReferences(
+    ProductionMapDefinition definition,
+  ) {
+    for (final node in definition.nodes) {
+      if (node.kind != 'apparatus') continue;
+      if (!isCanonicalApparatusId(node.apparatusId)) {
+        throw const MobileApiException(
+          code: 'canonical_apparatus_id_required',
+          message: 'Aparatni canonical ro‘yxatdan qayta tanlang',
+        );
+      }
+      final assignedTitle = node.alternativeAssignedTitle.trim();
+      final assignedId = node.alternativeAssignedApparatusId.trim();
+      if ((assignedTitle.isNotEmpty || assignedId.isNotEmpty) &&
+          !isCanonicalApparatusId(assignedId)) {
+        throw const MobileApiException(
+          code: 'canonical_assigned_apparatus_id_required',
+          message: 'Alternative aparatni canonical ro‘yxatdan qayta tanlang',
+        );
       }
     }
   }

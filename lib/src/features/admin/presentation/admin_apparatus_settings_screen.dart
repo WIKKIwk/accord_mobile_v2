@@ -1,30 +1,24 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/forms/forms.dart';
-import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
-import '../logic/production_map_pechat_rules.dart';
+import '../logic/canonical_apparatus_groups.dart';
 import 'admin_apparatus_capacity_panel.dart';
 import 'admin_factory_map_viewer.dart';
 import 'admin_queue_policy_screen.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_navigation_drawer.dart';
-import 'widgets/admin_picker_field.dart';
-import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_surface_tab_bar.dart';
 import 'widgets/admin_top_notice.dart';
-import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-
-const double _apparatusSettingsPanelGap = 4;
-const double _apparatusSettingsPanelTopGap = 8;
 
 enum AdminApparatusSettingsTab { create, groups, queue, capacity }
 
@@ -40,7 +34,7 @@ int _apparatusSettingsTabIndex(AdminApparatusSettingsTab tab) {
 class AdminApparatusSettingsScreen extends StatefulWidget {
   const AdminApparatusSettingsScreen({
     super.key,
-    this.initialTab = AdminApparatusSettingsTab.groups,
+    this.initialTab = AdminApparatusSettingsTab.create,
     this.focusApparatusName = false,
   });
 
@@ -57,34 +51,13 @@ class _AdminApparatusSettingsScreenState
     with SingleTickerProviderStateMixin {
   static _AdminApparatusSettingsCache? _cache;
 
-  final TextEditingController _name = TextEditingController();
-  final TextEditingController _apparatusName = TextEditingController();
-  final TextEditingController _apparatusColorStations = TextEditingController();
-  final FocusNode _nameFocus = FocusNode();
-  final FocusNode _apparatusNameFocus = FocusNode();
-  final ScrollController _createScrollController = ScrollController();
-  final ScrollController _groupsScrollController = ScrollController();
   late final TabController _tabController;
   List<AdminApparatus> _apparatus = const [];
-  List<AdminApparatusGroup> _groups = const [];
-  AdminApparatusMasterOptions _apparatusOptions =
-      AdminApparatusMasterOptions.fallback();
-  final Set<String> _selected = {};
-  String? _selectedApparatusFamily;
-  String? _selectedApparatusKind;
-  Set<String> _selectedApparatusCapabilities = {};
+  late AdminApparatusMasterOptions _options;
   bool _loading = true;
   bool _saving = false;
-  bool _creatingApparatus = false;
-  String? _loadError;
-  String? _editingGroupName;
-  String? _editingApparatusId;
-  List<AdminApparatusCapabilityProfile> _editingCapabilityProfiles = const [];
-  String? _expandedGroupName;
-  StateSetter? _createEditorDialogSetState;
-  VoidCallback? _closeCreateEditorDialog;
-  bool _createEditorDialogOpen = false;
-  bool _focusEditorOpened = false;
+  bool _focusedEditorOpened = false;
+  Object? _loadError;
 
   @override
   void initState() {
@@ -94,47 +67,22 @@ class _AdminApparatusSettingsScreenState
       initialIndex: _apparatusSettingsTabIndex(widget.initialTab),
       vsync: this,
     );
-    final restored = _restoreCache();
-    if (!restored) {
-      _load();
-    } else {
-      _maybeOpenFocusedEditor();
+    final cached = _cache;
+    if (cached != null) {
+      _apparatus = cached.apparatus;
+      _options = cached.options;
+      _loading = false;
       unawaited(_load(showLoading: false));
+      _maybeOpenFocusedEditor();
+    } else {
+      unawaited(_load());
     }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _name.dispose();
-    _apparatusName.dispose();
-    _apparatusColorStations.dispose();
-    _nameFocus.dispose();
-    _apparatusNameFocus.dispose();
-    _createScrollController.dispose();
-    _groupsScrollController.dispose();
     super.dispose();
-  }
-
-  bool _restoreCache() {
-    final cache = _cache;
-    if (cache == null) {
-      return false;
-    }
-    _groups = cache.groups;
-    _apparatus = cache.apparatus;
-    _apparatusOptions = cache.options;
-    _loading = false;
-    _loadError = null;
-    return true;
-  }
-
-  void _saveCache() {
-    _cache = _AdminApparatusSettingsCache(
-      groups: _groups,
-      apparatus: _apparatus,
-      options: _apparatusOptions,
-    );
   }
 
   Future<void> _load({bool showLoading = true}) async {
@@ -146,1112 +94,586 @@ class _AdminApparatusSettingsScreenState
     }
     try {
       final results = await Future.wait<Object>([
-        MobileApi.instance.adminApparatusGroups(),
-        MobileApi.instance.adminTrainingApparatus(),
+        MobileApi.instance.adminApparatus(limit: 500),
         MobileApi.instance.adminApparatusMasterOptions(),
       ]);
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
+      final apparatus = [
+        ...(results[0] as List<AdminApparatus>).where((item) => item.isActive),
+      ]..sort(_compareApparatus);
+      final options = results[1] as AdminApparatusMasterOptions;
       setState(() {
-        _groups = results[0] as List<AdminApparatusGroup>;
-        _apparatus = results[1] as List<AdminApparatus>;
-        _apparatusOptions = results[2] as AdminApparatusMasterOptions;
+        _apparatus = apparatus;
+        _options = options;
         _loading = false;
         _loadError = null;
       });
-      _saveCache();
+      _cache = _AdminApparatusSettingsCache(
+        apparatus: apparatus,
+        options: options,
+      );
       _maybeOpenFocusedEditor();
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
+    } catch (error, stackTrace) {
+      debugPrint('Canonical apparatus load failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) return;
       if (_cache != null) {
-        setState(() {
-          _loading = false;
-        });
+        setState(() => _loading = false);
         return;
       }
       setState(() {
         _loading = false;
-        _loadError = context.l10n.adminText('apparatus.load_failed');
+        _loadError = error;
       });
     }
-  }
-
-  void _editGroup(AdminApparatusGroup group) {
-    setState(() {
-      _expandedGroupName = null;
-      _editingGroupName = group.name;
-      _name.text = group.name;
-      _selected
-        ..clear()
-        ..addAll(_matchedApparatusNames(group.apparatus));
-    });
-    if (_tabController.index != 1) {
-      _tabController.animateTo(1);
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      if (_groupsScrollController.hasClients) {
-        unawaited(
-          _groupsScrollController.animateTo(
-            0,
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.easeOutCubic,
-          ),
-        );
-      }
-      _nameFocus.requestFocus();
-    });
-  }
-
-  Iterable<String> _matchedApparatusNames(List<String> groupApparatus) sync* {
-    for (final apparatusName in groupApparatus) {
-      final normalized = apparatusName.trim().toLowerCase();
-      if (normalized.isEmpty) {
-        continue;
-      }
-      for (final item in _apparatus) {
-        if (item.name.trim().toLowerCase() == normalized) {
-          yield item.name;
-          break;
-        }
-      }
-    }
-  }
-
-  void _clearEditor() {
-    setState(() {
-      _editingGroupName = null;
-      _name.clear();
-      _selected.clear();
-    });
-  }
-
-  void _editApparatus(AdminApparatus apparatus) {
-    if (apparatus.isDefault) {
-      showAdminTopNotice(
-        context,
-        context.l10n.adminText('apparatus.master_data_immutable'),
-      );
-      return;
-    }
-    setState(() {
-      _editingApparatusId = apparatus.id;
-      _apparatusName.text = apparatus.name;
-      final family = _apparatusOptions.families.contains(
-        apparatus.family.trim().toLowerCase(),
-      )
-          ? apparatus.family.trim().toLowerCase()
-          : null;
-      final kind = _apparatusOptions
-              .kindsForFamily(family)
-              .contains(apparatus.kind.trim().toLowerCase())
-          ? apparatus.kind.trim().toLowerCase()
-          : null;
-      final storedCapabilities = {
-        ...apparatus.capabilities.map((item) => item.trim().toLowerCase()),
-        ...apparatus.capabilityProfiles
-            .map((profile) => profile.code.trim().toLowerCase()),
-      };
-      _selectedApparatusFamily = family;
-      _selectedApparatusKind = kind;
-      _selectedApparatusCapabilities = _apparatusOptions.capabilities
-          .where(storedCapabilities.contains)
-          .toSet();
-      _editingCapabilityProfiles = apparatus.capabilityProfiles;
-      _apparatusColorStations.text = apparatus.colorStations?.toString() ?? '';
-    });
-    if (_tabController.index != 0) {
-      _tabController.animateTo(0);
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _apparatusNameFocus.requestFocus();
-      }
-    });
-  }
-
-  void _updateCreateEditorState(VoidCallback update) {
-    if (mounted) {
-      setState(update);
-    }
-    _createEditorDialogSetState?.call(() {});
   }
 
   void _maybeOpenFocusedEditor() {
-    if (!widget.focusApparatusName || _focusEditorOpened || _loading) {
+    if (!widget.focusApparatusName ||
+        _focusedEditorOpened ||
+        _loading ||
+        !mounted) {
       return;
     }
-    _focusEditorOpened = true;
+    _focusedEditorOpened = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _showApparatusEditor();
-      }
+      if (mounted) unawaited(_showEditor());
     });
   }
 
-  void _clearApparatusEditor() {
-    _updateCreateEditorState(() {
-      _editingApparatusId = null;
-      _apparatusName.clear();
-      _apparatusColorStations.clear();
-      _selectedApparatusFamily = null;
-      _selectedApparatusKind = null;
-      _selectedApparatusCapabilities = {};
-      _editingCapabilityProfiles = const [];
-    });
-  }
-
-  Future<void> _showApparatusEditor() async {
-    if (_createEditorDialogOpen) {
-      return;
+  AdminApparatus _latest(AdminApparatus apparatus) {
+    for (final item in _apparatus) {
+      if (item.id == apparatus.id) return item;
     }
-    _createEditorDialogOpen = true;
-    var focusRequested = false;
+    return apparatus;
+  }
+
+  void _replaceApparatus(AdminApparatus saved) {
+    final next = [
+      for (final item in _apparatus)
+        if (item.id != saved.id) item,
+      saved,
+    ]..sort(_compareApparatus);
+    setState(() => _apparatus = next);
+    _cache = _AdminApparatusSettingsCache(apparatus: next, options: _options);
+  }
+
+  Future<void> _showEditor([AdminApparatus? current]) async {
+    if (_saving) return;
+    final name = TextEditingController(text: current?.name ?? '');
+    final colorStations = TextEditingController(
+      text: current?.colorStations?.toString() ?? '',
+    );
+    var family = current?.family == 'other' ? null : current?.family;
+    var kind = current?.kind == 'other' ? null : current?.kind;
+    final capabilities = <String>{
+      ...?current?.capabilities,
+    }.where(_options.supportsCapability).toSet();
     try {
       await showDialog<void>(
         context: context,
-        barrierDismissible: true,
-        builder: (dialogContext) {
-          return StatefulBuilder(
-            builder: (context, setDialogState) {
-              _createEditorDialogSetState = setDialogState;
-              _closeCreateEditorDialog =
-                  () => Navigator.of(dialogContext).pop();
-              if (!focusRequested) {
-                focusRequested = true;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    _apparatusNameFocus.requestFocus();
-                  }
-                });
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> save() async {
+              final displayName = name.text.trim();
+              final selectedFamily = family;
+              final selectedKind = kind;
+              if (displayName.isEmpty ||
+                  selectedFamily == null ||
+                  selectedKind == null) {
+                showAdminTopNotice(
+                  context,
+                  context.l10n.adminText('apparatus.kind_required'),
+                );
+                return;
               }
-              final maxHeight = MediaQuery.sizeOf(context).height * 0.85;
-              return Dialog(
-                insetPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 24,
+              final operationCapability = _operationCapabilityForFamily(
+                selectedFamily,
+              );
+              if (operationCapability.isEmpty) return;
+              capabilities.add(operationCapability);
+              final colorText = colorStations.text.trim();
+              final parsedColor =
+                  colorText.isEmpty ? null : int.tryParse(colorText);
+              if (selectedKind == 'color_pechat' &&
+                  (parsedColor == null ||
+                      parsedColor < _options.colorStationsMin ||
+                      parsedColor > _options.colorStationsMax)) {
+                showAdminTopNotice(
+                  context,
+                  this.context.l10n.adminText(
+                    'apparatus.color_stations_range',
+                    values: {
+                      'min': _options.colorStationsMin,
+                      'max': _options.colorStationsMax,
+                    },
+                  ),
+                );
+                return;
+              }
+              setState(() => _saving = true);
+              setDialogState(() {});
+              try {
+                final previousLevels = {
+                  for (final profile in current?.capabilityProfiles ??
+                      const <AdminApparatusCapabilityProfile>[])
+                    profile.code: profile.level,
+                };
+                final saved = await MobileApi.instance.adminCreateApparatus(
+                  displayName,
+                  id: current?.id ?? '',
+                  family: selectedFamily,
+                  kind: selectedKind,
+                  capabilities: capabilities,
+                  capabilityProfiles: [
+                    for (final code in capabilities)
+                      AdminApparatusCapabilityProfile(
+                        code: code,
+                        level: previousLevels[code] ?? 1,
+                      ),
+                  ],
+                  colorStations:
+                      selectedKind == 'color_pechat' || selectedKind == 'flexo'
+                          ? parsedColor
+                          : null,
+                  factoryMapObjectId: current?.factoryMapObjectId,
+                );
+                if (!mounted) return;
+                _replaceApparatus(saved);
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+                showAdminTopNotice(
+                  this.context,
+                  this.context.l10n.adminText(
+                        current == null
+                            ? 'apparatus.added'
+                            : 'apparatus.master_saved',
+                      ),
+                );
+              } catch (error) {
+                if (mounted) {
+                  showAdminTopNotice(
+                    this.context,
+                    error is MobileApiException
+                        ? error.message
+                        : this.context.l10n.adminText('apparatus.add_failed'),
+                  );
+                }
+              } finally {
+                if (mounted) setState(() => _saving = false);
+                if (dialogContext.mounted) setDialogState(() {});
+              }
+            }
+
+            return AlertDialog(
+              title: Text(
+                context.l10n.adminText(
+                  current == null ? 'apparatus.add' : 'apparatus.master_edit',
                 ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: maxHeight),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(12),
-                    child: _buildCreateEditorCard(context),
+              ),
+              content: SizedBox(
+                width: 520,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextField(
+                        controller: name,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          labelText: context.l10n.adminText('apparatus.name'),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: family,
+                        decoration: InputDecoration(
+                          labelText: context.l10n.adminText('apparatus.family'),
+                        ),
+                        items: [
+                          for (final value in _options.families)
+                            DropdownMenuItem(
+                              value: value,
+                              child: Text(
+                                _apparatusOptionLabel(value, context.l10n),
+                              ),
+                            ),
+                        ],
+                        onChanged: _saving
+                            ? null
+                            : (value) {
+                                setDialogState(() {
+                                  family = value;
+                                  if (!_options
+                                      .kindsForFamily(value)
+                                      .contains(kind)) {
+                                    kind = null;
+                                  }
+                                });
+                              },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey('$family:$kind'),
+                        initialValue: kind,
+                        decoration: InputDecoration(
+                          labelText: context.l10n.adminText('apparatus.kind'),
+                        ),
+                        items: [
+                          for (final value in _options.kindsForFamily(family))
+                            DropdownMenuItem(
+                              value: value,
+                              child: Text(
+                                _apparatusOptionLabel(value, context.l10n),
+                              ),
+                            ),
+                        ],
+                        onChanged: _saving
+                            ? null
+                            : (value) => setDialogState(() => kind = value),
+                      ),
+                      if (kind == 'color_pechat' || kind == 'flexo') ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: colorStations,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.adminText(
+                              'apparatus.color_stations',
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      Text(
+                        context.l10n.adminText('apparatus.capabilities'),
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final capability in _options.capabilities)
+                            FilterChip(
+                              label: Text(
+                                _apparatusOptionLabel(capability, context.l10n),
+                              ),
+                              selected: capabilities.contains(capability),
+                              onSelected: _saving
+                                  ? null
+                                  : (selected) {
+                                      setDialogState(() {
+                                        if (selected) {
+                                          capabilities.add(capability);
+                                        } else {
+                                          capabilities.remove(capability);
+                                        }
+                                      });
+                                    },
+                            ),
+                        ],
+                      ),
+                      if (current != null) ...[
+                        const SizedBox(height: 16),
+                        SelectableText(
+                          current.id,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-              );
-            },
-          );
-        },
-      );
-    } finally {
-      _createEditorDialogSetState = null;
-      _closeCreateEditorDialog = null;
-      _createEditorDialogOpen = false;
-    }
-  }
-
-  void _closeCreateEditor() {
-    _updateCreateEditorState(() {
-      _editingApparatusId = null;
-      _apparatusName.clear();
-      _apparatusColorStations.clear();
-      _selectedApparatusFamily = null;
-      _selectedApparatusKind = null;
-      _selectedApparatusCapabilities = {};
-      _editingCapabilityProfiles = const [];
-    });
-    final closeDialog = _closeCreateEditorDialog;
-    _createEditorDialogSetState = null;
-    _closeCreateEditorDialog = null;
-    closeDialog?.call();
-  }
-
-  Future<void> _pickApparatusFamily() async {
-    final picked = await _showApparatusSinglePicker(
-      context,
-      title: context.l10n.adminText('apparatus.family_select'),
-      options: _apparatusOptions.families,
-      selected: _selectedApparatusFamily,
-    );
-    if (picked == null || !mounted) {
-      return;
-    }
-    _updateCreateEditorState(() {
-      _selectedApparatusFamily = picked;
-      if (!_apparatusOptions.kindsForFamily(picked).contains(
-            _selectedApparatusKind,
-          )) {
-        _selectedApparatusKind = null;
-      }
-      if (_selectedApparatusKind != 'color_pechat') {
-        _apparatusColorStations.clear();
-      }
-    });
-  }
-
-  Future<void> _pickApparatusKind() async {
-    final family = _selectedApparatusFamily;
-    if (family == null) {
-      showAdminTopNotice(
-        context,
-        context.l10n.adminText('apparatus.family_required'),
-      );
-      return;
-    }
-    final picked = await _showApparatusSinglePicker(
-      context,
-      title: context.l10n.adminText('apparatus.kind_select'),
-      options: _apparatusOptions.kindsForFamily(family),
-      selected: _selectedApparatusKind,
-    );
-    if (picked == null || !mounted) {
-      return;
-    }
-    _updateCreateEditorState(() {
-      _selectedApparatusKind = picked;
-      if (picked != 'color_pechat') {
-        _apparatusColorStations.clear();
-      }
-    });
-  }
-
-  Future<void> _pickApparatusCapabilities() async {
-    final picked = await _showApparatusCapabilitiesPicker(
-      context,
-      options: _apparatusOptions.capabilities,
-      selected: _selectedApparatusCapabilities,
-    );
-    if (picked == null || !mounted) {
-      return;
-    }
-    _updateCreateEditorState(() => _selectedApparatusCapabilities = picked);
-  }
-
-  void _toggleGroupExpanded(AdminApparatusGroup group) {
-    final key = group.name.trim().toLowerCase();
-    setState(() {
-      if (_expandedGroupName?.trim().toLowerCase() == key) {
-        _expandedGroupName = null;
-      } else {
-        _expandedGroupName = group.name;
-      }
-    });
-  }
-
-  String? _groupOwningApparatus(String apparatusTitle) {
-    for (final group in _groups) {
-      for (final name in group.apparatus) {
-        if (productionMapWarehouseTitlesMatch(name, apparatusTitle)) {
-          return group.name;
-        }
-      }
-    }
-    return null;
-  }
-
-  List<AdminApparatus> _selectableApparatusForEditor() {
-    final editingKey = _editingGroupName?.trim().toLowerCase() ?? '';
-    return _apparatus.where((item) {
-      final owner = _groupOwningApparatus(item.name);
-      if (owner == null) {
-        return true;
-      }
-      return editingKey.isNotEmpty && owner.trim().toLowerCase() == editingKey;
-    }).toList(growable: false);
-  }
-
-  Future<void> _assignApparatusToGroup(
-    AdminApparatus apparatus,
-    String? groupName,
-  ) async {
-    final targetKey = groupName?.trim().toLowerCase() ?? '';
-    if (targetKey.isNotEmpty &&
-        !_groups.any((group) => group.name.trim().toLowerCase() == targetKey)) {
-      showAdminTopNotice(
-        context,
-        context.l10n.adminText('apparatus.group_not_found'),
-      );
-      return;
-    }
-
-    final changedGroups = <AdminApparatusGroup>[];
-    final nextGroups = <AdminApparatusGroup>[];
-    for (final group in _groups) {
-      final nextApparatus = [
-        for (final item in group.apparatus)
-          if (!productionMapWarehouseTitlesMatch(item, apparatus.name)) item,
-      ];
-      if (group.name.trim().toLowerCase() == targetKey) {
-        nextApparatus.add(apparatus.name);
-      }
-      final next = AdminApparatusGroup(
-        name: group.name,
-        apparatus: nextApparatus,
-      );
-      nextGroups.add(next);
-      if (next.apparatus.length != group.apparatus.length ||
-          next.apparatus.asMap().entries.any(
-                (entry) => entry.value != group.apparatus[entry.key],
-              )) {
-        changedGroups.add(next);
-      }
-    }
-    if (changedGroups.isEmpty) {
-      showAdminTopNotice(
-        context,
-        targetKey.isEmpty
-            ? context.l10n.adminText('apparatus.assign_removed')
-            : context.l10n.adminText('apparatus.assign_already'),
-      );
-      return;
-    }
-
-    setState(() => _groups = nextGroups);
-    try {
-      for (final group in changedGroups) {
-        await MobileApi.instance.adminSaveApparatusGroup(group);
-      }
-      _saveCache();
-      if (mounted) {
-        showAdminTopNotice(
-          context,
-          targetKey.isEmpty
-              ? context.l10n.adminText('apparatus.assign_removed')
-              : context.l10n.adminText('apparatus.assigned'),
-        );
-      }
-    } catch (_) {
-      await _load(showLoading: false);
-      if (mounted) {
-        showAdminTopNotice(
-          context,
-          context.l10n.adminText('apparatus.save_failed'),
-        );
-      }
-    }
-  }
-
-  Future<void> _showApparatusSettings(AdminApparatus apparatus) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) {
-        return Dialog(
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 24,
-          ),
-          child: _ApparatusSettingsCard(
-            apparatus: apparatus,
-            groups: _groups,
-            currentGroupName: _groupOwningApparatus(apparatus.name),
-            onClose: () => Navigator.of(dialogContext).pop(),
-            onAssignGroup: (groupName) =>
-                _assignApparatusToGroup(apparatus, groupName),
-            onMapObjectChanged: (objectId) =>
-                _saveApparatusFactoryMapObject(apparatus, objectId),
-            onTrainingChanged: (enabled) =>
-                _saveApparatusTraining(apparatus, enabled),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<AdminApparatus?> _saveApparatusFactoryMapObject(
-    AdminApparatus apparatus,
-    String objectId,
-  ) async {
-    final normalizedObjectId = objectId.trim();
-    if (normalizedObjectId.isNotEmpty) {
-      for (final item in _apparatus) {
-        if (item.id != apparatus.id &&
-            item.factoryMapObjectId.trim() == normalizedObjectId) {
-          showAdminTopNotice(
-            context,
-            context.l10n.adminText(
-              'apparatus.map_duplicate',
-              values: {'name': item.name},
-            ),
-          );
-          return null;
-        }
-      }
-    }
-
-    try {
-      final saved = await MobileApi.instance.adminCreateApparatus(
-        apparatus.name,
-        id: apparatus.id,
-        family: apparatus.family,
-        kind: apparatus.kind,
-        capabilities: apparatus.capabilities,
-        capabilityProfiles: apparatus.capabilityProfiles,
-        colorStations: apparatus.colorStations,
-        factoryMapObjectId: normalizedObjectId,
-      );
-      if (!mounted) {
-        return null;
-      }
-      final visibleSaved =
-          saved.copyWith(trainingEnabled: apparatus.trainingEnabled);
-      setState(() {
-        _apparatus = [
-          for (final item in _apparatus)
-            if (item.id == saved.id) visibleSaved else item,
-        ];
-      });
-      _saveCache();
-      showAdminTopNotice(
-        context,
-        normalizedObjectId.isEmpty
-            ? context.l10n.adminText('apparatus.map_removed')
-            : context.l10n.adminText('apparatus.map_assigned'),
-      );
-      return visibleSaved;
-    } catch (_) {
-      if (mounted) {
-        showAdminTopNotice(
-          context,
-          context.l10n.adminText('apparatus.map_save_failed'),
-        );
-      }
-      return null;
-    }
-  }
-
-  Future<AdminApparatus?> _saveApparatusTraining(
-    AdminApparatus apparatus,
-    bool enabled,
-  ) async {
-    var current = apparatus;
-    for (final item in _apparatus) {
-      if (item.id == apparatus.id) {
-        current = item;
-        break;
-      }
-    }
-    try {
-      await MobileApi.instance.adminSetTrainingApparatusMode(
-        apparatus: current.name,
-        enabled: enabled,
-      );
-      final saved = current.copyWith(trainingEnabled: enabled);
-      if (!mounted) {
-        return null;
-      }
-      setState(() {
-        _apparatus = [
-          for (final item in _apparatus)
-            if (item.id == saved.id) saved else item,
-        ];
-      });
-      _saveCache();
-      showAdminTopNotice(
-        context,
-        enabled
-            ? context.l10n.adminText('apparatus.training_enabled')
-            : context.l10n.adminText('apparatus.training_disabled'),
-      );
-      return saved;
-    } catch (_) {
-      if (mounted) {
-        showAdminTopNotice(
-          context,
-          context.l10n.adminText('apparatus.training_save_failed'),
-        );
-      }
-      return null;
-    }
-  }
-
-  Future<void> _save() async {
-    final name = _name.text.trim();
-    if (name.isEmpty || _selected.isEmpty || _saving) {
-      showAdminTopNotice(
-        context,
-        context.l10n.adminText('apparatus.group_required'),
-      );
-      return;
-    }
-    setState(() => _saving = true);
-    try {
-      final saved = await MobileApi.instance.adminSaveApparatusGroup(
-        AdminApparatusGroup(
-          name: name,
-          apparatus: _selected.toList(growable: false),
-        ),
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        final key = saved.name.toLowerCase();
-        final next = [
-          for (final group in _groups)
-            if (group.name.toLowerCase() != key) group,
-          saved,
-        ]..sort((left, right) => left.name.compareTo(right.name));
-        _groups = next;
-        _clearEditor();
-        _expandedGroupName = saved.name;
-      });
-      _saveCache();
-      showAdminTopNotice(
-        context,
-        context.l10n.adminText('apparatus.saved'),
-      );
-    } catch (_) {
-      if (mounted) {
-        showAdminTopNotice(
-          context,
-          context.l10n.adminText('apparatus.save_failed'),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
-    }
-  }
-
-  Future<void> _createApparatus() async {
-    final name = _apparatusName.text.trim();
-    if (name.isEmpty || _creatingApparatus) {
-      showAdminTopNotice(
-        context,
-        context.l10n.adminText('apparatus.name_required'),
-      );
-      return;
-    }
-    final family = _selectedApparatusFamily;
-    final kind = _selectedApparatusKind;
-    if (family == null ||
-        kind == null ||
-        _selectedApparatusCapabilities.isEmpty) {
-      showAdminTopNotice(
-        context,
-        context.l10n.adminText('apparatus.kind_required'),
-      );
-      return;
-    }
-    final colorStationsText = _apparatusColorStations.text.trim();
-    final parsedColorStations =
-        colorStationsText.isEmpty ? null : int.tryParse(colorStationsText);
-    final colorStations = kind == 'color_pechat' ? parsedColorStations : null;
-    if (colorStationsText.isNotEmpty &&
-        kind == 'color_pechat' &&
-        (colorStations == null ||
-            colorStations < _apparatusOptions.colorStationsMin ||
-            colorStations > _apparatusOptions.colorStationsMax)) {
-      showAdminTopNotice(
-        context,
-        context.l10n.adminText(
-          'apparatus.color_stations_range',
-          values: {
-            'min': _apparatusOptions.colorStationsMin,
-            'max': _apparatusOptions.colorStationsMax,
+              ),
+              actions: [
+                TextButton(
+                  onPressed:
+                      _saving ? null : () => Navigator.of(dialogContext).pop(),
+                  child: Text(context.l10n.adminText('action.cancel')),
+                ),
+                FilledButton(
+                  onPressed: _saving ? null : save,
+                  child: _saving
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(context.l10n.adminText('action.save')),
+                ),
+              ],
+            );
           },
         ),
       );
-      return;
-    }
-    final capabilities = _apparatusOptions.capabilities
-        .where(_selectedApparatusCapabilities.contains)
-        .toList(growable: false);
-    final previousProfiles = {
-      for (final profile in _editingCapabilityProfiles)
-        profile.code.trim().toLowerCase(): profile,
-    };
-    final capabilityProfiles = <AdminApparatusCapabilityProfile>[];
-    for (final code in capabilities) {
-      final previous = previousProfiles[code];
-      capabilityProfiles.add(
-        AdminApparatusCapabilityProfile(
-          code: code,
-          level: previous?.level ?? 1,
-          validFromUnix: previous?.validFromUnix,
-          validToUnix: previous?.validToUnix,
-          enabled: previous?.enabled ?? true,
-        ),
-      );
-    }
-    final previousId = _editingApparatusId;
-    AdminApparatus? previous;
-    if (previousId != null) {
-      for (final item in _apparatus) {
-        if (item.id == previousId) {
-          previous = item;
-          break;
-        }
-      }
-    }
-    _updateCreateEditorState(() => _creatingApparatus = true);
-    try {
-      final created = await MobileApi.instance.adminCreateApparatus(
-        name,
-        id: previousId ?? '',
-        family: family,
-        kind: kind,
-        capabilities: capabilities,
-        capabilityProfiles: capabilityProfiles,
-        colorStations: colorStations,
-        factoryMapObjectId: previous?.factoryMapObjectId,
-      );
-      if (!mounted) {
-        return;
-      }
-      final visibleCreated = created.copyWith(
-        trainingEnabled: previous?.trainingEnabled ?? false,
-      );
-      setState(() {
-        final key = created.id.trim();
-        final next = [
-          for (final item in _apparatus)
-            if (previousId != null
-                ? item.id != previousId
-                : item.id != key &&
-                    item.name.toLowerCase() != created.name.toLowerCase())
-              item,
-          visibleCreated,
-        ]..sort(
-            (left, right) => left.name.toLowerCase().compareTo(
-                  right.name.toLowerCase(),
-                ),
-          );
-        _apparatus = next;
-        if (previous != null && previous.name != created.name) {
-          _selected
-            ..remove(previous.name)
-            ..add(created.name);
-        }
-        _selected.add(created.name);
-        _editingApparatusId = null;
-        _apparatusName.clear();
-        _apparatusColorStations.clear();
-        _selectedApparatusFamily = null;
-        _selectedApparatusKind = null;
-        _selectedApparatusCapabilities = {};
-        _editingCapabilityProfiles = const [];
-      });
-      _saveCache();
-      final closeDialog = _closeCreateEditorDialog;
-      _createEditorDialogSetState = null;
-      _closeCreateEditorDialog = null;
-      closeDialog?.call();
-      showAdminTopNotice(
-        context,
-        previousId == null
-            ? context.l10n.adminText('apparatus.added')
-            : context.l10n.adminText('apparatus.master_saved'),
-      );
-    } catch (_) {
-      if (mounted) {
-        showAdminTopNotice(
-          context,
-          context.l10n.adminText('apparatus.add_failed'),
-        );
-      }
     } finally {
-      if (mounted) {
-        _updateCreateEditorState(() => _creatingApparatus = false);
-      }
+      name.dispose();
+      colorStations.dispose();
     }
   }
 
-  Widget _buildCreateTab(BuildContext context, double bottomPadding) {
-    final scheme = Theme.of(context).colorScheme;
+  Future<AdminApparatus?> _savePlacement(
+    AdminApparatus apparatus,
+    String objectId,
+  ) async {
+    final current = _latest(apparatus);
+    final normalized = objectId.trim();
+    if (normalized.isNotEmpty &&
+        _apparatus.any(
+          (item) =>
+              item.id != current.id &&
+              item.factoryMapObjectId.trim() == normalized,
+        )) {
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('apparatus.map_duplicate'),
+      );
+      return null;
+    }
+    try {
+      final saved = await MobileApi.instance.adminPatchCanonicalApparatus(
+        apparatus: current,
+        patch: {
+          'placement':
+              normalized.isEmpty ? null : {'factory_map_object_id': normalized},
+        },
+      );
+      if (normalized != saved.factoryMapObjectId.trim()) {
+        throw const MobileApiException(
+          code: 'canonical_placement_not_applied',
+          message: 'Canonical joylashuv yangilanmadi',
+        );
+      }
+      if (!mounted) return null;
+      _replaceApparatus(saved);
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText(
+          normalized.isEmpty
+              ? 'apparatus.map_removed'
+              : 'apparatus.map_assigned',
+        ),
+      );
+      return saved;
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : context.l10n.adminText('apparatus.map_save_failed'),
+        );
+      }
+      return null;
+    }
+  }
+
+  Future<AdminApparatus?> _saveTraining(
+    AdminApparatus apparatus,
+    bool enabled,
+  ) async {
+    final current = _latest(apparatus);
+    final profiles = {
+      for (final profile in current.capabilityProfiles)
+        profile.code: profile.level,
+    };
+    if (enabled) {
+      profiles['training'] = profiles['training'] ?? 1;
+    } else {
+      profiles.remove('training');
+    }
+    try {
+      final saved = await MobileApi.instance.adminPatchCanonicalApparatus(
+        apparatus: current,
+        patch: {
+          'capabilities': [
+            for (final entry in profiles.entries)
+              {'code': entry.key, 'level': entry.value},
+          ],
+          'training': {
+            'enabled': enabled,
+            'queue_enabled': enabled,
+            'material_tracking_enabled': enabled,
+          },
+        },
+      );
+      if (!mounted) return null;
+      _replaceApparatus(saved);
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText(
+          enabled
+              ? 'apparatus.training_enabled'
+              : 'apparatus.training_disabled',
+        ),
+      );
+      return saved;
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : context.l10n.adminText('apparatus.training_save_failed'),
+        );
+      }
+      return null;
+    }
+  }
+
+  Future<void> _showSettings(AdminApparatus apparatus) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: _CanonicalApparatusSettingsCard(
+          apparatus: _latest(apparatus),
+          onClose: () => Navigator.of(dialogContext).pop(),
+          onPlacementChanged: _savePlacement,
+          onTrainingChanged: _saveTraining,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCatalog(double bottomPadding) {
     return ColoredBox(
       color: AppTheme.shellStart(context),
       child: ListView(
-        controller: _createScrollController,
-        padding: EdgeInsets.fromLTRB(
-          _apparatusSettingsPanelGap,
-          _apparatusSettingsPanelTopGap,
-          _apparatusSettingsPanelGap,
-          bottomPadding,
-        ),
+        padding: EdgeInsets.fromLTRB(8, 10, 8, bottomPadding),
         children: [
           FilledButton.icon(
-            onPressed: _creatingApparatus
-                ? null
-                : () {
-                    _clearApparatusEditor();
-                    unawaited(_showApparatusEditor());
-                  },
-            icon: const Icon(Icons.add_circle_outline_rounded),
+            onPressed: _saving ? null : () => _showEditor(),
+            icon: const Icon(Icons.add_rounded),
             label: Text(context.l10n.adminText('apparatus.add')),
           ),
-          const SizedBox(height: 16),
-          Text(
-            context.l10n.adminText('apparatus.available'),
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           if (_apparatus.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                context.l10n.adminText('apparatus.empty'),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: Text(context.l10n.adminText('apparatus.empty')),
               ),
             )
           else
-            M3SegmentSpacedColumn(
-              padding: EdgeInsets.zero,
-              children: [
-                for (var index = 0; index < _apparatus.length; index++)
-                  _ApparatusListRow(
-                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                      index,
-                      _apparatus.length,
+            for (final apparatus in _apparatus)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: ListTile(
+                    leading: Icon(_apparatusIcon(apparatus)),
+                    title: Text(apparatus.name),
+                    subtitle: Text(
+                      '${_apparatusOptionLabel(apparatus.family, context.l10n)}'
+                      ' · ${apparatus.id}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    apparatus: _apparatus[index],
-                    onTap: () =>
-                        unawaited(_showApparatusSettings(_apparatus[index])),
-                    onLongPress: () =>
-                        unawaited(_showApparatusSettings(_apparatus[index])),
-                    onEdit: _apparatus[index].isDefault
-                        ? null
-                        : () => _editApparatus(_apparatus[index]),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (action) {
+                        if (action == 'edit') {
+                          unawaited(_showEditor(apparatus));
+                        } else if (action == 'settings') {
+                          unawaited(_showSettings(apparatus));
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'settings',
+                          child: Text(
+                            context.l10n.adminText('apparatus.settings'),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Text(context.l10n.adminText('action.edit')),
+                        ),
+                      ],
+                    ),
+                    onTap: () => _showSettings(apparatus),
                   ),
-              ],
-            ),
+                ),
+              ),
         ],
       ),
     );
   }
 
-  Widget _buildCreateEditorCard(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _editingApparatusId == null
-                        ? context.l10n.adminText('apparatus.add')
-                        : context.l10n.adminText('apparatus.edit'),
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                ),
-                IconButton(
-                  tooltip: context.l10n.adminText('action.close'),
-                  onPressed: _closeCreateEditor,
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            _buildCreateEditor(context),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCreateEditor(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_editingApparatusId != null) ...[
-          Material(
-            color: scheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(12),
+  Widget _buildGroups(double bottomPadding) {
+    final groups = canonicalApparatusGroups(_apparatus);
+    return ColoredBox(
+      color: AppTheme.shellStart(context),
+      child: ListView(
+        key: const ValueKey('canonical-apparatus-groups-list'),
+        padding: EdgeInsets.fromLTRB(8, 10, 8, bottomPadding),
+        children: [
+          Card(
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.all(16),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Icon(Icons.account_tree_outlined),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      context.l10n.adminText('apparatus.master_data_edit'),
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: scheme.onSecondaryContainer,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      context.l10n.adminText(
+                        'apparatus.groups_canonical_description',
+                      ),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      _closeCreateEditor();
-                    },
-                    child: Text(context.l10n.adminText('action.cancel')),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 10),
-        ],
-        TextField(
-          controller: _apparatusName,
-          focusNode: _apparatusNameFocus,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _createApparatus(),
-          decoration: appSurfaceInputDecoration(
-            context,
-            labelText: context.l10n.adminText('apparatus.name'),
-            hintText: 'Bobst 1',
-          ),
-        ),
-        const SizedBox(height: 8),
-        AdminPickerField(
-          label: context.l10n.adminText('apparatus.family'),
-          value: _selectedApparatusFamily == null
-              ? null
-              : _apparatusOptionLabel(
-                  _selectedApparatusFamily!,
-                  context.l10n,
-                ),
-          placeholder: context.l10n.adminText('apparatus.family_placeholder'),
-          enabled: !_creatingApparatus,
-          onTap: _pickApparatusFamily,
-        ),
-        const SizedBox(height: 8),
-        AdminPickerField(
-          label: context.l10n.adminText('apparatus.kind'),
-          value: _selectedApparatusKind == null
-              ? null
-              : _apparatusOptionLabel(_selectedApparatusKind!, context.l10n),
-          placeholder: _selectedApparatusFamily == null
-              ? context.l10n.adminText('apparatus.kind_before_family')
-              : context.l10n.adminText('apparatus.kind_placeholder'),
-          enabled: !_creatingApparatus && _selectedApparatusFamily != null,
-          onTap: _pickApparatusKind,
-        ),
-        const SizedBox(height: 8),
-        AdminPickerField(
-          label: context.l10n.adminText('apparatus.capabilities'),
-          value: _selectedApparatusCapabilities.isEmpty
-              ? null
-              : _selectedApparatusCapabilities
-                  .map((value) => _apparatusOptionLabel(value, context.l10n))
-                  .join(', '),
-          placeholder: context.l10n.adminText(
-            'apparatus.capability_placeholder',
-          ),
-          enabled: !_creatingApparatus,
-          onTap: _pickApparatusCapabilities,
-        ),
-        if (_selectedApparatusKind == 'color_pechat') ...[
           const SizedBox(height: 8),
-          TextField(
-            controller: _apparatusColorStations,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: appSurfaceInputDecoration(
-              context,
-              labelText: context.l10n.adminText('apparatus.color_stations'),
-              hintText: '${_apparatusOptions.colorStationsMin}-'
-                  '${_apparatusOptions.colorStationsMax}',
-            ),
-          ),
-        ],
-        const SizedBox(height: 8),
-        FilledButton.icon(
-          onPressed: _creatingApparatus ? null : _createApparatus,
-          icon: const Icon(Icons.precision_manufacturing_outlined),
-          label: Text(
-            _creatingApparatus
-                ? context.l10n.adminText('action.saving')
-                : _editingApparatusId == null
-                    ? context.l10n.adminText('apparatus.add')
-                    : context.l10n.adminText('apparatus.master_save'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGroupsTab(BuildContext context, double bottomPadding) {
-    final scheme = Theme.of(context).colorScheme;
-    final selectableApparatus = _selectableApparatusForEditor();
-    return ColoredBox(
-      color: AppTheme.shellStart(context),
-      child: ListView(
-        controller: _groupsScrollController,
-        padding: EdgeInsets.fromLTRB(
-          _apparatusSettingsPanelGap,
-          _apparatusSettingsPanelTopGap,
-          _apparatusSettingsPanelGap,
-          bottomPadding,
-        ),
-        children: [
-          if (_editingGroupName != null) ...[
-            Material(
-              color: scheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
+          if (groups.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: Text(
+                  context.l10n.adminText('apparatus.groups_empty'),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        context.l10n.adminText(
-                          'apparatus.editing_group',
-                          values: {'name': _editingGroupName},
+              ),
+            )
+          else
+            for (final group in groups)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: ExpansionTile(
+                    key: ValueKey(
+                      'canonical-apparatus-group-${group.operation}',
+                    ),
+                    leading: Icon(_apparatusGroupIcon(group.operation)),
+                    title: Text(
+                      canonicalApparatusGroupLabel(group, context.l10n),
+                    ),
+                    subtitle: Text(
+                      context.l10n.adminText(
+                        'apparatus.count',
+                        values: {'count': '${group.apparatus.length}'},
+                      ),
+                    ),
+                    children: [
+                      for (final apparatus in group.apparatus)
+                        ListTile(
+                          key: ValueKey(
+                            'canonical-apparatus-group-item-${apparatus.id}',
+                          ),
+                          leading: Icon(_apparatusIcon(apparatus)),
+                          title: Text(apparatus.name),
+                          subtitle: SelectableText(apparatus.id),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () => _showSettings(apparatus),
                         ),
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: scheme.onSecondaryContainer,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _clearEditor,
-                      child: Text(context.l10n.adminText('action.cancel')),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-          TextField(
-            controller: _name,
-            focusNode: _nameFocus,
-            decoration: appSurfaceInputDecoration(
-              context,
-              labelText: context.l10n.adminText('apparatus.group_name'),
-              hintText: 'bosma',
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            context.l10n.adminText('apparatus.group_apparatus'),
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 8),
-          if (_apparatus.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                context.l10n.adminText('apparatus.empty'),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-              ),
-            )
-          else if (selectableApparatus.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                _editingGroupName == null
-                    ? context.l10n.adminText(
-                        'apparatus.no_free_apparatus',
-                      )
-                    : context.l10n.adminText(
-                        'apparatus.no_free_apparatus_edit',
-                      ),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      height: 1.3,
-                    ),
-              ),
-            )
-          else
-            M3SegmentSpacedColumn(
-              padding: EdgeInsets.zero,
-              children: [
-                for (var index = 0; index < selectableApparatus.length; index++)
-                  _ApparatusSelectRow(
-                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                      index,
-                      selectableApparatus.length,
-                    ),
-                    title: selectableApparatus[index].name,
-                    selected: _selected.contains(
-                      selectableApparatus[index].name,
-                    ),
-                    onToggle: () {
-                      final apparatusName = selectableApparatus[index].name;
-                      setState(() {
-                        if (_selected.contains(apparatusName)) {
-                          _selected.remove(apparatusName);
-                        } else {
-                          _selected.add(apparatusName);
-                        }
-                      });
-                    },
+                    ],
                   ),
-              ],
-            ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _saving ? null : _save,
-            icon: const Icon(Icons.save_outlined),
-            label: Text(
-              _saving
-                  ? context.l10n.adminText('action.saving')
-                  : context.l10n.adminText('apparatus.group_save'),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            context.l10n.adminText('apparatus.saved_groups'),
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w800,
                 ),
-          ),
-          const SizedBox(height: 8),
-          if (_groups.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                context.l10n.adminText('apparatus.groups_empty'),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
               ),
-            )
-          else
-            M3SegmentSpacedColumn(
-              padding: EdgeInsets.zero,
-              children: [
-                for (var index = 0; index < _groups.length; index++)
-                  _ApparatusGroupListTile(
-                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                      index,
-                      _groups.length,
-                    ),
-                    group: _groups[index],
-                    expanded: _expandedGroupName?.trim().toLowerCase() ==
-                        _groups[index].name.trim().toLowerCase(),
-                    editing: _editingGroupName?.trim().toLowerCase() ==
-                        _groups[index].name.trim().toLowerCase(),
-                    onToggle: () => _toggleGroupExpanded(_groups[index]),
-                    onEdit: () => _editGroup(_groups[index]),
-                  ),
-              ],
-            ),
         ],
       ),
     );
@@ -1276,15 +698,7 @@ class _AdminApparatusSettingsScreenState
       child: _loading
           ? const Center(child: AppLoadingIndicator())
           : _loadError != null
-              ? AppRetryState(
-                  onRetry: () async {
-                    setState(() {
-                      _loading = true;
-                      _loadError = null;
-                    });
-                    await _load();
-                  },
-                )
+              ? AppRetryState(onRetry: _load)
               : Column(
                   children: [
                     AdminSurfaceTabBar(
@@ -1306,9 +720,8 @@ class _AdminApparatusSettingsScreenState
                         ),
                         Tab(
                           height: 38,
-                          text: context.l10n.adminText(
-                            'apparatus.tabs_capacity',
-                          ),
+                          text:
+                              context.l10n.adminText('apparatus.tabs_capacity'),
                         ),
                       ],
                     ),
@@ -1316,14 +729,9 @@ class _AdminApparatusSettingsScreenState
                       child: TabBarView(
                         controller: _tabController,
                         children: [
-                          _buildCreateTab(context, bottomPadding),
-                          _buildGroupsTab(context, bottomPadding),
-                          ColoredBox(
-                            color: AppTheme.shellStart(context),
-                            child: AdminQueuePolicyPanel(
-                              bottomPadding: bottomPadding,
-                            ),
-                          ),
+                          _buildCatalog(bottomPadding),
+                          _buildGroups(bottomPadding),
+                          AdminQueuePolicyPanel(bottomPadding: bottomPadding),
                           AdminApparatusCapacityPanel(
                             apparatus: _apparatus,
                             bottomPadding: bottomPadding,
@@ -1337,570 +745,97 @@ class _AdminApparatusSettingsScreenState
   }
 }
 
-String _apparatusOptionLabel(String value, AppLocalizations l10n) {
-  return switch (value) {
-    'pechat' => l10n.adminText('apparatus.option.pechat'),
-    'laminatsiya' => l10n.adminText('apparatus.option.laminatsiya'),
-    'rezka' => l10n.adminText('apparatus.option.rezka'),
-    'paket' => l10n.adminText('apparatus.option.paket'),
-    'kley' => l10n.adminText('apparatus.option.kley'),
-    'other' => l10n.adminText('apparatus.option.other'),
-    'color_pechat' => l10n.adminText('apparatus.option.color_pechat'),
-    'flexo' => l10n.adminText('apparatus.option.flexo'),
-    'extruder_laminatsiya' =>
-      l10n.adminText('apparatus.option.extruder_laminatsiya'),
-    'holodniy_kley' => l10n.adminText('apparatus.option.holodniy_kley'),
-    'print' => l10n.adminText('apparatus.option.print'),
-    'laminate' => l10n.adminText('apparatus.option.laminate'),
-    'cut' => l10n.adminText('apparatus.option.cut'),
-    'package' => l10n.adminText('apparatus.option.package'),
-    'glue' => l10n.adminText('apparatus.option.glue'),
-    'apparatus' => l10n.adminText('apparatus.option.apparatus'),
-    _ => value,
-  };
-}
-
-Future<String?> _showApparatusSinglePicker(
-  BuildContext context, {
-  required String title,
-  required List<String> options,
-  String? selected,
-}) {
-  return showModalBottomSheet<String>(
-    context: context,
-    useSafeArea: true,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _ApparatusSinglePickerSheet(
-      title: title,
-      options: options,
-      selected: selected,
-    ),
-  );
-}
-
-class _ApparatusSinglePickerSheet extends StatelessWidget {
-  const _ApparatusSinglePickerSheet({
-    required this.title,
-    required this.options,
-    required this.selected,
-  });
-
-  final String title;
-  final List<String> options;
-  final String? selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return FractionallySizedBox(
-      heightFactor: 0.58,
-      child: Material(
-        color: scheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: scheme.outlineVariant,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                itemCount: options.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 6),
-                itemBuilder: (context, index) {
-                  final option = options[index];
-                  final isSelected = option == selected;
-                  return ListTile(
-                    title: Text(
-                      _apparatusOptionLabel(option, context.l10n),
-                    ),
-                    subtitle: Text(option),
-                    selected: isSelected,
-                    trailing: Icon(
-                      isSelected
-                          ? Icons.check_circle_rounded
-                          : Icons.radio_button_unchecked_rounded,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    tileColor: scheme.surfaceContainerHighest,
-                    selectedTileColor: scheme.primaryContainer,
-                    onTap: () => Navigator.of(context).pop(option),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-Future<Set<String>?> _showApparatusCapabilitiesPicker(
-  BuildContext context, {
-  required List<String> options,
-  required Set<String> selected,
-}) {
-  return showModalBottomSheet<Set<String>>(
-    context: context,
-    useSafeArea: true,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _ApparatusCapabilitiesPickerSheet(
-      options: options,
-      selected: selected,
-    ),
-  );
-}
-
-class _ApparatusCapabilitiesPickerSheet extends StatefulWidget {
-  const _ApparatusCapabilitiesPickerSheet({
-    required this.options,
-    required this.selected,
-  });
-
-  final List<String> options;
-  final Set<String> selected;
-
-  @override
-  State<_ApparatusCapabilitiesPickerSheet> createState() =>
-      _ApparatusCapabilitiesPickerSheetState();
-}
-
-class _ApparatusCapabilitiesPickerSheetState
-    extends State<_ApparatusCapabilitiesPickerSheet> {
-  late final Set<String> _selected = {...widget.selected};
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return FractionallySizedBox(
-      heightFactor: 0.72,
-      child: Material(
-        color: scheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: scheme.outlineVariant,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      context.l10n.adminText(
-                        'apparatus.capability_placeholder',
-                      ),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                itemCount: widget.options.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 6),
-                itemBuilder: (context, index) {
-                  final option = widget.options[index];
-                  final isSelected = _selected.contains(option);
-                  return CheckboxListTile(
-                    title: Text(
-                      _apparatusOptionLabel(option, context.l10n),
-                    ),
-                    subtitle: Text(option),
-                    value: isSelected,
-                    selected: isSelected,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    tileColor: scheme.surfaceContainerHighest,
-                    selectedTileColor: scheme.primaryContainer,
-                    onChanged: (value) {
-                      setState(() {
-                        if (value == true) {
-                          _selected.add(option);
-                        } else {
-                          _selected.remove(option);
-                        }
-                      });
-                    },
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _selected.isEmpty
-                      ? null
-                      : () => Navigator.of(context).pop({..._selected}),
-                  icon: const Icon(Icons.check_rounded),
-                  label: Text(context.l10n.adminText('action.confirm')),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-IconData _apparatusIcon(String title) {
-  if (productionMapIsPechatApparatus(title)) {
-    return Icons.print_outlined;
-  }
-  if (productionMapIsLaminatsiyaApparatus(title)) {
-    return Icons.layers_outlined;
-  }
-  if (productionMapIsRezkaApparatus(title)) {
-    return Icons.content_cut_outlined;
-  }
-  return Icons.precision_manufacturing_rounded;
-}
-
-String _apparatusKindLabel(String title, AppLocalizations l10n) {
-  if (productionMapIsPechatApparatus(title)) {
-    return l10n.adminText('apparatus.kind.printing');
-  }
-  if (productionMapIsLaminatsiyaApparatus(title)) {
-    return l10n.adminText('apparatus.kind.lamination');
-  }
-  if (productionMapIsRezkaApparatus(title)) {
-    return l10n.adminText('apparatus.kind.cutting');
-  }
-  return l10n.adminText('label.apparatus');
-}
-
-String _apparatusMetadataLabel(
-  AdminApparatus apparatus,
-  AppLocalizations l10n,
-) {
-  final kind = apparatus.kind.trim();
-  final capabilities = apparatus.capabilities.join(', ');
-  if (kind.isNotEmpty && capabilities.isNotEmpty) {
-    return '$kind • $capabilities';
-  }
-  if (kind.isNotEmpty) {
-    return kind;
-  }
-  return _apparatusKindLabel(apparatus.name, l10n);
-}
-
-Widget _apparatusLeading(BuildContext context, String title) {
-  final scheme = Theme.of(context).colorScheme;
-  return SizedBox.square(
-    dimension: 30,
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.secondaryContainer,
-        shape: BoxShape.circle,
-      ),
-      child: Icon(
-        _apparatusIcon(title),
-        size: 16,
-        color: scheme.onSecondaryContainer,
-      ),
-    ),
-  );
-}
-
-class _ApparatusListRow extends StatelessWidget {
-  const _ApparatusListRow({
-    required this.slot,
+class _CanonicalApparatusSettingsCard extends StatefulWidget {
+  const _CanonicalApparatusSettingsCard({
     required this.apparatus,
-    required this.onTap,
-    this.onLongPress,
-    this.onEdit,
-  });
-
-  final M3SegmentVerticalSlot slot;
-  final AdminApparatus apparatus;
-  final VoidCallback onTap;
-  final VoidCallback? onLongPress;
-  final VoidCallback? onEdit;
-
-  @override
-  Widget build(BuildContext context) {
-    return AdminSummaryCard(
-      slot: slot,
-      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      title: apparatus.name,
-      subtitle: _apparatusMetadataLabel(apparatus, context.l10n),
-      value: '',
-      showChevron: true,
-      onTap: onTap,
-      onLongPress: onLongPress,
-      fixedHeight: 61,
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-      elevation: 4,
-      leading: _apparatusLeading(context, apparatus.name),
-      trailing: onEdit == null
-          ? null
-          : IconButton(
-              tooltip: context.l10n.adminText('apparatus.master_data_edit'),
-              onPressed: onEdit,
-              icon: const Icon(Icons.edit_outlined),
-              visualDensity: VisualDensity.compact,
-            ),
-      titleMaxLines: 1,
-      subtitleMaxLines: 1,
-      titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            height: 1.05,
-          ),
-    );
-  }
-}
-
-class _ApparatusSelectRow extends StatelessWidget {
-  const _ApparatusSelectRow({
-    required this.slot,
-    required this.title,
-    required this.selected,
-    required this.onToggle,
-  });
-
-  final M3SegmentVerticalSlot slot;
-  final String title;
-  final bool selected;
-  final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return AdminSummaryCard(
-      slot: slot,
-      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      title: title,
-      subtitle: _apparatusKindLabel(title, context.l10n),
-      value: '',
-      showChevron: false,
-      fixedHeight: 61,
-      padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
-      elevation: 4,
-      backgroundColor: selected
-          ? scheme.primaryContainer.withValues(alpha: 0.34)
-          : scheme.surfaceContainerLowest,
-      leading: _apparatusLeading(context, title),
-      trailing: Checkbox(
-        value: selected,
-        onChanged: (_) => onToggle(),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
-      ),
-      onTap: onToggle,
-      titleMaxLines: 1,
-      subtitleMaxLines: 1,
-      titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.05,
-          ),
-    );
-  }
-}
-
-class _ApparatusSettingsCard extends StatefulWidget {
-  const _ApparatusSettingsCard({
-    required this.apparatus,
-    required this.groups,
-    required this.currentGroupName,
     required this.onClose,
-    required this.onAssignGroup,
-    required this.onMapObjectChanged,
+    required this.onPlacementChanged,
     required this.onTrainingChanged,
   });
 
   final AdminApparatus apparatus;
-  final List<AdminApparatusGroup> groups;
-  final String? currentGroupName;
   final VoidCallback onClose;
-  final Future<void> Function(String? groupName) onAssignGroup;
-  final Future<AdminApparatus?> Function(String objectId) onMapObjectChanged;
-  final Future<AdminApparatus?> Function(bool enabled) onTrainingChanged;
+  final Future<AdminApparatus?> Function(
+    AdminApparatus apparatus,
+    String objectId,
+  ) onPlacementChanged;
+  final Future<AdminApparatus?> Function(AdminApparatus apparatus, bool enabled)
+      onTrainingChanged;
 
   @override
-  State<_ApparatusSettingsCard> createState() => _ApparatusSettingsCardState();
+  State<_CanonicalApparatusSettingsCard> createState() =>
+      _CanonicalApparatusSettingsCardState();
 }
 
-class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
-  late String _selectedGroupName;
+class _CanonicalApparatusSettingsCardState
+    extends State<_CanonicalApparatusSettingsCard> {
   late AdminApparatus _apparatus;
-  bool _savingGroup = false;
-  bool _savingMapObject = false;
+  bool _savingPlacement = false;
   bool _savingTraining = false;
 
   @override
   void initState() {
     super.initState();
     _apparatus = widget.apparatus;
-    final current = widget.currentGroupName?.trim() ?? '';
-    _selectedGroupName = widget.groups.any(
-      (group) => group.name.trim().toLowerCase() == current.toLowerCase(),
-    )
-        ? current
-        : '';
   }
 
-  Future<void> _chooseMapObject() async {
-    if (_savingMapObject) {
-      return;
-    }
+  Future<void> _choosePlacement() async {
+    if (_savingPlacement) return;
     final selection = await showAdminFactoryMapObjectPicker(
       context,
       initialObjectId: _apparatus.factoryMapObjectId,
     );
-    if (selection == null || !mounted) {
-      return;
-    }
-    setState(() => _savingMapObject = true);
+    if (selection == null || !mounted) return;
+    setState(() => _savingPlacement = true);
     try {
-      final saved = await widget.onMapObjectChanged(selection.objectId);
-      if (saved != null && mounted) {
-        setState(() => _apparatus = saved);
-      }
+      final saved = await widget.onPlacementChanged(
+        _apparatus,
+        selection.objectId,
+      );
+      if (saved != null && mounted) setState(() => _apparatus = saved);
     } finally {
-      if (mounted) {
-        setState(() => _savingMapObject = false);
-      }
+      if (mounted) setState(() => _savingPlacement = false);
     }
   }
 
-  Future<void> _clearMapObject() async {
-    if (_savingMapObject || _apparatus.factoryMapObjectId.trim().isEmpty) {
-      return;
-    }
-    setState(() => _savingMapObject = true);
+  Future<void> _clearPlacement() async {
+    if (_savingPlacement || _apparatus.factoryMapObjectId.isEmpty) return;
+    setState(() => _savingPlacement = true);
     try {
-      final saved = await widget.onMapObjectChanged('');
-      if (saved != null && mounted) {
-        setState(() => _apparatus = saved);
-      }
+      final saved = await widget.onPlacementChanged(_apparatus, '');
+      if (saved != null && mounted) setState(() => _apparatus = saved);
     } finally {
-      if (mounted) {
-        setState(() => _savingMapObject = false);
-      }
+      if (mounted) setState(() => _savingPlacement = false);
     }
   }
 
-  Widget _buildMapTab(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+  Future<void> _toggleTraining(bool enabled) async {
+    if (_savingTraining) return;
+    setState(() => _savingTraining = true);
+    try {
+      final saved = await widget.onTrainingChanged(_apparatus, enabled);
+      if (saved != null && mounted) setState(() => _apparatus = saved);
+    } finally {
+      if (mounted) setState(() => _savingTraining = false);
+    }
+  }
+
+  Widget _mapTab() {
     final objectId = _apparatus.factoryMapObjectId.trim();
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+      padding: const EdgeInsets.all(16),
       children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: objectId.isEmpty
-                ? scheme.surfaceContainerHighest
-                : scheme.primaryContainer.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                objectId.isEmpty
-                    ? Icons.location_off_outlined
-                    : Icons.view_in_ar_rounded,
-                color:
-                    objectId.isEmpty ? scheme.onSurfaceVariant : scheme.primary,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                objectId.isEmpty
-                    ? context.l10n.adminText('apparatus.map_unmarked')
-                    : context.l10n.adminText('apparatus.map_linked'),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                objectId.isEmpty
-                    ? context.l10n.adminText('apparatus.map_instruction')
-                    : objectId,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
+        if (objectId.isNotEmpty) SelectableText(objectId),
+        const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: _savingMapObject ? null : _chooseMapObject,
-          icon: _savingMapObject
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.map_outlined),
-          label: Text(
-            objectId.isEmpty
-                ? context.l10n.adminText('apparatus.map_select')
-                : context.l10n.adminText('apparatus.map_reselect'),
-          ),
+          onPressed: _savingPlacement ? null : _choosePlacement,
+          icon: const Icon(Icons.map_outlined),
+          label: Text(context.l10n.adminText('apparatus.choose_map_object')),
         ),
         if (objectId.isNotEmpty) ...[
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            onPressed: _savingMapObject ? null : _clearMapObject,
+            onPressed: _savingPlacement ? null : _clearPlacement,
             icon: const Icon(Icons.link_off_rounded),
             label: Text(context.l10n.adminText('apparatus.remove_link')),
           ),
@@ -1909,41 +844,21 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
     );
   }
 
-  Future<void> _setTrainingEnabled(bool enabled) async {
-    if (_savingTraining) {
-      return;
-    }
-    setState(() => _savingTraining = true);
-    try {
-      final saved = await widget.onTrainingChanged(enabled);
-      if (saved != null && mounted) {
-        setState(() => _apparatus = saved);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _savingTraining = false);
-      }
-    }
-  }
-
-  Widget _buildTrainingTab(BuildContext context) {
-    final enabled = _apparatus.trainingEnabled;
+  Widget _trainingTab() {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+      padding: const EdgeInsets.all(16),
       children: [
         SwitchListTile.adaptive(
           contentPadding: EdgeInsets.zero,
-          value: enabled,
-          onChanged: _savingTraining ? null : _setTrainingEnabled,
+          value: _apparatus.trainingEnabled,
+          onChanged: _savingTraining ? null : _toggleTraining,
           title: Text(context.l10n.adminText('apparatus.training_switch')),
           subtitle: Text(
-            enabled
-                ? context.l10n.adminText(
-                    'apparatus.training_on_description',
-                  )
-                : context.l10n.adminText(
-                    'apparatus.training_off_description',
-                  ),
+            context.l10n.adminText(
+              _apparatus.trainingEnabled
+                  ? 'apparatus.training_on_description'
+                  : 'apparatus.training_off_description',
+            ),
           ),
           secondary: _savingTraining
               ? const SizedBox.square(
@@ -1956,186 +871,54 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
     );
   }
 
-  Future<void> _saveGroup() async {
-    if (_savingGroup) {
-      return;
-    }
-    setState(() => _savingGroup = true);
-    try {
-      await widget.onAssignGroup(
-        _selectedGroupName.trim().isEmpty ? null : _selectedGroupName,
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _savingGroup = false);
-      }
-    }
-  }
-
-  Widget _buildGroupTab(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-      children: [
-        Text(
-          context.l10n.adminText('apparatus.group_description'),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                height: 1.3,
-              ),
-        ),
-        const SizedBox(height: 14),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedGroupName,
-          decoration: InputDecoration(
-            labelText: context.l10n.adminText('apparatus.group'),
-            prefixIcon: const Icon(Icons.folder_copy_outlined),
-          ),
-          items: [
-            DropdownMenuItem(
-              value: '',
-              child: Text(context.l10n.adminText('apparatus.unassigned')),
-            ),
-            for (final group in widget.groups)
-              DropdownMenuItem(
-                value: group.name,
-                child: Text(group.name),
-              ),
-          ],
-          onChanged: _savingGroup
-              ? null
-              : (value) => setState(() => _selectedGroupName = value ?? ''),
-        ),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: _savingGroup ? null : _saveGroup,
-          icon: _savingGroup
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.link_rounded),
-          label: Text(
-            _savingGroup
-                ? context.l10n.adminText('action.saving')
-                : context.l10n.adminText('apparatus.group_save'),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          context.l10n.adminText('apparatus.available_groups'),
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: scheme.primary,
-                fontWeight: FontWeight.w800,
-              ),
-        ),
-        const SizedBox(height: 8),
-        if (widget.groups.isEmpty)
-          Text(
-            context.l10n.adminText('apparatus.no_groups'),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-          )
-        else
-          for (final group in widget.groups)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              leading: const Icon(Icons.folder_outlined),
-              title: Text(group.name),
-              subtitle: Text(
-                context.l10n.adminText(
-                  'apparatus.count',
-                  values: {'count': group.apparatus.length},
-                ),
-              ),
-            ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final cardHeight =
-        (MediaQuery.sizeOf(context).height * 0.68).clamp(420.0, 640.0);
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 16;
+    final height = (MediaQuery.sizeOf(context).height * 0.68).clamp(
+      420.0,
+      640.0,
+    );
     return SizedBox(
-      height: cardHeight.toDouble(),
+      height: height.toDouble(),
       child: DefaultTabController(
-        length: 5,
+        length: 4,
         child: Material(
-          color: scheme.surface,
           borderRadius: BorderRadius.circular(24),
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 8, 10),
-                child: Row(
-                  children: [
-                    _apparatusLeading(context, widget.apparatus.name),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            context.l10n.adminText('apparatus.title'),
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            widget.apparatus.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: context.l10n.adminText('action.close'),
-                      onPressed: widget.onClose,
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
+              ListTile(
+                leading: Icon(_apparatusIcon(_apparatus)),
+                title: Text(_apparatus.name),
+                subtitle: SelectableText(_apparatus.id),
+                trailing: IconButton(
+                  onPressed: widget.onClose,
+                  icon: const Icon(Icons.close_rounded),
                 ),
               ),
               TabBar(
                 isScrollable: true,
                 tabs: [
-                  Tab(text: context.l10n.adminText('apparatus.tabs_group')),
                   Tab(text: context.l10n.adminText('apparatus.tabs_queue')),
-                  Tab(
-                    text: context.l10n.adminText('apparatus.tabs_capacity'),
-                  ),
+                  Tab(text: context.l10n.adminText('apparatus.tabs_capacity')),
                   Tab(text: context.l10n.adminText('apparatus.tabs_map')),
-                  Tab(
-                    text: context.l10n.adminText('apparatus.tabs_training'),
-                  ),
+                  Tab(text: context.l10n.adminText('apparatus.tabs_training')),
                 ],
               ),
               Expanded(
                 child: TabBarView(
                   children: [
-                    _buildGroupTab(context),
                     AdminQueuePolicyPanel(
                       bottomPadding: bottomPadding,
-                      apparatusName: widget.apparatus.name,
+                      apparatusId: _apparatus.id,
                     ),
                     AdminApparatusCapacityPanel(
                       apparatus: [_apparatus],
                       bottomPadding: bottomPadding,
                       showApparatusSelector: false,
                     ),
-                    _buildMapTab(context),
-                    _buildTrainingTab(context),
+                    _mapTab(),
+                    _trainingTab(),
                   ],
                 ),
               ),
@@ -2149,198 +932,72 @@ class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
 
 class _AdminApparatusSettingsCache {
   const _AdminApparatusSettingsCache({
-    required this.groups,
     required this.apparatus,
     required this.options,
   });
 
-  final List<AdminApparatusGroup> groups;
   final List<AdminApparatus> apparatus;
   final AdminApparatusMasterOptions options;
 }
 
-class _ApparatusGroupListTile extends StatelessWidget {
-  const _ApparatusGroupListTile({
-    required this.slot,
-    required this.group,
-    required this.expanded,
-    required this.editing,
-    required this.onToggle,
-    required this.onEdit,
-  });
+int _compareApparatus(AdminApparatus left, AdminApparatus right) {
+  final order = left.sortOrder.compareTo(right.sortOrder);
+  return order != 0
+      ? order
+      : left.name.toLowerCase().compareTo(right.name.toLowerCase());
+}
 
-  final M3SegmentVerticalSlot slot;
-  final AdminApparatusGroup group;
-  final bool expanded;
-  final bool editing;
-  final VoidCallback onToggle;
-  final VoidCallback onEdit;
+String _operationCapabilityForFamily(String family) {
+  return switch (family) {
+    'pechat' => 'print',
+    'laminatsiya' => 'laminate',
+    'rezka' => 'cut',
+    'paket' => 'package',
+    'kley' => 'glue',
+    _ => '',
+  };
+}
 
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final radius = M3SegmentedListGeometry.borderRadius(
-      slot,
-      M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-    );
+IconData _apparatusIcon(AdminApparatus apparatus) {
+  return switch (apparatus.operation) {
+    'print' => Icons.print_outlined,
+    'laminate' => Icons.layers_outlined,
+    'cut' => Icons.content_cut_rounded,
+    'package' => Icons.inventory_2_outlined,
+    'glue' => Icons.water_drop_outlined,
+    _ => Icons.precision_manufacturing_outlined,
+  };
+}
 
-    return Material(
-      color: editing
-          ? scheme.secondaryContainer.withValues(alpha: 0.45)
-          : scheme.surfaceContainerLowest,
-      elevation: expanded || editing ? 0 : 4,
-      shadowColor: scheme.shadow.withValues(alpha: 0.24),
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: radius),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          InkWell(
-            onTap: onToggle,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-              child: Row(
-                children: [
-                  SizedBox.square(
-                    dimension: 30,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: scheme.primaryContainer,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.folder_copy_outlined,
-                        size: 16,
-                        color: scheme.onPrimaryContainer,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          group.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          context.l10n.adminText(
-                            'apparatus.count',
-                            values: {'count': group.apparatus.length},
-                          ),
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                    height: 1.05,
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AnimatedRotation(
-                    turns: expanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOutCubic,
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: expanded
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Divider(
-                        height: 1,
-                        color: scheme.outlineVariant.withValues(alpha: 0.65),
-                      ),
-                      if (group.apparatus.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-                          child: Text(
-                            context.l10n.adminText(
-                              'apparatus.no_apparatus_in_group',
-                            ),
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                        )
-                      else
-                        for (final name in group.apparatus)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-                            child: Row(
-                              children: [
-                                _apparatusLeading(context, name),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        name,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                      Text(
-                                        _apparatusKindLabel(name, context.l10n),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: scheme.onSurfaceVariant,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton.icon(
-                            onPressed: onEdit,
-                            icon: const Icon(Icons.edit_rounded, size: 18),
-                            label: Text(
-                              context.l10n.adminText('action.edit'),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
+IconData _apparatusGroupIcon(String operation) {
+  return switch (operation) {
+    'print' => Icons.print_outlined,
+    'laminate' => Icons.layers_outlined,
+    'cut' => Icons.content_cut_rounded,
+    'package' => Icons.inventory_2_outlined,
+    'glue' => Icons.water_drop_outlined,
+    _ => Icons.help_outline_rounded,
+  };
+}
+
+String _apparatusOptionLabel(String value, AppLocalizations l10n) {
+  return switch (value) {
+    'pechat' => l10n.adminText('apparatus.option.pechat'),
+    'laminatsiya' => l10n.adminText('apparatus.option.laminatsiya'),
+    'rezka' => l10n.adminText('apparatus.option.rezka'),
+    'paket' => l10n.adminText('apparatus.option.paket'),
+    'kley' => l10n.adminText('apparatus.option.kley'),
+    'color_pechat' => l10n.adminText('apparatus.option.color_pechat'),
+    'flexo' => l10n.adminText('apparatus.option.flexo'),
+    'extruder_laminatsiya' => l10n.adminText(
+        'apparatus.option.extruder_laminatsiya',
       ),
-    );
-  }
+    'holodniy_kley' => l10n.adminText('apparatus.option.holodniy_kley'),
+    'print' => l10n.adminText('apparatus.option.print'),
+    'laminate' => l10n.adminText('apparatus.option.laminate'),
+    'cut' => l10n.adminText('apparatus.option.cut'),
+    'package' => l10n.adminText('apparatus.option.package'),
+    'glue' => l10n.adminText('apparatus.option.glue'),
+    _ => value,
+  };
 }

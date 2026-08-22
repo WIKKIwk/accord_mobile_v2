@@ -12,8 +12,13 @@ class AdminProgressQrScanPdf {
   static List<int> buildProgress(
     AdminProgressQrReport report, {
     AppLocalizations? l10n,
+    Map<String, String> apparatusNamesById = const {},
   }) {
-    final passport = buildProgressQrPassport(report, l10n: l10n);
+    final passport = buildProgressQrPassport(
+      report,
+      l10n: l10n,
+      apparatusNamesById: apparatusNamesById,
+    );
     final sections = <_PdfSection>[
       _PdfSection(
         _pdfText(l10n, 'worker.qr.report.product_status', 'Mahsulot holati'),
@@ -123,6 +128,7 @@ class AdminProgressQrScanPdf {
   static List<int> buildRawMaterial(
     AdminRawMaterialLookup report, {
     AppLocalizations? l10n,
+    Map<String, String> apparatusNamesById = const {},
   }) {
     final sections = <_PdfSection>[
       _PdfSection(
@@ -181,7 +187,11 @@ class AdminProgressQrScanPdf {
             'worker.qr.report.assignment_section',
             'Orderga biriktirish',
           ),
-          _assignmentLines(report.assignment!, l10n: l10n),
+          _assignmentLines(
+            report.assignment!,
+            l10n: l10n,
+            apparatusNamesById: apparatusNamesById,
+          ),
         ),
       if (report.order != null)
         _PdfSection(
@@ -199,7 +209,11 @@ class AdminProgressQrScanPdf {
             'worker.qr.report.queue_status',
             'Aparat navbat holatlari',
           ),
-          _queueStateLinesForRaw(report, l10n: l10n),
+          _queueStateLinesForRaw(
+            report,
+            l10n: l10n,
+            apparatusNamesById: apparatusNamesById,
+          ),
         ),
       if (report.logs.isNotEmpty) ...[
         for (var index = 0; index < report.logs.length; index++)
@@ -210,7 +224,11 @@ class AdminProgressQrScanPdf {
               'Jarayon hodisasi ${index + 1}/${report.logs.length}',
               values: {'index': index + 1, 'count': report.logs.length},
             ),
-            _logLines(report.logs[index], l10n: l10n),
+            _logLines(
+              report.logs[index],
+              l10n: l10n,
+              apparatusNamesById: apparatusNamesById,
+            ),
           ),
       ],
     ];
@@ -233,6 +251,17 @@ class _PdfSection {
 
   final String title;
   final List<String> lines;
+}
+
+String _pdfApparatusLabel(
+  String apparatusId,
+  Map<String, String> apparatusNamesById,
+) {
+  final normalized = apparatusId.trim();
+  if (normalized.isEmpty) return '';
+  return apparatusNamesById[normalized]?.trim().isNotEmpty == true
+      ? apparatusNamesById[normalized]!.trim()
+      : normalized;
 }
 
 List<String> _orderLines(
@@ -290,12 +319,13 @@ List<String> _orderLines(
 List<String> _queueStateLinesForRaw(
   AdminRawMaterialLookup report, {
   AppLocalizations? l10n,
+  required Map<String, String> apparatusNamesById,
 }) {
   return [
     for (final entry in report.queueStates.entries) ...[
       _field(
         _pdfText(l10n, 'worker.qr.report.assigned_machine', 'Aparat'),
-        l10n?.productionApparatusName(entry.key) ?? entry.key,
+        _pdfApparatusLabel(entry.key, apparatusNamesById),
       ),
       for (final state in entry.value.entries)
         _field('  ${state.key}', _pdfStateLabel(state.value, l10n)),
@@ -306,6 +336,7 @@ List<String> _queueStateLinesForRaw(
 List<String> _assignmentLines(
   AdminRawMaterialAssignment assignment, {
   AppLocalizations? l10n,
+  required Map<String, String> apparatusNamesById,
 }) {
   return [
     _field(
@@ -314,8 +345,7 @@ List<String> _assignmentLines(
     ),
     _field(
       _pdfText(l10n, 'worker.qr.report.assigned_machine', 'Aparat'),
-      l10n?.productionApparatusName(assignment.apparatus) ??
-          assignment.apparatus,
+      _pdfApparatusLabel(assignment.apparatus, apparatusNamesById),
     ),
     _field(_pdfText(l10n, 'worker.qr.report.barcode', 'Barcode'),
         assignment.barcode),
@@ -364,6 +394,7 @@ List<String> _assignmentLines(
 List<String> _logLines(
   AdminProductionOrderLogEntry log, {
   AppLocalizations? l10n,
+  required Map<String, String> apparatusNamesById,
 }) {
   final transfer = log.transfer;
   final freeze = log.freeze;
@@ -378,7 +409,7 @@ List<String> _logLines(
     ),
     _field(
       _pdfText(l10n, 'worker.qr.report.assigned_machine', 'Aparat'),
-      l10n?.productionApparatusName(log.apparatus) ?? log.apparatus,
+      _pdfApparatusLabel(log.apparatus, apparatusNamesById),
     ),
     _field(
       _pdfText(l10n, 'worker.qr.report.action', 'Action'),
@@ -422,13 +453,11 @@ List<String> _logLines(
       ),
       _field(
         _pdfText(l10n, 'worker.qr.report.from', 'Qayerdan'),
-        l10n?.productionApparatusName(transfer.fromApparatus) ??
-            transfer.fromApparatus,
+        _pdfApparatusLabel(transfer.fromApparatus, apparatusNamesById),
       ),
       _field(
         _pdfText(l10n, 'worker.qr.report.to', 'Qayerga'),
-        l10n?.productionApparatusName(transfer.toApparatus) ??
-            transfer.toApparatus,
+        _pdfApparatusLabel(transfer.toApparatus, apparatusNamesById),
       ),
       _field(
           _pdfText(l10n, 'worker.qr.report.reason', 'Sabab'), transfer.reason),
@@ -463,8 +492,7 @@ List<String> _logLines(
       ),
       _field(
         _pdfText(l10n, 'worker.qr.report.target_apparatus', 'Target apparatus'),
-        l10n?.productionApparatusName(freeze.targetApparatus) ??
-            freeze.targetApparatus,
+        _pdfApparatusLabel(freeze.targetApparatus, apparatusNamesById),
       ),
       _field(
         _pdfText(

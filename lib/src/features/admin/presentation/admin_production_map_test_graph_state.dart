@@ -23,9 +23,12 @@ extension _AdminProductionMapTestGraphState
     }
   }
 
-  Future<void> _addRezkaNode() async {
+  Future<void> _addRezkaNode(AdminApparatus apparatus) async {
     final id = 'rezka_${_nextNodeIndex++}';
-    final node = _newNode(id, 'apparatus').copyWith(title: 'Rezka');
+    final node = _newNode(id, 'apparatus').copyWith(
+      title: apparatus.name,
+      apparatusId: apparatus.id,
+    );
     final edited = await _showRezkaEditSheet(node);
     if (edited == null || !mounted) {
       return;
@@ -35,18 +38,9 @@ extension _AdminProductionMapTestGraphState
     });
   }
 
-  Future<void> _addApparatusGroup(AdminApparatusGroup group) async {
-    final groupNames =
-        group.apparatus.map((item) => item.trim().toLowerCase()).toSet();
-    final apparatus = await MobileApi.instance.adminApparatus(limit: 200);
-    final compatible = apparatus
-        .where(
-          (apparatus) => _apparatusBelongsToGroup(
-            group,
-            groupNames,
-            apparatus,
-          ),
-        )
+  Future<void> _addApparatusGroup(CanonicalApparatusGroup group) async {
+    final compatible = group.apparatus
+        .where((apparatus) => isCanonicalApparatusId(apparatus.id))
         .where(_apparatusMatchesCurrentMap)
         .toList(growable: false);
     if (!mounted) {
@@ -71,23 +65,34 @@ extension _AdminProductionMapTestGraphState
     if (picked == null || !mounted) {
       return;
     }
-    _updateScreenState(() {
-      if (picked.skip) {
+    if (picked.skip) {
+      _updateScreenState(() {
         _insertAlternativeApparatusNodes(group, compatible);
-      } else if (picked.apparatus != null) {
-        final id = 'apparatus_${_nextNodeIndex++}';
-        _insertBeforeEnd(
-          _newNode(
-            id,
-            'apparatus',
-          ).copyWith(title: picked.apparatus!.name),
-        );
-      }
+      });
+      return;
+    }
+    final selected = picked.apparatus;
+    if (selected == null) return;
+    if (group.operation == 'cut') {
+      await _addRezkaNode(selected);
+      return;
+    }
+    _updateScreenState(() {
+      final id = 'apparatus_${_nextNodeIndex++}';
+      _insertBeforeEnd(
+        _newNode(
+          id,
+          'apparatus',
+        ).copyWith(
+          title: selected.name,
+          apparatusId: selected.id,
+        ),
+      );
     });
   }
 
   void _insertAlternativeApparatusNodes(
-    AdminApparatusGroup group,
+    CanonicalApparatusGroup group,
     List<AdminApparatus> apparatus,
   ) {
     final endIndex = nodes.indexWhere((item) => item.kind == 'end');
@@ -107,7 +112,8 @@ extension _AdminProductionMapTestGraphState
     if (previousNodes.isEmpty) {
       return;
     }
-    final groupId = 'alt_${group.name.trim().toLowerCase()}_$_nextNodeIndex';
+    final groupId = 'alt_${group.operation}_$_nextNodeIndex';
+    final groupLabel = canonicalApparatusGroupLabel(group, context.l10n);
     final previousBottomY = previousNodes.map((node) => node.y).fold<double>(
           _AdminProductionMapTestScreenState._minNodeY,
           (max, y) => y > max ? y : max,
@@ -127,8 +133,9 @@ extension _AdminProductionMapTestGraphState
           id: id,
           kind: 'apparatus',
           title: apparatus[index].name,
+          apparatusId: apparatus[index].id,
           alternativeGroupId: groupId,
-          alternativeGroupLabel: group.name,
+          alternativeGroupLabel: groupLabel,
           x: firstX + index * _ProductionMapCanvas._nodeSize.width,
           y: y,
         ),
@@ -143,24 +150,6 @@ extension _AdminProductionMapTestGraphState
       edges.add(ProductionMapEdge(from: node.id, to: end.id));
     }
     _pushEndDown();
-  }
-
-  bool _apparatusBelongsToGroup(
-    AdminApparatusGroup group,
-    Set<String> groupNames,
-    AdminApparatus apparatus,
-  ) {
-    final apparatusName = apparatus.name.trim();
-    if (groupNames.contains(apparatusName.toLowerCase())) {
-      return true;
-    }
-    if (!productionMapIsPechatApparatus(apparatusName)) {
-      return false;
-    }
-    return group.apparatus.any(
-      (apparatus) =>
-          productionMapWarehouseTitlesMatch(apparatus, apparatusName),
-    );
   }
 
   ProductionMapNode _newNode(String id, String kind) {
@@ -625,7 +614,7 @@ extension _AdminProductionMapTestGraphState
     if (_isNodeLocked(node.id)) {
       return;
     }
-    if (_isRezkaProductionNode(node)) {
+    if (_isRezkaProductionNode(node, _apparatusCatalog)) {
       final edited = await _showRezkaEditSheet(node);
       if (edited == null || !mounted) {
         return;
@@ -673,7 +662,10 @@ extension _AdminProductionMapTestGraphState
         return;
       }
       _updateScreenState(
-        () => nodes[index] = node.copyWith(title: picked.name),
+        () => nodes[index] = node.copyWith(
+          title: picked.name,
+          apparatusId: picked.id,
+        ),
       );
       return;
     }
@@ -683,7 +675,10 @@ extension _AdminProductionMapTestGraphState
         return;
       }
       _updateScreenState(
-        () => nodes[index] = node.copyWith(title: picked.name),
+        () => nodes[index] = node.copyWith(
+          title: picked.name,
+          apparatusId: picked.id,
+        ),
       );
       return;
     }
@@ -738,103 +733,116 @@ extension _AdminProductionMapTestGraphState
   }
 
   List<AdminFabMenuAction> _mapToolActions() {
-    if (_orderMode) {
-      final groupActions = [
-        for (final group in _apparatusGroups)
-          if (_apparatusGroupMatchesOrder(group))
-            AdminFabMenuAction(
-              title: group.name,
-              icon: Icons.precision_manufacturing_rounded,
-              enabled: !_apparatusGroupBlocked(group),
-              onTap: () => _runMapToolAction(() {
-                if (_apparatusGroupBlocked(group)) {
-                  showAdminTopNotice(context, _laminatsiyaOversizeMessage);
-                  return;
-                }
-                unawaited(_addApparatusGroup(group));
-              }),
-            ),
-      ];
+    if (_apparatusCatalogLoading) {
       return [
-        if (groupActions.isEmpty)
-          AdminFabMenuAction(
-            title: 'Aparat',
-            icon: Icons.precision_manufacturing_rounded,
-            onTap: () => _runMapToolAction(() => _addNode('apparatus')),
-          )
-        else
-          ...groupActions,
         AdminFabMenuAction(
-          title: 'Ishlov',
-          icon: Icons.engineering_rounded,
-          onTap: () => _runMapToolAction(() => _addNode('task')),
+          title: 'Aparatlar yuklanmoqda',
+          icon: Icons.hourglass_top_rounded,
+          enabled: false,
+          onTap: () {},
         ),
-        AdminFabMenuAction(
-          title: 'Rezka',
-          icon: Icons.content_cut_rounded,
-          onTap: () => _runMapToolAction(() => unawaited(_addRezkaNode())),
-        ),
+        _taskToolAction(),
       ];
     }
+    if (_apparatusCatalogError != null) {
+      return [
+        AdminFabMenuAction(
+          title: 'Aparatlarni qayta yuklash',
+          icon: Icons.refresh_rounded,
+          onTap: () => _runMapToolAction(
+            () => unawaited(_loadCanonicalApparatusCatalog()),
+          ),
+        ),
+        _taskToolAction(),
+      ];
+    }
+    final groupActions = [
+      for (final group in canonicalApparatusGroups(_apparatusCatalog))
+        if (group.isClassified && _apparatusGroupMatchesOrder(group))
+          AdminFabMenuAction(
+            title: canonicalApparatusGroupLabel(group, context.l10n),
+            icon: _apparatusGroupMenuIcon(group.operation),
+            enabled: !_apparatusGroupBlocked(group),
+            onTap: () => _runMapToolAction(() {
+              if (_apparatusGroupBlocked(group)) {
+                showAdminTopNotice(context, _laminatsiyaOversizeMessage);
+                return;
+              }
+              unawaited(_addApparatusGroup(group));
+            }),
+          ),
+    ];
     return [
-      AdminFabMenuAction(
-        title: 'Ishlov',
-        icon: Icons.engineering_rounded,
-        onTap: () => _runMapToolAction(() => _addNode('task')),
-      ),
-      AdminFabMenuAction(
-        title: 'Aparat',
-        icon: Icons.precision_manufacturing_rounded,
-        onTap: () => _runMapToolAction(() => _addNode('apparatus')),
-      ),
-      AdminFabMenuAction(
-        title: 'Rezka',
-        icon: Icons.content_cut_rounded,
-        onTap: () => _runMapToolAction(() => unawaited(_addRezkaNode())),
-      ),
-      AdminFabMenuAction(
-        title: 'Formula',
-        icon: Icons.functions_rounded,
-        onTap: () => _runMapToolAction(() => _addNode('formula')),
-      ),
-      AdminFabMenuAction(
-        title: 'Condition',
-        icon: Icons.call_split_rounded,
-        onTap: () => _runMapToolAction(() => _addNode('condition')),
-      ),
+      if (groupActions.isEmpty)
+        AdminFabMenuAction(
+          title: 'Mos aparatlar topilmadi',
+          icon: Icons.precision_manufacturing_rounded,
+          enabled: false,
+          onTap: () {},
+        )
+      else
+        ...groupActions,
+      _taskToolAction(),
+      if (!_orderMode) ...[
+        AdminFabMenuAction(
+          title: 'Formula',
+          icon: Icons.functions_rounded,
+          onTap: () => _runMapToolAction(() => _addNode('formula')),
+        ),
+        AdminFabMenuAction(
+          title: 'Condition',
+          icon: Icons.call_split_rounded,
+          onTap: () => _runMapToolAction(() => _addNode('condition')),
+        ),
+      ],
     ];
   }
 
-  bool _apparatusGroupMatchesOrder(AdminApparatusGroup group) {
-    if (_apparatusGroupIsLaminatsiya(group)) {
-      return true;
-    }
-    return group.apparatus.any(
-      (apparatus) => productionMapApparatusMatchesOrder(
-        AdminApparatus(name: apparatus),
-        widget.orderContext,
-      ),
+  AdminFabMenuAction _taskToolAction() {
+    return AdminFabMenuAction(
+      title: 'Ishlov',
+      icon: Icons.engineering_rounded,
+      onTap: () => _runMapToolAction(() => _addNode('task')),
     );
   }
 
-  bool _apparatusGroupIsLaminatsiya(AdminApparatusGroup group) {
-    return productionMapIsLaminatsiyaApparatus(group.name) ||
-        group.apparatus.any(productionMapIsLaminatsiyaApparatus);
+  IconData _apparatusGroupMenuIcon(String operation) {
+    return switch (operation) {
+      'print' => Icons.print_outlined,
+      'laminate' => Icons.layers_outlined,
+      'cut' => Icons.content_cut_rounded,
+      'package' => Icons.inventory_2_outlined,
+      'glue' => Icons.water_drop_outlined,
+      _ => Icons.precision_manufacturing_rounded,
+    };
   }
 
-  bool _apparatusGroupBlocked(AdminApparatusGroup group) {
+  bool _apparatusGroupMatchesOrder(CanonicalApparatusGroup group) {
+    if (_apparatusGroupIsLaminatsiya(group)) {
+      return true;
+    }
+    return group.apparatus.any(_apparatusMatchesCurrentMap);
+  }
+
+  bool _apparatusGroupIsLaminatsiya(CanonicalApparatusGroup group) {
+    return group.operation == 'laminate';
+  }
+
+  bool _apparatusGroupBlocked(CanonicalApparatusGroup group) {
     return _apparatusGroupIsLaminatsiya(group) &&
         !_productionMapLaminatsiyaMatchesCurrentMap(
           widget.orderContext,
           nodes,
+          _apparatusCatalog,
         );
   }
 
   bool _apparatusMatchesCurrentMap(AdminApparatus apparatus) {
-    if (productionMapIsLaminatsiyaApparatus(apparatus.name)) {
+    if (apparatus.operation == 'laminate') {
       return _productionMapLaminatsiyaMatchesCurrentMap(
         widget.orderContext,
         nodes,
+        _apparatusCatalog,
       );
     }
     return productionMapApparatusMatchesOrder(apparatus, widget.orderContext);

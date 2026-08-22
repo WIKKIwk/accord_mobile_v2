@@ -17,6 +17,7 @@ import '../../shared/models/app_models.dart';
 import '../../shared/presentation/widgets/profile_info_chip.dart';
 import '../../chat/models/chat_models.dart';
 import '../../chat/presentation/widgets/chat_profile_action_button.dart';
+import '../logic/canonical_apparatus_display.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_profile_avatar.dart';
 import 'widgets/admin_warehouse_assignment_editor.dart';
@@ -31,6 +32,9 @@ typedef AdminWorkerDetailLoader = Future<AdminWorkerDetail> Function(
 typedef AdminWorkerProfileDetailLoader = Future<AdminWorkerProfileDetail>
     Function(AdminUserListEntry entry);
 
+typedef AdminWorkerDetailApparatusLoader = Future<List<AdminApparatus>>
+    Function();
+
 class AdminWorkerDetailScreen extends StatefulWidget {
   const AdminWorkerDetailScreen({
     super.key,
@@ -39,6 +43,7 @@ class AdminWorkerDetailScreen extends StatefulWidget {
     this.chatTarget,
     this.detailLoader,
     this.profileDetailLoader,
+    this.apparatusLoader,
     this.warehousesLoader,
     this.warehouseAssignmentsLoader,
     this.warehouseAssigner,
@@ -50,6 +55,7 @@ class AdminWorkerDetailScreen extends StatefulWidget {
   final ChatDirectoryEntry? chatTarget;
   final AdminWorkerDetailLoader? detailLoader;
   final AdminWorkerProfileDetailLoader? profileDetailLoader;
+  final AdminWorkerDetailApparatusLoader? apparatusLoader;
   final Future<List<AdminWarehouse>> Function()? warehousesLoader;
   final Future<List<AdminWarehouseAssignment>> Function()?
       warehouseAssignmentsLoader;
@@ -64,6 +70,7 @@ class AdminWorkerDetailScreen extends StatefulWidget {
 class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
   AdminWorkerDetail? _detail;
   AdminWorkerProfileDetail? _profileDetail;
+  List<AdminApparatus> _apparatus = const <AdminApparatus>[];
   Object? _profileDetailError;
   Object? _loadError;
   bool _loading = true;
@@ -135,6 +142,14 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
     return MobileApi.instance.adminWorkerProfileDetail(_workerId);
   }
 
+  Future<List<AdminApparatus>> _loadApparatus() {
+    final loadApparatus = widget.apparatusLoader;
+    if (loadApparatus != null) {
+      return loadApparatus();
+    }
+    return MobileApi.instance.adminApparatus(limit: 10000);
+  }
+
   Future<void> _reloadProfileDetail() async {
     if (_isSystemUser) {
       return;
@@ -146,15 +161,21 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
       });
     }
     try {
-      final profileDetail = await _loadProfileDetail().timeout(
+      final results = await Future.wait<Object>([
+        _loadProfileDetail(),
+        _loadApparatus(),
+      ]).timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw Exception('Ish faoliyati yuklash vaqti tugadi'),
       );
+      final profileDetail = results[0] as AdminWorkerProfileDetail;
+      final apparatus = results[1] as List<AdminApparatus>;
       if (!mounted) {
         return;
       }
       setState(() {
         _profileDetail = profileDetail;
+        _apparatus = apparatus;
         _profileDetailError = null;
         _profileLoading = false;
       });
@@ -436,6 +457,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                 const SizedBox(height: 12),
                 _WorkerAssignmentSummaryCard(
                   detail: _profileDetail,
+                  apparatus: _apparatus,
                   loading: _profileLoading,
                   error: _profileDetailError,
                   onRetry: _reloadProfileDetail,
@@ -475,12 +497,14 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
 class _WorkerAssignmentSummaryCard extends StatelessWidget {
   const _WorkerAssignmentSummaryCard({
     required this.detail,
+    required this.apparatus,
     required this.loading,
     required this.error,
     required this.onRetry,
   });
 
   final AdminWorkerProfileDetail? detail;
+  final List<AdminApparatus> apparatus;
   final bool loading;
   final Object? error;
   final Future<void> Function() onRetry;
@@ -528,13 +552,14 @@ class _WorkerAssignmentSummaryCard extends StatelessWidget {
     }
 
     final groups = detail?.assignedGroups ?? const <AdminWorkerGroup>[];
-    final assignedApparatus = <String>{
+    final assignedApparatusIds = <String>{
       ...?detail?.assignedApparatus,
-      ...groups.map((group) => group.apparatus),
-    }
-        .map((apparatus) => apparatus.trim())
-        .where((apparatus) => apparatus.isNotEmpty)
-        .toList(growable: false);
+      ...groups.map((group) => group.apparatusId),
+    }.map((id) => id.trim()).where((id) => id.isNotEmpty);
+    final assignedApparatus = canonicalApparatusDisplayLabels(
+      assignedApparatusIds,
+      apparatus,
+    );
     return AppSegmentSurfaceCard(
       key: const ValueKey('admin-worker-detail-activity-summary'),
       child: Column(
@@ -598,23 +623,6 @@ class _WorkerAssignmentSummaryLine extends StatelessWidget {
       ],
     );
   }
-}
-
-String _workerGroupSummary(AppLocalizations l10n, AdminWorkerGroup group) {
-  final apparatus = group.apparatus.trim();
-  final schedule = [
-    if (group.groupCode.trim().isNotEmpty)
-      '${l10n.adminText('label.group')} ${group.groupCode.trim()}',
-    if (group.shift.trim().isNotEmpty) group.shift.trim(),
-    if (group.startTime.trim().isNotEmpty && group.endTime.trim().isNotEmpty)
-      '${group.startTime.trim()}–${group.endTime.trim()}',
-    if (group.workDaysPerWeek > 0)
-      l10n.adminText(
-        'detail.days_per_week',
-        values: {'count': group.workDaysPerWeek},
-      ),
-  ];
-  return [apparatus, ...schedule].where((item) => item.isNotEmpty).join(' • ');
 }
 
 class _WorkerProfileExpandableCard extends StatelessWidget {

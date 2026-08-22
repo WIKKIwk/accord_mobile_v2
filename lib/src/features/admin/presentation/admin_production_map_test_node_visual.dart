@@ -3,6 +3,7 @@ part of 'admin_production_map_test_screen.dart';
 class _MapNodeVisual extends StatefulWidget {
   const _MapNodeVisual({
     required this.node,
+    required this.apparatusCatalog,
     required this.borderRadius,
     required this.readOnly,
     required this.locked,
@@ -21,6 +22,7 @@ class _MapNodeVisual extends StatefulWidget {
   });
 
   final ProductionMapNode node;
+  final List<AdminApparatus> apparatusCatalog;
   final BorderRadius borderRadius;
   final bool readOnly;
   final bool locked;
@@ -264,11 +266,8 @@ class _MapNodeVisualState extends State<_MapNodeVisual> {
 
   Color _backgroundFor(ProductionMapNode node, ColorScheme scheme) {
     if (node.kind == 'apparatus' &&
-        node.alternativeAssignedTitle.trim().isNotEmpty &&
-        productionMapWarehouseTitlesMatch(
-          node.title,
-          node.alternativeAssignedTitle,
-        )) {
+        node.alternativeAssignedApparatusId.trim().isNotEmpty &&
+        node.alternativeAssignedApparatusId.trim() == node.apparatusId.trim()) {
       return Colors.green.shade100;
     }
     return _colorFor(node.kind, scheme);
@@ -291,7 +290,7 @@ class _MapNodeVisualState extends State<_MapNodeVisual> {
   }
 
   String _subtitleFor(ProductionMapNode node) {
-    if (_isRezkaProductionNode(node)) {
+    if (_isRezkaProductionNode(node, widget.apparatusCatalog)) {
       final details = [
         if (node.rezkaKadrCount != null) '${node.rezkaKadrCount} kadr',
         if (node.rezkaLabelLength != null)

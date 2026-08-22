@@ -5,11 +5,13 @@ class _SequenceRawMaterialAssignmentSheet extends StatefulWidget {
     required this.order,
     required this.initialApparatus,
     required this.assignedApparatus,
+    required this.apparatusCatalog,
   });
 
   final ProductionMapSaved order;
   final String initialApparatus;
   final List<String> assignedApparatus;
+  final List<AdminApparatus> apparatusCatalog;
 
   @override
   State<_SequenceRawMaterialAssignmentSheet> createState() =>
@@ -34,6 +36,15 @@ class _SequenceRawMaterialAssignmentSheetState
   bool _qrScannerVisible = false;
   bool _bulkAssigning = false;
   bool _loading = true;
+  bool _localizedStateInitialized = false;
+
+  AdminApparatus? get _selectedCanonicalApparatus {
+    final selectedId = _selectedApparatus.trim();
+    for (final apparatus in widget.apparatusCatalog) {
+      if (apparatus.id.trim() == selectedId) return apparatus;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -43,16 +54,20 @@ class _SequenceRawMaterialAssignmentSheetState
       assignedApparatus: widget.assignedApparatus,
     );
     _selectedApparatus = _apparatusOptions.firstWhere(
-      (apparatus) => productionMapStationTitlesMatch(
-        apparatus,
-        widget.initialApparatus,
-      ),
+      (apparatus) => apparatus.trim() == widget.initialApparatus.trim(),
       orElse: () => _apparatusOptions.isEmpty ? '' : _apparatusOptions.first,
     );
+    unawaited(_load());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_localizedStateInitialized) return;
+    _localizedStateInitialized = true;
     _qrScannerStatus = context.l10n.adminText(
       'production.assignment.qr_prompt',
     );
-    unawaited(_load());
   }
 
   Future<void> _load({bool showLoading = true}) async {
@@ -99,7 +114,7 @@ class _SequenceRawMaterialAssignmentSheetState
       ]);
       if (!mounted ||
           widget.order.map.id.trim() != orderId ||
-          !productionMapStationTitlesMatch(_selectedApparatus, apparatus)) {
+          _selectedApparatus.trim() != apparatus) {
         return;
       }
       final candidates = result[0] as List<AdminRawMaterialAssignmentCandidate>;
@@ -133,9 +148,8 @@ class _SequenceRawMaterialAssignmentSheetState
     }
     final apparatus = _selectedApparatus.trim();
     if (apparatus.isEmpty ||
-        !_candidateApparatusOptions(candidate).any(
-          (option) => productionMapStationTitlesMatch(option, apparatus),
-        )) {
+        !_candidateApparatusOptions(candidate)
+            .any((option) => option.trim() == apparatus)) {
       setState(() {
         _actionMessage = context.l10n.adminText(
           'production.assignment.apparatus_missing',
@@ -294,9 +308,8 @@ class _SequenceRawMaterialAssignmentSheetState
     }
     final apparatus = _selectedApparatus.trim();
     if (apparatus.isEmpty ||
-        !_candidateApparatusOptions(matchedCandidate).any(
-          (option) => productionMapStationTitlesMatch(option, apparatus),
-        )) {
+        !_candidateApparatusOptions(matchedCandidate)
+            .any((option) => option.trim() == apparatus)) {
       setState(
         () => _qrScannerStatus = context.l10n.adminText(
           'production.assignment.qr_wrong_apparatus',
@@ -334,8 +347,7 @@ class _SequenceRawMaterialAssignmentSheetState
       return;
     }
     final normalized = apparatus.trim();
-    if (normalized.isEmpty ||
-        productionMapStationTitlesMatch(normalized, _selectedApparatus)) {
+    if (normalized.isEmpty || normalized == _selectedApparatus.trim()) {
       setState(() => _apparatusFilterExpanded = false);
       return;
     }
@@ -387,9 +399,8 @@ class _SequenceRawMaterialAssignmentSheetState
         }
         final apparatus = _selectedApparatus.trim();
         if (apparatus.isEmpty ||
-            !_candidateApparatusOptions(candidate).any(
-              (option) => productionMapStationTitlesMatch(option, apparatus),
-            )) {
+            !_candidateApparatusOptions(candidate)
+                .any((option) => option.trim() == apparatus)) {
           issue = context.l10n.adminText(
             'production.assignment.apparatus_missing',
           );
@@ -502,6 +513,7 @@ class _SequenceRawMaterialAssignmentSheetState
                     ),
                   ),
                 _SequenceAssignmentApparatusFilter(
+                  map: widget.order.map,
                   options: _apparatusOptions,
                   selectedApparatus: _selectedApparatus,
                   expanded: _apparatusFilterExpanded,
@@ -594,13 +606,13 @@ class _SequenceRawMaterialAssignmentSheetState
     final candidateMaximumAcceptedRollWidthMm =
         _sequenceMaximumAcceptedRollWidthMm(
       candidateMinimumAcceptedRollWidthMm,
-      _selectedApparatus,
+      _selectedCanonicalApparatus,
     );
     final emptyMinimumAcceptedRollWidthMm =
         candidateMinimumAcceptedRollWidthMm ??
             _sequenceMinimumAcceptedRollWidthMmForOrder(
               widget.order,
-              _selectedApparatus,
+              _selectedCanonicalApparatus,
             );
     if (_candidates.isNotEmpty) {
       children.add(
@@ -622,6 +634,7 @@ class _SequenceRawMaterialAssignmentSheetState
         children.add(
           _SequenceCandidateCard(
             candidate: candidate,
+            apparatusCatalog: widget.apparatusCatalog,
             rank: index + 1,
             selected: _selectedCandidateBarcodes.contains(candidateKey),
             selectionMode: selectionMode,
@@ -649,7 +662,7 @@ class _SequenceRawMaterialAssignmentSheetState
           maximumAcceptedRollWidthMm: _assignments.isEmpty
               ? _sequenceMaximumAcceptedRollWidthMm(
                   emptyMinimumAcceptedRollWidthMm,
-                  _selectedApparatus,
+                  _selectedCanonicalApparatus,
                 )
               : null,
           action: TextButton(
@@ -673,7 +686,10 @@ class _SequenceRawMaterialAssignmentSheetState
         const SizedBox(height: 8),
         for (var index = 0; index < _assignments.length; index++) ...[
           if (index > 0) const SizedBox(height: 8),
-          _SequenceAssignedMaterialRow(assignment: _assignments[index]),
+          _SequenceAssignedMaterialRow(
+            assignment: _assignments[index],
+            apparatusCatalog: widget.apparatusCatalog,
+          ),
         ],
       ]);
     }
@@ -753,6 +769,7 @@ class _SequenceAssignmentSheetHeader extends StatelessWidget {
 
 class _SequenceAssignmentApparatusFilter extends StatelessWidget {
   const _SequenceAssignmentApparatusFilter({
+    required this.map,
     required this.options,
     required this.selectedApparatus,
     required this.expanded,
@@ -761,6 +778,7 @@ class _SequenceAssignmentApparatusFilter extends StatelessWidget {
     required this.onSelect,
   });
 
+  final ProductionMapDefinition map;
   final List<String> options;
   final String selectedApparatus;
   final bool expanded;
@@ -802,7 +820,10 @@ class _SequenceAssignmentApparatusFilter extends StatelessWidget {
                 for (final apparatus in options)
                   AdminFilterChipOption<String>(
                     value: apparatus,
-                    label: apparatus,
+                    label: productionMapStageDisplayTitle(
+                      map: map,
+                      station: apparatus,
+                    ),
                     key: ValueKey('sequence-apparatus-option-$apparatus'),
                   ),
               ],
@@ -948,6 +969,7 @@ class _SequenceBulkAssignmentFab extends StatelessWidget {
 class _SequenceCandidateCard extends StatelessWidget {
   const _SequenceCandidateCard({
     required this.candidate,
+    required this.apparatusCatalog,
     required this.rank,
     required this.busy,
     required this.selected,
@@ -957,6 +979,7 @@ class _SequenceCandidateCard extends StatelessWidget {
   });
 
   final AdminRawMaterialAssignmentCandidate candidate;
+  final List<AdminApparatus> apparatusCatalog;
   final int rank;
   final bool busy;
   final bool selected;
@@ -1159,7 +1182,10 @@ class _SequenceCandidateCard extends StatelessWidget {
                     'production.assignment.group_apparatus',
                     values: {
                       'group': candidate.itemGroup.trim(),
-                      'apparatus': candidate.apparatusOptions.join(', '),
+                      'apparatus': canonicalApparatusDisplayLabels(
+                        candidate.apparatusOptions,
+                        apparatusCatalog,
+                      ).join(', '),
                     },
                   ),
                   maxLines: 2,
@@ -1207,9 +1233,13 @@ class _SequenceCandidateCard extends StatelessWidget {
 }
 
 class _SequenceAssignedMaterialRow extends StatelessWidget {
-  const _SequenceAssignedMaterialRow({required this.assignment});
+  const _SequenceAssignedMaterialRow({
+    required this.assignment,
+    required this.apparatusCatalog,
+  });
 
   final AdminRawMaterialAssignment assignment;
+  final List<AdminApparatus> apparatusCatalog;
 
   @override
   Widget build(BuildContext context) {
@@ -1219,7 +1249,11 @@ class _SequenceAssignedMaterialRow extends StatelessWidget {
         : assignment.itemName.trim();
     final subtitle = [
       if (assignment.barcode.trim().isNotEmpty) assignment.barcode.trim(),
-      if (assignment.apparatus.trim().isNotEmpty) assignment.apparatus.trim(),
+      if (assignment.apparatus.trim().isNotEmpty)
+        canonicalApparatusDisplayLabel(
+          assignment.apparatus,
+          apparatusCatalog,
+        ),
       if (assignment.stockWarehouse.trim().isNotEmpty)
         assignment.stockWarehouse.trim(),
     ].join(' • ');
@@ -1456,29 +1490,28 @@ double? _sequenceMinimumAcceptedRollWidthMm(
 
 double? _sequenceMinimumAcceptedRollWidthMmForOrder(
   ProductionMapSaved order,
-  String apparatus,
+  AdminApparatus? apparatus,
 ) {
   final width = order.map.widthMm;
   if (width == null || !width.isFinite || width <= 0) {
     return null;
   }
-  return productionMapIsPechatApparatus(apparatus) ||
-          productionMapIsLaminatsiyaApparatus(apparatus)
-      ? width
-      : null;
+  final operation = apparatus?.operation.trim().toLowerCase();
+  return operation == 'print' || operation == 'laminate' ? width : null;
 }
 
 double? _sequenceMaximumAcceptedRollWidthMm(
   double? minimumAcceptedRollWidthMm,
-  String apparatus,
+  AdminApparatus? apparatus,
 ) {
   if (minimumAcceptedRollWidthMm == null) {
     return null;
   }
-  if (productionMapIsPechatApparatus(apparatus)) {
+  final operation = apparatus?.operation.trim().toLowerCase();
+  if (operation == 'print') {
     return minimumAcceptedRollWidthMm + 20;
   }
-  if (productionMapIsLaminatsiyaApparatus(apparatus)) {
+  if (operation == 'laminate') {
     return minimumAcceptedRollWidthMm + 30;
   }
   return null;

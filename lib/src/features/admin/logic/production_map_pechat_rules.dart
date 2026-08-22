@@ -1,51 +1,10 @@
 import 'dart:math' as math;
 
+import '../../shared/models/app_models.dart';
 import '../models/production_map_models.dart';
 
 int productionMapRubberSizeFromWidth(double widthMm) {
   return (widthMm / 50).ceil().clamp(1, 27).toInt() * 50;
-}
-
-String productionMapPechatTabLabel(String warehouse) {
-  final count = productionMapPechatColorCount(warehouse);
-  if (count != null) {
-    return '$count ta rangli bosma';
-  }
-  return warehouse.trim();
-}
-
-int? productionMapPechatColorCount(String title) {
-  final match = RegExp(
-    r'\b([789])\s*(?:ta)?\s*rangli(?:\s*(?:pechat|val|aparat))?\b',
-    caseSensitive: false,
-  ).firstMatch(title.trim().toLowerCase());
-  if (match == null) {
-    return null;
-  }
-  return int.tryParse(match.group(1) ?? '');
-}
-
-/// Flexo is a printing apparatus even though its title has no 7/8/9 color
-/// count. Keep this family classifier separate from color-specific capacity
-/// rules below.
-bool productionMapIsFlexoApparatus(String title) {
-  final normalized = productionMapWarehouseBaseTitle(title).toLowerCase();
-  return const ['fleksa', 'fleska', 'flex', 'flexe', 'flexo']
-      .any(normalized.contains);
-}
-
-bool productionMapIsPechatApparatus(String title) {
-  return productionMapPechatColorCount(title) != null ||
-      productionMapIsFlexoApparatus(title);
-}
-
-bool productionMapApparatusRequiresQolipScan(String title) {
-  return productionMapIsPechatApparatus(title);
-}
-
-bool productionMapQolipScanAllowsStart(String title, String qolipCode) {
-  return !productionMapApparatusRequiresQolipScan(title) ||
-      qolipCode.trim().isNotEmpty;
 }
 
 bool productionMapAllRequiredQolipsScanned({
@@ -119,17 +78,6 @@ bool productionMapPechatCanHandleOrder({
     9 => rubberSize >= 800 && rubberSize <= 1350,
     _ => false,
   };
-}
-
-int? productionMapOrderPechatColorCount(Iterable<String> apparatusTitles) {
-  var highest = 0;
-  for (final title in apparatusTitles) {
-    final colorCount = productionMapPechatColorCount(title);
-    if (colorCount != null && colorCount > highest) {
-      highest = colorCount;
-    }
-  }
-  return highest == 0 ? null : highest;
 }
 
 String productionMapPechatApparatusLabel(int colorCount) {
@@ -215,160 +163,20 @@ bool productionMapPechatCanMoveOrder({
   );
 }
 
-/// Strips trailing instance suffixes such as ` - A` from warehouse titles.
-String productionMapWarehouseBaseTitle(String title) {
-  final trimmed = title.trim();
-  final match = RegExp(
-    r'^(.*)\s+-\s+[A-Z0-9_-]+$',
-    caseSensitive: false,
-  ).firstMatch(trimmed);
-  return match?.group(1)?.trim() ?? trimmed;
-}
-
-bool productionMapIsLaminatsiyaApparatus(String title) {
-  return productionMapWarehouseBaseTitle(
-    title,
-  ).toLowerCase().contains('laminatsiya');
-}
-
-bool productionMapIsRezkaApparatus(String title) {
-  return productionMapWarehouseBaseTitle(title).toLowerCase().contains('rezka');
-}
-
-bool productionMapApparatusUsesTimelineAstatka(String title) {
-  return productionMapIsLaminatsiyaApparatus(title) ||
-      productionMapIsRezkaApparatus(title);
-}
-
-bool productionMapTextIsFlexoOrder(Iterable<String> values) {
-  final haystack = values.join(' ').toLowerCase();
-  return const [
-    'fleksa',
-    'fleska',
-    'flex',
-    'flexe',
-    'flexo',
-  ].any(haystack.contains);
-}
-
-bool productionMapIsFlexoOrder(ProductionMapDefinition map) {
-  if (productionMapTextIsFlexoOrder([
-    map.title,
-    map.productCode,
-    map.code,
-  ])) {
-    return true;
-  }
-  for (final node in map.nodes) {
-    if (node.kind == 'apparatus') {
-      if (productionMapIsFlexoApparatus(node.title)) {
-        return true;
-      }
-      continue;
-    }
-    if (productionMapTextIsFlexoOrder([node.title, node.itemCode])) {
-      return true;
-    }
-  }
-  return false;
-}
-
-String? _productionMapKnownApparatusFamily(String title) {
-  final normalized = productionMapWarehouseBaseTitle(title).toLowerCase();
-  if (productionMapIsPechatApparatus(normalized)) {
-    return 'pechat';
-  }
-  for (final entry in const {
-    'laminatsiya': 'laminatsiya',
-    'rezka': 'rezka',
-    'paket': 'paket',
-    'kley': 'kley',
-  }.entries) {
-    if (normalized.contains(entry.key)) {
-      return entry.value;
-    }
-  }
-  return null;
-}
-
-bool productionMapWarehouseTitlesMatch(String left, String right) {
-  final normalizedLeft = left.trim();
-  final normalizedRight = right.trim();
-  if (normalizedLeft.isEmpty || normalizedRight.isEmpty) {
-    return false;
-  }
-  if (normalizedLeft == normalizedRight) {
-    return true;
-  }
-  if (productionMapApparatusNodeMatchesFrom(
-        nodeTitle: normalizedLeft,
-        fromApparatus: normalizedRight,
-      ) ||
-      productionMapApparatusNodeMatchesFrom(
-        nodeTitle: normalizedRight,
-        fromApparatus: normalizedLeft,
-      )) {
-    return true;
-  }
-  return productionMapWarehouseBaseTitle(normalizedLeft).toLowerCase() ==
-      productionMapWarehouseBaseTitle(normalizedRight).toLowerCase();
-}
-
-bool productionMapNextStageTitleMatchesApparatus(
-  String nextStage,
-  String apparatus,
-) {
-  if (productionMapWarehouseTitlesMatch(nextStage, apparatus)) {
-    return true;
-  }
-  final nextStageKey = _productionMapNormalizedWarehouseKey(nextStage);
-  final apparatusKey = _productionMapNormalizedWarehouseKey(apparatus);
-  if (nextStageKey.isEmpty ||
-      apparatusKey.isEmpty ||
-      nextStageKey == apparatusKey) {
-    return false;
-  }
-  final suffix = apparatusKey.startsWith(nextStageKey)
-      ? apparatusKey.substring(nextStageKey.length).trim()
-      : '';
-  return suffix.isNotEmpty &&
-      suffix.codeUnits.every((unit) => unit >= 48 && unit <= 57);
-}
-
-/// Matches a logical queue stage with a numbered physical apparatus instance.
-/// For example, `Laminatsiya` matches `Laminatsiya 1`, while
-/// `Laminatsiya 1` does not match `Laminatsiya 2`.
-bool productionMapQueueApparatusTitlesMatch(String left, String right) {
-  return productionMapWarehouseTitlesMatch(left, right) ||
-      productionMapNextStageTitleMatchesApparatus(left, right) ||
-      productionMapNextStageTitleMatchesApparatus(right, left);
-}
-
-String _productionMapNormalizedWarehouseKey(String title) {
-  return productionMapWarehouseBaseTitle(
-    title,
-  )
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((part) => part.isNotEmpty)
-      .join(' ')
-      .toLowerCase();
-}
-
 bool productionMapAlternativeAssignedGroupContainsTarget({
   required List<ProductionMapNode> nodes,
-  required String fromApparatus,
-  required String toApparatus,
+  required String fromApparatusId,
+  required String toApparatusId,
 }) {
+  final fromId = fromApparatusId.trim();
+  final toId = toApparatusId.trim();
+  if (fromId.isEmpty || toId.isEmpty) return false;
   final candidateGroups = <String>{};
   for (final node in nodes) {
     final groupId = node.alternativeGroupId.trim();
     if (node.kind == 'apparatus' &&
         groupId.isNotEmpty &&
-        productionMapWarehouseTitlesMatch(
-          node.alternativeAssignedTitle,
-          fromApparatus,
-        )) {
+        node.alternativeAssignedApparatusId.trim() == fromId) {
       candidateGroups.add(groupId);
     }
   }
@@ -379,22 +187,25 @@ bool productionMapAlternativeAssignedGroupContainsTarget({
     (node) =>
         node.kind == 'apparatus' &&
         candidateGroups.contains(node.alternativeGroupId.trim()) &&
-        productionMapWarehouseTitlesMatch(node.title, toApparatus),
+        node.apparatusId.trim() == toId,
   );
 }
 
 bool productionMapUnassignedAlternativeGroupContainsTarget({
   required List<ProductionMapNode> nodes,
-  required String fromApparatus,
-  required String toApparatus,
+  required String fromApparatusId,
+  required String toApparatusId,
 }) {
+  final fromId = fromApparatusId.trim();
+  final toId = toApparatusId.trim();
+  if (fromId.isEmpty || toId.isEmpty) return false;
   final candidateGroups = <String>{};
   for (final node in nodes) {
     final groupId = node.alternativeGroupId.trim();
     if (node.kind == 'apparatus' &&
         groupId.isNotEmpty &&
-        node.alternativeAssignedTitle.trim().isEmpty &&
-        productionMapWarehouseTitlesMatch(node.title, fromApparatus)) {
+        node.alternativeAssignedApparatusId.trim().isEmpty &&
+        node.apparatusId.trim() == fromId) {
       candidateGroups.add(groupId);
     }
   }
@@ -405,105 +216,72 @@ bool productionMapUnassignedAlternativeGroupContainsTarget({
     );
     return groupNodes.isNotEmpty &&
         groupNodes.every(
-          (node) => node.alternativeAssignedTitle.trim().isEmpty,
+          (node) => node.alternativeAssignedApparatusId.trim().isEmpty,
         ) &&
         groupNodes.any(
-          (node) => productionMapWarehouseTitlesMatch(
-            node.title,
-            toApparatus,
-          ),
+          (node) => node.apparatusId.trim() == toId,
         );
   });
 }
 
 bool productionMapCanMoveOrderToApparatus({
   required List<ProductionMapNode> nodes,
-  required String fromApparatus,
-  required String toApparatus,
+  required AdminApparatus fromApparatus,
+  required AdminApparatus toApparatus,
   required double? rollCount,
   required double? widthMm,
-  bool isFlexoOrder = false,
 }) {
-  final fromIsLaminatsiya = productionMapIsLaminatsiyaApparatus(fromApparatus);
-  final toIsLaminatsiya = productionMapIsLaminatsiyaApparatus(toApparatus);
-  if (fromIsLaminatsiya || toIsLaminatsiya) {
-    return fromIsLaminatsiya &&
-        toIsLaminatsiya &&
-        (productionMapAlternativeAssignedGroupContainsTarget(
-              nodes: nodes,
-              fromApparatus: fromApparatus,
-              toApparatus: toApparatus,
-            ) ||
-            productionMapUnassignedAlternativeGroupContainsTarget(
-              nodes: nodes,
-              fromApparatus: fromApparatus,
-              toApparatus: toApparatus,
-            ));
-  }
-  final hasUnassignedAlternativeSource = nodes.any(
+  final fromId = fromApparatus.id.trim();
+  final toId = toApparatus.id.trim();
+  if (fromId.isEmpty || toId.isEmpty || fromId == toId) return false;
+  final sourceNodes = nodes.where(
     (node) =>
         node.kind == 'apparatus' &&
-        node.alternativeGroupId.trim().isNotEmpty &&
-        node.alternativeAssignedTitle.trim().isEmpty &&
-        productionMapWarehouseTitlesMatch(node.title, fromApparatus),
+        (_effectiveApparatusId(node) == fromId ||
+            node.apparatusId.trim() == fromId),
   );
-  if (hasUnassignedAlternativeSource &&
-      !productionMapUnassignedAlternativeGroupContainsTarget(
-        nodes: nodes,
-        fromApparatus: fromApparatus,
-        toApparatus: toApparatus,
-      )) {
+  if (sourceNodes.isEmpty) return false;
+
+  final fromOperation = fromApparatus.operation.trim();
+  final toOperation = toApparatus.operation.trim();
+  if (fromOperation.isEmpty ||
+      toOperation.isEmpty ||
+      fromOperation != toOperation) {
     return false;
   }
-  final fromFamily = _productionMapKnownApparatusFamily(fromApparatus);
-  final toFamily = _productionMapKnownApparatusFamily(toApparatus);
-  if (fromFamily != null && toFamily != null && fromFamily != toFamily) {
+  final fromTechnology = fromApparatus.technology.trim();
+  final toTechnology = toApparatus.technology.trim();
+  if (fromTechnology.isEmpty ||
+      toTechnology.isEmpty ||
+      fromTechnology != toTechnology) {
     return false;
   }
-  final fromIsFlexo = productionMapIsFlexoApparatus(fromApparatus);
-  final toIsFlexo = productionMapIsFlexoApparatus(toApparatus);
-  if (fromIsFlexo != toIsFlexo || (fromIsFlexo || toIsFlexo) && !isFlexoOrder) {
-    return false;
+
+  if (sourceNodes.any(
+    (node) => node.alternativeGroupId.trim().isNotEmpty,
+  )) {
+    return productionMapAlternativeAssignedGroupContainsTarget(
+          nodes: nodes,
+          fromApparatusId: fromId,
+          toApparatusId: toId,
+        ) ||
+        productionMapUnassignedAlternativeGroupContainsTarget(
+          nodes: nodes,
+          fromApparatusId: fromId,
+          toApparatusId: toId,
+        );
   }
-  final targetColorCount = productionMapPechatColorCount(toApparatus);
+
+  final targetColorCount = toApparatus.colorStations;
   if (targetColorCount == null) {
     return true;
   }
-  if (isFlexoOrder) {
-    return false;
-  }
-  final sourceColorCount = productionMapPechatColorCount(fromApparatus) ??
-      productionMapOrderPechatColorCount(
-        nodes
-            .where((node) => node.kind == 'apparatus')
-            .map((node) => node.title),
-      );
   return productionMapPechatCanMoveOrder(
     apparatusColorCount: targetColorCount,
     rollCount: rollCount,
     widthMm: widthMm,
-    sourceApparatusColorCount: sourceColorCount,
+    sourceApparatusColorCount: fromApparatus.colorStations,
   );
-}
-
-/// Whether an apparatus node belongs to the source warehouse/pechat being moved
-/// from. Pechat nodes match by color count so minor title suffixes still work.
-bool productionMapApparatusNodeMatchesFrom({
-  required String nodeTitle,
-  required String fromApparatus,
-}) {
-  final from = fromApparatus.trim();
-  final title = nodeTitle.trim();
-  if (title == from ||
-      productionMapWarehouseBaseTitle(title).toLowerCase() ==
-          productionMapWarehouseBaseTitle(from).toLowerCase()) {
-    return true;
-  }
-  final fromColor = productionMapPechatColorCount(from);
-  if (fromColor == null) {
-    return false;
-  }
-  return productionMapPechatColorCount(nodeTitle) == fromColor;
 }
 
 /// Reassigns the chosen apparatus for alternative-group maps.
@@ -511,11 +289,13 @@ bool productionMapApparatusNodeMatchesFrom({
 /// Returns null when no matching source assignment or candidate is found.
 List<ProductionMapNode>? productionMapReassignAlternativeApparatusAssignment({
   required List<ProductionMapNode> nodes,
-  required String fromApparatus,
-  required String toApparatus,
+  required AdminApparatus fromApparatus,
+  required AdminApparatus toApparatus,
 }) {
-  final to = toApparatus.trim();
-  if (to.isEmpty) {
+  final fromId = fromApparatus.id.trim();
+  final toId = toApparatus.id.trim();
+  final toTitle = toApparatus.name.trim();
+  if (fromId.isEmpty || toId.isEmpty || toTitle.isEmpty) {
     return null;
   }
   final candidateGroups = <String>{};
@@ -523,10 +303,7 @@ List<ProductionMapNode>? productionMapReassignAlternativeApparatusAssignment({
     final groupId = node.alternativeGroupId.trim();
     if (node.kind == 'apparatus' &&
         groupId.isNotEmpty &&
-        productionMapWarehouseTitlesMatch(
-          node.alternativeAssignedTitle,
-          fromApparatus,
-        )) {
+        node.alternativeAssignedApparatusId.trim() == fromId) {
       candidateGroups.add(groupId);
     }
   }
@@ -535,8 +312,8 @@ List<ProductionMapNode>? productionMapReassignAlternativeApparatusAssignment({
       final groupId = node.alternativeGroupId.trim();
       if (node.kind != 'apparatus' ||
           groupId.isEmpty ||
-          node.alternativeAssignedTitle.trim().isNotEmpty ||
-          !productionMapWarehouseTitlesMatch(node.title, fromApparatus)) {
+          node.alternativeAssignedApparatusId.trim().isNotEmpty ||
+          node.apparatusId.trim() != fromId) {
         continue;
       }
       final groupNodes = nodes.where(
@@ -545,13 +322,11 @@ List<ProductionMapNode>? productionMapReassignAlternativeApparatusAssignment({
             candidate.alternativeGroupId.trim() == groupId,
       );
       if (groupNodes.every(
-            (candidate) => candidate.alternativeAssignedTitle.trim().isEmpty,
+            (candidate) =>
+                candidate.alternativeAssignedApparatusId.trim().isEmpty,
           ) &&
           groupNodes.any(
-            (candidate) => productionMapWarehouseTitlesMatch(
-              candidate.title,
-              toApparatus,
-            ),
+            (candidate) => candidate.apparatusId.trim() == toId,
           )) {
         candidateGroups.add(groupId);
       }
@@ -564,7 +339,10 @@ List<ProductionMapNode>? productionMapReassignAlternativeApparatusAssignment({
     for (final node in nodes)
       node.kind == 'apparatus' &&
               candidateGroups.contains(node.alternativeGroupId.trim())
-          ? node.copyWith(alternativeAssignedTitle: to)
+          ? node.copyWith(
+              alternativeAssignedTitle: toTitle,
+              alternativeAssignedApparatusId: toId,
+            )
           : node,
   ];
 }
@@ -573,21 +351,27 @@ List<ProductionMapNode>? productionMapReassignAlternativeApparatusAssignment({
 /// Returns null when no matching source node was found.
 List<ProductionMapNode>? productionMapReassignApparatusNodes({
   required List<ProductionMapNode> nodes,
-  required String fromApparatus,
-  required String toApparatus,
+  required AdminApparatus fromApparatus,
+  required AdminApparatus toApparatus,
 }) {
-  final to = toApparatus.trim();
+  final fromId = fromApparatus.id.trim();
+  final toId = toApparatus.id.trim();
+  final toTitle = toApparatus.name.trim();
+  if (fromId.isEmpty || toId.isEmpty || toTitle.isEmpty) return null;
   var changed = false;
   final next = nodes.map((node) {
     if (node.kind == 'apparatus' &&
-        productionMapApparatusNodeMatchesFrom(
-          nodeTitle: node.title,
-          fromApparatus: fromApparatus,
-        )) {
+        node.alternativeGroupId.trim().isEmpty &&
+        _effectiveApparatusId(node) == fromId) {
       changed = true;
-      return node.copyWith(title: to);
+      return node.copyWith(title: toTitle, apparatusId: toId);
     }
     return node;
   }).toList(growable: false);
   return changed ? next : null;
+}
+
+String _effectiveApparatusId(ProductionMapNode node) {
+  final assignedId = node.alternativeAssignedApparatusId.trim();
+  return assignedId.isEmpty ? node.apparatusId.trim() : assignedId;
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/services.dart';
 
+import '../features/shared/models/app_models.dart';
+
 class NativeUsbPrinter {
   const NativeUsbPrinter._();
 
@@ -181,6 +183,10 @@ class UsbRpsPrintRequest {
 
   factory UsbRpsPrintRequest.fromPrintJson(Map<String, dynamic> json) {
     final executorName = json['executor_name']?.toString().trim() ?? '';
+    final apparatus = json['apparatus']?.toString().trim() ?? '';
+    if (apparatus.isNotEmpty && !canonicalApparatusIdIsValid(apparatus)) {
+      throw const FormatException('Canonical apparatus ID is required');
+    }
     final grossQty = (json['gross_qty'] as num?)?.toDouble() ??
         (json['qty'] as num?)?.toDouble() ??
         0;
@@ -188,7 +194,7 @@ class UsbRpsPrintRequest {
       epc: (json['epc'] ?? json['qr_payload'])?.toString() ?? '',
       itemCode: json['item_code']?.toString() ?? '',
       itemName: json['item_name']?.toString() ?? '',
-      apparatus: json['apparatus']?.toString() ?? '',
+      apparatus: apparatus,
       warehouse: json['warehouse']?.toString() ??
           (executorName.isEmpty ? 'ACCORD' : 'Ijrochi: $executorName'),
       printer: json['printer']?.toString() ?? 'godex',

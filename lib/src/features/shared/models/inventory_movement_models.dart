@@ -1,3 +1,5 @@
+import 'app_models.dart';
+
 enum InventoryAssetKind {
   rawMaterial,
   finishedGoods,
@@ -76,8 +78,14 @@ class InventoryLocationApparatus {
   final String name;
 
   factory InventoryLocationApparatus.fromJson(Map<String, dynamic> json) {
+    final id = json['id']?.toString().trim() ?? '';
+    if (!canonicalApparatusIdIsValid(id)) {
+      throw const FormatException(
+        'Inventory location requires canonical apparatus ID',
+      );
+    }
     return InventoryLocationApparatus(
-      id: json['id']?.toString() ?? '',
+      id: id,
       name: json['name']?.toString() ?? '',
     );
   }

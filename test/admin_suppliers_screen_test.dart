@@ -51,6 +51,7 @@ void main() {
       ref: 'ADMIN-001',
       phone: '',
       avatarUrl: '',
+      capabilities: ['admin.access'],
     );
     AdminSuppliersScreen.invalidateCache();
   });
@@ -88,12 +89,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Rollar tanlanmagan'), findsOneWidget);
+      expect(find.text('Rol: Tanlanmagan'), findsOneWidget);
 
       navigatorKey.currentState!.pushNamed(AppRoutes.adminUserCreate);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Role tanlang').first);
+      await tester.tap(find.text('Role tanlang').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Item yaratuvchi'));
       await tester.pumpAndSettle();
@@ -253,12 +254,13 @@ void main() {
         ref: 'ADMIN-002',
         phone: '',
         avatarUrl: '',
+        capabilities: ['admin.access'],
       );
       AppSession.instance.revision.value++;
 
       await pumpScreen();
       expect(find.text('Admin A supplier'), findsNothing);
-      expect(find.text('Rollar tanlanmagan'), findsOneWidget);
+      expect(find.text('Rol: Tanlanmagan'), findsOneWidget);
 
       await _selectUserRole(tester, 'Ta’minotchi');
       expect(find.text('Admin B supplier'), findsOneWidget);
@@ -424,9 +426,9 @@ void main() {
       await tester
           .tap(find.byKey(const ValueKey('admin-users-role-filter-chip')));
       await tester.pumpAndSettle();
-      expect(find.text('Material taminotchisi'), findsOneWidget);
+      expect(find.text('Material ta’minotchisi'), findsOneWidget);
 
-      await tester.tap(find.text('Material taminotchisi').last);
+      await tester.tap(find.text('Material ta’minotchisi').last);
       await tester.pumpAndSettle();
       expect(
         client.requests,
@@ -436,7 +438,7 @@ void main() {
       );
       expect(find.text('Materialchi One'), findsOneWidget);
       expect(find.text('Customer One'), findsNothing);
-      expect(find.textContaining('Material taminotchisi'), findsWidgets);
+      expect(find.textContaining('Material ta’minotchisi'), findsWidgets);
 
       await _selectUserRole(tester, 'Haridor');
       expect(
@@ -463,7 +465,7 @@ void main() {
           'name': 'Materialchi One',
           'phone': '998900003',
           'principal_role': 'material_taminotchi',
-          'role_label': 'Material taminotchisi',
+          'role_label': 'Material ta’minotchisi',
           'blocked': false,
         },
       ],
@@ -509,7 +511,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
-      await _selectUserRole(tester, 'Material taminotchisi');
+      await _selectUserRole(tester, 'Material ta’minotchisi');
       await tester.tap(find.text('Materialchi One'));
       await tester.pumpAndSettle();
 
@@ -518,7 +520,7 @@ void main() {
       expect(entry.id, 'MAT-NEW');
       expect(entry.kind, AdminUserKind.materialTaminotchi);
       expect(entry.principalRole, UserRole.materialTaminotchi);
-      expect(entry.roleLabel, 'Material taminotchisi');
+      expect(entry.roleLabel, 'Material ta’minotchisi');
 
       await tester.pumpWidget(const SizedBox.shrink());
     }, createHttpClient: (_) => client);
@@ -589,7 +591,7 @@ void main() {
 
       await _selectUserRole(tester, 'Ta’minotchi');
       expect(find.text('Rol: Ta’minotchi'), findsOneWidget);
-      expect(find.text('Rollar tanlanmagan'), findsNothing);
+      expect(find.text('Rol: Tanlanmagan'), findsNothing);
       expect(
         client.requests,
         contains('GET /v1/mobile/admin/users/list?limit=50&role=supplier'),
@@ -670,12 +672,19 @@ void main() {
 
       await tester.drag(find.byType(ListView).last, const Offset(0, -360));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Ish faoliyati tafsilotlari'));
+      await tester.tap(
+        find.widgetWithText(OutlinedButton, 'Ish faoliyati tafsilotlari'),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Assign qilingan guruhlar'), findsOneWidget);
       expect(find.text('7 ta rangli pechat'), findsWidgets);
+      await tester.scrollUntilVisible(
+        find.text('Aktiv ishlar'),
+        240,
+        scrollable: find.byType(Scrollable).last,
+      );
       expect(find.text('Aktiv ishlar'), findsOneWidget);
-      expect(find.textContaining('zakaz-worker-1'), findsOneWidget);
+      expect(find.textContaining('zakaz-worker-1'), findsWidgets);
       expect(
           find.text('Progress batchlar', skipOffstage: false), findsOneWidget);
       expect(find.text('Loglar', skipOffstage: false), findsOneWidget);
@@ -990,6 +999,7 @@ class _AdminUsersHttpClient implements HttpClient {
           },
           'assigned_groups': [
             {
+              'apparatus_id': 'apparatus:default:bosma_7',
               'apparatus': '7 ta rangli pechat',
               'group_code': 'A',
               'shift': 'kunduz',
@@ -1005,7 +1015,7 @@ class _AdminUsersHttpClient implements HttpClient {
           'active_sessions': [
             {
               'session_id': 'session-worker-1',
-              'apparatus': '7 ta rangli pechat',
+              'apparatus': 'apparatus:default:bosma_7',
               'order_id': 'zakaz-worker-1',
               'status': 'active',
               'worker_role': 'aparatchi',
@@ -1019,7 +1029,7 @@ class _AdminUsersHttpClient implements HttpClient {
             {
               'batch_id': 'batch-worker-1',
               'session_id': 'session-worker-1',
-              'apparatus': '7 ta rangli pechat',
+              'apparatus': 'apparatus:default:bosma_7',
               'order_id': 'zakaz-worker-1',
               'action': 'pause',
               'status': 'paused',
@@ -1034,7 +1044,7 @@ class _AdminUsersHttpClient implements HttpClient {
           'recent_logs': [
             {
               'event_id': 'event-worker-1',
-              'apparatus': '7 ta rangli pechat',
+              'apparatus': 'apparatus:default:bosma_7',
               'order_id': 'zakaz-worker-1',
               'action': 'start',
               'from_state': 'pending',
@@ -1242,6 +1252,27 @@ class _AdminUsersHttpClient implements HttpClient {
         ),
       );
     }
+    if (key == 'GET /v1/mobile/admin/apparatus?limit=10000') {
+      body = const [
+        {
+          'apparatus_id': 'apparatus:default:bosma_7',
+          'source_revision': 1,
+          'source_aasx_sha256':
+              'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          'display': {'display_name': '7 ta rangli pechat'},
+          'execution_profile': {
+            'operation': 'print',
+            'technology': 'rotogravure',
+          },
+        },
+      ];
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode(body),
+          statusCode: statusCode,
+        ),
+      );
+    }
     switch (key) {
       case 'GET /v1/mobile/admin/settings':
         body = const {
@@ -1378,7 +1409,14 @@ class _FakeHttpClientRequest implements HttpClientRequest {
   }
 
   @override
-  HttpHeaders get headers => _FakeHttpHeaders();
+  HttpHeaders get headers {
+    final headers = _FakeHttpHeaders();
+    headers.set(
+      HttpHeaders.contentTypeHeader,
+      'application/json; charset=utf-8',
+    );
+    return headers;
+  }
 
   @override
   Encoding get encoding => utf8;
@@ -1438,7 +1476,14 @@ class _FakeHttpClientResponse extends Stream<List<int>>
   int get contentLength => _bytes.length;
 
   @override
-  HttpHeaders get headers => _FakeHttpHeaders();
+  HttpHeaders get headers {
+    final headers = _FakeHttpHeaders();
+    headers.set(
+      HttpHeaders.contentTypeHeader,
+      'application/json; charset=utf-8',
+    );
+    return headers;
+  }
 
   @override
   bool get isRedirect => false;

@@ -218,9 +218,8 @@ extension MobileApiAuthProfile on MobileApi {
 
   SessionProfile _profilePreservingCapabilities(Map<String, dynamic> json) {
     final profileJson = Map<String, dynamic>.from(json);
-    profileJson['capabilities'] = json['capabilities'] is List
-        ? json['capabilities']
-        : const <dynamic>[];
+    profileJson['capabilities'] =
+        json['capabilities'] is List ? json['capabilities'] : const <dynamic>[];
     profileJson['assigned_apparatus'] = json['assigned_apparatus'] is List
         ? json['assigned_apparatus']
         : const <dynamic>[];

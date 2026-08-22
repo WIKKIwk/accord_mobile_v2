@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/api/mobile_api.dart';
 import '../../../../core/session/state/app_session.dart';
+import '../../../admin/logic/canonical_apparatus_display.dart';
 import '../../../admin/presentation/admin_production_map_orders_screen.dart';
 import '../../../shared/models/app_models.dart';
 import '../../models/chat_models.dart';
@@ -22,12 +25,24 @@ class ChatOrderFreezeRequestCard extends StatefulWidget {
 class _ChatOrderFreezeRequestCardState
     extends State<ChatOrderFreezeRequestCard> {
   late OrderFreezeRequestCardStatus _status;
+  List<AdminApparatus> _apparatusCatalog = const [];
   bool _actionInFlight = false;
 
   @override
   void initState() {
     super.initState();
     _status = widget.data.status;
+    unawaited(_loadApparatusCatalog());
+  }
+
+  Future<void> _loadApparatusCatalog() async {
+    try {
+      final apparatus = await MobileApi.instance.adminApparatus(limit: 10000);
+      if (!mounted) return;
+      setState(() => _apparatusCatalog = apparatus);
+    } catch (_) {
+      // The exact ApparatusId remains visible if its display projection fails.
+    }
   }
 
   @override
@@ -178,7 +193,10 @@ class _ChatOrderFreezeRequestCardState
                     ),
                   _InfoRow(
                     label: 'Bosqich',
-                    value: widget.data.targetApparatus.trim(),
+                    value: canonicalApparatusDisplayLabel(
+                      widget.data.targetApparatus,
+                      _apparatusCatalog,
+                    ),
                   ),
                   _InfoRow(
                     label: 'Admin',

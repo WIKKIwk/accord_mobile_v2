@@ -4,11 +4,13 @@ class _ClosedOrdersModulePage extends StatelessWidget {
   const _ClosedOrdersModulePage({
     required this.bottomPadding,
     required this.closedOrders,
+    required this.apparatusCatalog,
     required this.visibleClosedOrders,
   });
 
   final double bottomPadding;
   final List<AdminClosedProductionOrder> closedOrders;
+  final List<AdminApparatus> apparatusCatalog;
   final List<AdminClosedProductionOrder> visibleClosedOrders;
 
   @override
@@ -40,6 +42,7 @@ class _ClosedOrdersModulePage extends StatelessWidget {
                     visibleClosedOrders.length,
                   ),
                   order: visibleClosedOrders[index],
+                  apparatusCatalog: apparatusCatalog,
                   index: index,
                 ),
             ],
@@ -53,11 +56,13 @@ class _ClosedOrderTile extends StatelessWidget {
   const _ClosedOrderTile({
     required this.slot,
     required this.order,
+    required this.apparatusCatalog,
     required this.index,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminClosedProductionOrder order;
+  final List<AdminApparatus> apparatusCatalog;
   final int index;
 
   @override
@@ -126,7 +131,11 @@ class _ClosedOrderTile extends StatelessWidget {
                 ),
               )
             else
-              _ClosedOrderLogList(order: order, logs: order.logs),
+              _ClosedOrderLogList(
+                order: order,
+                logs: order.logs,
+                apparatusCatalog: apparatusCatalog,
+              ),
           ],
         ),
       ),
@@ -135,10 +144,15 @@ class _ClosedOrderTile extends StatelessWidget {
 }
 
 class _ClosedOrderLogList extends StatelessWidget {
-  const _ClosedOrderLogList({required this.order, required this.logs});
+  const _ClosedOrderLogList({
+    required this.order,
+    required this.logs,
+    required this.apparatusCatalog,
+  });
 
   final AdminClosedProductionOrder order;
   final List<AdminProductionOrderLogEntry> logs;
+  final List<AdminApparatus> apparatusCatalog;
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +160,11 @@ class _ClosedOrderLogList extends StatelessWidget {
       children: [
         for (var index = 0; index < logs.length; index++) ...[
           if (index > 0) const Divider(height: 16),
-          _ClosedOrderLogRow(order: order, log: logs[index]),
+          _ClosedOrderLogRow(
+            order: order,
+            log: logs[index],
+            apparatusCatalog: apparatusCatalog,
+          ),
         ],
       ],
     );
@@ -154,10 +172,15 @@ class _ClosedOrderLogList extends StatelessWidget {
 }
 
 class _ClosedOrderLogRow extends StatelessWidget {
-  const _ClosedOrderLogRow({required this.order, required this.log});
+  const _ClosedOrderLogRow({
+    required this.order,
+    required this.log,
+    required this.apparatusCatalog,
+  });
 
   final AdminClosedProductionOrder order;
   final AdminProductionOrderLogEntry log;
+  final List<AdminApparatus> apparatusCatalog;
 
   IconData get _icon {
     if (log.freeze != null) {
@@ -188,7 +211,7 @@ class _ClosedOrderLogRow extends StatelessWidget {
     );
     final state = _closedLogStateLabel(log);
     final time = _closedLogTimeLabel(log.createdAtUnix);
-    final apparatus = _closedLogApparatusLabel(log);
+    final apparatus = _closedLogApparatusLabel(log, apparatusCatalog);
     final transferReason = log.transfer?.reason.trim() ?? '';
     final subtitle = [
       actor,
@@ -205,6 +228,7 @@ class _ClosedOrderLogRow extends StatelessWidget {
           context,
           order: order,
           log: log,
+          apparatusCatalog: apparatusCatalog,
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),

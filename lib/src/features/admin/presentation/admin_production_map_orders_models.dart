@@ -247,6 +247,20 @@ bool _isMoveUnassignedApparatus(AdminApparatus? apparatus) {
   return apparatus is _MoveUnassignedApparatus;
 }
 
+bool _sameMoveApparatusIdentity(
+  AdminApparatus? left,
+  AdminApparatus? right,
+) {
+  if (left == null || right == null) return false;
+  if (_isMoveUnassignedApparatus(left) || _isMoveUnassignedApparatus(right)) {
+    return _isMoveUnassignedApparatus(left) &&
+        _isMoveUnassignedApparatus(right);
+  }
+  final leftId = left.id.trim();
+  final rightId = right.id.trim();
+  return leftId.isNotEmpty && rightId.isNotEmpty && leftId == rightId;
+}
+
 enum _OrderCardTone { neutral, inProgress, paused, frozen, issue }
 
 _OrderCardTone _resolveOrderCardTone({

@@ -23,10 +23,6 @@ void main() {
       '2 machines',
     );
     expect(
-      english.productionApparatusName('7 ta rangli bosma'),
-      '7-color printing',
-    );
-    expect(
       english.productionText('worker.qr.report.product_passport'),
       'Product passport',
     );

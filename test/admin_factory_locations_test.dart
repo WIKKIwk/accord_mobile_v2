@@ -30,10 +30,15 @@ void main() {
 
   test('apparatus parser preserves backend catalog metadata', () {
     final item = AdminApparatus.fromJson(const {
-      'id': 'apparatus:default:rezka',
-      'name': 'Rezka',
-      'source': 'default',
-      'sort_order': 9,
+      'apparatus_id': 'apparatus:default:rezka',
+      'source_revision': 3,
+      'source_aasx_sha256':
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      'display': {'display_name': 'Rezka', 'catalog_order': 9},
+      'execution_profile': {
+        'operation': 'cut',
+        'technology': 'slitting',
+      },
     });
 
     expect(item.id, 'apparatus:default:rezka');
@@ -50,7 +55,7 @@ void main() {
     final updated =
         await MobileApi.instance.adminReplaceFactoryLocationApparatus(
       id: created.id,
-      apparatusIds: const ['apparatus:default:laminatsiya_1'],
+      apparatusIds: const ['apparatus:default:asset-007'],
     );
 
     expect(updated.id, created.id);

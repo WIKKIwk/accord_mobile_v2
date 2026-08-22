@@ -1,5 +1,3 @@
-import 'production_map_pechat_rules.dart';
-
 enum ApparatusQueueOrderState {
   pending,
   inProgress,
@@ -186,32 +184,4 @@ String? firstActiveQueueOrderId({
     }
   }
   return null;
-}
-
-String resolveApparatusStorageKey(
-  String apparatus,
-  Iterable<String> knownKeys,
-) {
-  final normalized = apparatus.trim();
-  if (normalized.isEmpty) {
-    return normalized;
-  }
-  final keys =
-      knownKeys.map((key) => key.trim()).where((key) => key.isNotEmpty);
-  if (keys.contains(normalized)) {
-    return normalized;
-  }
-  for (final key in keys) {
-    if (productionMapApparatusNodeMatchesFrom(
-          nodeTitle: normalized,
-          fromApparatus: key,
-        ) ||
-        productionMapApparatusNodeMatchesFrom(
-          nodeTitle: key,
-          fromApparatus: normalized,
-        )) {
-      return key;
-    }
-  }
-  return normalized;
 }

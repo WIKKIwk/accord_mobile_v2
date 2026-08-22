@@ -4,7 +4,9 @@ import '../../../../core/api/mobile_api.dart';
 import '../../../../core/search/search_normalizer.dart';
 import '../../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../../core/widgets/shell/app_loading_indicator.dart';
+import '../../../admin/logic/canonical_apparatus_display.dart';
 import '../../../admin/models/production_map_models.dart';
+import '../../../shared/models/app_models.dart';
 import '../../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'package:flutter/material.dart';
 
@@ -29,6 +31,7 @@ class _RawMaterialOrderAssignmentSectionState
     extends State<RawMaterialOrderAssignmentSection> {
   AdminRawMaterialLookup? _lookup;
   List<AdminRawMaterialAssignmentOrderCandidate> _candidateOrders = const [];
+  List<AdminApparatus> _apparatusCatalog = const [];
   bool _loading = true;
   bool _saving = false;
   Object? _error;
@@ -69,9 +72,12 @@ class _RawMaterialOrderAssignmentSectionState
       });
     }
     try {
-      final lookup = await MobileApi.instance.adminRawMaterialLookup(
-        barcode: barcode,
-      );
+      final results = await Future.wait<Object>([
+        MobileApi.instance.adminRawMaterialLookup(barcode: barcode),
+        MobileApi.instance.adminApparatus(limit: 10000),
+      ]);
+      final lookup = results[0] as AdminRawMaterialLookup;
+      final apparatus = results[1] as List<AdminApparatus>;
       final candidateOrders = widget.allowAssignment &&
               lookup.assignment == null
           ? await MobileApi.instance.adminRawMaterialAssignmentCandidateOrders(
@@ -85,6 +91,7 @@ class _RawMaterialOrderAssignmentSectionState
       setState(() {
         _lookup = lookup;
         _candidateOrders = candidateOrders;
+        _apparatusCatalog = apparatus;
         _error = null;
       });
     } catch (error) {
@@ -262,7 +269,9 @@ class _RawMaterialOrderAssignmentSectionState
           for (final option in options)
             SimpleDialogOption(
               onPressed: () => Navigator.of(context).pop(option),
-              child: Text(option),
+              child: Text(
+                canonicalApparatusDisplayLabel(option, _apparatusCatalog),
+              ),
             ),
         ],
       ),
@@ -332,7 +341,10 @@ class _RawMaterialOrderAssignmentSectionState
                       if (assignment.apparatus.trim().isNotEmpty) ...[
                         const SizedBox(height: 3),
                         Text(
-                          assignment.apparatus.trim(),
+                          canonicalApparatusDisplayLabel(
+                            assignment.apparatus,
+                            _apparatusCatalog,
+                          ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSecondaryContainer,
                           ),

@@ -12,6 +12,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import '../logic/canonical_apparatus_display.dart';
 import 'widgets/admin_apparatus_scope_picker.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
@@ -38,7 +39,6 @@ const Map<String, String> adminWorkerStartDayLabels = {
   'sunday': 'Yakshanba',
 };
 
-const String _workerGroupsScope = 'worker-settings';
 const double _workerSettingsPanelGap = 4;
 
 String _workerLevelLabel(String level, AppLocalizations l10n) {
@@ -91,8 +91,13 @@ String _workerShiftLabel(String shift, AppLocalizations l10n) {
 
 String _workerDeletionDependencyLabel(
   AdminWorkerDeletionDependency dependency,
+  List<AdminApparatus> apparatusCatalog,
   AppLocalizations l10n,
 ) {
+  final apparatusName = canonicalApparatusDisplayLabel(
+    dependency.apparatus,
+    apparatusCatalog,
+  );
   switch (dependency.kind) {
     case 'active_order':
       final status = dependency.status == 'paused'
@@ -102,20 +107,22 @@ String _workerDeletionDependencyLabel(
         'worker.dependency.order',
         values: {
           'order': dependency.orderId,
-          'apparatus': dependency.apparatus,
+          'apparatus': apparatusName,
           'status': status,
         },
       );
     case 'worker_group':
-      final apparatus = dependency.apparatus.trim();
-      return apparatus.isEmpty || apparatus == _workerGroupsScope
+      return apparatusName.isEmpty
           ? l10n.adminText(
               'worker.dependency.group',
               values: {'label': dependency.label},
             )
           : l10n.adminText(
               'worker.dependency.group_apparatus',
-              values: {'label': dependency.label, 'apparatus': apparatus},
+              values: {
+                'label': dependency.label,
+                'apparatus': apparatusName,
+              },
             );
     case 'apparatus':
       return l10n.adminText(
@@ -133,7 +140,6 @@ String _workerDeletionDependencyLabel(
         values: {'label': dependency.label},
       );
     case 'qolip_checkout':
-      final apparatusName = dependency.apparatus.trim();
       return apparatusName.isEmpty
           ? l10n.adminText(
               'worker.dependency.mold',
@@ -151,16 +157,10 @@ String _workerDeletionDependencyLabel(
 String _workerGroupCodeKey(String code) =>
     code.trim().split(RegExp(r'\s+')).join(' ').toUpperCase();
 
-Set<String> _normalizedApparatusNames(Iterable<String> values) {
-  return {
-    for (final value in values)
-      if (value.trim().isNotEmpty) value.trim().toLowerCase(),
-  };
-}
-
-AdminWorkerGroup _newWorkerGroup(String code) {
+AdminWorkerGroup _newWorkerGroup(String code, AdminApparatus apparatus) {
   return AdminWorkerGroup(
-    apparatus: _workerGroupsScope,
+    apparatus: apparatus.name,
+    apparatusId: apparatus.id,
     groupCode: _workerGroupCodeKey(code),
     shift: 'kunduz',
     startTime: '08:00',
@@ -277,6 +277,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
     AdminWorker worker,
     Set<String> selected,
     AdminRoleAssignment? currentAssignment,
+    List<AdminApparatus> apparatus,
   ) async {
     final workerId = worker.id.trim();
     if (workerId.isEmpty || _savingApparatusWorkerIds.contains(workerId)) {
@@ -288,10 +289,14 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
         .toSet()
         .toList(growable: true)
       ..sort();
-    final currentApparatus = _normalizedApparatusNames(
+    final currentApparatus = canonicalApparatusIds(
       currentAssignment?.assignedApparatus ?? const <String>[],
     );
-    final nextApparatus = _normalizedApparatusNames(assignedApparatus);
+    final nextApparatus = canonicalApparatusIds(assignedApparatus);
+    final assignedLabels = canonicalApparatusDisplayLabels(
+      assignedApparatus,
+      apparatus,
+    );
     final assignmentAlreadySaved = currentAssignment != null &&
         currentApparatus.length == nextApparatus.length &&
         currentApparatus.containsAll(nextApparatus);
@@ -303,7 +308,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
               ? context.l10n.adminText('scope.already_saved')
               : context.l10n.adminText(
                   'scope.already_assigned',
-                  values: {'apparatus': assignedApparatus.join(', ')},
+                  values: {'apparatus': assignedLabels.join(', ')},
                 ),
         );
       }
@@ -477,6 +482,16 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
   }
 
   Future<void> _openWorkerGroupCreateDialog() async {
+    final apparatus = await _loadWorkerApparatus();
+    if (!mounted) return;
+    if (apparatus.isEmpty) {
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('worker.load_failed'),
+        icon: Icons.error,
+      );
+      return;
+    }
     await showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.32),
@@ -485,6 +500,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.symmetric(horizontal: 20),
           child: _WorkerGroupCreateDialogCard(
+            apparatus: apparatus,
             onSaved: () async {
               if (!mounted) {
                 return;
@@ -504,6 +520,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
 
   Future<void> _deactivateWorker(
     AdminWorker worker,
+    List<AdminApparatus> apparatusCatalog,
   ) async {
     if (_deactivatingWorkerId != null) {
       return;
@@ -515,7 +532,11 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
       if (!mounted) {
         return;
       }
-      final confirmed = await _showWorkerDeactivationDialog(worker, check);
+      final confirmed = await _showWorkerDeactivationDialog(
+        worker,
+        check,
+        apparatusCatalog,
+      );
       if (!confirmed || !mounted) {
         return;
       }
@@ -541,7 +562,11 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
         return;
       }
       if (error.check.blocked) {
-        await _showWorkerDeactivationDialog(worker, error.check);
+        await _showWorkerDeactivationDialog(
+          worker,
+          error.check,
+          apparatusCatalog,
+        );
       } else {
         showAdminTopNotice(
           context,
@@ -571,6 +596,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
   Future<bool> _showWorkerDeactivationDialog(
     AdminWorker worker,
     AdminWorkerDeletionCheck check,
+    List<AdminApparatus> apparatusCatalog,
   ) async {
     final blocked = check.blocked;
     final dependencies = blocked ? check.activeWork : check.connections;
@@ -636,6 +662,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                               child: Text(
                                 _workerDeletionDependencyLabel(
                                   dependency,
+                                  apparatusCatalog,
                                   dialogContext.l10n,
                                 ),
                                 style: Theme.of(dialogContext)
@@ -826,10 +853,14 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                           workers[index],
                           selected,
                           data?.assignmentsByWorker[workers[index].id.trim()],
+                          data?.apparatus ?? const <AdminApparatus>[],
                         ),
                         deleting: _deactivatingWorkerId == workers[index].id,
                         onDelete: () => unawaited(
-                          _deactivateWorker(workers[index]),
+                          _deactivateWorker(
+                            workers[index],
+                            data?.apparatus ?? const <AdminApparatus>[],
+                          ),
                         ),
                       ),
                   ],
@@ -1126,10 +1157,12 @@ class _WorkerNameEditDialogCardState extends State<_WorkerNameEditDialogCard> {
 
 class _WorkerGroupCreateDialogCard extends StatefulWidget {
   const _WorkerGroupCreateDialogCard({
+    required this.apparatus,
     required this.onSaved,
     required this.onClose,
   });
 
+  final List<AdminApparatus> apparatus;
   final Future<void> Function() onSaved;
   final VoidCallback onClose;
 
@@ -1141,7 +1174,14 @@ class _WorkerGroupCreateDialogCard extends StatefulWidget {
 class _WorkerGroupCreateDialogCardState
     extends State<_WorkerGroupCreateDialogCard> {
   final TextEditingController _groupCodeController = TextEditingController();
+  late String _selectedApparatusId;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedApparatusId = widget.apparatus.first.id;
+  }
 
   @override
   void dispose() {
@@ -1156,7 +1196,12 @@ class _WorkerGroupCreateDialogCardState
     }
     setState(() => _saving = true);
     try {
-      final groups = await MobileApi.instance.adminWorkerGroups();
+      final selectedApparatus = widget.apparatus.firstWhere(
+        (item) => item.id == _selectedApparatusId,
+      );
+      final groups = await MobileApi.instance.adminWorkerGroups(
+        apparatusId: selectedApparatus.id,
+      );
       final exists = groups.any(
         (group) => _workerGroupCodeKey(group.groupCode) == code,
       );
@@ -1172,7 +1217,9 @@ class _WorkerGroupCreateDialogCardState
         }
         return;
       }
-      await MobileApi.instance.adminSaveWorkerGroup(_newWorkerGroup(code));
+      await MobileApi.instance.adminSaveWorkerGroup(
+        _newWorkerGroup(code, selectedApparatus),
+      );
       await widget.onSaved();
       if (mounted) {
         widget.onClose();
@@ -1229,6 +1276,33 @@ class _WorkerGroupCreateDialogCardState
                     tooltip: context.l10n.adminText('worker.close'),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedApparatusId,
+                isExpanded: true,
+                decoration: appSurfaceInputDecoration(
+                  context,
+                  labelText: context.l10n.adminText('scope.apparatus'),
+                ),
+                items: [
+                  for (final apparatus in widget.apparatus)
+                    DropdownMenuItem(
+                      value: apparatus.id,
+                      child: Text(
+                        apparatus.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: _saving
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          setState(() => _selectedApparatusId = value);
+                        }
+                      },
               ),
               const SizedBox(height: 12),
               TextField(
@@ -1312,6 +1386,7 @@ class _WorkerGroupsTab extends StatefulWidget {
 class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
     with AutomaticKeepAliveClientMixin<_WorkerGroupsTab> {
   List<AdminWorker> _workers = const [];
+  List<AdminApparatus> _apparatus = const [];
   Map<String, AdminWorkerGroup> _groupsByCode = const {};
   bool _loading = true;
   final Set<String> _savingCodes = <String>{};
@@ -1349,18 +1424,21 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
       final results = await Future.wait([
         MobileApi.instance.adminWorkers(),
         MobileApi.instance.adminWorkerGroups(),
+        MobileApi.instance.adminApparatus(limit: 300),
       ]).timeout(const Duration(seconds: 12));
       if (!mounted) {
         return;
       }
       final workers = results[0] as List<AdminWorker>;
       final groups = results[1] as List<AdminWorkerGroup>;
+      final apparatus = results[2] as List<AdminApparatus>;
       setState(() {
         _workers = workers;
+        _apparatus = apparatus;
         _loadedWorkersVersion = widget.workersVersion;
         _loadedGroupsVersion = widget.groupsVersion;
         _groupsByCode = {
-          for (final group in groups) _groupKey(group.groupCode): group,
+          for (final group in groups) _groupIdentity(group): group,
         };
         if (_selectedGroupCode != null &&
             !_groupsByCode.containsKey(_selectedGroupCode)) {
@@ -1420,7 +1498,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
       }
       setState(() {
         final loadedGroups = <String, AdminWorkerGroup>{
-          for (final group in groups) _groupKey(group.groupCode): group,
+          for (final group in groups) _groupIdentity(group): group,
         };
         final editingCode = _editingGroupCode;
         final editingDraft =
@@ -1455,16 +1533,20 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
 
   String _groupKey(String code) => _workerGroupCodeKey(code);
 
+  String _groupIdentity(AdminWorkerGroup group) =>
+      '${group.apparatusId.trim()}::${_groupKey(group.groupCode)}';
+
   void _setGroup(AdminWorkerGroup group) {
     final currentCode = _editingGroupCode ?? _selectedGroupCode;
     final code = _groupKey(group.groupCode);
+    final identity = _groupIdentity(group);
     final editingExistingGroup =
         _editingOriginalGroup != null && currentCode != null;
     final mapKey = editingExistingGroup
         ? currentCode
         : code.isEmpty
             ? currentCode ?? code
-            : code;
+            : identity;
     setState(() {
       final groups = {..._groupsByCode};
       if (currentCode != null && currentCode != mapKey) {
@@ -1473,14 +1555,14 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
       groups[mapKey] = group;
       _groupsByCode = groups;
       if (!editingExistingGroup && code.isNotEmpty) {
-        _selectedGroupCode = code;
-        _editingGroupCode = code;
+        _selectedGroupCode = identity;
+        _editingGroupCode = identity;
       }
     });
   }
 
   void _startEditingGroup(AdminWorkerGroup group) {
-    final code = _groupKey(group.groupCode);
+    final code = _groupIdentity(group);
     setState(() {
       _selectedGroupCode = code;
       _editingGroupCode = code;
@@ -1500,7 +1582,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
       });
       return;
     }
-    final originalCode = _groupKey(original.groupCode);
+    final originalCode = _groupIdentity(original);
     final groups = {..._groupsByCode};
     if (currentCode != null) {
       groups.remove(currentCode);
@@ -1523,34 +1605,30 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
     final original = _editingOriginalGroup;
     final previousGroupCode =
         original == null ? null : _groupKey(original.groupCode);
-    final previousApparatus = original?.apparatus.trim();
-    setState(() => _savingCodes.add(code));
+    final previousApparatusId = original?.apparatusId.trim();
+    final identity = _groupIdentity(group);
+    setState(() => _savingCodes.add(identity));
     try {
-      // Keep the legacy group field for API/DB compatibility. Apparatus access
-      // is saved on each worker from the Workers tab.
       final saved = await MobileApi.instance.adminSaveWorkerGroup(
-        group.copyWith(
-          apparatus: group.apparatus.trim().isEmpty
-              ? _workerGroupsScope
-              : group.apparatus.trim(),
-          groupCode: code,
-        ),
-        previousApparatus: previousApparatus,
+        group.copyWith(groupCode: code),
+        previousApparatusId: previousApparatusId,
         previousGroupCode: previousGroupCode,
       );
       if (!mounted) {
         return;
       }
-      final originalCode = previousGroupCode ?? code;
+      final originalCode =
+          original == null ? identity : _groupIdentity(original);
+      final savedIdentity = _groupIdentity(saved);
       setState(() {
         final groups = {..._groupsByCode};
         groups.remove(originalCode);
-        groups.remove(code);
-        groups[_groupKey(saved.groupCode)] = saved;
+        groups.remove(identity);
+        groups[savedIdentity] = saved;
         _groupsByCode = {
           ...groups,
         };
-        _selectedGroupCode = _groupKey(saved.groupCode);
+        _selectedGroupCode = savedIdentity;
         _editingGroupCode = null;
         _editingOriginalGroup = null;
       });
@@ -1575,17 +1653,17 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
       }
     } finally {
       if (mounted) {
-        setState(() => _savingCodes.remove(code));
+        setState(() => _savingCodes.remove(identity));
       }
     }
   }
 
-  Map<String, String> _assignedWorkerGroups({String exceptGroupCode = ''}) {
-    final except = _groupKey(exceptGroupCode);
+  Map<String, String> _assignedWorkerGroups({String exceptIdentity = ''}) {
     final result = <String, String>{};
-    for (final group in _groupsByCode.values) {
+    for (final entry in _groupsByCode.entries) {
+      final group = entry.value;
       final code = _groupKey(group.groupCode);
-      if (code == except) {
+      if (entry.key == exceptIdentity) {
         continue;
       }
       for (final workerId in group.workerIds) {
@@ -1597,8 +1675,12 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
 
   List<MapEntry<String, AdminWorkerGroup>> _sortedGroupEntries() {
     final groups = _groupsByCode.entries.toList();
-    groups.sort(
-        (left, right) => left.value.groupCode.compareTo(right.value.groupCode));
+    groups.sort((left, right) {
+      final apparatus = left.value.apparatus.compareTo(right.value.apparatus);
+      return apparatus != 0
+          ? apparatus
+          : left.value.groupCode.compareTo(right.value.groupCode);
+    });
     return groups;
   }
 
@@ -1649,7 +1731,11 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
                       identityKey: entry.key,
                       workers: _workers,
                       assignedWorkerGroups: _assignedWorkerGroups(
-                        exceptGroupCode: entry.value.groupCode,
+                        exceptIdentity: entry.key,
+                      ),
+                      apparatusName: canonicalApparatusDisplayLabel(
+                        entry.value.apparatusId,
+                        _apparatus,
                       ),
                       expanded: _selectedGroupCode == entry.key,
                       editing: _editingGroupCode == entry.key,
@@ -1672,7 +1758,12 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
                         }
                       },
                       onChanged: _setGroup,
-                      onSave: () => unawaited(_saveGroup(entry.value)),
+                      onSave: () {
+                        final draft = _groupsByCode[entry.key];
+                        if (draft != null) {
+                          unawaited(_saveGroup(draft));
+                        }
+                      },
                       slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                         groups.indexOf(entry),
                         groups.length,
@@ -1693,6 +1784,7 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
     required this.identityKey,
     required this.workers,
     required this.assignedWorkerGroups,
+    required this.apparatusName,
     required this.expanded,
     required this.editing,
     required this.saving,
@@ -1707,6 +1799,7 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
   final String identityKey;
   final List<AdminWorker> workers;
   final Map<String, String> assignedWorkerGroups;
+  final String apparatusName;
   final bool expanded;
   final bool editing;
   final bool saving;
@@ -1724,7 +1817,8 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
       slot,
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
     );
-    final summary = '${_workerShiftLabel(group.shift, context.l10n)} • '
+    final summary = '$apparatusName • '
+        '${_workerShiftLabel(group.shift, context.l10n)} • '
         '${group.startTime}-${group.endTime} • '
         '${context.l10n.adminText(
       'worker.day_count',
@@ -2587,10 +2681,13 @@ class _WorkerApparatusAssignmentField extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
-    final selectedNames = selected.toList()..sort();
-    final value = selectedNames.isEmpty
+    final selectedLabels = canonicalApparatusDisplayLabels(
+      selected,
+      apparatus,
+    );
+    final value = selectedLabels.isEmpty
         ? l10n.adminText('scope.none_selected')
-        : selectedNames.join(', ');
+        : selectedLabels.join(', ');
     final enabled = !saving && apparatus.isNotEmpty;
     return InkWell(
       key: ValueKey('worker-apparatus-picker-$workerId'),
@@ -2709,12 +2806,12 @@ class _WorkerApparatusAssignmentSheetState
                   AdminApparatusScopePicker(
                     apparatus: widget.apparatus,
                     selected: _selected,
-                    onChanged: (apparatusName, checked) {
+                    onChanged: (apparatusId, checked) {
                       setState(() {
                         if (checked) {
-                          _selected.add(apparatusName);
+                          _selected.add(apparatusId);
                         } else {
-                          _selected.remove(apparatusName);
+                          _selected.remove(apparatusId);
                         }
                       });
                     },

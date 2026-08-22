@@ -1,3 +1,5 @@
+import '../../shared/models/app_models.dart';
+
 class ProductionMapDefinition {
   const ProductionMapDefinition({
     required this.id,
@@ -59,8 +61,7 @@ class ProductionMapDefinition {
       'title': title,
       if (code.trim().isNotEmpty) 'code': code.trim(),
       if (orderNumber.trim().isNotEmpty) 'order_number': orderNumber.trim(),
-      if (customerName.trim().isNotEmpty)
-        'customer_name': customerName.trim(),
+      if (customerName.trim().isNotEmpty) 'customer_name': customerName.trim(),
       if (rollCount != null) 'roll_count': rollCount,
       if (widthMm != null) 'width_mm': widthMm,
       if (orderKg != null) 'order_kg': orderKg,
@@ -112,6 +113,7 @@ class ProductionMapNode {
     required this.id,
     required this.kind,
     required this.title,
+    this.apparatusId = '',
     this.formula,
     this.roleCode = '',
     this.itemCode = '',
@@ -121,6 +123,7 @@ class ProductionMapNode {
     this.alternativeGroupId = '',
     this.alternativeGroupLabel = '',
     this.alternativeAssignedTitle = '',
+    this.alternativeAssignedApparatusId = '',
     this.rezkaKadrCount,
     this.rezkaLabelLength,
     this.rezkaFrameGroups = const [],
@@ -131,6 +134,7 @@ class ProductionMapNode {
   final String id;
   final String kind;
   final String title;
+  final String apparatusId;
   final ProductionFormula? formula;
   final String roleCode;
   final String itemCode;
@@ -140,6 +144,7 @@ class ProductionMapNode {
   final String alternativeGroupId;
   final String alternativeGroupLabel;
   final String alternativeAssignedTitle;
+  final String alternativeAssignedApparatusId;
   final int? rezkaKadrCount;
   final double? rezkaLabelLength;
   final List<int> rezkaFrameGroups;
@@ -150,6 +155,7 @@ class ProductionMapNode {
     String? id,
     String? kind,
     String? title,
+    String? apparatusId,
     ProductionFormula? formula,
     String? roleCode,
     String? itemCode,
@@ -159,6 +165,7 @@ class ProductionMapNode {
     String? alternativeGroupId,
     String? alternativeGroupLabel,
     String? alternativeAssignedTitle,
+    String? alternativeAssignedApparatusId,
     int? rezkaKadrCount,
     double? rezkaLabelLength,
     List<int>? rezkaFrameGroups,
@@ -169,6 +176,7 @@ class ProductionMapNode {
       id: id ?? this.id,
       kind: kind ?? this.kind,
       title: title ?? this.title,
+      apparatusId: apparatusId ?? this.apparatusId,
       formula: formula ?? this.formula,
       roleCode: roleCode ?? this.roleCode,
       itemCode: itemCode ?? this.itemCode,
@@ -180,6 +188,8 @@ class ProductionMapNode {
           alternativeGroupLabel ?? this.alternativeGroupLabel,
       alternativeAssignedTitle:
           alternativeAssignedTitle ?? this.alternativeAssignedTitle,
+      alternativeAssignedApparatusId:
+          alternativeAssignedApparatusId ?? this.alternativeAssignedApparatusId,
       rezkaKadrCount: rezkaKadrCount ?? this.rezkaKadrCount,
       rezkaLabelLength: rezkaLabelLength ?? this.rezkaLabelLength,
       rezkaFrameGroups: rezkaFrameGroups ?? this.rezkaFrameGroups,
@@ -189,10 +199,23 @@ class ProductionMapNode {
   }
 
   factory ProductionMapNode.fromJson(Map<String, dynamic> json) {
+    final kind = json['kind'] as String? ?? 'task';
+    final apparatusId = json['apparatus_id'] as String? ?? '';
+    final alternativeAssignedApparatusId =
+        json['alternative_assigned_apparatus_id'] as String? ?? '';
+    if ((kind == 'apparatus' && !canonicalApparatusIdIsValid(apparatusId)) ||
+        (apparatusId.isNotEmpty && !canonicalApparatusIdIsValid(apparatusId)) ||
+        (alternativeAssignedApparatusId.isNotEmpty &&
+            !canonicalApparatusIdIsValid(alternativeAssignedApparatusId))) {
+      throw const FormatException(
+        'Production apparatus nodes require canonical apparatus IDs',
+      );
+    }
     return ProductionMapNode(
       id: json['id'] as String? ?? '',
-      kind: json['kind'] as String? ?? 'task',
+      kind: kind,
       title: json['title'] as String? ?? '',
+      apparatusId: apparatusId,
       formula: json['formula'] is Map<String, dynamic>
           ? ProductionFormula.fromJson(json['formula'] as Map<String, dynamic>)
           : null,
@@ -205,6 +228,7 @@ class ProductionMapNode {
       alternativeGroupLabel: json['alternative_group_label'] as String? ?? '',
       alternativeAssignedTitle:
           json['alternative_assigned_title'] as String? ?? '',
+      alternativeAssignedApparatusId: alternativeAssignedApparatusId,
       rezkaKadrCount: (json['rezka_kadr_count'] as num?)?.toInt(),
       rezkaLabelLength: (json['rezka_label_length'] as num?)?.toDouble(),
       rezkaFrameGroups: (json['rezka_frame_groups'] as List? ?? const [])
@@ -222,6 +246,7 @@ class ProductionMapNode {
       'id': id,
       'kind': kind,
       'title': title,
+      if (apparatusId.trim().isNotEmpty) 'apparatus_id': apparatusId.trim(),
       if (formula != null) 'formula': formula!.toJson(),
       if (roleCode.trim().isNotEmpty) 'role_code': roleCode.trim(),
       if (itemCode.trim().isNotEmpty) 'item_code': itemCode.trim(),
@@ -234,6 +259,9 @@ class ProductionMapNode {
         'alternative_group_label': alternativeGroupLabel.trim(),
       if (alternativeAssignedTitle.trim().isNotEmpty)
         'alternative_assigned_title': alternativeAssignedTitle.trim(),
+      if (alternativeAssignedApparatusId.trim().isNotEmpty)
+        'alternative_assigned_apparatus_id':
+            alternativeAssignedApparatusId.trim(),
       if (rezkaKadrCount != null) 'rezka_kadr_count': rezkaKadrCount,
       if (rezkaLabelLength != null) 'rezka_label_length': rezkaLabelLength,
       if (rezkaFrameGroups.isNotEmpty) 'rezka_frame_groups': rezkaFrameGroups,
@@ -243,9 +271,13 @@ class ProductionMapNode {
   }
 
   ProductionMapNode withoutAlternativeAssignment() {
-    return alternativeAssignedTitle.trim().isEmpty
+    return alternativeAssignedTitle.trim().isEmpty &&
+            alternativeAssignedApparatusId.trim().isEmpty
         ? this
-        : copyWith(alternativeAssignedTitle: '');
+        : copyWith(
+            alternativeAssignedTitle: '',
+            alternativeAssignedApparatusId: '',
+          );
   }
 }
 

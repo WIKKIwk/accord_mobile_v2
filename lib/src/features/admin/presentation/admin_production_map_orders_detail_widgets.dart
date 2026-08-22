@@ -5,6 +5,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.noticeAnchorKey,
     required this.onBack,
     required this.map,
+    required this.apparatusCatalog,
     required this.baseMetraj,
     required this.orderKg,
     required this.customerName,
@@ -63,6 +64,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final GlobalKey noticeAnchorKey;
   final VoidCallback onBack;
   final ProductionMapDefinition map;
+  final List<AdminApparatus> apparatusCatalog;
   final double? baseMetraj;
   final double? orderKg;
   final String? customerName;
@@ -158,6 +160,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 const SizedBox(height: 10),
               ],
               _OrderStartUnifiedCard(
+                apparatusCatalog: apparatusCatalog,
                 orderCode: _openedOrderDisplayCode(map),
                 productTitle: _openedOrderPrimaryTitle(
                   map,
@@ -240,6 +243,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
               const SizedBox(height: 10),
               _OrderMapProgressCard(
                 steps: steps,
+                apparatusCatalog: apparatusCatalog,
                 orderId: uiState.orderId,
                 currentStation: uiState.station,
                 queueStates: queueStates,
@@ -401,6 +405,7 @@ class _OrderSummaryCard extends StatelessWidget {
 class _SequenceStepTile extends StatelessWidget {
   const _SequenceStepTile({
     required this.node,
+    required this.operation,
     required this.index,
     required this.isLast,
     required this.status,
@@ -409,6 +414,7 @@ class _SequenceStepTile extends StatelessWidget {
   });
 
   final ProductionMapNode node;
+  final String operation;
   final int index;
   final bool isLast;
   final ApparatusQueueOrderState? status;
@@ -469,7 +475,7 @@ class _SequenceStepTile extends StatelessWidget {
                           'worker.detail.step',
                           values: {'step': index + 1},
                         )
-                      : context.l10n.productionApparatusName(node.title),
+                      : node.title.trim(),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
@@ -527,9 +533,9 @@ class _SequenceStepTile extends StatelessWidget {
     return switch (node.kind) {
       'start' => Icons.play_circle_outline_rounded,
       'end' => Icons.flag_circle_outlined,
-      'apparatus' => productionMapIsLaminatsiyaApparatus(node.title)
+      'apparatus' => operation == 'laminate'
           ? Icons.layers_outlined
-          : productionMapIsRezkaApparatus(node.title)
+          : operation == 'cut'
               ? Icons.content_cut_outlined
               : Icons.print_outlined,
       _ => Icons.account_tree_outlined,
@@ -584,9 +590,9 @@ class _SequenceStepTile extends StatelessWidget {
   String _kindLabel(BuildContext context, ProductionMapNode node) {
     return switch (node.kind) {
       'start' => context.l10n.productionText('worker.detail.kind.start'),
-      'apparatus' => productionMapIsLaminatsiyaApparatus(node.title)
+      'apparatus' => operation == 'laminate'
           ? context.l10n.productionText('worker.detail.kind.lamination')
-          : productionMapIsRezkaApparatus(node.title)
+          : operation == 'cut'
               ? context.l10n.productionText('worker.detail.kind.cutting')
               : context.l10n.productionText('worker.detail.kind.machine'),
       'end' => context.l10n.productionText('worker.detail.kind.end'),
@@ -708,6 +714,7 @@ Widget _orderDetailSurfaceCard({
 
 class _OrderStartUnifiedCard extends StatelessWidget {
   const _OrderStartUnifiedCard({
+    required this.apparatusCatalog,
     required this.orderCode,
     required this.productTitle,
     required this.customerName,
@@ -776,6 +783,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.unlinkingMaterialBarcode,
   });
 
+  final List<AdminApparatus> apparatusCatalog;
   final String orderCode;
   final String productTitle;
   final String? customerName;
@@ -1030,6 +1038,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               const SizedBox(height: 12),
               _RawMaterialAssignmentsExpansionBody(
                 assignments: startAssignments,
+                apparatusCatalog: apparatusCatalog,
                 loading: materialsLoading,
                 error: materialsError,
                 emptyText: context.l10n.productionText(
@@ -1065,6 +1074,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               const SizedBox(height: 12),
               _RawMaterialAssignmentsExpansionBody(
                 assignments: intakeCandidateAssignments,
+                apparatusCatalog: apparatusCatalog,
                 loading: materialsLoading,
                 error: materialsError,
                 emptyText: context.l10n.productionText(
@@ -1100,6 +1110,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             const SizedBox(height: 12),
             _RawMaterialAssignmentsExpansionBody(
               assignments: assignedAssignments,
+              apparatusCatalog: apparatusCatalog,
               loading: materialsLoading,
               error: materialsError,
               emptyText: context.l10n.productionText(
@@ -1215,6 +1226,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             if (showRezkaInputProgressScan) ...[
               _PreviousProgressQrTile(
                 previousStage: previousStage ?? '',
+                apparatusCatalog: apparatusCatalog,
                 ready: previousProgressReady,
                 batch: previousProgressBatch,
                 availableBatches: inputProgressBatches,
@@ -1367,8 +1379,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                       context.l10n.productionText(
                         'worker.waiting.previous',
                         values: {
-                          'stage': context.l10n.productionApparatusName(
+                          'stage': canonicalApparatusDisplayLabel(
                             previousStage!,
+                            apparatusCatalog,
                           ),
                         },
                       ),
@@ -1414,6 +1427,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
 class _RawMaterialAssignmentsExpansionBody extends StatelessWidget {
   const _RawMaterialAssignmentsExpansionBody({
     required this.assignments,
+    required this.apparatusCatalog,
     required this.loading,
     required this.error,
     required this.emptyText,
@@ -1424,6 +1438,7 @@ class _RawMaterialAssignmentsExpansionBody extends StatelessWidget {
   });
 
   final List<AdminRawMaterialAssignment> assignments;
+  final List<AdminApparatus> apparatusCatalog;
   final bool loading;
   final String error;
   final String emptyText;
@@ -1479,7 +1494,10 @@ class _RawMaterialAssignmentsExpansionBody extends StatelessWidget {
     final role = AppSession.instance.profile?.role;
     final groupedAssignments =
         role == UserRole.admin || role == UserRole.materialTaminotchi
-            ? _adminRawMaterialAssignmentGroups(assignments)
+            ? _adminRawMaterialAssignmentGroups(
+                assignments,
+                apparatusCatalog,
+              )
             : [
                 _AdminRawMaterialAssignmentGroup(
                   label: '',
@@ -1548,10 +1566,14 @@ class _AdminRawMaterialAssignmentGroup {
 
 List<_AdminRawMaterialAssignmentGroup> _adminRawMaterialAssignmentGroups(
   List<AdminRawMaterialAssignment> assignments,
+  List<AdminApparatus> apparatusCatalog,
 ) {
   final grouped = <String, List<AdminRawMaterialAssignment>>{};
   for (final assignment in assignments) {
-    final label = _adminRawMaterialAssignmentGroupLabel(assignment.apparatus);
+    final label = _adminRawMaterialAssignmentGroupLabel(
+      assignment.apparatus,
+      apparatusCatalog,
+    );
     grouped.putIfAbsent(label, () => []).add(assignment);
   }
   final entries = grouped.entries.toList()
@@ -1570,20 +1592,26 @@ List<_AdminRawMaterialAssignmentGroup> _adminRawMaterialAssignmentGroups(
   ];
 }
 
-String _adminRawMaterialAssignmentGroupLabel(String apparatus) {
-  final normalized = apparatus.trim();
-  if (productionMapIsPechatApparatus(normalized)) {
+String _adminRawMaterialAssignmentGroupLabel(
+  String apparatusId,
+  List<AdminApparatus> apparatusCatalog,
+) {
+  final normalized = apparatusId.trim();
+  final apparatus = _canonicalApparatusForId(apparatusCatalog, normalized);
+  final operation = apparatus?.operation.trim().toLowerCase();
+  if (operation == 'print') {
     return 'Bosma uchun biriktirilgan';
   }
-  if (productionMapIsLaminatsiyaApparatus(normalized)) {
+  if (operation == 'laminate') {
     return 'Laminatsiya uchun biriktirilgan';
   }
-  if (productionMapIsRezkaApparatus(normalized)) {
+  if (operation == 'cut') {
     return 'Rezka uchun biriktirilgan';
   }
+  final displayTitle = apparatus?.name.trim() ?? '';
   return normalized.isEmpty
       ? 'Bosqichi ko‘rsatilmagan homashyolar'
-      : '$normalized uchun biriktirilgan';
+      : '${displayTitle.isEmpty ? normalized : displayTitle} uchun biriktirilgan';
 }
 
 int _adminRawMaterialAssignmentGroupRank(String label) {
@@ -1613,11 +1641,9 @@ String _localizedRawMaterialGroupLabel(BuildContext context, String label) {
         ? context.l10n.productionText(
             'worker.material.group.dynamic',
             values: {
-              'apparatus': context.l10n.productionApparatusName(
-                label.substring(
-                  0,
-                  label.length - ' uchun biriktirilgan'.length,
-                ),
+              'apparatus': label.substring(
+                0,
+                label.length - ' uchun biriktirilgan'.length,
               ),
             },
           )
