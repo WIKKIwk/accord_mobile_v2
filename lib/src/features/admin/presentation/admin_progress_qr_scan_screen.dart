@@ -10,6 +10,8 @@ import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../shared/models/app_models.dart';
+import '../logic/canonical_apparatus_display.dart';
 import '../models/production_map_models.dart';
 import 'admin_progress_qr_passport.dart';
 import 'admin_progress_qr_scan_pdf.dart';
@@ -54,11 +56,16 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
   AdminProgressQrReport? _report;
   AdminPaddonSnapshot? _paddonReport;
   AdminRawMaterialLookup? _rawMaterialReport;
+  List<AdminApparatus> _apparatusCatalog = const [];
   bool _sharing = false;
+
+  Map<String, String> get _apparatusNamesById =>
+      canonicalApparatusNamesById(_apparatusCatalog);
 
   @override
   void initState() {
     super.initState();
+    unawaited(_loadApparatusCatalog());
     if (_scannerSupported) {
       _controller = MobileScannerController(
         autoStart: true,
@@ -66,6 +73,18 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
         detectionSpeed: DetectionSpeed.noDuplicates,
         formats: const <BarcodeFormat>[BarcodeFormat.qrCode],
       );
+    }
+  }
+
+  Future<void> _loadApparatusCatalog() async {
+    try {
+      final apparatus = await MobileApi.instance.adminApparatus(limit: 10000);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _apparatusCatalog = apparatus);
+    } catch (_) {
+      // QR identity remains the exact ApparatusId when display projection fails.
     }
   }
 
@@ -342,10 +361,12 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
           ? AdminProgressQrScanPdf.buildProgress(
               report,
               l10n: context.l10n,
+              apparatusNamesById: _apparatusNamesById,
             )
           : AdminProgressQrScanPdf.buildRawMaterial(
               rawMaterialReport!,
               l10n: context.l10n,
+              apparatusNamesById: _apparatusNamesById,
             );
       final filename = report != null
           ? _qrPdfFilename(
@@ -470,6 +491,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
         child: report != null
             ? _QrReportView(
                 report: report,
+                apparatusNamesById: _apparatusNamesById,
                 onScanAgain: _scanAgain,
                 onShare: _shareCurrentReport,
                 sharing: _sharing,
@@ -477,11 +499,13 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
             : paddonReport != null
                 ? _PaddonQrReportView(
                     report: paddonReport,
+                    apparatusNamesById: _apparatusNamesById,
                     onScanAgain: _scanAgain,
                   )
                 : rawMaterialReport != null
                     ? _RawMaterialReportView(
                         report: rawMaterialReport,
+                        apparatusNamesById: _apparatusNamesById,
                         onScanAgain: _scanAgain,
                         onShare: _shareCurrentReport,
                         sharing: _sharing,
@@ -637,12 +661,14 @@ class _ScannerView extends StatelessWidget {
 class _QrReportView extends StatelessWidget {
   const _QrReportView({
     required this.report,
+    required this.apparatusNamesById,
     required this.onScanAgain,
     required this.onShare,
     required this.sharing,
   });
 
   final AdminProgressQrReport report;
+  final Map<String, String> apparatusNamesById;
   final VoidCallback onScanAgain;
   final VoidCallback onShare;
   final bool sharing;
@@ -651,7 +677,11 @@ class _QrReportView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final passport = buildProgressQrPassport(report, l10n: context.l10n);
+    final passport = buildProgressQrPassport(
+      report,
+      l10n: context.l10n,
+      apparatusNamesById: apparatusNamesById,
+    );
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
       children: [
@@ -739,12 +769,14 @@ class _QrReportView extends StatelessWidget {
 class _RawMaterialReportView extends StatelessWidget {
   const _RawMaterialReportView({
     required this.report,
+    required this.apparatusNamesById,
     required this.onScanAgain,
     required this.onShare,
     required this.sharing,
   });
 
   final AdminRawMaterialLookup report;
+  final Map<String, String> apparatusNamesById;
   final VoidCallback onScanAgain;
   final VoidCallback onShare;
   final bool sharing;
@@ -818,12 +850,20 @@ class _RawMaterialReportView extends StatelessWidget {
         const SizedBox(height: 12),
         _OrderDetailsSection(order: order),
         if (report.queueStates.isNotEmpty)
-          _QueueStatesSection(queueStates: report.queueStates),
+          _QueueStatesSection(
+            queueStates: report.queueStates,
+            apparatusNamesById: apparatusNamesById,
+          ),
         _InfoSection(
           title: context.l10n.productionText('worker.qr.report.material_about'),
           children: [
             Text(
-              _rawMaterialSummary(report, queueState, context.l10n),
+              _rawMaterialSummary(
+                report,
+                queueState,
+                context.l10n,
+                apparatusNamesById,
+              ),
               style: theme.textTheme.bodyLarge?.copyWith(
                 fontWeight: FontWeight.w800,
                 height: 1.35,
@@ -837,9 +877,17 @@ class _RawMaterialReportView extends StatelessWidget {
           orderTitle: order?.title ?? '',
           orderNumber: order?.orderNumber ?? '',
           queueState: queueState,
+          apparatusNamesById: apparatusNamesById,
         ),
-        _TimelineSection(logs: report.logs, corrections: const []),
-        _TechnicalRawMaterialSection(report: report),
+        _TimelineSection(
+          logs: report.logs,
+          corrections: const [],
+          apparatusNamesById: apparatusNamesById,
+        ),
+        _TechnicalRawMaterialSection(
+          report: report,
+          apparatusNamesById: apparatusNamesById,
+        ),
         const SizedBox(height: 8),
         FilledButton.icon(
           onPressed: onScanAgain,
@@ -856,10 +904,12 @@ class _RawMaterialReportView extends StatelessWidget {
 class _PaddonQrReportView extends StatelessWidget {
   const _PaddonQrReportView({
     required this.report,
+    required this.apparatusNamesById,
     required this.onScanAgain,
   });
 
   final AdminPaddonSnapshot report;
+  final Map<String, String> apparatusNamesById;
   final VoidCallback onScanAgain;
 
   @override
@@ -949,6 +999,7 @@ class _PaddonQrReportView extends StatelessWidget {
                     _PaddonScannedWipCard(
                       index: index + 1,
                       batch: report.items[index],
+                      apparatusNamesById: apparatusNamesById,
                     ),
                 ],
         ),
@@ -969,10 +1020,12 @@ class _PaddonScannedWipCard extends StatelessWidget {
   const _PaddonScannedWipCard({
     required this.index,
     required this.batch,
+    required this.apparatusNamesById,
   });
 
   final int index;
   final AdminProgressBatch batch;
+  final Map<String, String> apparatusNamesById;
 
   @override
   Widget build(BuildContext context) {
@@ -990,8 +1043,11 @@ class _PaddonScannedWipCard extends StatelessWidget {
     final location = [
       batch.currentLocation.trim(),
       batch.currentApparatus.trim().isNotEmpty
-          ? context.l10n.productionApparatusName(batch.currentApparatus)
-          : context.l10n.productionApparatusName(batch.apparatus),
+          ? _canonicalApparatusLabel(
+              batch.currentApparatus,
+              apparatusNamesById,
+            )
+          : _canonicalApparatusLabel(batch.apparatus, apparatusNamesById),
     ].where((item) => item.isNotEmpty).join(' • ');
     return Card.outlined(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1299,9 +1355,13 @@ class _OrderDetailsSection extends StatelessWidget {
 }
 
 class _QueueStatesSection extends StatelessWidget {
-  const _QueueStatesSection({required this.queueStates});
+  const _QueueStatesSection({
+    required this.queueStates,
+    required this.apparatusNamesById,
+  });
 
   final Map<String, Map<String, String>> queueStates;
+  final Map<String, String> apparatusNamesById;
 
   @override
   Widget build(BuildContext context) {
@@ -1311,8 +1371,10 @@ class _QueueStatesSection extends StatelessWidget {
         for (final apparatus in queueStates.entries)
           for (final order in apparatus.value.entries)
             _InfoRow(
-              label:
-                  '${context.l10n.productionApparatusName(apparatus.key)} • ${order.key}',
+              label: '${_canonicalApparatusLabel(
+                apparatus.key,
+                apparatusNamesById,
+              )} • ${order.key}',
               value: _stateLabel(order.value, l10n: context.l10n),
             ),
       ],
@@ -1374,12 +1436,14 @@ class _RawMaterialAssignmentSection extends StatelessWidget {
     required this.orderTitle,
     required this.orderNumber,
     required this.queueState,
+    required this.apparatusNamesById,
   });
 
   final AdminRawMaterialAssignment? assignment;
   final String orderTitle;
   final String orderNumber;
   final String queueState;
+  final Map<String, String> apparatusNamesById;
 
   @override
   Widget build(BuildContext context) {
@@ -1412,8 +1476,10 @@ class _RawMaterialAssignmentSection extends StatelessWidget {
       context.l10n.productionText(
         'worker.qr.material.assigned_apparatus',
         values: {
-          'apparatus':
-              context.l10n.productionApparatusName(assignment.apparatus),
+          'apparatus': _canonicalApparatusLabel(
+            assignment.apparatus,
+            apparatusNamesById,
+          ),
         },
       ),
       _apparatusPurposeSentence(assignment.apparatus, context.l10n),
@@ -1615,10 +1681,12 @@ class _TimelineSection extends StatelessWidget {
   const _TimelineSection({
     required this.logs,
     this.corrections = const [],
+    this.apparatusNamesById = const {},
   });
 
   final List<AdminProductionOrderLogEntry> logs;
   final List<AdminProgressBatchCorrectionRecord> corrections;
+  final Map<String, String> apparatusNamesById;
 
   @override
   Widget build(BuildContext context) {
@@ -1641,7 +1709,11 @@ class _TimelineSection extends StatelessWidget {
       children: [
         for (var index = 0; index < entries.length; index++)
           if (entries[index].log != null)
-            _TimelineStep(index: index + 1, log: entries[index].log!)
+            _TimelineStep(
+              index: index + 1,
+              log: entries[index].log!,
+              apparatusNamesById: apparatusNamesById,
+            )
           else
             _CorrectionTimelineStep(
               index: index + 1,
@@ -1653,10 +1725,15 @@ class _TimelineSection extends StatelessWidget {
 }
 
 class _TimelineStep extends StatelessWidget {
-  const _TimelineStep({required this.index, required this.log});
+  const _TimelineStep({
+    required this.index,
+    required this.log,
+    required this.apparatusNamesById,
+  });
 
   final int index;
   final AdminProductionOrderLogEntry log;
+  final Map<String, String> apparatusNamesById;
 
   @override
   Widget build(BuildContext context) {
@@ -1694,7 +1771,12 @@ class _TimelineStep extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _logSentence(log, time, context.l10n),
+                  _logSentence(
+                    log,
+                    time,
+                    context.l10n,
+                    apparatusNamesById,
+                  ),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w700,
@@ -1805,9 +1887,13 @@ class _CorrectionTimelineStep extends StatelessWidget {
 }
 
 class _TechnicalRawMaterialSection extends StatelessWidget {
-  const _TechnicalRawMaterialSection({required this.report});
+  const _TechnicalRawMaterialSection({
+    required this.report,
+    required this.apparatusNamesById,
+  });
 
   final AdminRawMaterialLookup report;
+  final Map<String, String> apparatusNamesById;
 
   @override
   Widget build(BuildContext context) {
@@ -1869,8 +1955,9 @@ class _TechnicalRawMaterialSection extends StatelessWidget {
               label: context.l10n.productionText(
                 'worker.qr.report.assigned_machine',
               ),
-              value: context.l10n.productionApparatusName(
+              value: _canonicalApparatusLabel(
                 report.assignment!.apparatus,
+                apparatusNamesById,
               ),
             ),
             _InfoRow(
@@ -2453,35 +2540,6 @@ String progressQrTechnicalProductStatusLabel({
 }
 
 String _apparatusPurposeSentence(String apparatus, [AppLocalizations? l10n]) {
-  final lower = apparatus.trim().toLowerCase();
-  if (lower.contains('lamin')) {
-    return _qrText(
-      l10n,
-      'worker.qr.apparatus.purpose.lamination',
-      'U yerda mahsulot laminatsiya qilinadi.',
-    );
-  }
-  if (lower.contains('pechat') || lower.contains('bosma')) {
-    return _qrText(
-      l10n,
-      'worker.qr.apparatus.purpose.printing',
-      'U yerda mahsulotga pechat/bosma ishi bajariladi.',
-    );
-  }
-  if (lower.contains('rezka') || lower.contains('kes')) {
-    return _qrText(
-      l10n,
-      'worker.qr.apparatus.purpose.cutting',
-      'U yerda mahsulot kesiladi, ya’ni rezka ishi bajariladi.',
-    );
-  }
-  if (lower.contains('qolip')) {
-    return _qrText(
-      l10n,
-      'worker.qr.apparatus.purpose.mold',
-      'U yerda qolip bilan bog‘liq ishlab chiqarish ishi bajariladi.',
-    );
-  }
   return _qrText(
     l10n,
     'worker.qr.apparatus.purpose.next',
@@ -2556,12 +2614,14 @@ String progressQrTimelineTitle(
 }
 
 String _logSentence(AdminProductionOrderLogEntry log, String time,
-    [AppLocalizations? l10n]) {
+    AppLocalizations? l10n, Map<String, String> apparatusNamesById) {
   final actor = log.actorDisplayName.trim().isNotEmpty
       ? log.actorDisplayName.trim()
       : _qrText(l10n, 'worker.qr.report.editor', 'Ijrochi');
-  final apparatus =
-      l10n?.productionApparatusName(log.apparatus) ?? log.apparatus.trim();
+  final apparatus = _canonicalApparatusLabel(
+    log.apparatus,
+    apparatusNamesById,
+  );
   final actionKey = switch (log.action.trim()) {
     'start' => 'worker.qr.timeline.action.start',
     'pause' => 'worker.qr.timeline.action.pause',
@@ -2598,23 +2658,9 @@ String _currentQueueState(
   if (normalizedOrderId.isEmpty) {
     return '';
   }
-  final normalizedApparatus = apparatus.trim().toLowerCase();
+  final normalizedApparatus = apparatus.trim();
   if (normalizedApparatus.isNotEmpty) {
-    for (final entry in queueStates.entries) {
-      if (entry.key.trim().toLowerCase() != normalizedApparatus) {
-        continue;
-      }
-      final value = entry.value[normalizedOrderId]?.trim() ?? '';
-      if (value.isNotEmpty) {
-        return value;
-      }
-    }
-  }
-  for (final states in queueStates.values) {
-    final value = states[normalizedOrderId]?.trim() ?? '';
-    if (value.isNotEmpty) {
-      return value;
-    }
+    return queueStates[normalizedApparatus]?[normalizedOrderId]?.trim() ?? '';
   }
   return '';
 }
@@ -2691,6 +2737,7 @@ String _rawMaterialSummary(
   AdminRawMaterialLookup report,
   String queueState,
   AppLocalizations? l10n,
+  Map<String, String> apparatusNamesById,
 ) {
   final assignment = report.assignment;
   final order = report.order;
@@ -2754,8 +2801,13 @@ String _rawMaterialSummary(
     _qrText(
       l10n,
       'worker.qr.material.assigned_apparatus',
-      'Homashyo ${assignment.apparatus} aparatida ishlatiladi.',
-      values: {'apparatus': assignment.apparatus},
+      'Homashyo ${_canonicalApparatusLabel(assignment.apparatus, apparatusNamesById)} aparatida ishlatiladi.',
+      values: {
+        'apparatus': _canonicalApparatusLabel(
+          assignment.apparatus,
+          apparatusNamesById,
+        ),
+      },
     ),
     _apparatusPurposeSentence(assignment.apparatus, l10n),
     if (queueState.trim().isNotEmpty)
@@ -2773,6 +2825,18 @@ String _rawMaterialSummary(
         values: {'name': assignment.assignedByName.trim()},
       ),
   ].join(' ');
+}
+
+String _canonicalApparatusLabel(
+  String apparatusId,
+  Map<String, String> apparatusNamesById,
+) {
+  final normalized = apparatusId.trim();
+  if (normalized.isEmpty) {
+    return '';
+  }
+  final displayName = apparatusNamesById[normalized]?.trim() ?? '';
+  return displayName.isEmpty ? normalized : displayName;
 }
 
 String _qrText(

@@ -24,6 +24,49 @@ void main() {
     expect(parsed.toLocation, 'Rezka apparat');
   });
 
+  test('production map apparatus node round-trips canonical identities', () {
+    const node = ProductionMapNode(
+      id: 'print-1',
+      kind: 'apparatus',
+      title: 'Flexo pechat',
+      apparatusId: 'apparatus:default:asset-005',
+      alternativeGroupId: 'alt_print_1',
+      alternativeGroupLabel: 'Bosma aparat',
+      alternativeAssignedTitle: 'Flexo pechat',
+      alternativeAssignedApparatusId: 'apparatus:default:asset-005',
+    );
+
+    final json = node.toJson();
+    expect(json['apparatus_id'], 'apparatus:default:asset-005');
+    expect(
+      json['alternative_assigned_apparatus_id'],
+      'apparatus:default:asset-005',
+    );
+
+    final parsed = ProductionMapNode.fromJson(json);
+    expect(parsed.apparatusId, 'apparatus:default:asset-005');
+    expect(
+      parsed.alternativeAssignedApparatusId,
+      'apparatus:default:asset-005',
+    );
+
+    final clean = parsed.withoutAlternativeAssignment();
+    expect(clean.apparatusId, 'apparatus:default:asset-005');
+    expect(clean.alternativeAssignedTitle, isEmpty);
+    expect(clean.alternativeAssignedApparatusId, isEmpty);
+  });
+
+  test('production map apparatus node rejects title-only identity', () {
+    expect(
+      () => ProductionMapNode.fromJson(const {
+        'id': 'print-1',
+        'kind': 'apparatus',
+        'title': 'Flexo pechat',
+      }),
+      throwsFormatException,
+    );
+  });
+
   test('production map run request carries runtime condition variables', () {
     const request = ProductionMapRunRequest(
       mapId: 'map-1',

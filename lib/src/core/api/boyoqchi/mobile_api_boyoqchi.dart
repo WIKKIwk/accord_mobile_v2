@@ -8,6 +8,7 @@ extension MobileApiBoyoqchi on MobileApi {
   Future<ReturnedPaintRequest> submitReturnedPaint(
     ReturnedPaintSubmission input,
   ) async {
+    final apparatusId = _requireCanonicalApparatusId(input.apparatus);
     if (await TestModeController.instance.isEnabled()) {
       final profile = AppSession.instance.profile;
       final image = _testModeReturnedPaintImages[input.imageId.trim()];
@@ -17,7 +18,7 @@ extension MobileApiBoyoqchi on MobileApi {
         orderId: input.orderId,
         orderCode: input.orderCode,
         orderName: input.orderName,
-        apparatus: input.apparatus,
+        apparatus: apparatusId,
         senderRole: profile?.role ?? UserRole.aparatchi,
         senderRef: profile?.ref ?? 'test-user',
         senderDisplayName: profile?.displayName ?? 'Test foydalanuvchi',
@@ -48,7 +49,10 @@ extension MobileApiBoyoqchi on MobileApi {
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/returned-paint/requests'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode(input.toJson()),
+        body: jsonEncode({
+          ...input.toJson(),
+          'apparatus': apparatusId,
+        }),
       ),
     );
     if (response.statusCode != 200) {
@@ -70,6 +74,7 @@ extension MobileApiBoyoqchi on MobileApi {
     required String filename,
     required String mime,
   }) async {
+    final apparatusId = _requireCanonicalApparatusId(apparatus);
     if (await TestModeController.instance.isEnabled()) {
       final id =
           'returned-paint-image-${++_testModeReturnedPaintImageSequence}';
@@ -95,7 +100,7 @@ extension MobileApiBoyoqchi on MobileApi {
     ).replace(
       queryParameters: {
         'order_id': orderId.trim(),
-        'apparatus': apparatus.trim(),
+        'apparatus': apparatusId,
       },
     );
     final response = await _sendAuthorized(

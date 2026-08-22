@@ -5,9 +5,7 @@ _MoveApparatusDefaults _moveApparatusDefaults({
   required AdminApparatus? currentTop,
   required AdminApparatus? currentBottom,
 }) {
-  final pechat = source
-      .where((item) => productionMapIsPechatApparatus(item.name))
-      .toList(growable: false);
+  final pechat = source.where((item) => item.isPechat).toList(growable: false);
   final candidates = pechat.isEmpty ? source : pechat;
   if (candidates.isEmpty) {
     return const _MoveApparatusDefaults(top: null, bottom: null);
@@ -20,7 +18,7 @@ _MoveApparatusDefaults _moveApparatusDefaults({
       bottom = candidates[1];
     } else {
       for (final item in source) {
-        if (item.name != candidates.first.name) {
+        if (item.id != candidates.first.id) {
           bottom = item;
           break;
         }
@@ -34,10 +32,9 @@ ProductionMapDefinition? _returnAssignedMapToAlternatives(
   ProductionMapDefinition map,
   AdminApparatus source,
 ) {
-  final sourceTitle = source.name.trim();
   final assignedGroupId = _assignedAlternativeGroupIdForApparatus(
     map,
-    sourceTitle,
+    source,
   );
   if (assignedGroupId == null) {
     return null;
@@ -46,7 +43,10 @@ ProductionMapDefinition? _returnAssignedMapToAlternatives(
     nodes: [
       for (final node in map.nodes)
         node.alternativeGroupId.trim() == assignedGroupId
-            ? node.copyWith(alternativeAssignedTitle: '')
+            ? node.copyWith(
+                alternativeAssignedTitle: '',
+                alternativeAssignedApparatusId: '',
+              )
             : node,
     ],
   );
@@ -76,7 +76,7 @@ ProductionMapDefinition _assignAlternativeMapToApparatus(
       .where((node) {
         return node.kind == 'apparatus' &&
             node.alternativeGroupId.trim().isNotEmpty &&
-            productionMapWarehouseTitlesMatch(node.title, targetTitle);
+            node.apparatusId == apparatus.id;
       })
       .cast<ProductionMapNode?>()
       .firstWhere((node) => node != null, orElse: () => null);
@@ -88,7 +88,10 @@ ProductionMapDefinition _assignAlternativeMapToApparatus(
     nodes: [
       for (final node in map.nodes)
         node.alternativeGroupId.trim() == groupId
-            ? node.copyWith(alternativeAssignedTitle: targetTitle)
+            ? node.copyWith(
+                alternativeAssignedTitle: targetTitle,
+                alternativeAssignedApparatusId: apparatus.id,
+              )
             : node,
     ],
   );
@@ -118,11 +121,10 @@ bool _canMoveOrderToApparatus(
   }
   return productionMapCanMoveOrderToApparatus(
     nodes: order.map.nodes,
-    fromApparatus: source.name,
-    toApparatus: target.name,
+    fromApparatus: source,
+    toApparatus: target,
     rollCount: order.map.rollCount,
     widthMm: order.map.widthMm,
-    isFlexoOrder: productionMapIsFlexoOrder(order.map),
   );
 }
 
@@ -154,14 +156,8 @@ List<AdminApparatus> _movePickerApparatusOptionsForList({
       _isMoveUnassignedApparatus(oppositeApparatus)) {
     return apparatus;
   }
-  final oppositeTitle = oppositeApparatus.name.trim();
   return apparatus
-      .where(
-        (item) => !productionMapWarehouseTitlesMatch(
-          item.name,
-          oppositeTitle,
-        ),
-      )
+      .where((item) => item.id != oppositeApparatus.id)
       .toList(growable: false);
 }
 
@@ -172,7 +168,6 @@ List<ProductionMapSaved> _alternativeOrdersForApparatusList({
   return orders
       .where(
         (order) =>
-            !_isFlexoOrderBlockedForColorPechat(order.map, apparatus) &&
             _hasUnassignedAlternativeGroupForApparatus(order.map, apparatus),
       )
       .toList(growable: false);

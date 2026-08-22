@@ -22,7 +22,7 @@ void main() {
       'display_name': 'Scale operator',
       'ref': 'werka',
       'capabilities': ['gscale.print', 'rps.batch.manage'],
-      'assigned_apparatus': ['Godex aparat - DEMO'],
+      'assigned_apparatus': ['apparatus:test:godex-demo'],
       'assigned_item_groups': ['Kraska', 'Kley'],
       'assigned_warehouses': ['Xomashyo ombori - DEMO'],
     });
@@ -33,7 +33,7 @@ void main() {
       'gscale.print',
       'rps.batch.manage',
     ]);
-    expect(profile.assignedApparatus, ['Godex aparat - DEMO']);
+    expect(profile.assignedApparatus, ['apparatus:test:godex-demo']);
     expect(profile.assignedItemGroups, ['Kraska', 'Kley']);
     expect(profile.assignedWarehouses, ['Xomashyo ombori - DEMO']);
     expect(profile.toJson()['assigned_item_groups'], ['Kraska', 'Kley']);
@@ -258,7 +258,7 @@ void main() {
     expect(userRoleToJson(UserRole.materialTaminotchi), 'material_taminotchi');
   });
 
-  test('empty capability profile falls back to default role access', () {
+  test('empty capability profile has no client-side role fallback', () {
     const profile = SessionProfile(
       role: UserRole.werka,
       displayName: 'Werka',
@@ -268,8 +268,10 @@ void main() {
       avatarUrl: '',
     );
 
-    expect(profile.hasCapability('werka.access'), isTrue);
-    expect(profile.hasCapability('gscale.print'), isTrue);
+    expect(profile.hasCapability('werka.access'), isFalse);
+    expect(profile.hasCapability('gscale.print'), isFalse);
+    expect(profile.accessRole, isNull);
+    expect(profile.hasWorkspaceAccess, isFalse);
   });
 
   test('legacy profile with null assigned warehouses is safe', () {

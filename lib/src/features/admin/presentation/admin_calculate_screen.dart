@@ -29,11 +29,13 @@ class AdminCalculateArgs {
     this.template,
     this.trainingMode = false,
     this.trainingApparatus = '',
+    this.trainingApparatusId = '',
   });
 
   final CalculateOrderTemplate? template;
   final bool trainingMode;
   final String trainingApparatus;
+  final String trainingApparatusId;
 }
 
 class AdminCalculateScreen extends StatefulWidget {
@@ -42,11 +44,13 @@ class AdminCalculateScreen extends StatefulWidget {
     this.template,
     this.trainingMode = false,
     this.trainingApparatus = '',
+    this.trainingApparatusId = '',
   });
 
   final CalculateOrderTemplate? template;
   final bool trainingMode;
   final String trainingApparatus;
+  final String trainingApparatusId;
 
   @override
   State<AdminCalculateScreen> createState() => _AdminCalculateScreenState();
@@ -488,6 +492,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       rollCount: _parseOptionalDouble(_rollCount.text),
       widthMm: _derivedWidthMm(),
       apparatus: widget.trainingMode ? widget.trainingApparatus.trim() : '',
+      apparatusId: widget.trainingMode ? widget.trainingApparatusId.trim() : '',
       templateDraft: _buildTemplateDraft(),
     );
   }

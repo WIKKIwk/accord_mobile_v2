@@ -1,6 +1,7 @@
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_training_order_helpers.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -10,6 +11,7 @@ void main() {
       productName: 'Demo mahsulot',
       itemCode: 'DEMO-001',
       apparatus: '7 ta rangli bosma aparat',
+      apparatusId: 'apparatus:default:bosma_7',
     );
 
     final nodes = productionMapOrderFlowNodes(context);
@@ -40,6 +42,24 @@ void main() {
     );
   });
 
+  test('order flow rejects a display name without canonical apparatus id', () {
+    const context = ProductionMapOrderContext(
+      orderName: 'Training order',
+      productName: 'Demo mahsulot',
+      itemCode: 'DEMO-001',
+      apparatus: '7 ta rangli bosma aparat',
+    );
+
+    expect(
+      () => productionMapOrderFlowNodes(context),
+      throwsArgumentError,
+    );
+    expect(
+      () => productionMapOrderFlowEdges(context),
+      throwsArgumentError,
+    );
+  });
+
   test('linking a training order adds the selected apparatus stage', () {
     const map = ProductionMapDefinition(
       id: 'zakaz-0001',
@@ -58,7 +78,11 @@ void main() {
 
     final linked = assignTrainingOrderToApparatus(
       map: map,
-      apparatus: '7 ta rangli bosma aparat',
+      apparatus: const AdminApparatus(
+        id: 'apparatus:test:print-7',
+        name: '7 ta rangli bosma aparat',
+        operation: 'print',
+      ),
     );
 
     expect(
@@ -94,7 +118,11 @@ void main() {
 
     final linked = assignTrainingOrderToApparatus(
       map: map,
-      apparatus: 'Laminatsiya 1',
+      apparatus: const AdminApparatus(
+        id: 'apparatus:test:lamination-1',
+        name: 'Laminatsiya 1',
+        operation: 'laminate',
+      ),
     );
 
     expect(

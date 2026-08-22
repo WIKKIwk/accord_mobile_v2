@@ -1,20 +1,36 @@
 import '../../../app/app_router.dart';
+import '../../../core/api/mobile_api.dart';
 import '../../../core/session/state/app_session.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
-import '../../admin/logic/production_map_pechat_rules.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
+import '../../shared/models/app_models.dart';
 import 'widgets/aparatchi_dock.dart';
 import 'widgets/aparatchi_navigation_drawer.dart';
 import 'package:flutter/material.dart';
 
-class AparatchiWorkInstructionsScreen extends StatelessWidget {
+class AparatchiWorkInstructionsScreen extends StatefulWidget {
   const AparatchiWorkInstructionsScreen({super.key});
 
   @override
+  State<AparatchiWorkInstructionsScreen> createState() =>
+      _AparatchiWorkInstructionsScreenState();
+}
+
+class _AparatchiWorkInstructionsScreenState
+    extends State<AparatchiWorkInstructionsScreen> {
+  late final Future<List<AdminApparatus>> _apparatusFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _apparatusFuture = MobileApi.instance.adminApparatus(limit: 300);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final apparatus = _assignedApparatus(
+    final assignedIds = _assignedApparatus(
       AppSession.instance.profile?.assignedApparatus ?? const <String>[],
     );
     return AppShell(
@@ -31,50 +47,64 @@ class AparatchiWorkInstructionsScreen extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       child: ColoredBox(
         color: AppTheme.shellStart(context),
-        child: apparatus.isEmpty
-            ? const _NoAssignedApparatus()
-            : ListView(
-                padding: EdgeInsets.fromLTRB(
-                  12,
-                  12,
-                  12,
-                  MediaQuery.viewPaddingOf(context).bottom + 120,
-                ),
-                children: [
-                  const _GuideIntro(),
-                  const SizedBox(height: 12),
-                  _GuideSectionCard(
-                    title: context.l10n.productionText(
-                      'worker.guide.open_order',
-                    ),
-                    items: [
-                      for (var index = 1; index <= 5; index++)
-                        context.l10n.productionText(
-                          'worker.guide.open_order.$index',
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _GuideSectionCard(
-                    title: context.l10n.productionText(
-                      'worker.guide.states_actions',
-                    ),
-                    items: [
-                      for (var index = 1; index <= 4; index++)
-                        context.l10n.productionText(
-                          'worker.guide.states_actions.$index',
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  for (final item in apparatus) ...[
-                    _ApparatusGuideCard(
-                      guide: _ApparatusGuide.forApparatus(item, context.l10n),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                ],
+        child: FutureBuilder<List<AdminApparatus>>(
+          future: _apparatusFuture,
+          builder: (context, snapshot) {
+            final assigned = snapshot.data
+                    ?.where(
+                      (apparatus) => assignedIds.contains(apparatus.id.trim()),
+                    )
+                    .toList(growable: false) ??
+                const <AdminApparatus>[];
+            if (snapshot.connectionState != ConnectionState.done &&
+                assigned.isEmpty) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (assigned.isEmpty) return const _NoAssignedApparatus();
+            return ListView(
+              padding: EdgeInsets.fromLTRB(
+                12,
+                12,
+                12,
+                MediaQuery.viewPaddingOf(context).bottom + 120,
               ),
+              children: [
+                const _GuideIntro(),
+                const SizedBox(height: 12),
+                _GuideSectionCard(
+                  title: context.l10n.productionText(
+                    'worker.guide.open_order',
+                  ),
+                  items: [
+                    for (var index = 1; index <= 5; index++)
+                      context.l10n.productionText(
+                        'worker.guide.open_order.$index',
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _GuideSectionCard(
+                  title: context.l10n.productionText(
+                    'worker.guide.states_actions',
+                  ),
+                  items: [
+                    for (var index = 1; index <= 4; index++)
+                      context.l10n.productionText(
+                        'worker.guide.states_actions.$index',
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                for (final item in assigned) ...[
+                  _ApparatusGuideCard(
+                    guide: _ApparatusGuide.forApparatus(item, context.l10n),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -277,27 +307,30 @@ class _ApparatusGuide {
   final List<String> completionFields;
 
   factory _ApparatusGuide.forApparatus(
-    String apparatus,
+    AdminApparatus apparatus,
     AppLocalizations l10n,
   ) {
-    final colorCount = productionMapPechatColorCount(apparatus);
-    if (productionMapIsPechatApparatus(apparatus)) {
+    final operation = apparatus.operation.trim().toLowerCase();
+    final colorCount = apparatus.colorStations;
+    if (operation == 'print') {
       return _ApparatusGuide(
-        apparatus: apparatus,
-        kindLabel: colorCount == null
+        apparatus: apparatus.name,
+        kindLabel: apparatus.technology.trim().toLowerCase() == 'flexographic'
             ? l10n.productionText('worker.guide.kind.print.flexo')
-            : l10n.productionText(
-                'worker.guide.kind.print.color',
-                values: {'count': colorCount},
-              ),
+            : colorCount == null
+                ? l10n.productionText('worker.guide.kind.machine')
+                : l10n.productionText(
+                    'worker.guide.kind.print.color',
+                    values: {'count': colorCount},
+                  ),
         startChecks: _guideItems(l10n, 'worker.guide.print.start', 4),
         pauseSteps: _guideItems(l10n, 'worker.guide.print.pause', 3),
         completionFields: _guideItems(l10n, 'worker.guide.print.complete', 3),
       );
     }
-    if (productionMapIsLaminatsiyaApparatus(apparatus)) {
+    if (operation == 'laminate') {
       return _ApparatusGuide(
-        apparatus: apparatus,
+        apparatus: apparatus.name,
         kindLabel: l10n.productionText('worker.guide.kind.lamination'),
         startChecks: _guideItems(l10n, 'worker.guide.lamination.start', 3),
         pauseSteps: _guideItems(l10n, 'worker.guide.lamination.pause', 3),
@@ -308,9 +341,9 @@ class _ApparatusGuide {
         ),
       );
     }
-    if (productionMapIsRezkaApparatus(apparatus)) {
+    if (operation == 'cut') {
       return _ApparatusGuide(
-        apparatus: apparatus,
+        apparatus: apparatus.name,
         kindLabel: l10n.productionText('worker.guide.kind.cutting'),
         startChecks: _guideItems(l10n, 'worker.guide.cutting.start', 3),
         pauseSteps: _guideItems(l10n, 'worker.guide.cutting.pause', 3),
@@ -318,7 +351,7 @@ class _ApparatusGuide {
       );
     }
     return _ApparatusGuide(
-      apparatus: apparatus,
+      apparatus: apparatus.name,
       kindLabel: l10n.productionText('worker.guide.kind.machine'),
       startChecks: _guideItems(l10n, 'worker.guide.machine.start', 3),
       pauseSteps: _guideItems(l10n, 'worker.guide.machine.pause', 2),

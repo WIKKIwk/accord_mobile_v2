@@ -1,358 +1,258 @@
 import 'package:accord_mobile_v2/src/features/admin/logic/apparatus_queue_state.dart';
 import 'package:accord_mobile_v2/src/features/admin/logic/production_map_chain.dart';
-import 'package:accord_mobile_v2/src/features/admin/logic/production_map_pechat_rules.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
-import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-ProductionMapDefinition _hotlunchMap() {
-  ProductionMapNode node(String id, String kind, String title) {
-    return ProductionMapNode(id: id, kind: kind, title: title);
-  }
+const _printId = 'apparatus:default:asset-005';
+const _lamination1Id = 'apparatus:default:asset-007';
+const _lamination2Id = 'apparatus:default:asset-008';
+const _cutId = 'apparatus:default:asset-010';
 
+ProductionMapNode _node(
+  String id,
+  String kind,
+  String title, {
+  String apparatusId = '',
+}) {
+  return ProductionMapNode(
+    id: id,
+    kind: kind,
+    title: title,
+    apparatusId: apparatusId,
+  );
+}
+
+ProductionMapDefinition _canonicalMap() {
   return ProductionMapDefinition(
     id: 'zakaz-hot',
     productCode: 'HOT',
     title: 'Hotlunch',
     nodes: [
-      node('start', 'start', 'Start'),
-      node('order', 'task', 'Hotlunch mahsulot'),
-      node('pechat', 'apparatus', '9 ta rangli pechat - A'),
-      node('lamin', 'task', 'Laminatsiya'),
-      node('rezka', 'apparatus', 'Rezka aparat - A'),
-      node('end', 'end', 'End'),
+      _node('start', 'start', 'Start'),
+      _node('order', 'task', 'Hotlunch mahsulot'),
+      _node(
+        'pechat',
+        'apparatus',
+        'Flexo pechat',
+        apparatusId: _printId,
+      ),
+      _node('lamin-note', 'task', 'Laminatsiya nazorati'),
+      _node(
+        'rezka',
+        'apparatus',
+        'Rezka',
+        apparatusId: _cutId,
+      ),
+      _node('end', 'end', 'End'),
     ],
     edges: const [
       ProductionMapEdge(from: 'start', to: 'order'),
       ProductionMapEdge(from: 'order', to: 'pechat'),
-      ProductionMapEdge(from: 'pechat', to: 'lamin'),
-      ProductionMapEdge(from: 'lamin', to: 'rezka'),
+      ProductionMapEdge(from: 'pechat', to: 'lamin-note'),
+      ProductionMapEdge(from: 'lamin-note', to: 'rezka'),
       ProductionMapEdge(from: 'rezka', to: 'end'),
     ],
   );
 }
 
-ProductionMapDefinition _pechatOnlyMap() {
-  ProductionMapNode node(String id, String kind, String title) {
-    return ProductionMapNode(id: id, kind: kind, title: title);
-  }
-
-  return ProductionMapDefinition(
-    id: 'zakaz-1236',
-    productCode: 'ZEN',
-    title: 'Zenit',
-    nodes: [
-      node('start', 'start', 'Start'),
-      node('order', 'task', 'zenit frutto ninja 70 gr'),
-      node('pechat', 'apparatus', '7 ta rangli pechat - A'),
-      node('end', 'end', 'End'),
-    ],
-    edges: const [
-      ProductionMapEdge(from: 'start', to: 'order'),
-      ProductionMapEdge(from: 'order', to: 'pechat'),
-      ProductionMapEdge(from: 'pechat', to: 'end'),
-    ],
-  );
-}
-
 void main() {
-  test('authorized order apparatus reuses the linear production stages', () {
-    final map = _hotlunchMap();
-
+  test('authorized apparatus are exact canonical ids in topology order', () {
     expect(
       productionMapAuthorizedOrderApparatus(
-        map: map,
-        assignedApparatus: const [
-          'Rezka aparat - A',
-          '9 ta rangli pechat - A',
-        ],
+        map: _canonicalMap(),
+        assignedApparatus: const [_cutId, _printId],
       ),
-      ['9 ta rangli pechat - A', 'Rezka aparat - A'],
+      const [_printId, _cutId],
+    );
+    expect(
+      productionMapAuthorizedOrderApparatus(
+        map: _canonicalMap(),
+        assignedApparatus: const ['Flexo pechat', 'Rezka'],
+      ),
+      isEmpty,
     );
   });
 
-  test('queue activity state scans every apparatus stage', () {
+  test('queue activity state scans canonical apparatus keys', () {
     expect(
       queueActivityStateForOrder(
-        orderId: 'zakaz-laminatsiya-active',
+        orderId: 'zakaz-active',
         queueStatesByApparatus: const {
-          '7 ta rangli bosma aparat': {
-            'zakaz-laminatsiya-active': 'completed',
-          },
-          'Laminatsiya 1': {
-            'zakaz-laminatsiya-active': 'in_progress',
-          },
+          _printId: {'zakaz-active': 'completed'},
+          _cutId: {'zakaz-active': 'in_progress'},
         },
       ),
       ApparatusQueueOrderState.inProgress,
     );
     expect(
       queueActivityStateForOrder(
-        orderId: 'zakaz-laminatsiya-paused',
+        orderId: 'zakaz-done',
         queueStatesByApparatus: const {
-          '7 ta rangli bosma aparat': {
-            'zakaz-laminatsiya-paused': 'completed',
-          },
-          'Laminatsiya 1': {
-            'zakaz-laminatsiya-paused': 'paused',
-          },
-        },
-      ),
-      ApparatusQueueOrderState.paused,
-    );
-    expect(
-      queueActivityStateForOrder(
-        orderId: 'zakaz-laminatsiya-done',
-        queueStatesByApparatus: const {
-          'Laminatsiya 1': {
-            'zakaz-laminatsiya-done': 'completed',
-          },
+          _cutId: {'zakaz-done': 'completed'},
         },
       ),
       isNull,
     );
   });
 
-  test('production map node preserves alternative group metadata', () {
+  test('production map node preserves canonical alternative metadata', () {
     const node = ProductionMapNode(
       id: 'apparatus-7',
       kind: 'apparatus',
-      title: '7 ta rangli pechat',
+      title: 'Flexo pechat',
+      apparatusId: _printId,
       alternativeGroupId: 'alt-pechat-1',
-      alternativeGroupLabel: 'pechat',
-      alternativeAssignedTitle: '7 ta rangli pechat',
+      alternativeGroupLabel: 'Bosma',
+      alternativeAssignedTitle: 'Flexo pechat',
+      alternativeAssignedApparatusId: _printId,
     );
 
     final restored = ProductionMapNode.fromJson(node.toJson());
 
+    expect(restored.apparatusId, _printId);
     expect(restored.alternativeGroupId, 'alt-pechat-1');
-    expect(restored.alternativeGroupLabel, 'pechat');
-    expect(restored.alternativeAssignedTitle, '7 ta rangli pechat');
-    expect(restored.toJson()['alternative_group_id'], 'alt-pechat-1');
-    expect(restored.toJson()['alternative_group_label'], 'pechat');
-    expect(
-      restored.toJson()['alternative_assigned_title'],
-      '7 ta rangli pechat',
-    );
+    expect(restored.alternativeGroupLabel, 'Bosma');
+    expect(restored.alternativeAssignedTitle, 'Flexo pechat');
+    expect(restored.alternativeAssignedApparatusId, _printId);
+    expect(restored.toJson()['apparatus_id'], _printId);
+    expect(restored.toJson()['alternative_assigned_apparatus_id'], _printId);
   });
 
-  test('production map node preserves rezka setup metadata', () {
-    const node = ProductionMapNode(
-      id: 'rezka',
-      kind: 'apparatus',
-      title: 'Rezka',
-      rezkaKadrCount: 4,
-      rezkaLabelLength: 125.5,
-    );
-
-    final restored = ProductionMapNode.fromJson(node.toJson());
-
-    expect(restored.rezkaKadrCount, 4);
-    expect(restored.rezkaLabelLength, 125.5);
-    expect(restored.toJson()['rezka_kadr_count'], 4);
-    expect(restored.toJson()['rezka_label_length'], 125.5);
-  });
-
-  test('production map can clear alternative assignment state only', () {
-    const assignedNode = ProductionMapNode(
-      id: 'apparatus-7',
-      kind: 'apparatus',
-      title: '7 ta rangli pechat',
-      alternativeGroupId: 'alt-pechat-1',
-      alternativeGroupLabel: 'pechat',
-      alternativeAssignedTitle: '8 ta rangli pechat',
-      x: 24,
-      y: 48,
-    );
-    const cleanNode = ProductionMapNode(id: 'end', kind: 'end', title: 'End');
-    const edge = ProductionMapEdge(from: 'apparatus-7', to: 'end');
+  test('production map clears alternative title and id together', () {
     const map = ProductionMapDefinition(
       id: 'zakaz-template',
       productCode: 'ITEM-1',
       title: 'Template',
-      code: '4444',
-      orderNumber: '4444',
-      rollCount: 7,
-      widthMm: 650,
-      nodes: [assignedNode, cleanNode],
-      edges: [edge],
+      nodes: [
+        ProductionMapNode(
+          id: 'apparatus-7',
+          kind: 'apparatus',
+          title: 'Flexo pechat',
+          apparatusId: _printId,
+          alternativeGroupId: 'alt-pechat-1',
+          alternativeGroupLabel: 'Bosma',
+          alternativeAssignedTitle: 'Flexo pechat',
+          alternativeAssignedApparatusId: _printId,
+        ),
+      ],
+      edges: [],
     );
 
-    final cleanMap = map.withoutAlternativeAssignments();
+    final cleanNode = map.withoutAlternativeAssignments().nodes.single;
 
-    expect(cleanMap.id, map.id);
-    expect(cleanMap.productCode, map.productCode);
-    expect(cleanMap.code, map.code);
-    expect(cleanMap.orderNumber, map.orderNumber);
-    expect(cleanMap.rollCount, map.rollCount);
-    expect(cleanMap.widthMm, map.widthMm);
-    expect(cleanMap.edges, map.edges);
-    expect(cleanMap.nodes.first.alternativeGroupId, 'alt-pechat-1');
-    expect(cleanMap.nodes.first.alternativeGroupLabel, 'pechat');
-    expect(cleanMap.nodes.first.alternativeAssignedTitle, '');
-    expect(identical(cleanMap.nodes.last, cleanNode), isTrue);
+    expect(cleanNode.apparatusId, _printId);
+    expect(cleanNode.alternativeGroupId, 'alt-pechat-1');
+    expect(cleanNode.alternativeAssignedTitle, isEmpty);
+    expect(cleanNode.alternativeAssignedApparatusId, isEmpty);
   });
 
-  test('admin apparatus group normalizes server json shape', () {
-    final group = AdminApparatusGroup.fromJson(const {
-      'name': 'pechat',
-      'apparatus': ['7 ta rangli pechat', '8 ta rangli pechat'],
-    });
+  test('linear stages separate stable identity from display title', () {
+    final stages = productionMapLinearWorkStages(_canonicalMap());
 
-    expect(group.name, 'pechat');
-    expect(group.apparatus, ['7 ta rangli pechat', '8 ta rangli pechat']);
-    expect(group.toJson(), {
-      'name': 'pechat',
-      'apparatus': ['7 ta rangli pechat', '8 ta rangli pechat'],
-    });
-  });
-
-  test('legacy apparatus json receives deterministic master metadata', () {
-    final flexo = AdminApparatus.fromJson(const {'name': 'Flexo pechat'});
-    final sevenColor = AdminApparatus.fromJson(
-      const {'name': '7 ta rangli bosma aparat'},
-    );
-
-    expect(flexo.family, 'pechat');
-    expect(flexo.kind, 'flexo');
-    expect(flexo.isPechat, isTrue);
-    expect(flexo.isFlexo, isTrue);
-    expect(sevenColor.colorStations, 7);
-  });
-
-  test('warehouse suffix titles match', () {
     expect(
-      productionMapWarehouseTitlesMatch('Laminatsiya - A', 'Laminatsiya'),
-      isTrue,
+      stages.map((stage) => stage.stageId).toList(),
+      const [_printId, 'task:lamin-note', _cutId],
     );
     expect(
-      productionMapWarehouseTitlesMatch('Paket aparat - A', 'Paket aparat'),
-      isTrue,
+      stages.map((stage) => stage.displayTitle).toList(),
+      const ['Flexo pechat', 'Laminatsiya nazorati', 'Rezka'],
+    );
+    expect(
+      stages.map((stage) => stage.apparatusId).toList(),
+      const [_printId, null, _cutId],
     );
   });
 
-  test('queue titles match logical and numbered apparatus names', () {
-    expect(
-      productionMapQueueApparatusTitlesMatch('Laminatsiya', 'Laminatsiya 1'),
-      isTrue,
+  test('display rename does not change stage identity', () {
+    final original = _canonicalMap();
+    final renamed = original.copyWith(
+      nodes: [
+        for (final node in original.nodes)
+          node.id == 'pechat' ? node.copyWith(title: 'Yangi bosma nomi') : node,
+      ],
     );
-    expect(
-      productionMapQueueApparatusTitlesMatch('Laminatsiya 1', 'Laminatsiya'),
-      isTrue,
-    );
-    expect(
-      productionMapQueueApparatusTitlesMatch('Laminatsiya 1', 'Laminatsiya 2'),
-      isFalse,
-    );
-  });
-
-  test('linear work stages skip product task before first apparatus', () {
-    final stages = productionMapLinearWorkStages(_hotlunchMap());
-    expect(stages.map((stage) => stage.stationTitle).toList(), [
-      '9 ta rangli pechat - A',
-      'Laminatsiya',
-      'Rezka aparat - A',
-    ]);
-  });
-
-  test('next and final work stage follow the production map topology', () {
-    final map = _hotlunchMap();
 
     expect(
-      productionMapNextWorkStageStation(
-        map: map,
-        station: '9 ta rangli pechat - A',
-      ),
-      'Laminatsiya',
+      productionMapLinearWorkStages(renamed)
+          .map((stage) => stage.stageId)
+          .toList(),
+      productionMapLinearWorkStages(original)
+          .map((stage) => stage.stageId)
+          .toList(),
     );
     expect(
-      productionMapIsFinalWorkStageStation(
-        map: map,
-        station: 'Rezka aparat - A',
-      ),
-      isTrue,
-    );
-    expect(
-      productionMapIsFinalWorkStageStation(
-        map: map,
-        station: 'Noma’lum aparat',
+      productionMapMapHasWorkStageForStation(
+        map: renamed,
+        station: 'Yangi bosma nomi',
       ),
       isFalse,
     );
-    expect(
-      productionMapIsFinalWorkStageStation(
-        map: _pechatOnlyMap(),
-        station: '7 ta rangli pechat - A',
-      ),
-      isTrue,
-    );
   });
 
-  test('unassigned bosma alternative group exposes each candidate stage', () {
+  test('invalid apparatus identity cannot authorize downstream task stage', () {
     const map = ProductionMapDefinition(
-      id: 'zakaz-unassigned-bosma',
-      productCode: 'ALT',
-      title: 'Unassigned bosma',
+      id: 'zakaz-invalid-apparatus',
+      productCode: 'INVALID',
+      title: 'Invalid apparatus identity',
       nodes: [
         ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
-        ProductionMapNode(id: 'order', kind: 'task', title: 'Zakaz'),
         ProductionMapNode(
-          id: 'pechat_7',
+          id: 'legacy-apparatus',
           kind: 'apparatus',
-          title: '7 ta rangli bosma aparat',
-          alternativeGroupId: 'alt_bosma',
-          alternativeGroupLabel: 'Bosma aparat',
+          title: 'Flexo pechat',
         ),
         ProductionMapNode(
-          id: 'pechat_8',
+          id: 'legacy-task',
+          kind: 'task',
+          title: 'Legacy downstream task',
+        ),
+        ProductionMapNode(
+          id: 'rezka',
           kind: 'apparatus',
-          title: '8 ta rangli bosma aparat',
-          alternativeGroupId: 'alt_bosma',
-          alternativeGroupLabel: 'Bosma aparat',
+          title: 'Rezka',
+          apparatusId: _cutId,
         ),
         ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
       ],
       edges: [
-        ProductionMapEdge(from: 'start', to: 'order'),
-        ProductionMapEdge(from: 'order', to: 'pechat_7'),
-        ProductionMapEdge(from: 'order', to: 'pechat_8'),
-        ProductionMapEdge(from: 'pechat_7', to: 'end'),
-        ProductionMapEdge(from: 'pechat_8', to: 'end'),
+        ProductionMapEdge(from: 'start', to: 'legacy-apparatus'),
+        ProductionMapEdge(from: 'legacy-apparatus', to: 'legacy-task'),
+        ProductionMapEdge(from: 'legacy-task', to: 'rezka'),
+        ProductionMapEdge(from: 'rezka', to: 'end'),
       ],
     );
 
     expect(
-      productionMapLinearWorkStages(map)
-          .map((stage) => stage.stationTitle)
-          .toList(),
-      ['7 ta rangli bosma aparat', '8 ta rangli bosma aparat'],
-    );
-    expect(
-      productionMapMapHasWorkStageForStation(
-        map: map,
-        station: '7 ta rangli bosma aparat',
-      ),
-      isTrue,
-    );
-    expect(
-      productionMapMapHasWorkStageForStation(
-        map: map,
-        station: '8 ta rangli bosma aparat',
-      ),
-      isTrue,
-    );
-    expect(
-      productionMapNodeMatchesStation(
-        node: map.nodes[2],
-        station: '7 ta rangli bosma aparat',
-      ),
-      isTrue,
+      productionMapLinearWorkStages(map).map((stage) => stage.stageId),
+      const [_cutId],
     );
   });
 
-  test(
-      'unassigned laminatsiya alternative group exposes candidates after previous stage',
-      () {
+  test('next and previous skip virtual tasks and return physical ids', () {
+    final map = _canonicalMap();
+
+    expect(
+      productionMapNextWorkStageStation(map: map, station: _printId),
+      _cutId,
+    );
+    expect(
+      productionMapPreviousWorkStageStation(map: map, station: _cutId),
+      _printId,
+    );
+    expect(
+      productionMapIsFinalWorkStageStation(map: map, station: _cutId),
+      isTrue,
+    );
+    expect(
+      productionMapIsFinalWorkStageStation(
+        map: map,
+        station: 'task:lamin-note',
+      ),
+      isFalse,
+    );
+  });
+
+  test('unassigned alternative group exposes canonical candidates', () {
     const map = ProductionMapDefinition(
       id: 'zakaz-unassigned-laminatsiya',
       productCode: 'ALT',
@@ -362,101 +262,50 @@ void main() {
         ProductionMapNode(
           id: 'pechat',
           kind: 'apparatus',
-          title: '7 ta rangli bosma aparat',
+          title: 'Flexo pechat',
+          apparatusId: _printId,
         ),
         ProductionMapNode(
-          id: 'lamin_1',
+          id: 'lamin-1',
           kind: 'apparatus',
           title: 'Laminatsiya 1',
-          alternativeGroupId: 'alt_laminatsiya',
+          apparatusId: _lamination1Id,
+          alternativeGroupId: 'alt-laminatsiya',
           alternativeGroupLabel: 'Laminatsiya',
         ),
         ProductionMapNode(
-          id: 'lamin_2',
+          id: 'lamin-2',
           kind: 'apparatus',
           title: 'Laminatsiya 2',
-          alternativeGroupId: 'alt_laminatsiya',
+          apparatusId: _lamination2Id,
+          alternativeGroupId: 'alt-laminatsiya',
           alternativeGroupLabel: 'Laminatsiya',
         ),
         ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
       ],
       edges: [
         ProductionMapEdge(from: 'start', to: 'pechat'),
-        ProductionMapEdge(from: 'pechat', to: 'lamin_1'),
-        ProductionMapEdge(from: 'pechat', to: 'lamin_2'),
-        ProductionMapEdge(from: 'lamin_1', to: 'end'),
-        ProductionMapEdge(from: 'lamin_2', to: 'end'),
+        ProductionMapEdge(from: 'pechat', to: 'lamin-1'),
+        ProductionMapEdge(from: 'pechat', to: 'lamin-2'),
+        ProductionMapEdge(from: 'lamin-1', to: 'end'),
+        ProductionMapEdge(from: 'lamin-2', to: 'end'),
       ],
     );
 
     expect(
-      productionMapLinearWorkStages(map)
-          .map((stage) => stage.stationTitle)
-          .toList(),
-      ['7 ta rangli bosma aparat', 'Laminatsiya 1', 'Laminatsiya 2'],
-    );
-    expect(
-      productionMapMapHasWorkStageForStation(
-        map: map,
-        station: 'Laminatsiya 1',
-      ),
-      isTrue,
+      productionMapLinearWorkStages(map).map((stage) => stage.stageId).toList(),
+      const [_printId, _lamination1Id, _lamination2Id],
     );
     expect(
       productionMapPreviousWorkStageStation(
         map: map,
-        station: 'Laminatsiya 1',
+        station: _lamination2Id,
       ),
-      '7 ta rangli bosma aparat',
+      _printId,
     );
   });
 
-  test('laminatsiya tab sees orders only when map includes that stage', () {
-    expect(
-      productionMapMapHasWorkStageForStation(
-        map: _hotlunchMap(),
-        station: 'Laminatsiya - A',
-      ),
-      isTrue,
-    );
-    expect(
-      productionMapMapHasWorkStageForStation(
-        map: _pechatOnlyMap(),
-        station: 'Laminatsiya - A',
-      ),
-      isFalse,
-    );
-  });
-
-  test('later stage waits for previous completion', () {
-    final map = _hotlunchMap();
-    const states = <String, Map<String, String>>{};
-
-    expect(
-      productionMapOrderReadyForStation(
-        map: map,
-        orderId: 'zakaz-hot',
-        station: 'Laminatsiya - A',
-        queueStatesByApparatus: states,
-      ),
-      isFalse,
-    );
-
-    final withPechatDone = {
-      '9 ta rangli pechat - A': {'zakaz-hot': 'completed'},
-    };
-    expect(
-      productionMapOrderReadyForStation(
-        map: map,
-        orderId: 'zakaz-hot',
-        station: 'Laminatsiya - A',
-        queueStatesByApparatus: withPechatDone,
-      ),
-      isTrue,
-    );
-  });
-
-  test('chain readiness uses alternative assigned apparatus title', () {
+  test('assigned alternative uses assigned canonical id', () {
     const map = ProductionMapDefinition(
       id: 'zakaz-alt-chain',
       productCode: 'ALT',
@@ -466,56 +315,117 @@ void main() {
         ProductionMapNode(
           id: 'pechat',
           kind: 'apparatus',
-          title: '7 ta rangli pechat',
-          alternativeAssignedTitle: '8 ta rangli pechat',
+          title: 'Flexo pechat',
+          apparatusId: _printId,
+          alternativeGroupId: 'alt-print',
+          alternativeAssignedTitle: 'Laminatsiya 1',
+          alternativeAssignedApparatusId: _lamination1Id,
         ),
         ProductionMapNode(
-          id: 'lamin',
+          id: 'rezka',
           kind: 'apparatus',
-          title: 'Laminatsiya 1',
+          title: 'Rezka',
+          apparatusId: _cutId,
         ),
         ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
       ],
       edges: [
         ProductionMapEdge(from: 'start', to: 'pechat'),
-        ProductionMapEdge(from: 'pechat', to: 'lamin'),
-        ProductionMapEdge(from: 'lamin', to: 'end'),
+        ProductionMapEdge(from: 'pechat', to: 'rezka'),
+        ProductionMapEdge(from: 'rezka', to: 'end'),
       ],
     );
 
     expect(
-      productionMapLinearWorkStages(map)
-          .map((stage) => stage.stationTitle)
-          .toList(),
-      ['8 ta rangli pechat', 'Laminatsiya 1'],
+      productionMapLinearWorkStages(map).map((stage) => stage.stageId).toList(),
+      const [_lamination1Id, _cutId],
     );
     expect(
-      productionMapPreviousWorkStageStation(
-        map: map,
-        station: 'Laminatsiya 1',
-      ),
-      '8 ta rangli pechat',
+      productionMapStageDisplayTitle(map: map, station: _lamination1Id),
+      'Laminatsiya 1',
     );
+  });
+
+  test('later stage readiness reads exact previous apparatus key', () {
+    final map = _canonicalMap();
+
     expect(
       productionMapOrderReadyForStation(
         map: map,
-        orderId: 'zakaz-alt-chain',
-        station: 'Laminatsiya 1',
+        orderId: 'zakaz-hot',
+        station: _cutId,
         queueStatesByApparatus: const {
-          '8 ta rangli pechat': {'zakaz-alt-chain': 'completed'},
+          _printId: {'zakaz-hot': 'completed'},
         },
       ),
       isTrue,
     );
+    expect(
+      productionMapOrderReadyForStation(
+        map: map,
+        orderId: 'zakaz-hot',
+        station: _cutId,
+        queueStatesByApparatus: const {
+          'Flexo pechat': {'zakaz-hot': 'completed'},
+        },
+      ),
+      isFalse,
+    );
   });
 
-  test('first actionable skips orders blocked by chain', () {
-    final actionable = firstActionableQueueOrderId(
-      sequence: const ['zakaz-a', 'zakaz-b'],
-      states: const {},
-      isOrderReady: (id) => id != 'zakaz-a',
+  test('backend visible order ids accept canonical key only', () {
+    const visible = {
+      _printId: ['zakaz-visible'],
+      _lamination1Id: ['zakaz-visible'],
+    };
+
+    expect(
+      productionMapVisibleOrderIdsForStation(
+        visibleOrderIdsByApparatus: visible,
+        station: _printId,
+      ),
+      const ['zakaz-visible'],
     );
-    expect(actionable, 'zakaz-b');
+    expect(
+      productionMapVisibleOrderIdsForStation(
+        visibleOrderIdsByApparatus: visible,
+        station: 'Flexo pechat',
+      ),
+      isNull,
+    );
+  });
+
+  test('station orders come only from backend canonical visibility', () {
+    final map = _canonicalMap();
+    final order = ProductionMapSaved(
+      map: map,
+      program: const ProductionMapProgram(
+        mapId: 'zakaz-hot',
+        productCode: 'HOT',
+        operations: [],
+      ),
+    );
+
+    expect(
+      productionMapOrdersVisibleByBackendIds(
+        orders: [order],
+        visibleOrderIdsByApparatus: const {
+          _printId: ['zakaz-hot'],
+        },
+        station: _printId,
+      ),
+      [order],
+    );
+    expect(
+      productionMapOrdersVisibleByBackendIds(
+        orders: [order],
+        visibleOrderIdsByApparatus: const {
+          'Flexo pechat': ['zakaz-hot'],
+        },
+        station: _printId,
+      ),
+      isEmpty,
+    );
   });
 
   test('effective queue sequence removes stale ids and appends visible orders',
@@ -529,157 +439,13 @@ void main() {
     );
   });
 
-  test('effective queue sequence appends unsequenced orders oldest first', () {
+  test('first actionable prioritizes active work', () {
     expect(
-      effectiveQueueSequence(
-        sequence: const [],
-        visibleOrderIds: const ['zakaz-new', 'zakaz-old'],
+      firstActionableQueueOrderId(
+        sequence: const ['zakaz-a', 'zakaz-b'],
+        states: const {'zakaz-b': 'in_progress'},
       ),
-      const ['zakaz-old', 'zakaz-new'],
+      'zakaz-b',
     );
-    expect(
-      effectiveQueueSequence(
-        sequence: const ['zakaz-old'],
-        visibleOrderIds: const ['zakaz-newer', 'zakaz-new', 'zakaz-old'],
-      ),
-      const ['zakaz-old', 'zakaz-new', 'zakaz-newer'],
-    );
-  });
-
-  test('backend visible order ids resolve by apparatus title', () {
-    const visible = {
-      '7 ta rangli pechat': ['zakaz-visible-alt'],
-      'Laminatsiya 1': ['zakaz-visible-alt'],
-    };
-
-    expect(
-      productionMapVisibleOrderIdsForStation(
-        visibleOrderIdsByApparatus: visible,
-        station: '7 ta rangli pechat',
-      ),
-      ['zakaz-visible-alt'],
-    );
-    expect(
-      productionMapVisibleOrderIdsForStation(
-        visibleOrderIdsByApparatus: visible,
-        station: '7 ta rangli pechat - A',
-      ),
-      ['zakaz-visible-alt'],
-    );
-    expect(
-      productionMapVisibleOrderIdsForStation(
-        visibleOrderIdsByApparatus: visible,
-        station: 'Laminatsiya 2',
-      ),
-      isNull,
-    );
-  });
-
-  test('station orders come only from backend visible ids', () {
-    const map = ProductionMapDefinition(
-      id: 'zakaz-alt-visible',
-      productCode: 'ALT',
-      title: 'Alternative visible',
-      nodes: [
-        ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
-        ProductionMapNode(id: 'order', kind: 'task', title: 'Product'),
-        ProductionMapNode(
-          id: 'pechat',
-          kind: 'apparatus',
-          title: '7 ta rangli pechat',
-        ),
-        ProductionMapNode(
-          id: 'lamin1',
-          kind: 'apparatus',
-          title: 'Laminatsiya 1',
-          alternativeGroupId: 'alt-lamin',
-          alternativeGroupLabel: 'Laminatsiya',
-          alternativeAssignedTitle: 'Laminatsiya 1',
-        ),
-        ProductionMapNode(
-          id: 'lamin2',
-          kind: 'apparatus',
-          title: 'Laminatsiya 2',
-          alternativeGroupId: 'alt-lamin',
-          alternativeGroupLabel: 'Laminatsiya',
-          alternativeAssignedTitle: 'Laminatsiya 1',
-        ),
-        ProductionMapNode(id: 'rezka', kind: 'apparatus', title: 'Rezka'),
-        ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
-      ],
-      edges: [
-        ProductionMapEdge(from: 'start', to: 'order'),
-        ProductionMapEdge(from: 'order', to: 'pechat'),
-        ProductionMapEdge(from: 'pechat', to: 'lamin1'),
-        ProductionMapEdge(from: 'lamin1', to: 'rezka'),
-        ProductionMapEdge(from: 'rezka', to: 'end'),
-      ],
-    );
-    const order = ProductionMapSaved(
-      map: map,
-      program: ProductionMapProgram(
-        mapId: 'zakaz-alt-visible',
-        productCode: 'ALT',
-        operations: [],
-      ),
-    );
-
-    expect(
-      productionMapOrdersVisibleByBackendIds(
-        orders: const [order],
-        visibleOrderIdsByApparatus: const {},
-        station: '7 ta rangli pechat',
-      ),
-      isEmpty,
-    );
-    expect(
-      productionMapOrdersVisibleByBackendIds(
-        orders: const [order],
-        visibleOrderIdsByApparatus: const {
-          '7 ta rangli pechat': ['zakaz-alt-visible'],
-          'Laminatsiya 1': ['zakaz-alt-visible'],
-        },
-        station: '7 ta rangli pechat',
-      ),
-      const [order],
-    );
-    expect(
-      productionMapOrdersVisibleByBackendIds(
-        orders: const [order],
-        visibleOrderIdsByApparatus: const {
-          '7 ta rangli pechat': ['zakaz-alt-visible'],
-          'Laminatsiya 1': ['zakaz-alt-visible'],
-        },
-        station: 'Laminatsiya 1',
-      ),
-      const [order],
-    );
-    expect(
-      productionMapOrdersVisibleByBackendIds(
-        orders: const [order],
-        visibleOrderIdsByApparatus: const {
-          '7 ta rangli pechat': ['zakaz-alt-visible'],
-          'Laminatsiya 1': ['zakaz-alt-visible'],
-        },
-        station: 'Laminatsiya 2',
-      ),
-      isEmpty,
-    );
-  });
-
-  test('first actionable prioritizes in progress order', () {
-    final actionable = firstActionableQueueOrderId(
-      sequence: const ['zakaz-a', 'zakaz-b'],
-      states: const {'zakaz-b': 'in_progress'},
-    );
-    expect(actionable, 'zakaz-b');
-  });
-
-  test('first actionable prioritizes paused order', () {
-    final actionable = firstActionableQueueOrderId(
-      sequence: const ['zakaz-a', 'zakaz-b'],
-      states: const {'zakaz-b': 'paused'},
-    );
-    expect(actionable, 'zakaz-b');
   });
 }

@@ -8,11 +8,6 @@ Map<String, String> _queueStatesForStation(
   if (direct != null) {
     return direct;
   }
-  for (final entry in queueStatesByApparatus.entries) {
-    if (productionMapQueueApparatusTitlesMatch(entry.key, station)) {
-      return entry.value;
-    }
-  }
   return const {};
 }
 
@@ -434,6 +429,9 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   if (apparatus == null || onQueueAction == null || actionInFlight) {
     return null;
   }
+  if (queueActionControl?.contractValid != true) {
+    return null;
+  }
   final interaction = queueActionControl?.interaction;
   if (interaction == null) return null;
   final inputProgressBatch = startInputProgressBatch;
@@ -471,15 +469,19 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required bool canManageQueue,
   required AdminApparatusQueueOrderActionControl? queueActionControl,
   required AdminOrderControlState orderControlState,
+  String? queueState,
   required AdminProgressBatch? startInputProgressBatch,
 }) {
   final map = order.map;
   final orderId = map.id.trim();
-  final station = apparatus?.name.trim() ?? '';
-  final contractSynchronized = queueActionControl != null &&
-      queueActionControl.isConsistentWith(orderControlState);
-  final interaction =
-      contractSynchronized ? queueActionControl.interaction : null;
+  final station = apparatus?.id.trim() ?? '';
+  final contractValid = queueActionControl?.contractValid == true;
+  final contractSynchronized = contractValid &&
+      queueActionControl!.isConsistentWith(
+        orderControlState,
+        queueState: queueState,
+      );
+  final interaction = contractValid ? queueActionControl?.interaction : null;
   final previousStageValue = queueActionControl?.previousStage.trim() ?? '';
   final previousStage = previousStageValue.isEmpty ? null : previousStageValue;
   final bypassMaterialGate = interaction?.startMaterialsMode !=
@@ -566,6 +568,15 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
         interaction?.blockingReasonCode == 'waiting_sequence',
     contractSynchronized: contractSynchronized,
     blockingReasonCode: interaction?.blockingReasonCode ?? '',
+    showBackendBlockingState: canManageQueue &&
+        contractValid &&
+        const {
+          AdminQueueInteractionMode.freshStartBlocked,
+          AdminQueueInteractionMode.requeuedWaiting,
+          AdminQueueInteractionMode.waitingPreviousStage,
+          AdminQueueInteractionMode.paused,
+          AdminQueueInteractionMode.frozen,
+        }.contains(interaction?.mode),
   );
 }
 
@@ -574,33 +585,19 @@ ProductionMapNode? _rezkaNodeForStation({
   required String station,
 }) {
   final trimmedStation = station.trim();
-  if (trimmedStation.isEmpty ||
-      !productionMapIsRezkaApparatus(trimmedStation)) {
+  if (trimmedStation.isEmpty) {
     return null;
   }
-  final rezkaNodes = _linearProductionMapNodes(map)
-      .where(
-        (node) =>
-            node.kind == 'apparatus' &&
-            (productionMapIsRezkaApparatus(node.title) ||
-                productionMapIsRezkaApparatus(node.alternativeAssignedTitle)),
-      )
-      .toList(growable: false);
-  for (final node in rezkaNodes) {
-    if (_rezkaNodeMatchesStation(node, trimmedStation)) {
+  for (final node in _linearProductionMapNodes(map)) {
+    if (node.kind == 'apparatus' &&
+        productionMapNodeMatchesStation(
+          node: node,
+          station: trimmedStation,
+        )) {
       return node;
     }
   }
-  return rezkaNodes.isEmpty ? null : rezkaNodes.first;
-}
-
-bool _rezkaNodeMatchesStation(ProductionMapNode node, String station) {
-  return productionMapWarehouseTitlesMatch(node.title, station) ||
-      (node.alternativeAssignedTitle.trim().isNotEmpty &&
-          productionMapWarehouseTitlesMatch(
-            node.alternativeAssignedTitle,
-            station,
-          ));
+  return null;
 }
 
 List<String> _rezkaWipSplitInstructionLines({

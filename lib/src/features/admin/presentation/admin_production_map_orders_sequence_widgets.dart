@@ -66,6 +66,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
         ? const SizedBox.shrink()
         : _CompletionRequestsSection(
             requests: notifications,
+            apparatusCatalog: widget.availableApparatus,
             expandedRequestId: _expandedCompletionRequestId,
             onExpandedChanged: _onCompletionRequestExpandedChanged,
           );
@@ -87,8 +88,10 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
         customerName: widget.customerNameByMapId[order.map.id.trim()] ?? '',
         tone: _resolveOrderCardTone(
           orderStatus: widget.orderStatusesByOrderId[order.map.id.trim()],
-          orderControl: widget.orderControlsByOrderId[order.map.id.trim()] ??
-              AdminOrderControlState.active,
+          orderControl: adminProductionMapOrderControlFor(
+            widget.orderControlsByOrderId,
+            order.map.id.trim(),
+          ),
           apparatusState: apparatusQueueOrderStateFromRaw(
             widget.queueStates[order.map.id.trim()],
           ),
@@ -151,7 +154,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
             Expanded(
               child: ReorderableListView.builder(
                 key: ValueKey(
-                  'sequence-list-${selected.name}-'
+                  'sequence-list-${selected.id}-'
                   '${orders.map((order) => order.map.id).join(',')}',
                 ),
                 padding: EdgeInsets.fromLTRB(
@@ -167,7 +170,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                   final order = orders[index];
                   return Padding(
                     key: ValueKey(
-                      'sequence-${selected.name}-${order.map.id}',
+                      'sequence-${selected.id}-${order.map.id}',
                     ),
                     padding: EdgeInsets.only(
                       bottom: index < orders.length - 1
@@ -178,7 +181,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                       index: index,
                       order: order,
                       key: ValueKey(
-                        'sequence-row-${selected.name}-${order.map.id}',
+                        'sequence-row-${selected.id}-${order.map.id}',
                       ),
                     ),
                   );
@@ -243,9 +246,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
               message: context.l10n.productionText(
                 'worker.queue.empty.for_apparatus',
                 values: {
-                  'apparatus': context.l10n.productionApparatusName(
-                    selected.name,
-                  ),
+                  'apparatus': selected.name.trim(),
                 },
               ),
             )
@@ -258,7 +259,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                     index: index,
                     order: orders[index],
                     key: ValueKey(
-                      'sequence-static-${selected.name}-'
+                      'sequence-static-${selected.id}-'
                       '${orders[index].map.id}',
                     ),
                   ),
@@ -300,7 +301,7 @@ class _SequenceHeaderSelectors extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final selectedValue = apparatus?.name.trim();
+    final selectedValue = apparatus?.id.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -313,17 +314,17 @@ class _SequenceHeaderSelectors extends StatelessWidget {
           selectedValue: selectedValue?.isEmpty == true ? null : selectedValue,
           options: [
             for (final item in availableApparatus)
-              if (item.name.trim().isNotEmpty)
+              if (item.id.trim().isNotEmpty && item.name.trim().isNotEmpty)
                 AdminFilterChipOption(
-                  value: item.name.trim(),
-                  label: context.l10n.productionApparatusName(item.name),
+                  value: item.id.trim(),
+                  label: item.name.trim(),
                 ),
           ],
           expanded: expanded,
           onToggle: onToggleExpanded,
           onSelect: (value) {
             for (final item in availableApparatus) {
-              if (item.name.trim() == value) {
+              if (item.id.trim() == value) {
                 onSelectApparatus(item);
                 return;
               }

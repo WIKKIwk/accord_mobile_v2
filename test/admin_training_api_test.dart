@@ -10,6 +10,15 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const _laminationApparatusId = 'apparatus:default:asset-007';
+const _laminationApparatusName = 'Laminatsiya 1';
+const _secondLaminationApparatusId = 'apparatus:default:asset-008';
+const _secondLaminationApparatusName = 'Laminatsiya 2';
+const _rezkaApparatusId = 'apparatus:default:asset-010';
+const _rezkaApparatusName = 'Rezka';
+const _trainingBosmaInputStageId = 'training-input:bosma';
+const _trainingLaminationInputStageId = 'training-input:laminatsiya';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -24,8 +33,7 @@ void main() {
     AppSession.instance.token = null;
   });
 
-  test('unavailable training batch list does not block the training page',
-      () async {
+  test('unavailable training batch list fails closed', () async {
     await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = 'token';
     final requests = <http.Request>[];
@@ -34,41 +42,24 @@ void main() {
       return http.Response('', 404);
     });
 
-    final batches = await http.runWithClient(
-      () => MobileApi.instance.adminTrainingInputBatches(),
-      () => client,
+    await expectLater(
+      http.runWithClient(
+        () => MobileApi.instance.adminTrainingInputBatches(),
+        () => client,
+      ),
+      throwsA(isA<MobileApiException>()),
     );
 
-    expect(batches, isEmpty);
     expect(requests.single.url.path,
         endsWith('/v1/mobile/admin/training/input-batches'));
   });
 
-  test('legacy training server still generates a printable input batch',
+  test('missing training generation endpoint does not use legacy map fallback',
       () async {
     await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = 'token';
     const orderId = 'training-legacy-laminatsiya-1';
-    const apparatus = 'Laminatsiya 1';
-    final map = const ProductionMapDefinition(
-      id: orderId,
-      productCode: 'TRAINING-LEGACY-1',
-      title: 'Legacy training laminatsiya order',
-      orderKg: 10,
-      nodes: [
-        ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
-        ProductionMapNode(
-          id: 'laminatsiya',
-          kind: 'apparatus',
-          title: apparatus,
-        ),
-        ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
-      ],
-      edges: [
-        ProductionMapEdge(from: 'start', to: 'laminatsiya'),
-        ProductionMapEdge(from: 'laminatsiya', to: 'end'),
-      ],
-    );
+    const apparatus = _laminationApparatusId;
     final requests = <http.Request>[];
     final client = MockClient((request) async {
       requests.add(request);
@@ -77,56 +68,24 @@ void main() {
               .endsWith('/v1/mobile/admin/training/input-batches')) {
         return http.Response('', 404);
       }
-      if (request.method == 'GET' &&
-          request.url.path
-              .endsWith('/v1/mobile/admin/training/production-maps')) {
-        return http.Response(
-          jsonEncode({
-            'map': map.toJson(),
-            'program': {
-              'map_id': orderId,
-              'product_code': map.productCode,
-              'operations': const [],
-            },
-          }),
-          200,
-        );
-      }
-      if (request.method == 'GET' &&
-          request.url.path
-              .endsWith('/v1/mobile/admin/training/input-batches')) {
-        return http.Response('', 404);
-      }
       return http.Response('unexpected request', 500);
     });
 
-    final generated = await http.runWithClient(
-      () => MobileApi.instance.adminGenerateTrainingInputBatch(
-        orderId: orderId,
-        apparatus: apparatus,
+    await expectLater(
+      http.runWithClient(
+        () => MobileApi.instance.adminGenerateTrainingInputBatch(
+          orderId: orderId,
+          apparatus: apparatus,
+        ),
+        () => client,
       ),
-      () => client,
+      throwsA(isA<MobileApiException>()),
     );
-    expect(generated.qrPayload, 'TRAINING-INPUT:$orderId');
-    expect(generated.batchId, 'training-input-batch-$orderId');
-    expect(generated.nextApparatus, apparatus);
-
-    final listed = await http.runWithClient(
-      () => MobileApi.instance.adminTrainingInputBatches(orderId: orderId),
-      () => client,
-    );
-    expect(listed, hasLength(1));
-    expect(listed.single.qrPayload, generated.qrPayload);
-    resetMobileApiTestModeData();
-    final listedAfterReload = await http.runWithClient(
-      () => MobileApi.instance.adminTrainingInputBatches(orderId: orderId),
-      () => client,
-    );
-    expect(listedAfterReload, hasLength(1));
-    expect(listedAfterReload.single.qrPayload, generated.qrPayload);
+    expect(requests, hasLength(1));
+    expect(requests.single.method, 'POST');
     expect(
-      requests.map((request) => request.url.path),
-      contains('/v1/mobile/admin/training/input-batches'),
+      requests.single.url.path,
+      endsWith('/v1/mobile/admin/training/input-batches'),
     );
   });
 
@@ -134,7 +93,7 @@ void main() {
       () async {
     await TestModeController.instance.setEnabled(true);
     const orderId = 'training-zakaz-1';
-    const apparatus = 'Training aparat';
+    const apparatus = _laminationApparatusId;
     await MobileApi.instance.adminSaveProductionMap(
       const ProductionMapDefinition(
         id: orderId,
@@ -145,7 +104,8 @@ void main() {
           ProductionMapNode(
             id: 'training-apparatus',
             kind: 'apparatus',
-            title: apparatus,
+            title: _laminationApparatusName,
+            apparatusId: apparatus,
           ),
           ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
         ],
@@ -185,7 +145,7 @@ void main() {
       locations.any(
         (location) =>
             location.isState &&
-            location.apparatus.any((item) => item.name == apparatus),
+            location.apparatus.any((item) => item.id == apparatus),
       ),
       isTrue,
     );
@@ -230,7 +190,7 @@ void main() {
       () async {
     await TestModeController.instance.setEnabled(true);
     const draftId = 'zakaz-draft-laminatsiya-input-1';
-    const apparatus = 'Laminatsiya 1';
+    const apparatus = _laminationApparatusId;
     final saved = await MobileApi.instance.adminSaveTrainingProductionMap(
       const ProductionMapDefinition(
         id: draftId,
@@ -242,7 +202,8 @@ void main() {
           ProductionMapNode(
             id: 'laminatsiya',
             kind: 'apparatus',
-            title: apparatus,
+            title: _laminationApparatusName,
+            apparatusId: apparatus,
           ),
           ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
         ],
@@ -262,7 +223,6 @@ void main() {
     expect(
       await MobileApi.instance.adminWipBatches(
         status: 'all',
-        apparatus: 'Bosma aparat',
         nextApparatus: apparatus,
         orderId: orderId,
       ),
@@ -286,6 +246,7 @@ void main() {
     final generated = await MobileApi.instance.adminGenerateTrainingInputBatch(
       orderId: orderId,
     );
+    expect(generated.apparatus, _trainingBosmaInputStageId);
     expect(generated.qrPayload, matches(RegExp(r'^4001[0-9A-F]{20}$')));
     expect(generated.batchId, startsWith('progress-batch:'));
     expect(generated.qrPayload, _productionProgressQr(generated.batchId));
@@ -303,14 +264,21 @@ void main() {
       qrPayload: generated.qrPayload.toUpperCase(),
     );
     expect(reprint.batch.batchId, generated.batchId);
-    final scannedLegacyLabel = await MobileApi.instance.adminProgressQrLookup(
-      'TRAINING-INPUT:$orderId',
+    await expectLater(
+      () => MobileApi.instance.adminProgressQrLookup(
+        'TRAINING-INPUT:$orderId',
+      ),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'progress_batch_not_found',
+        ),
+      ),
     );
-    expect(scannedLegacyLabel.batchId, generated.batchId);
 
     final batches = await MobileApi.instance.adminWipBatches(
       status: 'all',
-      apparatus: 'Bosma aparat',
       nextApparatus: apparatus,
       orderId: orderId,
     );
@@ -367,7 +335,7 @@ void main() {
   test('training rezka order gets a Laminatsiya input batch on generation',
       () async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Rezka 1';
+    const apparatus = _rezkaApparatusId;
     final result =
         await MobileApi.instance.adminSaveTrainingProductionMapWithOrder(
       map: const ProductionMapDefinition(
@@ -380,7 +348,8 @@ void main() {
           ProductionMapNode(
             id: 'rezka',
             kind: 'apparatus',
-            title: apparatus,
+            title: _rezkaApparatusName,
+            apparatusId: apparatus,
           ),
           ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
         ],
@@ -404,20 +373,23 @@ void main() {
       4,
     );
     final orderId = saved.map.id;
-    final legacyMap = saved.map.copyWith(
+    final mapWithoutRezkaFrameConfig = saved.map.copyWith(
       nodes: saved.map.nodes
           .map(
             (node) => node.id == 'rezka'
                 ? const ProductionMapNode(
                     id: 'rezka',
                     kind: 'apparatus',
-                    title: apparatus,
+                    title: _rezkaApparatusName,
+                    apparatusId: apparatus,
                   )
                 : node,
           )
           .toList(growable: false),
     );
-    await MobileApi.instance.adminSaveTrainingProductionMap(legacyMap);
+    await MobileApi.instance.adminSaveTrainingProductionMap(
+      mapWithoutRezkaFrameConfig,
+    );
     expect(
       (await MobileApi.instance.adminTrainingProductionMaps(id: orderId))
           .single
@@ -450,7 +422,7 @@ void main() {
     final generated = await MobileApi.instance.adminGenerateTrainingInputBatch(
       orderId: orderId,
     );
-    expect(generated.apparatus, 'Laminatsiya aparat');
+    expect(generated.apparatus, _trainingLaminationInputStageId);
     expect(generated.nextApparatus, apparatus);
     expect(generated.qrPayload, matches(RegExp(r'^4001[0-9A-F]{20}$')));
     expect(generated.qrPayload, _productionProgressQr(generated.batchId));
@@ -459,12 +431,11 @@ void main() {
       generated.qrPayload,
     );
     expect(scanned.batchId, generated.batchId);
-    expect(scanned.apparatus, 'Laminatsiya aparat');
+    expect(scanned.apparatus, _trainingLaminationInputStageId);
     expect(scanned.nextApparatus, apparatus);
 
     final batches = await MobileApi.instance.adminWipBatches(
       status: 'all',
-      apparatus: 'Laminatsiya aparat',
       nextApparatus: apparatus,
       orderId: orderId,
     );
@@ -596,7 +567,7 @@ void main() {
   test('training input batch set keeps partial and final completion separate',
       () async {
     await TestModeController.instance.setEnabled(true);
-    const apparatus = 'Laminatsiya batch set';
+    const apparatus = _secondLaminationApparatusId;
     final saved = await MobileApi.instance.adminSaveTrainingProductionMap(
       const ProductionMapDefinition(
         id: 'zakaz-draft-laminatsiya-batch-set',
@@ -608,7 +579,8 @@ void main() {
           ProductionMapNode(
             id: 'laminatsiya',
             kind: 'apparatus',
-            title: apparatus,
+            title: _secondLaminationApparatusName,
+            apparatusId: apparatus,
           ),
           ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
         ],
@@ -639,6 +611,11 @@ void main() {
       qrPayload: inputs.first.qrPayload,
       progressBatchId: inputs.first.batchId,
     );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: apparatus,
+      orderId: orderId,
+      control: _inProgressQueueControl(completeRequiresFullReport: false),
+    );
     var queue = await MobileApi.instance.adminProductionMapQueueSnapshot();
     expect(
       queue
@@ -663,6 +640,11 @@ void main() {
       qrPayload: inputs.last.qrPayload,
       progressBatchId: inputs.last.batchId,
     );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: apparatus,
+      orderId: orderId,
+      control: _inProgressQueueControl(completeRequiresFullReport: true),
+    );
     queue = await MobileApi.instance.adminProductionMapQueueSnapshot();
     expect(
       queue
@@ -682,6 +664,26 @@ void main() {
     );
     expect(completed.states[orderId], 'completed');
   });
+}
+
+AdminApparatusQueueOrderActionControl _inProgressQueueControl({
+  required bool completeRequiresFullReport,
+}) {
+  return AdminApparatusQueueOrderActionControl(
+    state: 'in_progress',
+    allowedActions: const {'pause', 'complete'},
+    hasOnlyKnownActions: true,
+    completeRequiresFullReport: completeRequiresFullReport,
+    interaction: const AdminQueueWorkerInteraction(
+      mode: AdminQueueInteractionMode.inProgress,
+      startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+      materialScanRequired: false,
+      assignedMaterialsDisplayOnly: false,
+      materialIntakeAllowed: true,
+      previousWipMode: AdminQueuePreviousWipMode.notRequired,
+      qolipMode: AdminQueueQolipMode.notRequired,
+    ),
+  );
 }
 
 String _productionProgressQr(String batchId) {

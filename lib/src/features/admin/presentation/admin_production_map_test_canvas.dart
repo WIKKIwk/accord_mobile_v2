@@ -3,6 +3,7 @@ part of 'admin_production_map_test_screen.dart';
 class _ProductionMapCanvas extends StatefulWidget {
   const _ProductionMapCanvas({
     required this.readOnly,
+    required this.apparatusCatalog,
     required this.lockedNodeIds,
     required this.nodes,
     required this.edges,
@@ -23,6 +24,7 @@ class _ProductionMapCanvas extends StatefulWidget {
   static const _nodeSize = Size(260, 60);
 
   final bool readOnly;
+  final List<AdminApparatus> apparatusCatalog;
   final Set<String> lockedNodeIds;
   final List<ProductionMapNode> nodes;
   final List<ProductionMapEdge> edges;
@@ -149,6 +151,7 @@ class _ProductionMapCanvasState extends State<_ProductionMapCanvas> {
                               width: _ProductionMapCanvas._nodeSize.width,
                               child: _MapNodeVisual(
                                 node: node,
+                                apparatusCatalog: widget.apparatusCatalog,
                                 borderRadius: _nodeBorderRadius(node),
                                 readOnly: widget.readOnly,
                                 locked: widget.lockedNodeIds.contains(node.id),

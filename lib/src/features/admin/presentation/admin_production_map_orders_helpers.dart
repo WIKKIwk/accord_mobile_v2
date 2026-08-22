@@ -161,12 +161,15 @@ String _closedLogTitle(AdminProductionOrderLogEntry log) {
   return _closedLogActionLabel(log.action);
 }
 
-String _closedLogApparatusLabel(AdminProductionOrderLogEntry log) {
+String _closedLogApparatusLabel(
+  AdminProductionOrderLogEntry log,
+  List<AdminApparatus> apparatusCatalog,
+) {
   final freeze = log.freeze;
   if (freeze != null) {
     final apparatus = freeze.targetApparatus.trim();
     if (apparatus.isNotEmpty) {
-      return apparatus;
+      return canonicalApparatusDisplayLabel(apparatus, apparatusCatalog);
     }
   }
   final transfer = log.transfer;
@@ -174,11 +177,15 @@ String _closedLogApparatusLabel(AdminProductionOrderLogEntry log) {
     final from = transfer.fromApparatus.trim();
     final to = transfer.toApparatus.trim();
     if (from.isNotEmpty && to.isNotEmpty) {
-      return '$from → $to';
+      return '${canonicalApparatusDisplayLabel(from, apparatusCatalog)} → '
+          '${canonicalApparatusDisplayLabel(to, apparatusCatalog)}';
     }
-    return to.isNotEmpty ? to : from;
+    return canonicalApparatusDisplayLabel(
+      to.isNotEmpty ? to : from,
+      apparatusCatalog,
+    );
   }
-  return log.apparatus.trim();
+  return canonicalApparatusDisplayLabel(log.apparatus, apparatusCatalog);
 }
 
 String _closedLogStateLabel(AdminProductionOrderLogEntry log) {

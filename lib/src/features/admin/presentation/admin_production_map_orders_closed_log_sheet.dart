@@ -4,6 +4,7 @@ void _showClosedOrderLogDetails(
   BuildContext context, {
   required AdminClosedProductionOrder order,
   required AdminProductionOrderLogEntry log,
+  required List<AdminApparatus> apparatusCatalog,
 }) {
   showModalBottomSheet<void>(
     context: context,
@@ -13,6 +14,7 @@ void _showClosedOrderLogDetails(
     builder: (context) => _ClosedOrderLogDetailsSheet(
       order: order,
       log: log,
+      apparatusCatalog: apparatusCatalog,
     ),
   );
 }
@@ -46,8 +48,8 @@ List<AdminProgressBatch> _closedProgressBatchesForLog(
     if (apparatus.isEmpty) {
       return true;
     }
-    return productionMapWarehouseTitlesMatch(batch.apparatus, apparatus) ||
-        productionMapWarehouseTitlesMatch(batch.currentApparatus, apparatus);
+    return batch.apparatus.trim() == apparatus ||
+        batch.currentApparatus.trim() == apparatus;
   }).toList();
   matches.sort((left, right) {
     final leftDistance = _closedLogBatchTimeDistance(left, log.createdAtUnix);
@@ -70,10 +72,15 @@ int _closedLogBatchTimeDistance(AdminProgressBatch batch, int timestamp) {
 }
 
 class _ClosedOrderLogDetailsSheet extends StatelessWidget {
-  const _ClosedOrderLogDetailsSheet({required this.order, required this.log});
+  const _ClosedOrderLogDetailsSheet({
+    required this.order,
+    required this.log,
+    required this.apparatusCatalog,
+  });
 
   final AdminClosedProductionOrder order;
   final AdminProductionOrderLogEntry log;
+  final List<AdminApparatus> apparatusCatalog;
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +92,7 @@ class _ClosedOrderLogDetailsSheet extends StatelessWidget {
       role: log.actorRole,
       ref: log.actorRef,
     );
-    final apparatus = _closedLogApparatusLabel(log);
+    final apparatus = _closedLogApparatusLabel(log, apparatusCatalog);
 
     return SafeArea(
       top: false,
@@ -153,7 +160,10 @@ class _ClosedOrderLogDetailsSheet extends StatelessWidget {
                     if (freeze.targetApparatus.trim().isNotEmpty)
                       _ClosedLogDetailRow(
                         label: context.l10n.adminText('label.apparatus'),
-                        value: freeze.targetApparatus.trim(),
+                        value: canonicalApparatusDisplayLabel(
+                          freeze.targetApparatus,
+                          apparatusCatalog,
+                        ),
                       ),
                     if (freeze.targetWorkerDisplayName.trim().isNotEmpty ||
                         freeze.targetWorkerRef.trim().isNotEmpty ||
@@ -211,11 +221,17 @@ class _ClosedOrderLogDetailsSheet extends StatelessWidget {
                   children: [
                     _ClosedLogDetailRow(
                       label: context.l10n.adminText('production.from'),
-                      value: transfer.fromApparatus,
+                      value: canonicalApparatusDisplayLabel(
+                        transfer.fromApparatus,
+                        apparatusCatalog,
+                      ),
                     ),
                     _ClosedLogDetailRow(
                       label: context.l10n.adminText('production.to'),
-                      value: transfer.toApparatus,
+                      value: canonicalApparatusDisplayLabel(
+                        transfer.toApparatus,
+                        apparatusCatalog,
+                      ),
                     ),
                     if (transfer.reason.trim().isNotEmpty)
                       _ClosedLogDetailRow(
@@ -279,7 +295,10 @@ class _ClosedOrderLogDetailsSheet extends StatelessWidget {
                         const Divider(height: 1),
                         const SizedBox(height: 12),
                       ],
-                      _ClosedLogProgressDetails(batch: batches[index]),
+                      _ClosedLogProgressDetails(
+                        batch: batches[index],
+                        apparatusCatalog: apparatusCatalog,
+                      ),
                     ],
                 ],
               ),
@@ -457,9 +476,13 @@ class _ClosedLogMutedText extends StatelessWidget {
 }
 
 class _ClosedLogProgressDetails extends StatelessWidget {
-  const _ClosedLogProgressDetails({required this.batch});
+  const _ClosedLogProgressDetails({
+    required this.batch,
+    required this.apparatusCatalog,
+  });
 
   final AdminProgressBatch batch;
+  final List<AdminApparatus> apparatusCatalog;
 
   @override
   Widget build(BuildContext context) {
@@ -555,7 +578,11 @@ class _ClosedLogProgressDetails extends StatelessWidget {
         Text(
           [
             if (batch.action.trim().isNotEmpty) batch.action.trim(),
-            if (batch.apparatus.trim().isNotEmpty) batch.apparatus.trim(),
+            if (batch.apparatus.trim().isNotEmpty)
+              canonicalApparatusDisplayLabel(
+                batch.apparatus,
+                apparatusCatalog,
+              ),
           ].join(' • '),
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w800,

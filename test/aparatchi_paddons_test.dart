@@ -34,7 +34,7 @@ AdminPaddonSnapshot _snapshot() {
         'label_item_name': '1 metr rulon',
         'produced_qty': 1,
         'uom': 'm',
-        'apparatus': 'Rezka 1',
+        'apparatus': 'apparatus:default:asset-010',
       }),
     ],
     availableItems: [
@@ -45,7 +45,7 @@ AdminPaddonSnapshot _snapshot() {
         'label_item_name': 'Bo‘sh rulon',
         'produced_qty': 2,
         'uom': 'm',
-        'apparatus': 'Rezka 1',
+        'apparatus': 'apparatus:default:asset-010',
       }),
     ],
   );
@@ -65,7 +65,7 @@ AdminPaddonSnapshot _snapshotWithAssignedWips(int count) {
           'label_item_name': '1 metr rulon',
           'produced_qty': 1,
           'uom': 'm',
-          'apparatus': 'Rezka 1',
+          'apparatus': 'apparatus:default:asset-010',
         }),
     ],
     availableItems: snapshot.availableItems,
@@ -82,7 +82,7 @@ void _setSession() {
     phone: '',
     avatarUrl: '',
     capabilities: ['apparatus.queue.read'],
-    assignedApparatus: ['Rezka 1'],
+    assignedApparatus: ['apparatus:default:asset-010'],
   );
 }
 
@@ -111,11 +111,20 @@ void main() {
     final snapshot = AdminPaddonSnapshot.fromJson({
       'paddon': {'code': '00001'},
       'items': [
-        {'batch_id': 'assigned-wip'},
+        {
+          'batch_id': 'assigned-wip',
+          'apparatus': 'apparatus:default:asset-007',
+        },
       ],
       'available_items': [
-        {'batch_id': 'assigned-wip'},
-        {'batch_id': 'free-wip'},
+        {
+          'batch_id': 'assigned-wip',
+          'apparatus': 'apparatus:default:asset-007',
+        },
+        {
+          'batch_id': 'free-wip',
+          'apparatus': 'apparatus:default:asset-007',
+        },
       ],
     });
 

@@ -1,7 +1,11 @@
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_apparatus_settings_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,7 +31,49 @@ void main() {
     expect(options.kindsForFamily('pechat'), contains('color_pechat'));
     expect(options.capabilities, contains('print'));
     expect(options.colorStationsMin, 1);
-    expect(options.colorStationsMax, 24);
+    expect(options.colorStationsMax, 32);
+  });
+
+  testWidgets('apparatus settings shows canonical derived groups', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminApparatusSettingsScreen(
+          initialTab: AdminApparatusSettingsTab.groups,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final printGroup = find.byKey(
+      const ValueKey('canonical-apparatus-group-print'),
+    );
+    expect(printGroup, findsOneWidget);
+    expect(find.text('Bosma aparat'), findsOneWidget);
+
+    await tester.ensureVisible(printGroup);
+    await tester.tap(printGroup);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Flexo pechat'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey(
+          'canonical-apparatus-group-item-apparatus:default:asset-005',
+        ),
+      ),
+      findsOneWidget,
+    );
   });
 
   test('custom apparatus keeps its stable id while being renamed', () async {
@@ -101,9 +147,14 @@ void main() {
 
   test('apparatus JSON round-trips factory map object id', () {
     const apparatus = AdminApparatus(
-      id: 'apparatus:test',
+      id: 'apparatus:test:roundtrip',
       name: 'Test aparat',
       factoryMapObjectId: 'node:18',
+      sourceRevision: 1,
+      sourceAasxSha256:
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      operation: 'package',
+      technology: 'bag_making',
     );
 
     final decoded = AdminApparatus.fromJson(apparatus.toJson());
@@ -156,7 +207,7 @@ void main() {
       kind: 'flexo',
       capabilities: const ['print', 'pechat', 'flexo'],
       capabilityProfiles: const [
-        AdminApparatusCapabilityProfile(code: 'flexo', level: 3),
+        AdminApparatusCapabilityProfile(code: 'print', level: 3),
       ],
     );
     for (final orderId in const ['zakaz-capacity-1', 'zakaz-capacity-2']) {
@@ -166,7 +217,14 @@ void main() {
           productCode: orderId,
           title: orderId,
           orderNumber: orderId,
-          nodes: const [],
+          nodes: [
+            ProductionMapNode(
+              id: 'apparatus',
+              kind: 'apparatus',
+              title: apparatus.name,
+              apparatusId: apparatus.id,
+            ),
+          ],
           edges: const [],
         ),
       );
@@ -269,6 +327,7 @@ void main() {
               id: 'apparatus',
               kind: 'apparatus',
               title: primary.name,
+              apparatusId: primary.id,
             ),
           ],
           edges: const [],
@@ -338,7 +397,7 @@ void main() {
       capabilities: const ['print', 'pechat', 'flexo'],
     );
     await MobileApi.instance.adminSaveProductionMap(
-      const ProductionMapDefinition(
+      ProductionMapDefinition(
         id: orderId,
         productCode: orderId,
         title: orderId,
@@ -348,6 +407,7 @@ void main() {
             id: 'apparatus',
             kind: 'apparatus',
             title: source,
+            apparatusId: sourceApparatus.id,
           ),
         ],
         edges: [],
@@ -370,17 +430,17 @@ void main() {
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: source,
+      apparatus: sourceApparatus.id,
       orderIds: const [orderId],
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: target,
+      apparatus: targetApparatus.id,
       orderIds: const [],
     );
     final reservation = await MobileApi.instance.adminScheduleApparatusOrder(
       orderId: orderId,
       apparatusId: sourceApparatus.id,
-      apparatus: source,
+      apparatus: sourceApparatus.id,
       earliestStartUnix: 1700000040,
       durationMinutes: 20,
       idempotencyKey: 'capacity-mobile-lifecycle',
@@ -388,7 +448,7 @@ void main() {
     expect(reservation.status, 'planned');
 
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: source,
+      apparatus: sourceApparatus.id,
       orderId: orderId,
       action: 'start',
     );
@@ -396,7 +456,7 @@ void main() {
     expect(snapshot.reservations.single.status, 'active');
 
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: source,
+      apparatus: sourceApparatus.id,
       orderId: orderId,
       action: 'pause',
       producedQty: 1,
@@ -406,8 +466,8 @@ void main() {
 
     await MobileApi.instance.adminTransferProductionMapOrder(
       orderId: orderId,
-      fromApparatus: source,
-      toApparatus: target,
+      fromApparatus: sourceApparatus.id,
+      toApparatus: targetApparatus.id,
       reason: 'source apparatus breakdown',
       idempotencyKey: 'capacity-mobile-transfer',
     );
@@ -417,7 +477,7 @@ void main() {
     expect(snapshot.reservations.single.apparatusId, targetApparatus.id);
 
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: target,
+      apparatus: targetApparatus.id,
       orderId: orderId,
       action: 'resume',
     );
@@ -436,23 +496,30 @@ void main() {
       capabilities: const ['print', 'pechat', 'flexo'],
     );
     await MobileApi.instance.adminSaveProductionMap(
-      const ProductionMapDefinition(
+      ProductionMapDefinition(
         id: orderId,
         productCode: orderId,
         title: orderId,
         orderNumber: orderId,
-        nodes: [],
+        nodes: [
+          ProductionMapNode(
+            id: 'apparatus',
+            kind: 'apparatus',
+            title: apparatusName,
+            apparatusId: apparatus.id,
+          ),
+        ],
         edges: [],
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: apparatusName,
+      apparatus: apparatus.id,
       orderIds: const [orderId],
     );
     await MobileApi.instance.adminSaveApparatusCapacityProfile(
       AdminApparatusCapacityProfile(
         apparatusId: apparatus.id,
-        apparatus: apparatusName,
+        apparatus: apparatus.id,
         capabilities: const ['flexo'],
         capabilityLevels: const {'flexo': 3},
       ),
@@ -471,7 +538,7 @@ void main() {
 
     await expectLater(
       MobileApi.instance.adminApparatusQueueActionResult(
-        apparatus: apparatusName,
+        apparatus: apparatus.id,
         orderId: orderId,
         action: 'start',
       ),

@@ -20,6 +20,7 @@ import '../../material_taminotchi/presentation/widgets/material_state_locations_
 import '../../shared/models/app_models.dart';
 import '../../shared/models/inventory_movement_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import '../logic/canonical_apparatus_display.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_catalog_search_field.dart';
@@ -173,13 +174,16 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
         limit: 500,
       ),
       MobileApi.instance.inventoryLocations(),
+      MobileApi.instance.adminApparatus(limit: 10000),
     ]);
     final allReservations = results[0] as List<AdminRawMaterialAssignment>;
     final rawStock = results[1] as List<AdminRawMaterialStockEntry>;
+    final apparatus = results[3] as List<AdminApparatus>;
     if (rawStock.isEmpty) {
-      return const _WarehouseInventorySection(
+      return _WarehouseInventorySection(
         rawStock: <AdminRawMaterialStockEntry>[],
         reservations: <AdminRawMaterialAssignment>[],
+        apparatus: apparatus,
       );
     }
     final locations = results[2] as List<InventoryLocation>;
@@ -225,6 +229,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
           (item) => stockBarcodes.contains(item.barcode.trim().toLowerCase()),
         ),
       ),
+      apparatus: apparatus,
     );
   }
 
@@ -556,10 +561,12 @@ class _WarehouseInventorySection {
   const _WarehouseInventorySection({
     required this.rawStock,
     required this.reservations,
+    required this.apparatus,
   });
 
   final List<AdminRawMaterialStockEntry> rawStock;
   final List<AdminRawMaterialAssignment> reservations;
+  final List<AdminApparatus> apparatus;
 }
 
 const int _warehouseAssigneePageSize = 50;
@@ -1304,6 +1311,7 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
             const _WarehouseInventorySection(
               rawStock: <AdminRawMaterialStockEntry>[],
               reservations: <AdminRawMaterialAssignment>[],
+              apparatus: <AdminApparatus>[],
             );
         final availableRawStock = _availableRawStock(current.rawStock);
         final reservedRawStock = _reservedRawStock(current.rawStock);
@@ -1427,6 +1435,7 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
           if (current.reservations.isNotEmpty)
             _WarehouseReservationListModule(
               reservations: current.reservations,
+              apparatus: current.apparatus,
             )
           else if (reservedRawStock.isNotEmpty)
             _WarehouseRawStockListModule(
@@ -2934,9 +2943,13 @@ class _RawMaterialStockEditSheetState
 }
 
 class _WarehouseReservationListModule extends StatelessWidget {
-  const _WarehouseReservationListModule({required this.reservations});
+  const _WarehouseReservationListModule({
+    required this.reservations,
+    required this.apparatus,
+  });
 
   final List<AdminRawMaterialAssignment> reservations;
+  final List<AdminApparatus> apparatus;
 
   @override
   Widget build(BuildContext context) {
@@ -2950,6 +2963,7 @@ class _WarehouseReservationListModule extends StatelessWidget {
               reservations.length,
             ),
             reservation: reservations[index],
+            apparatus: apparatus,
           ),
       ],
     );
@@ -2960,10 +2974,12 @@ class _WarehouseReservationRow extends StatelessWidget {
   const _WarehouseReservationRow({
     required this.slot,
     required this.reservation,
+    required this.apparatus,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminRawMaterialAssignment reservation;
+  final List<AdminApparatus> apparatus;
 
   @override
   Widget build(BuildContext context) {
@@ -3018,7 +3034,10 @@ class _WarehouseReservationRow extends StatelessWidget {
         if (reservation.apparatus.trim().isNotEmpty)
           _WarehouseDetailEntry(
             context.l10n.adminText('label.apparatus'),
-            reservation.apparatus,
+            canonicalApparatusDisplayLabel(
+              reservation.apparatus,
+              apparatus,
+            ),
           ),
         if (reservation.assignedByName.trim().isNotEmpty)
           _WarehouseDetailEntry(

@@ -21,6 +21,7 @@ bool _queueSnapshotChanged({
       queueActionControlsByApparatus.length !=
           snapshot.queueActionControls.length ||
       orderControlsByOrderId.length != snapshot.orderControls.length ||
+      orderCustomersByOrderId.length != snapshot.orderCustomers.length ||
       orderStatusesByOrderId.length != snapshot.orderStatuses.length ||
       qolipOrderNotesByOrderId.length != snapshot.qolipOrderNotes.length ||
       frozenOrdersByApparatus.length !=
@@ -225,78 +226,26 @@ int _ordersRevision(List<ProductionMapSaved> orders) {
   );
 }
 
-bool _apparatusTitlesMatch(String left, String right) {
-  return productionMapQueueApparatusTitlesMatch(left, right);
-}
-
 Map<String, String> _queueStatesForApparatus(
   AdminApparatus apparatus, {
   required Map<String, Map<String, String>> queueStatesByApparatus,
 }) {
-  final title = apparatus.name.trim();
-  final direct = queueStatesByApparatus[title];
-  if (direct != null) {
-    return direct;
-  }
-  final color = productionMapPechatColorCount(title);
-  if (color != null) {
-    for (final entry in queueStatesByApparatus.entries) {
-      if (productionMapPechatColorCount(entry.key) == color) {
-        return entry.value;
-      }
-    }
-  }
-  for (final entry in queueStatesByApparatus.entries) {
-    if (productionMapQueueApparatusTitlesMatch(entry.key, title)) {
-      return entry.value;
-    }
-  }
-  return const {};
+  return queueStatesByApparatus[apparatus.id.trim()] ?? const {};
 }
 
 List<String> _sequenceOrderIdsForApparatus(
   AdminApparatus apparatus, {
   required Map<String, List<String>> sequenceByApparatus,
 }) {
-  final title = apparatus.name.trim();
-  final direct = sequenceByApparatus[title];
-  if (direct != null) {
-    return direct;
-  }
-  final color = productionMapPechatColorCount(title);
-  if (color != null) {
-    for (final entry in sequenceByApparatus.entries) {
-      if (productionMapPechatColorCount(entry.key) == color) {
-        return entry.value;
-      }
-    }
-  }
-  for (final entry in sequenceByApparatus.entries) {
-    if (productionMapQueueApparatusTitlesMatch(entry.key, title)) {
-      return entry.value;
-    }
-  }
-  return const [];
+  return sequenceByApparatus[apparatus.id.trim()] ?? const [];
 }
 
 ApparatusQueuePolicy _queuePolicyForApparatus(
   AdminApparatus apparatus, {
   required Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus,
 }) {
-  final title = apparatus.name.trim();
-  if (productionMapIsPechatApparatus(title)) {
-    return ApparatusQueuePolicy.strictSequence;
-  }
-  final direct = queuePoliciesByApparatus[title];
-  if (direct != null) {
-    return direct.policy;
-  }
-  for (final entry in queuePoliciesByApparatus.entries) {
-    if (productionMapQueueApparatusTitlesMatch(entry.key, title)) {
-      return entry.value.policy;
-    }
-  }
-  return ApparatusQueuePolicy.strictSequence;
+  return queuePoliciesByApparatus[apparatus.id.trim()]?.policy ??
+      ApparatusQueuePolicy.strictSequence;
 }
 
 bool _queueActionSentCompletionRequest({

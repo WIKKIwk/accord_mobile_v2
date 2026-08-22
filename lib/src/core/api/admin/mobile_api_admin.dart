@@ -1,9 +1,6 @@
 part of '../mobile_api.dart';
 
 final List<ProductionMapSaved> _testModeProductionMaps = [];
-final List<AdminApparatusGroup> _testModeApparatusGroups = [
-  ...TestModeDemoData.apparatusGroups,
-];
 final List<AdminApparatus> _testModeApparatus = [];
 final List<AdminWarehouse> _testModeWarehouses = [];
 final List<AdminWarehouseAssignment> _testModeWarehouseAssignments = [];
@@ -52,6 +49,8 @@ final Map<String, String> _testModeSystemUserCodes = {};
 bool _testModeForceSequenceSaveFailure = false;
 bool _testModeForceCalculateTemplateSaveFailure = false;
 bool _testModeForceProductionMapMenuLoadFailure = false;
+bool _testModeForceProductionMapQueueSnapshotLoadFailure = false;
+bool _testModeForceCompletedProductionMapOrdersLoadFailure = false;
 
 class _TestModeApparatusTransferReceipt {
   const _TestModeApparatusTransferReceipt({
@@ -67,57 +66,6 @@ class _TestModeApparatusTransferReceipt {
   final ProductionMapSaved saved;
 }
 
-const _defaultBosmaApparatusGroupName = 'Bosma aparat';
-
-String _defaultBosmaApparatusName(int colorCount) {
-  return '$colorCount ta rangli bosma aparat';
-}
-
-bool _adminApparatusGroupIsBosma(AdminApparatusGroup group) {
-  if (productionMapIsPechatApparatus(group.name)) {
-    return true;
-  }
-  return group.apparatus.any(
-    productionMapIsPechatApparatus,
-  );
-}
-
-List<AdminApparatusGroup> _normalizeDefaultAdminApparatusGroups(
-  List<AdminApparatusGroup> groups,
-) {
-  final normalized = <AdminApparatusGroup>[];
-  var hasBosma = false;
-  var bosmaInsertIndex = -1;
-  for (final group in groups) {
-    if (_adminApparatusGroupIsBosma(group)) {
-      hasBosma = true;
-      if (bosmaInsertIndex < 0) {
-        bosmaInsertIndex = normalized.length;
-      }
-      continue;
-    }
-    if (productionMapIsLaminatsiyaApparatus(group.name) ||
-        group.apparatus.any(productionMapIsLaminatsiyaApparatus)) {
-      normalized.add(
-        AdminApparatusGroup(name: 'Laminatsiya', apparatus: group.apparatus),
-      );
-      continue;
-    }
-    normalized.add(group);
-  }
-  if (hasBosma) {
-    final bosmaGroup = AdminApparatusGroup(
-      name: _defaultBosmaApparatusGroupName,
-      apparatus: [
-        ...[7, 8, 9].map(_defaultBosmaApparatusName),
-        'Flexo pechat',
-      ],
-    );
-    normalized.insert(bosmaInsertIndex < 0 ? 0 : bosmaInsertIndex, bosmaGroup);
-  }
-  return normalized;
-}
-
 void setMobileApiTestModeForceSequenceSaveFailure(bool value) {
   _testModeForceSequenceSaveFailure = value;
 }
@@ -130,25 +78,34 @@ void setMobileApiTestModeForceProductionMapMenuLoadFailure(bool value) {
   _testModeForceProductionMapMenuLoadFailure = value;
 }
 
+void setMobileApiTestModeForceProductionMapQueueSnapshotLoadFailure(
+    bool value) {
+  _testModeForceProductionMapQueueSnapshotLoadFailure = value;
+}
+
+void setMobileApiTestModeForceCompletedProductionMapOrdersLoadFailure(
+    bool value) {
+  _testModeForceCompletedProductionMapOrdersLoadFailure = value;
+}
+
 void setMobileApiTestModeQueueActionControlFixture({
   required String apparatus,
   required String orderId,
   required AdminApparatusQueueOrderActionControl control,
 }) {
-  final normalizedApparatus = apparatus.trim();
+  final normalizedApparatus = _requireCanonicalApparatusId(apparatus);
   final normalizedOrderId = orderId.trim();
-  if (normalizedApparatus.isEmpty || normalizedOrderId.isEmpty) return;
+  if (normalizedOrderId.isEmpty) return;
   _testModeQueueActionControlFixtures.putIfAbsent(
-      normalizedApparatus, () => {})[normalizedOrderId] = control;
+    normalizedApparatus,
+    () => {},
+  )[normalizedOrderId] = control;
 }
 
 void resetMobileApiTestModeData() {
   _testModeProductionMaps.clear();
   _testModeAdminItemDetailOverrides.clear();
   _testModeDeletedAdminItemCodes.clear();
-  _testModeApparatusGroups
-    ..clear()
-    ..addAll(TestModeDemoData.apparatusGroups);
   _testModeApparatus.clear();
   _testModeWarehouses.clear();
   _testModeWarehouseAssignments.clear();
@@ -171,7 +128,6 @@ void resetMobileApiTestModeData() {
   _testModeCompletionRequestDecisions.clear();
   _testModeProgressBatchesByQr.clear();
   _testModeRezkaFrameIssuesByQueue.clear();
-  _legacyTrainingInputBatchesByOrderId.clear();
   _resetTestModeTrainingInputBatches();
   _testModeActiveProgressInputByQueue.clear();
   _testModeOrderStartedAtUnix.clear();
@@ -187,18 +143,94 @@ void resetMobileApiTestModeData() {
   _testModeForceSequenceSaveFailure = false;
   _testModeForceCalculateTemplateSaveFailure = false;
   _testModeForceProductionMapMenuLoadFailure = false;
+  _testModeForceProductionMapQueueSnapshotLoadFailure = false;
+  _testModeForceCompletedProductionMapOrdersLoadFailure = false;
 }
 
 int _testModeUnixSeconds() => DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
+String _requireCanonicalApparatusId(
+  String apparatusId, {
+  bool allowEmpty = false,
+}) {
+  final normalized = apparatusId.trim();
+  if ((allowEmpty && normalized.isEmpty) ||
+      isCanonicalApparatusId(normalized)) {
+    return normalized;
+  }
+  throw const MobileApiException(
+    code: 'apparatus_id_invalid',
+    message: 'Canonical apparatus ID noto‘g‘ri',
+  );
+}
+
+List<String> _requireCanonicalApparatusIdList(Object? raw) {
+  if (raw == null) return const [];
+  if (raw is! List) {
+    throw const MobileApiException(
+      code: 'apparatus_id_invalid',
+      message: 'Canonical apparatus ID ro‘yxati noto‘g‘ri',
+    );
+  }
+  final result = <String>[];
+  for (final item in raw) {
+    final apparatusId = _requireCanonicalApparatusId(item.toString());
+    if (!result.contains(apparatusId)) result.add(apparatusId);
+  }
+  return List<String>.unmodifiable(result);
+}
+
+void _requireCanonicalProductionMapApparatusIds(
+  ProductionMapDefinition map,
+) {
+  for (final node in map.nodes) {
+    final apparatusId = node.apparatusId.trim();
+    final assignedId = node.alternativeAssignedApparatusId.trim();
+    if ((node.kind == 'apparatus' && !isCanonicalApparatusId(apparatusId)) ||
+        (apparatusId.isNotEmpty && !isCanonicalApparatusId(apparatusId)) ||
+        (assignedId.isNotEmpty && !isCanonicalApparatusId(assignedId))) {
+      throw const MobileApiException(
+        code: 'production_map_apparatus_id_invalid',
+        message: 'Production map canonical apparatus ID talab qiladi',
+      );
+    }
+  }
+}
+
+AdminApparatus _testModeRequiredApparatus(String apparatusId) {
+  final normalizedId = _requireCanonicalApparatusId(apparatusId);
+  for (final apparatus in _testModeApparatusCatalog()) {
+    if (apparatus.id.trim() == normalizedId) {
+      return apparatus;
+    }
+  }
+  throw const MobileApiException(
+    code: 'apparatus_not_found',
+    message: 'Aparat topilmadi',
+  );
+}
+
+String _testModeEffectiveNodeApparatusId(ProductionMapNode node) {
+  final assigned = node.alternativeAssignedApparatusId.trim();
+  return assigned.isEmpty ? node.apparatusId.trim() : assigned;
+}
+
+bool _testModeNodeHasOperation(ProductionMapNode node, String operation) {
+  final apparatusId = _testModeEffectiveNodeApparatusId(node);
+  if (apparatusId.isEmpty) return false;
+  return _testModeRequiredApparatus(apparatusId)
+          .operation
+          .trim()
+          .toLowerCase() ==
+      operation.trim().toLowerCase();
+}
+
 AdminApparatusCapacityProfile _normalizeTestModeCapacityProfile(
   AdminApparatusCapacityProfile profile,
 ) {
-  final apparatusId = profile.apparatusId.trim().isEmpty
-      ? 'apparatus:${profile.apparatus.trim().toLowerCase()}'
-      : profile.apparatusId.trim();
-  final apparatus =
-      profile.apparatus.trim().isEmpty ? apparatusId : profile.apparatus.trim();
+  final canonical = _testModeRequiredApparatus(profile.apparatusId);
+  final apparatusId = canonical.id.trim();
+  final apparatus = canonical.name.trim();
   final capabilities = profile.capabilities
       .map((item) => item.trim().toLowerCase())
       .where((item) => item.isNotEmpty)
@@ -230,36 +262,22 @@ AdminApparatusCapacityProfile _normalizeTestModeCapacityProfile(
 
 AdminApparatusCapacityProfile _testModeProfileForApparatus({
   required String apparatusId,
-  required String apparatus,
 }) {
-  final normalizedId = apparatusId.trim().toLowerCase();
-  final normalizedName = apparatus.trim().toLowerCase();
+  final canonical = _testModeRequiredApparatus(apparatusId);
+  final normalizedId = canonical.id.trim();
   for (final profile in _testModeApparatusCapacityProfiles.values) {
-    if (profile.apparatusId.trim().toLowerCase() == normalizedId ||
-        (normalizedName.isNotEmpty &&
-            profile.apparatus.trim().toLowerCase() == normalizedName)) {
+    if (profile.apparatusId.trim() == normalizedId) {
       return profile;
     }
   }
-  AdminApparatus? catalogItem;
-  for (final item in _testModeApparatusCatalog()) {
-    if (item.name.trim().toLowerCase() == normalizedName) {
-      catalogItem = item;
-      break;
-    }
-  }
-  final inferredCapabilities = catalogItem?.capabilities ?? const <String>[];
-  final inferredProfiles = catalogItem?.capabilityProfiles ?? const [];
+  final inferredCapabilities = canonical.capabilities;
+  final inferredProfiles = canonical.capabilityProfiles;
   return AdminApparatusCapacityProfile(
-    apparatusId: apparatusId.trim().isEmpty
-        ? 'apparatus:${apparatus.trim().toLowerCase()}'
-        : apparatusId.trim(),
-    apparatus: apparatus.trim(),
+    apparatusId: normalizedId,
+    apparatus: canonical.name.trim(),
     capabilities: inferredCapabilities,
     capabilityLevels: inferredProfiles.isEmpty
-        ? {
-            for (final capability in inferredCapabilities) capability: 1,
-          }
+        ? {for (final capability in inferredCapabilities) capability: 1}
         : {
             for (final profile in inferredProfiles)
               if (profile.isValidAt(_testModeUnixSeconds()))
@@ -283,10 +301,14 @@ bool _testModeFitsWorkingWindow(
   int end,
 ) {
   if (profile.workingWindows.isEmpty) return true;
-  final startTime =
-      DateTime.fromMillisecondsSinceEpoch(start * 1000, isUtc: true);
-  final endTime =
-      DateTime.fromMillisecondsSinceEpoch((end - 1) * 1000, isUtc: true);
+  final startTime = DateTime.fromMillisecondsSinceEpoch(
+    start * 1000,
+    isUtc: true,
+  );
+  final endTime = DateTime.fromMillisecondsSinceEpoch(
+    (end - 1) * 1000,
+    isUtc: true,
+  );
   if (startTime.weekday != endTime.weekday) return false;
   final startMinute = startTime.hour * 60 + startTime.minute;
   final endMinute = endTime.hour * 60 + endTime.minute + 1;
@@ -319,7 +341,6 @@ class _TestModeScheduledCandidate {
 ({int startsAtUnix, int endsAtUnix})? _testModeFindScheduleSlot({
   required AdminApparatusCapacityProfile profile,
   required String apparatusId,
-  required String apparatus,
   required int earliestStartUnix,
   required int? latestEndUnix,
   required int reservedDurationMinutes,
@@ -339,7 +360,7 @@ class _TestModeScheduledCandidate {
     final downtime = _testModeApparatusDowntimes.values.any(
       (item) =>
           item.active &&
-          item.apparatusId.toLowerCase() == apparatusId.toLowerCase() &&
+          item.apparatusId.trim() == apparatusId &&
           _testModeIntervalsOverlap(
             cursor,
             end,
@@ -355,7 +376,7 @@ class _TestModeScheduledCandidate {
         .where(
           (item) =>
               (item.status == 'planned' || item.status == 'active') &&
-              item.apparatusId.toLowerCase() == apparatusId.toLowerCase() &&
+              item.apparatusId.trim() == apparatusId &&
               _testModeIntervalsOverlap(
                 cursor,
                 end,
@@ -365,24 +386,22 @@ class _TestModeScheduledCandidate {
         )
         .length;
     final activeQueueOrderIds = <String>{};
-    for (final entry in _testModeApparatusQueueStates.entries) {
-      if (!productionMapWarehouseTitlesMatch(entry.key, apparatus)) continue;
-      for (final state in entry.value.entries) {
-        if (apparatusQueueOrderStateFromRaw(state.value) ==
-            ApparatusQueueOrderState.inProgress) {
-          activeQueueOrderIds.add(state.key.trim());
-        }
+    final apparatusStates =
+        _testModeApparatusQueueStates[apparatusId] ?? const <String, String>{};
+    for (final state in apparatusStates.entries) {
+      if (apparatusQueueOrderStateFromRaw(state.value) ==
+          ApparatusQueueOrderState.inProgress) {
+        activeQueueOrderIds.add(state.key.trim());
       }
     }
-    final scheduledActiveOrderIds =
-        _testModeApparatusScheduleReservations.values
-            .where(
-              (item) =>
-                  item.status == 'active' &&
-                  productionMapWarehouseTitlesMatch(item.apparatus, apparatus),
-            )
-            .map((item) => item.orderId.trim())
-            .toSet();
+    final scheduledActiveOrderIds = _testModeApparatusScheduleReservations
+        .values
+        .where(
+          (item) =>
+              item.status == 'active' && item.apparatusId.trim() == apparatusId,
+        )
+        .map((item) => item.orderId.trim())
+        .toSet();
     final unscheduledActiveRuns = activeQueueOrderIds
         .where((orderId) => !scheduledActiveOrderIds.contains(orderId))
         .length;
@@ -396,55 +415,30 @@ class _TestModeScheduledCandidate {
   return null;
 }
 
-String? _testModeKnownApparatusFamily(String title) {
-  final normalized = productionMapWarehouseBaseTitle(title).toLowerCase();
-  if (productionMapIsPechatApparatus(normalized)) return 'pechat';
-  for (final entry in const {
-    'laminatsiya': 'laminatsiya',
-    'rezka': 'rezka',
-    'paket': 'paket',
-    'kley': 'kley',
-  }.entries) {
-    if (normalized.contains(entry.key)) return entry.value;
-  }
-  return null;
-}
-
 bool _testModeCandidateAllowedForOrder(
   ProductionMapDefinition map,
-  String source,
-  String candidate,
+  AdminApparatus source,
+  AdminApparatus candidate,
 ) {
-  source = source.trim();
-  if (source.isEmpty) return false;
-  final apparatusNodes = map.nodes
-      .where((node) => node.kind == 'apparatus')
-      .map((node) => node.title.trim())
-      .where((title) => title.isNotEmpty)
-      .toList(growable: false);
-  if (apparatusNodes.isEmpty) return true;
-  if (!apparatusNodes.any(
-    (title) => productionMapWarehouseTitlesMatch(title, source),
-  )) {
-    return false;
+  final sourceId = source.id.trim();
+  final candidateId = candidate.id.trim();
+  if (sourceId == candidateId) {
+    return map.nodes.any((node) {
+      if (node.kind != 'apparatus') {
+        return false;
+      }
+      final assignedId = node.alternativeAssignedApparatusId.trim();
+      final effectiveId =
+          assignedId.isEmpty ? node.apparatusId.trim() : assignedId;
+      return effectiveId == sourceId;
+    });
   }
-  final sourceFamily = _testModeKnownApparatusFamily(source);
-  final candidateFamily = _testModeKnownApparatusFamily(candidate);
-  if (sourceFamily != null &&
-      candidateFamily != null &&
-      sourceFamily != candidateFamily) {
-    return false;
-  }
-  final sourceIsFlexo = productionMapIsFlexoApparatus(source);
-  final candidateIsFlexo = productionMapIsFlexoApparatus(candidate);
-  if (sourceIsFlexo != candidateIsFlexo) return false;
   return productionMapCanMoveOrderToApparatus(
     nodes: map.nodes,
     fromApparatus: source,
     toApparatus: candidate,
     rollCount: map.rollCount,
     widthMm: map.widthMm,
-    isFlexoOrder: productionMapIsFlexoOrder(map),
   );
 }
 
@@ -463,11 +457,8 @@ AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
   required List<AdminApparatusScheduleCandidate> candidateApparatuses,
 }) {
   final normalizedOrderId = orderId.trim();
-  final normalizedId = apparatusId.trim().isEmpty
-      ? 'apparatus:${apparatus.trim().toLowerCase()}'
-      : apparatusId.trim();
-  final normalizedApparatus =
-      apparatus.trim().isEmpty ? normalizedId : apparatus.trim();
+  final sourceApparatus = _testModeRequiredApparatus(apparatusId);
+  final normalizedId = sourceApparatus.id.trim();
   if (normalizedOrderId.isEmpty ||
       durationMinutes <= 0 ||
       earliestStartUnix <= 0 ||
@@ -502,25 +493,21 @@ AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
       .map;
   final candidates = <AdminApparatusScheduleCandidate>[];
   final seenCandidateKeys = <String>{};
-  void addCandidate(String id, String name) {
-    final normalizedCandidateId = id.trim().isEmpty
-        ? 'apparatus:${name.trim().toLowerCase()}'
-        : id.trim();
-    final normalizedCandidateName =
-        name.trim().isEmpty ? normalizedCandidateId : name.trim();
-    final key = normalizedCandidateId.toLowerCase();
-    if (key.isEmpty || !seenCandidateKeys.add(key)) return;
+  void addCandidate(String id) {
+    final canonical = _testModeRequiredApparatus(id);
+    final normalizedCandidateId = canonical.id.trim();
+    if (!seenCandidateKeys.add(normalizedCandidateId)) return;
     candidates.add(
       AdminApparatusScheduleCandidate(
         apparatusId: normalizedCandidateId,
-        apparatus: normalizedCandidateName,
+        apparatus: canonical.name.trim(),
       ),
     );
   }
 
-  addCandidate(normalizedId, normalizedApparatus);
+  addCandidate(normalizedId);
   for (final candidate in candidateApparatuses) {
-    addCandidate(candidate.apparatusId, candidate.apparatus);
+    addCandidate(candidate.apparatusId);
   }
 
   var routeCandidateCount = 0;
@@ -530,17 +517,18 @@ AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
   _TestModeScheduledCandidate? best;
   for (var index = 0; index < candidates.length; index++) {
     final candidate = candidates[index];
+    final candidateApparatus =
+        _testModeRequiredApparatus(candidate.apparatusId);
     if (!_testModeCandidateAllowedForOrder(
       map,
-      normalizedApparatus,
-      candidate.apparatus,
+      sourceApparatus,
+      candidateApparatus,
     )) {
       continue;
     }
     routeCandidateCount++;
     final profile = _testModeProfileForApparatus(
       apparatusId: candidate.apparatusId,
-      apparatus: candidate.apparatus,
     );
     var supported = true;
     for (final requirement in capabilityRequirements) {
@@ -570,7 +558,6 @@ AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
     final slot = _testModeFindScheduleSlot(
       profile: profile,
       apparatusId: candidate.apparatusId,
-      apparatus: candidate.apparatus,
       earliestStartUnix: earliestStartUnix,
       latestEndUnix: latestEndUnix,
       reservedDurationMinutes: reservedDuration,
@@ -642,18 +629,16 @@ AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
 
 void _testModeSyncScheduleReservationStatus({
   required String orderId,
-  required String apparatus,
+  required String apparatusId,
   required String status,
 }) {
   final normalizedOrderId = orderId.trim();
-  final normalizedApparatus = apparatus.trim();
+  final normalizedApparatusId =
+      _testModeRequiredApparatus(apparatusId).id.trim();
   for (final entry in _testModeApparatusScheduleReservations.entries.toList()) {
     final reservation = entry.value;
     if (reservation.orderId.trim() != normalizedOrderId ||
-        !productionMapWarehouseTitlesMatch(
-          reservation.apparatus,
-          normalizedApparatus,
-        )) {
+        reservation.apparatusId.trim() != normalizedApparatusId) {
       continue;
     }
     final current = reservation.status.trim().toLowerCase();
@@ -697,28 +682,16 @@ void _testModeSyncScheduleReservationStatus({
 
 void _testModeMoveScheduleReservations({
   required String orderId,
-  required String fromApparatus,
-  required String toApparatus,
+  required String fromApparatusId,
+  required String toApparatusId,
 }) {
-  final targetName = toApparatus.trim();
-  if (targetName.isEmpty) return;
-  final targetId = _testModeApparatusCatalog()
-      .where(
-        (item) => item.name.trim().toLowerCase() == targetName.toLowerCase(),
-      )
-      .map((item) => item.id.trim())
-      .firstWhere(
-        (id) => id.isNotEmpty,
-        orElse: () => 'apparatus:${targetName.toLowerCase()}',
-      );
+  final source = _testModeRequiredApparatus(fromApparatusId);
+  final target = _testModeRequiredApparatus(toApparatusId);
   for (final entry in _testModeApparatusScheduleReservations.entries.toList()) {
     final reservation = entry.value;
     if (reservation.orderId.trim() != orderId.trim() ||
         reservation.status != 'paused' ||
-        !productionMapWarehouseTitlesMatch(
-          reservation.apparatus,
-          fromApparatus,
-        )) {
+        reservation.apparatusId.trim() != source.id.trim()) {
       continue;
     }
     _testModeApparatusScheduleReservations[entry.key] =
@@ -726,8 +699,8 @@ void _testModeMoveScheduleReservations({
       reservationId: reservation.reservationId,
       idempotencyKey: reservation.idempotencyKey,
       orderId: reservation.orderId,
-      apparatusId: targetId,
-      apparatus: targetName,
+      apparatusId: target.id.trim(),
+      apparatus: target.name.trim(),
       startsAtUnix: reservation.startsAtUnix,
       endsAtUnix: reservation.endsAtUnix,
       requestedDurationMinutes: reservation.requestedDurationMinutes,
@@ -744,24 +717,19 @@ void _testModeMoveScheduleReservations({
 
 void _testModeEnsureApparatusExecutionCapacity({
   required String apparatusId,
-  required String apparatus,
   required String orderId,
 }) {
   final profile = _testModeProfileForApparatus(
     apparatusId: apparatusId,
-    apparatus: apparatus,
   );
   final now = _testModeUnixSeconds();
-  bool isSameApparatus(String candidateId, String candidateName) {
-    return candidateId.trim().toLowerCase() ==
-            profile.apparatusId.trim().toLowerCase() ||
-        productionMapWarehouseTitlesMatch(candidateName, apparatus);
-  }
+  bool isSameApparatus(String candidateId) =>
+      candidateId.trim() == profile.apparatusId.trim();
 
   if (_testModeApparatusDowntimes.values.any(
     (downtime) =>
         downtime.active &&
-        isSameApparatus(downtime.apparatusId, downtime.apparatus) &&
+        isSameApparatus(downtime.apparatusId) &&
         downtime.startsAtUnix <= now &&
         now < downtime.endsAtUnix,
   )) {
@@ -778,7 +746,7 @@ void _testModeEnsureApparatusExecutionCapacity({
   }
   final occupiedOrders = <String>{};
   for (final entry in _testModeApparatusQueueStates.entries) {
-    if (!productionMapWarehouseTitlesMatch(entry.key, apparatus)) continue;
+    if (entry.key.trim() != profile.apparatusId.trim()) continue;
     for (final state in entry.value.entries) {
       if (apparatusQueueOrderStateFromRaw(state.value) ==
           ApparatusQueueOrderState.inProgress) {
@@ -791,7 +759,7 @@ void _testModeEnsureApparatusExecutionCapacity({
   for (final reservation in _testModeApparatusScheduleReservations.values) {
     if ((reservation.status != 'planned' && reservation.status != 'active') ||
         reservation.orderId.trim() == orderId.trim() ||
-        !isSameApparatus(reservation.apparatusId, reservation.apparatus) ||
+        !isSameApparatus(reservation.apparatusId) ||
         reservation.startsAtUnix > now ||
         now >= reservation.endsAtUnix) {
       continue;
@@ -811,11 +779,7 @@ void _testModeEnsurePendingApparatusMove({
   required String orderId,
   required String fromApparatus,
 }) {
-  final knownKeys = {
-    ..._testModeApparatusSequences.keys,
-    ..._testModeApparatusQueueStates.keys,
-  };
-  final storageKey = resolveApparatusStorageKey(fromApparatus, knownKeys);
+  final storageKey = fromApparatus.trim();
   final rawState = _testModeApparatusQueueStates[storageKey]?[orderId.trim()];
   if (rawState == null ||
       apparatusQueueOrderStateFromRaw(rawState) ==
@@ -847,15 +811,13 @@ Map<String, List<String>> _testModeVisibleOrderIdsByApparatus() {
     if (!_testModeProductionMapIsVisibleQueueOrder(map)) {
       continue;
     }
-    final seenTitles = <String>{};
+    final seenApparatusIds = <String>{};
     for (final stage in productionMapLinearWorkStages(map)) {
-      final title = stage.stationTitle.trim();
-      if (title.isEmpty ||
-          _testModeFlexoOrderBlockedForColorPechat(map, title) ||
-          !seenTitles.add(title.toLowerCase())) {
+      final apparatusId = stage.apparatusId;
+      if (apparatusId == null || !seenApparatusIds.add(apparatusId)) {
         continue;
       }
-      visible.putIfAbsent(title, () => <String>[]).add(orderId);
+      visible.putIfAbsent(apparatusId, () => <String>[]).add(orderId);
     }
   }
   return {
@@ -915,9 +877,7 @@ Map<String, List<String>> _testModeEffectiveQueueSequences() {
   };
 }
 
-Set<String> _frozenOrderIds(
-  Map<String, AdminOrderControlState> orderControls,
-) {
+Set<String> _frozenOrderIds(Map<String, AdminOrderControlState> orderControls) {
   return {
     for (final entry in orderControls.entries)
       if (entry.value == AdminOrderControlState.frozen) entry.key.trim(),
@@ -944,25 +904,10 @@ void _testModeRequeueOrderAtTail(String orderId) {
     ..._testModeApparatusSequences.keys,
     ...visible.keys,
   };
-  final seenStorageKeys = <String>{};
-  for (final requestedApparatus in knownKeys) {
-    final storageKey =
-        resolveApparatusStorageKey(requestedApparatus, knownKeys);
-    if (!seenStorageKeys.add(storageKey)) {
-      continue;
-    }
-    final apparatusVisible = visible.entries
-        .where(
-          (candidate) => productionMapQueueApparatusTitlesMatch(
-            candidate.key,
-            requestedApparatus,
-          ),
-        )
-        .expand((candidate) => candidate.value);
+  for (final storageKey in knownKeys) {
+    final apparatusVisible = visible[storageKey] ?? const <String>[];
     final sequence = List<String>.from(
-      _testModeApparatusSequences[storageKey] ??
-          _testModeApparatusSequences[requestedApparatus] ??
-          const [],
+      _testModeApparatusSequences[storageKey] ?? const [],
     )..removeWhere((id) => id.trim() == normalizedOrderId);
     if (apparatusVisible.any((id) => id.trim() == normalizedOrderId)) {
       sequence.add(normalizedOrderId);
@@ -1022,14 +967,6 @@ bool _testModeProductionMapIsVisibleQueueOrder(ProductionMapDefinition map) {
   return map.code.trim().isNotEmpty ||
       map.orderNumber.trim().isNotEmpty ||
       orderId.startsWith('zakaz-');
-}
-
-bool _testModeFlexoOrderBlockedForColorPechat(
-  ProductionMapDefinition map,
-  String apparatus,
-) {
-  return productionMapIsFlexoOrder(map) &&
-      productionMapPechatColorCount(apparatus) != null;
 }
 
 String _adminWarehouseRoleToJson(UserRole role) {
@@ -1254,10 +1191,12 @@ class AdminQueueWorkerInteraction {
     if (raw is! Map) return null;
     final json = raw.cast<String, dynamic>();
     final mode = AdminQueueInteractionMode.tryParse(json['mode']);
-    final startMaterialsMode =
-        AdminQueueStartMaterialsMode.tryParse(json['start_materials_mode']);
-    final previousWipMode =
-        AdminQueuePreviousWipMode.tryParse(json['previous_wip_mode']);
+    final startMaterialsMode = AdminQueueStartMaterialsMode.tryParse(
+      json['start_materials_mode'],
+    );
+    final previousWipMode = AdminQueuePreviousWipMode.tryParse(
+      json['previous_wip_mode'],
+    );
     final qolipMode = AdminQueueQolipMode.tryParse(json['qolip_mode']);
     if (mode == null ||
         startMaterialsMode == null ||
@@ -1288,6 +1227,7 @@ class AdminApparatusQueueOrderActionControl {
     this.allowedActions = const {},
     this.interaction,
     this.hasOnlyKnownActions = false,
+    this.hasRequiredFields = true,
     this.previousStage = '',
     this.previousStageReady = false,
     this.completeRequiresFullReport = false,
@@ -1298,6 +1238,7 @@ class AdminApparatusQueueOrderActionControl {
   final Set<String> allowedActions;
   final AdminQueueWorkerInteraction? interaction;
   final bool hasOnlyKnownActions;
+  final bool hasRequiredFields;
   final String previousStage;
   final bool previousStageReady;
   final bool completeRequiresFullReport;
@@ -1307,44 +1248,94 @@ class AdminApparatusQueueOrderActionControl {
 
   bool get contractValid {
     final value = interaction;
-    if (value == null || !hasOnlyKnownActions) return false;
+    final normalizedState = state.trim().toLowerCase();
+    if (value == null ||
+        !hasOnlyKnownActions ||
+        !hasRequiredFields ||
+        !_knownApparatusQueueStates.contains(normalizedState) ||
+        !_queueInteractionModeMatchesState(value.mode, normalizedState)) {
+      return false;
+    }
     for (final action in allowedActions) {
-      final compatible = switch (action) {
-        'start' => value.mode == AdminQueueInteractionMode.freshStart,
-        'resume' => value.mode == AdminQueueInteractionMode.requeuedReady ||
-            value.mode == AdminQueueInteractionMode.paused,
-        'pause' => value.mode == AdminQueueInteractionMode.inProgress ||
-            value.mode == AdminQueueInteractionMode.freezeRequested,
-        'roll_complete' ||
-        'complete' =>
-          value.mode == AdminQueueInteractionMode.inProgress,
-        'detach_roll' || 'freeze' => true,
-        _ => false,
-      };
-      if (!compatible) return false;
+      if (!_queueActionMatchesInteractionMode(action, value.mode)) {
+        return false;
+      }
     }
     if (value.startMaterialsMode == AdminQueueStartMaterialsMode.scanRequired &&
         !value.materialScanRequired) {
       return false;
     }
-    return true;
-  }
-
-  bool isConsistentWith(AdminOrderControlState orderControlState) {
-    if (!contractValid) return false;
-    final mode = interaction!.mode;
-    if (interaction!.previousWipMode != AdminQueuePreviousWipMode.notRequired &&
+    if (value.startMaterialsMode == AdminQueueStartMaterialsMode.hidden &&
+        value.materialScanRequired) {
+      return false;
+    }
+    if (value.previousWipMode != AdminQueuePreviousWipMode.notRequired &&
         previousStage.trim().isEmpty) {
       return false;
     }
+    final expectedActions = switch (value.mode) {
+      AdminQueueInteractionMode.freshStart => const {'start'},
+      AdminQueueInteractionMode.requeuedReady => const {'resume'},
+      AdminQueueInteractionMode.inProgress => null,
+      AdminQueueInteractionMode.freezeRequested =>
+        normalizedState == 'in_progress' ? const {'pause'} : const <String>{},
+      AdminQueueInteractionMode.paused => null,
+      AdminQueueInteractionMode.freshStartBlocked ||
+      AdminQueueInteractionMode.requeuedWaiting ||
+      AdminQueueInteractionMode.frozen ||
+      AdminQueueInteractionMode.completed ||
+      AdminQueueInteractionMode.waitingPreviousStage =>
+        const <String>{},
+    };
+    if (expectedActions != null &&
+        (allowedActions.length != expectedActions.length ||
+            !allowedActions.containsAll(expectedActions))) {
+      return false;
+    }
+    if (value.mode == AdminQueueInteractionMode.inProgress &&
+        !allowedActions.contains('pause')) {
+      return false;
+    }
+    if (value.mode == AdminQueueInteractionMode.freezeRequested) {
+      final request = freezeRequest;
+      if (request == null ||
+          request.requestId.trim().isEmpty ||
+          request.status.trim().toLowerCase() != 'pending' ||
+          request.targetSessionId.trim().isEmpty ||
+          request.targetApparatus.trim().isEmpty) {
+        return false;
+      }
+    }
+    if ((value.mode == AdminQueueInteractionMode.freshStartBlocked ||
+            value.mode == AdminQueueInteractionMode.requeuedWaiting ||
+            value.mode == AdminQueueInteractionMode.waitingPreviousStage) &&
+        value.blockingReasonCode.trim().isEmpty) {
+      return false;
+    }
+    return true;
+  }
+
+  bool isConsistentWith(
+    AdminOrderControlState orderControlState, {
+    String? queueState,
+  }) {
+    if (!contractValid) return false;
+    if (queueState != null &&
+        queueState.trim().isNotEmpty &&
+        queueState.trim().toLowerCase() != state.trim().toLowerCase()) {
+      return false;
+    }
+    final mode = interaction!.mode;
     if (orderControlState == AdminOrderControlState.frozen) {
       return mode == AdminQueueInteractionMode.frozen && allowedActions.isEmpty;
     }
-    if (mode == AdminQueueInteractionMode.frozen || state == 'frozen') {
+    if (mode == AdminQueueInteractionMode.frozen ||
+        state.trim().toLowerCase() == 'frozen') {
       return false;
     }
     if (orderControlState == AdminOrderControlState.freezeRequested) {
-      return mode == AdminQueueInteractionMode.freezeRequested;
+      return mode == AdminQueueInteractionMode.freezeRequested &&
+          freezeRequest != null;
     }
     return mode != AdminQueueInteractionMode.freezeRequested;
   }
@@ -1366,12 +1357,14 @@ class AdminApparatusQueueOrderActionControl {
     final rawActions = json['allowed_actions'];
     if (rawActions is List) {
       for (final rawAction in rawActions) {
-        final action = rawAction?.toString().trim();
-        if (action != null && action.isNotEmpty) {
-          actions.add(action);
-          if (!knownActions.contains(action)) {
-            hasOnlyKnownActions = false;
-          }
+        if (rawAction is! String || rawAction.trim().isEmpty) {
+          hasOnlyKnownActions = false;
+          continue;
+        }
+        final action = rawAction.trim();
+        actions.add(action);
+        if (!knownActions.contains(action)) {
+          hasOnlyKnownActions = false;
         }
       }
     } else {
@@ -1380,10 +1373,13 @@ class AdminApparatusQueueOrderActionControl {
     return AdminApparatusQueueOrderActionControl(
       state: json['state']?.toString().trim() ?? '',
       allowedActions: Set<String>.unmodifiable(actions),
-      interaction: AdminQueueWorkerInteraction.tryFromJson(
-        json['interaction'],
-      ),
+      interaction: AdminQueueWorkerInteraction.tryFromJson(json['interaction']),
       hasOnlyKnownActions: hasOnlyKnownActions,
+      hasRequiredFields: json['state'] is String &&
+          rawActions is List &&
+          json['interaction'] is Map &&
+          json['previous_stage_ready'] is bool &&
+          json['complete_requires_full_report'] is bool,
       previousStage: json['previous_stage']?.toString().trim() ?? '',
       previousStageReady: json['previous_stage_ready'] == true,
       completeRequiresFullReport: json['complete_requires_full_report'] == true,
@@ -1396,39 +1392,304 @@ class AdminApparatusQueueOrderActionControl {
   }
 }
 
+const _knownApparatusQueueStates = {
+  'pending',
+  'in_progress',
+  'paused',
+  'frozen',
+  'completed',
+};
+
+bool _queueInteractionModeMatchesState(
+  AdminQueueInteractionMode mode,
+  String state,
+) {
+  return switch (state) {
+    'pending' => const {
+        AdminQueueInteractionMode.freshStart,
+        AdminQueueInteractionMode.freshStartBlocked,
+        AdminQueueInteractionMode.requeuedWaiting,
+        AdminQueueInteractionMode.requeuedReady,
+        AdminQueueInteractionMode.waitingPreviousStage,
+      }.contains(mode),
+    'in_progress' => mode == AdminQueueInteractionMode.inProgress ||
+        mode == AdminQueueInteractionMode.freezeRequested,
+    'paused' => mode == AdminQueueInteractionMode.paused ||
+        mode == AdminQueueInteractionMode.freezeRequested,
+    'frozen' => mode == AdminQueueInteractionMode.frozen,
+    'completed' => mode == AdminQueueInteractionMode.completed,
+    _ => false,
+  };
+}
+
+bool _queueActionMatchesInteractionMode(
+  String action,
+  AdminQueueInteractionMode mode,
+) {
+  return switch (action.trim()) {
+    'start' => mode == AdminQueueInteractionMode.freshStart,
+    'resume' => mode == AdminQueueInteractionMode.requeuedReady ||
+        mode == AdminQueueInteractionMode.paused,
+    'pause' => mode == AdminQueueInteractionMode.inProgress ||
+        mode == AdminQueueInteractionMode.freezeRequested,
+    'detach_roll' => mode == AdminQueueInteractionMode.inProgress ||
+        mode == AdminQueueInteractionMode.freezeRequested,
+    'roll_complete' ||
+    'complete' =>
+      mode == AdminQueueInteractionMode.inProgress,
+    'freeze' => mode == AdminQueueInteractionMode.inProgress,
+    _ => false,
+  };
+}
+
 Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
     _parseAdminQueueActionControls(Object? raw) {
   if (raw is! Map) {
-    return const {};
+    throw _productionMapQueueContractException(
+      'queue_action_controls must be an object',
+    );
   }
   final result = <String, Map<String, AdminApparatusQueueOrderActionControl>>{};
   for (final apparatusEntry in raw.entries) {
-    final apparatus = apparatusEntry.key.toString();
+    if (apparatusEntry.key is! String ||
+        !isCanonicalApparatusId(apparatusEntry.key.toString().trim())) {
+      throw _productionMapQueueContractException(
+        'queue_action_controls contains an invalid apparatus key',
+      );
+    }
+    final apparatus = apparatusEntry.key.toString().trim();
     final rawOrders = apparatusEntry.value;
     if (rawOrders is! Map) {
-      continue;
+      throw _productionMapQueueContractException(
+        'queue_action_controls[$apparatus] must be an object',
+      );
     }
     final orders = <String, AdminApparatusQueueOrderActionControl>{};
     for (final orderEntry in rawOrders.entries) {
-      final orderId = orderEntry.key.toString();
+      if (orderEntry.key is! String ||
+          orderEntry.key.toString().trim().isEmpty ||
+          orderEntry.value is! Map) {
+        throw _productionMapQueueContractException(
+          'queue_action_controls[$apparatus] contains an invalid order',
+        );
+      }
+      final orderId = orderEntry.key.toString().trim();
       final rawControl = orderEntry.value;
-      if (rawControl is Map) {
-        orders[orderId] = AdminApparatusQueueOrderActionControl.fromJson(
-          rawControl.cast<String, dynamic>(),
+      orders[orderId] = AdminApparatusQueueOrderActionControl.fromJson(
+        (rawControl as Map).cast<String, dynamic>(),
+      );
+    }
+    result[apparatus] =
+        Map<String, AdminApparatusQueueOrderActionControl>.unmodifiable(orders);
+  }
+  return Map<String,
+      Map<String, AdminApparatusQueueOrderActionControl>>.unmodifiable(result);
+}
+
+MobileApiException _productionMapQueueContractException(String detail) {
+  return MobileApiException(
+    code: 'production_map_snapshot_contract_invalid',
+    message: 'Production map navbati server shartnomasiga mos emas: $detail',
+  );
+}
+
+void _requireProductionMapSnapshotShape(
+  Map<String, dynamic> json, {
+  required bool includesMaps,
+}) {
+  if (includesMaps && json['maps'] is! List) {
+    throw _productionMapQueueContractException('maps must be an array');
+  }
+  if (includesMaps) {
+    for (final item in json['maps'] as List) {
+      if (item is! Map) {
+        throw _productionMapQueueContractException(
+          'maps contains an invalid item',
         );
       }
     }
-    if (orders.isNotEmpty) {
-      result[apparatus] =
-          Map<String, AdminApparatusQueueOrderActionControl>.unmodifiable(
-        orders,
+  }
+  _requireProductionMapStringListMap(json['sequences'], 'sequences');
+  _requireProductionMapStringListMap(
+    json['visible_order_ids'],
+    'visible_order_ids',
+  );
+  _requireProductionMapQueueStates(json['queue_states']);
+  if (json['queue_action_controls'] is! Map) {
+    throw _productionMapQueueContractException(
+      'queue_action_controls must be an object',
+    );
+  }
+  final rawPolicies = json['queue_policies'];
+  if (rawPolicies is! List) {
+    throw _productionMapQueueContractException(
+      'queue_policies must be an array',
+    );
+  }
+  for (final item in rawPolicies) {
+    if (item is! Map ||
+        item['apparatus_id'] is! String ||
+        !isCanonicalApparatusId(
+          (item['apparatus_id'] as String).trim(),
+        ) ||
+        item['policy'] is! String ||
+        !const {
+          'strict_sequence',
+          'free_pick',
+        }.contains((item['policy'] as String).trim())) {
+      throw _productionMapQueueContractException(
+        'queue_policies contains an invalid item',
       );
     }
   }
-  return Map<String,
-      Map<String, AdminApparatusQueueOrderActionControl>>.unmodifiable(
-    result,
-  );
+  final rawOrderControls = json['order_controls'];
+  if (rawOrderControls is! Map) {
+    throw _productionMapQueueContractException(
+      'order_controls must be an object',
+    );
+  }
+  for (final entry in rawOrderControls.entries) {
+    final value = entry.value;
+    final state = value is Map ? value['state'] : null;
+    if (entry.key is! String ||
+        entry.key.toString().trim().isEmpty ||
+        state is! String ||
+        !const {
+          'active',
+          'freeze_requested',
+          'frozen',
+        }.contains(state.trim())) {
+      throw _productionMapQueueContractException(
+        'order_controls contains an invalid item',
+      );
+    }
+  }
+}
+
+void _requireProductionMapStringListMap(Object? raw, String field) {
+  if (raw is! Map) {
+    throw _productionMapQueueContractException('$field must be an object');
+  }
+  for (final entry in raw.entries) {
+    if (entry.key is! String ||
+        !isCanonicalApparatusId(entry.key.toString().trim()) ||
+        entry.value is! List ||
+        (entry.value as List).any(
+          (value) => value is! String || value.trim().isEmpty,
+        )) {
+      throw _productionMapQueueContractException(
+        '$field contains an invalid item',
+      );
+    }
+  }
+}
+
+void _requireProductionMapQueueStates(Object? raw) {
+  if (raw is! Map) {
+    throw _productionMapQueueContractException(
+      'queue_states must be an object',
+    );
+  }
+  for (final apparatusEntry in raw.entries) {
+    final states = apparatusEntry.value;
+    if (apparatusEntry.key is! String ||
+        !isCanonicalApparatusId(apparatusEntry.key.toString().trim()) ||
+        states is! Map) {
+      throw _productionMapQueueContractException(
+        'queue_states contains an invalid apparatus',
+      );
+    }
+    for (final stateEntry in states.entries) {
+      final state = stateEntry.value;
+      if (stateEntry.key is! String ||
+          stateEntry.key.toString().trim().isEmpty ||
+          state is! String ||
+          !_knownApparatusQueueStates.contains(state.trim().toLowerCase())) {
+        throw _productionMapQueueContractException(
+          'queue_states contains an unknown order state',
+        );
+      }
+    }
+  }
+}
+
+void _validateProductionMapQueueContract({
+  required Map<String, List<String>> sequences,
+  required Map<String, List<String>> visibleOrderIds,
+  required Map<String, Map<String, String>> queueStates,
+  required Map<String, AdminApparatusQueuePolicy> queuePolicies,
+  required Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      queueActionControls,
+  required Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus,
+}) {
+  for (final entry in [...sequences.entries, ...visibleOrderIds.entries]) {
+    if (!isCanonicalApparatusId(entry.key.trim()) ||
+        entry.value.any((orderId) => orderId.trim().isEmpty)) {
+      throw _productionMapQueueContractException(
+        'queue order map contains an invalid apparatus or order',
+      );
+    }
+  }
+  for (final entry in queuePolicies.entries) {
+    if (!isCanonicalApparatusId(entry.key.trim()) ||
+        entry.value.apparatusId.trim() != entry.key.trim()) {
+      throw _productionMapQueueContractException(
+        'queue_policies contains an invalid apparatus',
+      );
+    }
+  }
+  for (final entry in frozenOrdersByApparatus.entries) {
+    if (!isCanonicalApparatusId(entry.key.trim()) ||
+        entry.value.any(
+          (order) =>
+              order.apparatus.trim() != entry.key.trim() ||
+              order.orderId.trim().isEmpty,
+        )) {
+      throw _productionMapQueueContractException(
+        'frozen_orders_by_apparatus contains an invalid order',
+      );
+    }
+  }
+  for (final apparatusEntry in queueStates.entries) {
+    if (!isCanonicalApparatusId(apparatusEntry.key.trim())) {
+      throw _productionMapQueueContractException(
+        'queue_states contains an invalid apparatus key',
+      );
+    }
+    for (final stateEntry in apparatusEntry.value.entries) {
+      final state = stateEntry.value.trim().toLowerCase();
+      if (stateEntry.key.trim().isEmpty ||
+          !_knownApparatusQueueStates.contains(state)) {
+        throw _productionMapQueueContractException(
+          'queue_states contains an unknown order state',
+        );
+      }
+    }
+  }
+  for (final apparatusEntry in queueActionControls.entries) {
+    if (!isCanonicalApparatusId(apparatusEntry.key.trim())) {
+      throw _productionMapQueueContractException(
+        'queue_action_controls contains an invalid apparatus key',
+      );
+    }
+    for (final orderEntry in apparatusEntry.value.entries) {
+      final control = orderEntry.value;
+      if (orderEntry.key.trim().isEmpty || !control.contractValid) {
+        throw _productionMapQueueContractException(
+          'queue_action_controls contains an invalid order control',
+        );
+      }
+      final queueState = queueStates[apparatusEntry.key]?[orderEntry.key];
+      if (queueState != null &&
+          queueState.trim().isNotEmpty &&
+          queueState.trim().toLowerCase() !=
+              control.state.trim().toLowerCase()) {
+        throw _productionMapQueueContractException(
+          'queue state and action control state disagree',
+        );
+      }
+    }
+  }
 }
 
 class AdminApparatusQueueSnapshot {
@@ -1456,6 +1717,23 @@ class AdminApparatusQueueSnapshot {
   final Map<String, AdminProductionOrderStatusDetail> orderStatuses;
   final Map<String, AdminQolipOrderNote> qolipOrderNotes;
   final Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus;
+
+  AdminOrderControlState orderControlFor(String orderId) {
+    // The backend serializes only non-active order-control overrides. Missing
+    // records therefore mean the authoritative active state.
+    return orderControls[orderId.trim()] ?? AdminOrderControlState.active;
+  }
+
+  void validateContract() {
+    _validateProductionMapQueueContract(
+      sequences: sequences,
+      visibleOrderIds: visibleOrderIds,
+      queueStates: queueStates,
+      queuePolicies: queuePolicies,
+      queueActionControls: queueActionControls,
+      frozenOrdersByApparatus: frozenOrdersByApparatus,
+    );
+  }
 }
 
 enum AdminOrderControlState {
@@ -1476,6 +1754,15 @@ enum AdminOrderControlState {
         AdminOrderControlState.freezeRequested => 'freeze_requested',
         AdminOrderControlState.frozen => 'frozen',
       };
+}
+
+AdminOrderControlState adminProductionMapOrderControlFor(
+  Map<String, AdminOrderControlState> orderControls,
+  String orderId,
+) {
+  // The backend publishes only freeze overrides; an absent record is the
+  // authoritative active state, not a client-derived eligibility decision.
+  return orderControls[orderId.trim()] ?? AdminOrderControlState.active;
 }
 
 enum AdminOrderControlAction {
@@ -1510,18 +1797,12 @@ AdminOrderControlState? _applyTestModeOrderControl(
       .where((saved) => saved.map.id.trim() == orderId)
       .map((saved) => saved.map)
       .any((map) {
-    final stages = productionMapLinearWorkStages(map);
+    final stages = productionMapLinearWorkStages(map)
+        .where((stage) => stage.isApparatus)
+        .toList(growable: false);
     return stages.isNotEmpty &&
         stages.every((stage) {
-          final knownKeys = {
-            ..._testModeApparatusSequences.keys,
-            ..._testModeApparatusQueueStates.keys,
-          };
-          final storageKey = resolveApparatusStorageKey(
-            stage.stationTitle,
-            knownKeys,
-          );
-          return _testModeApparatusQueueStates[storageKey]?[orderId] ==
+          return _testModeApparatusQueueStates[stage.stageId]?[orderId] ==
               'completed';
         });
   });
@@ -1587,7 +1868,7 @@ AdminOrderControlState? _applyTestModeOrderControl(
         target.value[orderId] = 'pending';
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
-          apparatus: target.key,
+          apparatusId: target.key,
           status: 'active',
         );
       }
@@ -1608,9 +1889,7 @@ AdminOrderControlState? _applyTestModeOrderControl(
           visibleOrderIds: visibleByApparatus[apparatus] ?? const [],
         );
         if (sequence.isNotEmpty && sequence.first == orderId) {
-          blockers.add(
-            'Buyurtma $apparatus ketma-ketligida 1-o‘rinda turibdi',
-          );
+          blockers.add('Buyurtma $apparatus ketma-ketligida 1-o‘rinda turibdi');
         }
       }
       if (started) {
@@ -1620,9 +1899,7 @@ AdminOrderControlState? _applyTestModeOrderControl(
           .where((assignment) => assignment.orderId.trim() == orderId)
           .length;
       if (materialCount > 0) {
-        blockers.add(
-          'Buyurtmaga $materialCount ta homashyo biriktirilgan',
-        );
+        blockers.add('Buyurtmaga $materialCount ta homashyo biriktirilgan');
       }
       if (blockers.isNotEmpty) {
         throw MobileApiException(
@@ -1665,8 +1942,9 @@ Map<String, AdminProductionOrderStatusDetail> _parseAdminOrderStatuses(
   return {
     for (final entry in raw.entries)
       if (entry.key.toString().trim().isNotEmpty)
-        entry.key.toString().trim():
-            AdminProductionOrderStatusDetail.fromJson(entry.value),
+        entry.key.toString().trim(): AdminProductionOrderStatusDetail.fromJson(
+          entry.value,
+        ),
   };
 }
 
@@ -1691,14 +1969,18 @@ Map<String, List<AdminFrozenQueueOrder>> _parseAdminFrozenOrdersByApparatus(
   Object? raw,
 ) {
   if (raw is! Map) {
-    return const {};
+    throw _productionMapQueueContractException(
+      'frozen_orders_by_apparatus must be an object',
+    );
   }
   final result = <String, List<AdminFrozenQueueOrder>>{};
   for (final entry in raw.entries) {
     final apparatus = entry.key.toString().trim();
     final rawOrders = entry.value;
-    if (apparatus.isEmpty || rawOrders is! List) {
-      continue;
+    if (!isCanonicalApparatusId(apparatus) || rawOrders is! List) {
+      throw _productionMapQueueContractException(
+        'frozen_orders_by_apparatus contains an invalid apparatus',
+      );
     }
     final orders = <AdminFrozenQueueOrder>[];
     for (final item in rawOrders) {
@@ -1730,6 +2012,10 @@ Map<String, List<String>> _parseRequiredProductionMapVisibleOrderIds(
       message: 'Production map navbati noto‘liq',
     );
   }
+  _requireProductionMapStringListMap(
+    json['visible_order_ids'],
+    'visible_order_ids',
+  );
   return MobileApi.instance.parseApparatusSequenceMap(
     json['visible_order_ids'],
   );
@@ -1753,7 +2039,9 @@ class AdminCompletedQueueOrder {
   factory AdminCompletedQueueOrder.fromJson(Map<String, dynamic> json) {
     final status = json['status']?.toString().trim() ?? '';
     return AdminCompletedQueueOrder(
-      apparatus: json['apparatus']?.toString() ?? '',
+      apparatus: _requireCanonicalApparatusId(
+        json['apparatus']?.toString() ?? '',
+      ),
       orderId: json['order_id']?.toString() ?? '',
       completedAtUnix: (json['completed_at_unix'] as num?)?.toInt() ?? 0,
       status: status.isEmpty ? 'completed' : status,
@@ -1781,9 +2069,12 @@ class AdminFrozenQueueOrder {
     Map<String, dynamic> json, {
     String fallbackApparatus = '',
   }) {
-    final apparatus = json['apparatus']?.toString().trim() ?? '';
+    final rawApparatus = json['apparatus']?.toString().trim() ?? '';
+    final apparatus = _requireCanonicalApparatusId(
+      rawApparatus.isEmpty ? fallbackApparatus : rawApparatus,
+    );
     return AdminFrozenQueueOrder(
-      apparatus: apparatus.isEmpty ? fallbackApparatus : apparatus,
+      apparatus: apparatus,
       orderId: json['order_id']?.toString() ?? '',
       issueNote: json['issue_note']?.toString() ?? '',
       frozenAtUnix: (json['frozen_at_unix'] as num?)?.toInt() ?? 0,
@@ -1830,7 +2121,9 @@ class AdminCompletionRequestNotification {
   ) {
     return AdminCompletionRequestNotification(
       eventId: json['event_id']?.toString() ?? '',
-      apparatus: json['apparatus']?.toString() ?? '',
+      apparatus: _requireCanonicalApparatusId(
+        json['apparatus']?.toString() ?? '',
+      ),
       orderId: json['order_id']?.toString() ?? '',
       orderNumber: json['order_number']?.toString() ?? '',
       orderTitle: json['order_title']?.toString() ?? '',
@@ -1899,7 +2192,9 @@ class AdminCompletionRequestDecisionNotification {
       eventId: json['event_id']?.toString() ?? '',
       requestEventId: json['request_event_id']?.toString() ?? '',
       decision: json['decision']?.toString() ?? '',
-      apparatus: json['apparatus']?.toString() ?? '',
+      apparatus: _requireCanonicalApparatusId(
+        json['apparatus']?.toString() ?? '',
+      ),
       orderId: json['order_id']?.toString() ?? '',
       orderNumber: json['order_number']?.toString() ?? '',
       orderTitle: json['order_title']?.toString() ?? '',
@@ -1953,7 +2248,9 @@ class AdminProductionOrderLogEntry {
   factory AdminProductionOrderLogEntry.fromJson(Map<String, dynamic> json) {
     return AdminProductionOrderLogEntry(
       eventId: json['event_id']?.toString() ?? '',
-      apparatus: json['apparatus']?.toString() ?? '',
+      apparatus: _requireCanonicalApparatusId(
+        json['apparatus']?.toString() ?? '',
+      ),
       orderId: json['order_id']?.toString() ?? '',
       action: json['action']?.toString() ?? '',
       fromState: json['from_state']?.toString() ?? '',
@@ -2002,8 +2299,12 @@ class AdminProductionOrderTransferDetails {
   ) {
     return AdminProductionOrderTransferDetails(
       transferId: json['transfer_id']?.toString() ?? '',
-      fromApparatus: json['from_apparatus']?.toString() ?? '',
-      toApparatus: json['to_apparatus']?.toString() ?? '',
+      fromApparatus: _requireCanonicalApparatusId(
+        json['from_apparatus']?.toString() ?? '',
+      ),
+      toApparatus: _requireCanonicalApparatusId(
+        json['to_apparatus']?.toString() ?? '',
+      ),
       reason: json['reason']?.toString() ?? '',
       sessionId: json['session_id']?.toString() ?? '',
       progressBatchId: json['progress_batch_id']?.toString() ?? '',
@@ -2045,7 +2346,9 @@ class AdminProductionOrderFreezeDetails {
       requestId: json['request_id']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       targetSessionId: json['target_session_id']?.toString() ?? '',
-      targetApparatus: json['target_apparatus']?.toString() ?? '',
+      targetApparatus: _requireCanonicalApparatusId(
+        json['target_apparatus']?.toString() ?? '',
+      ),
       targetWorkerRole: json['target_worker_role']?.toString() ?? '',
       targetWorkerRef: json['target_worker_ref']?.toString() ?? '',
       targetWorkerDisplayName:
@@ -2159,7 +2462,9 @@ class AdminLaminatsiyaAstatkaReport {
     return AdminLaminatsiyaAstatkaReport(
       reportId: json['report_id']?.toString() ?? '',
       orderId: json['order_id']?.toString() ?? '',
-      apparatus: json['apparatus']?.toString() ?? '',
+      apparatus: _requireCanonicalApparatusId(
+        json['apparatus']?.toString() ?? '',
+      ),
       fromAtUnix: (json['from_at_unix'] as num?)?.toInt() ?? 0,
       toAtUnix: (json['to_at_unix'] as num?)?.toInt() ?? 0,
       laminationPrintLeftoverRolls:
@@ -2223,7 +2528,9 @@ class AdminRezkaAstatkaReport {
     return AdminRezkaAstatkaReport(
       reportId: json['report_id']?.toString() ?? '',
       orderId: json['order_id']?.toString() ?? '',
-      apparatus: json['apparatus']?.toString() ?? '',
+      apparatus: _requireCanonicalApparatusId(
+        json['apparatus']?.toString() ?? '',
+      ),
       fromAtUnix: (json['from_at_unix'] as num?)?.toInt() ?? 0,
       toAtUnix: (json['to_at_unix'] as num?)?.toInt() ?? 0,
       totalWaste: (json['total_waste'] as num?)?.toDouble() ?? 0,
@@ -2334,11 +2641,29 @@ class AdminProgressBatch {
   final Map<String, dynamic> payloadJson;
 
   factory AdminProgressBatch.fromJson(Map<String, dynamic> json) {
+    final currentApparatus = _requireCanonicalApparatusId(
+      json['current_apparatus']?.toString() ?? '',
+      allowEmpty: true,
+    );
+    final currentApparatusKey = _requireCanonicalApparatusId(
+      json['current_apparatus_key']?.toString() ?? '',
+      allowEmpty: true,
+    );
+    if (currentApparatus.isNotEmpty &&
+        currentApparatusKey.isNotEmpty &&
+        currentApparatus != currentApparatusKey) {
+      throw const MobileApiException(
+        code: 'apparatus_id_mismatch',
+        message: 'Progress aparat identity mos emas',
+      );
+    }
     return AdminProgressBatch(
       batchId: json['batch_id']?.toString() ?? '',
       revision: (json['revision'] as num?)?.toInt() ?? 1,
       sessionId: json['session_id']?.toString() ?? '',
-      apparatus: json['apparatus']?.toString() ?? '',
+      apparatus: _requireCanonicalApparatusId(
+        json['apparatus']?.toString() ?? '',
+      ),
       orderId: json['order_id']?.toString() ?? '',
       action: json['action']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
@@ -2369,15 +2694,24 @@ class AdminProgressBatch {
       workerDisplayName: json['worker_display_name']?.toString() ?? '',
       wipStatus: json['wip_status']?.toString() ?? '',
       statusDetail: AdminProgressBatchStatusDetail.fromJsonOrBatchJson(json),
-      currentApparatus: json['current_apparatus']?.toString() ?? '',
-      currentApparatusKey: json['current_apparatus_key']?.toString() ?? '',
+      currentApparatus: currentApparatus,
+      currentApparatusKey: currentApparatusKey,
       currentLocation: json['current_location']?.toString() ?? '',
-      nextApparatus: json['next_apparatus']?.toString() ?? '',
+      nextApparatus: _requireCanonicalApparatusId(
+        json['next_apparatus']?.toString() ?? '',
+        allowEmpty: true,
+      ),
       parentBatchId: json['parent_batch_id']?.toString() ?? '',
       usedBySessionId: json['used_by_session_id']?.toString() ?? '',
-      usedByApparatus: json['used_by_apparatus']?.toString() ?? '',
+      usedByApparatus: _requireCanonicalApparatusId(
+        json['used_by_apparatus']?.toString() ?? '',
+        allowEmpty: true,
+      ),
       processedBySessionId: json['processed_by_session_id']?.toString() ?? '',
-      processedByApparatus: json['processed_by_apparatus']?.toString() ?? '',
+      processedByApparatus: _requireCanonicalApparatusId(
+        json['processed_by_apparatus']?.toString() ?? '',
+        allowEmpty: true,
+      ),
       startedAtUnix: (json['started_at_unix'] as num?)?.toInt() ?? 0,
       completedAtUnix: (json['completed_at_unix'] as num?)?.toInt() ?? 0,
       payloadJson: _jsonObject(json['payload_json']),
@@ -2777,7 +3111,9 @@ class AdminWorkerRunSession {
   factory AdminWorkerRunSession.fromJson(Map<String, dynamic> json) {
     return AdminWorkerRunSession(
       sessionId: json['session_id']?.toString() ?? '',
-      apparatus: json['apparatus']?.toString() ?? '',
+      apparatus: _requireCanonicalApparatusId(
+        json['apparatus']?.toString() ?? '',
+      ),
       orderId: json['order_id']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       workerRole: json['worker_role']?.toString() ?? '',
@@ -2870,7 +3206,9 @@ class AdminProgressQrReport {
       orderStatus: AdminProductionOrderStatusDetail.fromJson(
         json['order_status'],
       ),
-      queueStates: _stringMapOfStringMaps(json['queue_states']),
+      queueStates: MobileApi.instance.parseApparatusQueueStateMap(
+        json['queue_states'],
+      ),
       logs: [
         for (final item in (json['logs'] as List? ?? const []))
           AdminProductionOrderLogEntry.fromJson(
@@ -2902,27 +3240,11 @@ class AdminProgressQrReport {
   }
 }
 
-Map<String, Map<String, String>> _stringMapOfStringMaps(Object? raw) {
-  if (raw is! Map) {
-    return const {};
-  }
-  return {
-    for (final entry in raw.entries)
-      entry.key.toString(): {
-        if (entry.value is Map)
-          for (final child in (entry.value as Map).entries)
-            child.key.toString(): child.value.toString(),
-      },
-  };
-}
-
 Map<String, dynamic> _jsonObject(Object? raw) {
   if (raw is! Map) {
     return const {};
   }
-  return {
-    for (final entry in raw.entries) entry.key.toString(): entry.value,
-  };
+  return {for (final entry in raw.entries) entry.key.toString(): entry.value};
 }
 
 Map<String, String> _stringMapOfStrings(Object? raw) {
@@ -2959,10 +3281,9 @@ class AdminWorkerProfileDetail {
       worker: AdminWorkerDetail.fromJson(
         (json['worker'] as Map? ?? const {}).cast<String, dynamic>(),
       ),
-      assignedApparatus: [
-        for (final item in (json['assigned_apparatus'] as List? ?? const []))
-          if (item.toString().trim().isNotEmpty) item.toString().trim(),
-      ],
+      assignedApparatus: _requireCanonicalApparatusIdList(
+        json['assigned_apparatus'],
+      ),
       assignedGroups: [
         for (final item in (json['assigned_groups'] as List? ?? const []))
           AdminWorkerGroup.fromJson((item as Map).cast<String, dynamic>()),
@@ -3004,7 +3325,10 @@ class AdminWorkerDeletionDependency {
     return AdminWorkerDeletionDependency(
       kind: json['kind']?.toString() ?? '',
       label: json['label']?.toString() ?? '',
-      apparatus: json['apparatus']?.toString() ?? '',
+      apparatus: _requireCanonicalApparatusId(
+        json['apparatus']?.toString() ?? '',
+        allowEmpty: true,
+      ),
       orderId: json['order_id']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
     );
@@ -3120,9 +3444,7 @@ class AdminServerMonitorBackupSnapshot {
   bool get running =>
       status == 'queued' || status == 'running' || status == 'verifying';
 
-  factory AdminServerMonitorBackupSnapshot.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory AdminServerMonitorBackupSnapshot.fromJson(Map<String, dynamic> json) {
     return AdminServerMonitorBackupSnapshot(
       id: json['id']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
@@ -3352,10 +3674,7 @@ class AdminServerMonitorReport {
 }
 
 class AdminServerMonitorLiveEvent {
-  const AdminServerMonitorLiveEvent({
-    this.report,
-    this.latencyMs,
-  });
+  const AdminServerMonitorLiveEvent({this.report, this.latencyMs});
 
   final AdminServerMonitorReport? report;
   final int? latencyMs;
@@ -3394,9 +3713,7 @@ class AdminProductionMapRequiredQolip {
   final String color;
   final bool isInUse;
 
-  factory AdminProductionMapRequiredQolip.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory AdminProductionMapRequiredQolip.fromJson(Map<String, dynamic> json) {
     return AdminProductionMapRequiredQolip(
       qolipCode: json['qolip_code']?.toString().trim() ?? '',
       color: json['color']?.toString().trim() ?? '',
@@ -3482,27 +3799,43 @@ class AdminApparatusQueuePolicy {
   const AdminApparatusQueuePolicy({
     required this.apparatus,
     required this.policy,
+    this.apparatusId = '',
+    this.sourceRevision = 0,
+    this.sourceAasxSha256 = '',
     this.locked = false,
     this.reason = '',
   });
 
+  final String apparatusId;
   final String apparatus;
+  final int sourceRevision;
+  final String sourceAasxSha256;
   final ApparatusQueuePolicy policy;
   final bool locked;
   final String reason;
 
   factory AdminApparatusQueuePolicy.fromJson(Map<String, dynamic> json) {
     return AdminApparatusQueuePolicy(
+      apparatusId: _requireCanonicalApparatusId(
+        json['apparatus_id']?.toString() ?? '',
+      ),
       apparatus: json['apparatus']?.toString() ?? '',
-      policy: ApparatusQueuePolicy.fromRaw(json['policy']),
+      sourceRevision: (json['source_revision'] as num?)?.toInt() ?? 0,
+      sourceAasxSha256: json['source_aasx_sha256']?.toString().trim() ?? '',
+      policy: ApparatusQueuePolicy.fromRaw(
+        json['discipline'] ?? json['policy'],
+      ),
       locked: json['locked'] == true,
       reason: json['reason']?.toString() ?? '',
     );
   }
 
   Map<String, dynamic> toJson() => {
+        'apparatus_id': apparatusId,
         'apparatus': apparatus,
-        'policy': policy.apiValue,
+        'source_revision': sourceRevision,
+        'source_aasx_sha256': sourceAasxSha256,
+        'discipline': policy.apiValue,
         'locked': locked,
         'reason': reason,
       };
@@ -3536,19 +3869,21 @@ class AdminRawMaterialRequirementGroup {
   final List<String> itemGroups;
   final int minRequiredCount;
 
-  factory AdminRawMaterialRequirementGroup.fromJson(
-    Map<String, dynamic> json,
-  ) {
-    final rawGroups = json['item_groups'];
+  factory AdminRawMaterialRequirementGroup.fromJson(Map<String, dynamic> json) {
+    final rawGroups = json['item_group_ids'] ?? json['item_groups'];
     return AdminRawMaterialRequirementGroup(
-      name: json['name']?.toString().trim() ?? '',
+      name: (json['requirement_id'] ?? json['name'])?.toString().trim() ?? '',
       itemGroups: [
         if (rawGroups is List)
           for (final item in rawGroups)
             if (item.toString().trim().isNotEmpty) item.toString().trim(),
       ],
-      minRequiredCount:
-          int.tryParse(json['min_required_count']?.toString() ?? '') ?? 1,
+      minRequiredCount: int.tryParse(
+            (json['minimum_required_count'] ?? json['min_required_count'])
+                    ?.toString() ??
+                '',
+          ) ??
+          1,
     );
   }
 
@@ -3564,38 +3899,200 @@ class AdminRawMaterialRequirementGroup {
 
 class AdminRawMaterialRule {
   const AdminRawMaterialRule({
+    required this.apparatusId,
+    required this.sourceRevision,
+    required this.sourceAasxSha256,
     required this.apparatus,
     required this.requiresMaterial,
     required this.itemGroups,
     this.startPolicy = AdminRawMaterialStartPolicy.stateAll,
     this.requirementGroups = const [],
+    this.toolingMode = 'not_required',
+    this.toolingClassId = '',
   });
 
+  final String apparatusId;
+  final int sourceRevision;
+  final String sourceAasxSha256;
+
+  /// Display-only label resolved from the canonical apparatus catalog.
   final String apparatus;
   final bool requiresMaterial;
   final List<String> itemGroups;
   final AdminRawMaterialStartPolicy startPolicy;
   final List<AdminRawMaterialRequirementGroup> requirementGroups;
+  final String toolingMode;
+  final String toolingClassId;
+
+  AdminRawMaterialRule copyWith({
+    String? apparatusId,
+    int? sourceRevision,
+    String? sourceAasxSha256,
+    String? apparatus,
+    bool? requiresMaterial,
+    List<String>? itemGroups,
+    AdminRawMaterialStartPolicy? startPolicy,
+    List<AdminRawMaterialRequirementGroup>? requirementGroups,
+    String? toolingMode,
+    String? toolingClassId,
+  }) {
+    return AdminRawMaterialRule(
+      apparatusId: apparatusId ?? this.apparatusId,
+      sourceRevision: sourceRevision ?? this.sourceRevision,
+      sourceAasxSha256: sourceAasxSha256 ?? this.sourceAasxSha256,
+      apparatus: apparatus ?? this.apparatus,
+      requiresMaterial: requiresMaterial ?? this.requiresMaterial,
+      itemGroups: itemGroups ?? this.itemGroups,
+      startPolicy: startPolicy ?? this.startPolicy,
+      requirementGroups: requirementGroups ?? this.requirementGroups,
+      toolingMode: toolingMode ?? this.toolingMode,
+      toolingClassId: toolingClassId ?? this.toolingClassId,
+    );
+  }
 
   factory AdminRawMaterialRule.fromJson(Map<String, dynamic> json) {
-    final rawGroups = json['item_groups'];
-    final rawRequirementGroups = json['requirement_groups'];
+    final rawRevision = json['revision'];
+    final revision = rawRevision is Map
+        ? rawRevision.cast<String, dynamic>()
+        : const <String, dynamic>{};
+    final rawProjection = json['runtime_projection'];
+    final projection =
+        rawProjection is Map ? rawProjection.cast<String, dynamic>() : json;
+    final rawPolicies = revision['policies'];
+    final policies = rawPolicies is Map
+        ? rawPolicies.cast<String, dynamic>()
+        : const <String, dynamic>{};
+    final rawPolicy = policies['material'] ?? projection['policy'];
+    final policy = rawPolicy is Map
+        ? rawPolicy.cast<String, dynamic>()
+        : const <String, dynamic>{};
+    final rawTooling = policies['tooling'] ?? projection['tooling'];
+    final tooling = rawTooling is Map
+        ? rawTooling.cast<String, dynamic>()
+        : const <String, dynamic>{};
+    final revisionMetadata = revision['revision_metadata'];
+    final revisionMetadataMap = revisionMetadata is Map
+        ? revisionMetadata.cast<String, dynamic>()
+        : const <String, dynamic>{};
+    final display = revision['display'];
+    final displayMap = display is Map
+        ? display.cast<String, dynamic>()
+        : const <String, dynamic>{};
+    final apparatusId = (projection['apparatus_id'] ?? revision['apparatus_id'])
+            ?.toString()
+            .trim() ??
+        '';
+    final sourceAasxSha256 =
+        projection['source_aasx_sha256']?.toString().trim() ?? '';
+    if (!isCanonicalApparatusId(apparatusId) ||
+        !canonicalAasxSha256IsValid(sourceAasxSha256)) {
+      throw const FormatException(
+        'Canonical raw-material projection requires identity and source hash',
+      );
+    }
+    final sourceRevision = (projection['source_revision'] as num?)?.toInt() ??
+        (revisionMetadataMap['revision'] as num?)?.toInt() ??
+        0;
+    final mode = policy['mode']?.toString().trim().toLowerCase() ?? '';
+    if (sourceRevision < 1 ||
+        !const {
+          'not_required',
+          'all_required',
+          'requirement_sets',
+        }.contains(mode)) {
+      throw const FormatException(
+        'Canonical raw-material projection has invalid revision or policy',
+      );
+    }
+    final rawGroups = policy['item_group_ids'];
+    final rawRequirementGroups = policy['sets'];
+    final requirementGroups = [
+      if (rawRequirementGroups is List)
+        for (final item in rawRequirementGroups)
+          if (item is Map)
+            AdminRawMaterialRequirementGroup.fromJson(
+              item.cast<String, dynamic>(),
+            ),
+    ];
+    final itemGroups = mode == 'requirement_sets'
+        ? <String>{
+            for (final group in requirementGroups) ...group.itemGroups,
+          }.toList(growable: false)
+        : [
+            if (rawGroups is List)
+              for (final item in rawGroups)
+                if (item.toString().trim().isNotEmpty) item.toString().trim(),
+          ];
+    final toolingMode = tooling['mode']?.toString().trim().toLowerCase() ?? '';
+    final toolingClassId = tooling['tooling_class_id']?.toString().trim() ?? '';
+    if (!const {'not_required', 'qolip_scan_required'}.contains(toolingMode) ||
+        (toolingMode == 'qolip_scan_required' && toolingClassId.isEmpty)) {
+      throw const FormatException(
+        'Canonical raw-material projection has invalid tooling policy',
+      );
+    }
     return AdminRawMaterialRule(
-      apparatus: json['apparatus']?.toString() ?? '',
-      requiresMaterial: json['requires_material'] == true,
-      startPolicy: AdminRawMaterialStartPolicy.fromJson(json['start_policy']),
-      itemGroups: [
-        if (rawGroups is List)
-          for (final item in rawGroups)
-            if (item.toString().trim().isNotEmpty) item.toString().trim(),
-      ],
-      requirementGroups: [
-        if (rawRequirementGroups is List)
-          for (final item in rawRequirementGroups)
-            if (item is Map<String, dynamic>)
-              AdminRawMaterialRequirementGroup.fromJson(item),
-      ],
+      apparatusId: apparatusId,
+      sourceRevision: sourceRevision,
+      sourceAasxSha256: sourceAasxSha256,
+      apparatus: displayMap['display_name']?.toString().trim() ?? '',
+      requiresMaterial: mode != 'not_required',
+      startPolicy: mode == 'requirement_sets'
+          ? AdminRawMaterialStartPolicy.requirementGroups
+          : AdminRawMaterialStartPolicy.stateAll,
+      itemGroups: itemGroups,
+      requirementGroups: requirementGroups,
+      toolingMode: toolingMode,
+      toolingClassId: toolingClassId,
     );
+  }
+
+  Map<String, dynamic> materialPolicyJson() {
+    final normalizedItemGroups = itemGroups
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    if (!requiresMaterial) {
+      return {
+        'mode': 'not_required',
+        if (normalizedItemGroups.isNotEmpty)
+          'item_group_ids': normalizedItemGroups,
+      };
+    }
+    if (startPolicy == AdminRawMaterialStartPolicy.requirementGroups) {
+      return {
+        'mode': 'requirement_sets',
+        'sets': [
+          for (final group in requirementGroups)
+            {
+              'requirement_id': group.name.trim(),
+              'item_group_ids': [
+                for (final item in group.itemGroups)
+                  if (item.trim().isNotEmpty) item.trim(),
+              ],
+              'minimum_required_count':
+                  group.minRequiredCount < 1 ? 1 : group.minRequiredCount,
+            },
+        ],
+      };
+    }
+    return {
+      'mode': 'all_required',
+      'item_group_ids': normalizedItemGroups,
+    };
+  }
+
+  Map<String, dynamic> toolingPolicyJson() {
+    if (toolingMode == 'qolip_scan_required' &&
+        toolingClassId.trim().isNotEmpty) {
+      return {
+        'mode': 'qolip_scan_required',
+        'tooling_class_id': toolingClassId.trim(),
+      };
+    }
+    return const {'mode': 'not_required'};
   }
 }
 
@@ -3649,25 +4146,19 @@ class AdminRawMaterialStartRequirements {
                 item.cast<String, dynamic>(),
               ),
       ],
-      assignedBarcodes: _normalizedRawMaterialBarcodeList(
-        rawAssignedBarcodes,
-      ),
+      assignedBarcodes: _normalizedRawMaterialBarcodeList(rawAssignedBarcodes),
       stagedBarcodes: _normalizedRawMaterialBarcodeList(rawStagedBarcodes),
       assignments: [
         if (rawAssignments is List)
           for (final item in rawAssignments)
             if (item is Map)
-              AdminRawMaterialAssignment.fromJson(
-                item.cast<String, dynamic>(),
-              ),
+              AdminRawMaterialAssignment.fromJson(item.cast<String, dynamic>()),
       ],
       startAssignments: [
         if (rawStartAssignments is List)
           for (final item in rawStartAssignments)
             if (item is Map)
-              AdminRawMaterialAssignment.fromJson(
-                item.cast<String, dynamic>(),
-              ),
+              AdminRawMaterialAssignment.fromJson(item.cast<String, dynamic>()),
       ],
       requiredScanCount:
           int.tryParse(json['required_scan_count']?.toString() ?? '') ?? 0,
@@ -3716,7 +4207,7 @@ InventoryAsset? _testModeRawMaterialAssetAtApparatus({
         continue;
       }
       if (location.apparatus.any(
-        (linked) => productionMapWarehouseTitlesMatch(linked.name, apparatus),
+        (linked) => linked.id.trim() == apparatus.trim(),
       )) {
         return asset;
       }
@@ -3828,7 +4319,9 @@ class AdminRawMaterialAssignment {
   factory AdminRawMaterialAssignment.fromJson(Map<String, dynamic> json) {
     return AdminRawMaterialAssignment(
       orderId: json['order_id']?.toString() ?? '',
-      apparatus: json['apparatus']?.toString() ?? '',
+      apparatus: _requireCanonicalApparatusId(
+        json['apparatus']?.toString() ?? '',
+      ),
       barcode: json['barcode']?.toString() ?? '',
       itemCode: json['item_code']?.toString() ?? '',
       itemName: json['item_name']?.toString() ?? '',
@@ -3922,10 +4415,9 @@ class AdminRawMaterialAssignmentCandidate {
       itemGroup: json['item_group']?.toString() ?? '',
       qty: (json['qty'] as num?)?.toDouble() ?? 0,
       uom: json['uom']?.toString() ?? '',
-      apparatusOptions: (json['apparatus_options'] as List? ?? const [])
-          .map((item) => item.toString().trim())
-          .where((item) => item.isNotEmpty)
-          .toList(growable: false),
+      apparatusOptions: _requireCanonicalApparatusIdList(
+        json['apparatus_options'],
+      ),
       orderWidthMm: (json['order_width_mm'] as num?)?.toDouble(),
       rollWidthMm: (json['roll_width_mm'] as num?)?.toDouble(),
       leftoverWidthMm: (json['leftover_width_mm'] as num?)?.toDouble(),
@@ -3950,10 +4442,9 @@ class AdminRawMaterialAssignmentOrderCandidate {
       order: ProductionMapSaved.fromJson(
         (json['order'] as Map).cast<String, dynamic>(),
       ),
-      apparatusOptions: (json['apparatus_options'] as List? ?? const [])
-          .map((item) => item.toString().trim())
-          .where((item) => item.isNotEmpty)
-          .toList(growable: false),
+      apparatusOptions: _requireCanonicalApparatusIdList(
+        json['apparatus_options'],
+      ),
     );
   }
 }
@@ -4020,7 +4511,10 @@ class AdminRawMaterialEvent {
       stockStatusBefore: json['stock_status_before']?.toString() ?? '',
       stockStatusAfter: json['stock_status_after']?.toString() ?? '',
       orderId: json['order_id']?.toString() ?? '',
-      apparatus: json['apparatus']?.toString() ?? '',
+      apparatus: _requireCanonicalApparatusId(
+        json['apparatus']?.toString() ?? '',
+        allowEmpty: true,
+      ),
       actorRole: json['actor_role']?.toString() ?? '',
       actorRef: json['actor_ref']?.toString() ?? '',
       actorDisplayName: json['actor_display_name']?.toString() ?? '',
@@ -4090,7 +4584,9 @@ class AdminRawMaterialLookup {
       order: orderRaw is Map
           ? ProductionMapDefinition.fromJson(orderRaw.cast<String, dynamic>())
           : null,
-      queueStates: _stringMapOfStringMaps(json['queue_states']),
+      queueStates: MobileApi.instance.parseApparatusQueueStateMap(
+        json['queue_states'],
+      ),
       logs: [
         for (final item in (json['logs'] as List? ?? const []))
           AdminProductionOrderLogEntry.fromJson(
@@ -4135,12 +4631,14 @@ class AdminProductionMapLiveSnapshot {
   final Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus;
 
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
+    final visibleOrderIds = _parseRequiredProductionMapVisibleOrderIds(json);
+    _requireProductionMapSnapshotShape(json, includesMaps: true);
     final mapsRaw = json['maps'];
     final completedRaw = json['completed_orders'];
     final completionRequestsRaw = json['completion_requests'];
     final completionRequestDecisionsRaw = json['completion_request_decisions'];
     final orderControls = _parseAdminOrderControls(json['order_controls']);
-    return AdminProductionMapLiveSnapshot(
+    final snapshot = AdminProductionMapLiveSnapshot(
       maps: [
         if (mapsRaw is List)
           for (final item in mapsRaw)
@@ -4149,7 +4647,7 @@ class AdminProductionMapLiveSnapshot {
       sequences: MobileApi.instance.parseApparatusSequenceMap(
         json['sequences'],
       ),
-      visibleOrderIds: _parseRequiredProductionMapVisibleOrderIds(json),
+      visibleOrderIds: visibleOrderIds,
       queueStates: MobileApi.instance.parseApparatusQueueStateMap(
         json['queue_states'],
       ),
@@ -4186,6 +4684,19 @@ class AdminProductionMapLiveSnapshot {
       frozenOrdersByApparatus: _parseAdminFrozenOrdersByApparatus(
         json['frozen_orders_by_apparatus'],
       ),
+    );
+    snapshot.validateContract();
+    return snapshot;
+  }
+
+  void validateContract() {
+    _validateProductionMapQueueContract(
+      sequences: sequences,
+      visibleOrderIds: visibleOrderIds,
+      queueStates: queueStates,
+      queuePolicies: queuePolicies,
+      queueActionControls: queueActionControls,
+      frozenOrdersByApparatus: frozenOrdersByApparatus,
     );
   }
 }
@@ -4386,7 +4897,8 @@ MobileApiException _adminProductionMapException(
       'training_map_not_found' => 'Training order topilmadi',
       'training_apparatus_required' => 'Training aparat tanlanmadi',
       'training_apparatus_not_found' => 'Training aparat topilmadi',
-      'map_id_required' => 'Production map ID sini kiriting',
+      'map_id_required' =>
+        'Production map yoki aparat canonical ID si topilmadi',
       'map_product_code_required' => 'Mahsulot kodi kiritilmagan',
       'map_title_required' => 'Production map nomi kiritilmagan',
       'map_start_required' =>
@@ -4418,7 +4930,9 @@ MobileApiException _adminProductionMapException(
         'Miqdorlar to‘liq emas. Barcha majburiy qiymatlarni kiriting yoki maydonlarni tozalab, faqat muammo izohini yozing',
       'store_failed' ||
       'production_map_store_failed' =>
-        'Production map ma’lumotlarini saqlashda server xatosi',
+        fallbackCode == 'production_map_sequence'
+            ? 'Ish rejasi navbati serverdan yuklanmadi'
+            : 'Production map ma’lumotlarini saqlashda server xatosi',
       'training workspace store failed' =>
         'Training server bazasi yangilanmagan yoki ulanmagan. Serverni restart qiling',
       'capacity_profile_invalid' => 'Aparat quvvati profili noto‘g‘ri',
@@ -4651,6 +5165,8 @@ class AdminApparatusCapacityProfile {
   const AdminApparatusCapacityProfile({
     required this.apparatusId,
     required this.apparatus,
+    this.sourceRevision = 0,
+    this.sourceAasxSha256 = '',
     this.capacitySlots = 1,
     this.setupMinutes = 0,
     this.cleanupMinutes = 0,
@@ -4665,6 +5181,8 @@ class AdminApparatusCapacityProfile {
 
   final String apparatusId;
   final String apparatus;
+  final int sourceRevision;
+  final String sourceAasxSha256;
   final int capacitySlots;
   final int setupMinutes;
   final int cleanupMinutes;
@@ -4679,8 +5197,12 @@ class AdminApparatusCapacityProfile {
   factory AdminApparatusCapacityProfile.fromJson(Map<String, dynamic> json) {
     final rawLevels = json['capability_levels'];
     return AdminApparatusCapacityProfile(
-      apparatusId: json['apparatus_id']?.toString().trim() ?? '',
+      apparatusId: _requireCanonicalApparatusId(
+        json['apparatus_id']?.toString() ?? '',
+      ),
       apparatus: json['apparatus']?.toString().trim() ?? '',
+      sourceRevision: (json['source_revision'] as num?)?.toInt() ?? 0,
+      sourceAasxSha256: json['source_aasx_sha256']?.toString().trim() ?? '',
       capacitySlots: (json['capacity_slots'] as num?)?.toInt() ?? 1,
       setupMinutes: (json['setup_minutes'] as num?)?.toInt() ?? 0,
       cleanupMinutes: (json['cleanup_minutes'] as num?)?.toInt() ?? 0,
@@ -4717,18 +5239,36 @@ class AdminApparatusCapacityProfile {
   Map<String, dynamic> toJson() => {
         'apparatus_id': apparatusId.trim(),
         'apparatus': apparatus.trim(),
+        'source_revision': sourceRevision,
+        'source_aasx_sha256': sourceAasxSha256,
         'capacity_slots': capacitySlots,
         'setup_minutes': setupMinutes,
         'cleanup_minutes': cleanupMinutes,
         'efficiency_percent': efficiencyPercent,
         'finite_capacity': finiteCapacity,
         'working_windows': [
-          for (final window in workingWindows) window.toJson(),
+          for (final window in workingWindows) window.toJson()
         ],
         'capabilities': capabilities,
         'capability_levels': capabilityLevels,
         'notes': notes,
         'updated_at_unix': updatedAtUnix,
+      };
+
+  Map<String, dynamic> toCanonicalCapacityJson() => {
+        'capacity_slots': capacitySlots,
+        'setup_minutes': setupMinutes,
+        'cleanup_minutes': cleanupMinutes,
+        'efficiency_percent': efficiencyPercent,
+        'finite_capacity': finiteCapacity,
+        'availability': workingWindows.isEmpty
+            ? {'mode': 'always'}
+            : {
+                'mode': 'scheduled',
+                'working_windows': [
+                  for (final window in workingWindows) window.toJson(),
+                ],
+              },
       };
 }
 
@@ -4764,7 +5304,9 @@ class AdminApparatusDowntime {
     final actorMap = actor is Map ? actor.cast<String, dynamic>() : const {};
     return AdminApparatusDowntime(
       id: json['id']?.toString() ?? '',
-      apparatusId: json['apparatus_id']?.toString() ?? '',
+      apparatusId: _requireCanonicalApparatusId(
+        json['apparatus_id']?.toString() ?? '',
+      ),
       apparatus: json['apparatus']?.toString() ?? '',
       startsAtUnix: (json['starts_at_unix'] as num?)?.toInt() ?? 0,
       endsAtUnix: (json['ends_at_unix'] as num?)?.toInt() ?? 0,
@@ -4812,10 +5354,7 @@ class AdminApparatusCapabilityRequirement {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'code': code.trim(),
-        'min_level': minLevel,
-      };
+  Map<String, dynamic> toJson() => {'code': code.trim(), 'min_level': minLevel};
 }
 
 class AdminApparatusScheduleCandidate {
@@ -4827,11 +5366,11 @@ class AdminApparatusScheduleCandidate {
   final String apparatusId;
   final String apparatus;
 
-  factory AdminApparatusScheduleCandidate.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory AdminApparatusScheduleCandidate.fromJson(Map<String, dynamic> json) {
     return AdminApparatusScheduleCandidate(
-      apparatusId: json['apparatus_id']?.toString().trim() ?? '',
+      apparatusId: _requireCanonicalApparatusId(
+        json['apparatus_id']?.toString() ?? '',
+      ),
       apparatus: json['apparatus']?.toString().trim() ?? '',
     );
   }
@@ -4884,7 +5423,9 @@ class AdminApparatusScheduleReservation {
       reservationId: json['reservation_id']?.toString() ?? '',
       idempotencyKey: json['idempotency_key']?.toString() ?? '',
       orderId: json['order_id']?.toString() ?? '',
-      apparatusId: json['apparatus_id']?.toString() ?? '',
+      apparatusId: _requireCanonicalApparatusId(
+        json['apparatus_id']?.toString() ?? '',
+      ),
       apparatus: json['apparatus']?.toString() ?? '',
       startsAtUnix: (json['starts_at_unix'] as num?)?.toInt() ?? 0,
       endsAtUnix: (json['ends_at_unix'] as num?)?.toInt() ?? 0,
@@ -5421,64 +5962,6 @@ extension MobileApiAdmin on MobileApi {
     }
   }
 
-  Future<List<AdminApparatusGroup>> adminApparatusGroups() async {
-    if (await TestModeController.instance.isEnabled()) {
-      return _normalizeDefaultAdminApparatusGroups(
-        List<AdminApparatusGroup>.from(_testModeApparatusGroups),
-      );
-    }
-    final response = await _sendAuthorized(
-      () => _get(
-        Uri.parse('$baseUrl/v1/mobile/admin/apparatus-groups'),
-        headers: _headers(requireToken()),
-      ),
-    );
-    if (response.statusCode != 200) {
-      throw Exception('Admin apparatus groups failed');
-    }
-    final json = await decodeJsonListPayload(response.body);
-    return _normalizeDefaultAdminApparatusGroups(
-      json
-          .map(
-            (item) =>
-                AdminApparatusGroup.fromJson(item as Map<String, dynamic>),
-          )
-          .toList(growable: false),
-    );
-  }
-
-  Future<AdminApparatusGroup> adminSaveApparatusGroup(
-    AdminApparatusGroup group,
-  ) async {
-    if (await TestModeController.instance.isEnabled()) {
-      final normalized = AdminApparatusGroup.fromJson(group.toJson());
-      final key = normalized.name.toLowerCase();
-      final index = _testModeApparatusGroups.indexWhere(
-        (item) => item.name.toLowerCase() == key,
-      );
-      if (index >= 0) {
-        _testModeApparatusGroups[index] = normalized;
-      } else {
-        _testModeApparatusGroups.add(normalized);
-      }
-      return normalized;
-    }
-    final response = await _sendAuthorized(
-      () => _put(
-        Uri.parse('$baseUrl/v1/mobile/admin/apparatus-groups'),
-        headers: _headers(requireToken())
-          ..['Content-Type'] = 'application/json',
-        body: jsonEncode(group.toJson()),
-      ),
-    );
-    if (response.statusCode != 200) {
-      throw Exception('Admin apparatus group save failed');
-    }
-    return AdminApparatusGroup.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-    );
-  }
-
   Future<List<AdminCapability>> adminCapabilities() async {
     final response = await _sendAuthorized(
       () => _get(
@@ -5604,6 +6087,7 @@ extension MobileApiAdmin on MobileApi {
   Future<ProductionMapSaved> adminSaveProductionMap(
     ProductionMapDefinition map,
   ) async {
+    _requireCanonicalProductionMapApparatusIds(map);
     if (await TestModeController.instance.isEnabled()) {
       final originalMapId = map.id.trim();
       final normalizedMap = _testModeAssignOrderNumberIfMissing(map);
@@ -5662,6 +6146,7 @@ extension MobileApiAdmin on MobileApi {
     required ProductionMapDefinition map,
     required CalculateOrderTemplate template,
   }) async {
+    _requireCanonicalProductionMapApparatusIds(map);
     if (await TestModeController.instance.isEnabled()) {
       final previousIndex = _testModeProductionMaps.indexWhere(
         (item) => item.map.id.trim() == map.id.trim(),
@@ -5703,10 +6188,7 @@ extension MobileApiAdmin on MobileApi {
             : _testModeUpsertCalculateOrderTemplate(
                 templateToSave.copyWith(
                   sourceMapId: savedTemplateMap?.map.id ??
-                      _templateSourceMapIdForSave(
-                        savedMap.map,
-                        template,
-                      ),
+                      _templateSourceMapIdForSave(savedMap.map, template),
                 ),
               );
         return ProductionMapSaveWithOrderResult(
@@ -5761,7 +6243,11 @@ extension MobileApiAdmin on MobileApi {
     required String fromApparatus,
     required String toApparatus,
   }) async {
+    final normalizedFrom = _requireCanonicalApparatusId(fromApparatus);
+    final normalizedTo = _requireCanonicalApparatusId(toApparatus);
     if (await TestModeController.instance.isEnabled()) {
+      final sourceApparatus = _testModeRequiredApparatus(normalizedFrom);
+      final targetApparatus = _testModeRequiredApparatus(normalizedTo);
       final normalizedIds = [
         for (final id in mapIds)
           if (id.trim().isNotEmpty) id.trim(),
@@ -5789,15 +6275,14 @@ extension MobileApiAdmin on MobileApi {
       for (final current in originals) {
         _testModeEnsurePendingApparatusMove(
           orderId: current.map.id,
-          fromApparatus: fromApparatus,
+          fromApparatus: normalizedFrom,
         );
         if (!productionMapCanMoveOrderToApparatus(
           nodes: current.map.nodes,
-          fromApparatus: fromApparatus,
-          toApparatus: toApparatus,
+          fromApparatus: sourceApparatus,
+          toApparatus: targetApparatus,
           rollCount: current.map.rollCount,
           widthMm: current.map.widthMm,
-          isFlexoOrder: productionMapIsFlexoOrder(current.map),
         )) {
           throw const MobileApiException(
             code: 'move_not_allowed',
@@ -5806,13 +6291,13 @@ extension MobileApiAdmin on MobileApi {
         }
         final nodes = productionMapReassignAlternativeApparatusAssignment(
               nodes: current.map.nodes,
-              fromApparatus: fromApparatus,
-              toApparatus: toApparatus,
+              fromApparatus: sourceApparatus,
+              toApparatus: targetApparatus,
             ) ??
             productionMapReassignApparatusNodes(
               nodes: current.map.nodes,
-              fromApparatus: fromApparatus,
-              toApparatus: toApparatus,
+              fromApparatus: sourceApparatus,
+              toApparatus: targetApparatus,
             );
         if (nodes == null) {
           throw const MobileApiException(
@@ -5843,8 +6328,8 @@ extension MobileApiAdmin on MobileApi {
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
-          'from_apparatus': fromApparatus,
-          'to_apparatus': toApparatus,
+          'from_apparatus': normalizedFrom,
+          'to_apparatus': normalizedTo,
           'map_ids': mapIds,
         }),
       ),
@@ -5872,13 +6357,11 @@ extension MobileApiAdmin on MobileApi {
     required String idempotencyKey,
   }) async {
     final normalizedOrderId = orderId.trim();
-    final normalizedFrom = fromApparatus.trim();
-    final normalizedTo = toApparatus.trim();
+    final normalizedFrom = _requireCanonicalApparatusId(fromApparatus);
+    final normalizedTo = _requireCanonicalApparatusId(toApparatus);
     final normalizedReason = reason.trim();
     final normalizedKey = idempotencyKey.trim();
-    if (normalizedOrderId.isEmpty ||
-        normalizedFrom.isEmpty ||
-        normalizedTo.isEmpty) {
+    if (normalizedOrderId.isEmpty) {
       throw const MobileApiException(
         code: 'apparatus_transfer_order_not_paused',
         message: 'Avariya ko‘chirish ma’lumotlari to‘liq emas',
@@ -5897,17 +6380,13 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     if (await TestModeController.instance.isEnabled()) {
+      final sourceApparatus = _testModeRequiredApparatus(normalizedFrom);
+      final targetApparatus = _testModeRequiredApparatus(normalizedTo);
       final existing = _testModeApparatusTransfers[normalizedKey];
       if (existing != null) {
         if (existing.orderId != normalizedOrderId ||
-            !productionMapWarehouseTitlesMatch(
-              existing.fromApparatus,
-              normalizedFrom,
-            ) ||
-            !productionMapWarehouseTitlesMatch(
-              existing.toApparatus,
-              normalizedTo,
-            )) {
+            existing.fromApparatus != normalizedFrom ||
+            existing.toApparatus != normalizedTo) {
           throw const MobileApiException(
             code: 'apparatus_transfer_idempotency_conflict',
             message:
@@ -5922,18 +6401,8 @@ extension MobileApiAdmin on MobileApi {
           message: 'Zakaz shu apparatda qolmoqda',
         );
       }
-      final knownKeys = {
-        ..._testModeApparatusSequences.keys,
-        ..._testModeApparatusQueueStates.keys,
-      };
-      final sourceKey = resolveApparatusStorageKey(
-        normalizedFrom,
-        knownKeys,
-      );
-      final targetKey = resolveApparatusStorageKey(
-        normalizedTo,
-        knownKeys,
-      );
+      final sourceKey = normalizedFrom;
+      final targetKey = normalizedTo;
       if (sourceKey == targetKey) {
         throw const MobileApiException(
           code: 'move_not_allowed',
@@ -5971,11 +6440,10 @@ extension MobileApiAdmin on MobileApi {
       final current = _testModeProductionMaps[index];
       if (!productionMapCanMoveOrderToApparatus(
         nodes: current.map.nodes,
-        fromApparatus: normalizedFrom,
-        toApparatus: normalizedTo,
+        fromApparatus: sourceApparatus,
+        toApparatus: targetApparatus,
         rollCount: current.map.rollCount,
         widthMm: current.map.widthMm,
-        isFlexoOrder: productionMapIsFlexoOrder(current.map),
       )) {
         throw const MobileApiException(
           code: 'move_not_allowed',
@@ -5984,13 +6452,13 @@ extension MobileApiAdmin on MobileApi {
       }
       final nodes = productionMapReassignAlternativeApparatusAssignment(
             nodes: current.map.nodes,
-            fromApparatus: normalizedFrom,
-            toApparatus: normalizedTo,
+            fromApparatus: sourceApparatus,
+            toApparatus: targetApparatus,
           ) ??
           productionMapReassignApparatusNodes(
             nodes: current.map.nodes,
-            fromApparatus: normalizedFrom,
-            toApparatus: normalizedTo,
+            fromApparatus: sourceApparatus,
+            toApparatus: targetApparatus,
           );
       if (nodes == null) {
         throw const MobileApiException(
@@ -6005,11 +6473,10 @@ extension MobileApiAdmin on MobileApi {
       final sourceSequence = List<String>.from(
         _testModeApparatusSequences[sourceKey] ?? const [],
       )..removeWhere((id) => id.trim() == normalizedOrderId);
-      final targetSequence = List<String>.from(
-        _testModeApparatusSequences[targetKey] ?? const [],
-      )
-        ..removeWhere((id) => id.trim() == normalizedOrderId)
-        ..add(normalizedOrderId);
+      final targetSequence =
+          List<String>.from(_testModeApparatusSequences[targetKey] ?? const [])
+            ..removeWhere((id) => id.trim() == normalizedOrderId)
+            ..add(normalizedOrderId);
       sourceStates.remove(normalizedOrderId);
       targetStates[normalizedOrderId] = 'paused';
       _testModeProductionMaps[index] = saved;
@@ -6019,8 +6486,8 @@ extension MobileApiAdmin on MobileApi {
       _testModeApparatusQueueStates[targetKey] = targetStates;
       _testModeMoveScheduleReservations(
         orderId: normalizedOrderId,
-        fromApparatus: sourceKey,
-        toApparatus: targetKey,
+        fromApparatusId: sourceKey,
+        toApparatusId: targetKey,
       );
       _testModeApparatusTransfers[normalizedKey] =
           _TestModeApparatusTransferReceipt(
@@ -6066,7 +6533,11 @@ extension MobileApiAdmin on MobileApi {
     required String fromApparatus,
     required String toApparatus,
   }) async {
+    final normalizedFrom = _requireCanonicalApparatusId(fromApparatus);
+    final normalizedTo = _requireCanonicalApparatusId(toApparatus);
     if (await TestModeController.instance.isEnabled()) {
+      final sourceApparatus = _testModeRequiredApparatus(normalizedFrom);
+      final targetApparatus = _testModeRequiredApparatus(normalizedTo);
       final index = _testModeProductionMaps.indexWhere(
         (item) => item.map.id.trim() == mapId.trim(),
       );
@@ -6079,15 +6550,14 @@ extension MobileApiAdmin on MobileApi {
       final current = _testModeProductionMaps[index];
       _testModeEnsurePendingApparatusMove(
         orderId: current.map.id,
-        fromApparatus: fromApparatus,
+        fromApparatus: normalizedFrom,
       );
       if (!productionMapCanMoveOrderToApparatus(
         nodes: current.map.nodes,
-        fromApparatus: fromApparatus,
-        toApparatus: toApparatus,
+        fromApparatus: sourceApparatus,
+        toApparatus: targetApparatus,
         rollCount: current.map.rollCount,
         widthMm: current.map.widthMm,
-        isFlexoOrder: productionMapIsFlexoOrder(current.map),
       )) {
         throw const MobileApiException(
           code: 'move_not_allowed',
@@ -6096,13 +6566,13 @@ extension MobileApiAdmin on MobileApi {
       }
       final nodes = productionMapReassignAlternativeApparatusAssignment(
             nodes: current.map.nodes,
-            fromApparatus: fromApparatus,
-            toApparatus: toApparatus,
+            fromApparatus: sourceApparatus,
+            toApparatus: targetApparatus,
           ) ??
           productionMapReassignApparatusNodes(
             nodes: current.map.nodes,
-            fromApparatus: fromApparatus,
-            toApparatus: toApparatus,
+            fromApparatus: sourceApparatus,
+            toApparatus: targetApparatus,
           );
       if (nodes == null) {
         throw const MobileApiException(
@@ -6124,8 +6594,8 @@ extension MobileApiAdmin on MobileApi {
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
           'map_id': mapId,
-          'from_apparatus': fromApparatus,
-          'to_apparatus': toApparatus,
+          'from_apparatus': normalizedFrom,
+          'to_apparatus': normalizedTo,
         }),
       ),
     );
@@ -6145,10 +6615,16 @@ extension MobileApiAdmin on MobileApi {
 
   Future<AdminApparatusQueueSnapshot> adminProductionMapQueueSnapshot() async {
     if (await TestModeController.instance.isEnabled()) {
+      if (_testModeForceProductionMapQueueSnapshotLoadFailure) {
+        throw const MobileApiException(
+          code: 'store_failed',
+          message: 'Ish rejasi navbati serverdan yuklanmadi',
+        );
+      }
       final orderControls = Map<String, AdminOrderControlState>.unmodifiable(
         _testModeOrderControls,
       );
-      return AdminApparatusQueueSnapshot(
+      final snapshot = AdminApparatusQueueSnapshot(
         sequences: _testModeEffectiveQueueSequences(),
         visibleOrderIds: _testModeVisibleOrderIdsByApparatus(),
         queueStates: {
@@ -6172,6 +6648,8 @@ extension MobileApiAdmin on MobileApi {
         ),
         frozenOrdersByApparatus: _testModeFrozenOrdersByApparatus(),
       );
+      snapshot.validateContract();
+      return snapshot;
     }
     final response = await _sendAuthorized(
       () => _get(
@@ -6183,10 +6661,12 @@ extension MobileApiAdmin on MobileApi {
       throw _adminProductionMapException(response, 'production_map_sequence');
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final visibleOrderIds = _parseRequiredProductionMapVisibleOrderIds(payload);
+    _requireProductionMapSnapshotShape(payload, includesMaps: false);
     final orderControls = _parseAdminOrderControls(payload['order_controls']);
-    return AdminApparatusQueueSnapshot(
+    final snapshot = AdminApparatusQueueSnapshot(
       sequences: parseApparatusSequenceMap(payload['sequences']),
-      visibleOrderIds: _parseRequiredProductionMapVisibleOrderIds(payload),
+      visibleOrderIds: visibleOrderIds,
       queueStates: parseApparatusQueueStateMap(payload['queue_states']),
       queuePolicies: parseApparatusQueuePolicyMap(payload['queue_policies']),
       queueActionControls: _parseAdminQueueActionControls(
@@ -6195,13 +6675,13 @@ extension MobileApiAdmin on MobileApi {
       orderControls: orderControls,
       orderCustomers: _stringMapOfStrings(payload['order_customers']),
       orderStatuses: _parseAdminOrderStatuses(payload['order_statuses']),
-      qolipOrderNotes: _parseAdminQolipOrderNotes(
-        payload['qolip_order_notes'],
-      ),
+      qolipOrderNotes: _parseAdminQolipOrderNotes(payload['qolip_order_notes']),
       frozenOrdersByApparatus: _parseAdminFrozenOrdersByApparatus(
         payload['frozen_orders_by_apparatus'],
       ),
     );
+    snapshot.validateContract();
+    return snapshot;
   }
 
   Future<AdminOrderControlState?> adminProductionMapOrderControl({
@@ -6214,9 +6694,7 @@ extension MobileApiAdmin on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _post(
-        Uri.parse(
-          '$baseUrl/v1/mobile/admin/production-maps/order-control',
-        ),
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/order-control'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
@@ -6251,8 +6729,14 @@ extension MobileApiAdmin on MobileApi {
     int limit = 100,
   }) async {
     final normalizedStatus = status.trim();
-    final normalizedApparatus = apparatus.trim();
-    final normalizedNextApparatus = nextApparatus.trim();
+    final normalizedApparatus = _requireCanonicalApparatusId(
+      apparatus,
+      allowEmpty: true,
+    );
+    final normalizedNextApparatus = _requireCanonicalApparatusId(
+      nextApparatus,
+      allowEmpty: true,
+    );
     final normalizedCurrentLocation = currentLocation.trim();
     final normalizedOrderId = orderId.trim();
     final boundedLimit = limit.clamp(1, 1000).toInt();
@@ -6264,22 +6748,13 @@ extension MobileApiAdmin on MobileApi {
               return false;
             }
             if (normalizedApparatus.isNotEmpty &&
-                !productionMapWarehouseTitlesMatch(
-                  batch.currentApparatus,
-                  normalizedApparatus,
-                ) &&
-                !productionMapWarehouseTitlesMatch(
-                  batch.apparatus,
-                  normalizedApparatus,
-                )) {
+                batch.currentApparatus.trim() != normalizedApparatus &&
+                batch.apparatus.trim() != normalizedApparatus) {
               return false;
             }
             if (normalizedNextApparatus.isNotEmpty &&
                 batch.nextApparatus.trim().isNotEmpty &&
-                !productionMapNextStageTitleMatchesApparatus(
-                  batch.nextApparatus,
-                  normalizedNextApparatus,
-                )) {
+                batch.nextApparatus.trim() != normalizedNextApparatus) {
               return false;
             }
             if (normalizedCurrentLocation.isNotEmpty &&
@@ -6330,6 +6805,12 @@ extension MobileApiAdmin on MobileApi {
   Future<List<AdminCompletedQueueOrder>>
       adminCompletedProductionMapOrders() async {
     if (await TestModeController.instance.isEnabled()) {
+      if (_testModeForceCompletedProductionMapOrdersLoadFailure) {
+        throw const MobileApiException(
+          code: 'completed_orders',
+          message: 'Yakunlangan orderlar yuklanmadi',
+        );
+      }
       final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
       return [
         for (final item in _testModeCompletedQueueOrders)
@@ -6442,15 +6923,14 @@ extension MobileApiAdmin on MobileApi {
           '$baseUrl/v1/mobile/admin/production-maps/completion-requests/decision',
         ),
         headers: _headers(requireToken()),
-        body: jsonEncode({
-          'event_id': eventId,
-          'decision': decision,
-        }),
+        body: jsonEncode({'event_id': eventId, 'decision': decision}),
       ),
     );
     if (response.statusCode != 200) {
       throw _adminProductionMapException(
-          response, 'completion_request_decision');
+        response,
+        'completion_request_decision',
+      );
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
     return AdminCompletionRequestDecisionNotification.fromJson(
@@ -6539,12 +7019,23 @@ extension MobileApiAdmin on MobileApi {
   }
 
   Future<AdminApparatusQueuePolicy> adminUpdateApparatusQueuePolicy({
-    required String apparatus,
+    required String apparatusId,
+    required int expectedRevision,
     required ApparatusQueuePolicy policy,
   }) async {
-    final normalized = apparatus.trim();
+    final normalized = _requireCanonicalApparatusId(apparatusId);
     if (await TestModeController.instance.isEnabled()) {
-      final locked = productionMapIsPechatApparatus(normalized);
+      final catalog = _testModeApparatusCatalog();
+      final apparatus = _firstOrNull(
+        catalog.where((item) => item.id == normalized),
+      );
+      if (apparatus == null) {
+        throw const MobileApiException(
+          code: 'apparatus_not_found',
+          message: 'Aparat topilmadi',
+        );
+      }
+      final locked = apparatus.isPechat;
       if (locked && policy != ApparatusQueuePolicy.strictSequence) {
         throw const MobileApiException(
           code: 'queue_policy_locked',
@@ -6552,7 +7043,9 @@ extension MobileApiAdmin on MobileApi {
         );
       }
       final record = AdminApparatusQueuePolicy(
-        apparatus: normalized,
+        apparatusId: normalized,
+        apparatus: apparatus.name,
+        sourceRevision: expectedRevision + 1,
         policy: locked ? ApparatusQueuePolicy.strictSequence : policy,
         locked: locked,
         reason: locked ? 'pechat_always_strict' : '',
@@ -6560,14 +7053,15 @@ extension MobileApiAdmin on MobileApi {
       _testModeApparatusQueuePolicies[normalized] = record;
       return record;
     }
+    final idempotencyKey = _nextCanonicalMutationIdempotencyKey('queue-policy');
     final response = await _sendAuthorized(
       () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/queue-policies'),
-        headers: _headers(requireToken())
-          ..['Content-Type'] = 'application/json',
+        headers: _canonicalMutationHeaders(requireToken(), idempotencyKey),
         body: jsonEncode({
-          'apparatus': normalized,
-          'policy': policy.apiValue,
+          'apparatus_id': normalized,
+          'expected_revision': expectedRevision,
+          'discipline': policy.apiValue,
         }),
       ),
     );
@@ -6575,14 +7069,27 @@ extension MobileApiAdmin on MobileApi {
       throw _adminProductionMapException(response, 'queue_policies');
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
-    final raw = payload['policy'];
-    if (raw is! Map) {
+    final committed = payload['revision'];
+    if (committed is! Map || committed['revision'] is! Map) {
       throw const MobileApiException(
         code: 'queue_policies_invalid_response',
         message: 'Aparat navbat qoidasi javobi noto‘g‘ri',
       );
     }
-    return AdminApparatusQueuePolicy.fromJson(raw.cast<String, dynamic>());
+    final revision = (committed['revision'] as Map).cast<String, dynamic>();
+    final metadata = revision['revision_metadata'];
+    final policies = revision['policies'];
+    return AdminApparatusQueuePolicy(
+      apparatusId: revision['apparatus_id']?.toString().trim() ?? normalized,
+      apparatus: '',
+      sourceRevision: metadata is Map
+          ? (metadata['revision'] as num?)?.toInt() ?? expectedRevision + 1
+          : expectedRevision + 1,
+      sourceAasxSha256: committed['aasx_sha256']?.toString().trim() ?? '',
+      policy: ApparatusQueuePolicy.fromRaw(
+        policies is Map ? policies['queue'] : null,
+      ),
+    );
   }
 
   Future<AdminApparatusCapacitySnapshot>
@@ -6611,50 +7118,81 @@ extension MobileApiAdmin on MobileApi {
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
     final raw = payload['capacity'];
-    if (raw is! Map) {
+    if (raw is! List) {
       throw const MobileApiException(
         code: 'apparatus_capacity_invalid_response',
         message: 'Aparat quvvati olinmadi',
       );
     }
-    return AdminApparatusCapacitySnapshot.fromJson(
-      raw.cast<String, dynamic>(),
+    return AdminApparatusCapacitySnapshot(
+      profiles: [
+        for (final item in raw)
+          if (item is Map)
+            AdminApparatusCapacityProfile.fromJson(
+              item.cast<String, dynamic>(),
+            ),
+      ],
     );
   }
 
   Future<AdminApparatusCapacityProfile> adminSaveApparatusCapacityProfile(
     AdminApparatusCapacityProfile profile,
   ) async {
+    _requireCanonicalApparatusId(profile.apparatusId);
     if (await TestModeController.instance.isEnabled()) {
       final normalized = _normalizeTestModeCapacityProfile(profile);
       _testModeApparatusCapacityProfiles[normalized.apparatusId] = normalized;
       return normalized;
     }
+    final idempotencyKey = _nextCanonicalMutationIdempotencyKey('capacity');
     final response = await _sendAuthorized(
       () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/capacity'),
-        headers: _headers(requireToken())
-          ..['Content-Type'] = 'application/json',
-        body: jsonEncode(profile.toJson()),
+        headers: _canonicalMutationHeaders(requireToken(), idempotencyKey),
+        body: jsonEncode({
+          'apparatus_id': profile.apparatusId.trim(),
+          'expected_revision': profile.sourceRevision,
+          'capacity': profile.toCanonicalCapacityJson(),
+        }),
       ),
     );
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'apparatus_capacity');
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
-    final raw = payload['profile'];
-    if (raw is! Map) {
+    final committed = payload['revision'];
+    if (committed is! Map || committed['revision'] is! Map) {
       throw const MobileApiException(
         code: 'apparatus_capacity_invalid_response',
         message: 'Aparat profili saqlanmadi',
       );
     }
-    return AdminApparatusCapacityProfile.fromJson(raw.cast<String, dynamic>());
+    final revision = (committed['revision'] as Map).cast<String, dynamic>();
+    final metadata = revision['revision_metadata'];
+    final capacity = revision['capacity'];
+    if (capacity is! Map) {
+      throw const MobileApiException(
+        code: 'apparatus_capacity_invalid_response',
+        message: 'Aparat profili saqlanmadi',
+      );
+    }
+    final availability = capacity['availability'];
+    final availabilityMap =
+        availability is Map ? availability.cast<String, dynamic>() : const {};
+    return AdminApparatusCapacityProfile.fromJson({
+      'apparatus_id': revision['apparatus_id'],
+      'apparatus': profile.apparatus,
+      'source_revision': metadata is Map ? metadata['revision'] : 0,
+      'source_aasx_sha256': committed['aasx_sha256'],
+      ...capacity.cast<String, dynamic>(),
+      'working_windows': availabilityMap['working_windows'] ?? const [],
+    });
   }
 
   Future<AdminApparatusDowntime> adminSaveApparatusDowntime(
     AdminApparatusDowntime downtime,
   ) async {
+    _requireCanonicalApparatusId(downtime.apparatusId);
     if (await TestModeController.instance.isEnabled()) {
       final normalized = downtime.id.trim().isEmpty
           ? AdminApparatusDowntime(
@@ -6673,9 +7211,7 @@ extension MobileApiAdmin on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _post(
-        Uri.parse(
-          '$baseUrl/v1/mobile/admin/production-maps/capacity/downtime',
-        ),
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/capacity/downtime'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode(downtime.toJson()),
@@ -6709,13 +7245,17 @@ extension MobileApiAdmin on MobileApi {
     List<AdminApparatusCapabilityRequirement> capabilityRequirements = const [],
     List<AdminApparatusScheduleCandidate> candidateApparatuses = const [],
   }) async {
+    final normalizedApparatusId = _requireCanonicalApparatusId(apparatusId);
+    for (final candidate in candidateApparatuses) {
+      _requireCanonicalApparatusId(candidate.apparatusId);
+    }
     final key = idempotencyKey.trim().isEmpty
         ? 'mobile-schedule:${orderId.trim()}:${DateTime.now().microsecondsSinceEpoch}'
         : idempotencyKey.trim();
     if (await TestModeController.instance.isEnabled()) {
       return _testModeScheduleApparatusOrder(
         orderId: orderId,
-        apparatusId: apparatusId,
+        apparatusId: normalizedApparatusId,
         apparatus: apparatus,
         earliestStartUnix: earliestStartUnix,
         latestEndUnix: latestEndUnix,
@@ -6735,7 +7275,7 @@ extension MobileApiAdmin on MobileApi {
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
           'order_id': orderId.trim(),
-          'apparatus_id': apparatusId.trim(),
+          'apparatus_id': normalizedApparatusId,
           'apparatus': apparatus.trim(),
           'earliest_start_unix': earliestStartUnix,
           'latest_end_unix': latestEndUnix,
@@ -6814,9 +7354,7 @@ extension MobileApiAdmin on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _post(
-        Uri.parse(
-          '$baseUrl/v1/mobile/admin/production-maps/schedule/cancel',
-        ),
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/schedule/cancel'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
@@ -6855,8 +7393,9 @@ extension MobileApiAdmin on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       return;
     }
-    await for (final event
-        in connectWarehouseLive(adminProductionMapLiveUri())) {
+    await for (final event in connectWarehouseLive(
+      adminProductionMapLiveUri(),
+    )) {
       if (event['ok'] == true) {
         yield AdminProductionMapLiveSnapshot.fromJson(event);
         continue;
@@ -6895,53 +7434,106 @@ extension MobileApiAdmin on MobileApi {
   }
 
   Future<AdminRawMaterialRule> adminSaveRawMaterialRule({
-    required String apparatus,
+    required AdminApparatus apparatus,
+    required AdminRawMaterialRule currentRule,
     bool requiresMaterial = false,
     AdminRawMaterialStartPolicy startPolicy =
         AdminRawMaterialStartPolicy.stateAll,
     required List<String> itemGroups,
     List<AdminRawMaterialRequirementGroup> requirementGroups = const [],
   }) async {
-    final normalizedApparatus = apparatus.trim();
+    final apparatusId = apparatus.id.trim();
+    if (apparatusId.isEmpty || currentRule.apparatusId != apparatusId) {
+      throw const MobileApiException(
+        code: 'canonical_apparatus_identity_required',
+        message: 'Aparatning canonical ID ma’lumoti mos emas',
+      );
+    }
+    if (currentRule.sourceRevision < 1) {
+      throw const MobileApiException(
+        code: 'canonical_apparatus_revision_required',
+        message: 'Aparat revision ma’lumoti topilmadi. Qayta yuklang.',
+      );
+    }
     final normalizedGroups = itemGroups
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)
-        .toList(growable: false);
-    final normalizedRequirementGroups = requirementGroups
-        .map((item) => item.toJson())
-        .where((item) => (item['item_groups'] as List).isNotEmpty)
-        .toList(growable: false);
-    if (await TestModeController.instance.isEnabled()) {
-      final rule = AdminRawMaterialRule(
-        apparatus: normalizedApparatus,
-        requiresMaterial: requiresMaterial,
-        startPolicy: startPolicy,
-        itemGroups: normalizedGroups,
-        requirementGroups: requirementGroups,
+        .toSet()
+        .toList()
+      ..sort();
+    final normalizedRequirementGroups = [
+      for (final item in requirementGroups)
+        AdminRawMaterialRequirementGroup(
+          name: item.name.trim(),
+          itemGroups: item.itemGroups
+              .map((group) => group.trim())
+              .where((group) => group.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort(),
+          minRequiredCount: item.minRequiredCount,
+        ),
+    ]
+      ..removeWhere(
+        (item) => item.name.isEmpty || item.itemGroups.isEmpty,
+      )
+      ..sort((left, right) => left.name.compareTo(right.name));
+    if (requiresMaterial &&
+        (normalizedGroups.isEmpty ||
+            (startPolicy == AdminRawMaterialStartPolicy.requirementGroups &&
+                (normalizedRequirementGroups.isEmpty ||
+                    normalizedRequirementGroups.any(
+                      (group) =>
+                          group.minRequiredCount < 1 ||
+                          group.minRequiredCount > group.itemGroups.length,
+                    ))))) {
+      throw const MobileApiException(
+        code: 'raw_material_policy_required',
+        message: 'Canonical homashyo talabi to‘liq kiritilmadi',
       );
-      _testModeRawMaterialRules[normalizedApparatus] = rule;
+    }
+    final pendingRule = currentRule.copyWith(
+      apparatus: apparatus.name.trim(),
+      requiresMaterial: requiresMaterial,
+      startPolicy: startPolicy,
+      itemGroups: normalizedGroups,
+      requirementGroups: normalizedRequirementGroups,
+    );
+    if (await TestModeController.instance.isEnabled()) {
+      final rule = pendingRule.copyWith(
+        sourceRevision: currentRule.sourceRevision + 1,
+      );
+      _testModeRawMaterialRules[apparatusId] = rule;
       return rule;
     }
+    final idempotencyKey =
+        _nextCanonicalMutationIdempotencyKey('material-policy');
     final response = await _sendAuthorized(
       () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/raw-material-rules'),
-        headers: _headers(requireToken())
-          ..['Content-Type'] = 'application/json',
+        headers: _canonicalMutationHeaders(requireToken(), idempotencyKey),
         body: jsonEncode({
-          'apparatus': normalizedApparatus,
-          'requires_material': requiresMaterial,
-          'start_policy': startPolicy.apiValue,
-          'item_groups': normalizedGroups,
-          'requirement_groups': normalizedRequirementGroups,
+          'apparatus_id': apparatusId,
+          'expected_revision': currentRule.sourceRevision,
+          'material': pendingRule.materialPolicyJson(),
+          'tooling': currentRule.toolingPolicyJson(),
         }),
       ),
     );
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'raw_material_rules');
     }
-    return AdminRawMaterialRule.fromJson(
+    final saved = AdminRawMaterialRule.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
+    if (saved.apparatusId != apparatusId ||
+        saved.sourceRevision <= currentRule.sourceRevision) {
+      throw const MobileApiException(
+        code: 'raw_material_rule_commit_mismatch',
+        message: 'Backend canonical material revisionni tasdiqlamadi',
+      );
+    }
+    return saved.copyWith(apparatus: apparatus.name.trim());
   }
 
   Future<AdminRawMaterialStartRequirements> adminRawMaterialStartRequirements({
@@ -6950,29 +7542,21 @@ extension MobileApiAdmin on MobileApi {
     List<String> materialBarcodes = const [],
   }) async {
     final normalizedOrderId = orderId.trim();
-    final normalizedApparatus = apparatus.trim();
+    final normalizedApparatus = _requireCanonicalApparatusId(apparatus);
     if (await TestModeController.instance.isEnabled()) {
       AdminRawMaterialRule? rule;
       for (final candidate in _testModeRawMaterialRules.values) {
-        if (productionMapWarehouseTitlesMatch(
-          candidate.apparatus,
-          normalizedApparatus,
-        )) {
+        if (candidate.apparatusId.trim() == normalizedApparatus) {
           rule = candidate;
           break;
         }
       }
       final orderAssignments = _testModeRawMaterialAssignments
-          .where(
-            (assignment) => assignment.orderId.trim() == normalizedOrderId,
-          )
+          .where((assignment) => assignment.orderId.trim() == normalizedOrderId)
           .toList(growable: false);
       final assignments = orderAssignments
           .where(
-            (assignment) => productionMapWarehouseTitlesMatch(
-              assignment.apparatus,
-              normalizedApparatus,
-            ),
+            (assignment) => assignment.apparatus.trim() == normalizedApparatus,
           )
           .toList(growable: false);
       final assignedBarcodes = {
@@ -6996,10 +7580,7 @@ extension MobileApiAdmin on MobileApi {
         );
         if (locations.any(
           (location) => location.apparatus.any(
-            (linked) => productionMapWarehouseTitlesMatch(
-              linked.name,
-              normalizedApparatus,
-            ),
+            (linked) => linked.id.trim() == normalizedApparatus,
           ),
         )) {
           stagedBarcodes.add(barcode);
@@ -7031,21 +7612,23 @@ extension MobileApiAdmin on MobileApi {
             ),
           )
           .toList(growable: false);
-      final requiredScanCount = policy == AdminRawMaterialStartPolicy.stateAll
-          ? stagedBarcodes.length
-          : requirementGroups.fold<int>(
-              0,
-              (total, group) =>
-                  total +
-                  (group.minRequiredCount < 1 ? 1 : group.minRequiredCount),
-            );
-      final matchedScanCount = policy == AdminRawMaterialStartPolicy.stateAll
-          ? scannedBarcodes.intersection(stagedBarcodes).length
-          : _testModeMatchedRawMaterialRequirementCount(
-              requirementGroups: requirementGroups,
-              assignments: assignments,
-              barcodes: scannedBarcodes,
-            );
+      final policyRequiredScanCount =
+          policy == AdminRawMaterialStartPolicy.stateAll
+              ? stagedBarcodes.length
+              : requirementGroups.fold<int>(
+                  0,
+                  (total, group) =>
+                      total +
+                      (group.minRequiredCount < 1 ? 1 : group.minRequiredCount),
+                );
+      final policyMatchedScanCount =
+          policy == AdminRawMaterialStartPolicy.stateAll
+              ? scannedBarcodes.intersection(stagedBarcodes).length
+              : _testModeMatchedRawMaterialRequirementCount(
+                  requirementGroups: requirementGroups,
+                  assignments: assignments,
+                  barcodes: scannedBarcodes,
+                );
       final assignedMatchedCount = _testModeMatchedRawMaterialRequirementCount(
         requirementGroups: requirementGroups,
         assignments: assignments,
@@ -7056,15 +7639,15 @@ extension MobileApiAdmin on MobileApi {
           ? !requiresMaterial
           : !requiresMaterial ||
               policy != AdminRawMaterialStartPolicy.requirementGroups ||
-              assignedMatchedCount == requiredScanCount;
-      final scanSatisfied = assignments.isEmpty
-          ? !requiresMaterial
-          : scannedBarcodes.isNotEmpty &&
+              assignedMatchedCount == policyRequiredScanCount;
+      final scanSatisfied = assignments.isEmpty && !requiresMaterial ||
+          assignments.isNotEmpty &&
+              scannedBarcodes.isNotEmpty &&
               assignedBarcodes.containsAll(scannedBarcodes) &&
               (policy == AdminRawMaterialStartPolicy.stateAll
                   ? setEquals(scannedBarcodes, stagedBarcodes)
-                  : requiredScanCount > 0 &&
-                      matchedScanCount == requiredScanCount);
+                  : policyRequiredScanCount > 0 &&
+                      policyMatchedScanCount == policyRequiredScanCount);
       return AdminRawMaterialStartRequirements(
         policy: policy,
         requiresMaterial: requiresMaterial,
@@ -7073,8 +7656,8 @@ extension MobileApiAdmin on MobileApi {
         stagedBarcodes: stagedBarcodes.toList(growable: false),
         assignments: orderAssignments,
         startAssignments: eligibleAssignments,
-        requiredScanCount: requiredScanCount,
-        matchedScanCount: matchedScanCount,
+        requiredScanCount: policyRequiredScanCount,
+        matchedScanCount: policyMatchedScanCount,
         assignmentsSatisfied: assignmentsSatisfied,
         scanSatisfied: scanSatisfied,
       );
@@ -7109,17 +7692,18 @@ extension MobileApiAdmin on MobileApi {
     String orderId = '',
     String apparatus = '',
   }) async {
+    final normalizedApparatus = _requireCanonicalApparatusId(
+      apparatus,
+      allowEmpty: true,
+    );
     if (await TestModeController.instance.isEnabled()) {
       return List<AdminRawMaterialAssignment>.unmodifiable(
         _testModeRawMaterialAssignments.where(
           (assignment) =>
               (orderId.trim().isEmpty ||
                   assignment.orderId.trim() == orderId.trim()) &&
-              (apparatus.trim().isEmpty ||
-                  productionMapWarehouseTitlesMatch(
-                    assignment.apparatus,
-                    apparatus,
-                  )),
+              (normalizedApparatus.isEmpty ||
+                  assignment.apparatus.trim() == normalizedApparatus),
         ),
       );
     }
@@ -7128,7 +7712,8 @@ extension MobileApiAdmin on MobileApi {
         Uri.parse('$baseUrl/v1/mobile/admin/raw-material-assignments').replace(
           queryParameters: {
             if (orderId.trim().isNotEmpty) 'order_id': orderId.trim(),
-            if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
+            if (normalizedApparatus.isNotEmpty)
+              'apparatus': normalizedApparatus,
           },
         ),
         headers: _headers(requireToken()),
@@ -7140,9 +7725,8 @@ extension MobileApiAdmin on MobileApi {
     final json = await decodeJsonListPayload(response.body);
     return json
         .map(
-          (item) => AdminRawMaterialAssignment.fromJson(
-            item as Map<String, dynamic>,
-          ),
+          (item) =>
+              AdminRawMaterialAssignment.fromJson(item as Map<String, dynamic>),
         )
         .toList();
   }
@@ -7157,9 +7741,7 @@ extension MobileApiAdmin on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _get(
-        Uri.parse(
-          '$baseUrl/v1/mobile/admin/raw-material-assignments/orders',
-        ),
+        Uri.parse('$baseUrl/v1/mobile/admin/raw-material-assignments/orders'),
         headers: _headers(requireToken()),
       ),
     );
@@ -7172,9 +7754,7 @@ extension MobileApiAdmin on MobileApi {
     final json = await decodeJsonListPayload(response.body);
     return json
         .map(
-          (item) => ProductionMapSaved.fromJson(
-            item as Map<String, dynamic>,
-          ),
+          (item) => ProductionMapSaved.fromJson(item as Map<String, dynamic>),
         )
         .toList();
   }
@@ -7185,7 +7765,10 @@ extension MobileApiAdmin on MobileApi {
     String apparatus = '',
   }) async {
     final normalizedOrderId = orderId.trim();
-    final normalizedApparatus = apparatus.trim();
+    final normalizedApparatus = _requireCanonicalApparatusId(
+      apparatus,
+      allowEmpty: true,
+    );
     if (await TestModeController.instance.isEnabled()) {
       final profile = AppSession.instance.profile;
       final assignedApparatus = profile?.role == UserRole.materialTaminotchi
@@ -7194,10 +7777,7 @@ extension MobileApiAdmin on MobileApi {
       if (assignedApparatus != null &&
           normalizedApparatus.isNotEmpty &&
           !assignedApparatus.any(
-            (assigned) => productionMapWarehouseTitlesMatch(
-              assigned,
-              normalizedApparatus,
-            ),
+            (assigned) => assigned.trim() == normalizedApparatus,
           )) {
         throw const MobileApiException(
           code: 'apparatus_not_assigned',
@@ -7228,25 +7808,19 @@ extension MobileApiAdmin on MobileApi {
                     item.itemGroup.trim().toLowerCase(),
               ),
             )
-            .map((rule) => rule.apparatus.trim())
+            .map((rule) => rule.apparatusId.trim())
             .where((apparatus) => apparatus.isNotEmpty)
             .where(
               (apparatus) =>
                   assignedApparatus == null ||
                   assignedApparatus.any(
-                    (assigned) => productionMapWarehouseTitlesMatch(
-                      apparatus,
-                      assigned,
-                    ),
+                    (assigned) => assigned.trim() == apparatus,
                   ),
             )
             .where(
               (apparatus) =>
                   normalizedApparatus.isEmpty ||
-                  productionMapWarehouseTitlesMatch(
-                    apparatus,
-                    normalizedApparatus,
-                  ),
+                  apparatus == normalizedApparatus,
             )
             .toSet()
             .toList(growable: false);
@@ -7266,9 +7840,7 @@ extension MobileApiAdmin on MobileApi {
           ),
         );
       }
-      return List<AdminRawMaterialAssignmentCandidate>.unmodifiable(
-        candidates,
-      );
+      return List<AdminRawMaterialAssignmentCandidate>.unmodifiable(candidates);
     }
     final response = await _sendAuthorized(
       () => _get(
@@ -7301,9 +7873,8 @@ extension MobileApiAdmin on MobileApi {
   }
 
   Future<List<AdminRawMaterialAssignmentOrderCandidate>>
-      adminRawMaterialAssignmentCandidateOrders({
-    required String barcode,
-  }) async {
+      adminRawMaterialAssignmentCandidateOrders(
+          {required String barcode}) async {
     final normalizedBarcode = barcode.trim();
     if (await TestModeController.instance.isEnabled()) {
       final assigned = _testModeRawMaterialAssignments.any(
@@ -7365,14 +7936,11 @@ extension MobileApiAdmin on MobileApi {
     required String apparatus,
   }) async {
     final normalizedOrderId = orderId.trim();
-    final normalizedApparatus = apparatus.trim();
+    final normalizedApparatus = _requireCanonicalApparatusId(apparatus);
     if (await TestModeController.instance.isEnabled()) {
       final isActive = _testModeApparatusQueueStates.entries.any(
         (entry) =>
-            productionMapWarehouseTitlesMatch(
-              entry.key,
-              normalizedApparatus,
-            ) &&
+            entry.key.trim() == normalizedApparatus &&
             switch (apparatusQueueOrderStateFromRaw(
               entry.value[normalizedOrderId],
             )) {
@@ -7391,10 +7959,7 @@ extension MobileApiAdmin on MobileApi {
       }
       AdminRawMaterialRule? rule;
       for (final candidate in _testModeRawMaterialRules.values) {
-        if (productionMapWarehouseTitlesMatch(
-          candidate.apparatus,
-          normalizedApparatus,
-        )) {
+        if (candidate.apparatusId.trim() == normalizedApparatus) {
           rule = candidate;
           break;
         }
@@ -7402,10 +7967,7 @@ extension MobileApiAdmin on MobileApi {
       return List<AdminRawMaterialAssignment>.unmodifiable(
         _testModeRawMaterialAssignments.where((assignment) {
           if (assignment.orderId.trim() != normalizedOrderId ||
-              !productionMapWarehouseTitlesMatch(
-                assignment.apparatus,
-                normalizedApparatus,
-              ) ||
+              assignment.apparatus.trim() != normalizedApparatus ||
               !_testModeRawMaterialMatchesRule(assignment, rule)) {
             return false;
           }
@@ -7445,9 +8007,8 @@ extension MobileApiAdmin on MobileApi {
     final json = await decodeJsonListPayload(response.body);
     return json
         .map(
-          (item) => AdminRawMaterialAssignment.fromJson(
-            item as Map<String, dynamic>,
-          ),
+          (item) =>
+              AdminRawMaterialAssignment.fromJson(item as Map<String, dynamic>),
         )
         .toList();
   }
@@ -7496,10 +8057,14 @@ extension MobileApiAdmin on MobileApi {
     required String barcode,
     String apparatus = '',
   }) async {
+    final normalizedApparatus = _requireCanonicalApparatusId(
+      apparatus,
+      allowEmpty: true,
+    );
     final body = {
       'order_id': orderId.trim(),
       'barcode': barcode.trim(),
-      if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
+      if (normalizedApparatus.isNotEmpty) 'apparatus': normalizedApparatus,
     };
     if (await TestModeController.instance.isEnabled()) {
       final assignment = AdminRawMaterialAssignment(
@@ -7558,9 +8123,10 @@ extension MobileApiAdmin on MobileApi {
     required String apparatus,
     required String barcode,
   }) async {
+    final normalizedApparatus = _requireCanonicalApparatusId(apparatus);
     final body = {
       'order_id': orderId.trim(),
-      'apparatus': apparatus.trim(),
+      'apparatus': normalizedApparatus,
       'barcode': barcode.trim(),
     };
     if (await TestModeController.instance.isEnabled()) {
@@ -7571,10 +8137,7 @@ extension MobileApiAdmin on MobileApi {
       if (existingIndex >= 0) {
         final existing = _testModeRawMaterialAssignments[existingIndex];
         if (existing.orderId.trim() != body['order_id'] ||
-            !productionMapWarehouseTitlesMatch(
-              existing.apparatus,
-              body['apparatus']!,
-            )) {
+            existing.apparatus.trim() != body['apparatus']!) {
           throw const MobileApiException(
             code: 'raw_material_already_assigned',
             message: 'Bu homashyo boshqa zakaz uchun band qilingan',
@@ -7582,10 +8145,7 @@ extension MobileApiAdmin on MobileApi {
         }
         final active = _testModeApparatusQueueStates.entries.any(
           (entry) =>
-              productionMapWarehouseTitlesMatch(
-                entry.key,
-                body['apparatus']!,
-              ) &&
+              entry.key.trim() == body['apparatus']! &&
               switch (apparatusQueueOrderStateFromRaw(
                 entry.value[body['order_id']],
               )) {
@@ -7669,10 +8229,7 @@ extension MobileApiAdmin on MobileApi {
     required String orderId,
     required String barcode,
   }) async {
-    final body = {
-      'order_id': orderId.trim(),
-      'barcode': barcode.trim(),
-    };
+    final body = {'order_id': orderId.trim(), 'barcode': barcode.trim()};
     if (await TestModeController.instance.isEnabled()) {
       final normalizedOrderId = body['order_id']!;
       final normalizedBarcode = body['barcode']!.toUpperCase();
@@ -7762,13 +8319,27 @@ extension MobileApiAdmin on MobileApi {
     if (raw is! Map) {
       return const {};
     }
-    return {
-      for (final entry in raw.entries)
-        entry.key.toString(): [
-          if (entry.value is List)
-            for (final id in entry.value as List) id.toString(),
-        ],
-    };
+    final result = <String, List<String>>{};
+    for (final entry in raw.entries) {
+      final apparatusId = entry.key.toString().trim();
+      if (!isCanonicalApparatusId(apparatusId) || entry.value is! List) {
+        throw _productionMapQueueContractException(
+          'sequences contains an invalid apparatus',
+        );
+      }
+      final orderIds = <String>[];
+      for (final rawOrderId in entry.value as List) {
+        final orderId = rawOrderId.toString().trim();
+        if (orderId.isEmpty) {
+          throw _productionMapQueueContractException(
+            'sequences contains an invalid order',
+          );
+        }
+        orderIds.add(orderId);
+      }
+      result[apparatusId] = List<String>.unmodifiable(orderIds);
+    }
+    return Map<String, List<String>>.unmodifiable(result);
   }
 
   Map<String, Map<String, List<String>>> parseNestedSequenceMap(Object? raw) {
@@ -7792,14 +8363,28 @@ extension MobileApiAdmin on MobileApi {
     if (raw is! Map) {
       return const {};
     }
-    return {
-      for (final entry in raw.entries)
-        entry.key.toString(): {
-          if (entry.value is Map)
-            for (final stateEntry in (entry.value as Map).entries)
-              stateEntry.key.toString(): stateEntry.value.toString(),
-        },
-    };
+    final result = <String, Map<String, String>>{};
+    for (final entry in raw.entries) {
+      final apparatusId = entry.key.toString().trim();
+      if (!isCanonicalApparatusId(apparatusId) || entry.value is! Map) {
+        throw _productionMapQueueContractException(
+          'queue_states contains an invalid apparatus',
+        );
+      }
+      final states = <String, String>{};
+      for (final stateEntry in (entry.value as Map).entries) {
+        final orderId = stateEntry.key.toString().trim();
+        final state = stateEntry.value.toString().trim().toLowerCase();
+        if (orderId.isEmpty || !_knownApparatusQueueStates.contains(state)) {
+          throw _productionMapQueueContractException(
+            'queue_states contains an invalid order state',
+          );
+        }
+        states[orderId] = state;
+      }
+      result[apparatusId] = Map<String, String>.unmodifiable(states);
+    }
+    return Map<String, Map<String, String>>.unmodifiable(result);
   }
 
   Map<String, AdminApparatusQueuePolicy> parseApparatusQueuePolicyMap(
@@ -7813,14 +8398,15 @@ extension MobileApiAdmin on MobileApi {
     final policies = <String, AdminApparatusQueuePolicy>{};
     for (final item in values) {
       if (item is! Map) {
-        continue;
+        throw _productionMapQueueContractException(
+          'queue_policies contains an invalid item',
+        );
       }
       final policy = AdminApparatusQueuePolicy.fromJson(
         item.cast<String, dynamic>(),
       );
-      if (policy.apparatus.trim().isNotEmpty) {
-        policies[policy.apparatus.trim()] = policy;
-      }
+      final apparatusId = _requireCanonicalApparatusId(policy.apparatusId);
+      policies[apparatusId] = policy;
     }
     return policies;
   }
@@ -7929,6 +8515,7 @@ extension MobileApiAdmin on MobileApi {
     required String orderId,
     required String qolipCode,
   }) async {
+    final normalizedApparatus = _requireCanonicalApparatusId(apparatus);
     if (await TestModeController.instance.isEnabled()) {
       if (qolipCode.trim().isEmpty) {
         ProductionMapSaved? order;
@@ -7983,13 +8570,11 @@ extension MobileApiAdmin on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _post(
-        Uri.parse(
-          '$baseUrl/v1/mobile/admin/production-maps/qolip-validate',
-        ),
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/qolip-validate'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
-          'apparatus': apparatus.trim(),
+          'apparatus': normalizedApparatus,
           'order_id': orderId.trim(),
           'qolip_code': qolipCode.trim(),
         }),
@@ -8005,9 +8590,7 @@ extension MobileApiAdmin on MobileApi {
         rawQolip.cast<String, dynamic>(),
       );
     }
-    return AdminProductionMapQolipValidation(
-      qolipCode: qolipCode.trim(),
-    );
+    return AdminProductionMapQolipValidation(qolipCode: qolipCode.trim());
   }
 
   Future<AdminQolipOrderNoteDetails> adminProductionMapQolipOrderNoteDetails({
@@ -8101,9 +8684,7 @@ extension MobileApiAdmin on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _get(
-        Uri.parse(
-          '$baseUrl/v1/mobile/admin/production-maps/qolip-order-notes',
-        ),
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/qolip-order-notes'),
         headers: _headers(requireToken()),
       ),
     );
@@ -8212,9 +8793,7 @@ extension MobileApiAdmin on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _post(
-        Uri.parse(
-          '$baseUrl/v1/mobile/admin/production-maps/qolip-order-notes',
-        ),
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/qolip-order-notes'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
@@ -8261,7 +8840,7 @@ extension MobileApiAdmin on MobileApi {
         value != null && value.isFinite && value >= 0;
     bool isPositive(double? value) =>
         value != null && value.isFinite && value > 0;
-    if (!productionMapIsLaminatsiyaApparatus(normalizedApparatus) ||
+    if (!isCanonicalApparatusId(normalizedApparatus) ||
         normalizedOrderId.isEmpty ||
         !isNonNegative(laminationPrintLeftoverRolls) ||
         !isNonNegative(laminationFilmLeftoverRolls) ||
@@ -8275,6 +8854,16 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     if (await TestModeController.instance.isEnabled()) {
+      if (_testModeRequiredApparatus(normalizedApparatus)
+              .operation
+              .trim()
+              .toLowerCase() !=
+          'laminate') {
+        throw const MobileApiException(
+          code: 'laminatsiya_astatka_metrics_required',
+          message: 'Tanlangan aparat laminatsiya apparati emas',
+        );
+      }
       final previous = _testModeLaminatsiyaAstatkaReports
           .where((report) => report.orderId.trim() == normalizedOrderId)
           .fold<AdminLaminatsiyaAstatkaReport?>(null, (current, report) {
@@ -8373,7 +8962,7 @@ extension MobileApiAdmin on MobileApi {
         value != null && value.isFinite && value >= 0;
     bool isPositive(double? value) =>
         value != null && value.isFinite && value > 0;
-    if (!productionMapIsRezkaApparatus(normalizedApparatus) ||
+    if (!isCanonicalApparatusId(normalizedApparatus) ||
         normalizedOrderId.isEmpty ||
         !isNonNegative(totalWaste) ||
         !isNonNegative(rezkaBosmaWaste) ||
@@ -8389,6 +8978,16 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     if (await TestModeController.instance.isEnabled()) {
+      if (_testModeRequiredApparatus(normalizedApparatus)
+              .operation
+              .trim()
+              .toLowerCase() !=
+          'cut') {
+        throw const MobileApiException(
+          code: 'rezka_astatka_metrics_required',
+          message: 'Tanlangan aparat kesish apparati emas',
+        );
+      }
       final previous = _testModeRezkaAstatkaReports
           .where((report) => report.orderId.trim() == normalizedOrderId)
           .fold<AdminRezkaAstatkaReport?>(null, (current, report) {
@@ -8432,9 +9031,7 @@ extension MobileApiAdmin on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _post(
-        Uri.parse(
-          '$baseUrl/v1/mobile/admin/production-maps/rezka-astatka',
-        ),
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/rezka-astatka'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
@@ -8466,9 +9063,7 @@ extension MobileApiAdmin on MobileApi {
         message: 'Rezka astatka javobi noto‘g‘ri',
       );
     }
-    return AdminRezkaAstatkaReport.fromJson(
-      rawReport.cast<String, dynamic>(),
-    );
+    return AdminRezkaAstatkaReport.fromJson(rawReport.cast<String, dynamic>());
   }
 
   Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
@@ -8511,6 +9106,13 @@ extension MobileApiAdmin on MobileApi {
     bool freezeWithIssue = false,
     String issueNote = '',
   }) async {
+    final normalizedApparatusId = apparatus.trim();
+    if (!isCanonicalApparatusId(normalizedApparatusId)) {
+      throw const MobileApiException(
+        code: 'apparatus_id_invalid',
+        message: 'Canonical apparatus ID noto‘g‘ri',
+      );
+    }
     final trimmedIssueNote = issueNote.trim();
     if (freezeWithIssue && trimmedIssueNote.isEmpty) {
       throw const MobileApiException(
@@ -8532,11 +9134,10 @@ extension MobileApiAdmin on MobileApi {
     }
     final issueFreezeRequested = action == 'freeze' && freezeWithIssue;
     if (await TestModeController.instance.isEnabled()) {
-      final knownKeys = {
-        ..._testModeApparatusSequences.keys,
-        ..._testModeApparatusQueueStates.keys,
-      };
-      final storageKey = resolveApparatusStorageKey(apparatus, knownKeys);
+      final canonicalApparatus =
+          _testModeRequiredApparatus(normalizedApparatusId);
+      final operation = canonicalApparatus.operation.trim().toLowerCase();
+      final storageKey = canonicalApparatus.id.trim();
       final sequence = _testModeApparatusSequences[storageKey] ?? const [];
       final states = Map<String, String>.from(
         _testModeApparatusQueueStates[storageKey] ?? const {},
@@ -8587,16 +9188,19 @@ extension MobileApiAdmin on MobileApi {
           (id, _) =>
               _testModeOrderControls[id] == AdminOrderControlState.frozen,
         );
-      final policy =
-          _effectiveTestModeQueuePolicy(apparatus, storageKey).policy;
+      final policy = _effectiveTestModeQueuePolicy(
+        storageKey,
+      ).policy;
       final progressKey =
           qrPayload.trim().isEmpty ? progressBatchId.trim() : qrPayload.trim();
       final startUsesProgressQr = action == 'start' && progressKey.isNotEmpty;
       final startInputBatch = startUsesProgressQr
           ? _testModeProgressBatchForKey(progressKey)
           : null;
-      final queueInputKey =
-          _testModeProgressQueueKey(storageKey, orderId.trim());
+      final queueInputKey = _testModeProgressQueueKey(
+        storageKey,
+        orderId.trim(),
+      );
       final sessionInputBatch = action == 'start'
           ? null
           : _testModeProgressBatchForKey(
@@ -8609,15 +9213,12 @@ extension MobileApiAdmin on MobileApi {
                   ? (_testModeActiveProgressInputByQueue[queueInputKey] ?? '')
                   : progressKey,
             );
-      final isLaminatsiya = productionMapIsLaminatsiyaApparatus(apparatus);
+      final isLaminatsiya = operation == 'laminate';
       final laminatsiyaWipCanReuseMaterial = isLaminatsiya &&
           startInputBatch != null &&
           startInputBatch.wipStatus.trim().toLowerCase() == 'waiting' &&
           (startInputBatch.nextApparatus.trim().isEmpty ||
-              productionMapNextStageTitleMatchesApparatus(
-                startInputBatch.nextApparatus,
-                apparatus,
-              ));
+              startInputBatch.nextApparatus.trim() == storageKey);
       if (!sequence.map((id) => id.trim()).contains(orderId.trim())) {
         throw const MobileApiException(
           code: 'queue_action_not_allowed',
@@ -8638,7 +9239,7 @@ extension MobileApiAdmin on MobileApi {
         }
       }
       final current = apparatusQueueOrderStateFromRaw(states[orderId.trim()]);
-      final isRezka = apparatus.trim().toLowerCase().contains('rezka');
+      final isRezka = operation == 'cut';
       final isPauseOrDetach = action == 'pause' || action == 'detach_roll';
       final isRezkaProgressAction =
           isPauseOrDetach || action == 'roll_complete' || action == 'complete';
@@ -8650,10 +9251,7 @@ extension MobileApiAdmin on MobileApi {
       }
 
       final configuredRezkaKadrCount = isRezka
-          ? _testModeRezkaKadrCount(
-              orderId: orderId,
-              apparatus: apparatus,
-            )
+          ? _testModeRezkaKadrCount(orderId: orderId, apparatus: apparatus)
           : null;
       final hasRezkaFrameIssues = rezkaFrames.any(
         (frame) => (frame['issue_note']?.toString().trim() ?? '').isNotEmpty,
@@ -8721,7 +9319,7 @@ extension MobileApiAdmin on MobileApi {
         _testModeApparatusQueueStates[storageKey] = states;
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
-          apparatus: storageKey,
+          apparatusId: storageKey,
           status: 'frozen',
         );
         _testModeRemoveOrderFromQueueSequence(orderId);
@@ -8735,10 +9333,9 @@ extension MobileApiAdmin on MobileApi {
           orderControl: AdminOrderControlState.frozen,
         );
       }
-      final hasRezkaQuantityMetrics = isPositive(
-            producedQty ?? finishedGoodsMeter,
-          ) &&
-          isPositive(grossQty ?? finishedGoodsKg);
+      final hasRezkaQuantityMetrics =
+          isPositive(producedQty ?? finishedGoodsMeter) &&
+              isPositive(grossQty ?? finishedGoodsKg);
       final hasRezkaDiameter = isPositive(diameter);
       final hasRezkaWaste = [
         totalWaste,
@@ -8793,30 +9390,19 @@ extension MobileApiAdmin on MobileApi {
               ? _testModeTrainingInputBatchGeneratedOrderIds.contains(
                   orderId.trim(),
                 )
-              : _testModeApparatusQueueStates.entries.any(
-                  (entry) {
-                    final state = apparatusQueueOrderStateFromRaw(
-                      entry.value[orderId.trim()],
-                    );
-                    return productionMapWarehouseTitlesMatch(
-                          entry.key,
-                          previousStage,
-                        ) &&
-                        state == ApparatusQueueOrderState.completed;
-                  },
-                ));
+              : _testModeApparatusQueueStates.entries.any((entry) {
+                  final state = apparatusQueueOrderStateFromRaw(
+                    entry.value[orderId.trim()],
+                  );
+                  return entry.key.trim() == previousStage &&
+                      state == ApparatusQueueOrderState.completed;
+                }));
       bool isPreviousStageBatch(AdminProgressBatch batch) {
         if (!hasPreviousStage ||
             batch.orderId.trim() != orderId.trim() ||
-            !productionMapWarehouseTitlesMatch(
-              batch.apparatus,
-              previousStage,
-            ) ||
+            batch.apparatus.trim() != previousStage ||
             (batch.nextApparatus.trim().isNotEmpty &&
-                !productionMapNextStageTitleMatchesApparatus(
-                  batch.nextApparatus,
-                  apparatus,
-                ))) {
+                batch.nextApparatus.trim() != storageKey)) {
           return false;
         }
         final actionName = batch.action.trim().toLowerCase();
@@ -8829,12 +9415,10 @@ extension MobileApiAdmin on MobileApi {
         final wipStatus = batch.wipStatus.trim().toLowerCase();
         return wipStatus == 'waiting' ||
             (wipStatus == 'in_use' &&
-                productionMapWarehouseTitlesMatch(
-                  batch.usedByApparatus.trim().isEmpty
-                      ? batch.currentApparatus
-                      : batch.usedByApparatus,
-                  apparatus,
-                ));
+                (batch.usedByApparatus.trim().isEmpty
+                        ? batch.currentApparatus.trim()
+                        : batch.usedByApparatus.trim()) ==
+                    storageKey);
       }
 
       final hasUnprocessedPreviousWip = (isLaminatsiya || isRezka) &&
@@ -8920,19 +9504,11 @@ extension MobileApiAdmin on MobileApi {
           );
         }
         final inputWipIsUsable = inputWipStatus == 'waiting' ||
-            (inputWipStatus == 'in_use' &&
-                productionMapWarehouseTitlesMatch(
-                  inputUsedByApparatus,
-                  apparatus,
-                ));
+            (inputWipStatus == 'in_use' && inputUsedByApparatus == storageKey);
         if (!inputWipIsUsable ||
-            !productionMapWarehouseTitlesMatch(
-                input.apparatus, previousStage) ||
+            input.apparatus.trim() != previousStage ||
             (inputNextApparatus.isNotEmpty &&
-                !productionMapNextStageTitleMatchesApparatus(
-                  inputNextApparatus,
-                  apparatus,
-                ))) {
+                inputNextApparatus != storageKey)) {
           throw const MobileApiException(
             code: 'progress_batch_not_accepted',
             message: 'Bu QR oldingi bosqich mahsulotiga mos emas',
@@ -8978,15 +9554,9 @@ extension MobileApiAdmin on MobileApi {
                   batchStatus != 'resumed') ||
               (hasPreviousStage &&
                   ((batchWipStatus.isNotEmpty && batchWipStatus != 'waiting') ||
-                      !productionMapWarehouseTitlesMatch(
-                        batch.apparatus,
-                        previousStage,
-                      ) ||
+                      batch.apparatus.trim() != previousStage ||
                       (batchNextApparatus.isNotEmpty &&
-                          !productionMapNextStageTitleMatchesApparatus(
-                            batchNextApparatus,
-                            apparatus,
-                          ))))) {
+                          batchNextApparatus != storageKey)))) {
             throw const MobileApiException(
               code: 'progress_batch_not_accepted',
               message: 'Bu QR oldingi bosqich mahsulotiga mos emas',
@@ -9003,10 +9573,7 @@ extension MobileApiAdmin on MobileApi {
             .where(
               (assignment) =>
                   assignment.orderId.trim() == orderId.trim() &&
-                  productionMapWarehouseTitlesMatch(
-                    assignment.apparatus,
-                    apparatus,
-                  ),
+                  assignment.apparatus.trim() == storageKey,
             )
             .toList(growable: false);
         final requiredBarcodes = {
@@ -9091,8 +9658,7 @@ extension MobileApiAdmin on MobileApi {
           }
         }
         _testModeEnsureApparatusExecutionCapacity(
-          apparatusId: '',
-          apparatus: storageKey,
+          apparatusId: storageKey,
           orderId: orderId,
         );
         states[orderId.trim()] = 'in_progress';
@@ -9105,12 +9671,10 @@ extension MobileApiAdmin on MobileApi {
             index += 1) {
           final assignment = _testModeRawMaterialAssignments[index];
           if (assignment.orderId.trim() == orderId.trim() &&
-              productionMapWarehouseTitlesMatch(
-                assignment.apparatus,
-                apparatus,
-              ) &&
-              scannedBarcodes
-                  .contains(assignment.barcode.trim().toUpperCase())) {
+              assignment.apparatus.trim() == storageKey &&
+              scannedBarcodes.contains(
+                assignment.barcode.trim().toUpperCase(),
+              )) {
             _testModeRawMaterialAssignments[index] = assignment.copyWith(
               stockStatus: 'in_use',
               reservedOrderId: orderId.trim(),
@@ -9207,7 +9771,7 @@ extension MobileApiAdmin on MobileApi {
         states[orderId.trim()] = 'paused';
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
-          apparatus: storageKey,
+          apparatusId: storageKey,
           status: 'paused',
         );
         if (control == AdminOrderControlState.freezeRequested) {
@@ -9250,7 +9814,7 @@ extension MobileApiAdmin on MobileApi {
               freezeSafeStopIssueNote;
           _testModeSyncScheduleReservationStatus(
             orderId: orderId,
-            apparatus: storageKey,
+            apparatusId: storageKey,
             status: 'paused',
           );
           _testModeApparatusQueueStates[storageKey] = states;
@@ -9314,7 +9878,7 @@ extension MobileApiAdmin on MobileApi {
                 : 'paused';
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
-          apparatus: storageKey,
+          apparatusId: storageKey,
           status: 'paused',
         );
         if (control == AdminOrderControlState.freezeRequested) {
@@ -9393,13 +9957,12 @@ extension MobileApiAdmin on MobileApi {
         }
         _testModeActiveProgressInputByQueue.remove(queueInputKey);
         _testModeEnsureApparatusExecutionCapacity(
-          apparatusId: '',
-          apparatus: storageKey,
+          apparatusId: storageKey,
           orderId: orderId,
         );
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
-          apparatus: storageKey,
+          apparatusId: storageKey,
           status: 'active',
         );
         _testModeApparatusQueueStates[storageKey] = states;
@@ -9433,7 +9996,7 @@ extension MobileApiAdmin on MobileApi {
           if (batch == null ||
               (batch.status != 'paused' && batch.status != 'roll_detached') ||
               batch.orderId != orderId.trim() ||
-              !productionMapWarehouseTitlesMatch(batch.apparatus, storageKey)) {
+              batch.apparatus.trim() != storageKey) {
             throw const MobileApiException(
               code: 'progress_batch_not_resumable',
               message: 'Bu progress QR davom ettirishga yaramaydi',
@@ -9443,10 +10006,7 @@ extension MobileApiAdmin on MobileApi {
               .where(
                 (candidate) =>
                     candidate.orderId.trim() == orderId.trim() &&
-                    productionMapWarehouseTitlesMatch(
-                      candidate.apparatus,
-                      storageKey,
-                    ) &&
+                    candidate.apparatus.trim() == storageKey &&
                     (candidate.action.trim().toLowerCase() == 'pause' ||
                         candidate.action.trim().toLowerCase() ==
                             'detach_roll') &&
@@ -9496,8 +10056,7 @@ extension MobileApiAdmin on MobileApi {
               .where(
                 (batch) =>
                     batch.orderId.trim() == orderId.trim() &&
-                    productionMapWarehouseTitlesMatch(
-                        batch.apparatus, storageKey) &&
+                    batch.apparatus.trim() == storageKey &&
                     (batch.action.trim().toLowerCase() == 'pause' ||
                         batch.action.trim().toLowerCase() == 'detach_roll') &&
                     (batch.status.trim().toLowerCase() == 'paused' ||
@@ -9516,23 +10075,23 @@ extension MobileApiAdmin on MobileApi {
           }
         }
         _testModeEnsureApparatusExecutionCapacity(
-          apparatusId: '',
-          apparatus: storageKey,
+          apparatusId: storageKey,
           orderId: orderId,
         );
         states[orderId.trim()] = 'in_progress';
         _testModeRequeuedOrderIds.remove(orderId.trim());
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
-          apparatus: storageKey,
+          apparatusId: storageKey,
           status: 'active',
         );
         _testModeApparatusQueueStates[storageKey] = states;
         return AdminApparatusQueueActionResult(
           states: Map<String, String>.unmodifiable(states),
           progressBatch: resumed,
-          progressBatches:
-              List<AdminProgressBatch>.unmodifiable(resumedBatches),
+          progressBatches: List<AdminProgressBatch>.unmodifiable(
+            resumedBatches,
+          ),
         );
       } else if (action == 'complete') {
         if (current != ApparatusQueueOrderState.inProgress) {
@@ -9620,10 +10179,7 @@ extension MobileApiAdmin on MobileApi {
           );
         }
         final rezkaFrameCount = isRezka
-            ? _testModeRezkaKadrCount(
-                orderId: orderId,
-                apparatus: apparatus,
-              )
+            ? _testModeRezkaKadrCount(orderId: orderId, apparatus: apparatus)
             : null;
         final rezkaFrameIssues = isRezka && rezkaFrameCount != null
             ? _testModeRezkaFrameIssues(
@@ -9732,8 +10288,9 @@ extension MobileApiAdmin on MobileApi {
             returnedPaintImageId.trim().isNotEmpty) {
           final reportId =
               'returned-paint-complete:$completedOrderId:$storageKey';
-          if (!_testModeReturnedPaintRequests
-              .any((request) => request.id == reportId)) {
+          if (!_testModeReturnedPaintRequests.any(
+            (request) => request.id == reportId,
+          )) {
             final map = _testModeProductionMaps
                 .where((item) => item.map.id.trim() == completedOrderId)
                 .cast<ProductionMapSaved?>()
@@ -9785,7 +10342,7 @@ extension MobileApiAdmin on MobileApi {
         }
         _testModeSyncScheduleReservationStatus(
           orderId: completedOrderId,
-          apparatus: storageKey,
+          apparatusId: storageKey,
           status: 'completed',
         );
         final printJobs = _testModeProgressPrintJobs(
@@ -9810,7 +10367,7 @@ extension MobileApiAdmin on MobileApi {
       if (action == 'start') {
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
-          apparatus: storageKey,
+          apparatusId: storageKey,
           status: 'active',
         );
       }
@@ -9990,7 +10547,8 @@ extension MobileApiAdmin on MobileApi {
     final response = await _sendAuthorized(
       () => _post(
         Uri.parse(
-            '$baseUrl/v1/mobile/admin/production-maps/progress-qr/lookup'),
+          '$baseUrl/v1/mobile/admin/production-maps/progress-qr/lookup',
+        ),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({'qr_payload': normalized}),
@@ -10036,9 +10594,7 @@ extension MobileApiAdmin on MobileApi {
       () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/production-maps/progress-qr/history',
-        ).replace(
-          queryParameters: {'limit': boundedLimit.toString()},
-        ),
+        ).replace(queryParameters: {'limit': boundedLimit.toString()}),
         headers: _headers(requireToken()),
       ),
     );
@@ -10186,8 +10742,10 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final boundedPrintCount = printCount.clamp(1, 100).toInt();
-    final normalizedDriverUrl =
-        driverUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    final normalizedDriverUrl = driverUrl.trim().replaceFirst(
+          RegExp(r'/+$'),
+          '',
+        );
     final normalizedPrinter = printer.trim();
     final normalizedPrintMode = printMode.trim();
 
@@ -10305,7 +10863,8 @@ extension MobileApiAdmin on MobileApi {
     final response = await _sendAuthorized(
       () => _post(
         Uri.parse(
-            '$baseUrl/v1/mobile/admin/production-maps/progress-qr/report'),
+          '$baseUrl/v1/mobile/admin/production-maps/progress-qr/report',
+        ),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({'qr_payload': normalized}),
@@ -10322,6 +10881,7 @@ extension MobileApiAdmin on MobileApi {
     required String apparatus,
     required List<String> orderIds,
   }) async {
+    final normalizedApparatus = _requireCanonicalApparatusId(apparatus);
     if (await TestModeController.instance.isEnabled()) {
       if (_testModeForceSequenceSaveFailure) {
         throw const MobileApiException(
@@ -10329,7 +10889,7 @@ extension MobileApiAdmin on MobileApi {
           message: 'Ketma-ketlik saqlanmadi (test)',
         );
       }
-      _testModeApparatusSequences[apparatus.trim()] = List<String>.from(
+      _testModeApparatusSequences[normalizedApparatus] = List<String>.from(
         orderIds,
       );
       return;
@@ -10339,7 +10899,10 @@ extension MobileApiAdmin on MobileApi {
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/sequence'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({'apparatus': apparatus, 'order_ids': orderIds}),
+        body: jsonEncode({
+          'apparatus': normalizedApparatus,
+          'order_ids': orderIds,
+        }),
       ),
     );
     if (response.statusCode != 200) {
@@ -10566,8 +11129,9 @@ extension MobileApiAdmin on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _get(
-        Uri.parse('$baseUrl/v1/mobile/admin/system-users/detail')
-            .replace(queryParameters: {'id': id}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/system-users/detail',
+        ).replace(queryParameters: {'id': id}),
         headers: _headers(requireToken()),
       ),
     );
@@ -10603,8 +11167,9 @@ extension MobileApiAdmin on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _post(
-        Uri.parse('$baseUrl/v1/mobile/admin/system-users/code/regenerate')
-            .replace(queryParameters: {'id': id}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/system-users/code/regenerate',
+        ).replace(queryParameters: {'id': id}),
         headers: _headers(requireToken()),
       ),
     );
@@ -10824,8 +11389,9 @@ extension MobileApiAdmin on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _get(
-        Uri.parse('$baseUrl/v1/mobile/admin/workers/delete-check')
-            .replace(queryParameters: {'id': id}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/workers/delete-check',
+        ).replace(queryParameters: {'id': id}),
         headers: _headers(requireToken()),
       ),
     );
@@ -10935,14 +11501,17 @@ extension MobileApiAdmin on MobileApi {
   }
 
   Future<List<AdminWorkerGroup>> adminWorkerGroups({
-    String apparatus = '',
+    String apparatusId = '',
   }) async {
+    final normalizedApparatusId = _requireCanonicalApparatusId(
+      apparatusId,
+      allowEmpty: true,
+    );
     if (await TestModeController.instance.isEnabled()) {
-      final key = apparatus.trim().toLowerCase();
+      final key = normalizedApparatusId;
       return _testModeWorkerGroups
           .where(
-            (group) =>
-                key.isEmpty || group.apparatus.trim().toLowerCase() == key,
+            (group) => key.isEmpty || group.apparatusId.trim() == key,
           )
           .map(_hydrateTestModeWorkerGroup)
           .toList(growable: false);
@@ -10951,7 +11520,8 @@ extension MobileApiAdmin on MobileApi {
       () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/worker-groups').replace(
           queryParameters: {
-            if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
+            if (normalizedApparatusId.isNotEmpty)
+              'apparatus_id': normalizedApparatusId,
           },
         ),
         headers: _headers(requireToken()),
@@ -10968,14 +11538,19 @@ extension MobileApiAdmin on MobileApi {
 
   Future<AdminWorkerGroup> adminSaveWorkerGroup(
     AdminWorkerGroup group, {
-    String? previousApparatus,
+    String? previousApparatusId,
     String? previousGroupCode,
   }) async {
+    _requireCanonicalApparatusId(group.apparatusId);
+    final validatedPreviousApparatusId = _requireCanonicalApparatusId(
+      previousApparatusId ?? '',
+      allowEmpty: true,
+    );
     if (await TestModeController.instance.isEnabled()) {
       final normalized = _normalizeTestModeWorkerGroup(group);
-      final key = normalized.apparatus.trim().toLowerCase();
+      final key = normalized.apparatusId.trim();
       final code = normalized.groupCode.trim().toUpperCase();
-      final previousKey = previousApparatus?.trim().toLowerCase();
+      final previousKey = previousApparatusId?.trim();
       final previousCode = previousGroupCode == null
           ? null
           : previousGroupCode
@@ -10990,7 +11565,7 @@ extension MobileApiAdmin on MobileApi {
       final previousExists = !hasPreviousIdentity ||
           _testModeWorkerGroups.any(
             (item) =>
-                item.apparatus.trim().toLowerCase() == previousKey &&
+                item.apparatusId.trim() == previousKey &&
                 item.groupCode.trim().toUpperCase() == previousCode,
           );
       if (!previousExists) {
@@ -11001,14 +11576,15 @@ extension MobileApiAdmin on MobileApi {
       }
       final isPreviousGroup = (AdminWorkerGroup item) {
         if (hasPreviousIdentity) {
-          return item.apparatus.trim().toLowerCase() == previousKey &&
+          return item.apparatusId.trim() == previousKey &&
               item.groupCode.trim().toUpperCase() == previousCode;
         }
-        return item.groupCode.trim().toUpperCase() == code;
+        return item.apparatusId.trim() == key &&
+            item.groupCode.trim().toUpperCase() == code;
       };
       final duplicateName = _testModeWorkerGroups.any(
         (item) =>
-            item.apparatus.trim().toLowerCase() == key &&
+            item.apparatusId.trim() == key &&
             item.groupCode.trim().toUpperCase() == code &&
             !isPreviousGroup(item),
       );
@@ -11020,7 +11596,7 @@ extension MobileApiAdmin on MobileApi {
       }
       final duplicate = _testModeWorkerGroups.any(
         (item) =>
-            item.apparatus.trim().toLowerCase() == key &&
+            item.apparatusId.trim() == key &&
             !isPreviousGroup(item) &&
             item.workerIds.any(normalized.workerIds.toSet().contains),
       );
@@ -11030,17 +11606,15 @@ extension MobileApiAdmin on MobileApi {
           message: 'Ishchi boshqa guruhga ulangan',
         );
       }
-      _testModeWorkerGroups.removeWhere(
-        isPreviousGroup,
-      );
+      _testModeWorkerGroups.removeWhere(isPreviousGroup);
       _testModeWorkerGroups.add(normalized);
       return _hydrateTestModeWorkerGroup(normalized);
     }
     final payload = group.toJson();
-    final normalizedPreviousApparatus = previousApparatus?.trim() ?? '';
+    final normalizedPreviousApparatusId = validatedPreviousApparatusId;
     final normalizedPreviousGroupCode = previousGroupCode?.trim() ?? '';
-    if (normalizedPreviousApparatus.isNotEmpty) {
-      payload['previous_apparatus'] = normalizedPreviousApparatus;
+    if (normalizedPreviousApparatusId.isNotEmpty) {
+      payload['previous_apparatus_id'] = normalizedPreviousApparatusId;
     }
     if (normalizedPreviousGroupCode.isNotEmpty) {
       payload['previous_group_code'] = normalizedPreviousGroupCode;
@@ -11062,6 +11636,7 @@ extension MobileApiAdmin on MobileApi {
   }
 
   AdminWorkerGroup _normalizeTestModeWorkerGroup(AdminWorkerGroup group) {
+    final canonical = _testModeRequiredApparatus(group.apparatusId);
     final workerIds = group.workerIds
         .map((id) => id.trim())
         .where((id) => id.isNotEmpty)
@@ -11070,7 +11645,8 @@ extension MobileApiAdmin on MobileApi {
     final groupCode =
         group.groupCode.trim().split(RegExp(r'\s+')).join(' ').toUpperCase();
     return AdminWorkerGroup(
-      apparatus: group.apparatus.trim(),
+      apparatus: canonical.name.trim(),
+      apparatusId: canonical.id.trim(),
       groupCode: groupCode,
       shift: group.shift.trim().isEmpty ? 'kunduz' : group.shift.trim(),
       startTime:
@@ -11097,6 +11673,15 @@ extension MobileApiAdmin on MobileApi {
   Future<AdminRoleAssignment> adminUpsertRoleAssignment(
     AdminRoleAssignment assignment,
   ) async {
+    final invalidApparatusId = assignment.assignedApparatus.any(
+      (item) => !isCanonicalApparatusId(item),
+    );
+    if (invalidApparatusId) {
+      throw const MobileApiException(
+        code: 'apparatus_id_invalid',
+        message: 'Canonical apparatus ID noto‘g‘ri',
+      );
+    }
     if (await TestModeController.instance.isEnabled()) {
       final normalized = AdminRoleAssignment(
         principalRole: assignment.principalRole,
@@ -11104,7 +11689,7 @@ extension MobileApiAdmin on MobileApi {
         roleId: assignment.roleId.trim(),
         assignedApparatus: assignment.assignedApparatus
             .map((item) => item.trim())
-            .where((item) => item.isNotEmpty)
+            .where(isCanonicalApparatusId)
             .toSet()
             .toList(growable: false),
         assignedItemGroups: assignment.assignedItemGroups
@@ -11526,9 +12111,10 @@ extension MobileApiAdmin on MobileApi {
     }
     if (await TestModeController.instance.isEnabled()) {
       _testModeMaterialItemGroups[ref.trim().toLowerCase()] = normalizedGroups;
-      return (await adminMaterialTaminotchiDetail(ref)).copyWith(
-        assignedItemGroups: normalizedGroups,
-      );
+      return (await adminMaterialTaminotchiDetail(
+        ref,
+      ))
+          .copyWith(assignedItemGroups: normalizedGroups);
     }
     final response = await _sendAuthorized(
       () => _put(
@@ -11971,9 +12557,7 @@ ProductionMapDefinition _orderMapWithTemplateRezkaKadrCount(
   }
   var changed = false;
   final nodes = map.nodes.map((node) {
-    if (node.kind == 'apparatus' &&
-        (productionMapIsRezkaApparatus(node.title) ||
-            productionMapIsRezkaApparatus(node.alternativeAssignedTitle))) {
+    if (node.kind == 'apparatus' && _testModeNodeHasOperation(node, 'cut')) {
       if (node.rezkaKadrCount == frameCount) {
         return node;
       }
@@ -12033,25 +12617,23 @@ bool _wipStatusMatchesFilter(String rawStatus, String rawFilter) {
 }
 
 AdminApparatusQueuePolicy _effectiveTestModeQueuePolicy(
-  String apparatus,
-  String storageKey,
+  String apparatusId,
 ) {
-  final title =
-      storageKey.trim().isEmpty ? apparatus.trim() : storageKey.trim();
-  final locked = productionMapIsPechatApparatus(title) ||
-      productionMapIsPechatApparatus(apparatus);
+  final canonical = _testModeRequiredApparatus(apparatusId);
+  final locked = canonical.operation.trim().toLowerCase() == 'print';
   if (locked) {
     return AdminApparatusQueuePolicy(
-      apparatus: title,
+      apparatusId: canonical.id,
+      apparatus: canonical.name,
       policy: ApparatusQueuePolicy.strictSequence,
       locked: true,
       reason: 'pechat_always_strict',
     );
   }
-  return _testModeApparatusQueuePolicies[title] ??
-      _testModeApparatusQueuePolicies[apparatus.trim()] ??
+  return _testModeApparatusQueuePolicies[canonical.id] ??
       AdminApparatusQueuePolicy(
-        apparatus: title,
+        apparatusId: canonical.id,
+        apparatus: canonical.name,
         policy: ApparatusQueuePolicy.strictSequence,
       );
 }
@@ -12068,7 +12650,7 @@ String _testModeQueueHistoryStatus({
   }
   final stageCompleted = _testModeApparatusQueueStates.entries.any(
     (entry) =>
-        productionMapWarehouseTitlesMatch(entry.key, apparatus) &&
+        entry.key.trim() == apparatus.trim() &&
         entry.value[normalizedOrderId]?.trim().toLowerCase() == 'completed',
   );
   return stageCompleted ? 'completed' : 'in_progress';
@@ -12144,16 +12726,10 @@ AdminProgressBatch _testModeProgressBatch({
   final orderMap = _testModeOrderById(orderId)?.map;
   final nextApparatus = orderMap == null
       ? ''
-      : productionMapNextWorkStageStation(
-            map: orderMap,
-            station: apparatus,
-          ) ??
+      : productionMapNextWorkStageStation(map: orderMap, station: apparatus) ??
           '';
   final isFinalOutput = orderMap != null &&
-      productionMapIsFinalWorkStageStation(
-        map: orderMap,
-        station: apparatus,
-      );
+      productionMapIsFinalWorkStageStation(map: orderMap, station: apparatus);
   final orderTitle = orderMap == null
       ? orderId
       : (orderMap.title.trim().isNotEmpty
@@ -12233,9 +12809,9 @@ String _testModeProductionProgressQrPayload(String batchId) {
   final stampHex = (stamp & BigInt.parse('ffffffffffffffff', radix: 16))
       .toRadixString(16)
       .padLeft(16, '0');
-  final hashHex = _testModeProductionProgressQrHash(batchId)
-      .toRadixString(16)
-      .padLeft(4, '0');
+  final hashHex = _testModeProductionProgressQrHash(
+    batchId,
+  ).toRadixString(16).padLeft(4, '0');
   return '4001$stampHex$hashHex'.toUpperCase();
 }
 
@@ -12270,7 +12846,7 @@ String _testModeProgressSanitizeId(String value) {
 }
 
 String _testModeProgressQueueKey(String apparatus, String orderId) =>
-    '${apparatus.trim().toLowerCase()}|${orderId.trim().toLowerCase()}';
+    '${apparatus.trim()}|${orderId.trim()}';
 
 AdminProgressBatch? _testModeProgressBatchForKey(String key) {
   final normalized = key.trim();
@@ -12279,21 +12855,6 @@ AdminProgressBatch? _testModeProgressBatchForKey(String key) {
     if (batch.qrPayload.trim().toLowerCase() == normalized.toLowerCase() ||
         batch.batchId.trim().toLowerCase() == normalized.toLowerCase()) {
       return batch;
-    }
-  }
-  final separator = normalized.indexOf(':');
-  if (separator > 0 &&
-      normalized.substring(0, separator).trim().toUpperCase() ==
-          _legacyTrainingInputQrPrefix.substring(
-            0,
-            _legacyTrainingInputQrPrefix.length - 1,
-          )) {
-    final orderId = normalized.substring(separator + 1).trim().toLowerCase();
-    for (final batch in _testModeProgressBatchesByQr.values) {
-      if (batch.payloadJson['training_input'] == true &&
-          batch.orderId.trim().toLowerCase() == orderId) {
-        return batch;
-      }
     }
   }
   return null;
@@ -12315,8 +12876,7 @@ int? _testModeRezkaKadrCount({
   if (map == null) return null;
   for (final node in map.nodes) {
     if (node.kind == 'apparatus' &&
-        (productionMapIsRezkaApparatus(node.title) ||
-            productionMapIsRezkaApparatus(node.alternativeAssignedTitle)) &&
+        _testModeNodeHasOperation(node, 'cut') &&
         _testModeProductionMapNodeMatchesStation(node, apparatus) &&
         node.rezkaKadrCount != null &&
         node.rezkaKadrCount! > 0) {
@@ -12344,12 +12904,7 @@ bool _testModeProductionMapNodeMatchesStation(
   ProductionMapNode node,
   String station,
 ) {
-  return productionMapWarehouseTitlesMatch(node.title, station) ||
-      (node.alternativeAssignedTitle.trim().isNotEmpty &&
-          productionMapWarehouseTitlesMatch(
-            node.alternativeAssignedTitle,
-            station,
-          ));
+  return _testModeEffectiveNodeApparatusId(node) == station.trim();
 }
 
 AdminProgressBatch _testModeMarkProgressInputProcessed({
@@ -12426,8 +12981,7 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
     for (final node in map.nodes) {
       final value = node.rezkaLabelLength;
       if (node.kind == 'apparatus' &&
-          (productionMapIsRezkaApparatus(node.title) ||
-              productionMapIsRezkaApparatus(node.alternativeAssignedTitle)) &&
+          _testModeNodeHasOperation(node, 'cut') &&
           _testModeProductionMapNodeMatchesStation(node, apparatus) &&
           value != null &&
           value > 0) {
@@ -12534,7 +13088,7 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
     for (var index = 0; index < frameCount; index += 1)
       if (index >= rezkaFrames.length ||
           (rezkaFrames[index]['issue_note']?.toString().trim() ?? '').isEmpty)
-        buildFrame(index)
+        buildFrame(index),
   ];
 }
 

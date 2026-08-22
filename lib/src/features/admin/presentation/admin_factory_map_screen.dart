@@ -10,7 +10,6 @@ import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../shared/models/app_models.dart';
 import '../logic/apparatus_queue_state.dart';
 import '../logic/factory_map_order_filter.dart';
-import '../logic/production_map_chain.dart';
 import '../models/production_map_models.dart';
 import 'admin_factory_map_viewer.dart';
 import 'admin_production_map_orders_screen.dart'
@@ -346,11 +345,11 @@ class _FactoryApparatusLiveSheetState
         MobileApi.instance.adminProductionMaps(),
         MobileApi.instance.adminProductionMapQueueSnapshot(),
         MobileApi.instance.adminRawMaterialAssignments(
-          apparatus: widget.apparatus.name,
+          apparatus: widget.apparatus.id,
         ),
         MobileApi.instance.adminWipBatches(
           status: 'all',
-          apparatus: widget.apparatus.name,
+          apparatus: widget.apparatus.id,
           limit: 250,
         ),
       ]);
@@ -377,19 +376,7 @@ class _FactoryApparatusLiveSheetState
   }
 
   T? _forStation<T>(Map<String, T> values) {
-    final direct = values[widget.apparatus.name.trim()];
-    if (direct != null) {
-      return direct;
-    }
-    for (final entry in values.entries) {
-      if (productionMapStationTitlesMatch(
-        entry.key,
-        widget.apparatus.name,
-      )) {
-        return entry.value;
-      }
-    }
-    return null;
+    return values[widget.apparatus.id.trim()];
   }
 
   List<String> get _orderIds {

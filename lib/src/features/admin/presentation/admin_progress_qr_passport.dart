@@ -155,6 +155,7 @@ class ProgressQrPassport {
 ProgressQrPassport buildProgressQrPassport(
   AdminProgressQrReport report, {
   AppLocalizations? l10n,
+  Map<String, String> apparatusNamesById = const {},
 }) {
   final current = report.currentBatch ?? report.scannedBatch;
   final order = report.order;
@@ -228,6 +229,7 @@ ProgressQrPassport buildProgressQrPassport(
           batch,
           isCurrent: batch.batchId.trim() == current.batchId.trim(),
           l10n: l10n,
+          apparatusNamesById: apparatusNamesById,
         ),
     ],
     corrections: [
@@ -236,10 +238,26 @@ ProgressQrPassport buildProgressQrPassport(
           correction,
           batch: batchesById[correction.batchId.trim()],
           l10n: l10n,
+          apparatusNamesById: apparatusNamesById,
         ),
     ],
-    issues: _passportIssues(report.logs, l10n: l10n),
+    issues: _passportIssues(
+      report.logs,
+      l10n: l10n,
+      apparatusNamesById: apparatusNamesById,
+    ),
   );
+}
+
+String _passportApparatusLabel(
+  String apparatusId,
+  Map<String, String> apparatusNamesById,
+) {
+  final normalized = apparatusId.trim();
+  if (normalized.isEmpty) return '';
+  return apparatusNamesById[normalized]?.trim().isNotEmpty == true
+      ? apparatusNamesById[normalized]!.trim()
+      : normalized;
 }
 
 int _batchTime(AdminProgressBatch batch) {
@@ -253,13 +271,13 @@ ProgressQrPassportStage _passportStage(
   AdminProgressBatch batch, {
   required bool isCurrent,
   AppLocalizations? l10n,
+  required Map<String, String> apparatusNamesById,
 }) {
   final worker = batch.executorName.trim().isNotEmpty
       ? batch.executorName.trim()
       : batch.workerDisplayName.trim();
   final title = batch.apparatus.trim().isNotEmpty
-      ? (l10n?.productionApparatusName(batch.apparatus) ??
-          batch.apparatus.trim())
+      ? _passportApparatusLabel(batch.apparatus, apparatusNamesById)
       : _passportText(l10n, 'worker.qr.passport.production_stage',
           'Ishlab chiqarish bosqichi');
   return ProgressQrPassportStage(
@@ -300,8 +318,10 @@ ProgressQrPassportStage _passportStage(
         ProgressQrPassportLine(
           _passportText(
               l10n, 'worker.wip.info.next_machine', 'Keyingi bosqich'),
-          l10n?.productionApparatusName(batch.nextApparatus) ??
-              batch.nextApparatus.trim(),
+          _passportApparatusLabel(
+            batch.nextApparatus,
+            apparatusNamesById,
+          ),
         ),
       if (batch.description.trim().isNotEmpty)
         ProgressQrPassportLine(
@@ -408,11 +428,11 @@ ProgressQrPassportCorrection _passportCorrection(
   AdminProgressBatchCorrectionRecord correction, {
   required AdminProgressBatch? batch,
   AppLocalizations? l10n,
+  required Map<String, String> apparatusNamesById,
 }) {
   return ProgressQrPassportCorrection(
     stage: batch?.apparatus.trim().isNotEmpty == true
-        ? (l10n?.productionApparatusName(batch!.apparatus) ??
-            batch!.apparatus.trim())
+        ? _passportApparatusLabel(batch!.apparatus, apparatusNamesById)
         : _passportText(
             l10n,
             'worker.qr.passport.production_data',
@@ -479,6 +499,7 @@ List<ProgressQrPassportChange> progressQrCorrectionChanges(
 List<ProgressQrPassportIssue> _passportIssues(
   List<AdminProductionOrderLogEntry> logs, {
   AppLocalizations? l10n,
+  required Map<String, String> apparatusNamesById,
 }) {
   final issues = <ProgressQrPassportIssue>[];
   for (final log in logs) {
@@ -489,8 +510,10 @@ List<ProgressQrPassportIssue> _passportIssues(
       issues.add(
         ProgressQrPassportIssue(
           title: log.apparatus.trim().isNotEmpty
-              ? (l10n?.productionApparatusName(log.apparatus) ??
-                  log.apparatus.trim())
+              ? _passportApparatusLabel(
+                  log.apparatus,
+                  apparatusNamesById,
+                )
               : _passportText(
                   l10n, 'worker.qr.passport.production', 'Ishlab chiqarish'),
           description: log.issueNote.trim(),
@@ -503,7 +526,8 @@ List<ProgressQrPassportIssue> _passportIssues(
       issues.add(
         ProgressQrPassportIssue(
           title:
-              '${l10n?.productionApparatusName(transfer.fromApparatus) ?? transfer.fromApparatus} → ${l10n?.productionApparatusName(transfer.toApparatus) ?? transfer.toApparatus}',
+              '${_passportApparatusLabel(transfer.fromApparatus, apparatusNamesById)} → '
+              '${_passportApparatusLabel(transfer.toApparatus, apparatusNamesById)}',
           description: _humanReason(transfer.reason, l10n: l10n),
           time: time,
         ),

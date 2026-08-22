@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -14,13 +16,15 @@ import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
-import '../../admin/logic/production_map_pechat_rules.dart';
 import '../../admin/presentation/progress_printer_picker.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
+import '../../shared/models/app_models.dart';
 import 'widgets/aparatchi_dock.dart';
 import 'widgets/aparatchi_navigation_drawer.dart';
 
 typedef AparatchiDailyWorkHistoryLoader = Future<List<AdminProgressBatch>>
+    Function();
+typedef AparatchiDailyWorkApparatusLoader = Future<List<AdminApparatus>>
     Function();
 typedef AparatchiDailyWorkCorrectionSaver = Future<AdminProgressBatch> Function(
   AdminProgressBatchCorrectionInput input,
@@ -123,11 +127,13 @@ class AparatchiDailyWorkScreen extends StatefulWidget {
   const AparatchiDailyWorkScreen({
     super.key,
     this.historyLoader,
+    this.apparatusLoader,
     this.correctionSaver,
     this.initialDate,
   });
 
   final AparatchiDailyWorkHistoryLoader? historyLoader;
+  final AparatchiDailyWorkApparatusLoader? apparatusLoader;
   final AparatchiDailyWorkCorrectionSaver? correctionSaver;
   final DateTime? initialDate;
 
@@ -141,12 +147,41 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
   late Future<List<AdminProgressBatch>> _future;
   final Map<String, AdminProgressBatch> _correctedBatches = {};
   final Set<String> _correctingBatchIds = {};
+  List<AdminApparatus> _apparatus = const [];
 
   @override
   void initState() {
     super.initState();
     _selectedDate = _dailyWorkDateOnly(widget.initialDate ?? DateTime.now());
     _future = _loadHistory();
+    unawaited(_loadApparatus());
+  }
+
+  Future<void> _loadApparatus() async {
+    try {
+      final loader = widget.apparatusLoader;
+      final apparatus = loader == null
+          ? await MobileApi.instance.adminApparatus(limit: 300)
+          : await loader();
+      if (mounted) setState(() => _apparatus = apparatus);
+    } catch (_) {
+      // Daily history remains usable; unresolved IDs are never used as names.
+    }
+  }
+
+  AdminApparatus? _canonicalApparatus(String apparatusId) {
+    for (final apparatus in _apparatus) {
+      if (apparatus.id.trim() == apparatusId.trim()) return apparatus;
+    }
+    return null;
+  }
+
+  String _apparatusName(String apparatusId) =>
+      _canonicalApparatus(apparatusId)?.name.trim() ?? '';
+
+  String _apparatusOrLocationName(String value) {
+    final canonicalName = _apparatusName(value);
+    return canonicalName.isEmpty ? _dailyWorkValue(value) : canonicalName;
   }
 
   Future<List<AdminProgressBatch>> _loadHistory() {
@@ -254,12 +289,14 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
           if (batch.apparatus.trim().isNotEmpty)
             RpsQrDetail(
               context.l10n.productionText('worker.detail.kind.machine'),
-              context.l10n.productionApparatusName(batch.apparatus),
+              _apparatusName(batch.apparatus).isEmpty
+                  ? context.l10n.productionText('worker.daily.apparatus.worker')
+                  : _apparatusName(batch.apparatus),
             ),
           if (batch.currentLocation.trim().isNotEmpty)
             RpsQrDetail(
               context.l10n.productionText('worker.wip.info.location'),
-              context.l10n.productionApparatusName(batch.currentLocation),
+              _apparatusOrLocationName(batch.currentLocation),
             ),
         ],
         onReprint: () => _reprintWip(batch),
@@ -290,7 +327,10 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
     final draft = await showDialog<_DailyWorkWipCorrectionDraft>(
       context: context,
       barrierColor: Colors.black54,
-      builder: (_) => _DailyWorkWipEditDialog(batch: batch),
+      builder: (_) => _DailyWorkWipEditDialog(
+        batch: batch,
+        operation: _canonicalApparatus(batch.apparatus)?.operation.trim() ?? '',
+      ),
     );
     if (!mounted || draft == null) {
       return;
@@ -380,6 +420,7 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
     final profile = AppSession.instance.profile;
     final apparatusLabel = _dailyWorkApparatusLabel(
       profile?.assignedApparatus ?? const <String>[],
+      _apparatus,
       context.l10n,
     );
     final workerName = _dailyWorkFirstNotEmpty([
@@ -469,6 +510,7 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
                       onLongPress: _showWip,
                       onEdit: _editWip,
                       isCorrecting: _isCorrecting,
+                      apparatusLabel: _apparatusOrLocationName,
                     ),
                   ),
             ],
@@ -486,12 +528,14 @@ class _DailyWorkOrderGroupCard extends StatefulWidget {
     required this.onLongPress,
     required this.onEdit,
     required this.isCorrecting,
+    required this.apparatusLabel,
   });
 
   final _DailyWorkOrderGroup group;
   final ValueChanged<AdminProgressBatch> onLongPress;
   final ValueChanged<AdminProgressBatch> onEdit;
   final bool Function(AdminProgressBatch) isCorrecting;
+  final String Function(String value) apparatusLabel;
 
   @override
   State<_DailyWorkOrderGroupCard> createState() =>
@@ -616,6 +660,7 @@ class _DailyWorkOrderGroupCardState extends State<_DailyWorkOrderGroupCard> {
                                         )
                                     ? () => widget.onEdit(group.batches[index])
                                     : null,
+                                apparatusLabel: widget.apparatusLabel,
                               ),
                             ),
                         ],
@@ -744,12 +789,14 @@ class _DailyWorkWipCard extends StatefulWidget {
     required this.batch,
     required this.index,
     required this.onLongPress,
+    required this.apparatusLabel,
     this.onEdit,
   });
 
   final AdminProgressBatch batch;
   final int index;
   final VoidCallback onLongPress;
+  final String Function(String value) apparatusLabel;
   final VoidCallback? onEdit;
 
   @override
@@ -879,23 +926,22 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
                             label: context.l10n.productionText(
                               'worker.detail.kind.machine',
                             ),
-                            value: context.l10n.productionApparatusName(
-                              _dailyWorkValue(widget.batch.apparatus),
+                            value: widget.apparatusLabel(
+                              widget.batch.apparatus,
                             ),
                           ),
                           _DailyWorkInfoRow(
                             label: context.l10n.productionText(
                               'worker.wip.info.location',
                             ),
-                            value:
-                                context.l10n.productionApparatusName(current),
+                            value: widget.apparatusLabel(current),
                           ),
                           if (widget.batch.nextApparatus.trim().isNotEmpty)
                             _DailyWorkInfoRow(
                               label: context.l10n.productionText(
                                 'worker.wip.info.next_machine',
                               ),
-                              value: context.l10n.productionApparatusName(
+                              value: widget.apparatusLabel(
                                 widget.batch.nextApparatus,
                               ),
                             ),
@@ -1055,9 +1101,13 @@ class _DailyWorkWipCorrectionDraft {
 }
 
 class _DailyWorkWipEditDialog extends StatefulWidget {
-  const _DailyWorkWipEditDialog({required this.batch});
+  const _DailyWorkWipEditDialog({
+    required this.batch,
+    required this.operation,
+  });
 
   final AdminProgressBatch batch;
+  final String operation;
 
   @override
   State<_DailyWorkWipEditDialog> createState() =>
@@ -1080,10 +1130,10 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
   late final TextEditingController _description;
 
   AdminProgressBatch get _batch => widget.batch;
-  bool get _isPechat => productionMapIsPechatApparatus(_batch.apparatus);
+  bool get _isPechat => widget.operation.trim().toLowerCase() == 'print';
   bool get _isLaminatsiya =>
-      productionMapIsLaminatsiyaApparatus(_batch.apparatus);
-  bool get _isRezka => productionMapIsRezkaApparatus(_batch.apparatus);
+      widget.operation.trim().toLowerCase() == 'laminate';
+  bool get _isRezka => widget.operation.trim().toLowerCase() == 'cut';
   bool get _showStandardWeights => _isPechat || _isLaminatsiya || _isRezka;
   bool get _showTotalWaste => _batch.totalWaste != null;
   bool get _showRezkaWaste =>
@@ -1641,22 +1691,24 @@ String _dailyWorkFirstNotEmpty(Iterable<String> values) {
 
 String _dailyWorkApparatusLabel(
   Iterable<String> assignedApparatus,
+  Iterable<AdminApparatus> catalog,
   AppLocalizations l10n,
 ) {
-  if (assignedApparatus.any(productionMapIsPechatApparatus)) {
+  final assignedIds = assignedApparatus.map((id) => id.trim()).toSet();
+  final assigned = catalog
+      .where((apparatus) => assignedIds.contains(apparatus.id.trim()))
+      .toList(growable: false);
+  if (assigned.any((apparatus) => apparatus.operation == 'print')) {
     return l10n.productionText('worker.daily.apparatus.print');
   }
-  if (assignedApparatus.any(productionMapIsRezkaApparatus)) {
+  if (assigned.any((apparatus) => apparatus.operation == 'cut')) {
     return l10n.productionText('worker.daily.apparatus.cutting');
   }
-  if (assignedApparatus.any(productionMapIsLaminatsiyaApparatus)) {
+  if (assigned.any((apparatus) => apparatus.operation == 'laminate')) {
     return l10n.productionText('worker.daily.apparatus.lamination');
   }
-  for (final apparatus in assignedApparatus) {
-    final label = productionMapWarehouseBaseTitle(apparatus);
-    if (label.trim().isNotEmpty) {
-      return l10n.productionApparatusName(label);
-    }
+  for (final apparatus in assigned) {
+    if (apparatus.name.trim().isNotEmpty) return apparatus.name.trim();
   }
   return l10n.productionText('worker.daily.apparatus.worker');
 }

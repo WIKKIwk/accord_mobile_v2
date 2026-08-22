@@ -1,16 +1,39 @@
 part of 'admin_production_map_orders_screen.dart';
 
+AdminApparatus? _canonicalApparatusForId(
+  Iterable<AdminApparatus> apparatus,
+  String apparatusId,
+) {
+  final normalized = apparatusId.trim();
+  if (!canonicalApparatusIdIsValid(normalized)) return null;
+  for (final item in apparatus) {
+    if (item.id.trim() == normalized) return item;
+  }
+  return null;
+}
+
+String _canonicalNodeOperation(
+  ProductionMapNode node,
+  Iterable<AdminApparatus> apparatus,
+) {
+  if (node.kind != 'apparatus') return '';
+  final assigned = node.alternativeAssignedApparatusId.trim();
+  final apparatusId = assigned.isEmpty ? node.apparatusId.trim() : assigned;
+  return _canonicalApparatusForId(apparatus, apparatusId)
+          ?.operation
+          .trim()
+          .toLowerCase() ??
+      '';
+}
+
 bool _isAlternativeOrderForApparatus(
   ProductionMapSaved order,
   AdminApparatus apparatus,
 ) {
-  if (_isFlexoOrderBlockedForColorPechat(order.map, apparatus)) {
-    return false;
-  }
   return order.map.nodes.any((node) {
     return node.kind == 'apparatus' &&
         node.alternativeGroupId.trim().isNotEmpty &&
-        productionMapWarehouseTitlesMatch(node.title, apparatus.name);
+        node.apparatusId == apparatus.id;
   });
 }
 
@@ -28,10 +51,10 @@ bool _hasUnassignedAlternativeGroupForApparatus(
     if (groupId.isEmpty) {
       continue;
     }
-    if (productionMapWarehouseTitlesMatch(node.title, apparatus.name)) {
+    if (node.apparatusId == apparatus.id) {
       matchingGroups.add(groupId);
     }
-    if (node.alternativeAssignedTitle.trim().isNotEmpty) {
+    if (node.alternativeAssignedApparatusId.trim().isNotEmpty) {
       assignedGroups.add(groupId);
     }
   }
@@ -48,25 +71,14 @@ bool _isUnassignedAlternativeCandidateForApparatus({
   return _hasUnassignedAlternativeGroupForApparatus(order.map, apparatus);
 }
 
-bool _isFlexoOrderBlockedForColorPechat(
-  ProductionMapDefinition map,
-  AdminApparatus apparatus,
-) {
-  return productionMapIsFlexoOrder(map) &&
-      productionMapPechatColorCount(apparatus.name) != null;
-}
-
 String? _assignedAlternativeGroupIdForApparatus(
   ProductionMapDefinition map,
-  String apparatusTitle,
+  AdminApparatus apparatus,
 ) {
   for (final node in map.nodes) {
     if (node.kind == 'apparatus' &&
         node.alternativeGroupId.trim().isNotEmpty &&
-        productionMapWarehouseTitlesMatch(
-          node.alternativeAssignedTitle,
-          apparatusTitle,
-        )) {
+        node.alternativeAssignedApparatusId == apparatus.id) {
       return node.alternativeGroupId.trim();
     }
   }
@@ -78,12 +90,13 @@ List<ProductionMapSaved> _productionMapBaseOrdersForApparatus({
   required AdminApparatus apparatus,
   required Map<String, List<String>> visibleOrderIdsByApparatus,
 }) {
-  final title = apparatus.name.trim();
-  return productionMapOrdersVisibleByBackendIds(
-    orders: orders,
-    visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
-    station: title,
-  );
+  final visibleOrderIds =
+      visibleOrderIdsByApparatus[apparatus.id.trim()] ?? const <String>[];
+  final byId = {for (final order in orders) order.map.id.trim(): order};
+  return [
+    for (final orderId in visibleOrderIds)
+      if (byId.containsKey(orderId.trim())) byId[orderId.trim()]!,
+  ];
 }
 
 List<ProductionMapSaved> _productionMapOrdersForApparatus({
@@ -109,8 +122,10 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
     (order) {
       final orderId = order.map.id.trim();
       final state = apparatusQueueOrderStateFromRaw(states[orderId]);
-      final orderControl =
-          orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
+      final orderControl = adminProductionMapOrderControlFor(
+        orderControlsByOrderId,
+        orderId,
+      );
       return state != ApparatusQueueOrderState.completed &&
           state != ApparatusQueueOrderState.frozen &&
           orderControl != AdminOrderControlState.frozen;
@@ -154,19 +169,8 @@ List<AdminFrozenQueueOrder> _productionMapFrozenOrdersForApparatus({
   required Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus,
   required String query,
 }) {
-  final title = apparatus.name.trim();
-  final matching = <AdminFrozenQueueOrder>[];
-  final seen = <String>{};
-  for (final entry in frozenOrdersByApparatus.entries) {
-    if (!_apparatusTitlesMatch(entry.key, title)) {
-      continue;
-    }
-    for (final frozen in entry.value) {
-      if (seen.add(frozen.orderId.trim())) {
-        matching.add(frozen);
-      }
-    }
-  }
+  final matching = frozenOrdersByApparatus[apparatus.id.trim()] ??
+      const <AdminFrozenQueueOrder>[];
   final normalizedQuery = query.trim().toLowerCase();
   if (normalizedQuery.isEmpty) {
     return matching;

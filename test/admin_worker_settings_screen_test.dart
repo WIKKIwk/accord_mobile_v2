@@ -3,6 +3,7 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_worker_settings_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_top_notice.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -13,6 +14,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
+    dismissAdminTopNotice();
     SharedPreferences.setMockInitialValues({});
     resetMobileApiTestModeWorkerSettingsData();
     await TestModeController.instance.setEnabled(true);
@@ -24,10 +26,12 @@ void main() {
       ref: 'admin',
       phone: '',
       avatarUrl: '',
+      capabilities: ['admin.access'],
     );
   });
 
   tearDown(() async {
+    dismissAdminTopNotice();
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
     await TestModeController.instance.setEnabled(false);
@@ -137,7 +141,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('worker group editor does not assign apparatus', (
+  testWidgets('worker group is owned by the selected canonical apparatus', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 1400));
@@ -167,6 +171,10 @@ void main() {
     await tester
         .tap(find.byKey(const ValueKey('admin-hub-custom-Guruh qo‘shish')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Laminatsiya 1').last);
+    await tester.pumpAndSettle();
     await tester.enterText(
         find.byKey(const Key('worker-group-code-dialog-input')), 'ab');
     await tester.tap(find.text('Saqlash'));
@@ -176,13 +184,12 @@ void main() {
     await tester.tap(find.byIcon(Icons.edit_outlined).last);
     await tester.pumpAndSettle();
 
-    expect(
-        find.byKey(const Key('worker-group-apparatus-picker')), findsNothing);
+    expect(find.textContaining('Laminatsiya 1'), findsWidgets);
     await tester.tap(find.byKey(const Key('worker-group-save')));
     await tester.pumpAndSettle();
 
     final assigned = await MobileApi.instance.adminWorkerGroups(
-      apparatus: 'worker-settings',
+      apparatusId: 'apparatus:default:asset-007',
     );
     expect(assigned.map((group) => group.groupCode), contains('AB'));
     expect(
@@ -237,8 +244,18 @@ void main() {
       (item) => item.principalRef == worker.id,
     );
     expect(assignment.principalRole, UserRole.aparatchi);
-    expect(assignment.assignedApparatus, ['Laminatsiya 1']);
+    expect(assignment.assignedApparatus, ['apparatus:default:asset-007']);
     expect(find.text('Laminatsiya 1'), findsWidgets);
+    expect(find.text('apparatus:default:asset-007'), findsNothing);
+
+    await tester.tap(
+      find.byKey(ValueKey('worker-apparatus-picker-${worker.id}')),
+    );
+    await tester.pumpAndSettle();
+    final selectedTile = tester.widget<CheckboxListTile>(
+      find.widgetWithText(CheckboxListTile, 'Laminatsiya 1'),
+    );
+    expect(selectedTile.value, isTrue);
     await tester.pump(const Duration(seconds: 2));
   });
 
@@ -256,7 +273,7 @@ void main() {
         principalRole: UserRole.aparatchi,
         principalRef: worker.id,
         roleId: 'aparatchi',
-        assignedApparatus: const ['Laminatsiya 1'],
+        assignedApparatus: const ['apparatus:default:asset-007'],
         assignedItemGroups: const [],
       ),
     );
@@ -329,6 +346,8 @@ void main() {
     );
     await tester.tap(find.text('Saqlash'));
     await tester.pumpAndSettle();
+    dismissAdminTopNotice();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('AB guruh'));
     await tester.pumpAndSettle();
@@ -345,6 +364,8 @@ void main() {
     expect(groups.map((group) => group.groupCode), contains('A LAMINATSIYA'));
     expect(groups.map((group) => group.groupCode), isNot(contains('AB')));
     expect(find.text('A LAMINATSIYA guruh'), findsOneWidget);
+    dismissAdminTopNotice();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('worker groups allow custom codes and hide assigned workers', (
@@ -389,6 +410,8 @@ void main() {
     await tester.enterText(
         find.byKey(const Key('worker-group-code-dialog-input')), 'b guruh');
     await tester.tap(find.text('Saqlash'));
+    await tester.pumpAndSettle();
+    dismissAdminTopNotice();
     await tester.pumpAndSettle();
 
     expect(find.text('B GURUH guruh'), findsOneWidget);
@@ -463,8 +486,10 @@ void main() {
     expect(find.byKey(const Key('worker-group-worker-picker')), findsOneWidget);
     expect(find.text('Vali guruhchi'), findsNothing);
     expect(find.text('Soli guruhchi'), findsNothing);
-    expect(find.text('ishchilar guruhlarga taqsimlanib bo‘lingan'),
-        findsOneWidget);
+    expect(
+      find.text('Ishchilar boshqa guruhlarga biriktirilgan'),
+      findsOneWidget,
+    );
     await tester.pump(const Duration(seconds: 2));
   });
 
@@ -598,6 +623,7 @@ void main() {
     await MobileApi.instance.adminSaveWorkerGroup(
       AdminWorkerGroup(
         apparatus: 'Laminatsiya 1',
+        apparatusId: 'apparatus:default:asset-007',
         groupCode: 'AB',
         shift: 'kunduz',
         workerIds: [worker.id],
@@ -632,7 +658,7 @@ void main() {
 
     expect(find.text('Guruhdagi ishchi'), findsNothing);
     final groups = await MobileApi.instance.adminWorkerGroups(
-      apparatus: 'Laminatsiya 1',
+      apparatusId: 'apparatus:default:asset-007',
     );
     expect(groups.single.workerIds, isEmpty);
     await tester.pump(const Duration(seconds: 2));

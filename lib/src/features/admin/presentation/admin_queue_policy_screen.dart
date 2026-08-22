@@ -6,7 +6,6 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
-import '../logic/production_map_pechat_rules.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_navigation_drawer.dart';
@@ -48,11 +47,11 @@ class AdminQueuePolicyPanel extends StatefulWidget {
   const AdminQueuePolicyPanel({
     super.key,
     required this.bottomPadding,
-    this.apparatusName,
+    this.apparatusId,
   });
 
   final double bottomPadding;
-  final String? apparatusName;
+  final String? apparatusId;
 
   @override
   State<AdminQueuePolicyPanel> createState() => _AdminQueuePolicyPanelState();
@@ -132,21 +131,25 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
     AdminApparatus apparatus,
     ApparatusQueuePolicy policy,
   ) async {
-    final title = apparatus.name.trim();
-    if (title.isEmpty || _saving.contains(title)) {
+    final apparatusId = apparatus.id.trim();
+    if (apparatusId.isEmpty || _saving.contains(apparatusId)) {
       return;
     }
-    setState(() => _saving.add(title));
+    final current = _effectivePolicy(apparatus);
+    setState(() => _saving.add(apparatusId));
     try {
       final saved = await MobileApi.instance.adminUpdateApparatusQueuePolicy(
-        apparatus: title,
+        apparatusId: apparatusId,
+        expectedRevision: current.sourceRevision > 0
+            ? current.sourceRevision
+            : apparatus.sourceRevision,
         policy: policy,
       );
       if (!mounted) {
         return;
       }
       setState(() {
-        _policies = {..._policies, saved.apparatus: saved};
+        _policies = {..._policies, saved.apparatusId: saved};
         final data = _data;
         if (data != null) {
           _data = _QueuePolicyData(
@@ -168,33 +171,35 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
       );
     } finally {
       if (mounted) {
-        setState(() => _saving.remove(title));
+        setState(() => _saving.remove(apparatusId));
       }
     }
   }
 
   AdminApparatusQueuePolicy _effectivePolicy(AdminApparatus apparatus) {
-    final title = apparatus.name.trim();
-    final pechatLocked = productionMapIsPechatApparatus(title);
+    final apparatusId = apparatus.id.trim();
+    final direct = _policies[apparatusId];
+    final pechatLocked = apparatus.isPechat;
     if (pechatLocked) {
       return AdminApparatusQueuePolicy(
-        apparatus: title,
+        apparatusId: apparatusId,
+        apparatus: apparatus.name,
+        sourceRevision: direct?.sourceRevision ?? apparatus.sourceRevision,
+        sourceAasxSha256:
+            direct?.sourceAasxSha256 ?? apparatus.sourceAasxSha256,
         policy: ApparatusQueuePolicy.strictSequence,
         locked: true,
         reason: 'pechat_always_strict',
       );
     }
-    final direct = _policies[title];
     if (direct != null) {
       return direct;
     }
-    for (final entry in _policies.entries) {
-      if (productionMapWarehouseTitlesMatch(entry.key, title)) {
-        return entry.value;
-      }
-    }
     return AdminApparatusQueuePolicy(
-      apparatus: title,
+      apparatusId: apparatusId,
+      apparatus: apparatus.name,
+      sourceRevision: apparatus.sourceRevision,
+      sourceAasxSha256: apparatus.sourceAasxSha256,
       policy: ApparatusQueuePolicy.strictSequence,
     );
   }
@@ -212,14 +217,11 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
     if (data == null) {
       return const SizedBox.shrink();
     }
-    final filter = widget.apparatusName?.trim() ?? '';
+    final filter = widget.apparatusId?.trim() ?? '';
     final apparatus = filter.isEmpty
         ? data.apparatus
         : data.apparatus
-            .where((item) => productionMapWarehouseTitlesMatch(
-                  item.name,
-                  filter,
-                ))
+            .where((item) => item.id == filter)
             .toList(growable: false);
     if (apparatus.isEmpty) {
       return ListView(
@@ -230,8 +232,8 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
           widget.bottomPadding,
         ),
         children: [
-          _QueuePolicyIntro(),
-          SizedBox(height: 24),
+          const _QueuePolicyIntro(),
+          const SizedBox(height: 24),
           Center(child: Text(context.l10n.adminText('queue.empty'))),
         ],
       );
@@ -257,9 +259,7 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
                 ),
                 title: apparatus[index].name.trim(),
                 policy: _effectivePolicy(apparatus[index]),
-                saving: _saving.contains(
-                  apparatus[index].name.trim(),
-                ),
+                saving: _saving.contains(apparatus[index].id.trim()),
                 onChanged: _effectivePolicy(apparatus[index]).locked
                     ? null
                     : (value) => _updatePolicy(apparatus[index], value),

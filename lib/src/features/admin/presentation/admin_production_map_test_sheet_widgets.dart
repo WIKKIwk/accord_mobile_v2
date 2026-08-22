@@ -132,7 +132,7 @@ class _ApparatusGroupPickerSheet extends StatelessWidget {
     required this.apparatus,
   });
 
-  final AdminApparatusGroup group;
+  final CanonicalApparatusGroup group;
   final List<AdminApparatus> apparatus;
 
   @override
@@ -152,7 +152,7 @@ class _ApparatusGroupPickerSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    group.name,
+                    canonicalApparatusGroupLabel(group, context.l10n),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),

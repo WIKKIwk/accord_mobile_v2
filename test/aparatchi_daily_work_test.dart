@@ -8,10 +8,42 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const _dailyWorkApparatusCatalog = <AdminApparatus>[
+  AdminApparatus(
+    id: 'apparatus:default:asset-005',
+    name: 'Flexo pechat',
+    operation: 'print',
+    technology: 'flexographic',
+    sourceRevision: 1,
+  ),
+  AdminApparatus(
+    id: 'apparatus:default:asset-007',
+    name: 'Laminatsiya 1',
+    operation: 'laminate',
+    technology: 'adhesive_lamination',
+    sourceRevision: 1,
+  ),
+  AdminApparatus(
+    id: 'apparatus:default:asset-010',
+    name: 'Rezka',
+    operation: 'cut',
+    technology: 'slitting',
+    sourceRevision: 1,
+  ),
+  AdminApparatus(
+    id: 'apparatus:default:bosma_7',
+    name: '7 ta rangli bosma aparat',
+    operation: 'print',
+    technology: 'rotogravure',
+    colorStations: 7,
+    sourceRevision: 1,
+  ),
+];
+
 AdminProgressBatch _batch({
   required String batchId,
   required String orderId,
-  String apparatus = 'Laminatsiya 1',
+  String apparatus = 'apparatus:default:asset-007',
   required DateTime startedAt,
   DateTime? completedAt,
 }) {
@@ -64,26 +96,26 @@ void main() {
       phone: '',
       avatarUrl: '',
       capabilities: ['apparatus.queue.read'],
-      assignedApparatus: ['Rezka 1'],
+      assignedApparatus: ['apparatus:default:asset-010'],
     );
     final day = DateTime(2026, 8, 1);
     final batches = [
       _batch(
         batchId: 'order-group-wip-1',
         orderId: 'order-group',
-        apparatus: 'Rezka 1',
+        apparatus: 'apparatus:default:asset-010',
         startedAt: day.add(const Duration(hours: 8)),
       ),
       _batch(
         batchId: 'order-group-wip-2',
         orderId: 'order-group',
-        apparatus: 'Rezka 1',
+        apparatus: 'apparatus:default:asset-010',
         startedAt: day.add(const Duration(hours: 10)),
       ),
       _batch(
         batchId: 'other-order-wip-1',
         orderId: 'other-order',
-        apparatus: 'Rezka 1',
+        apparatus: 'apparatus:default:asset-010',
         startedAt: day.add(const Duration(hours: 11)),
       ),
     ];
@@ -102,6 +134,7 @@ void main() {
         home: AparatchiDailyWorkScreen(
           initialDate: day,
           historyLoader: () async => batches,
+          apparatusLoader: () async => _dailyWorkApparatusCatalog,
         ),
       ),
     );
@@ -150,13 +183,13 @@ void main() {
         _batch(
           batchId: 'pechat-wip',
           orderId: 'order-pechat',
-          apparatus: '7 ta rangli pechat',
+          apparatus: 'apparatus:default:bosma_7',
           startedAt: day.add(const Duration(hours: 9)),
         ),
         _batch(
           batchId: 'lamination-wip',
           orderId: 'order-lamination',
-          apparatus: 'Laminatsiya 1',
+          apparatus: 'apparatus:default:asset-007',
           startedAt: day.add(const Duration(hours: 10)),
         ),
       ],
@@ -176,7 +209,7 @@ void main() {
         _batch(
           batchId: 'rezka-wip',
           orderId: 'order-rezka',
-          apparatus: 'Rezka 1',
+          apparatus: 'apparatus:default:asset-010',
           startedAt: day.add(const Duration(hours: 9)),
         ),
       ],
@@ -199,13 +232,13 @@ void main() {
       phone: '',
       avatarUrl: '',
       capabilities: ['apparatus.queue.read'],
-      assignedApparatus: ['7 ta rangli pechat'],
+      assignedApparatus: ['apparatus:default:bosma_7'],
     );
     final day = DateTime(2026, 8, 1);
     final batch = AdminProgressBatch.fromJson({
       'batch_id': 'gesture-wip',
       'order_id': 'gesture-order',
-      'apparatus': '7 ta rangli pechat',
+      'apparatus': 'apparatus:default:bosma_7',
       'produced_qty': 454,
       'uom': 'm',
       'qr_payload': 'GESTURE-QR',
@@ -230,6 +263,7 @@ void main() {
         home: AparatchiDailyWorkScreen(
           initialDate: day,
           historyLoader: () async => [batch],
+          apparatusLoader: () async => _dailyWorkApparatusCatalog,
         ),
       ),
     );
@@ -275,14 +309,14 @@ void main() {
       phone: '',
       avatarUrl: '',
       capabilities: ['apparatus.queue.read'],
-      assignedApparatus: ['Rezka 1'],
+      assignedApparatus: ['apparatus:default:asset-010'],
     );
     final day = DateTime(2026, 8, 1);
     final batch = AdminProgressBatch.fromJson({
       'batch_id': 'correction-wip',
       'revision': 3,
       'order_id': 'correction-order',
-      'apparatus': 'Rezka 1',
+      'apparatus': 'apparatus:default:asset-010',
       'produced_qty': 100,
       'uom': 'm',
       'qr_payload': 'CORRECTION-QR',
@@ -314,6 +348,7 @@ void main() {
         home: AparatchiDailyWorkScreen(
           initialDate: day,
           historyLoader: () async => [batch],
+          apparatusLoader: () async => _dailyWorkApparatusCatalog,
           correctionSaver: (input) async {
             submitted = input;
             return AdminProgressBatch.fromJson({
@@ -416,13 +451,13 @@ void main() {
       phone: '',
       avatarUrl: '',
       capabilities: ['apparatus.queue.read'],
-      assignedApparatus: ['Laminatsiya 1'],
+      assignedApparatus: ['apparatus:default:asset-007'],
     );
     final day = DateTime(2026, 8, 1);
     final batch = AdminProgressBatch.fromJson({
       'batch_id': 'locked-wip',
       'order_id': 'locked-order',
-      'apparatus': 'Laminatsiya 1',
+      'apparatus': 'apparatus:default:asset-007',
       'wip_status': 'in_use',
       'qr_payload': 'LOCKED-QR',
       'started_at_unix':
@@ -442,6 +477,7 @@ void main() {
         home: AparatchiDailyWorkScreen(
           initialDate: day,
           historyLoader: () async => [batch],
+          apparatusLoader: () async => _dailyWorkApparatusCatalog,
         ),
       ),
     );

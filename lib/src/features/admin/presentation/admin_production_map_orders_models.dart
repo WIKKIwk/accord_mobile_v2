@@ -173,6 +173,7 @@ class _ReadOnlyOrderDetailUiState {
     required this.showWaitingForSequence,
     required this.contractSynchronized,
     required this.blockingReasonCode,
+    required this.showBackendBlockingState,
   });
 
   final String orderId;
@@ -207,6 +208,7 @@ class _ReadOnlyOrderDetailUiState {
   final bool showWaitingForSequence;
   final bool contractSynchronized;
   final String blockingReasonCode;
+  final bool showBackendBlockingState;
 
   int get scannedCount => materialScannedCount;
 }
@@ -243,6 +245,20 @@ const _moveUnassignedApparatus = _MoveUnassignedApparatus();
 
 bool _isMoveUnassignedApparatus(AdminApparatus? apparatus) {
   return apparatus is _MoveUnassignedApparatus;
+}
+
+bool _sameMoveApparatusIdentity(
+  AdminApparatus? left,
+  AdminApparatus? right,
+) {
+  if (left == null || right == null) return false;
+  if (_isMoveUnassignedApparatus(left) || _isMoveUnassignedApparatus(right)) {
+    return _isMoveUnassignedApparatus(left) &&
+        _isMoveUnassignedApparatus(right);
+  }
+  final leftId = left.id.trim();
+  final rightId = right.id.trim();
+  return leftId.isNotEmpty && rightId.isNotEmpty && leftId == rightId;
 }
 
 enum _OrderCardTone { neutral, inProgress, paused, frozen, issue }

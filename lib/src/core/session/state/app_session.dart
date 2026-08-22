@@ -17,7 +17,15 @@ class AppSession {
   SessionProfile? profile;
   WerkaHomeData? werkaHomeBootstrap;
 
-  bool get isLoggedIn => token != null && profile != null;
+  bool get isLoggedIn {
+    final currentToken = token?.trim();
+    final currentProfile = profile;
+    return currentToken != null &&
+        currentToken.isNotEmpty &&
+        currentProfile != null &&
+        currentProfile.ref.trim().isNotEmpty;
+  }
+
   bool get isTestModeSession => token == 'test-mode-token';
   String get homeRoute {
     if (!isLoggedIn) {
@@ -92,24 +100,7 @@ class AppSession {
     ])) {
       return '/gscale-mode';
     }
-    switch (profile.role) {
-      case UserRole.supplier:
-        return '/supplier-home';
-      case UserRole.werka:
-        return '/werka-home';
-      case UserRole.customer:
-        return '/customer-home';
-      case UserRole.aparatchi:
-        return '/apparatus-queue';
-      case UserRole.qolipchi:
-        return '/qolip';
-      case UserRole.boyoqchi:
-        return '/boyoqchi-home';
-      case UserRole.materialTaminotchi:
-        return '/material-home';
-      case UserRole.admin:
-        return '/admin-home';
-    }
+    return '/';
   }
 
   bool can(String capability) {
@@ -121,16 +112,29 @@ class AppSession {
     final storedToken = prefs.getString(_tokenKey);
     final storedProfile = prefs.getString(_profileKey);
     if (storedToken == null ||
-        storedToken.isEmpty ||
+        storedToken.trim().isEmpty ||
         storedProfile == null ||
         storedProfile.isEmpty) {
+      await clear();
       return;
     }
-    token = storedToken;
-    profile = SessionProfile.fromJson(
-      jsonDecode(storedProfile) as Map<String, dynamic>,
-    );
-    revision.value++;
+    try {
+      final decodedProfile = jsonDecode(storedProfile);
+      if (decodedProfile is! Map) {
+        throw const FormatException('Stored session profile is not an object');
+      }
+      final loadedProfile = SessionProfile.fromJson(
+        Map<String, dynamic>.from(decodedProfile),
+      );
+      if (loadedProfile.ref.trim().isEmpty) {
+        throw const FormatException('Stored session profile has no ref');
+      }
+      token = storedToken.trim();
+      profile = loadedProfile;
+      revision.value++;
+    } on Object {
+      await clear();
+    }
   }
 
   Future<void> setSession({
@@ -139,6 +143,14 @@ class AppSession {
     WerkaHomeData? werkaHomeBootstrap,
     bool forceResetSessionScopedState = false,
   }) async {
+    final normalizedToken = token.trim();
+    if (normalizedToken.isEmpty) {
+      throw ArgumentError.value(token, 'token', 'must not be empty');
+    }
+    if (profile.ref.trim().isEmpty) {
+      throw ArgumentError.value(
+          profile.ref, 'profile.ref', 'must not be empty');
+    }
     final previousProfile = this.profile;
     final previousKey = previousProfile == null
         ? ''
@@ -150,11 +162,11 @@ class AppSession {
         previousProfile: previousProfile,
       );
     }
-    this.token = token;
+    this.token = normalizedToken;
     this.profile = profile;
     this.werkaHomeBootstrap = werkaHomeBootstrap;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
+    await prefs.setString(_tokenKey, normalizedToken);
     await prefs.setString(_profileKey, jsonEncode(profile.toJson()));
     revision.value++;
   }
@@ -174,6 +186,13 @@ class AppSession {
   }
 
   Future<void> updateProfile(SessionProfile nextProfile) async {
+    if (nextProfile.ref.trim().isEmpty) {
+      throw ArgumentError.value(
+        nextProfile.ref,
+        'nextProfile.ref',
+        'must not be empty',
+      );
+    }
     profile = nextProfile;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_profileKey, jsonEncode(nextProfile.toJson()));

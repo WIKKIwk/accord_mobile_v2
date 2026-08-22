@@ -2,6 +2,45 @@ part of '../mobile_api.dart';
 
 final Map<String, AdminItemDetail> _testModeAdminItemDetailOverrides = {};
 final Set<String> _testModeDeletedAdminItemCodes = {};
+int _canonicalApparatusOpaqueCounter = 0;
+
+const Map<String, dynamic> _testModeCanonicalApparatusOptions = {
+  'contract': 'canonical_apparatus_revision',
+  'schema_version': 1,
+  'vocabulary': {
+    'equipment_capabilities': [
+      'print',
+      'laminate',
+      'cut',
+      'package',
+      'glue',
+      'tooling',
+      'virtual_task',
+      'training',
+    ],
+    'execution_operations': ['print', 'laminate', 'cut', 'package', 'glue'],
+    'process_technologies': [
+      'rotogravure',
+      'flexographic',
+      'adhesive_lamination',
+      'extrusion_lamination',
+      'slitting',
+      'bag_making',
+      'cold_glue',
+    ],
+  },
+};
+
+const Set<String> _canonicalApparatusCapabilities = {
+  'print',
+  'laminate',
+  'cut',
+  'package',
+  'glue',
+  'tooling',
+  'virtual_task',
+  'training',
+};
 
 extension MobileApiAdminItems on MobileApi {
   Future<List<String>> adminItemUoms() async {
@@ -257,9 +296,8 @@ extension MobileApiAdminItems on MobileApi {
     final json = await decodeJsonListPayload(response.body);
     return json
         .map(
-          (item) => AdminWarehouseStockItem.fromJson(
-            item as Map<String, dynamic>,
-          ),
+          (item) =>
+              AdminWarehouseStockItem.fromJson(item as Map<String, dynamic>),
         )
         .toList();
   }
@@ -272,28 +310,16 @@ extension MobileApiAdminItems on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       final normalized = query.trim().toLowerCase();
       final normalizedParent = parent.trim().toLowerCase();
-      final includeLegacyApparatus = const {
-        'aparat',
-        'aparat - a',
-        'apparat',
-        'apparat - a',
-      }.contains(normalizedParent);
-      // Mirrors the backend compatibility path used by already released builds.
       final seenWarehouseNames = <String>{};
       return [
         ...TestModeDemoData.warehouses,
         ..._testModeWarehouses,
-        if (includeLegacyApparatus)
-          for (final apparatus in _testModeApparatusCatalog())
-            AdminWarehouse(
-              warehouse: apparatus.name,
-              parentWarehouse: 'aparat - A',
-            ),
       ]
           .where(
             (warehouse) =>
-                !_testModeDeletedWarehouseNames
-                    .contains(warehouse.warehouse.trim().toLowerCase()) &&
+                !_testModeDeletedWarehouseNames.contains(
+                  warehouse.warehouse.trim().toLowerCase(),
+                ) &&
                 (normalized.isEmpty ||
                     warehouse.warehouse.toLowerCase().contains(normalized)) &&
                 (normalizedParent.isEmpty ||
@@ -362,19 +388,19 @@ extension MobileApiAdminItems on MobileApi {
     final apparatus = <AdminApparatus>[];
     for (final item in json) {
       if (item is! Map) {
-        debugPrint('Admin apparatus list skipped a non-object item');
-        continue;
+        throw const MobileApiException(
+          code: 'apparatus_projection_invalid',
+          message: 'Canonical apparat projection noto‘g‘ri',
+        );
       }
       try {
-        final parsed = AdminApparatus.fromJson(
-          item.cast<String, dynamic>(),
+        final parsed = AdminApparatus.fromJson(item.cast<String, dynamic>());
+        apparatus.add(parsed);
+      } on FormatException {
+        throw const MobileApiException(
+          code: 'apparatus_projection_invalid',
+          message: 'Canonical apparat projection noto‘g‘ri',
         );
-        if (parsed.name.trim().isNotEmpty) {
-          apparatus.add(parsed);
-        }
-      } catch (error, stackTrace) {
-        debugPrint('Admin apparatus item skipped: $error');
-        debugPrintStack(stackTrace: stackTrace);
       }
     }
     return apparatus;
@@ -382,7 +408,9 @@ extension MobileApiAdminItems on MobileApi {
 
   Future<AdminApparatusMasterOptions> adminApparatusMasterOptions() async {
     if (await TestModeController.instance.isEnabled()) {
-      return AdminApparatusMasterOptions.fallback();
+      return AdminApparatusMasterOptions.fromJson(
+        _testModeCanonicalApparatusOptions,
+      );
     }
     final response = await _sendAuthorized(
       () => _get(
@@ -407,8 +435,9 @@ extension MobileApiAdminItems on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _get(
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/warehouses/summary')
-            .replace(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/warehouses/summary',
+        ).replace(
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
             if (limit > 0) 'limit': '$limit',
@@ -422,8 +451,10 @@ extension MobileApiAdminItems on MobileApi {
     }
     final json = await decodeJsonListPayload(response.body);
     return json
-        .map((item) =>
-            AdminWarehouseSummary.fromJson(item as Map<String, dynamic>))
+        .map(
+          (item) =>
+              AdminWarehouseSummary.fromJson(item as Map<String, dynamic>),
+        )
         .toList();
   }
 
@@ -444,8 +475,9 @@ extension MobileApiAdminItems on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _get(
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/raw-material-stock')
-            .replace(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/raw-material-stock',
+        ).replace(
           queryParameters: {
             if (warehouse.trim().isNotEmpty) 'warehouse': warehouse.trim(),
             if (limit > 0) 'limit': '$limit',
@@ -459,8 +491,10 @@ extension MobileApiAdminItems on MobileApi {
     }
     final json = await decodeJsonListPayload(response.body);
     return json
-        .map((item) =>
-            AdminRawMaterialStockEntry.fromJson(item as Map<String, dynamic>))
+        .map(
+          (item) =>
+              AdminRawMaterialStockEntry.fromJson(item as Map<String, dynamic>),
+        )
         .toList();
   }
 
@@ -824,7 +858,8 @@ extension MobileApiAdminItems on MobileApi {
     final response = await _sendAuthorized(
       () => _post(
         Uri.parse(
-            '${MobileApi.baseUrl}/v1/mobile/admin/warehouses/assignments'),
+          '${MobileApi.baseUrl}/v1/mobile/admin/warehouses/assignments',
+        ),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
@@ -914,12 +949,36 @@ extension MobileApiAdminItems on MobileApi {
   }) async {
     final name = apparatusName.trim();
     if (name.isEmpty) {
-      throw Exception('Admin apparatus name required');
+      throw const MobileApiException(
+        code: 'apparatus_display_name_required',
+        message: 'Aparat nomi kiritilmadi',
+      );
     }
     final normalizedId = id.trim();
+    if (normalizedId.isNotEmpty && !isCanonicalApparatusId(normalizedId)) {
+      throw const MobileApiException(
+        code: 'apparatus_id_invalid',
+        message: 'Canonical apparatus ID noto‘g‘ri',
+      );
+    }
     final normalizedFactoryMapObjectId = factoryMapObjectId?.trim() ?? '';
     final normalizedFamily = family.trim().toLowerCase();
     final normalizedKind = kind.trim().toLowerCase();
+    final testMode = await TestModeController.instance.isEnabled();
+    var operation = _canonicalOperationForFamily(normalizedFamily);
+    var technology = _canonicalTechnologyForKind(normalizedKind);
+    if (testMode && operation.isEmpty && technology.isEmpty) {
+      operation = 'package';
+      technology = 'bag_making';
+    }
+    if (operation.isEmpty ||
+        technology.isEmpty ||
+        _canonicalOperationForTechnology(technology) != operation) {
+      throw const MobileApiException(
+        code: 'canonical_execution_profile_required',
+        message: 'Aparat turi va texnologiyasi canonical contractga mos emas',
+      );
+    }
     final normalizedProfiles = capabilityProfiles
         .map(
           (profile) => AdminApparatusCapabilityProfile(
@@ -930,64 +989,85 @@ extension MobileApiAdminItems on MobileApi {
             enabled: profile.enabled,
           ),
         )
-        .where((profile) => profile.code.isNotEmpty)
+        .where(
+          (profile) =>
+              profile.enabled &&
+              _canonicalApparatusCapabilities.contains(profile.code),
+        )
         .toList(growable: false);
-    final normalizedCapabilities = {
+    final normalizedCapabilities = <String>{
       ...capabilities
           .map((item) => item.trim().toLowerCase())
-          .where((item) => item.isNotEmpty)
+          .where(_canonicalApparatusCapabilities.contains)
           .toSet(),
-      ...normalizedProfiles.map((profile) => profile.code),
-    }.toList(growable: false);
-    if (await TestModeController.instance.isEnabled()) {
-      final inferred = AdminApparatus.fromJson({'name': name});
-      final existingIndex = _testModeApparatus.indexWhere(
-        (existing) => normalizedId.isNotEmpty
-            ? existing.id == normalizedId
-            : existing.name.toLowerCase() == name.toLowerCase(),
-      );
-      final existing =
-          existingIndex >= 0 ? _testModeApparatus[existingIndex] : null;
+      ...normalizedProfiles
+          .map((profile) => profile.code)
+          .where(_canonicalApparatusCapabilities.contains),
+      operation,
+      if (trainingEnabled == true) 'training',
+    }.toList(growable: false)
+      ..sort();
+    if (testMode) {
+      final existingIndex = normalizedId.isEmpty
+          ? -1
+          : _testModeApparatus.indexWhere(
+              (existing) => existing.id == normalizedId,
+            );
+      final existing = existingIndex >= 0
+          ? _testModeApparatus[existingIndex]
+          : normalizedId.isEmpty
+              ? null
+              : _firstOrNull(
+                  _testModeApparatusCatalog().where(
+                    (apparatus) => apparatus.id == normalizedId,
+                  ),
+                );
       final effectiveTrainingEnabled =
           trainingEnabled ?? existing?.trainingEnabled ?? false;
-      final isDefault = normalizedId.startsWith('apparatus:default:');
       final effectiveProfiles = normalizedProfiles.isEmpty
-          ? (normalizedCapabilities.isEmpty
-              ? inferred.capabilityProfiles
-              : [
-                  for (final capability in normalizedCapabilities)
-                    AdminApparatusCapabilityProfile(code: capability),
-                ])
+          ? [
+              for (final capability in normalizedCapabilities)
+                AdminApparatusCapabilityProfile(code: capability),
+            ]
           : normalizedProfiles;
+      final opaque = _nextCanonicalApparatusOpaqueKey();
       final item = AdminApparatus(
         id: normalizedId.isNotEmpty
             ? normalizedId
-            : existing?.id ?? 'apparatus:${name.toLowerCase()}',
+            : existing?.id ?? 'apparatus:test:$opaque',
         name: name,
-        source: isDefault ? 'default' : existing?.source ?? 'custom',
+        source: 'canonical',
         sortOrder: existing?.sortOrder ?? 10000,
-        family: isDefault
-            ? inferred.family
-            : normalizedFamily.isEmpty
-                ? inferred.family
-                : normalizedFamily,
-        kind: isDefault
-            ? inferred.kind
-            : normalizedKind.isEmpty
-                ? inferred.kind
-                : normalizedKind,
-        capabilities: isDefault
-            ? inferred.capabilities
-            : normalizedCapabilities.isEmpty
-                ? inferred.capabilities
-                : normalizedCapabilities,
-        capabilityProfiles:
-            isDefault ? inferred.capabilityProfiles : effectiveProfiles,
-        colorStations: isDefault
-            ? inferred.colorStations
-            : colorStations ?? inferred.colorStations,
+        family: normalizedFamily,
+        kind: normalizedKind,
+        capabilities: normalizedCapabilities,
+        capabilityProfiles: effectiveProfiles,
+        colorStations: colorStations,
         factoryMapObjectId: normalizedFactoryMapObjectId,
         trainingEnabled: effectiveTrainingEnabled,
+        sourceRevision: (existing?.sourceRevision ?? 0) + 1,
+        sourceAasxSha256: existing?.sourceAasxSha256 ?? '',
+        description: existing?.description ?? '',
+        equipmentClassId: existing?.equipmentClassId ??
+            'equipment-class:mini-rs-erp:$operation:$technology',
+        physicalAssetId:
+            existing?.physicalAssetId ?? 'physical-asset:test:$opaque',
+        enterpriseId: existing?.enterpriseId ?? 'enterprise:accord',
+        siteId: existing?.siteId ?? 'site:main',
+        areaId: existing?.areaId ?? 'area:production',
+        workCenterId: existing?.workCenterId ?? 'work-center:$operation',
+        workUnitId: existing?.workUnitId ?? 'work-unit:test:$opaque',
+        operation: operation,
+        technology: technology,
+        maxWebWidthMm: existing?.maxWebWidthMm,
+        virtualTasks: existing?.virtualTasks ?? 'disabled',
+        capabilityCompatibleReroute:
+            existing?.capabilityCompatibleReroute ?? true,
+        trainingQueueEnabled: effectiveTrainingEnabled &&
+            (existing?.trainingQueueEnabled ?? true),
+        trainingMaterialTrackingEnabled: effectiveTrainingEnabled &&
+            (existing?.trainingMaterialTrackingEnabled ?? true),
+        lifecycleState: existing?.lifecycleState ?? 'active',
       );
       if (existingIndex >= 0) {
         _testModeApparatus[existingIndex] = item;
@@ -995,37 +1075,151 @@ extension MobileApiAdminItems on MobileApi {
         _testModeApparatus.add(item);
       }
       _testModeApparatus.sort(
-        (left, right) => left.name.toLowerCase().compareTo(
-              right.name.toLowerCase(),
-            ),
+        (left, right) =>
+            left.name.toLowerCase().compareTo(right.name.toLowerCase()),
       );
       return item;
     }
-    final response = await _sendAuthorized(
-      () => _post(
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/apparatus'),
-        headers: _headers(requireToken())
-          ..['Content-Type'] = 'application/json',
+    AdminApparatus? current;
+    if (normalizedId.isNotEmpty) {
+      final catalog = await adminApparatus(limit: 500);
+      current = _firstOrNull(catalog.where((item) => item.id == normalizedId));
+      if (current == null) {
+        throw const MobileApiException(
+          code: 'apparatus_not_found',
+          message: 'Aparat topilmadi',
+        );
+      }
+    }
+    final operationKey = current == null ? 'create' : 'update';
+    final idempotencyKey = _nextCanonicalMutationIdempotencyKey(operationKey);
+    final createOpaqueKey =
+        current == null ? _nextCanonicalApparatusOpaqueKey() : '';
+    final response = await _sendAuthorized(() {
+      final headers = _canonicalMutationHeaders(
+        requireToken(),
+        idempotencyKey,
+      );
+      if (current == null) {
+        return _post(
+          Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/apparatus'),
+          headers: headers,
+          body: jsonEncode(
+            _canonicalApparatusDraft(
+              name: name,
+              operation: operation,
+              technology: technology,
+              capabilities: normalizedProfiles,
+              capabilityCodes: normalizedCapabilities,
+              colorStations: colorStations,
+              factoryMapObjectId: normalizedFactoryMapObjectId,
+              trainingEnabled: trainingEnabled ?? false,
+              opaqueKey: createOpaqueKey,
+            ),
+          ),
+        );
+      }
+      final patchCapabilities = [
+        for (final code in normalizedCapabilities)
+          {
+            'code': code,
+            'level': _firstOrNull(
+                  normalizedProfiles.where((profile) => profile.code == code),
+                )?.level ??
+                _firstOrNull(
+                  current.capabilityProfiles.where(
+                    (profile) => profile.code == code,
+                  ),
+                )?.level ??
+                1,
+          },
+      ];
+      return _patch(
+        _canonicalApparatusUri(current.id),
+        headers: headers,
         body: jsonEncode({
-          if (normalizedId.isNotEmpty) 'id': normalizedId,
-          'name': name,
-          if (normalizedFamily.isNotEmpty) 'family': normalizedFamily,
-          if (normalizedKind.isNotEmpty) 'kind': normalizedKind,
-          if (normalizedCapabilities.isNotEmpty)
-            'capabilities': normalizedCapabilities,
-          if (normalizedProfiles.isNotEmpty)
-            'capability_profiles': [
-              for (final profile in normalizedProfiles) profile.toJson(),
-            ],
-          if (colorStations != null) 'color_stations': colorStations,
-          if (factoryMapObjectId != null)
-            'factory_map_object_id': normalizedFactoryMapObjectId,
-          if (trainingEnabled != null) 'training_enabled': trainingEnabled,
+          'expected_revision': current.sourceRevision,
+          'patch': {
+            'display': {
+              'display_name': name,
+              'description': current.description,
+              'catalog_order': current.sortOrder,
+            },
+            'equipment_class_id':
+                'equipment-class:mini-rs-erp:$operation:$technology',
+            'capabilities': patchCapabilities,
+            'execution_profile': {
+              'operation': operation,
+              'technology': technology,
+              'color_station_count': colorStations,
+              if (current.maxWebWidthMm != null)
+                'max_web_width_mm': current.maxWebWidthMm,
+              'virtual_tasks': current.virtualTasks,
+              'capability_compatible_reroute':
+                  current.capabilityCompatibleReroute,
+            },
+            if (factoryMapObjectId != null &&
+                normalizedFactoryMapObjectId.isNotEmpty)
+              'placement': {
+                'factory_map_object_id': normalizedFactoryMapObjectId,
+              },
+            if (trainingEnabled != null)
+              'training': {
+                'enabled': trainingEnabled,
+                'queue_enabled':
+                    trainingEnabled && current.trainingQueueEnabled,
+                'material_tracking_enabled':
+                    trainingEnabled && current.trainingMaterialTrackingEnabled,
+              },
+          },
+        }),
+      );
+    });
+    if (response.statusCode != 200) {
+      throw _adminApiException(
+        response,
+        fallbackCode: 'canonical_apparatus_save_failed',
+        fallbackMessage: 'Canonical aparat saqlanmadi',
+      );
+    }
+    return AdminApparatus.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminApparatus> adminPatchCanonicalApparatus({
+    required AdminApparatus apparatus,
+    required Map<String, dynamic> patch,
+  }) async {
+    if (apparatus.id.trim().isEmpty || apparatus.sourceRevision <= 0) {
+      throw const MobileApiException(
+        code: 'canonical_apparatus_revision_required',
+        message: 'Canonical aparat revisioni topilmadi',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      throw const MobileApiException(
+        code: 'canonical_patch_not_available_in_test_mode',
+        message: 'Canonical patch test rejimida mavjud emas',
+      );
+    }
+    final idempotencyKey = _nextCanonicalMutationIdempotencyKey('patch');
+    final response = await _sendAuthorized(
+      () => _patch(
+        _canonicalApparatusUri(apparatus.id),
+        headers: _canonicalMutationHeaders(requireToken(), idempotencyKey),
+        body: jsonEncode({
+          'expected_revision': apparatus.sourceRevision,
+          'patch': patch,
         }),
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin apparatus create failed');
+      throw _adminApiException(
+        response,
+        fallbackCode: 'canonical_apparatus_patch_failed',
+        fallbackMessage: 'Canonical aparat yangilanmadi',
+      );
     }
     return AdminApparatus.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
@@ -1133,8 +1327,9 @@ extension MobileApiAdminItems on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _get(
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/items/detail')
-            .replace(queryParameters: {'code': code}),
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/items/detail',
+        ).replace(queryParameters: {'code': code}),
         headers: _headers(requireToken()),
       ),
     );
@@ -1270,9 +1465,8 @@ extension MobileApiAdminItems on MobileApi {
             existing,
         if (assigned) customer,
       ]..sort(
-          (left, right) => left.name.toLowerCase().compareTo(
-                right.name.toLowerCase(),
-              ),
+          (left, right) =>
+              left.name.toLowerCase().compareTo(right.name.toLowerCase()),
         );
       final updated = current.copyWith(
         customers: List<CustomerDirectoryEntry>.unmodifiable(customers),
@@ -1306,8 +1500,9 @@ extension MobileApiAdminItems on MobileApi {
     }
     final response = await _sendAuthorized(
       () => _delete(
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/items/detail')
-            .replace(queryParameters: {'code': code}),
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/items/detail',
+        ).replace(queryParameters: {'code': code}),
         headers: _headers(requireToken()),
       ),
     );
@@ -1320,31 +1515,28 @@ extension MobileApiAdminItems on MobileApi {
 List<AdminApparatus> _testModeApparatusCatalog() {
   final seen = <String>{};
   final overrides = {
-    for (final apparatus in _testModeApparatus)
-      apparatus.name.trim().toLowerCase(): apparatus,
+    for (final apparatus in _testModeApparatus) apparatus.id.trim(): apparatus,
   };
   final items = [
     for (final apparatus in TestModeDemoData.apparatus)
-      overrides.remove(apparatus.name.trim().toLowerCase()) ?? apparatus,
+      overrides.remove(apparatus.id.trim()) ?? apparatus,
     ...overrides.values,
   ];
-  return items.indexed.where(
-    (entry) {
-      final apparatus = entry.$2;
-      final key = apparatus.name.trim().toLowerCase();
-      return key.isNotEmpty && seen.add(key);
-    },
-  ).map((entry) {
+  return items.indexed.where((entry) {
+    final apparatus = entry.$2;
+    final key = apparatus.id.trim();
+    return key.isNotEmpty && seen.add(key);
+  }).map((entry) {
     final index = entry.$1;
     final apparatus = entry.$2;
-    final defaultId = _testModeDefaultApparatusIds[apparatus.name];
+    final operation = apparatus.operation.trim();
+    final technology = apparatus.technology.trim();
+    final stableTestKey = 'catalog-${index.toString().padLeft(3, '0')}';
     return AdminApparatus(
-      id: apparatus.id.trim().isNotEmpty
-          ? apparatus.id
-          : defaultId ?? 'apparatus:${apparatus.name.trim().toLowerCase()}',
+      id: apparatus.id,
       name: apparatus.name,
-      source: defaultId == null ? apparatus.source : 'default',
-      sortOrder: defaultId == null ? 10000 + index : index,
+      source: apparatus.source,
+      sortOrder: apparatus.sortOrder == 10000 ? index : apparatus.sortOrder,
       family: apparatus.family,
       kind: apparatus.kind,
       capabilities: apparatus.capabilities,
@@ -1352,22 +1544,29 @@ List<AdminApparatus> _testModeApparatusCatalog() {
       colorStations: apparatus.colorStations,
       factoryMapObjectId: apparatus.factoryMapObjectId,
       trainingEnabled: apparatus.trainingEnabled,
+      sourceRevision:
+          apparatus.sourceRevision > 0 ? apparatus.sourceRevision : 1,
+      sourceAasxSha256: apparatus.sourceAasxSha256,
+      description: apparatus.description,
+      equipmentClassId: apparatus.equipmentClassId.isNotEmpty
+          ? apparatus.equipmentClassId
+          : 'equipment-class:test:${operation.isEmpty ? 'package' : operation}',
+      physicalAssetId: apparatus.physicalAssetId.isNotEmpty
+          ? apparatus.physicalAssetId
+          : 'physical-asset:test:$stableTestKey',
+      enterpriseId: 'enterprise:accord',
+      siteId: 'site:test',
+      areaId: 'area:production',
+      workCenterId: 'work-center:${operation.isEmpty ? 'package' : operation}',
+      workUnitId: 'work-unit:test:$stableTestKey',
+      operation: operation.isEmpty ? 'package' : operation,
+      technology: technology.isEmpty ? 'bag_making' : technology,
+      capabilityCompatibleReroute: true,
+      trainingQueueEnabled: apparatus.trainingEnabled,
+      trainingMaterialTrackingEnabled: apparatus.trainingEnabled,
     );
   }).toList(growable: false);
 }
-
-const Map<String, String> _testModeDefaultApparatusIds = {
-  '7 ta rangli bosma aparat': 'apparatus:default:bosma_7',
-  '8 ta rangli bosma aparat': 'apparatus:default:bosma_8',
-  '9 ta rangli bosma aparat': 'apparatus:default:bosma_9',
-  'Extruder laminatsiya': 'apparatus:default:extruder_laminatsiya',
-  'Flexo pechat': 'apparatus:default:flexo_pechat',
-  'Holodniy kley aparat': 'apparatus:default:holodniy_kley',
-  'Laminatsiya 1': 'apparatus:default:laminatsiya_1',
-  'Laminatsiya 2': 'apparatus:default:laminatsiya_2',
-  'Paket aparat': 'apparatus:default:paket',
-  'Rezka': 'apparatus:default:rezka',
-};
 
 MobileApiException _adminItemCreateException(http.Response response) {
   return _adminItemMutationException(
@@ -1541,14 +1740,12 @@ List<AdminWarehouseSummary> _testModeWarehouseSummaries({
   required int limit,
 }) {
   final normalizedQuery = query.trim().toLowerCase();
-  final warehouses = [
-    ...TestModeDemoData.warehouses,
-    ..._testModeWarehouses,
-  ]
+  final warehouses = [...TestModeDemoData.warehouses, ..._testModeWarehouses]
       .where(
         (warehouse) =>
-            !_testModeDeletedWarehouseNames
-                .contains(warehouse.warehouse.trim().toLowerCase()) &&
+            !_testModeDeletedWarehouseNames.contains(
+              warehouse.warehouse.trim().toLowerCase(),
+            ) &&
             warehouse.parentWarehouse.trim().isEmpty,
       )
       .toList();
@@ -1614,11 +1811,15 @@ List<AdminWarehouseSummary> _testModeWarehouseSummaries({
   names.addAll(reservedCounts.keys);
   names.addAll(assignmentsByWarehouse.keys);
   final summaries = names
-      .where((name) =>
-          name.trim().isNotEmpty &&
-          !_testModeDeletedWarehouseNames.contains(name.trim().toLowerCase()) &&
-          (normalizedQuery.isEmpty ||
-              name.toLowerCase().contains(normalizedQuery)))
+      .where(
+    (name) =>
+        name.trim().isNotEmpty &&
+        !_testModeDeletedWarehouseNames.contains(
+          name.trim().toLowerCase(),
+        ) &&
+        (normalizedQuery.isEmpty ||
+            name.toLowerCase().contains(normalizedQuery)),
+  )
       .map((warehouse) {
     final assignments = assignmentsByWarehouse[warehouse] ?? const [];
     return AdminWarehouseSummary(
@@ -1627,15 +1828,145 @@ List<AdminWarehouseSummary> _testModeWarehouseSummaries({
       reservedCount: reservedCounts[warehouse] ?? 0,
       assignmentCount: assignments.length,
       assignedDisplayNames: assignments
-          .map((item) => item.displayName.trim().isEmpty
-              ? item.principalRef
-              : item.displayName)
+          .map(
+            (item) => item.displayName.trim().isEmpty
+                ? item.principalRef
+                : item.displayName,
+          )
           .toList(growable: false),
     );
   }).toList()
     ..sort(
-      (left, right) =>
-          left.warehouse.toLowerCase().compareTo(right.warehouse.toLowerCase()),
+      (left, right) => left.warehouse.toLowerCase().compareTo(
+            right.warehouse.toLowerCase(),
+          ),
     );
   return summaries.take(limit).toList(growable: false);
+}
+
+T? _firstOrNull<T>(Iterable<T> values) {
+  for (final value in values) {
+    return value;
+  }
+  return null;
+}
+
+String _nextCanonicalApparatusOpaqueKey() {
+  _canonicalApparatusOpaqueCounter++;
+  final micros = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+  final counter = _canonicalApparatusOpaqueCounter.toRadixString(36);
+  return '$micros-$counter';
+}
+
+Uri _canonicalApparatusUri(String apparatusId) {
+  return Uri.parse(
+    '${MobileApi.baseUrl}/v1/mobile/admin/apparatus/'
+    '${Uri.encodeComponent(apparatusId.trim())}',
+  );
+}
+
+String _canonicalOperationForFamily(String family) {
+  return switch (family.trim().toLowerCase()) {
+    'pechat' => 'print',
+    'laminatsiya' => 'laminate',
+    'rezka' => 'cut',
+    'paket' => 'package',
+    'kley' => 'glue',
+    _ => '',
+  };
+}
+
+String _canonicalTechnologyForKind(String kind) {
+  return switch (kind.trim().toLowerCase()) {
+    'color_pechat' => 'rotogravure',
+    'flexo' => 'flexographic',
+    'laminatsiya' => 'adhesive_lamination',
+    'extruder_laminatsiya' => 'extrusion_lamination',
+    'rezka' => 'slitting',
+    'paket' => 'bag_making',
+    'holodniy_kley' => 'cold_glue',
+    _ => '',
+  };
+}
+
+String _canonicalOperationForTechnology(String technology) {
+  return switch (technology.trim().toLowerCase()) {
+    'rotogravure' || 'flexographic' => 'print',
+    'adhesive_lamination' || 'extrusion_lamination' => 'laminate',
+    'slitting' => 'cut',
+    'bag_making' => 'package',
+    'cold_glue' => 'glue',
+    _ => '',
+  };
+}
+
+Map<String, dynamic> _canonicalApparatusDraft({
+  required String name,
+  required String operation,
+  required String technology,
+  required List<AdminApparatusCapabilityProfile> capabilities,
+  required List<String> capabilityCodes,
+  required int? colorStations,
+  required String factoryMapObjectId,
+  required bool trainingEnabled,
+  required String opaqueKey,
+}) {
+  final capabilityLevels = {
+    for (final profile in capabilities) profile.code: profile.level,
+  };
+  final effectiveCodes = <String>{
+    ...capabilityCodes,
+    operation,
+    if (trainingEnabled) 'training',
+  }.toList(growable: false)
+    ..sort();
+  return {
+    'display': {
+      'display_name': name,
+      'description': '',
+      'catalog_order': 10000,
+    },
+    'equipment_class_id': 'equipment-class:mini-rs-erp:$operation:$technology',
+    'physical_asset_id': 'physical-asset:mobile:$opaqueKey',
+    'hierarchy': {
+      'enterprise_id': 'enterprise:accord',
+      'site_id': 'site:main',
+      'area_id': 'area:production',
+      'work_center_id': 'work-center:$operation',
+      'work_unit_id': 'work-unit:mobile:$opaqueKey',
+    },
+    'capabilities': [
+      for (final code in effectiveCodes)
+        {'code': code, 'level': capabilityLevels[code] ?? 1},
+    ],
+    'execution_profile': {
+      'operation': operation,
+      'technology': technology,
+      'color_station_count': colorStations,
+      'virtual_tasks': 'disabled',
+      'capability_compatible_reroute': true,
+    },
+    'policies': {
+      'queue': 'strict_sequence',
+      'material': {'mode': 'not_required'},
+      'tooling': {'mode': 'not_required'},
+    },
+    'capacity': {
+      'capacity_slots': 1,
+      'setup_minutes': 0,
+      'cleanup_minutes': 0,
+      'efficiency_percent': 100,
+      'finite_capacity': true,
+      'availability': {'mode': 'always'},
+    },
+    'placement': factoryMapObjectId.isEmpty
+        ? null
+        : {'factory_map_object_id': factoryMapObjectId},
+    'training': {
+      'enabled': trainingEnabled,
+      'queue_enabled': trainingEnabled,
+      'material_tracking_enabled': trainingEnabled,
+    },
+    'lifecycle': {'state': 'active', 'retirement_reason': null},
+  };
 }

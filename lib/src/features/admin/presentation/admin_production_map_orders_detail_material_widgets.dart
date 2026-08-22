@@ -3,6 +3,7 @@ part of 'admin_production_map_orders_screen.dart';
 class _PreviousProgressQrTile extends StatelessWidget {
   const _PreviousProgressQrTile({
     required this.previousStage,
+    required this.apparatusCatalog,
     required this.ready,
     required this.batch,
     required this.availableBatches,
@@ -14,6 +15,7 @@ class _PreviousProgressQrTile extends StatelessWidget {
   });
 
   final String previousStage;
+  final List<AdminApparatus> apparatusCatalog;
   final bool ready;
   final AdminProgressBatch? batch;
   final List<AdminProgressBatch> availableBatches;
@@ -80,8 +82,11 @@ class _PreviousProgressQrTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       ready && progressBatch != null
-                          ? '${context.l10n.productionApparatusName(progressBatch.apparatus)} • $batchQty ${progressBatch.uom}'
-                          : context.l10n.productionApparatusName(previousStage),
+                          ? '${canonicalApparatusDisplayLabel(progressBatch.apparatus, apparatusCatalog)} • $batchQty ${progressBatch.uom}'
+                          : canonicalApparatusDisplayLabel(
+                              previousStage,
+                              apparatusCatalog,
+                            ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -118,6 +123,7 @@ class _PreviousProgressQrTile extends StatelessWidget {
           const SizedBox(height: 12),
           _InputProgressBatchList(
             previousStage: previousStage,
+            apparatusCatalog: apparatusCatalog,
             selectedBatch: progressBatch,
             batches: availableBatches,
             loading: loading,
@@ -132,6 +138,7 @@ class _PreviousProgressQrTile extends StatelessWidget {
 class _InputProgressBatchList extends StatelessWidget {
   const _InputProgressBatchList({
     required this.previousStage,
+    required this.apparatusCatalog,
     required this.selectedBatch,
     required this.batches,
     required this.loading,
@@ -139,6 +146,7 @@ class _InputProgressBatchList extends StatelessWidget {
   });
 
   final String previousStage;
+  final List<AdminApparatus> apparatusCatalog;
   final AdminProgressBatch? selectedBatch;
   final List<AdminProgressBatch> batches;
   final bool loading;
@@ -169,7 +177,10 @@ class _InputProgressBatchList extends StatelessWidget {
           Text(
             _inputProgressSummaryText(
               l10n: context.l10n,
-              previousStage: previousStage,
+              previousStageLabel: canonicalApparatusDisplayLabel(
+                previousStage,
+                apparatusCatalog,
+              ),
               total: batches.length,
               open: openCount,
               used: usedCount,
@@ -199,7 +210,10 @@ class _InputProgressBatchList extends StatelessWidget {
               context.l10n.productionText(
                 'worker.progress.none',
                 values: {
-                  'stage': context.l10n.productionApparatusName(previousStage),
+                  'stage': canonicalApparatusDisplayLabel(
+                    previousStage,
+                    apparatusCatalog,
+                  ),
                 },
               ),
               style: theme.textTheme.bodySmall?.copyWith(
@@ -213,6 +227,7 @@ class _InputProgressBatchList extends StatelessWidget {
               if (index > 0) const SizedBox(height: 8),
               _InputProgressBatchTile(
                 batch: batches[index],
+                apparatusCatalog: apparatusCatalog,
                 selected: selectedBatch != null &&
                     (selectedBatch!.batchId.trim() ==
                             batches[index].batchId.trim() ||
@@ -230,10 +245,12 @@ class _InputProgressBatchList extends StatelessWidget {
 class _InputProgressBatchTile extends StatelessWidget {
   const _InputProgressBatchTile({
     required this.batch,
+    required this.apparatusCatalog,
     required this.selected,
   });
 
   final AdminProgressBatch batch;
+  final List<AdminApparatus> apparatusCatalog;
   final bool selected;
 
   @override
@@ -246,7 +263,11 @@ class _InputProgressBatchTile extends StatelessWidget {
         ? context.l10n.productionText('worker.progress.scan_required')
         : context.l10n.productionText('worker.progress.used');
     final statusColor = canScan ? scheme.primary : scheme.onSurfaceVariant;
-    final title = _inputProgressBatchTitle(batch, context.l10n);
+    final title = _inputProgressBatchTitle(
+      batch,
+      context.l10n,
+      apparatusCatalog,
+    );
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       decoration: BoxDecoration(
@@ -336,7 +357,7 @@ class _InputProgressBatchTile extends StatelessWidget {
 
 String _inputProgressSummaryText({
   required AppLocalizations l10n,
-  required String previousStage,
+  required String previousStageLabel,
   required int total,
   required int open,
   required int used,
@@ -344,14 +365,14 @@ String _inputProgressSummaryText({
   if (total == 0) {
     return l10n.productionText(
       'worker.progress.summary.empty',
-      values: {'stage': l10n.productionApparatusName(previousStage)},
+      values: {'stage': previousStageLabel},
     );
   }
   if (used == 0) {
     return l10n.productionText(
       'worker.progress.summary.unused',
       values: {
-        'stage': l10n.productionApparatusName(previousStage),
+        'stage': previousStageLabel,
         'total': total,
         'open': open,
       },
@@ -361,7 +382,7 @@ String _inputProgressSummaryText({
     return l10n.productionText(
       'worker.progress.summary.used_all',
       values: {
-        'stage': l10n.productionApparatusName(previousStage),
+        'stage': previousStageLabel,
         'total': total,
       },
     );
@@ -369,7 +390,7 @@ String _inputProgressSummaryText({
   return l10n.productionText(
     'worker.progress.summary.mixed',
     values: {
-      'stage': l10n.productionApparatusName(previousStage),
+      'stage': previousStageLabel,
       'total': total,
       'open': open,
       'used': used,
@@ -380,6 +401,7 @@ String _inputProgressSummaryText({
 String _inputProgressBatchTitle(
   AdminProgressBatch batch,
   AppLocalizations l10n,
+  List<AdminApparatus> apparatusCatalog,
 ) {
   final itemName = batch.labelItemName.trim();
   final action = batch.action.trim().toLowerCase();
@@ -402,7 +424,7 @@ String _inputProgressBatchTitle(
   return l10n.productionText(
     'worker.progress.batch_title',
     values: {
-      'source': l10n.productionApparatusName(source),
+      'source': canonicalApparatusDisplayLabel(source, apparatusCatalog),
       'action': actionText,
     },
   );

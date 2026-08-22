@@ -3,12 +3,10 @@ part of 'admin_production_map_orders_screen.dart';
 List<ProductionMapSaved> _productionMapZakazOrders(
   List<ProductionMapSaved> maps,
 ) {
-  return maps
-      .where((item) {
-        final id = item.map.id.trim();
-        return id.startsWith('zakaz-') || id.startsWith('training-zakaz-');
-      })
-      .toList(growable: false);
+  return maps.where((item) {
+    final id = item.map.id.trim();
+    return id.startsWith('zakaz-') || id.startsWith('training-zakaz-');
+  }).toList(growable: false);
 }
 
 List<AdminCompletionRequestDecisionNotification>
@@ -33,13 +31,18 @@ String _completionRejectedNoticeText(
   return message.isNotEmpty ? message : "Sizni so'rovingiz rad etildi";
 }
 
-bool _apparatusListsHaveSameNames(
+bool _apparatusListsHaveSameCanonicalRevisions(
   List<AdminApparatus> current,
   List<AdminApparatus> next,
 ) {
   return current.length == next.length &&
       current.every(
-        (item) => next.any((candidate) => candidate.name == item.name),
+        (item) => next.any(
+          (candidate) =>
+              candidate.id == item.id &&
+              candidate.sourceRevision == item.sourceRevision &&
+              candidate.sourceAasxSha256 == item.sourceAasxSha256,
+        ),
       );
 }
 
@@ -103,7 +106,10 @@ bool _productionMapOrdersOrApparatusChanged({
   required List<AdminApparatus> nextApparatus,
 }) {
   return _ordersRevision(nextOrders) != _ordersRevision(currentOrders) ||
-      !_apparatusListsHaveSameNames(currentApparatus, nextApparatus);
+      !_apparatusListsHaveSameCanonicalRevisions(
+        currentApparatus,
+        nextApparatus,
+      );
 }
 
 bool _shouldRefreshWorkerOnlyData(bool workerMode) {

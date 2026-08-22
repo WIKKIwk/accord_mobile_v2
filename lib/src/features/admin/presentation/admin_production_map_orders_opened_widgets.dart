@@ -35,9 +35,10 @@ class _OpenedOrderList extends StatelessWidget {
                 customerNameByMapId[orders[index].map.id.trim()] ?? '',
             tone: _resolveOrderCardTone(
               orderStatus: orderStatusesByOrderId[orders[index].map.id.trim()],
-              orderControl:
-                  orderControlsByOrderId[orders[index].map.id.trim()] ??
-                      AdminOrderControlState.active,
+              orderControl: adminProductionMapOrderControlFor(
+                orderControlsByOrderId,
+                orders[index].map.id.trim(),
+              ),
               apparatusState: queueActivityStateForOrder(
                 orderId: orders[index].map.id,
                 queueStatesByApparatus: queueStatesByApparatus,

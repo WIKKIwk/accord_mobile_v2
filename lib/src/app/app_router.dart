@@ -503,15 +503,15 @@ class AppRouter {
       case AppRoutes.adminCalculate:
         final args = settings.arguments;
         final calculateArgs = args is AdminCalculateArgs ? args : null;
-        final template = args is CalculateOrderTemplate
-            ? args
-            : calculateArgs?.template;
+        final template =
+            args is CalculateOrderTemplate ? args : calculateArgs?.template;
         return _buildRoute(
           settings,
           AdminCalculateScreen(
             template: template,
             trainingMode: calculateArgs?.trainingMode ?? false,
             trainingApparatus: calculateArgs?.trainingApparatus ?? '',
+            trainingApparatusId: calculateArgs?.trainingApparatusId ?? '',
           ),
         );
       case AppRoutes.adminCalculateMaterials:
@@ -629,15 +629,9 @@ class AppRouter {
           ),
         );
       case AppRoutes.apparatusWorkInstructions:
-        return _buildRoute(
-          settings,
-          const AparatchiWorkInstructionsScreen(),
-        );
+        return _buildRoute(settings, const AparatchiWorkInstructionsScreen());
       case AppRoutes.apparatusDailyWork:
-        return _buildRoute(
-          settings,
-          const AparatchiDailyWorkScreen(),
-        );
+        return _buildRoute(settings, const AparatchiDailyWorkScreen());
       case AppRoutes.apparatusPaddons:
         return _buildRoute(settings, const AparatchiPaddonsScreen());
       case AppRoutes.apparatusPaddonDetail:
@@ -650,10 +644,7 @@ class AppRouter {
         if (code.trim().isEmpty) {
           return _buildRoute(settings, const AparatchiPaddonsScreen());
         }
-        return _buildRoute(
-          settings,
-          AparatchiPaddonDetailScreen(code: code),
-        );
+        return _buildRoute(settings, AparatchiPaddonDetailScreen(code: code));
       case AppRoutes.adminSuppliers:
         return _buildRoute(settings, const AdminSuppliersScreen());
       case AppRoutes.adminWorkerSettings:
@@ -750,10 +741,7 @@ class AppRouter {
         if (itemCode.isEmpty) {
           return _buildRoute(settings, const AdminItemCreateScreen());
         }
-        return _buildRoute(
-          settings,
-          AdminItemDetailScreen(itemCode: itemCode),
-        );
+        return _buildRoute(settings, AdminItemDetailScreen(itemCode: itemCode));
       case AppRoutes.adminItemGroupCreate:
         return _buildRoute(settings, const AdminItemGroupCreateScreen());
       case AppRoutes.adminItemBulkMove:
@@ -831,13 +819,14 @@ class AppRouter {
         routeName == AppRoutes.pinSetupConfirm) {
       return true;
     }
-    final profile = AppSession.instance.profile;
-    if (profile == null) {
-      return true;
+    final session = AppSession.instance;
+    if (!session.isLoggedIn) {
+      return false;
     }
+    final profile = session.profile!;
     final required = _routeCapabilities[routeName];
     if (required == null) {
-      return true;
+      return false;
     }
     return profile.hasAnyCapability(required);
   }
@@ -956,10 +945,7 @@ class AppRouter {
       'role.capability.manage',
     },
     AppRoutes.adminSettings: {'admin.settings.read'},
-    AppRoutes.adminTraining: {
-      'admin.access',
-      'production.map.manage',
-    },
+    AppRoutes.adminTraining: {'admin.access', 'production.map.manage'},
     AppRoutes.adminEmergencyReset: {'admin.access'},
     AppRoutes.adminTelegram: {'admin.settings.read'},
     AppRoutes.adminRoles: {'role.capability.read'},
@@ -969,10 +955,7 @@ class AppRouter {
       'admin.access',
       'production.map.manage',
     },
-    AppRoutes.supplySequence: {
-      'qolip.manage',
-      'raw_material.assign',
-    },
+    AppRoutes.supplySequence: {'qolip.manage', 'raw_material.assign'},
     AppRoutes.adminProgressQrScan: {
       'admin.access',
       'production.map.manage',
@@ -982,29 +965,16 @@ class AppRouter {
     AppRoutes.adminServerMonitor: {'admin.access'},
     AppRoutes.adminFactoryMap: {'admin.access'},
     AppRoutes.adminFactoryLocations: {'factory.location.manage'},
-    AppRoutes.adminWipBatches: {
-      'admin.access',
-      'production.map.manage',
-    },
-    AppRoutes.adminQueuePolicies: {
-      'admin.access',
-      'production.map.manage',
-    },
-    AppRoutes.adminApparatusSettings: {
-      'admin.access',
-      'production.map.manage',
-    },
+    AppRoutes.adminWipBatches: {'admin.access', 'production.map.manage'},
+    AppRoutes.adminQueuePolicies: {'admin.access', 'production.map.manage'},
+    AppRoutes.adminApparatusSettings: {'admin.access', 'production.map.manage'},
     AppRoutes.adminApparatusGroups: {'admin.access', 'production.map.manage'},
     AppRoutes.adminRawMaterialSettings: {
       'raw_material.rule.manage',
       'raw_material.assign',
     },
-    AppRoutes.adminRawMaterialRules: {
-      'raw_material.rule.manage',
-    },
-    AppRoutes.adminRawMaterialAssignments: {
-      'raw_material.assign',
-    },
+    AppRoutes.adminRawMaterialRules: {'raw_material.rule.manage'},
+    AppRoutes.adminRawMaterialAssignments: {'raw_material.assign'},
     AppRoutes.adminApparatusCreate: {'admin.access', 'production.map.manage'},
     AppRoutes.apparatusQueue: {
       'apparatus.queue.read',

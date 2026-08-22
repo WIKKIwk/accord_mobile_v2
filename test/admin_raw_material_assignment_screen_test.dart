@@ -54,7 +54,10 @@ void main() {
         ),
       );
       expect(candidates.single.order.map.id, 'zakaz-1');
-      expect(candidates.single.apparatusOptions, ['Pechat']);
+      expect(
+        candidates.single.apparatusOptions,
+        ['apparatus:default:asset-005'],
+      );
     }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
   });
 
@@ -177,7 +180,7 @@ void main() {
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/raw-material-assignments '
-          '{"order_id":"zakaz-1","barcode":"30AA","apparatus":"Pechat"}',
+          '{"order_id":"zakaz-1","barcode":"30AA","apparatus":"apparatus:default:asset-005"}',
         ),
       );
       expect(find.text('Ulangan'), findsOneWidget);
@@ -198,7 +201,10 @@ void main() {
       avatarUrl: '',
       capabilities: ['raw_material.assign'],
       assignedItemGroups: ['Kraska'],
-      assignedApparatus: ['Pechat', 'Laminatsiya'],
+      assignedApparatus: [
+        'apparatus:default:asset-005',
+        'apparatus:default:asset-007',
+      ],
     );
 
     await HttpOverrides.runZoned(() async {
@@ -225,7 +231,7 @@ void main() {
         seenRequests,
         contains(
           'GET /v1/mobile/admin/raw-material-assignments/candidates?'
-          'order_id=zakaz-1&apparatus=Pechat',
+          'order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-005',
         ),
       );
 
@@ -235,7 +241,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(
-          const ValueKey('raw-material-apparatus-option-Laminatsiya'),
+          const ValueKey(
+            'raw-material-apparatus-option-apparatus:default:asset-007',
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -244,7 +252,7 @@ void main() {
         seenRequests,
         contains(
           'GET /v1/mobile/admin/raw-material-assignments/candidates?'
-          'order_id=zakaz-1&apparatus=Laminatsiya',
+          'order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-007',
         ),
       );
       expect(find.text('Lamination ink'), findsOneWidget);
@@ -266,11 +274,13 @@ void main() {
                   'id': 'pechat',
                   'kind': 'apparatus',
                   'title': 'Pechat',
+                  'apparatus_id': 'apparatus:default:asset-005',
                 },
                 {
                   'id': 'laminatsiya',
                   'kind': 'apparatus',
                   'title': 'Laminatsiya',
+                  'apparatus_id': 'apparatus:default:asset-007',
                 },
                 {
                   'id': 'end',
@@ -324,7 +334,7 @@ void main() {
       expect(find.text('Kraska'), findsOneWidget);
       expect(find.text('Nomi'), findsOneWidget);
       expect(find.text('Black ink'), findsOneWidget);
-      expect(find.text('Miqdori'), findsOneWidget);
+      expect(find.text('Miqdor'), findsOneWidget);
       expect(find.text('12 Kg'), findsOneWidget);
       expect(find.text('Item code'), findsOneWidget);
       expect(find.text('INK-BLACK'), findsOneWidget);
@@ -463,7 +473,7 @@ void main() {
       initialAssignments: const [
         {
           'order_id': 'zakaz-1',
-          'apparatus': 'Pechat',
+          'apparatus': 'apparatus:default:asset-005',
           'barcode': '30AA',
           'item_code': 'INK-BLACK',
           'item_name': 'Black ink',
@@ -620,6 +630,31 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
         ];
       case 'GET /v1/mobile/admin/raw-material-assignments':
         body = _deleted ? const [] : initialAssignments;
+      case 'GET /v1/mobile/admin/apparatus?limit=10000':
+        body = const [
+          {
+            'apparatus_id': 'apparatus:default:asset-005',
+            'source_revision': 1,
+            'source_aasx_sha256':
+                'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+            'display': {'display_name': 'Pechat', 'catalog_order': 5},
+            'execution_profile': {
+              'operation': 'print',
+              'technology': 'flexographic',
+            },
+          },
+          {
+            'apparatus_id': 'apparatus:default:asset-007',
+            'source_revision': 1,
+            'source_aasx_sha256':
+                'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+            'display': {'display_name': 'Laminatsiya', 'catalog_order': 7},
+            'execution_profile': {
+              'operation': 'laminate',
+              'technology': 'adhesive_lamination',
+            },
+          },
+        ];
       case 'GET /v1/mobile/admin/raw-material-assignments/candidates?order_id=zakaz-1':
         body = const [
           {
@@ -630,10 +665,10 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
             'item_group': 'Kraska',
             'qty': 12,
             'uom': 'Kg',
-            'apparatus_options': ['Pechat'],
+            'apparatus_options': ['apparatus:default:asset-005'],
           },
         ];
-      case 'GET /v1/mobile/admin/raw-material-assignments/candidates?order_id=zakaz-1&apparatus=Pechat':
+      case 'GET /v1/mobile/admin/raw-material-assignments/candidates?order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-005':
         body = const [
           {
             'barcode': '30AA',
@@ -643,10 +678,10 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
             'item_group': 'Kraska',
             'qty': 12,
             'uom': 'Kg',
-            'apparatus_options': ['Pechat'],
+            'apparatus_options': ['apparatus:default:asset-005'],
           },
         ];
-      case 'GET /v1/mobile/admin/raw-material-assignments/candidates?order_id=zakaz-1&apparatus=Laminatsiya':
+      case 'GET /v1/mobile/admin/raw-material-assignments/candidates?order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-007':
         body = const [
           {
             'barcode': '30BB',
@@ -656,7 +691,7 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
             'item_group': 'Kraska',
             'qty': 10,
             'uom': 'Kg',
-            'apparatus_options': ['Laminatsiya'],
+            'apparatus_options': ['apparatus:default:asset-007'],
           },
         ];
       case 'GET /v1/mobile/admin/raw-material-assignments/candidate-orders?barcode=30AA':
@@ -677,7 +712,7 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
                 'operations': [],
               },
             },
-            'apparatus_options': ['Pechat'],
+            'apparatus_options': ['apparatus:default:asset-005'],
           },
         ];
       case 'GET /v1/mobile/admin/raw-material-assignments/lookup?barcode=30AA':
@@ -693,7 +728,7 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
       case 'POST /v1/mobile/admin/raw-material-assignments':
         body = const {
           'order_id': 'zakaz-1',
-          'apparatus': 'Pechat',
+          'apparatus': 'apparatus:default:asset-005',
           'barcode': '30AA',
           'item_code': 'INK-BLACK',
           'item_name': 'Black ink',
@@ -711,7 +746,7 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
           'ok': true,
           'assignment': {
             'order_id': 'zakaz-1',
-            'apparatus': 'Pechat',
+            'apparatus': 'apparatus:default:asset-005',
             'barcode': '30AA',
             'item_code': 'INK-BLACK',
             'item_name': 'Black ink',

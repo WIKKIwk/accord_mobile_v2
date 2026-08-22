@@ -1,92 +1,67 @@
 import '../models/production_map_models.dart';
 import 'apparatus_queue_state.dart';
-import 'production_map_pechat_rules.dart';
+import 'canonical_apparatus_groups.dart';
 
 class ProductionMapChainStage {
   const ProductionMapChainStage({
     required this.nodeId,
-    required this.stationTitle,
+    required this.stageId,
+    required this.displayTitle,
+    this.apparatusId,
   });
 
   final String nodeId;
-  final String stationTitle;
+  final String stageId;
+  final String displayTitle;
+  final String? apparatusId;
+
+  bool get isApparatus => apparatusId != null;
 }
 
 List<ProductionMapChainStage> productionMapLinearWorkStages(
   ProductionMapDefinition map,
 ) {
   final byId = {for (final node in map.nodes) node.id: node};
-  final byFrom = <String, List<ProductionMapEdge>>{};
-  for (final edge in map.edges) {
-    byFrom.putIfAbsent(edge.from, () => <ProductionMapEdge>[]).add(edge);
-  }
-  final start = map.nodes
-      .where((node) => node.kind == 'start')
-      .map((node) => node.id)
-      .cast<String?>()
-      .firstWhere((id) => id != null, orElse: () => null);
-  if (start == null || !byId.containsKey(start)) {
-    return const [];
-  }
   final stages = <ProductionMapChainStage>[];
-  final seen = <String>{};
-  final seenStageTitles = <String>{};
+  final seenStageIds = <String>{};
   var seenApparatus = false;
-  var current = start;
-  while (seen.add(current)) {
-    final node = byId[current];
-    if (node == null) {
-      break;
-    }
-    if (node.kind == 'end') {
-      break;
-    }
+  for (final nodeId in _reachableNodeIds(map)) {
+    final node = byId[nodeId];
+    if (node == null) continue;
     if (_isWorkStage(node, seenApparatus)) {
-      for (final stage in _stageTitlesForNode(map, node)) {
-        if (node.kind == 'apparatus') {
-          seenApparatus = true;
-        }
-        if (stage.stationTitle.isEmpty ||
-            !seenStageTitles.add(stage.stationTitle.toLowerCase())) {
+      final nodeStages = _stagesForNode(map, node);
+      if (node.kind == 'apparatus' && nodeStages.isNotEmpty) {
+        seenApparatus = true;
+      }
+      for (final stage in nodeStages) {
+        if (stage.stageId.isEmpty || !seenStageIds.add(stage.stageId)) {
           continue;
         }
-        stages.add(
-          stage,
-        );
+        stages.add(stage);
       }
-    } else if (node.kind == 'apparatus') {
-      seenApparatus = true;
     }
-    final next = byFrom[current]
-        ?.map((edge) => edge.to)
-        .where((id) => byId.containsKey(id))
-        .cast<String?>()
-        .firstWhere((id) => id != null, orElse: () => null);
-    if (next == null) {
-      break;
-    }
-    current = next;
   }
-  return stages;
+  return List<ProductionMapChainStage>.unmodifiable(stages);
 }
 
 List<String> productionMapAuthorizedOrderApparatus({
   required ProductionMapDefinition map,
   required Iterable<String> assignedApparatus,
 }) {
+  final assignedIds = {
+    for (final value in assignedApparatus)
+      if (isCanonicalApparatusId(value)) value.trim(),
+  };
   final result = <String>[];
+  final seen = <String>{};
   for (final stage in productionMapLinearWorkStages(map)) {
-    final apparatus = stage.stationTitle.trim();
-    if (apparatus.isEmpty ||
-        !assignedApparatus.any(
-          (assigned) => productionMapStationTitlesMatch(apparatus, assigned),
-        ) ||
-        result.any(
-          (existing) => productionMapStationTitlesMatch(existing, apparatus),
-        )) {
+    final apparatusId = stage.apparatusId;
+    if (apparatusId == null ||
+        !assignedIds.contains(apparatusId) ||
+        !seen.add(apparatusId)) {
       continue;
     }
-    result.add(apparatus);
+    result.add(apparatusId);
   }
   return List<String>.unmodifiable(result);
 }
@@ -95,65 +70,36 @@ String? productionMapPreviousWorkStageStation({
   required ProductionMapDefinition map,
   required String station,
 }) {
-  final stages = productionMapLinearWorkStages(map);
-  final index = stages.indexWhere(
-    (stage) => productionMapStationTitlesMatch(stage.stationTitle, station),
-  );
-  if (index <= 0) {
-    return null;
-  }
-  return stages[index - 1].stationTitle;
+  final stages = _previousPhysicalStageIds(map, station);
+  return stages.isEmpty ? null : stages.first;
 }
 
 String? productionMapNextWorkStageStation({
   required ProductionMapDefinition map,
   required String station,
 }) {
-  final byId = {for (final node in map.nodes) node.id: node};
-  final byFrom = <String, List<String>>{};
-  for (final edge in map.edges) {
-    byFrom.putIfAbsent(edge.from, () => <String>[]).add(edge.to);
-  }
-  for (final start in map.nodes) {
-    if (!productionMapNodeMatchesStation(node: start, station: station)) {
-      continue;
-    }
-    final queue = <String>[...?byFrom[start.id]];
-    final visited = <String>{};
-    for (var index = 0; index < queue.length; index += 1) {
-      final nodeId = queue[index];
-      if (!visited.add(nodeId)) continue;
-      final node = byId[nodeId];
-      if (node == null || node.kind == 'end') continue;
-      if (node.kind == 'apparatus' || node.kind == 'task') {
-        final title = _isUnassignedAlternativeApparatus(node)
-            ? (node.alternativeGroupLabel.trim().isEmpty
-                ? node.title.trim()
-                : node.alternativeGroupLabel.trim())
-            : _stageTitle(node);
-        if (title.isNotEmpty) return title;
-        continue;
-      }
-      queue.addAll(byFrom[nodeId] ?? const <String>[]);
-    }
-  }
-  return null;
+  final stages = _nextPhysicalStageIds(map, station);
+  return stages.isEmpty ? null : stages.first;
 }
 
 bool productionMapIsFinalWorkStageStation({
   required ProductionMapDefinition map,
   required String station,
 }) {
-  return productionMapMapHasWorkStageForStation(map: map, station: station) &&
-      productionMapNextWorkStageStation(map: map, station: station) == null;
+  final stationId = station.trim();
+  return productionMapLinearWorkStages(map).any(
+        (stage) => stage.isApparatus && stage.stageId == stationId,
+      ) &&
+      productionMapNextWorkStageStation(map: map, station: stationId) == null;
 }
 
 bool productionMapMapHasWorkStageForStation({
   required ProductionMapDefinition map,
   required String station,
 }) {
+  final stationId = station.trim();
   return productionMapLinearWorkStages(map).any(
-    (stage) => productionMapStationTitlesMatch(stage.stationTitle, station),
+    (stage) => stage.stageId == stationId,
   );
 }
 
@@ -163,6 +109,9 @@ bool productionMapOrderReadyForStation({
   required String station,
   required Map<String, Map<String, String>> queueStatesByApparatus,
 }) {
+  if (!productionMapMapHasWorkStageForStation(map: map, station: station)) {
+    return false;
+  }
   final previous = productionMapPreviousWorkStageStation(
     map: map,
     station: station,
@@ -170,7 +119,7 @@ bool productionMapOrderReadyForStation({
   if (previous == null) {
     return true;
   }
-  final states = _queueStatesForStation(previous, queueStatesByApparatus);
+  final states = queueStatesByApparatus[previous] ?? const <String, String>{};
   return apparatusQueueOrderStateFromRaw(states[orderId.trim()]) ==
       ApparatusQueueOrderState.completed;
 }
@@ -179,45 +128,35 @@ bool productionMapNodeMatchesStation({
   required ProductionMapNode node,
   required String station,
 }) {
-  if (_isUnassignedAlternativeApparatus(node)) {
-    return productionMapStationTitlesMatch(node.title, station);
-  }
-  if (!_isWorkStage(node, true)) {
+  final stationId = station.trim();
+  if (stationId.isEmpty || !_isWorkStage(node, true)) {
     return false;
   }
-  return productionMapStationTitlesMatch(_stageTitle(node), station);
+  return _stageIdentity(node) == stationId;
 }
 
-bool productionMapStationTitlesMatch(String left, String right) {
-  return productionMapQueueApparatusTitlesMatch(left, right);
+String productionMapStageDisplayTitle({
+  required ProductionMapDefinition map,
+  required String station,
+}) {
+  final stationId = station.trim();
+  for (final stage in productionMapLinearWorkStages(map)) {
+    if (stage.stageId == stationId) {
+      return stage.displayTitle;
+    }
+  }
+  return stationId;
 }
 
 List<String>? productionMapVisibleOrderIdsForStation({
   required Map<String, List<String>> visibleOrderIdsByApparatus,
   required String station,
 }) {
-  final title = station.trim();
-  if (title.isEmpty) {
+  final apparatusId = station.trim();
+  if (!isCanonicalApparatusId(apparatusId)) {
     return null;
   }
-  final direct = visibleOrderIdsByApparatus[title];
-  if (direct != null) {
-    return direct;
-  }
-  final color = productionMapPechatColorCount(title);
-  if (color != null) {
-    for (final entry in visibleOrderIdsByApparatus.entries) {
-      if (productionMapPechatColorCount(entry.key) == color) {
-        return entry.value;
-      }
-    }
-  }
-  for (final entry in visibleOrderIdsByApparatus.entries) {
-    if (productionMapStationTitlesMatch(entry.key, title)) {
-      return entry.value;
-    }
-  }
-  return null;
+  return visibleOrderIdsByApparatus[apparatusId];
 }
 
 List<ProductionMapSaved> productionMapOrdersVisibleByBackendIds({
@@ -239,74 +178,222 @@ List<ProductionMapSaved> productionMapOrdersVisibleByBackendIds({
   ];
 }
 
-Map<String, String> _queueStatesForStation(
+List<String> _previousPhysicalStageIds(
+  ProductionMapDefinition map,
   String station,
-  Map<String, Map<String, String>> queueStatesByApparatus,
 ) {
-  final direct = queueStatesByApparatus[station.trim()];
-  if (direct != null) {
-    return direct;
+  final physicalNodeIds = productionMapLinearWorkStages(map)
+      .where((stage) => stage.isApparatus)
+      .map((stage) => stage.nodeId)
+      .toSet();
+  final found = <String>[];
+  final seenIds = <String>{};
+  for (final node in map.nodes) {
+    if (!_isStationNode(node) ||
+        !productionMapNodeMatchesStation(node: node, station: station)) {
+      continue;
+    }
+    _collectPhysicalStageIds(
+      map: map,
+      startId: node.id,
+      physicalNodeIds: physicalNodeIds,
+      reverse: true,
+      found: found,
+      seenIds: seenIds,
+    );
   }
-  final color = productionMapPechatColorCount(station);
-  if (color != null) {
-    for (final entry in queueStatesByApparatus.entries) {
-      if (productionMapPechatColorCount(entry.key) == color) {
-        return entry.value;
+  return found;
+}
+
+List<String> _nextPhysicalStageIds(
+  ProductionMapDefinition map,
+  String station,
+) {
+  final physicalNodeIds = productionMapLinearWorkStages(map)
+      .where((stage) => stage.isApparatus)
+      .map((stage) => stage.nodeId)
+      .toSet();
+  final found = <String>[];
+  final seenIds = <String>{};
+  for (final node in map.nodes) {
+    if (!_isStationNode(node) ||
+        !productionMapNodeMatchesStation(node: node, station: station)) {
+      continue;
+    }
+    _collectPhysicalStageIds(
+      map: map,
+      startId: node.id,
+      physicalNodeIds: physicalNodeIds,
+      reverse: false,
+      found: found,
+      seenIds: seenIds,
+    );
+  }
+  return found;
+}
+
+void _collectPhysicalStageIds({
+  required ProductionMapDefinition map,
+  required String startId,
+  required Set<String> physicalNodeIds,
+  required bool reverse,
+  required List<String> found,
+  required Set<String> seenIds,
+}) {
+  final queue = <String>[
+    ...(reverse
+        ? _routePredecessors(map, startId)
+        : _routeSuccessors(map, startId)),
+  ];
+  final visited = <String>{};
+  for (var index = 0; index < queue.length; index += 1) {
+    final nodeId = queue[index];
+    if (!visited.add(nodeId)) continue;
+    final node = _nodeById(map, nodeId);
+    if (node == null || node.kind == (reverse ? 'start' : 'end')) {
+      continue;
+    }
+    if (node.kind == 'apparatus' && physicalNodeIds.contains(node.id)) {
+      final apparatusId = _canonicalApparatusIdentity(node);
+      if (apparatusId != null && seenIds.add(apparatusId)) {
+        found.add(apparatusId);
       }
+      continue;
+    }
+    queue.addAll(
+      reverse ? _routePredecessors(map, nodeId) : _routeSuccessors(map, nodeId),
+    );
+  }
+}
+
+List<String> _reachableNodeIds(ProductionMapDefinition map) {
+  String? start;
+  for (final node in map.nodes) {
+    if (node.kind == 'start') {
+      start = node.id;
+      break;
     }
   }
-  for (final entry in queueStatesByApparatus.entries) {
-    if (productionMapStationTitlesMatch(entry.key, station)) {
-      return entry.value;
+  if (start == null) return const [];
+  final queue = <String>[start];
+  final visited = <String>{};
+  final result = <String>[];
+  for (var index = 0; index < queue.length; index += 1) {
+    final nodeId = queue[index];
+    if (!visited.add(nodeId) || _nodeById(map, nodeId) == null) continue;
+    result.add(nodeId);
+    queue.addAll(_routeSuccessors(map, nodeId));
+  }
+  return result;
+}
+
+List<String> _routeSuccessors(ProductionMapDefinition map, String nodeId) {
+  final node = _nodeById(map, nodeId);
+  if (node == null) return const [];
+  return [
+    for (final edge in map.edges)
+      if (edge.from == nodeId && _routeEdgeAllowed(node, edge)) edge.to,
+  ];
+}
+
+List<String> _routePredecessors(ProductionMapDefinition map, String nodeId) {
+  final result = <String>[];
+  for (final edge in map.edges) {
+    if (edge.to != nodeId) continue;
+    final source = _nodeById(map, edge.from);
+    if (source != null && _routeEdgeAllowed(source, edge)) {
+      result.add(edge.from);
     }
   }
-  return const {};
+  return result;
+}
+
+bool _routeEdgeAllowed(ProductionMapNode node, ProductionMapEdge edge) {
+  if (node.kind != 'condition') return true;
+  final branch = _normalizeBranch(edge.branch);
+  return branch == 'true' || branch == 'false';
+}
+
+String _normalizeBranch(String branch) {
+  return switch (branch.trim().toLowerCase()) {
+    'ha' || 'yes' || 'true' || '1' => 'true',
+    "yo'q" || 'yoq' || 'no' || 'false' || '0' => 'false',
+    final value => value,
+  };
+}
+
+ProductionMapNode? _nodeById(ProductionMapDefinition map, String nodeId) {
+  for (final node in map.nodes) {
+    if (node.id == nodeId) return node;
+  }
+  return null;
 }
 
 bool _isWorkStage(ProductionMapNode node, bool seenApparatus) {
-  if (node.kind == 'apparatus') {
-    return true;
-  }
-  if (node.kind == 'task') {
-    return seenApparatus;
-  }
-  return false;
+  return node.kind == 'apparatus' || (node.kind == 'task' && seenApparatus);
+}
+
+bool _isStationNode(ProductionMapNode node) {
+  return node.kind == 'apparatus' || node.kind == 'task';
 }
 
 bool _isUnassignedAlternativeApparatus(ProductionMapNode node) {
   return node.kind == 'apparatus' &&
       node.alternativeGroupId.trim().isNotEmpty &&
-      node.alternativeAssignedTitle.trim().isEmpty;
+      node.alternativeAssignedApparatusId.trim().isEmpty;
 }
 
-List<ProductionMapChainStage> _stageTitlesForNode(
+List<ProductionMapChainStage> _stagesForNode(
   ProductionMapDefinition map,
   ProductionMapNode node,
 ) {
   if (!_isUnassignedAlternativeApparatus(node)) {
-    final title = _stageTitle(node);
-    return title.isEmpty
-        ? const []
-        : [ProductionMapChainStage(nodeId: node.id, stationTitle: title)];
+    final stageId = _stageIdentity(node);
+    if (stageId.isEmpty) return const [];
+    final apparatusId = node.kind == 'apparatus' ? stageId : null;
+    return [
+      ProductionMapChainStage(
+        nodeId: node.id,
+        stageId: stageId,
+        displayTitle: _displayTitle(node),
+        apparatusId: apparatusId,
+      ),
+    ];
   }
   final groupId = node.alternativeGroupId.trim();
   return [
     for (final candidate in map.nodes)
       if (candidate.kind == 'apparatus' &&
           candidate.alternativeGroupId.trim() == groupId &&
-          candidate.alternativeAssignedTitle.trim().isEmpty &&
-          candidate.title.trim().isNotEmpty)
+          candidate.alternativeAssignedApparatusId.trim().isEmpty &&
+          isCanonicalApparatusId(candidate.apparatusId))
         ProductionMapChainStage(
           nodeId: candidate.id,
-          stationTitle: candidate.title.trim(),
+          stageId: candidate.apparatusId.trim(),
+          displayTitle: _displayTitle(candidate),
+          apparatusId: candidate.apparatusId.trim(),
         ),
   ];
 }
 
-String _stageTitle(ProductionMapNode node) {
-  final assigned = node.alternativeAssignedTitle.trim();
-  if (node.kind == 'apparatus' && assigned.isNotEmpty) {
-    return assigned;
+String _stageIdentity(ProductionMapNode node) {
+  if (node.kind != 'apparatus') {
+    return 'task:${node.id.trim()}';
+  }
+  return _canonicalApparatusIdentity(node) ?? '';
+}
+
+String? _canonicalApparatusIdentity(ProductionMapNode node) {
+  if (node.kind != 'apparatus') return null;
+  final assignedId = node.alternativeAssignedApparatusId.trim();
+  final apparatusId = assignedId.isEmpty ? node.apparatusId.trim() : assignedId;
+  return isCanonicalApparatusId(apparatusId) ? apparatusId : null;
+}
+
+String _displayTitle(ProductionMapNode node) {
+  final assignedTitle = node.alternativeAssignedTitle.trim();
+  if (node.kind == 'apparatus' && assignedTitle.isNotEmpty) {
+    return assignedTitle;
   }
   return node.title.trim();
 }

@@ -181,12 +181,18 @@ class ReturnedPaintRequest {
 
   factory ReturnedPaintRequest.fromJson(Map<String, dynamic> json) {
     final createdAtUnix = (json['created_at_unix'] as num?)?.toInt() ?? 0;
+    final apparatus = json['apparatus']?.toString().trim() ?? '';
+    if (!canonicalApparatusIdIsValid(apparatus)) {
+      throw const FormatException(
+        'Returned paint request requires canonical apparatus identity',
+      );
+    }
     return ReturnedPaintRequest(
       id: json['id']?.toString() ?? '',
       orderId: json['order_id']?.toString() ?? '',
       orderCode: json['order_code']?.toString() ?? '',
       orderName: json['order_name']?.toString() ?? '',
-      apparatus: json['apparatus']?.toString() ?? '',
+      apparatus: apparatus,
       senderRole: userRoleFromJson(json['sender_role']?.toString()),
       senderRef: json['sender_ref']?.toString() ?? '',
       senderDisplayName: json['sender_display_name']?.toString() ?? '',

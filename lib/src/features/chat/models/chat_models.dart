@@ -223,10 +223,14 @@ class OrderFreezeRequestCardData {
   bool get isValid =>
       requestId.trim().isNotEmpty &&
       orderId.trim().isNotEmpty &&
-      targetApparatus.trim().isNotEmpty &&
+      canonicalApparatusIdIsValid(targetApparatus) &&
       targetWorkerRef.trim().isNotEmpty;
 
   factory OrderFreezeRequestCardData.fromJson(Map<String, dynamic> json) {
+    final targetApparatus = json['target_apparatus']?.toString().trim() ?? '';
+    if (!canonicalApparatusIdIsValid(targetApparatus)) {
+      throw const FormatException('Canonical apparatus ID is required');
+    }
     return OrderFreezeRequestCardData(
       eventSequence: (json['event_sequence'] as num?)?.toInt() ?? 0,
       requestId: json['request_id']?.toString() ?? '',
@@ -238,7 +242,7 @@ class OrderFreezeRequestCardData {
       requesterRef: json['requester_ref']?.toString() ?? '',
       requesterDisplayName: json['requester_display_name']?.toString() ?? '',
       targetSessionId: json['target_session_id']?.toString() ?? '',
-      targetApparatus: json['target_apparatus']?.toString() ?? '',
+      targetApparatus: targetApparatus,
       targetWorkerRole: json['target_worker_role']?.toString() ?? '',
       targetWorkerRef: json['target_worker_ref']?.toString() ?? '',
       targetWorkerDisplayName:

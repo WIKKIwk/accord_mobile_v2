@@ -95,7 +95,7 @@ class _ApparatusPickerList extends StatelessWidget {
                   itemCount,
                 ),
                 apparatus: apparatus[index],
-                selected: selected?.name == apparatus[index].name,
+                selected: selected?.id == apparatus[index].id,
                 orderCount: orderCountFor?.call(apparatus[index]) ?? 0,
                 onTap: () => Navigator.of(context).pop(apparatus[index]),
               ),
@@ -168,9 +168,7 @@ class _ApparatusRow extends StatelessWidget {
                           ? context.l10n.productionText(
                               'worker.queue.filter.unselected',
                             )
-                          : context.l10n.productionApparatusName(
-                              apparatus.name,
-                            ),
+                          : apparatus.name.trim(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(

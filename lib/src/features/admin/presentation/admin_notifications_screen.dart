@@ -9,6 +9,8 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
+import '../../shared/models/app_models.dart';
+import '../logic/canonical_apparatus_display.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_navigation_drawer.dart';
@@ -27,6 +29,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   var _loading = true;
   Object? _error;
   List<AdminCompletionRequestNotification> _requests = const [];
+  List<AdminApparatus> _apparatusCatalog = const [];
   String? _expandedRequestId;
   final Set<String> _decidingRequestIds = {};
   StreamSubscription<AdminProductionMapLiveSnapshot>? _liveSubscription;
@@ -48,13 +51,18 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
 
   Future<void> _load() async {
     try {
-      final requests =
-          await MobileApi.instance.adminProductionMapCompletionRequests();
+      final results = await Future.wait<Object>([
+        MobileApi.instance.adminProductionMapCompletionRequests(),
+        MobileApi.instance.adminApparatus(limit: 10000),
+      ]);
+      final requests = results[0] as List<AdminCompletionRequestNotification>;
+      final apparatus = results[1] as List<AdminApparatus>;
       if (!mounted) {
         return;
       }
       setState(() {
         _requests = requests;
+        _apparatusCatalog = apparatus;
         _loading = false;
         _error = null;
       });
@@ -205,6 +213,10 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
             for (var index = 0; index < _requests.length; index++) ...[
               _CompletionRequestNotificationCard(
                 request: _requests[index],
+                apparatusLabel: canonicalApparatusDisplayLabel(
+                  _requests[index].apparatus,
+                  _apparatusCatalog,
+                ),
                 expanded: _expandedRequestId == _requests[index].eventId.trim(),
                 deciding: _decidingRequestIds.contains(
                   _requests[index].eventId.trim(),
@@ -261,6 +273,7 @@ class _EmptyNotificationState extends StatelessWidget {
 class _CompletionRequestNotificationCard extends StatelessWidget {
   const _CompletionRequestNotificationCard({
     required this.request,
+    required this.apparatusLabel,
     required this.expanded,
     required this.deciding,
     required this.onExpandedChanged,
@@ -269,6 +282,7 @@ class _CompletionRequestNotificationCard extends StatelessWidget {
   });
 
   final AdminCompletionRequestNotification request;
+  final String apparatusLabel;
   final bool expanded;
   final bool deciding;
   final ValueChanged<bool> onExpandedChanged;
@@ -306,11 +320,11 @@ class _CompletionRequestNotificationCard extends StatelessWidget {
     final subtitle = decisionRequired
         ? l10n.adminText(
             'notification.subtitle_attempt',
-            values: {'apparatus': request.apparatus.trim(), 'worker': worker},
+            values: {'apparatus': apparatusLabel, 'worker': worker},
           )
         : l10n.adminText(
             'notification.subtitle_remainder',
-            values: {'apparatus': request.apparatus.trim(), 'worker': worker},
+            values: {'apparatus': apparatusLabel, 'worker': worker},
           );
 
     return Material(
@@ -398,6 +412,7 @@ class _CompletionRequestNotificationCard extends StatelessWidget {
             child: expanded
                 ? _CompletionRequestDetails(
                     request: request,
+                    apparatusLabel: apparatusLabel,
                     deciding: deciding,
                     onApprove: onApprove,
                     onReject: onReject,
@@ -413,12 +428,14 @@ class _CompletionRequestNotificationCard extends StatelessWidget {
 class _CompletionRequestDetails extends StatelessWidget {
   const _CompletionRequestDetails({
     required this.request,
+    required this.apparatusLabel,
     required this.deciding,
     required this.onApprove,
     required this.onReject,
   });
 
   final AdminCompletionRequestNotification request;
+  final String apparatusLabel;
   final bool deciding;
   final VoidCallback onApprove;
   final VoidCallback onReject;
@@ -439,10 +456,10 @@ class _CompletionRequestDetails extends StatelessWidget {
           'notification.code_line',
           values: {'value': request.productCode.trim()},
         ),
-      if (request.apparatus.trim().isNotEmpty)
+      if (apparatusLabel.trim().isNotEmpty)
         l10n.adminText(
           'notification.apparatus_line',
-          values: {'value': request.apparatus.trim()},
+          values: {'value': apparatusLabel.trim()},
         ),
       l10n.adminText(
         'notification.worker_line',

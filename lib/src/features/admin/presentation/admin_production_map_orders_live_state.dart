@@ -58,7 +58,12 @@ extension _AdminProductionMapOrdersLiveState
         if (!mounted || generation != _liveStreamGeneration) {
           return;
         }
-        await _refreshLive(initial: _loading);
+        final wasLoading = _loading;
+        // A transient live-stream disconnect does not invalidate the last
+        // successfully loaded queue snapshot. The REST refresh below is the
+        // fallback authority and will surface a warning only if that snapshot
+        // request also fails or violates its contract.
+        await _refreshLive(initial: wasLoading);
       }
       if (!mounted || generation != _liveStreamGeneration) {
         return;
@@ -108,6 +113,7 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   void _applyWorkerLiveSnapshot(AdminProductionMapLiveSnapshot snapshot) {
+    _queueSnapshotGeneration++;
     final orders = _productionMapZakazOrders(snapshot.maps);
     _updateScreenState(() {
       _orders = orders;
@@ -123,8 +129,15 @@ extension _AdminProductionMapOrdersLiveState
         frozenOrdersByApparatus: snapshot.frozenOrdersByApparatus,
       );
       _completedWorkerOrders = snapshot.completedOrders;
+      _workerCompletedHistoryError = false;
+      _workerCompletedHistoryErrorMessage = null;
       _completionRequests = snapshot.completionRequests;
       _loading = false;
+      if (_queueSnapshotContractError) {
+        _queueSnapshotContractError = false;
+        _queueSnapshotErrorMessage = null;
+        _loadError = null;
+      }
     });
     _showNewRejectedCompletionDecisionNotices(
       snapshot.completionRequestDecisions,
@@ -198,12 +211,14 @@ extension _AdminProductionMapOrdersLiveState
 
   Future<void> _refreshQueueSnapshot() async {
     if (_queueSnapshotRefreshInFlight) {
+      _queueSnapshotRefreshQueued = true;
       return;
     }
     _queueSnapshotRefreshInFlight = true;
+    final requestGeneration = ++_queueSnapshotGeneration;
     try {
       final queueSnapshot = await _loadQueueSnapshot();
-      if (!mounted) {
+      if (!mounted || requestGeneration != _queueSnapshotGeneration) {
         return;
       }
       if (!_queueSnapshotChanged(
@@ -219,6 +234,12 @@ extension _AdminProductionMapOrdersLiveState
         qolipOrderNotesByOrderId: _qolipOrderNotesByOrderId,
         frozenOrdersByApparatus: _frozenOrdersByApparatus,
       )) {
+        if (_queueSnapshotContractError) {
+          _updateScreenState(() {
+            _queueSnapshotContractError = false;
+            _queueSnapshotErrorMessage = null;
+          });
+        }
         return;
       }
       _updateScreenState(() {
@@ -234,20 +255,51 @@ extension _AdminProductionMapOrdersLiveState
           qolipOrderNotes: queueSnapshot.qolipOrderNotes,
           frozenOrdersByApparatus: queueSnapshot.frozenOrdersByApparatus,
         );
+        if (_queueSnapshotContractError) {
+          _queueSnapshotContractError = false;
+          _queueSnapshotErrorMessage = null;
+        }
       });
     } catch (error) {
-      if (error is MobileApiException &&
-          error.code == 'production_map_visible_order_ids_missing' &&
-          mounted) {
-        _updateScreenState(() {
-          _loading = false;
-          _loadError = error.message;
-        });
+      if (mounted && requestGeneration == _queueSnapshotGeneration) {
+        _invalidateQueueSnapshotContract(
+          error is MobileApiException
+              ? error.message
+              : context.l10n.productionText('worker.error.sync'),
+        );
       }
       return;
     } finally {
       _queueSnapshotRefreshInFlight = false;
+      if (_queueSnapshotRefreshQueued && mounted) {
+        _queueSnapshotRefreshQueued = false;
+        unawaited(_refreshQueueSnapshot());
+      }
     }
+  }
+
+  void _invalidateQueueSnapshotContract(String message) {
+    _queueSnapshotGeneration++;
+    if (!mounted) {
+      return;
+    }
+    _updateScreenState(() {
+      _replaceQueueSnapshotMaps(
+        sequences: const {},
+        visibleOrderIds: const {},
+        queueStates: const {},
+        queuePolicies: const {},
+        queueActionControls: const {},
+        orderControls: const {},
+        orderCustomers: const {},
+        orderStatuses: const {},
+        qolipOrderNotes: const {},
+        frozenOrdersByApparatus: const {},
+      );
+      _queueSnapshotContractError = true;
+      _queueSnapshotErrorMessage ??= message;
+      _loading = false;
+    });
   }
 
   void _replaceQueueSnapshotMaps({
@@ -284,10 +336,7 @@ extension _AdminProductionMapOrdersLiveState
     _orderControlsByOrderId
       ..clear()
       ..addAll(orderControls);
-    _customerByMapId = {
-      ..._customerByMapId,
-      ...orderCustomers,
-    };
+    _customerByMapId = {...orderCustomers};
     _orderStatusesByOrderId
       ..clear()
       ..addAll(orderStatuses);
@@ -309,9 +358,19 @@ extension _AdminProductionMapOrdersLiveState
       }
       _updateScreenState(() {
         _completedWorkerOrders = completed;
+        _workerCompletedHistoryError = false;
+        _workerCompletedHistoryErrorMessage = null;
       });
-    } catch (_) {
-      return;
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _updateScreenState(() {
+        _workerCompletedHistoryError = true;
+        _workerCompletedHistoryErrorMessage = error is MobileApiException
+            ? error.message
+            : context.l10n.productionText('worker.error.sync');
+      });
     }
   }
 

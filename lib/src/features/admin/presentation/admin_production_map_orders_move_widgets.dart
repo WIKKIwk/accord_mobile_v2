@@ -131,15 +131,15 @@ class _MoveDropZone extends StatelessWidget {
       for (final order in draggingOrders) order.map.id.trim(),
     };
     final dragSource = draggingSource;
-    final isDropTarget =
-        dragSource != null && dragSource.name.trim() != apparatus.name.trim();
+    final isDropTarget = dragSource != null &&
+        !_sameMoveApparatusIdentity(dragSource, apparatus);
     final blocked = isDropTarget &&
         draggingOrders.isNotEmpty &&
         draggingOrders.any((order) => !canMoveTo(order, apparatus, dragSource));
     return DragTarget<_MoveDragPayload>(
       hitTestBehavior: HitTestBehavior.translucent,
       onWillAcceptWithDetails: (details) {
-        if (details.data.source.name.trim() == apparatus.name.trim()) {
+        if (_sameMoveApparatusIdentity(details.data.source, apparatus)) {
           return false;
         }
         return details.data.orders.every(

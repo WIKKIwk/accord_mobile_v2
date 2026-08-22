@@ -287,12 +287,12 @@ class _AdminAparatchiApparatusCardState
             AdminApparatusScopePicker(
               apparatus: _apparatus,
               selected: _selected,
-              onChanged: (apparatusName, checked) {
+              onChanged: (apparatusId, checked) {
                 setState(() {
                   if (checked) {
-                    _selected.add(apparatusName);
+                    _selected.add(apparatusId);
                   } else {
-                    _selected.remove(apparatusName);
+                    _selected.remove(apparatusId);
                   }
                 });
               },
@@ -426,12 +426,12 @@ class _AdminMaterialApparatusSheetState
                   AdminApparatusScopePicker(
                     apparatus: widget.apparatus,
                     selected: _selected,
-                    onChanged: (apparatusName, checked) {
+                    onChanged: (apparatusId, checked) {
                       setState(() {
                         if (checked) {
-                          _selected.add(apparatusName);
+                          _selected.add(apparatusId);
                         } else {
-                          _selected.remove(apparatusName);
+                          _selected.remove(apparatusId);
                         }
                       });
                     },

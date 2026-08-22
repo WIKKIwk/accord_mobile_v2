@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/inventory_movement_models.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,7 +41,7 @@ void main() {
 
     await HttpOverrides.runZoned(() async {
       final states = await MobileApi.instance.adminApparatusQueueAction(
-        apparatus: 'Pechat',
+        apparatus: 'apparatus:default:asset-005',
         orderId: 'zakaz-1',
         action: 'start',
         materialBarcode: 'RM-001',
@@ -51,7 +52,7 @@ void main() {
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/production-maps/queue-action '
-          '{"apparatus":"Pechat","order_id":"zakaz-1","action":"start",'
+          '{"apparatus":"apparatus:default:asset-005","order_id":"zakaz-1","action":"start",'
           '"material_barcode":"RM-001"}',
         ),
       );
@@ -65,7 +66,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       final validatedCode =
           await MobileApi.instance.adminValidateProductionMapQolip(
-        apparatus: '7 ta rangli bosma aparat',
+        apparatus: 'apparatus:default:bosma_7',
         orderId: 'zakaz-1212',
         qolipCode: 'QOLIP-1212',
       );
@@ -75,7 +76,7 @@ void main() {
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/production-maps/qolip-validate '
-          '{"apparatus":"7 ta rangli bosma aparat",'
+          '{"apparatus":"apparatus:default:bosma_7",'
           '"order_id":"zakaz-1212","qolip_code":"QOLIP-1212"}',
         ),
       );
@@ -90,7 +91,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       final validation =
           await MobileApi.instance.adminProductionMapQolipRequirements(
-        apparatus: '7 ta rangli bosma aparat',
+        apparatus: 'apparatus:default:bosma_7',
         orderId: 'zakaz-1212',
       );
 
@@ -105,7 +106,7 @@ void main() {
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/production-maps/qolip-validate '
-          '{"apparatus":"7 ta rangli bosma aparat",'
+          '{"apparatus":"apparatus:default:bosma_7",'
           '"order_id":"zakaz-1212","qolip_code":""}',
         ),
       );
@@ -133,7 +134,7 @@ void main() {
 
     await HttpOverrides.runZoned(() async {
       final states = await MobileApi.instance.adminApparatusQueueAction(
-        apparatus: '7 ta rangli bosma aparat',
+        apparatus: 'apparatus:default:bosma_7',
         orderId: 'zakaz-1212',
         action: 'start',
         qolipCodes: const ['QOLIP-1', 'QOLIP-2', 'qolip-2'],
@@ -144,7 +145,7 @@ void main() {
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/production-maps/queue-action '
-          '{"apparatus":"7 ta rangli bosma aparat",'
+          '{"apparatus":"apparatus:default:bosma_7",'
           '"order_id":"zakaz-1212","action":"start",'
           '"qolip_codes":["QOLIP-1","QOLIP-2"]}',
         ),
@@ -159,7 +160,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       await expectLater(
         MobileApi.instance.adminValidateProductionMapQolip(
-          apparatus: '7 ta rangli bosma aparat',
+          apparatus: 'apparatus:default:bosma_7',
           orderId: 'zakaz-1212',
           qolipCode: 'UNKNOWN',
         ),
@@ -191,7 +192,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       await expectLater(
         MobileApi.instance.adminApparatusQueueAction(
-          apparatus: 'Pechat',
+          apparatus: 'apparatus:default:asset-005',
           orderId: 'zakaz-1',
           action: 'start',
           materialBarcode: 'OTHER-RM',
@@ -236,7 +237,7 @@ void main() {
           'Astatka Rasxotdan katta bo‘lishi mumkin emas',
       'astatka cannot exceed rasxot':
           'Astatka Rasxotdan katta bo‘lishi mumkin emas',
-      'map_id_required': 'Production map ID sini kiriting',
+      'map_id_required': 'Production map yoki aparat canonical ID si topilmadi',
       'production_map_cycle': 'Production map ketma-ketligida aylanish bor',
       'capacity_conflict': 'Bu aparatning quvvati tanlangan vaqt uchun band',
       'capacity_no_working_window':
@@ -253,7 +254,7 @@ void main() {
       await HttpOverrides.runZoned(() async {
         await expectLater(
           MobileApi.instance.adminApparatusQueueAction(
-            apparatus: 'Laminatsiya 1',
+            apparatus: 'apparatus:default:asset-007',
             orderId: 'zakaz-1',
             action: 'complete',
           ),
@@ -273,7 +274,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       await expectLater(
         MobileApi.instance.adminApparatusQueueAction(
-          apparatus: 'Laminatsiya 1',
+          apparatus: 'apparatus:default:asset-007',
           orderId: 'zakaz-1',
           action: 'complete',
         ),
@@ -307,7 +308,7 @@ void main() {
 
     await HttpOverrides.runZoned(() async {
       final result = await MobileApi.instance.adminApparatusQueueActionResult(
-        apparatus: 'Pechat',
+        apparatus: 'apparatus:default:asset-005',
         orderId: 'zakaz-1',
         action: 'pause',
         producedQty: 12.5,
@@ -326,7 +327,7 @@ void main() {
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/production-maps/queue-action '
-          '{"apparatus":"Pechat","order_id":"zakaz-1","action":"pause",'
+          '{"apparatus":"apparatus:default:asset-005","order_id":"zakaz-1","action":"pause",'
           '"produced_qty":12.5,"gross_qty":17.0,"uom":"m",'
           '"driver_url":"http://127.0.0.1:39117"}',
         ),
@@ -360,7 +361,7 @@ void main() {
 
     await HttpOverrides.runZoned(() async {
       final result = await MobileApi.instance.adminApparatusQueueActionResult(
-        apparatus: 'Pechat',
+        apparatus: 'apparatus:default:asset-005',
         orderId: 'zakaz-1',
         action: 'freeze',
         freezeWithIssue: true,
@@ -377,7 +378,7 @@ void main() {
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/production-maps/queue-action '
-          '{"apparatus":"Pechat","order_id":"zakaz-1","action":"freeze",'
+          '{"apparatus":"apparatus:default:asset-005","order_id":"zakaz-1","action":"freeze",'
           '"freeze_with_issue":true,"issue_note":"Printer stopped"}',
         ),
       );
@@ -407,7 +408,7 @@ void main() {
 
     await HttpOverrides.runZoned(() async {
       await MobileApi.instance.adminApparatusQueueActionResult(
-        apparatus: 'Pechat',
+        apparatus: 'apparatus:default:asset-005',
         orderId: 'zakaz-1',
         action: 'detach_roll',
         producedQty: 12.5,
@@ -419,7 +420,7 @@ void main() {
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/production-maps/queue-action '
-          '{"apparatus":"Pechat","order_id":"zakaz-1",'
+          '{"apparatus":"apparatus:default:asset-005","order_id":"zakaz-1",'
           '"action":"detach_roll","produced_qty":12.5,'
           '"gross_qty":17.0,"uom":"m"}',
         ),
@@ -466,7 +467,10 @@ void main() {
       expect(report.isStale, isTrue);
       expect(report.staleReason, 'processed_by_next_stage');
       expect(report.order?.id, 'zakaz-1');
-      expect(report.queueStates['Qadoqlash stol']?['zakaz-1'], 'completed');
+      expect(
+        report.queueStates['apparatus:default:paket']?['zakaz-1'],
+        'completed',
+      );
       expect(report.logs.single.actorDisplayName, 'Aparatchi');
       expect(report.runSessions.map((session) => session.status), [
         'completed',
@@ -499,7 +503,7 @@ void main() {
 
     await HttpOverrides.runZoned(() async {
       final result = await MobileApi.instance.adminApparatusQueueActionResult(
-        apparatus: '7 ta rangli bosma',
+        apparatus: 'apparatus:default:bosma_7',
         orderId: 'zakaz-1',
         action: 'complete',
         returnInkKg: 1.25,
@@ -518,7 +522,7 @@ void main() {
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/production-maps/queue-action '
-          '{"apparatus":"7 ta rangli bosma","order_id":"zakaz-1",'
+          '{"apparatus":"apparatus:default:bosma_7","order_id":"zakaz-1",'
           '"action":"complete","return_ink_kg":1.25,"total_waste":2.5,'
           '"finished_goods_kg":18.75,"finished_goods_meter":125.5,'
           '"driver_url":"http://127.0.0.1:39117"}',
@@ -548,7 +552,7 @@ void main() {
 
     await HttpOverrides.runZoned(() async {
       final result = await MobileApi.instance.adminApparatusQueueActionResult(
-        apparatus: 'Laminatsiya 1',
+        apparatus: 'apparatus:default:asset-007',
         orderId: 'zakaz-1',
         action: 'complete',
         laminationPrintLeftoverRolls: 1.5,
@@ -569,7 +573,7 @@ void main() {
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/production-maps/queue-action '
-          '{"apparatus":"Laminatsiya 1","order_id":"zakaz-1",'
+          '{"apparatus":"apparatus:default:asset-007","order_id":"zakaz-1",'
           '"action":"complete","lamination_print_leftover_rolls":1.5,'
           '"lamination_film_leftover_rolls":2.5,"total_waste":3.5,'
           '"finished_goods_kg":20.75,"finished_goods_meter":140.25,'
@@ -599,7 +603,7 @@ void main() {
 
     await HttpOverrides.runZoned(() async {
       final result = await MobileApi.instance.adminApparatusQueueActionResult(
-        apparatus: 'Rezka',
+        apparatus: 'apparatus:default:asset-010',
         orderId: 'zakaz-1',
         action: 'complete',
         producedQty: 32,
@@ -621,7 +625,7 @@ void main() {
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/production-maps/queue-action '
-          '{"apparatus":"Rezka","order_id":"zakaz-1",'
+          '{"apparatus":"apparatus:default:asset-010","order_id":"zakaz-1",'
           '"action":"complete","produced_qty":32.0,"gross_qty":32.0,'
           '"diameter":45.5,"rezka_bosma_waste":1.25,"rezka_lamination_waste":2.5,'
           '"rezka_edge_waste":0.75,"uom":"kg",'
@@ -657,7 +661,7 @@ void main() {
       expect(orders.first.closedByRef, 'worker-closed-lamin');
       expect(orders.first.logs, hasLength(2));
       expect(orders.first.logs.first.action, 'start');
-      expect(orders.first.logs.last.apparatus, 'Laminatsiya 1');
+      expect(orders.first.logs.last.apparatus, 'apparatus:default:asset-007');
       expect(
         seenRequests,
         contains('GET /v1/mobile/admin/production-maps/closed-orders'),
@@ -678,17 +682,17 @@ void main() {
       capabilities: ['apparatus.queue.manage'],
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: 'Pechat resume',
+      apparatus: 'apparatus:default:asset-005',
       orderIds: const ['zakaz-resume-completed', 'zakaz-resume-1'],
     );
 
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: 'Pechat resume',
+      apparatus: 'apparatus:default:asset-005',
       orderId: 'zakaz-resume-completed',
       action: 'start',
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: 'Pechat resume',
+      apparatus: 'apparatus:default:asset-005',
       orderId: 'zakaz-resume-completed',
       action: 'complete',
       producedQty: 1,
@@ -697,19 +701,19 @@ void main() {
     );
 
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: 'Pechat resume',
+      apparatus: 'apparatus:default:asset-005',
       orderId: 'zakaz-resume-1',
       action: 'start',
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: 'Pechat resume',
+      apparatus: 'apparatus:default:asset-005',
       orderId: 'zakaz-resume-1',
       action: 'pause',
       producedQty: 3,
       uom: 'kg',
     );
     final resumed = await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: 'Pechat resume',
+      apparatus: 'apparatus:default:asset-005',
       orderId: 'zakaz-resume-1',
       action: 'resume',
     );
@@ -731,17 +735,17 @@ void main() {
       capabilities: ['apparatus.queue.manage'],
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: 'Pechat history',
+      apparatus: 'apparatus:default:asset-005',
       orderIds: const ['zakaz-history-complete', 'zakaz-history-paused'],
     );
 
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: 'Pechat history',
+      apparatus: 'apparatus:default:asset-005',
       orderId: 'zakaz-history-complete',
       action: 'start',
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: 'Pechat history',
+      apparatus: 'apparatus:default:asset-005',
       orderId: 'zakaz-history-complete',
       action: 'complete',
       producedQty: 1,
@@ -749,12 +753,12 @@ void main() {
       uom: 'kg',
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: 'Pechat history',
+      apparatus: 'apparatus:default:asset-005',
       orderId: 'zakaz-history-paused',
       action: 'start',
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: 'Pechat history',
+      apparatus: 'apparatus:default:asset-005',
       orderId: 'zakaz-history-paused',
       action: 'pause',
       producedQty: 1,
@@ -785,7 +789,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       final batches = await MobileApi.instance.adminWipBatches(
         status: 'waiting',
-        apparatus: 'Pechat',
+        apparatus: 'apparatus:default:asset-005',
         currentLocation: 'Pechat yonida',
         limit: 25,
       );
@@ -793,13 +797,16 @@ void main() {
       expect(batches, hasLength(1));
       expect(batches.first.batchId, 'progress-1');
       expect(batches.first.wipStatus, 'waiting');
-      expect(batches.first.currentApparatusKey, 'pechat');
-      expect(batches.first.nextApparatus, 'Laminatsiya 1');
+      expect(
+        batches.first.currentApparatusKey,
+        'apparatus:default:asset-005',
+      );
+      expect(batches.first.nextApparatus, 'apparatus:default:asset-007');
       expect(
         seenRequests,
         contains(
           'GET /v1/mobile/admin/production-maps/wip-batches?'
-          'status=waiting&apparatus=Pechat&current_location=Pechat+yonida&limit=25',
+          'status=waiting&apparatus=apparatus%3Adefault%3Aasset-005&current_location=Pechat+yonida&limit=25',
         ),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
@@ -822,20 +829,20 @@ void main() {
     await HttpOverrides.runZoned(() async {
       final batches = await MobileApi.instance.adminWipBatches(
         status: 'waiting',
-        apparatus: '7 ta rangli pechat',
-        nextApparatus: 'Laminatsiya 1',
+        apparatus: 'apparatus:default:bosma_7',
+        nextApparatus: 'apparatus:default:asset-007',
         orderId: 'zakaz-1111',
         limit: 250,
       );
 
       expect(batches, hasLength(1));
-      expect(batches.first.nextApparatus, 'Laminatsiya 1');
+      expect(batches.first.nextApparatus, 'apparatus:default:asset-007');
       expect(
         seenRequests,
         contains(
           'GET /v1/mobile/admin/production-maps/wip-batches?'
-          'status=waiting&apparatus=7+ta+rangli+pechat&'
-          'next_apparatus=Laminatsiya+1&order_id=zakaz-1111&limit=250',
+          'status=waiting&apparatus=apparatus%3Adefault%3Abosma_7&'
+          'next_apparatus=apparatus%3Adefault%3Aasset-007&order_id=zakaz-1111&limit=250',
         ),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
@@ -857,8 +864,8 @@ void main() {
     await HttpOverrides.runZoned(() async {
       final batches = await MobileApi.instance.adminWipBatches(
         status: 'all',
-        apparatus: '7 ta rangli pechat',
-        nextApparatus: 'Laminatsiya 1',
+        apparatus: 'apparatus:default:bosma_7',
+        nextApparatus: 'apparatus:default:asset-007',
         orderId: 'zakaz-1111',
         limit: 250,
       );
@@ -871,7 +878,7 @@ void main() {
         seenRequests,
         contains(
           'GET /v1/mobile/admin/production-maps/wip-batches?'
-          'status=all&apparatus=7+ta+rangli+pechat&next_apparatus=Laminatsiya+1&'
+          'status=all&apparatus=apparatus%3Adefault%3Abosma_7&next_apparatus=apparatus%3Adefault%3Aasset-007&'
           'order_id=zakaz-1111&limit=250',
         ),
       );
@@ -894,7 +901,20 @@ void main() {
 
     await HttpOverrides.runZoned(() async {
       final rule = await MobileApi.instance.adminSaveRawMaterialRule(
-        apparatus: 'Pechat',
+        apparatus: const AdminApparatus(
+          id: 'apparatus:default:asset-005',
+          name: 'Pechat',
+          sourceRevision: 7,
+        ),
+        currentRule: const AdminRawMaterialRule(
+          apparatusId: 'apparatus:default:asset-005',
+          sourceRevision: 7,
+          sourceAasxSha256:
+              'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          apparatus: 'apparatus:default:asset-005',
+          requiresMaterial: false,
+          itemGroups: [],
+        ),
         requiresMaterial: true,
         startPolicy: AdminRawMaterialStartPolicy.requirementGroups,
         itemGroups: const ['Kraska', 'Kley'],
@@ -909,19 +929,21 @@ void main() {
       final assignment = await MobileApi.instance.adminAssignRawMaterialToOrder(
         orderId: 'zakaz-1',
         barcode: 'RM-001',
-        apparatus: 'Pechat',
+        apparatus: 'apparatus:default:asset-005',
       );
 
+      expect(rule.apparatusId, 'apparatus:default:asset-005');
       expect(rule.apparatus, 'Pechat');
+      expect(rule.sourceRevision, 8);
       expect(rule.requiresMaterial, isTrue);
       expect(
         rule.startPolicy,
         AdminRawMaterialStartPolicy.requirementGroups,
       );
-      expect(rule.itemGroups, ['Kraska', 'Kley']);
+      expect(rule.itemGroups, ['Kley', 'Kraska']);
       expect(rule.requirementGroups, hasLength(1));
       expect(rule.requirementGroups.first.name, 'Yopishtiruvchi');
-      expect(rule.requirementGroups.first.itemGroups, ['Kraska', 'Kley']);
+      expect(rule.requirementGroups.first.itemGroups, ['Kley', 'Kraska']);
       expect(assignment.orderId, 'zakaz-1');
       expect(assignment.barcode, 'RM-001');
       expect(assignment.stockStatus, 'in_use');
@@ -931,11 +953,11 @@ void main() {
         seenRequests,
         contains(
           'BODY PUT /v1/mobile/admin/raw-material-rules '
-          '{"apparatus":"Pechat","requires_material":true,'
-          '"start_policy":"requirement_groups",'
-          '"item_groups":["Kraska","Kley"],'
-          '"requirement_groups":[{"name":"Yopishtiruvchi",'
-          '"item_groups":["Kraska","Kley"],"min_required_count":1}]}',
+          '{"apparatus_id":"apparatus:default:asset-005",'
+          '"expected_revision":7,"material":{"mode":"requirement_sets",'
+          '"sets":[{"requirement_id":"Yopishtiruvchi",'
+          '"item_group_ids":["Kley","Kraska"],'
+          '"minimum_required_count":1}]},"tooling":{"mode":"not_required"}}',
         ),
       );
       expect(
@@ -943,7 +965,7 @@ void main() {
         contains(
           'BODY POST /v1/mobile/admin/raw-material-assignments '
           '{"order_id":"zakaz-1","barcode":"RM-001",'
-          '"apparatus":"Pechat"}',
+          '"apparatus":"apparatus:default:asset-005"}',
         ),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
@@ -975,7 +997,7 @@ void main() {
       'assignments': [
         {
           'order_id': 'zakaz-1',
-          'apparatus': 'Pechat',
+          'apparatus': 'apparatus:default:asset-005',
           'barcode': 'RM-01',
           'item_code': 'RM-1',
           'item_name': 'Rulon 1',
@@ -983,7 +1005,7 @@ void main() {
         },
         {
           'order_id': 'zakaz-1',
-          'apparatus': 'Pechat',
+          'apparatus': 'apparatus:default:asset-005',
           'barcode': 'RM-02',
           'item_code': 'RM-2',
           'item_name': 'Rulon 2',
@@ -991,7 +1013,7 @@ void main() {
         },
         {
           'order_id': 'zakaz-1',
-          'apparatus': 'Pechat',
+          'apparatus': 'apparatus:default:asset-005',
           'barcode': 'RM-03',
           'item_code': 'RM-3',
           'item_name': 'Rulon 3',
@@ -999,7 +1021,7 @@ void main() {
         },
         {
           'order_id': 'zakaz-1',
-          'apparatus': 'Laminatsiya',
+          'apparatus': 'apparatus:default:asset-007',
           'barcode': 'RM-04',
           'item_code': 'RM-4',
           'item_name': 'Kley 1',
@@ -1009,7 +1031,7 @@ void main() {
       'start_assignments': [
         {
           'order_id': 'zakaz-1',
-          'apparatus': 'Pechat',
+          'apparatus': 'apparatus:default:asset-005',
           'barcode': 'RM-01',
           'item_code': 'RM-1',
           'item_name': 'Rulon 1',
@@ -1017,7 +1039,7 @@ void main() {
         },
         {
           'order_id': 'zakaz-1',
-          'apparatus': 'Pechat',
+          'apparatus': 'apparatus:default:asset-005',
           'barcode': 'RM-02',
           'item_code': 'RM-2',
           'item_name': 'Rulon 2',
@@ -1025,7 +1047,7 @@ void main() {
         },
         {
           'order_id': 'zakaz-1',
-          'apparatus': 'Pechat',
+          'apparatus': 'apparatus:default:asset-005',
           'barcode': 'RM-03',
           'item_code': 'RM-3',
           'item_name': 'Rulon 3',
@@ -1050,7 +1072,7 @@ void main() {
       final requirements =
           await MobileApi.instance.adminRawMaterialStartRequirements(
         orderId: 'zakaz-1',
-        apparatus: 'Pechat',
+        apparatus: 'apparatus:default:asset-005',
         materialBarcodes: const ['RM-01'],
       );
 
@@ -1066,7 +1088,7 @@ void main() {
         seenRequests,
         contains(
           'GET /v1/mobile/admin/raw-material-start-requirements?'
-          'order_id=zakaz-1&apparatus=Pechat&material_barcodes=RM-01',
+          'order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-005&material_barcodes=RM-01',
         ),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
@@ -1100,16 +1122,17 @@ void main() {
       final candidates =
           await MobileApi.instance.adminRawMaterialAssignmentCandidates(
         orderId: 'zakaz-1',
-        apparatus: 'Laminatsiya - A',
+        apparatus: 'apparatus:default:asset-007',
       );
 
       expect(candidates.map((item) => item.barcode), ['RM-001']);
-      expect(candidates.single.apparatusOptions, ['Laminatsiya - A']);
+      expect(
+          candidates.single.apparatusOptions, ['apparatus:default:asset-007']);
       expect(
         seenRequests,
         contains(
           'GET /v1/mobile/admin/raw-material-assignments/candidates?'
-          'order_id=zakaz-1&apparatus=Laminatsiya+-+A',
+          'order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-007',
         ),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
@@ -1172,7 +1195,7 @@ void main() {
               .having(
             (error) => error.apparatusOptions,
             'apparatusOptions',
-            ['7 ta rangli pechat', 'Laminatsiya 1'],
+            ['apparatus:default:bosma_7', 'apparatus:default:asset-007'],
           ).having(
             (error) => error.message,
             'message',
@@ -1185,8 +1208,8 @@ void main() {
               seenRequests,
               assignmentErrorCode: 'raw_material_group_ambiguous',
               assignmentErrorApparatusOptions: const [
-                '7 ta rangli pechat',
-                'Laminatsiya 1',
+                'apparatus:default:bosma_7',
+                'apparatus:default:asset-007',
               ],
             ));
   });
@@ -1201,7 +1224,7 @@ void main() {
       final assignment =
           await MobileApi.instance.adminReceiveRawMaterialForActiveOrder(
         orderId: 'zakaz-1',
-        apparatus: 'Pechat',
+        apparatus: 'apparatus:default:asset-005',
         barcode: 'ROLL-1000-B',
       );
 
@@ -1217,7 +1240,7 @@ void main() {
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/raw-material-intake '
-          '{"order_id":"zakaz-1","apparatus":"Pechat",'
+          '{"order_id":"zakaz-1","apparatus":"apparatus:default:asset-005",'
           '"barcode":"ROLL-1000-B"}',
         ),
       );
@@ -1233,7 +1256,7 @@ void main() {
       final candidates =
           await MobileApi.instance.adminRawMaterialIntakeCandidates(
         orderId: 'zakaz-1',
-        apparatus: 'Pechat',
+        apparatus: 'apparatus:default:asset-005',
       );
 
       expect(candidates.map((item) => item.barcode), ['RM-AVAILABLE']);
@@ -1242,10 +1265,113 @@ void main() {
         seenRequests,
         contains(
           'GET /v1/mobile/admin/raw-material-intake-candidates?'
-          'order_id=zakaz-1&apparatus=Pechat',
+          'order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-005',
         ),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
+  test('test mode requires a scan when optional material is assigned',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = AdminApparatus(
+      id: 'apparatus:default:bosma_7',
+      name: '7 ta rangli bosma aparat',
+      operation: 'print',
+      technology: 'rotogravure',
+      sourceRevision: 1,
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      const ProductionMapDefinition(
+        id: 'zakaz-optional-scan',
+        productCode: 'P-OPTIONAL',
+        title: 'Optional scan regression',
+        code: 'Z-OPTIONAL',
+        nodes: [
+          ProductionMapNode(
+            id: 'apparatus',
+            kind: 'apparatus',
+            title: '7 ta rangli bosma aparat',
+            apparatusId: 'apparatus:default:bosma_7',
+          ),
+        ],
+        edges: [],
+      ),
+    );
+    await MobileApi.instance.adminSaveRawMaterialRule(
+      apparatus: apparatus,
+      currentRule: const AdminRawMaterialRule(
+        apparatusId: 'apparatus:default:bosma_7',
+        sourceRevision: 1,
+        sourceAasxSha256:
+            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        apparatus: '7 ta rangli bosma aparat',
+        requiresMaterial: false,
+        itemGroups: [],
+      ),
+      requiresMaterial: false,
+      itemGroups: const ['Kraska'],
+    );
+    seedMobileApiInventoryMovementTestData(
+      locations: const [
+        InventoryLocation(
+          id: 'state:bosma-7',
+          kind: InventoryLocationKind.state,
+          name: 'Bosma 7 State',
+          factoryLocationId: 'factory:bosma',
+          apparatus: [
+            InventoryLocationApparatus(
+              id: 'apparatus:default:bosma_7',
+              name: '7 ta rangli bosma aparat',
+            ),
+          ],
+        ),
+      ],
+      assets: const [
+        InventoryAsset(
+          kind: InventoryAssetKind.rawMaterial,
+          assetRef: 'raw:30aa',
+          custodyWarehouseId: 'warehouse:material',
+          custodyWarehouse: 'Xomashyo ombori',
+          itemCode: 'DEMO-INK',
+          itemName: 'Demo kraska',
+          identifier: '30AA',
+          qty: 12,
+          uom: 'Kg',
+          status: 'available',
+          physicalLocation: InventoryLocationReference(
+            id: 'state:bosma-7',
+            kind: InventoryLocationKind.state,
+            name: 'Bosma 7 State',
+          ),
+        ),
+      ],
+    );
+    await MobileApi.instance.adminAssignRawMaterialToOrder(
+      orderId: 'zakaz-optional-scan',
+      apparatus: 'apparatus:default:bosma_7',
+      barcode: '30AA',
+    );
+
+    final beforeScan =
+        await MobileApi.instance.adminRawMaterialStartRequirements(
+      orderId: 'zakaz-optional-scan',
+      apparatus: 'apparatus:default:bosma_7',
+    );
+    expect(beforeScan.requiresMaterial, isFalse);
+    expect(beforeScan.requiredScanCount, 1);
+    expect(beforeScan.matchedScanCount, 0);
+    expect(beforeScan.scanSatisfied, isFalse);
+
+    final afterScan =
+        await MobileApi.instance.adminRawMaterialStartRequirements(
+      orderId: 'zakaz-optional-scan',
+      apparatus: 'apparatus:default:bosma_7',
+      materialBarcodes: const ['30AA'],
+    );
+    expect(afterScan.requiredScanCount, 1);
+    expect(afterScan.matchedScanCount, 1);
+    expect(afterScan.scanSatisfied, isTrue);
   });
 
   test('test mode intake only accepts unused assigned material at apparatus',
@@ -1259,7 +1385,7 @@ void main() {
       phone: '',
       avatarUrl: '',
       capabilities: ['apparatus.queue.manage'],
-      assignedApparatus: ['Pechat intake'],
+      assignedApparatus: ['apparatus:default:asset-005'],
     );
     const location = InventoryLocation(
       id: 'state:pechat-intake',
@@ -1268,7 +1394,7 @@ void main() {
       factoryLocationId: 'factory:pechat',
       apparatus: [
         InventoryLocationApparatus(
-          id: 'apparatus:pechat-intake',
+          id: 'apparatus:default:asset-005',
           name: 'Pechat intake',
         ),
       ],
@@ -1296,24 +1422,24 @@ void main() {
       ],
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: 'Pechat intake',
+      apparatus: 'apparatus:default:asset-005',
       orderIds: const ['zakaz-intake'],
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: 'Pechat intake',
+      apparatus: 'apparatus:default:asset-005',
       orderId: 'zakaz-intake',
       action: 'start',
     );
     await MobileApi.instance.adminAssignRawMaterialToOrder(
       orderId: 'zakaz-intake',
-      apparatus: 'Pechat intake',
+      apparatus: 'apparatus:default:asset-005',
       barcode: 'ASSIGNED-INTAKE',
     );
 
     expect(
       await MobileApi.instance.adminRawMaterialIntakeCandidates(
         orderId: 'zakaz-intake',
-        apparatus: 'Pechat intake',
+        apparatus: 'apparatus:default:asset-005',
       ),
       hasLength(1),
     );
@@ -1321,7 +1447,7 @@ void main() {
     final received =
         await MobileApi.instance.adminReceiveRawMaterialForActiveOrder(
       orderId: 'zakaz-intake',
-      apparatus: 'Pechat intake',
+      apparatus: 'apparatus:default:asset-005',
       barcode: 'ASSIGNED-INTAKE',
     );
     expect(received.stockStatus, 'in_use');
@@ -1329,7 +1455,7 @@ void main() {
     expect(
       await MobileApi.instance.adminRawMaterialIntakeCandidates(
         orderId: 'zakaz-intake',
-        apparatus: 'Pechat intake',
+        apparatus: 'apparatus:default:asset-005',
       ),
       isEmpty,
     );
@@ -1337,7 +1463,7 @@ void main() {
     await expectLater(
       MobileApi.instance.adminReceiveRawMaterialForActiveOrder(
         orderId: 'zakaz-intake',
-        apparatus: 'Pechat intake',
+        apparatus: 'apparatus:default:asset-005',
         barcode: 'ASSIGNED-INTAKE',
       ),
       throwsA(
@@ -1351,7 +1477,7 @@ void main() {
     await expectLater(
       MobileApi.instance.adminReceiveRawMaterialForActiveOrder(
         orderId: 'zakaz-intake',
-        apparatus: 'Pechat intake',
+        apparatus: 'apparatus:default:asset-005',
         barcode: 'UNASSIGNED-INTAKE',
       ),
       throwsA(
@@ -1391,7 +1517,7 @@ void main() {
       expect(lookup.barcode, 'RM-001');
       expect(lookup.status, 'in_use');
       expect(lookup.reservedOrderId, 'zakaz-1');
-      expect(lookup.assignment?.apparatus, 'Pechat');
+      expect(lookup.assignment?.apparatus, 'apparatus:default:asset-005');
       expect(lookup.order?.title, 'Paynet');
       expect(lookup.logs.single.action, 'start');
       expect(
@@ -1703,7 +1829,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
                 'progress_batch': {
                   'batch_id': 'progress-1',
                   'session_id': 'session-1',
-                  'apparatus': 'Rezka',
+                  'apparatus': 'apparatus:default:asset-010',
                   'order_id': 'zakaz-1',
                   'action': 'complete',
                   'status': 'completed',
@@ -1725,7 +1851,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
                     'progress_batch': {
                       'batch_id': 'progress-1',
                       'session_id': 'session-1',
-                      'apparatus': 'Laminatsiya 1',
+                      'apparatus': 'apparatus:default:asset-007',
                       'order_id': 'zakaz-1',
                       'action': 'complete',
                       'status': 'completed',
@@ -1748,7 +1874,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
                         'progress_batch': {
                           'batch_id': 'progress-1',
                           'session_id': 'session-1',
-                          'apparatus': '7 ta rangli bosma',
+                          'apparatus': 'apparatus:default:bosma_7',
                           'order_id': 'zakaz-1',
                           'action': 'complete',
                           'status': 'completed',
@@ -1770,7 +1896,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
                             'progress_batch': {
                               'batch_id': 'progress-1',
                               'session_id': 'session-1',
-                              'apparatus': 'Pechat',
+                              'apparatus': 'apparatus:default:asset-005',
                               'order_id': 'zakaz-1',
                               'action': 'pause',
                               'status': 'paused',
@@ -1789,7 +1915,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
           body = const {
             'states': {'zakaz-1': 'frozen'},
             'order_status': {
-              'order_status': 'in_progress',
+              'order_status': 'frozen',
               'work_status': 'frozen',
             },
             'order_control': {'state': 'frozen'},
@@ -1802,7 +1928,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'batch': {
             'batch_id': 'progress-1',
             'session_id': 'session-1',
-            'apparatus': 'Pechat',
+            'apparatus': 'apparatus:default:asset-005',
             'order_id': 'zakaz-1',
             'action': 'pause',
             'status': 'paused',
@@ -1820,7 +1946,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'scanned_batch': {
             'batch_id': 'progress-old',
             'session_id': 'session-1',
-            'apparatus': 'Pechat',
+            'apparatus': 'apparatus:default:asset-005',
             'order_id': 'zakaz-1',
             'action': 'pause',
             'status': 'paused',
@@ -1835,7 +1961,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'current_batch': {
             'batch_id': 'progress-new',
             'session_id': 'session-2',
-            'apparatus': 'Qadoqlash stol',
+            'apparatus': 'apparatus:default:paket',
             'order_id': 'zakaz-1',
             'action': 'complete',
             'status': 'completed',
@@ -1880,12 +2006,12 @@ class _RawMaterialApiHttpClient implements HttpClient {
             'completed_with_issue_count': 0,
           },
           'queue_states': {
-            'Qadoqlash stol': {'zakaz-1': 'completed'},
+            'apparatus:default:paket': {'zakaz-1': 'completed'},
           },
           'logs': [
             {
               'event_id': 'event-1',
-              'apparatus': 'Pechat',
+              'apparatus': 'apparatus:default:asset-005',
               'order_id': 'zakaz-1',
               'action': 'start',
               'from_state': 'pending',
@@ -1900,7 +2026,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'run_sessions': [
             {
               'session_id': 'session-1',
-              'apparatus': 'Pechat',
+              'apparatus': 'apparatus:default:asset-005',
               'order_id': 'zakaz-1',
               'status': 'completed',
               'worker_role': 'aparatchi',
@@ -1911,7 +2037,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
             },
             {
               'session_id': 'session-2',
-              'apparatus': 'Qadoqlash stol',
+              'apparatus': 'apparatus:default:paket',
               'order_id': 'zakaz-1',
               'status': 'completed',
               'worker_role': 'aparatchi',
@@ -1945,7 +2071,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
               'logs': [
                 {
                   'event_id': 'event-1',
-                  'apparatus': '7 ta rangli pechat',
+                  'apparatus': 'apparatus:default:bosma_7',
                   'order_id': 'zakaz-closed-route',
                   'action': 'start',
                   'from_state': 'pending',
@@ -1957,7 +2083,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
                 },
                 {
                   'event_id': 'event-2',
-                  'apparatus': 'Laminatsiya 1',
+                  'apparatus': 'apparatus:default:asset-007',
                   'order_id': 'zakaz-closed-route',
                   'action': 'complete',
                   'from_state': 'in_progress',
@@ -1971,14 +2097,14 @@ class _RawMaterialApiHttpClient implements HttpClient {
             },
           ],
         };
-      case 'GET /v1/mobile/admin/production-maps/wip-batches?status=waiting&apparatus=Pechat&current_location=Pechat+yonida&limit=25':
+      case 'GET /v1/mobile/admin/production-maps/wip-batches?status=waiting&apparatus=apparatus%3Adefault%3Aasset-005&current_location=Pechat+yonida&limit=25':
         body = const {
           'ok': true,
           'batches': [
             {
               'batch_id': 'progress-1',
               'session_id': 'session-1',
-              'apparatus': 'Pechat',
+              'apparatus': 'apparatus:default:asset-005',
               'order_id': 'zakaz-1',
               'action': 'pause',
               'status': 'paused',
@@ -1989,24 +2115,24 @@ class _RawMaterialApiHttpClient implements HttpClient {
               'label_item_name': 'Vesta yarim tayyor',
               'executor_name': 'Pechatchi',
               'wip_status': 'waiting',
-              'current_apparatus': 'Pechat',
-              'current_apparatus_key': 'pechat',
+              'current_apparatus': 'apparatus:default:asset-005',
+              'current_apparatus_key': 'apparatus:default:asset-005',
               'current_location': 'Pechat yonida',
-              'next_apparatus': 'Laminatsiya 1',
+              'next_apparatus': 'apparatus:default:asset-007',
               'worker_role': 'aparatchi',
               'worker_ref': 'worker-1',
               'worker_display_name': 'Pechatchi',
             },
           ],
         };
-      case 'GET /v1/mobile/admin/production-maps/wip-batches?status=waiting&apparatus=7+ta+rangli+pechat&next_apparatus=Laminatsiya+1&order_id=zakaz-1111&limit=250':
+      case 'GET /v1/mobile/admin/production-maps/wip-batches?status=waiting&apparatus=apparatus%3Adefault%3Abosma_7&next_apparatus=apparatus%3Adefault%3Aasset-007&order_id=zakaz-1111&limit=250':
         body = const {
           'ok': true,
           'batches': [
             {
               'batch_id': 'progress-1111',
               'session_id': 'session-1111',
-              'apparatus': '7 ta rangli pechat',
+              'apparatus': 'apparatus:default:bosma_7',
               'order_id': 'zakaz-1111',
               'action': 'pause',
               'status': 'paused',
@@ -2017,24 +2143,24 @@ class _RawMaterialApiHttpClient implements HttpClient {
               'label_item_name': 'ABCD Family',
               'executor_name': 'Pechatchi',
               'wip_status': 'waiting',
-              'current_apparatus': '7 ta rangli pechat',
-              'current_apparatus_key': 'pechat:7',
+              'current_apparatus': 'apparatus:default:bosma_7',
+              'current_apparatus_key': 'apparatus:default:bosma_7',
               'current_location': '7 ta rangli pechat chiqim',
-              'next_apparatus': 'Laminatsiya 1',
+              'next_apparatus': 'apparatus:default:asset-007',
               'worker_role': 'aparatchi',
               'worker_ref': 'worker-pechat',
               'worker_display_name': 'Pechatchi',
             },
           ],
         };
-      case 'GET /v1/mobile/admin/production-maps/wip-batches?status=all&apparatus=7+ta+rangli+pechat&next_apparatus=Laminatsiya+1&order_id=zakaz-1111&limit=250':
+      case 'GET /v1/mobile/admin/production-maps/wip-batches?status=all&apparatus=apparatus%3Adefault%3Abosma_7&next_apparatus=apparatus%3Adefault%3Aasset-007&order_id=zakaz-1111&limit=250':
         body = const {
           'ok': true,
           'batches': [
             {
               'batch_id': 'progress-1111',
               'session_id': 'session-1111',
-              'apparatus': '7 ta rangli pechat',
+              'apparatus': 'apparatus:default:bosma_7',
               'order_id': 'zakaz-1111',
               'action': 'pause',
               'status': 'paused',
@@ -2045,10 +2171,10 @@ class _RawMaterialApiHttpClient implements HttpClient {
               'label_item_name': 'ABCD Family',
               'executor_name': 'Pechatchi',
               'wip_status': 'waiting',
-              'current_apparatus': '7 ta rangli pechat',
-              'current_apparatus_key': 'pechat:7',
+              'current_apparatus': 'apparatus:default:bosma_7',
+              'current_apparatus_key': 'apparatus:default:bosma_7',
               'current_location': '7 ta rangli pechat chiqim',
-              'next_apparatus': 'Laminatsiya 1',
+              'next_apparatus': 'apparatus:default:asset-007',
               'worker_role': 'aparatchi',
               'worker_ref': 'worker-pechat',
               'worker_display_name': 'Pechatchi',
@@ -2056,7 +2182,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
             {
               'batch_id': 'progress-1111-used',
               'session_id': 'session-1111',
-              'apparatus': '7 ta rangli pechat',
+              'apparatus': 'apparatus:default:bosma_7',
               'order_id': 'zakaz-1111',
               'action': 'complete',
               'status': 'completed',
@@ -2067,10 +2193,10 @@ class _RawMaterialApiHttpClient implements HttpClient {
               'label_item_name': 'ABCD Family',
               'executor_name': 'Pechatchi',
               'wip_status': 'processed',
-              'current_apparatus': 'Laminatsiya 1',
-              'current_apparatus_key': 'laminatsiya 1',
+              'current_apparatus': 'apparatus:default:asset-007',
+              'current_apparatus_key': 'apparatus:default:asset-007',
               'current_location': 'Laminatsiya 1',
-              'next_apparatus': 'Laminatsiya 1',
+              'next_apparatus': 'apparatus:default:asset-007',
               'worker_role': 'aparatchi',
               'worker_ref': 'worker-pechat',
               'worker_display_name': 'Pechatchi',
@@ -2079,19 +2205,36 @@ class _RawMaterialApiHttpClient implements HttpClient {
         };
       case 'PUT /v1/mobile/admin/raw-material-rules':
         body = const {
-          'apparatus': 'Pechat',
-          'requires_material': true,
-          'start_policy': 'requirement_groups',
-          'item_groups': ['Kraska', 'Kley'],
-          'requirement_groups': [
-            {
-              'name': 'Yopishtiruvchi',
-              'item_groups': ['Kraska', 'Kley'],
-              'min_required_count': 1,
+          'revision': {
+            'apparatus_id': 'apparatus:default:asset-005',
+            'display': {
+              'display_name': 'Pechat',
             },
-          ],
+            'policies': {
+              'material': {
+                'mode': 'requirement_sets',
+                'sets': [
+                  {
+                    'requirement_id': 'Yopishtiruvchi',
+                    'item_group_ids': ['Kley', 'Kraska'],
+                    'minimum_required_count': 1,
+                  },
+                ],
+              },
+              'tooling': {'mode': 'not_required'},
+            },
+            'revision_metadata': {'revision': 8},
+          },
+          'runtime_projection': {
+            'apparatus_id': 'apparatus:default:asset-005',
+            'source_revision': 8,
+            'source_aasx_sha256':
+                'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          },
+          'aasx_sha256':
+              'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         };
-      case 'GET /v1/mobile/admin/raw-material-start-requirements?order_id=zakaz-1&apparatus=Pechat&material_barcodes=RM-01':
+      case 'GET /v1/mobile/admin/raw-material-start-requirements?order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-005&material_barcodes=RM-01':
         body = const {
           'policy': 'state_all',
           'requires_material': true,
@@ -2106,7 +2249,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'assignments': [
             {
               'order_id': 'zakaz-1',
-              'apparatus': 'Pechat',
+              'apparatus': 'apparatus:default:asset-005',
               'barcode': 'RM-01',
               'item_code': 'RM-1',
               'item_name': 'Rulon 1',
@@ -2114,7 +2257,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
             },
             {
               'order_id': 'zakaz-1',
-              'apparatus': 'Pechat',
+              'apparatus': 'apparatus:default:asset-005',
               'barcode': 'RM-02',
               'item_code': 'RM-2',
               'item_name': 'Rulon 2',
@@ -2124,7 +2267,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'start_assignments': [
             {
               'order_id': 'zakaz-1',
-              'apparatus': 'Pechat',
+              'apparatus': 'apparatus:default:asset-005',
               'barcode': 'RM-01',
               'item_code': 'RM-1',
               'item_name': 'Rulon 1',
@@ -2132,7 +2275,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
             },
             {
               'order_id': 'zakaz-1',
-              'apparatus': 'Pechat',
+              'apparatus': 'apparatus:default:asset-005',
               'barcode': 'RM-02',
               'item_code': 'RM-2',
               'item_name': 'Rulon 2',
@@ -2144,14 +2287,14 @@ class _RawMaterialApiHttpClient implements HttpClient {
         body = const [
           {
             'order_id': 'zakaz-1',
-            'apparatus': 'Pechat',
+            'apparatus': 'apparatus:default:asset-005',
             'barcode': 'RM-001',
             'item_code': 'KR-1',
             'item_name': 'Qora kraska',
             'item_group': 'Kraska',
           },
         ];
-      case 'GET /v1/mobile/admin/raw-material-assignments/candidates?order_id=zakaz-1&apparatus=Laminatsiya+-+A':
+      case 'GET /v1/mobile/admin/raw-material-assignments/candidates?order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-007':
         body = const [
           {
             'barcode': 'RM-001',
@@ -2161,18 +2304,18 @@ class _RawMaterialApiHttpClient implements HttpClient {
             'item_group': 'Rulon eni',
             'qty': 11,
             'uom': 'Kg',
-            'apparatus_options': ['Laminatsiya - A'],
+            'apparatus_options': ['apparatus:default:asset-007'],
             'order_width_mm': 660,
             'roll_width_mm': 690,
             'leftover_width_mm': 30,
             'match_type': 'closest_width',
           },
         ];
-      case 'GET /v1/mobile/admin/raw-material-intake-candidates?order_id=zakaz-1&apparatus=Pechat':
+      case 'GET /v1/mobile/admin/raw-material-intake-candidates?order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-005':
         body = const [
           {
             'order_id': 'zakaz-1',
-            'apparatus': 'Pechat',
+            'apparatus': 'apparatus:default:asset-005',
             'barcode': 'RM-AVAILABLE',
             'item_code': 'KR-2',
             'item_name': 'Oq kraska',
@@ -2198,7 +2341,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
         }
         body = const {
           'order_id': 'zakaz-1',
-          'apparatus': 'Pechat',
+          'apparatus': 'apparatus:default:asset-005',
           'barcode': 'RM-001',
           'item_code': 'KR-1',
           'item_name': 'Qora kraska',
@@ -2213,7 +2356,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
       case 'POST /v1/mobile/admin/raw-material-intake':
         body = const {
           'order_id': 'zakaz-1',
-          'apparatus': 'Pechat',
+          'apparatus': 'apparatus:default:asset-005',
           'barcode': 'ROLL-1000-B',
           'item_code': 'RULON-1000',
           'item_name': '1000 metr rulon',
@@ -2244,7 +2387,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'source_receipt_id': 'GSR-RM-001',
           'assignment': {
             'order_id': 'zakaz-1',
-            'apparatus': 'Pechat',
+            'apparatus': 'apparatus:default:asset-005',
             'barcode': 'RM-001',
             'item_code': 'KR-1',
             'item_name': 'Qora kraska',
@@ -2265,12 +2408,12 @@ class _RawMaterialApiHttpClient implements HttpClient {
             'edges': [],
           },
           'queue_states': {
-            'Pechat': {'zakaz-1': 'in_progress'},
+            'apparatus:default:asset-005': {'zakaz-1': 'in_progress'},
           },
           'logs': [
             {
               'event_id': 'event-raw-1',
-              'apparatus': 'Pechat',
+              'apparatus': 'apparatus:default:asset-005',
               'order_id': 'zakaz-1',
               'action': 'start',
               'from_state': 'pending',
@@ -2298,7 +2441,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'ok': true,
           'assignment': {
             'order_id': 'zakaz-1',
-            'apparatus': 'Pechat',
+            'apparatus': 'apparatus:default:asset-005',
             'barcode': 'RM-001',
             'item_code': 'KR-1',
             'item_name': 'Qora kraska',

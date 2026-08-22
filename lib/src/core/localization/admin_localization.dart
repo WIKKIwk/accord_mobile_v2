@@ -499,6 +499,44 @@ const Map<String, Map<String, String>> adminTranslations = {
     'en': 'Equipment groups',
     'ru': 'Группы оборудования',
   },
+  'admin.apparatus.group.print': {
+    'uz': 'Bosma aparat',
+    'en': 'Printing equipment',
+    'ru': 'Печатное оборудование',
+  },
+  'admin.apparatus.group.laminate': {
+    'uz': 'Laminatsiya',
+    'en': 'Lamination',
+    'ru': 'Ламинация',
+  },
+  'admin.apparatus.group.cut': {
+    'uz': 'Rezka',
+    'en': 'Cutting',
+    'ru': 'Резка',
+  },
+  'admin.apparatus.group.package': {
+    'uz': 'Paket apparati',
+    'en': 'Bag-making equipment',
+    'ru': 'Пакетное оборудование',
+  },
+  'admin.apparatus.group.glue': {
+    'uz': 'Kley apparati',
+    'en': 'Adhesive equipment',
+    'ru': 'Клеевое оборудование',
+  },
+  'admin.apparatus.group.unclassified': {
+    'uz': 'Tasniflanmagan aparatlar',
+    'en': 'Unclassified equipment',
+    'ru': 'Неклассифицированное оборудование',
+  },
+  'admin.apparatus.groups_canonical_description': {
+    'uz':
+        'Guruhlar canonical operation maydonidan avtomatik hosil qilinadi. Guruhni o‘zgartirish uchun aparat master-data turini tahrirlang.',
+    'en':
+        'Groups are derived automatically from the canonical operation field. Edit the equipment master-data type to change its group.',
+    'ru':
+        'Группы автоматически формируются из canonical-поля operation. Чтобы изменить группу, отредактируйте тип мастер-данных оборудования.',
+  },
   'admin.apparatus.group': {
     'uz': 'Aparat guruhi',
     'en': 'Equipment group',

@@ -108,10 +108,12 @@ class _WorkerWipHistorySheet extends StatefulWidget {
   const _WorkerWipHistorySheet({
     required this.order,
     required this.apparatus,
+    required this.apparatusCatalog,
   });
 
   final ProductionMapSaved order;
   final AdminApparatus? apparatus;
+  final List<AdminApparatus> apparatusCatalog;
 
   @override
   State<_WorkerWipHistorySheet> createState() => _WorkerWipHistorySheetState();
@@ -172,9 +174,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                   if (title.isNotEmpty) title,
                   if (product.isNotEmpty && product != title) product,
                   if (widget.apparatus?.name.trim().isNotEmpty == true)
-                    context.l10n.productionApparatusName(
-                      widget.apparatus!.name,
-                    ),
+                    widget.apparatus!.name.trim(),
                 ].join(' • '),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -198,7 +198,10 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                     if (batches.isEmpty) {
                       return _WorkerWipHistoryEmpty();
                     }
-                    return _WorkerWipHistoryList(batches: batches);
+                    return _WorkerWipHistoryList(
+                      batches: batches,
+                      apparatusCatalog: widget.apparatusCatalog,
+                    );
                   },
                 ),
               ),
@@ -211,9 +214,13 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
 }
 
 class _WorkerWipHistoryList extends StatelessWidget {
-  const _WorkerWipHistoryList({required this.batches});
+  const _WorkerWipHistoryList({
+    required this.batches,
+    required this.apparatusCatalog,
+  });
 
   final List<AdminProgressBatch> batches;
+  final List<AdminApparatus> apparatusCatalog;
 
   @override
   Widget build(BuildContext context) {
@@ -245,6 +252,7 @@ class _WorkerWipHistoryList extends StatelessWidget {
               key: ValueKey('worker-wip-item-$index'),
               batch: batches[index],
               index: index,
+              apparatusCatalog: apparatusCatalog,
             ),
           ),
       ],
@@ -360,10 +368,12 @@ class _WorkerWipHistoryCard extends StatelessWidget {
     super.key,
     required this.batch,
     required this.index,
+    required this.apparatusCatalog,
   });
 
   final AdminProgressBatch batch;
   final int index;
+  final List<AdminApparatus> apparatusCatalog;
 
   @override
   Widget build(BuildContext context) {
@@ -376,19 +386,23 @@ class _WorkerWipHistoryCard extends StatelessWidget {
       batch.labelItemCode,
       '${context.l10n.productionText('worker.daily.wip')} ${index + 1}',
     ]);
-    final current = context.l10n.productionApparatusName(
+    final current = canonicalApparatusDisplayLabel(
       _workerWipFirstNotEmpty([
         batch.currentLocation,
         batch.currentApparatus,
         batch.apparatus,
       ]),
+      apparatusCatalog,
     );
     final worker = _workerWipFirstNotEmpty([
       batch.workerDisplayName,
       batch.executorName,
       batch.workerRef,
     ]);
-    final next = context.l10n.productionApparatusName(batch.nextApparatus);
+    final next = canonicalApparatusDisplayLabel(
+      batch.nextApparatus,
+      apparatusCatalog,
+    );
     final action = _workerWipActionLabel(batch.action, context.l10n);
 
     return Card.filled(
@@ -443,8 +457,9 @@ class _WorkerWipHistoryCard extends StatelessWidget {
               ),
             _WorkerWipInfoRow(
               label: context.l10n.productionText('worker.wip.info.source'),
-              value: context.l10n.productionApparatusName(
+              value: canonicalApparatusDisplayLabel(
                 _workerWipValue(batch.apparatus),
+                apparatusCatalog,
               ),
             ),
             if (action.isNotEmpty)

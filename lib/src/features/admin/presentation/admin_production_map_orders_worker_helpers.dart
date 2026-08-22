@@ -43,16 +43,16 @@ AdminApparatus? _completedOrderApparatus({
   required AdminCompletedQueueOrder completed,
   required List<AdminApparatus> apparatus,
 }) {
-  final title = completed.apparatus.trim();
-  if (title.isEmpty) {
+  final apparatusId = completed.apparatus.trim();
+  if (apparatusId.isEmpty) {
     return null;
   }
   for (final item in apparatus) {
-    if (_apparatusTitlesMatch(item.name, title)) {
+    if (item.id.trim() == apparatusId) {
       return item;
     }
   }
-  return AdminApparatus(name: title);
+  return null;
 }
 
 int _workerWatchTabCount(List<AdminApparatus> apparatus) {
@@ -101,9 +101,7 @@ int _initialWatchApparatusIndex({
       .map((item) => item.trim())
       .where((item) => item.isNotEmpty);
   for (final item in assigned) {
-    final index = apparatus.indexWhere(
-      (entry) => _apparatusTitlesMatch(entry.name, item),
-    );
+    final index = apparatus.indexWhere((entry) => entry.id.trim() == item);
     if (index >= 0) {
       return index;
     }
@@ -115,6 +113,7 @@ bool _isAssignedWatchApparatus(
   AdminApparatus apparatus, {
   required Iterable<String> assignedApparatus,
 }) {
-  final title = apparatus.name.trim();
-  return assignedApparatus.any((item) => _apparatusTitlesMatch(title, item));
+  final apparatusId = apparatus.id.trim();
+  return apparatusId.isNotEmpty &&
+      assignedApparatus.any((item) => apparatusId == item.trim());
 }

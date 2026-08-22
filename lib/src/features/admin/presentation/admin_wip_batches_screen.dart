@@ -8,6 +8,8 @@ import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart' show AppRefreshIndicator;
+import '../../shared/models/app_models.dart';
+import '../logic/canonical_apparatus_display.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_shell.dart';
@@ -65,10 +67,15 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen> {
 
   Future<_WipBatchesData> _load([String? locationFilter]) async {
     final location = (locationFilter ?? _locationFilter).trim();
-    final allWaitingBatches = await MobileApi.instance.adminWipBatches(
-      status: _WipBatchStatus.waiting.apiValue,
-      limit: _wipFetchLimit,
-    );
+    final results = await Future.wait<Object>([
+      MobileApi.instance.adminWipBatches(
+        status: _WipBatchStatus.waiting.apiValue,
+        limit: _wipFetchLimit,
+      ),
+      MobileApi.instance.adminApparatus(limit: 10000),
+    ]);
+    final allWaitingBatches = results[0] as List<AdminProgressBatch>;
+    final apparatus = results[1] as List<AdminApparatus>;
     final verifiedWaitingBatches = filterWipBatchesForWaitingDisplay(
       allWaitingBatches,
       '',
@@ -87,7 +94,7 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen> {
     );
     return _WipBatchesData({
       _WipBatchStatus.waiting: visibleBatches,
-    }, availableLocations: availableLocations);
+    }, availableLocations: availableLocations, apparatusCatalog: apparatus);
   }
 
   Future<void> _reload() async {
@@ -138,6 +145,7 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen> {
                 _WipLocationFilterBar(
                   selectedLocation: _locationFilter,
                   locations: data.availableLocations,
+                  apparatusCatalog: data.apparatusCatalog,
                   expanded: _locationMenuOpen,
                   onToggle: () {
                     setState(() => _locationMenuOpen = !_locationMenuOpen);
@@ -165,12 +173,14 @@ class _WipBatchesData {
   const _WipBatchesData(
     this.byStatus, {
     this.availableLocations = const [],
+    this.apparatusCatalog = const [],
   });
 
   static const empty = _WipBatchesData({});
 
   final Map<_WipBatchStatus, List<AdminProgressBatch>> byStatus;
   final List<String> availableLocations;
+  final List<AdminApparatus> apparatusCatalog;
 
   List<AdminProgressBatch> batches(_WipBatchStatus status) {
     return byStatus[status] ?? const [];
@@ -185,6 +195,7 @@ class _WipLocationFilterBar extends StatelessWidget {
   const _WipLocationFilterBar({
     required this.selectedLocation,
     required this.locations,
+    required this.apparatusCatalog,
     required this.expanded,
     required this.onToggle,
     required this.onChanged,
@@ -192,6 +203,7 @@ class _WipLocationFilterBar extends StatelessWidget {
 
   final String selectedLocation;
   final List<String> locations;
+  final List<AdminApparatus> apparatusCatalog;
   final bool expanded;
   final VoidCallback onToggle;
   final ValueChanged<String> onChanged;
@@ -218,7 +230,10 @@ class _WipLocationFilterBar extends StatelessWidget {
         for (final location in locations)
           AdminFilterChipOption(
             value: location,
-            label: location,
+            label: canonicalApparatusDisplayLabel(
+              location,
+              apparatusCatalog,
+            ),
             key: ValueKey('admin-wip-location-option-chip-$location'),
           ),
       ],
@@ -266,6 +281,7 @@ class _WipBatchTab extends StatelessWidget {
                 for (var index = 0; index < batches.length; index++)
                   _WipBatchTile(
                     batch: batches[index],
+                    apparatusCatalog: data.apparatusCatalog,
                     status: status,
                     slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                       index,
@@ -328,11 +344,13 @@ class _WipEmptyCard extends StatelessWidget {
 class _WipBatchTile extends StatelessWidget {
   const _WipBatchTile({
     required this.batch,
+    required this.apparatusCatalog,
     required this.status,
     required this.slot,
   });
 
   final AdminProgressBatch batch;
+  final List<AdminApparatus> apparatusCatalog;
   final _WipBatchStatus status;
   final M3SegmentVerticalSlot slot;
 
@@ -346,13 +364,19 @@ class _WipBatchTile extends StatelessWidget {
       batch.orderId,
     ]);
     final productTitle = _headlineForBatch(rawTitle, context.l10n);
-    final currentPlace = _firstNotEmpty([
+    final currentPlaceId = _firstNotEmpty([
       canonicalWaitingLocation(batch),
       batch.currentLocation,
       batch.currentApparatus,
       batch.apparatus,
     ]);
-    final sourceApparatus = _valueOrDash(batch.apparatus);
+    final currentPlace = canonicalApparatusDisplayLabel(
+      currentPlaceId,
+      apparatusCatalog,
+    );
+    final sourceApparatus = _valueOrDash(
+      canonicalApparatusDisplayLabel(batch.apparatus, apparatusCatalog),
+    );
     final finalFreeWip = isFinalFreeWip(batch);
     final worker = _firstNotEmpty([
       batch.workerDisplayName,
@@ -365,6 +389,7 @@ class _WipBatchTile extends StatelessWidget {
       sourceApparatus: sourceApparatus,
       currentPlace: currentPlace,
       worker: worker,
+      apparatusCatalog: apparatusCatalog,
       l10n: context.l10n,
     );
     return M3SegmentFilledSurface(
@@ -438,12 +463,20 @@ class _WipBatchTile extends StatelessWidget {
               _WipInfoLine(
                 icon: Icons.call_split_rounded,
                 label: context.l10n.adminText('wip.next_apparatus'),
-                value: _nextApparatusText(batch.nextApparatus, context.l10n),
+                value: _nextApparatusText(
+                  batch.nextApparatus,
+                  apparatusCatalog,
+                  context.l10n,
+                ),
               ),
               _WipInfoLine(
                 icon: Icons.alt_route_rounded,
                 label: context.l10n.adminText('wip.next_step'),
-                value: _nextStepText(batch.nextApparatus, context.l10n),
+                value: _nextStepText(
+                  batch.nextApparatus,
+                  apparatusCatalog,
+                  context.l10n,
+                ),
               ),
             ],
             _WipInfoLine(
@@ -614,17 +647,13 @@ bool isFinalFreeWip(AdminProgressBatch batch) {
 
 String canonicalWaitingLocation(AdminProgressBatch batch) {
   final location = batch.currentLocation.trim();
+  if (location.isNotEmpty) {
+    return location;
+  }
   final apparatus = batch.currentApparatus.trim().isNotEmpty
       ? batch.currentApparatus.trim()
       : batch.apparatus.trim();
-  if (apparatus.isEmpty) {
-    return location;
-  }
-  final outputLocation = '$apparatus chiqim';
-  if (location.isEmpty || location == apparatus) {
-    return outputLocation;
-  }
-  return location;
+  return apparatus;
 }
 
 String _valueOrDash(String value) {
@@ -650,18 +679,26 @@ String _headlineForBatch(String rawTitle, AppLocalizations l10n) {
   );
 }
 
-String _nextApparatusText(String nextApparatus, AppLocalizations l10n) {
+String _nextApparatusText(
+  String nextApparatus,
+  List<AdminApparatus> apparatusCatalog,
+  AppLocalizations l10n,
+) {
   final trimmed = nextApparatus.trim();
   if (trimmed.isNotEmpty) {
-    return trimmed;
+    return canonicalApparatusDisplayLabel(trimmed, apparatusCatalog);
   }
   return l10n.adminText('wip.unspecified');
 }
 
-String _nextStepText(String nextApparatus, AppLocalizations l10n) {
+String _nextStepText(
+  String nextApparatus,
+  List<AdminApparatus> apparatusCatalog,
+  AppLocalizations l10n,
+) {
   final trimmed = nextApparatus.trim();
   if (trimmed.isNotEmpty) {
-    return trimmed;
+    return canonicalApparatusDisplayLabel(trimmed, apparatusCatalog);
   }
   return l10n.adminText('wip.unspecified');
 }
@@ -672,6 +709,7 @@ String _buildFriendlySummary({
   required String sourceApparatus,
   required String currentPlace,
   required String worker,
+  required List<AdminApparatus> apparatusCatalog,
   required AppLocalizations l10n,
 }) {
   final product = _headlineForBatch(batch.labelItemName, l10n);
@@ -732,8 +770,16 @@ String _buildFriendlySummary({
           'product': product,
           'source': sourceText,
           'place': waitingPlace,
-          'step': _nextStepText(batch.nextApparatus, l10n),
-          'apparatus': _nextApparatusText(batch.nextApparatus, l10n),
+          'step': _nextStepText(
+            batch.nextApparatus,
+            apparatusCatalog,
+            l10n,
+          ),
+          'apparatus': _nextApparatusText(
+            batch.nextApparatus,
+            apparatusCatalog,
+            l10n,
+          ),
           'quantity': quantity,
           'worker': workerText,
         },
@@ -743,8 +789,16 @@ String _buildFriendlySummary({
         values: {
           'product': product,
           'place': inUsePlace,
-          'step': _nextStepText(batch.nextApparatus, l10n),
-          'apparatus': _nextApparatusText(batch.nextApparatus, l10n),
+          'step': _nextStepText(
+            batch.nextApparatus,
+            apparatusCatalog,
+            l10n,
+          ),
+          'apparatus': _nextApparatusText(
+            batch.nextApparatus,
+            apparatusCatalog,
+            l10n,
+          ),
           'quantity': quantity,
           'worker': workerText,
         },
@@ -755,7 +809,11 @@ String _buildFriendlySummary({
           'product': product,
           'source': sourceApparatus,
           'place': processedPlace,
-          'step': _nextStepText(batch.nextApparatus, l10n),
+          'step': _nextStepText(
+            batch.nextApparatus,
+            apparatusCatalog,
+            l10n,
+          ),
           'quantity': quantity,
           'worker': workerText,
         },

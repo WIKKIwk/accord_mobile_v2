@@ -268,7 +268,7 @@ void main() {
         'requester_ref': 'admin_1',
         'requester_display_name': 'Admin',
         'target_session_id': 'session_1',
-        'target_apparatus': '7 ta rangli pechat',
+        'target_apparatus': 'apparatus:default:bosma_7',
         'target_worker_role': 'aparatchi',
         'target_worker_ref': 'worker_1',
         'target_worker_display_name': 'Worker',
@@ -288,7 +288,10 @@ void main() {
 
     final restored = ChatMessage.fromJson(message.toJson());
     expect(restored.orderFreezeRequest?.eventSequence, 17);
-    expect(restored.orderFreezeRequest?.targetApparatus, '7 ta rangli pechat');
+    expect(
+      restored.orderFreezeRequest?.targetApparatus,
+      'apparatus:default:bosma_7',
+    );
   });
 
   test('freeze card sync update parses terminal state on the same message', () {
@@ -317,7 +320,7 @@ void main() {
               'request_id': 'order-freeze-request_abc',
               'status': 'cancelled',
               'order_id': 'zakaz-1',
-              'target_apparatus': '7 ta rangli pechat',
+              'target_apparatus': 'apparatus:default:bosma_7',
               'target_worker_ref': 'worker_1',
             },
             'created_at_unix': 100,
@@ -337,6 +340,18 @@ void main() {
     expect(
       page.events.single.message?.orderFreezeRequest?.eventSequence,
       18,
+    );
+  });
+
+  test('freeze card rejects display-name apparatus identity', () {
+    expect(
+      () => OrderFreezeRequestCardData.fromJson(const {
+        'request_id': 'request-1',
+        'order_id': 'order-1',
+        'target_apparatus': '7 ta rangli pechat',
+        'target_worker_ref': 'worker-1',
+      }),
+      throwsFormatException,
     );
   });
 

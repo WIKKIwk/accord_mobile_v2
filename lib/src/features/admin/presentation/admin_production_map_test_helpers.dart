@@ -30,6 +30,7 @@ class ProductionMapOrderContext {
     this.rollCount,
     this.widthMm,
     this.apparatus = '',
+    this.apparatusId = '',
     this.templateDraft,
   });
 
@@ -41,7 +42,24 @@ class ProductionMapOrderContext {
   final double? rollCount;
   final double? widthMm;
   final String apparatus;
+  final String apparatusId;
   final CalculateOrderTemplate? templateDraft;
+}
+
+bool _productionMapOrderContextHasApparatus(
+  ProductionMapOrderContext context,
+) {
+  final name = context.apparatus.trim();
+  final id = context.apparatusId.trim();
+  if (name.isEmpty && id.isEmpty) return false;
+  if (name.isEmpty || !isCanonicalApparatusId(id)) {
+    throw ArgumentError.value(
+      id,
+      'context.apparatusId',
+      'Canonical apparatus ID and display name are required together',
+    );
+  }
+  return true;
 }
 
 List<ProductionMapNode> productionMapOrderFlowNodes(
@@ -53,6 +71,7 @@ List<ProductionMapNode> productionMapOrderFlowNodes(
       ? 'Mahsulot'
       : context.productName.trim();
   final apparatus = context.apparatus.trim();
+  final hasApparatus = _productionMapOrderContextHasApparatus(context);
   return [
     const ProductionMapNode(
       id: 'start',
@@ -69,11 +88,12 @@ List<ProductionMapNode> productionMapOrderFlowNodes(
       x: 420,
       y: 164,
     ),
-    if (apparatus.isNotEmpty)
+    if (hasApparatus)
       ProductionMapNode(
         id: 'apparatus',
         kind: 'apparatus',
         title: apparatus,
+        apparatusId: context.apparatusId.trim(),
         x: 420,
         y: 296,
       ),
@@ -83,7 +103,7 @@ List<ProductionMapNode> productionMapOrderFlowNodes(
       title: productName,
       itemCode: context.itemCode,
       x: 420,
-      y: apparatus.isEmpty ? 296 : 428,
+      y: hasApparatus ? 428 : 296,
     ),
   ];
 }
@@ -91,10 +111,10 @@ List<ProductionMapNode> productionMapOrderFlowNodes(
 List<ProductionMapEdge> productionMapOrderFlowEdges(
   ProductionMapOrderContext context,
 ) {
-  final apparatus = context.apparatus.trim();
+  final hasApparatus = _productionMapOrderContextHasApparatus(context);
   return [
     const ProductionMapEdge(from: 'start', to: 'order'),
-    if (apparatus.isNotEmpty) ...[
+    if (hasApparatus) ...[
       const ProductionMapEdge(from: 'order', to: 'apparatus'),
       const ProductionMapEdge(from: 'apparatus', to: 'end'),
     ] else
@@ -102,9 +122,19 @@ List<ProductionMapEdge> productionMapOrderFlowEdges(
   ];
 }
 
-bool _isRezkaProductionNode(ProductionMapNode node) {
-  return node.kind == 'apparatus' &&
-      node.title.trim().toLowerCase().contains('rezka');
+bool _isRezkaProductionNode(
+  ProductionMapNode node,
+  Iterable<AdminApparatus> apparatusCatalog,
+) {
+  if (node.kind != 'apparatus') return false;
+  final apparatusId = node.alternativeAssignedApparatusId.trim().isEmpty
+      ? node.apparatusId.trim()
+      : node.alternativeAssignedApparatusId.trim();
+  return apparatusCatalog.any(
+    (apparatus) =>
+        apparatus.id.trim() == apparatusId &&
+        apparatus.operation.trim().toLowerCase() == 'cut',
+  );
 }
 
 String _formatRezkaNumber(double value) => formatRawQuantity(value);
@@ -139,22 +169,23 @@ bool productionMapApparatusMatchesOrder(
   AdminApparatus apparatus,
   ProductionMapOrderContext? orderContext,
 ) {
-  if (productionMapIsLaminatsiyaApparatus(apparatus.name) &&
+  if (apparatus.operation == 'laminate' &&
       !_productionMapLaminatsiyaMatchesOrder(orderContext)) {
     return false;
   }
-  final apparatusColorCount = productionMapPechatColorCount(
-    apparatus.name,
-  );
-  if (apparatusColorCount == null) {
+  if (apparatus.operation != 'print') {
     return true;
   }
   final context = orderContext;
-  if (context == null) {
+  if (context != null && _productionMapOrderIsFlexoProduct(context)) {
+    return apparatus.technology == 'flexographic';
+  }
+  final apparatusColorCount = apparatus.colorStations;
+  if (apparatusColorCount == null) {
     return true;
   }
-  if (_productionMapOrderIsFlexoProduct(context)) {
-    return false;
+  if (context == null) {
+    return true;
   }
   final recommended = productionMapRecommendedPechatColorCount(
     rollCount: context.rollCount,
@@ -195,6 +226,7 @@ bool _productionMapLaminatsiyaMatchesOrder(
 bool _productionMapLaminatsiyaMatchesCurrentMap(
   ProductionMapOrderContext? orderContext,
   Iterable<ProductionMapNode> nodes,
+  Iterable<AdminApparatus> apparatusCatalog,
 ) {
   if (_productionMapLaminatsiyaMatchesOrder(orderContext)) {
     return true;
@@ -205,7 +237,8 @@ bool _productionMapLaminatsiyaMatchesCurrentMap(
     return false;
   }
   for (final node in nodes) {
-    if (!_isRezkaProductionNode(node) || node.rezkaFrameGroups.isEmpty) {
+    if (!_isRezkaProductionNode(node, apparatusCatalog) ||
+        node.rezkaFrameGroups.isEmpty) {
       continue;
     }
     final totalFrames = node.rezkaFrameGroups.fold<int>(

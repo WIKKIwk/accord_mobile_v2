@@ -33,6 +33,7 @@ import '../../qolip/presentation/qolip_home_screen.dart'
 import '../../qolip/presentation/widgets/qolip_dock.dart';
 import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
 import '../logic/apparatus_queue_state.dart';
+import '../logic/canonical_apparatus_display.dart';
 import '../logic/production_map_edit_policy.dart';
 import '../logic/production_map_chain.dart';
 import '../logic/production_map_pechat_rules.dart';
@@ -107,16 +108,19 @@ Future<void> showAdminProductionMapOrderReadOnlyDetail(
   required AdminApparatus apparatus,
   AdminApparatusQueueSnapshot? queueSnapshot,
 }) async {
-  final snapshot = queueSnapshot ??
-      await MobileApi.instance.adminProductionMapQueueSnapshot();
+  final results = await Future.wait<Object>([
+    queueSnapshot == null
+        ? MobileApi.instance.adminProductionMapQueueSnapshot()
+        : Future.value(queueSnapshot),
+    MobileApi.instance.adminApparatus(),
+  ]);
+  final snapshot = results[0] as AdminApparatusQueueSnapshot;
+  final apparatusCatalog = results[1] as List<AdminApparatus>;
   if (!context.mounted) {
     return;
   }
-  final visibleOrderIds = productionMapVisibleOrderIdsForStation(
-        visibleOrderIdsByApparatus: snapshot.visibleOrderIds,
-        station: apparatus.name,
-      ) ??
-      const <String>[];
+  final visibleOrderIds =
+      snapshot.visibleOrderIds[apparatus.id.trim()] ?? const <String>[];
   final mapId = order.map.id.trim();
   await showModalBottomSheet<void>(
     context: context,
@@ -126,6 +130,7 @@ Future<void> showAdminProductionMapOrderReadOnlyDetail(
     builder: (context) => _ReadOnlyOrderDetailSheet(
       order: order,
       apparatus: apparatus,
+      apparatusCatalog: apparatusCatalog,
       baseMetraj: order.map.baseLength,
       orderKg: order.map.orderKg,
       customerName: snapshot.orderCustomers[mapId] ?? order.map.customerName,
@@ -170,25 +175,28 @@ Future<bool> showProductionMapFreezePauseFlow(
   final results = await Future.wait<Object>([
     MobileApi.instance.adminProductionMap(normalizedOrderId),
     MobileApi.instance.adminProductionMapQueueSnapshot(),
+    MobileApi.instance.adminApparatus(),
   ]);
   if (!context.mounted) return false;
   final order = results[0] as ProductionMapSaved;
   final snapshot = results[1] as AdminApparatusQueueSnapshot;
-  final target = AdminApparatus(name: normalizedApparatus);
-  List<String> visibleOrderIds = const <String>[];
-  AdminApparatusQueueOrderActionControl? queueActionControl;
-  for (final entry in snapshot.visibleOrderIds.entries) {
-    if (productionMapWarehouseTitlesMatch(entry.key, normalizedApparatus)) {
-      visibleOrderIds = entry.value;
-      break;
-    }
+  final apparatusCatalog = results[2] as List<AdminApparatus>;
+  final target = _canonicalApparatusForId(
+    apparatusCatalog,
+    normalizedApparatus,
+  );
+  if (target == null) {
+    throw MobileApiException(
+      code: 'apparatus_projection_missing',
+      message: context.l10n.adminText(
+        'production.assignment.apparatus_missing',
+      ),
+    );
   }
-  for (final entry in snapshot.queueActionControls.entries) {
-    if (productionMapWarehouseTitlesMatch(entry.key, normalizedApparatus)) {
-      queueActionControl = entry.value[normalizedOrderId];
-      break;
-    }
-  }
+  final visibleOrderIds =
+      snapshot.visibleOrderIds[normalizedApparatus] ?? const <String>[];
+  final queueActionControl =
+      snapshot.queueActionControls[normalizedApparatus]?[normalizedOrderId];
   final result = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
@@ -197,6 +205,7 @@ Future<bool> showProductionMapFreezePauseFlow(
     builder: (context) => _ReadOnlyOrderDetailSheet(
       order: order,
       apparatus: target,
+      apparatusCatalog: apparatusCatalog,
       workerMode: true,
       canManageQueue: true,
       initialQueueStates: _queueStatesForApparatus(
@@ -216,7 +225,7 @@ Future<bool> showProductionMapFreezePauseFlow(
       visibleOrderIds: visibleOrderIds,
       onQueueAction: (request) => _submitAdminApparatusQueueAction(
         request,
-        apparatusKey: request.apparatus.name.trim(),
+        apparatusKey: request.apparatus.id.trim(),
       ),
       initialOrderControls: snapshot.orderControls,
       initialPauseRequestId: normalizedRequestId,
@@ -257,7 +266,13 @@ class _AdminProductionMapOrdersScreenState
   bool _liveRefreshQueued = false;
   bool _mapsRefreshInFlight = false;
   bool _queueSnapshotRefreshInFlight = false;
+  bool _queueSnapshotRefreshQueued = false;
+  bool _queueSnapshotContractError = false;
+  String? _queueSnapshotErrorMessage;
+  bool _workerCompletedHistoryError = false;
+  String? _workerCompletedHistoryErrorMessage;
   int _liveStreamGeneration = 0;
+  int _queueSnapshotGeneration = 0;
   StreamSubscription<AdminProductionMapLiveSnapshot>? _liveStreamSubscription;
   Timer? _queueSnapshotPollTimer;
   String _searchQuery = '';
@@ -368,7 +383,7 @@ class _AdminProductionMapOrdersScreenState
   Future<AdminApparatusQueueActionResult?> _handleQueueAction(
     _ReadOnlyQueueActionRequest request,
   ) async {
-    final apparatusKey = request.apparatus.name.trim();
+    final apparatusKey = request.apparatus.id.trim();
     final actionKey = '$apparatusKey|${request.order.map.id.trim()}';
     if (!_queueActionsInFlight.add(actionKey)) {
       return null;
@@ -406,6 +421,8 @@ class _AdminProductionMapOrdersScreenState
     required AdminApparatusQueueActionResult result,
   }) {
     setState(() {
+      _queueSnapshotGeneration++;
+      _queueActionControlsByApparatus.clear();
       _queueStatesByApparatus[apparatusKey] = result.states;
       _orderStatusesByOrderId[orderId] = result.orderStatus;
       if (result.orderControl != null) {
@@ -447,6 +464,7 @@ class _AdminProductionMapOrdersScreenState
       showDragHandle: true,
       builder: (context) => _ReadOnlyOrderDetailSheet(
         order: order,
+        apparatusCatalog: _apparatus,
         baseMetraj: _baseMetrajByMapId[mapId] ?? order.map.baseLength,
         orderKg: _orderKgByMapId[mapId] ?? order.map.orderKg,
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
@@ -474,6 +492,7 @@ class _AdminProductionMapOrdersScreenState
       builder: (context) => _ReadOnlyOrderDetailSheet(
         order: order,
         apparatus: apparatus,
+        apparatusCatalog: _apparatus,
         workerMode: widget.workerMode,
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
         canManageQueue: widget.workerMode &&
@@ -526,12 +545,8 @@ class _AdminProductionMapOrdersScreenState
     required AdminApparatus apparatus,
     required String orderId,
   }) {
-    for (final entry in _queueActionControlsByApparatus.entries) {
-      if (productionMapQueueApparatusTitlesMatch(entry.key, apparatus.name)) {
-        return entry.value[orderId.trim()];
-      }
-    }
-    return null;
+    return _queueActionControlsByApparatus[apparatus.id.trim()]
+        ?[orderId.trim()];
   }
 
   void _showWatchOrderInfo({
@@ -560,8 +575,8 @@ class _AdminProductionMapOrdersScreenState
       final batch = await MobileApi.instance.adminProgressQrLookup(qrPayload);
       if (!mounted) return;
       final targetOrderId = batch.orderId.trim();
-      final stationName = batch.nextApparatus.trim();
-      if (targetOrderId.isEmpty || stationName.isEmpty) {
+      final stationId = batch.nextApparatus.trim();
+      if (targetOrderId.isEmpty || stationId.isEmpty) {
         showAdminTopNotice(
           context,
           context.l10n.productionText('worker.error.qr_other_order'),
@@ -570,10 +585,7 @@ class _AdminProductionMapOrdersScreenState
       }
       AdminApparatus? station;
       for (final candidate in _apparatus) {
-        if (productionMapQueueApparatusTitlesMatch(
-          candidate.name,
-          stationName,
-        )) {
+        if (candidate.id.trim() == stationId) {
           station = candidate;
           break;
         }
@@ -596,9 +608,19 @@ class _AdminProductionMapOrdersScreenState
         apparatus: station,
         orderId: targetOrderId,
       );
-      final targetOrderControl = _orderControlsByOrderId[targetOrderId] ??
-          AdminOrderControlState.active;
-      if (targetControl?.isConsistentWith(targetOrderControl) != true ||
+      final targetOrderControl = adminProductionMapOrderControlFor(
+        _orderControlsByOrderId,
+        targetOrderId,
+      );
+      final targetQueueState = _queueStatesForApparatus(
+        station,
+        queueStatesByApparatus: _queueStatesByApparatus,
+      )[targetOrderId];
+      if (targetControl?.isConsistentWith(
+                targetOrderControl,
+                queueState: targetQueueState,
+              ) !=
+              true ||
           targetControl?.allows('start') != true) {
         showAdminTopNotice(
           context,
@@ -667,9 +689,19 @@ class _AdminProductionMapOrdersScreenState
         apparatus: apparatus,
         orderId: orderId,
       );
-      final orderControl =
-          _orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
-      return control?.isConsistentWith(orderControl) == true
+      final orderControl = adminProductionMapOrderControlFor(
+        _orderControlsByOrderId,
+        orderId,
+      );
+      final queueState = _queueStatesForApparatus(
+        apparatus,
+        queueStatesByApparatus: _queueStatesByApparatus,
+      )[orderId];
+      return control?.isConsistentWith(
+                orderControl,
+                queueState: queueState,
+              ) ==
+              true
           ? control?.interaction?.mode
           : null;
     }
@@ -698,10 +730,7 @@ class _AdminProductionMapOrdersScreenState
     };
     final history = _completedWorkerOrders
         .where(
-          (entry) => productionMapQueueApparatusTitlesMatch(
-            entry.apparatus,
-            apparatus.name,
-          ),
+          (entry) => entry.apparatus.trim() == apparatus.id.trim(),
         )
         .toList()
       ..sort(
@@ -725,7 +754,7 @@ class _AdminProductionMapOrdersScreenState
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
   }) async {
-    final station = apparatus.name.trim();
+    final station = apparatus.id.trim();
     try {
       final batches = await MobileApi.instance.adminWipBatches(
         status: 'all',
@@ -739,7 +768,7 @@ class _AdminProductionMapOrdersScreenState
             : batch.usedByApparatus;
         if (batch.orderId.trim() == order.map.id.trim() &&
             batch.wipStatus.trim().toLowerCase() == 'in_use' &&
-            productionMapQueueApparatusTitlesMatch(usedBy, station) &&
+            usedBy.trim() == station &&
             batch.payloadJson['worker_handoff'] == true) {
           return batch;
         }
@@ -764,9 +793,9 @@ class _AdminProductionMapOrdersScreenState
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
   }) async {
-    final isLaminatsiya = productionMapIsLaminatsiyaApparatus(apparatus.name);
-    final supportsAstatka =
-        productionMapApparatusUsesTimelineAstatka(apparatus.name);
+    final operation = apparatus.operation.trim().toLowerCase();
+    final isLaminatsiya = operation == 'laminate';
+    final supportsAstatka = operation == 'laminate' || operation == 'cut';
     if (!widget.workerMode ||
         !_isAssignedWatchApparatus(
           apparatus,
@@ -855,8 +884,9 @@ class _AdminProductionMapOrdersScreenState
       showDragHandle: true,
       builder: (context) => _SequenceRawMaterialAssignmentSheet(
         order: order,
-        initialApparatus: _selectedApparatus?.name ?? '',
+        initialApparatus: _selectedApparatus?.id ?? '',
         assignedApparatus: profile?.assignedApparatus ?? const <String>[],
+        apparatusCatalog: _apparatus,
       ),
     );
   }
@@ -931,8 +961,17 @@ class _AdminProductionMapOrdersScreenState
         _orderControlActionsInFlight.contains(orderId)) {
       return;
     }
-    final control =
-        _orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
+    if (_queueSnapshotContractError) {
+      showAdminTopNotice(
+        context,
+        context.l10n.productionText('worker.error.sync'),
+      );
+      return;
+    }
+    final control = adminProductionMapOrderControlFor(
+      _orderControlsByOrderId,
+      orderId,
+    );
     final hasFrozenQueueState = _queueStatesByApparatus.values.any(
       (states) => states[orderId]?.trim().toLowerCase() == 'frozen',
     );
@@ -1065,6 +1104,13 @@ class _AdminProductionMapOrdersScreenState
     AdminOrderControlAction action,
   ) async {
     final orderId = order.map.id.trim();
+    if (_queueSnapshotContractError) {
+      showAdminTopNotice(
+        context,
+        context.l10n.productionText('worker.error.sync'),
+      );
+      return;
+    }
     if (!_orderControlActionsInFlight.add(orderId)) {
       return;
     }
@@ -1156,6 +1202,7 @@ class _AdminProductionMapOrdersScreenState
       builder: (context) => _WorkerWipHistorySheet(
         order: entry.order,
         apparatus: entry.apparatus,
+        apparatusCatalog: _apparatus,
       ),
     );
   }
@@ -1306,102 +1353,173 @@ class _AdminProductionMapOrdersScreenState
                   bottomPadding: bottomPadding,
                   onRefresh: _load,
                 )
-              : widget.workerMode
-                  ? _WorkerWatchBody(
-                      apparatus: _apparatus,
-                      assignedApparatus:
-                          AppSession.instance.profile?.assignedApparatus ??
-                              const <String>[],
-                      orders: _orders,
-                      completedOrders: _completedWorkerOrders,
-                      sequenceByApparatus: _sequenceByApparatus,
-                      visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
-                      queueStatesByApparatus: _queueStatesByApparatus,
-                      frozenOrdersByApparatus: _frozenOrdersByApparatus,
-                      orderStatusesByOrderId: _orderStatusesByOrderId,
-                      orderControlsByOrderId: _orderControlsByOrderId,
-                      searchQuery: _searchQuery,
-                      bottomPadding: bottomPadding,
-                      tabController: _tabController,
-                      onTapCompletedOrder: _showCompletedOrderDetail,
-                      onTapWatchOrder: _showWatchOrderInfo,
-                      onLongPressWatchOrder: _showWatchOrderLongPress,
-                    )
-                  : _AdminModulesBody(
-                      modules: _modules,
-                      currentModule: _module,
-                      tabController: _tabController,
-                      bottomPadding: bottomPadding,
-                      orders: _orders,
-                      searchQuery: _searchQuery,
-                      apparatus: _apparatus,
-                      selectedApparatus: _selectedApparatus,
-                      completionRequests: _completionRequests,
-                      readOnly: widget.readOnly || widget.supplyViewerMode,
-                      moveTopApparatus: _moveTopApparatus,
-                      moveBottomApparatus: _moveBottomApparatus,
-                      selectedMoveOrderIds: _selectedMoveOrderIds,
-                      draggingMoveOrders: _draggingMoveOrders,
-                      draggingMoveSource: _draggingMoveSource,
-                      closedOrders: _closedOrders,
-                      onSetModule: _setModule,
-                      ordersForApparatus: _ordersForApparatus,
-                      moveOrdersForApparatus: _moveOrdersForApparatus,
-                      canMoveTo: _canMoveOrderToApparatus,
-                      onSelectSequenceApparatus: (apparatus) {
-                        setState(() => _selectedApparatus = apparatus);
-                      },
-                      onReorder: (oldIndex, newIndex) {
-                        unawaited(
-                          _reorderSelectedApparatusOrders(oldIndex, newIndex),
-                        );
-                      },
-                      onPickMoveTop: () => _pickMoveApparatus(top: true),
-                      onPickMoveBottom: () => _pickMoveApparatus(top: false),
-                      onToggleMoveSelection: _toggleMoveOrderSelection,
-                      buildMoveDragPayload: _buildMoveDragPayload,
-                      onMoveDragStarted: (payload) {
-                        setState(() {
-                          _draggingMoveOrders = payload.orders;
-                          _draggingMoveSource = payload.source;
-                        });
-                      },
-                      onMoveDragEnded: () {
-                        setState(() {
-                          _draggingMoveOrders = const [];
-                          _draggingMoveSource = null;
-                        });
-                      },
-                      onMove: _moveOrdersBetweenApparatus,
-                      onInfoOrder: _showOrderDetail,
-                      onInfoSequenceOrder:
-                          widget.supplyViewerMode && !canViewSupplyOrderInfo
-                              ? null
-                              : _showWatchOrderDetail,
-                      customerNameByMapId: _customerByMapId,
-                      queueStatesByApparatus: _queueStatesByApparatus,
-                      frozenOrdersByApparatus: _frozenOrdersByApparatus,
-                      orderStatusesByOrderId: _orderStatusesByOrderId,
-                      qolipOrderNotesByOrderId: _qolipOrderNotesByOrderId,
-                      sequenceInteractionHint: isQolipchi
-                          ? 'Bir marta bosing — ma’lumot. Uzoq bosing — qolip qaydini ochish.'
-                          : null,
-                      orderControlsByOrderId: _orderControlsByOrderId,
-                      workflowAudit: _workflowAudit,
-                      workflowAuditError: _workflowAuditError,
-                      workflowAuditLoading: _workflowAuditLoading,
-                      onRefreshWorkflowAudit: () =>
-                          _refreshWorkflowAudit(force: true),
-                      onLongPressOrder: (order) {
-                        unawaited(
-                          widget.supplyViewerMode && isQolipchi
-                              ? _showQolipOrderNote(order)
-                              : widget.supplyViewerMode && isMaterialTaminotchi
-                                  ? _showSupplyRawMaterialAssignment(order)
-                                  : _showOrderActions(order),
-                        );
-                      },
+              : Column(
+                  children: [
+                    if (_queueSnapshotContractError)
+                      _QueueSnapshotWarningBanner(
+                        message: _queueSnapshotErrorMessage ??
+                            context.l10n.productionText('worker.error.sync'),
+                        onRetry: _refreshQueueSnapshot,
+                      ),
+                    if (widget.workerMode && _workerCompletedHistoryError)
+                      _QueueSnapshotWarningBanner(
+                        message: _workerCompletedHistoryErrorMessage ??
+                            context.l10n.productionText('worker.error.sync'),
+                        onRetry: _refreshWorkerCompletedOrders,
+                      ),
+                    Expanded(
+                      child: widget.workerMode
+                          ? _WorkerWatchBody(
+                              apparatus: _apparatus,
+                              assignedApparatus: AppSession
+                                      .instance.profile?.assignedApparatus ??
+                                  const <String>[],
+                              orders: _orders,
+                              completedOrders: _completedWorkerOrders,
+                              sequenceByApparatus: _sequenceByApparatus,
+                              visibleOrderIdsByApparatus:
+                                  _visibleOrderIdsByApparatus,
+                              queueStatesByApparatus: _queueStatesByApparatus,
+                              frozenOrdersByApparatus: _frozenOrdersByApparatus,
+                              orderStatusesByOrderId: _orderStatusesByOrderId,
+                              orderControlsByOrderId: _orderControlsByOrderId,
+                              searchQuery: _searchQuery,
+                              bottomPadding: bottomPadding,
+                              tabController: _tabController,
+                              onTapCompletedOrder: _showCompletedOrderDetail,
+                              onTapWatchOrder: _showWatchOrderInfo,
+                              onLongPressWatchOrder: _showWatchOrderLongPress,
+                            )
+                          : _AdminModulesBody(
+                              modules: _modules,
+                              currentModule: _module,
+                              tabController: _tabController,
+                              bottomPadding: bottomPadding,
+                              orders: _orders,
+                              searchQuery: _searchQuery,
+                              apparatus: _apparatus,
+                              selectedApparatus: _selectedApparatus,
+                              completionRequests: _completionRequests,
+                              readOnly:
+                                  widget.readOnly || widget.supplyViewerMode,
+                              moveTopApparatus: _moveTopApparatus,
+                              moveBottomApparatus: _moveBottomApparatus,
+                              selectedMoveOrderIds: _selectedMoveOrderIds,
+                              draggingMoveOrders: _draggingMoveOrders,
+                              draggingMoveSource: _draggingMoveSource,
+                              closedOrders: _closedOrders,
+                              onSetModule: _setModule,
+                              ordersForApparatus: _ordersForApparatus,
+                              moveOrdersForApparatus: _moveOrdersForApparatus,
+                              canMoveTo: _canMoveOrderToApparatus,
+                              onSelectSequenceApparatus: (apparatus) {
+                                setState(() => _selectedApparatus = apparatus);
+                              },
+                              onReorder: (oldIndex, newIndex) {
+                                unawaited(
+                                  _reorderSelectedApparatusOrders(
+                                      oldIndex, newIndex),
+                                );
+                              },
+                              onPickMoveTop: () =>
+                                  _pickMoveApparatus(top: true),
+                              onPickMoveBottom: () =>
+                                  _pickMoveApparatus(top: false),
+                              onToggleMoveSelection: _toggleMoveOrderSelection,
+                              buildMoveDragPayload: _buildMoveDragPayload,
+                              onMoveDragStarted: (payload) {
+                                setState(() {
+                                  _draggingMoveOrders = payload.orders;
+                                  _draggingMoveSource = payload.source;
+                                });
+                              },
+                              onMoveDragEnded: () {
+                                setState(() {
+                                  _draggingMoveOrders = const [];
+                                  _draggingMoveSource = null;
+                                });
+                              },
+                              onMove: _moveOrdersBetweenApparatus,
+                              onInfoOrder: _showOrderDetail,
+                              onInfoSequenceOrder: widget.supplyViewerMode &&
+                                      !canViewSupplyOrderInfo
+                                  ? null
+                                  : _showWatchOrderDetail,
+                              customerNameByMapId: _customerByMapId,
+                              queueStatesByApparatus: _queueStatesByApparatus,
+                              frozenOrdersByApparatus: _frozenOrdersByApparatus,
+                              orderStatusesByOrderId: _orderStatusesByOrderId,
+                              qolipOrderNotesByOrderId:
+                                  _qolipOrderNotesByOrderId,
+                              sequenceInteractionHint: isQolipchi
+                                  ? 'Bir marta bosing — ma’lumot. Uzoq bosing — qolip qaydini ochish.'
+                                  : null,
+                              orderControlsByOrderId: _orderControlsByOrderId,
+                              workflowAudit: _workflowAudit,
+                              workflowAuditError: _workflowAuditError,
+                              workflowAuditLoading: _workflowAuditLoading,
+                              onRefreshWorkflowAudit: () =>
+                                  _refreshWorkflowAudit(force: true),
+                              onLongPressOrder: (order) {
+                                unawaited(
+                                  widget.supplyViewerMode && isQolipchi
+                                      ? _showQolipOrderNote(order)
+                                      : widget.supplyViewerMode &&
+                                              isMaterialTaminotchi
+                                          ? _showSupplyRawMaterialAssignment(
+                                              order)
+                                          : _showOrderActions(order),
+                                );
+                              },
+                            ),
                     ),
+                  ],
+                ),
+    );
+  }
+}
+
+class _QueueSnapshotWarningBanner extends StatelessWidget {
+  const _QueueSnapshotWarningBanner({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+        child: Row(
+          children: [
+            Icon(
+              Icons.sync_problem_rounded,
+              color: scheme.onErrorContainer,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onErrorContainer,
+                    ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => unawaited(onRetry()),
+              child: Text(context.l10n.adminText('action.retry')),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -8,19 +8,19 @@ void main() {
       principalRole: UserRole.materialTaminotchi,
       principalRef: 'MAT-001',
       roleId: 'material_taminotchi',
-      assignedApparatus: ['Pechat - A'],
+      assignedApparatus: ['apparatus:test:print-a'],
       assignedItemGroups: ['Rulon', 'Kraska'],
     );
 
     final updated = adminMaterialTaminotchiAssignmentUpsert(
       assignment: assignment,
-      assignedApparatus: const ['Laminatsiya - A'],
+      assignedApparatus: const ['apparatus:test:lamination-a'],
     );
 
     expect(updated.principalRole, UserRole.materialTaminotchi);
     expect(updated.principalRef, 'MAT-001');
     expect(updated.roleId, 'material_taminotchi');
-    expect(updated.assignedApparatus, ['Laminatsiya - A']);
+    expect(updated.assignedApparatus, ['apparatus:test:lamination-a']);
     expect(updated.assignedItemGroups, ['Rulon', 'Kraska']);
   });
 }

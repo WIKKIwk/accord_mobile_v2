@@ -1,18 +1,20 @@
 import '../models/production_map_models.dart';
+import '../../shared/models/app_models.dart';
 
 bool trainingOrderHasApparatus(ProductionMapDefinition map) {
   return map.nodes.any(
-    (node) => node.kind == 'apparatus' && node.title.trim().isNotEmpty,
+    (node) => node.kind == 'apparatus' && node.apparatusId.trim().isNotEmpty,
   );
 }
 
 ProductionMapDefinition assignTrainingOrderToApparatus({
   required ProductionMapDefinition map,
-  required String apparatus,
+  required AdminApparatus apparatus,
 }) {
-  final target = apparatus.trim();
-  if (target.isEmpty) {
-    throw ArgumentError.value(apparatus, 'apparatus');
+  final targetId = apparatus.id.trim();
+  final targetName = apparatus.name.trim();
+  if (targetId.isEmpty || targetName.isEmpty) {
+    throw ArgumentError.value(apparatus.id, 'apparatus.id');
   }
   if (trainingOrderHasApparatus(map)) {
     throw StateError('Order allaqachon aparatga ulangan');
@@ -40,7 +42,14 @@ ProductionMapDefinition assignTrainingOrderToApparatus({
   final apparatusNode = ProductionMapNode(
     id: apparatusId,
     kind: 'apparatus',
-    title: target,
+    title: targetName,
+    apparatusId: targetId,
+    roleCode: switch (apparatus.operation.trim().toLowerCase()) {
+      'laminate' => 'laminatsiya',
+      'cut' => 'rezka',
+      'print' => 'pechat',
+      final value => value,
+    },
     x: endNode.x,
     y: endNode.y,
   );

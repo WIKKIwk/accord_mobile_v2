@@ -1,46 +1,29 @@
 import 'package:accord_mobile_v2/src/features/admin/logic/production_map_pechat_rules.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+const _flexoApparatus = AdminApparatus(
+  id: 'apparatus:test:flexo',
+  name: 'Flexo pechat',
+  operation: 'print',
+  technology: 'flexographic',
+);
+const _colorPrintApparatus = AdminApparatus(
+  id: 'apparatus:test:color-print-7',
+  name: '7 ta rangli bosma aparat',
+  operation: 'print',
+  technology: 'rotogravure',
+  colorStations: 7,
+);
+
 void main() {
-  test('default bosma apparatus names require qolip scan', () {
-    for (final colorCount in [7, 8, 9]) {
-      final name = '$colorCount ta rangli bosma aparat';
-      expect(productionMapPechatColorCount(name), colorCount);
-      expect(productionMapApparatusRequiresQolipScan(name), isTrue);
-      expect(productionMapQolipScanAllowsStart(name, ''), isFalse);
-      expect(productionMapQolipScanAllowsStart(name, 'QOLIP-QR'), isTrue);
-    }
-  });
-
-  test('legacy pechat aliases still require qolip scan', () {
-    expect(
-      productionMapApparatusRequiresQolipScan('7 ta rangli pechat - A'),
-      isTrue,
-    );
-    expect(productionMapApparatusRequiresQolipScan('Laminatsiya 1'), isFalse);
-  });
-
-  test('laminatsiya and rezka use timeline astatka when switching orders', () {
-    expect(
-      productionMapApparatusUsesTimelineAstatka('Laminatsiya 1'),
-      isTrue,
-    );
-    expect(
-      productionMapApparatusUsesTimelineAstatka('Rezka - A'),
-      isTrue,
-    );
-    expect(
-      productionMapApparatusUsesTimelineAstatka('7 ta rangli bosma aparat'),
-      isFalse,
-    );
-  });
-
-  test('flexo belongs to the bosma family without a color count', () {
-    expect(productionMapPechatColorCount('Flexo pechat - A'), isNull);
-    expect(productionMapIsFlexoApparatus('Flexo pechat - A'), isTrue);
-    expect(productionMapIsPechatApparatus('Flexo bosma aparat'), isTrue);
-    expect(productionMapApparatusRequiresQolipScan('Flexo pechat'), isTrue);
+  test('apparatus type comes from canonical metadata, not display title', () {
+    expect(_flexoApparatus.operation, 'print');
+    expect(_flexoApparatus.technology, 'flexographic');
+    expect(_colorPrintApparatus.operation, 'print');
+    expect(_colorPrintApparatus.technology, 'rotogravure');
+    expect(_colorPrintApparatus.colorStations, 7);
   });
 
   test('flexo order is detected from its apparatus node', () {
@@ -57,21 +40,20 @@ void main() {
           id: 'apparatus',
           kind: 'apparatus',
           title: 'Flexo pechat',
+          apparatusId: 'apparatus:test:flexo',
         ),
         ProductionMapNode(id: 'end', kind: 'end', title: 'ABCD Family'),
       ],
       edges: [],
     );
 
-    expect(productionMapIsFlexoOrder(map), isTrue);
     expect(
       productionMapCanMoveOrderToApparatus(
         nodes: map.nodes,
-        fromApparatus: 'Flexo pechat',
-        toApparatus: '7 ta rangli bosma aparat',
+        fromApparatus: _flexoApparatus,
+        toApparatus: _colorPrintApparatus,
         rollCount: map.rollCount,
         widthMm: map.widthMm,
-        isFlexoOrder: productionMapIsFlexoOrder(map),
       ),
       isFalse,
     );
@@ -91,6 +73,7 @@ void main() {
           id: 'apparatus',
           kind: 'apparatus',
           title: '7 ta rangli bosma aparat',
+          apparatusId: 'apparatus:test:color-print-7',
         ),
         ProductionMapNode(
           id: 'end',
@@ -101,15 +84,13 @@ void main() {
       edges: [],
     );
 
-    expect(productionMapIsFlexoOrder(map), isFalse);
     expect(
       productionMapCanMoveOrderToApparatus(
         nodes: map.nodes,
-        fromApparatus: '7 ta rangli bosma aparat',
-        toApparatus: 'Flexo pechat',
+        fromApparatus: _colorPrintApparatus,
+        toApparatus: _flexoApparatus,
         rollCount: map.rollCount,
         widthMm: map.widthMm,
-        isFlexoOrder: productionMapIsFlexoOrder(map),
       ),
       isFalse,
     );

@@ -3,6 +3,7 @@ part of 'admin_production_map_orders_screen.dart';
 class _OrderMapProgressCard extends StatelessWidget {
   const _OrderMapProgressCard({
     required this.steps,
+    required this.apparatusCatalog,
     required this.orderId,
     required this.currentStation,
     required this.queueStates,
@@ -12,6 +13,7 @@ class _OrderMapProgressCard extends StatelessWidget {
   });
 
   final List<ProductionMapNode> steps;
+  final List<AdminApparatus> apparatusCatalog;
   final String orderId;
   final String currentStation;
   final Map<String, String> queueStates;
@@ -104,6 +106,10 @@ class _OrderMapProgressCard extends StatelessWidget {
                                 index++) ...[
                               _SequenceStepTile(
                                 node: steps[index],
+                                operation: _canonicalNodeOperation(
+                                  steps[index],
+                                  apparatusCatalog,
+                                ),
                                 index: index,
                                 isLast: index == steps.length - 1,
                                 status: _orderMapNodeStatus(
@@ -152,25 +158,20 @@ ApparatusQueueOrderState? _orderMapNodeStatus(
   if (node.kind != 'apparatus') {
     return null;
   }
-  final station = _orderMapNodeStationTitle(node);
-  if (station.isEmpty) {
+  final stationId = _orderMapNodeStationId(node);
+  if (stationId.isEmpty) {
     return null;
   }
   if (_orderMapNodeMatchesStation(node, currentStation)) {
     return apparatusQueueOrderStateFromRaw(queueStates[orderId]);
   }
-  for (final entry in queueStatesByApparatus.entries) {
-    if (productionMapWarehouseTitlesMatch(entry.key, station)) {
-      return apparatusQueueOrderStateFromRaw(entry.value[orderId]);
-    }
-  }
-  return ApparatusQueueOrderState.pending;
+  return apparatusQueueOrderStateFromRaw(
+    queueStatesByApparatus[stationId]?[orderId],
+  );
 }
 
 bool _orderMapNodeMatchesStation(ProductionMapNode node, String station) {
-  return station.trim().isNotEmpty &&
-      productionMapWarehouseTitlesMatch(
-          _orderMapNodeStationTitle(node), station);
+  return productionMapNodeMatchesStation(node: node, station: station);
 }
 
 bool _orderMapStepIsIntro({
@@ -236,10 +237,7 @@ String _orderMapProgressSummary({
   );
 }
 
-String _orderMapNodeStationTitle(ProductionMapNode node) {
-  final assigned = node.alternativeAssignedTitle.trim();
-  if (assigned.isNotEmpty) {
-    return assigned;
-  }
-  return node.title.trim();
+String _orderMapNodeStationId(ProductionMapNode node) {
+  final assignedId = node.alternativeAssignedApparatusId.trim();
+  return assignedId.isEmpty ? node.apparatusId.trim() : assignedId;
 }

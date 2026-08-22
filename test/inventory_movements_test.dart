@@ -15,6 +15,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('inventory state rejects display-name apparatus identity', () {
+    expect(
+      () => InventoryLocation.fromJson(const {
+        'id': 'inventory_location:state:legacy',
+        'kind': 'state',
+        'name': 'Legacy state',
+        'apparatus': [
+          {'id': 'Flexo pechat', 'name': 'Flexo pechat'},
+        ],
+      }),
+      throwsFormatException,
+    );
+  });
+
   const source = InventoryLocation(
     id: 'inventory_location:warehouse:a',
     kind: InventoryLocationKind.warehouse,
@@ -127,6 +141,10 @@ void main() {
       avatarUrl: '',
       capabilities: ['inventory.movement.manage'],
       assignedWarehouses: ['Material ombor'],
+      assignedApparatus: [
+        'apparatus:default:asset-005',
+        'apparatus:default:asset-007',
+      ],
     );
     seedMobileApiInventoryMovementTestData(
       locations: const [source, destination, factoryState],
@@ -493,18 +511,33 @@ void main() {
   testWidgets('warehouse raw material links only to an eligible order', (
     tester,
   ) async {
+    const pechatApparatus = AdminApparatus(
+      id: 'apparatus:default:asset-005',
+      name: 'Flexo pechat',
+      operation: 'print',
+      technology: 'flexographic',
+      sourceRevision: 1,
+    );
     await MobileApi.instance.adminSaveProductionMap(
       const ProductionMapDefinition(
         id: 'zakaz-attach',
         productCode: 'P-1',
         title: 'Test zakaz',
         code: 'Z-100',
-        nodes: [],
+        nodes: [
+          ProductionMapNode(
+            id: 'apparatus',
+            kind: 'apparatus',
+            title: 'Flexo pechat',
+            apparatusId: 'apparatus:default:asset-005',
+          ),
+        ],
         edges: [],
       ),
     );
     await MobileApi.instance.adminSaveRawMaterialRule(
-      apparatus: 'Pechat',
+      apparatus: pechatApparatus,
+      currentRule: _testRawMaterialRule(pechatApparatus),
       requiresMaterial: true,
       itemGroups: const ['Kraska'],
     );
@@ -559,7 +592,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Z-100 · Test zakaz'), findsWidgets);
-    expect(find.text('Pechat'), findsOneWidget);
+    expect(find.text('Flexo pechat'), findsOneWidget);
 
     Navigator.of(
       tester.element(
@@ -629,12 +662,12 @@ void main() {
     await MobileApi.instance.adminAssignRawMaterialToOrder(
       orderId: 'zakaz-bulk-unlink',
       barcode: '30AA',
-      apparatus: 'Pechat',
+      apparatus: 'apparatus:test:asset-001',
     );
     await MobileApi.instance.adminAssignRawMaterialToOrder(
       orderId: 'zakaz-bulk-unlink',
       barcode: '30BB',
-      apparatus: 'Pechat',
+      apparatus: 'apparatus:test:asset-001',
     );
 
     await tester.pumpWidget(
@@ -778,25 +811,40 @@ void main() {
   testWidgets('state raw material can be unlinked and linked to an order', (
     tester,
   ) async {
+    const laminatsiyaApparatus = AdminApparatus(
+      id: 'apparatus:default:asset-007',
+      name: 'Laminatsiya 1',
+      operation: 'laminate',
+      technology: 'adhesive_lamination',
+      sourceRevision: 1,
+    );
     await MobileApi.instance.adminSaveProductionMap(
       const ProductionMapDefinition(
         id: 'zakaz-state',
         productCode: 'P-2',
         title: 'State zakaz',
         code: 'Z-200',
-        nodes: [],
+        nodes: [
+          ProductionMapNode(
+            id: 'apparatus',
+            kind: 'apparatus',
+            title: 'Laminatsiya 1',
+            apparatusId: 'apparatus:default:asset-007',
+          ),
+        ],
         edges: [],
       ),
     );
     await MobileApi.instance.adminSaveRawMaterialRule(
-      apparatus: 'Laminatsiya',
+      apparatus: laminatsiyaApparatus,
+      currentRule: _testRawMaterialRule(laminatsiyaApparatus),
       requiresMaterial: true,
       itemGroups: const ['Kraska'],
     );
     await MobileApi.instance.adminAssignRawMaterialToOrder(
       orderId: 'zakaz-state',
       barcode: '30AA',
-      apparatus: 'Laminatsiya',
+      apparatus: 'apparatus:default:asset-007',
     );
     await MobileApi.instance.inventoryRelocate(
       assetKind: InventoryAssetKind.rawMaterial,
@@ -853,7 +901,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Z-200 · State zakaz'), findsWidgets);
-    expect(find.text('Laminatsiya'), findsOneWidget);
+    expect(find.text('Laminatsiya 1'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('raw-material-assign-order-button')),
       findsNothing,
@@ -1057,4 +1105,15 @@ void main() {
     expect(find.text('Sinov transferi'), findsOneWidget);
     expect(find.text('Ko‘chirishni yakunlash'), findsNothing);
   });
+}
+
+AdminRawMaterialRule _testRawMaterialRule(AdminApparatus apparatus) {
+  return AdminRawMaterialRule(
+    apparatusId: apparatus.id,
+    sourceRevision: apparatus.sourceRevision,
+    sourceAasxSha256: '',
+    apparatus: apparatus.name,
+    requiresMaterial: false,
+    itemGroups: const [],
+  );
 }

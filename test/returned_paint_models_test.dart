@@ -3,13 +3,29 @@ import 'package:accord_mobile_v2/src/features/boyoqchi/presentation/widgets/retu
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('returned paint rejects display name as apparatus identity', () {
+    expect(
+      () => ReturnedPaintRequest.fromJson(const {
+        'id': 'returned-paint-legacy',
+        'order_id': 'order-legacy',
+        'apparatus': '7 ta rangli bosma',
+        'sender_role': 'aparatchi',
+        'sender_ref': 'worker-1',
+        'sender_display_name': 'Bosmachi',
+        'created_at_unix': 100,
+        'items': [],
+      }),
+      throwsFormatException,
+    );
+  });
+
   test('returned paint keeps rasxot and astatka values separate', () {
     final request = ReturnedPaintRequest.fromJson(const {
       'id': 'returned-paint-1',
       'order_id': 'order-1',
       'order_code': '1212',
       'order_name': 'Estello',
-      'apparatus': '7 ta rangli bosma',
+      'apparatus': 'apparatus:default:bosma_7',
       'sender_role': 'aparatchi',
       'sender_ref': 'worker-1',
       'sender_display_name': 'Bosmachi',
@@ -81,7 +97,7 @@ void main() {
       'order_id': 'order-image',
       'order_code': '8963',
       'order_name': 'Rasmli order',
-      'apparatus': '7 ta rangli bosma',
+      'apparatus': 'apparatus:default:bosma_7',
       'sender_role': 'aparatchi',
       'sender_ref': 'worker-image',
       'sender_display_name': 'Bosmachi',

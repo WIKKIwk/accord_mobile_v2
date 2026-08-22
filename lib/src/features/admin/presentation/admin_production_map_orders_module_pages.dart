@@ -285,6 +285,7 @@ class _AdminModulesBody extends StatelessWidget {
                   _OpenedOrderModule.closed => _ClosedOrdersModulePage(
                       bottomPadding: bottomPadding,
                       closedOrders: closedOrders,
+                      apparatusCatalog: apparatus,
                       visibleClosedOrders: _visibleClosedOrders(
                         orders: closedOrders,
                         query: searchQuery,
@@ -660,7 +661,7 @@ class _WorkerWatchBody extends StatelessWidget {
     if (tab.isCompleted) {
       return context.l10n.productionText('worker.queue.tab.completed');
     }
-    return context.l10n.productionApparatusName(tab.apparatus!.name);
+    return tab.apparatus!.name.trim();
   }
 
   List<ProductionMapSaved> _ordersForApparatus(AdminApparatus item) {
@@ -815,9 +816,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
               message: context.l10n.productionText(
                 'worker.queue.empty.orders',
                 values: {
-                  'apparatus': context.l10n.productionApparatusName(
-                    apparatus.name,
-                  ),
+                  'apparatus': apparatus.name.trim(),
                 },
               ),
             )
@@ -842,9 +841,10 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                     tone: _resolveOrderCardTone(
                       orderStatus:
                           orderStatusesByOrderId[orders[index].map.id.trim()],
-                      orderControl:
-                          orderControlsByOrderId[orders[index].map.id.trim()] ??
-                              AdminOrderControlState.active,
+                      orderControl: adminProductionMapOrderControlFor(
+                        orderControlsByOrderId,
+                        orders[index].map.id.trim(),
+                      ),
                       apparatusState: apparatusQueueOrderStateFromRaw(
                         queueStates[orders[index].map.id.trim()],
                       ),

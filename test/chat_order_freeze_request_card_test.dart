@@ -38,7 +38,7 @@ void main() {
                 'requester_ref': 'admin_1',
                 'requester_display_name': 'Admin',
                 'target_session_id': 'session_1',
-                'target_apparatus': '7 ta rangli pechat',
+                'target_apparatus': 'apparatus:default:bosma_7',
                 'target_worker_role': 'aparatchi',
                 'target_worker_ref': 'worker_1',
                 'target_worker_display_name': 'Worker',
@@ -57,7 +57,7 @@ void main() {
     expect(find.text('Buyurtmani muzlatish so‘rovi'), findsOneWidget);
     expect(find.text('Kutilmoqda'), findsOneWidget);
     expect(find.text('Z-001'), findsOneWidget);
-    expect(find.text('7 ta rangli pechat'), findsOneWidget);
+    expect(find.text('apparatus:default:bosma_7'), findsOneWidget);
     expect(find.byType(Card), findsOneWidget);
   });
 }

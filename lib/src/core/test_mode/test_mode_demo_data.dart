@@ -139,45 +139,78 @@ class TestModeDemoData {
   ];
 
   static const List<AdminApparatus> apparatus = [
-    AdminApparatus(name: 'Godex aparat - DEMO'),
     AdminApparatus(
+      id: 'apparatus:test:godex-demo',
+      name: 'Godex aparat - DEMO',
+      operation: 'package',
+      technology: 'bag_making',
+      capabilities: ['package'],
+    ),
+    AdminApparatus(
+      id: 'apparatus:default:bosma_7',
       name: '7 ta rangli bosma aparat',
       family: 'pechat',
       kind: 'color_pechat',
-      capabilities: ['print', 'pechat'],
+      operation: 'print',
+      technology: 'rotogravure',
+      capabilities: ['print'],
       colorStations: 7,
     ),
     AdminApparatus(
+      id: 'apparatus:default:bosma_8',
       name: '8 ta rangli bosma aparat',
       family: 'pechat',
       kind: 'color_pechat',
-      capabilities: ['print', 'pechat'],
+      operation: 'print',
+      technology: 'rotogravure',
+      capabilities: ['print'],
       colorStations: 8,
     ),
     AdminApparatus(
+      id: 'apparatus:default:bosma_9',
       name: '9 ta rangli bosma aparat',
       family: 'pechat',
       kind: 'color_pechat',
-      capabilities: ['print', 'pechat'],
+      operation: 'print',
+      technology: 'rotogravure',
+      capabilities: ['print'],
       colorStations: 9,
     ),
     AdminApparatus(
+      id: 'apparatus:default:asset-005',
       name: 'Flexo pechat',
       family: 'pechat',
       kind: 'flexo',
-      capabilities: ['print', 'pechat', 'flexo'],
+      operation: 'print',
+      technology: 'flexographic',
+      capabilities: ['print'],
     ),
     AdminApparatus(
+      id: 'apparatus:default:asset-007',
       name: 'Laminatsiya 1',
       family: 'laminatsiya',
       kind: 'laminatsiya',
+      operation: 'laminate',
+      technology: 'adhesive_lamination',
       capabilities: ['laminate'],
     ),
     AdminApparatus(
+      id: 'apparatus:default:asset-008',
       name: 'Laminatsiya 2',
       family: 'laminatsiya',
       kind: 'laminatsiya',
+      operation: 'laminate',
+      technology: 'adhesive_lamination',
       capabilities: ['laminate'],
+    ),
+    AdminApparatus(
+      id: 'apparatus:default:asset-010',
+      name: 'Rezka',
+      family: 'rezka',
+      kind: 'rezka',
+      operation: 'cut',
+      technology: 'slitting',
+      capabilities: ['cut'],
     ),
   ];
 
@@ -193,22 +226,6 @@ class TestModeDemoData {
       status: 'available',
       reservedOrderId: '',
       sourceReceiptId: 'GSR-30AA',
-    ),
-  ];
-
-  static const List<AdminApparatusGroup> apparatusGroups = [
-    AdminApparatusGroup(
-      name: 'Bosma aparat',
-      apparatus: [
-        '7 ta rangli bosma aparat',
-        '8 ta rangli bosma aparat',
-        '9 ta rangli bosma aparat',
-        'Flexo pechat',
-      ],
-    ),
-    AdminApparatusGroup(
-      name: 'Laminatsiya',
-      apparatus: ['Laminatsiya 1', 'Laminatsiya 2'],
     ),
   ];
 

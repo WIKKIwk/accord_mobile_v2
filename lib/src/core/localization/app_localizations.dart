@@ -6178,35 +6178,6 @@ class AppLocalizations {
     return key.isEmpty ? fallback : productionText(key);
   }
 
-  String productionApparatusName(String raw) {
-    final value = raw.trim();
-    if (value.isEmpty) return value;
-    final normalized = value.toLowerCase();
-    final colorMatch = RegExp(
-      r'^(\d+)\s*ta\s*rangli\s*(?:bosma|pechat)(?:\s*aparat)?$',
-    ).firstMatch(normalized);
-    if (colorMatch != null) {
-      final count = colorMatch.group(1)!;
-      return _t(
-        '$count ta rangli bosma',
-        '$count-color printing',
-        '$count-цветная печать',
-      );
-    }
-    if (normalized.startsWith('laminatsiya')) {
-      final suffix = value.substring('Laminatsiya'.length);
-      return _t('Laminatsiya$suffix', 'Lamination$suffix', 'Ламинация$suffix');
-    }
-    if (normalized == 'rezka' || normalized.startsWith('rezka ')) {
-      final suffix = value.substring('Rezka'.length);
-      return _t('Rezka$suffix', 'Slitting$suffix', 'Резка$suffix');
-    }
-    if (normalized.startsWith('flexo')) {
-      return _t(value, 'Flexographic printing', 'Флексографская печать');
-    }
-    return value;
-  }
-
   String productionErrorMessage(
     String code, {
     String fallback = '',
