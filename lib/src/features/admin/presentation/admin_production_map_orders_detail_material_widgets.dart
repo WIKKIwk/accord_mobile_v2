@@ -437,22 +437,23 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
     required this.countText,
     required this.expanded,
     required this.complete,
-    required this.onTap,
+    this.onTap,
   });
 
   final String title;
   final String countText;
   final bool expanded;
   final bool complete;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final expandable = onTap != null;
     return Semantics(
-      button: true,
-      expanded: expanded,
+      button: expandable,
+      expanded: expandable ? expanded : null,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -487,15 +488,17 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              AnimatedRotation(
-                turns: expanded ? 0.5 : 0,
-                duration: const Duration(milliseconds: 180),
-                child: Icon(
-                  Icons.expand_more_rounded,
-                  color: scheme.onSurfaceVariant,
+              if (expandable) ...[
+                const SizedBox(width: 4),
+                AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  child: Icon(
+                    Icons.expand_more_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

@@ -4532,6 +4532,64 @@ void main() {
     expect(find.text('Boshlash'), findsOneWidget);
     expect(find.text('Tugatish'), findsNothing);
 
+    final attachedMaterialsHeader = find.byKey(
+      const ValueKey('production-materials-expansion'),
+    );
+    expect(
+      find.descendant(
+        of: attachedMaterialsHeader,
+        matching: find.text('Homashyo biriktirilmagan'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: attachedMaterialsHeader,
+        matching: find.byIcon(Icons.expand_more_rounded),
+      ),
+      findsNothing,
+    );
+    expect(
+      tester
+          .widget<InkWell>(
+            find.descendant(
+              of: attachedMaterialsHeader,
+              matching: find.byType(InkWell),
+            ),
+          )
+          .onTap,
+      isNull,
+    );
+
+    final emptyQolipsHeader = find.byKey(
+      const ValueKey('production-qolips-expansion'),
+    );
+    expect(
+      find.descendant(
+        of: emptyQolipsHeader,
+        matching: find.text('Mahsulotga qolip biriktirilmagan'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: emptyQolipsHeader,
+        matching: find.byIcon(Icons.expand_more_rounded),
+      ),
+      findsNothing,
+    );
+    expect(
+      tester
+          .widget<InkWell>(
+            find.descendant(
+              of: emptyQolipsHeader,
+              matching: find.byType(InkWell),
+            ),
+          )
+          .onTap,
+      isNull,
+    );
+
     setMobileApiTestModeQueueActionControlFixture(
       apparatus: _print7Id,
       orderId: 'zakaz-worker-queue',

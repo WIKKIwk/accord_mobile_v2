@@ -891,6 +891,10 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     };
     final showRezkaInputProgressScan = previousProgressRequired && showStart;
     final showMaterialIntake = materialIntakeAllowed;
+    final attachedMaterialsExpandable = materialsLoading ||
+        materialsError.trim().isNotEmpty ||
+        assignedAssignments.isNotEmpty;
+    final qolipsExpandable = requiredQolips.isNotEmpty;
     final customer = customerName?.trim() ?? '';
     final product = productTitle.trim();
     final orderProductLabel = customer.isEmpty
@@ -1094,7 +1098,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           _ScannedItemsExpansionHeader(
             key: const ValueKey('production-materials-expansion'),
             title: context.l10n.productionText(
-              'worker.materials.attached',
+              attachedMaterialsExpandable
+                  ? 'worker.materials.attached'
+                  : 'worker.materials.attached.empty',
             ),
             countText: materialsLoading
                 ? '...'
@@ -1102,11 +1108,12 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                     assignedAssignments.length,
                     kind: 'materials',
                   ),
-            expanded: materialsExpanded,
+            expanded: attachedMaterialsExpandable && materialsExpanded,
             complete: false,
-            onTap: onToggleMaterialsExpanded,
+            onTap:
+                attachedMaterialsExpandable ? onToggleMaterialsExpanded : null,
           ),
-          if (materialsExpanded) ...[
+          if (attachedMaterialsExpandable && materialsExpanded) ...[
             const SizedBox(height: 12),
             _RawMaterialAssignmentsExpansionBody(
               assignments: assignedAssignments,
@@ -1129,38 +1136,31 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             ),
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-qolips-expansion'),
-              title: context.l10n.productionText('worker.molds'),
+              title: qolipsExpandable
+                  ? context.l10n.productionText('worker.molds')
+                  : qolipRequirementsStatusText,
               countText: qolipProgressText,
-              expanded: qolipsExpanded,
+              expanded: qolipsExpandable && qolipsExpanded,
               complete: qolipScanned,
-              onTap: onToggleQolipsExpanded,
+              onTap: qolipsExpandable ? onToggleQolipsExpanded : null,
             ),
-            if (qolipsExpanded) ...[
+            if (qolipsExpandable && qolipsExpanded) ...[
               const SizedBox(height: 12),
-              if (requiredQolips.isEmpty)
-                Text(
-                  qolipRequirementsStatusText,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                )
-              else
-                Column(
-                  children: [
-                    for (var index = 0;
-                        index < requiredQolips.length;
-                        index++) ...[
-                      if (index > 0) const SizedBox(height: 8),
-                      _ScannedQolipTile(
-                        qolip: requiredQolips[index],
-                        scanned: scannedQolipKeys.contains(
-                          requiredQolips[index].qolipCode.trim().toLowerCase(),
-                        ),
+              Column(
+                children: [
+                  for (var index = 0;
+                      index < requiredQolips.length;
+                      index++) ...[
+                    if (index > 0) const SizedBox(height: 8),
+                    _ScannedQolipTile(
+                      qolip: requiredQolips[index],
+                      scanned: scannedQolipKeys.contains(
+                        requiredQolips[index].qolipCode.trim().toLowerCase(),
                       ),
-                    ],
+                    ),
                   ],
-                ),
+                ],
+              ),
             ],
           ],
           if (hasActions) ...[
