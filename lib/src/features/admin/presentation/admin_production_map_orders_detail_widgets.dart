@@ -1200,6 +1200,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               const SizedBox(height: 10),
             if (showStart &&
                 requiresQolipScan &&
+                requiredQolips.isNotEmpty &&
                 !showEmbeddedQuickScanner) ...[
               FilledButton.tonalIcon(
                 onPressed: actionInFlight ? null : onQolipScan,

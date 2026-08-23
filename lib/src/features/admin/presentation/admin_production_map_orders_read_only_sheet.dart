@@ -1831,6 +1831,29 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final requiresQolipScan = uiState.qolipScanRequired;
     final qolipScanAllowsStart =
         !requiresQolipScan || _allRequiredQolipsScanned;
+    final startMaterialScanPending = uiState.showStart &&
+        uiState.showStartMaterials &&
+        !_materialsLoading &&
+        _materialsError.isEmpty &&
+        uiState.materialRequiredCount > uiState.materialScannedCount;
+    final qolipScanPending = uiState.showStart &&
+        requiresQolipScan &&
+        !_qolipRequirementsLoading &&
+        _qolipRequirementsError.isEmpty &&
+        _requiredQolips.isNotEmpty &&
+        !_allRequiredQolipsScanned;
+    final previousWipScanPending = uiState.showStart &&
+        uiState.previousProgressRequired &&
+        !uiState.previousProgressReady &&
+        !_inputProgressLoading &&
+        _inputProgressError.isEmpty &&
+        _availableInputProgressBatches.isNotEmpty;
+    final materialIntakeScanActive =
+        _materialIntakeMode && uiState.materialIntakeAllowed;
+    final showQuickScanner = startMaterialScanPending ||
+        qolipScanPending ||
+        previousWipScanPending ||
+        materialIntakeScanActive;
     return _ReadOnlyOrderDetailContent(
       noticeAnchorKey: _noticeAnchorKey,
       onBack: () => Navigator.of(context).pop(),
@@ -1869,8 +1892,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       inputProgressError: _inputProgressError,
       quickScanStatus: _quickScanStatus,
       quickScanInFlight: _quickScanInFlight,
-      showQuickScanner: uiState.showStart ||
-          (_materialIntakeMode && uiState.materialIntakeAllowed),
+      showQuickScanner: showQuickScanner,
       allowConcurrentQuickScanner: widget.workerMode,
       onQuickScan: _handleQuickScan,
       requiresQolipScan: requiresQolipScan,

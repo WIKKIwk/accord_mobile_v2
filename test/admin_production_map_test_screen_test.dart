@@ -3199,6 +3199,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Ish boshlash uchun homashyolar'), findsOneWidget);
     expect(find.text('Biriktirilgan homashyolar'), findsOneWidget);
+    expect(find.text('0/1'), findsOneWidget);
+    expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('production-quick-scanner-manual')),
+      stagedBarcode,
+    );
+    await tester.tap(find.byTooltip('Qabul qilish'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+    expect(find.text('1/1'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Boshlash'),
+          )
+          .onPressed,
+      isNotNull,
+    );
     await tester.tap(
       find.byKey(const ValueKey('production-start-materials-expansion')),
     );
@@ -3206,7 +3229,7 @@ void main() {
 
     expect(find.text(stagedBarcode), findsOneWidget);
     expect(find.text(unstagedBarcode), findsNothing);
-    expect(find.text('0/1'), findsOneWidget);
+    expect(find.text('1/1'), findsOneWidget);
     await tester.tap(
       find.byKey(const ValueKey('production-start-materials-expansion')),
     );
@@ -4589,6 +4612,25 @@ void main() {
           .onTap,
       isNull,
     );
+    expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+
+    await MobileApi.instance.qolipSaveProductSpec(
+      product: const QolipProduct(
+        code: 'WRK-A',
+        name: 'worker mahsulot',
+        itemGroup: 'Demo xomashyo',
+      ),
+      qolipCode: 'TEST-QOLIP-QR',
+      size: 50,
+    );
+    await tester.tapAt(const Offset(1, 1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('worker-queue').first);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
+    await _completeQolipScan(tester);
+    expect(find.byType(ProductionQuickScannerPanel), findsNothing);
 
     setMobileApiTestModeQueueActionControlFixture(
       apparatus: _print7Id,
@@ -4598,7 +4640,7 @@ void main() {
     await tester.tap(find.text('Boshlash'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    await _completeQolipScan(tester);
+    await tester.pumpAndSettle();
 
     expect(find.text('Tugatish'), findsOneWidget);
     expect(find.text('Boshlash'), findsNothing);
@@ -6516,6 +6558,7 @@ void main() {
 
       expect(find.text('Oldingi bosqich tasdiqlandi'), findsNothing);
       expect(find.text('Bu QR oldingi bosqichga mos emas'), findsOneWidget);
+      expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
       final startButton = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Boshlash'),
       );
@@ -6529,6 +6572,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Oldingi bosqich tasdiqlandi'), findsWidgets);
+      expect(find.byType(ProductionQuickScannerPanel), findsNothing);
       final armedStartButton = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Boshlash'),
       );
@@ -7110,15 +7154,6 @@ void main() {
 }
 
 Future<void> _completeQolipScan(WidgetTester tester) async {
-  await MobileApi.instance.qolipSaveProductSpec(
-    product: const QolipProduct(
-      code: 'DEMO-CPP',
-      name: 'CPP sous',
-      itemGroup: 'Demo xomashyo',
-    ),
-    qolipCode: 'TEST-QOLIP-QR',
-    size: 50,
-  );
   await tester.tap(
     find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
   );
@@ -7130,12 +7165,7 @@ Future<void> _completeQolipScan(WidgetTester tester) async {
   await tester.enterText(input, 'TEST-QOLIP-QR');
   await tester.tap(find.byTooltip('Qabul qilish'));
   await tester.pumpAndSettle();
-  expect(find.text('Qolip qo‘shildi (1/1 ta)'), findsOneWidget);
-  await tester.pump(const Duration(seconds: 3));
-  await tester.enterText(input, 'TEST-QOLIP-QR');
-  await tester.tap(find.byTooltip('Qabul qilish'));
-  await tester.pumpAndSettle();
-  expect(find.text('Bu qolip avval scan qilingan (1/1 ta)'), findsNothing);
+  expect(find.byType(ProductionQuickScannerPanel), findsNothing);
   final qolipsHeader = find.byKey(
     const ValueKey('production-qolips-expansion'),
   );
@@ -7152,8 +7182,6 @@ Future<void> _completeQolipScan(WidgetTester tester) async {
     ),
     findsOneWidget,
   );
-  await tester.tap(find.text('Boshlash'));
-  await tester.pumpAndSettle();
 }
 
 ProductionMapDefinition _alternativeProductionOrderMap({
