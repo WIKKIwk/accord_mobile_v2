@@ -5423,6 +5423,19 @@ void main() {
     expect(find.text('Hali qabul qilinmagan homashyo yo‘q'), findsOneWidget);
     expect(find.text('0 ta'), findsOneWidget);
     expect(
+      find.byKey(const ValueKey('receive-additional-raw-material')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey('production-intake-materials-expansion'),
+        ),
+        matching: find.byIcon(Icons.expand_more_rounded),
+      ),
+      findsNothing,
+    );
+    expect(
       find.byKey(const ValueKey('production-quick-scanner-manual')),
       findsNothing,
     );

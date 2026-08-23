@@ -879,7 +879,11 @@ class _OrderStartUnifiedCard extends StatelessWidget {
       _ => context.l10n.productionText('worker.error.sync'),
     };
     final showRezkaInputProgressScan = previousProgressRequired && showStart;
-    final showMaterialIntake = materialIntakeAllowed;
+    final hasIntakeCandidates = intakeCandidateAssignments.isNotEmpty;
+    final showMaterialIntake = materialIntakeAllowed && hasIntakeCandidates;
+    final intakeCandidatesExpandable = materialsLoading ||
+        materialsError.trim().isNotEmpty ||
+        hasIntakeCandidates;
     final attachedMaterialsExpandable = materialsLoading ||
         materialsError.trim().isNotEmpty ||
         assignedAssignments.isNotEmpty;
@@ -1073,7 +1077,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-intake-materials-expansion'),
               title: context.l10n.productionText(
-                'worker.materials.pending',
+                intakeCandidatesExpandable
+                    ? 'worker.materials.pending'
+                    : 'worker.materials.pending.empty',
               ),
               countText: materialsLoading
                   ? '...'
@@ -1081,11 +1087,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                       intakeCandidateAssignments.length,
                       kind: 'materials',
                     ),
-              expanded: intakeCandidatesExpanded,
+              expanded: intakeCandidatesExpandable && intakeCandidatesExpanded,
               complete: false,
-              onTap: onToggleIntakeCandidatesExpanded,
+              onTap: intakeCandidatesExpandable
+                  ? onToggleIntakeCandidatesExpanded
+                  : null,
             ),
-            if (intakeCandidatesExpanded) ...[
+            if (intakeCandidatesExpandable && intakeCandidatesExpanded) ...[
               const SizedBox(height: 12),
               _RawMaterialAssignmentsExpansionBody(
                 assignments: intakeCandidateAssignments,
