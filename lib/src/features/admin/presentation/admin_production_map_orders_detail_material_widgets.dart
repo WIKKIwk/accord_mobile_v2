@@ -9,9 +9,6 @@ class _PreviousProgressQrTile extends StatelessWidget {
     required this.availableBatches,
     required this.loading,
     required this.error,
-    required this.actionInFlight,
-    required this.embeddedScanner,
-    required this.onScan,
   });
 
   final String previousStage;
@@ -21,9 +18,6 @@ class _PreviousProgressQrTile extends StatelessWidget {
   final List<AdminProgressBatch> availableBatches;
   final bool loading;
   final String error;
-  final bool actionInFlight;
-  final bool embeddedScanner;
-  final VoidCallback? onScan;
 
   @override
   Widget build(BuildContext context) {
@@ -100,26 +94,6 @@ class _PreviousProgressQrTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          if (!embeddedScanner)
-            FilledButton.tonalIcon(
-              onPressed: actionInFlight ? null : onScan,
-              icon: Icon(
-                ready ? Icons.refresh_rounded : Icons.qr_code_scanner_rounded,
-              ),
-              label: Text(
-                ready
-                    ? context.l10n.productionText(
-                        'worker.action.scan_again',
-                      )
-                    : context.l10n.productionText('worker.action.scan'),
-              ),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(44),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
           const SizedBox(height: 12),
           _InputProgressBatchList(
             previousStage: previousStage,

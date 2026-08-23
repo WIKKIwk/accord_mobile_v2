@@ -3242,6 +3242,276 @@ void main() {
     expect(find.text(unstagedBarcode), findsOneWidget);
   });
 
+  testWidgets(
+    'universal worker scanner accepts qolip before material and closes after both',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      const apparatus = _godexId;
+      const orderId = 'zakaz-universal-start-scanner';
+      const materialBarcode = 'RM-UNIVERSAL-READY';
+      const productCode = 'UNIVERSAL-QR-PRODUCT';
+      const qolipCode = 'UNIVERSAL-QOLIP-QR';
+      const canonicalApparatus = AdminApparatus(
+        id: apparatus,
+        name: 'Godex aparat - DEMO',
+        sourceRevision: 1,
+      );
+      const stateLocation = InventoryLocation(
+        id: 'inventory_location:state:universal-godex',
+        kind: InventoryLocationKind.state,
+        name: 'Universal Godex State',
+        factoryLocationId: 'state_universal_godex',
+        apparatus: [
+          InventoryLocationApparatus(
+            id: apparatus,
+            name: 'Godex aparat - DEMO',
+          ),
+        ],
+      );
+      seedMobileApiInventoryMovementTestData(
+        locations: const [stateLocation],
+        assets: const [
+          InventoryAsset(
+            kind: InventoryAssetKind.rawMaterial,
+            assetRef: 'raw:universal-ready',
+            custodyWarehouseId: 'warehouse:material',
+            custodyWarehouse: 'Material ombor',
+            itemCode: 'RM-UNIVERSAL',
+            itemName: 'Universal homashyo',
+            identifier: materialBarcode,
+            qty: 10,
+            uom: 'kg',
+            status: 'available',
+            physicalLocation: InventoryLocationReference(
+              id: 'inventory_location:state:universal-godex',
+              kind: InventoryLocationKind.state,
+              name: 'Universal Godex State',
+            ),
+          ),
+        ],
+      );
+      await MobileApi.instance.qolipSaveProductSpec(
+        product: const QolipProduct(
+          code: productCode,
+          name: 'Universal QR mahsulot',
+          itemGroup: 'Tayyor mahsulotlar',
+        ),
+        qolipCode: qolipCode,
+        size: 42,
+      );
+      await MobileApi.instance.adminSaveProductionMap(
+        _productionOrderMap(
+          id: orderId,
+          title: 'Universal scanner order',
+          productCode: productCode,
+          apparatusId: apparatus,
+          product: 'Universal QR mahsulot',
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: apparatus,
+        orderIds: const [orderId],
+      );
+      await MobileApi.instance.adminSaveRawMaterialRule(
+        apparatus: canonicalApparatus,
+        currentRule: _testRawMaterialRule(canonicalApparatus),
+        requiresMaterial: true,
+        startPolicy: AdminRawMaterialStartPolicy.stateAll,
+        itemGroups: const ['Kraska'],
+      );
+      await MobileApi.instance.adminAssignRawMaterialToOrder(
+        orderId: orderId,
+        apparatus: apparatus,
+        barcode: materialBarcode,
+      );
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: apparatus,
+        orderId: orderId,
+        control: _freshStartQueueControl(
+          materialScanRequired: true,
+          qolipMode: AdminQueueQolipMode.scanRequired,
+        ),
+      );
+      await AppSession.instance.setSession(
+        token: 'worker-universal-scanner-token',
+        profile: const SessionProfile(
+          role: UserRole.aparatchi,
+          displayName: 'Universal scanner operatori',
+          legalName: '',
+          ref: 'worker-universal-scanner',
+          phone: '',
+          avatarUrl: '',
+          capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+          assignedApparatus: [apparatus],
+        ),
+      );
+
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapOrdersScreen(
+            readOnly: true,
+            workerMode: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Godex aparat - DEMO'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
+      );
+      await tester.pumpAndSettle();
+      final manualInput = find.byKey(
+        const ValueKey('production-quick-scanner-manual'),
+      );
+      await tester.enterText(manualInput, qolipCode);
+      await tester.tap(find.byTooltip('Qabul qilish'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
+      expect(find.text('1/1 ta'), findsOneWidget);
+
+      await tester.enterText(manualInput, materialBarcode);
+      await tester.tap(find.byTooltip('Qabul qilish'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+      expect(find.text('Homashyolar tasdiqlandi'), findsNothing);
+      expect(find.text('Yana qolip scan qilish (1/1 ta)'), findsNothing);
+      final startButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Boshlash'),
+      );
+      expect(startButton.onPressed, isNotNull);
+    },
+  );
+
+  testWidgets(
+    'mandatory material outside state shows an explicit block without scanner',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      const apparatus = _godexId;
+      const orderId = 'zakaz-required-material-not-at-machine';
+      const canonicalApparatus = AdminApparatus(
+        id: apparatus,
+        name: 'Godex aparat - DEMO',
+        sourceRevision: 1,
+      );
+      await MobileApi.instance.adminSaveProductionMap(
+        _productionOrderMap(
+          id: orderId,
+          title: 'Missing staged material order',
+          productCode: 'MISSING-STAGED-MATERIAL',
+          apparatusId: apparatus,
+          product: 'Missing staged material product',
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: apparatus,
+        orderIds: const [orderId],
+      );
+      await MobileApi.instance.adminSaveRawMaterialRule(
+        apparatus: canonicalApparatus,
+        currentRule: _testRawMaterialRule(canonicalApparatus),
+        requiresMaterial: true,
+        startPolicy: AdminRawMaterialStartPolicy.stateAll,
+        itemGroups: const ['Kraska'],
+      );
+      await MobileApi.instance.adminAssignRawMaterialToOrder(
+        orderId: orderId,
+        apparatus: apparatus,
+        barcode: 'RM-NOT-AT-MACHINE',
+      );
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: apparatus,
+        orderId: orderId,
+        control: _freshStartQueueControl(materialScanRequired: true),
+      );
+      await AppSession.instance.setSession(
+        token: 'worker-required-material-token',
+        profile: const SessionProfile(
+          role: UserRole.aparatchi,
+          displayName: 'Required material operatori',
+          legalName: '',
+          ref: 'worker-required-material',
+          phone: '',
+          avatarUrl: '',
+          capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+          assignedApparatus: [apparatus],
+        ),
+      );
+
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapOrdersScreen(
+            readOnly: true,
+            workerMode: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Godex aparat - DEMO'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+      expect(
+        find.text('Apparat oldiga homashyo olib kelinmagan'),
+        findsOneWidget,
+      );
+      expect(find.text('Homashyo QR scan'), findsNothing);
+      final startMaterialsHeader = find.byKey(
+        const ValueKey('production-start-materials-expansion'),
+      );
+      expect(
+        find.descendant(
+          of: startMaterialsHeader,
+          matching: find.byIcon(Icons.expand_more_rounded),
+        ),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<InkWell>(
+              find.descendant(
+                of: startMaterialsHeader,
+                matching: find.byType(InkWell),
+              ),
+            )
+            .onTap,
+        isNull,
+      );
+      final startButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Boshlash'),
+      );
+      expect(startButton.onPressed, isNull);
+    },
+  );
+
   testWidgets('admin sequence excludes completed apparatus orders', (
     tester,
   ) async {
@@ -6573,6 +6843,7 @@ void main() {
 
       expect(find.text('Oldingi bosqich tasdiqlandi'), findsWidgets);
       expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+      expect(find.text('Qayta scan'), findsNothing);
       final armedStartButton = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Boshlash'),
       );

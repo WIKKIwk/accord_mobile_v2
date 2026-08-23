@@ -135,22 +135,6 @@ AdminRawMaterialAssignment? _materialAssignmentForScannedBarcode({
       .firstWhere((item) => item != null, orElse: () => null);
 }
 
-Future<_MaterialScanResult?> _scanMaterialAssignmentFromDialog({
-  required BuildContext context,
-  required List<AdminRawMaterialAssignment> assignments,
-}) async {
-  final barcode = await showRawMaterialScanDialog(context);
-  if (barcode == null || barcode.trim().isEmpty) {
-    return null;
-  }
-  return _MaterialScanResult(
-    assignment: _materialAssignmentForScannedBarcode(
-      assignments: assignments,
-      barcode: barcode,
-    ),
-  );
-}
-
 bool _progressBatchCanBeScanned(AdminProgressBatch batch) {
   final wipStatus = batch.wipStatus.trim().toLowerCase();
   return wipStatus.isEmpty || wipStatus == 'waiting';
@@ -171,30 +155,6 @@ AdminProgressBatch? _matchingInputProgressBatch({
     }
   }
   return null;
-}
-
-Future<AdminProgressBatch?> _scanProgressBatchFromQrDialog(
-  BuildContext context,
-) async {
-  final raw = await showRawMaterialScanDialog(
-    context,
-    title: context.l10n.adminText('production.progress_qr_title'),
-    manualLabel: context.l10n.adminText('production.progress_qr_manual'),
-  );
-  if (raw == null || raw.trim().isEmpty) {
-    return null;
-  }
-  return MobileApi.instance
-      .adminProgressQrLookup(rawMaterialBarcodeFromQr(raw));
-}
-
-String _progressQrLookupErrorText(
-  Object error,
-  AppLocalizations l10n,
-) {
-  return error is MobileApiException
-      ? l10n.productionErrorMessage(error.code, fallback: error.message)
-      : l10n.productionText('worker.error.progress_qr');
 }
 
 List<String> _queueActionMaterialBarcodes({
@@ -344,29 +304,17 @@ String? _queueActionStartBlockReason({
   if (action != 'start') {
     return null;
   }
-  if (materialScanRequired) {
-    if (materialsLoading) {
-      return l10n.productionText('worker.error.rule_loading');
-    }
-    if (materialsError.trim().isNotEmpty || materialRequirements == null) {
-      return materialsError.trim().isEmpty
-          ? l10n.productionText('worker.error.rule_failed')
-          : materialsError.trim();
-    }
-    if (materialRequirements.requiresMaterial &&
-        materialRequirements.normalizedAssignedBarcodes.isEmpty) {
-      return l10n.productionText('worker.error.no_materials');
-    }
-    if (!materialRequirements.assignmentsSatisfied) {
-      return l10n.productionText(
-        'worker.error.incomplete_material_groups',
-      );
-    }
-    if (materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll &&
-        materialRequirements.normalizedAssignedBarcodes.isNotEmpty &&
-        materialRequirements.normalizedStagedBarcodes.isEmpty) {
-      return l10n.productionText('worker.error.material_not_at_machine');
-    }
+  final materialUnavailableReason = _materialStartUnavailableReason(
+    materialRequirements: materialRequirements,
+    materialsLoading: materialsLoading,
+    materialsError: materialsError,
+    materialScanRequired: materialScanRequired,
+    l10n: l10n,
+  );
+  if (materialUnavailableReason != null) {
+    return materialUnavailableReason;
+  }
+  if (materialScanRequired && materialRequirements != null) {
     if (materialRequirements.normalizedAssignedBarcodes.isNotEmpty &&
         !materialRequirements.scanSatisfied) {
       return materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll
@@ -379,6 +327,39 @@ String? _queueActionStartBlockReason({
   }
   if (previousWipRequired && startInputProgressBatch == null) {
     return l10n.productionText('worker.error.scan_previous');
+  }
+  return null;
+}
+
+String? _materialStartUnavailableReason({
+  required AdminRawMaterialStartRequirements? materialRequirements,
+  required bool materialsLoading,
+  required String materialsError,
+  required bool materialScanRequired,
+  required AppLocalizations l10n,
+}) {
+  if (!materialScanRequired) {
+    return null;
+  }
+  if (materialsLoading) {
+    return l10n.productionText('worker.error.rule_loading');
+  }
+  if (materialsError.trim().isNotEmpty || materialRequirements == null) {
+    return materialsError.trim().isEmpty
+        ? l10n.productionText('worker.error.rule_failed')
+        : materialsError.trim();
+  }
+  if (materialRequirements.requiresMaterial &&
+      materialRequirements.normalizedAssignedBarcodes.isEmpty) {
+    return l10n.productionText('worker.error.no_materials');
+  }
+  if (!materialRequirements.assignmentsSatisfied) {
+    return l10n.productionText('worker.error.incomplete_material_groups');
+  }
+  if (materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll &&
+      materialRequirements.normalizedAssignedBarcodes.isNotEmpty &&
+      materialRequirements.normalizedStagedBarcodes.isEmpty) {
+    return l10n.productionText('worker.error.material_not_at_machine');
   }
   return null;
 }
@@ -536,12 +517,6 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     confirmedMaterialBarcodes: confirmedMaterialBarcodes,
     materialRequiredCount: materialRequiredCount,
     materialScannedCount: materialScannedCount,
-    hasMaterialAssignments: bypassMaterialGate
-        ? false
-        : materialRequirements == null
-            ? stationMaterialAssignments.isNotEmpty
-            : materialRequirements.requiresMaterial ||
-                materialRequirements.normalizedAssignedBarcodes.isNotEmpty,
     allMaterialsScanned: allMaterialsScanned,
     showStartMaterials: contractSynchronized &&
         interaction?.startMaterialsMode ==

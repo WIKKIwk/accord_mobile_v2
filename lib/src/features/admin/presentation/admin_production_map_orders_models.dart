@@ -155,7 +155,6 @@ class _ReadOnlyOrderDetailUiState {
     required this.confirmedMaterialBarcodes,
     required this.materialRequiredCount,
     required this.materialScannedCount,
-    required this.hasMaterialAssignments,
     required this.allMaterialsScanned,
     required this.showStartMaterials,
     required this.showIntakeCandidates,
@@ -190,7 +189,6 @@ class _ReadOnlyOrderDetailUiState {
   final Set<String> confirmedMaterialBarcodes;
   final int materialRequiredCount;
   final int materialScannedCount;
-  final bool hasMaterialAssignments;
   final bool allMaterialsScanned;
   final bool showStartMaterials;
   final bool showIntakeCandidates;
@@ -229,12 +227,6 @@ class _PreparedReadOnlyQueueAction {
   final Set<String> scannedMaterialBarcodes;
   final AdminProgressBatch? startInputProgressBatch;
   final String? blockReason;
-}
-
-class _MaterialScanResult {
-  const _MaterialScanResult({required this.assignment});
-
-  final AdminRawMaterialAssignment? assignment;
 }
 
 class _MoveUnassignedApparatus extends AdminApparatus {

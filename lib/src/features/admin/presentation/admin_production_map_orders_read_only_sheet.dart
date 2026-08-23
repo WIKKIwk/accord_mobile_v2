@@ -924,59 +924,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return null;
   }
 
-  Future<void> _scanQolip() async {
-    final code = await showRawMaterialScanDialog(
-      context,
-      title: context.l10n.productionText('worker.mold.qr_title'),
-      manualLabel: context.l10n.productionText('worker.mold.code_label'),
-    );
-    if (!mounted || code == null || code.trim().isEmpty) {
-      return;
-    }
-    try {
-      final validation =
-          await MobileApi.instance.adminValidateProductionMapQolipDetails(
-        apparatus: widget.apparatus?.id ?? '',
-        orderId: widget.order.map.id,
-        qolipCode: code,
-      );
-      final validatedCode = validation.qolipCode;
-      if (!mounted) {
-        return;
-      }
-      final key = validatedCode.trim().toLowerCase();
-      final alreadyScanned = _scannedQolipCodes.containsKey(key);
-      setState(() {
-        _replaceRequiredQolips(validation.requiredQolips);
-        _scannedQolipCodes[key] = validatedCode.trim();
-      });
-      final scannedCount = _scannedQolipCodes.length;
-      final requiredCount = _requiredQolips.length;
-      _showSheetNotice(
-        alreadyScanned
-            ? context.l10n.productionText(
-                'worker.mold.already_scanned',
-                values: {
-                  'scanned': scannedCount,
-                  'required': requiredCount,
-                },
-              )
-            : context.l10n.productionText(
-                'worker.mold.added',
-                values: {
-                  'scanned': scannedCount,
-                  'required': requiredCount,
-                },
-              ),
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      _showSheetNotice(_readOnlyQueueActionErrorText(error, context.l10n));
-    }
-  }
-
   Future<void> _handleQuickScan(String rawValue) async {
     final normalized = rawMaterialBarcodeFromQr(rawValue).trim();
     final scanKey = normalized.toUpperCase();
@@ -1577,45 +1524,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         : _ProgressActionOutcome.failed;
   }
 
-  Future<void> _scanMaterial() async {
-    if (!await _loadMaterialAssignments(showLoading: false) || !mounted) {
-      _showSheetNotice(
-        _materialsError.isEmpty
-            ? context.l10n.productionText('worker.error.rule_failed')
-            : _materialsError,
-      );
-      return;
-    }
-    final requirements = _materialStartRequirements;
-    final materialAssignments = _startMaterialAssignments();
-    if (requirements == null || materialAssignments.isEmpty) {
-      return;
-    }
-    final scan = await _scanMaterialAssignmentFromDialog(
-      context: context,
-      assignments: materialAssignments,
-    );
-    if (!mounted || scan == null) {
-      return;
-    }
-    final match = scan.assignment;
-    if (match == null) {
-      _showSheetNotice(
-        context.l10n.productionText('worker.error.material_order_mismatch'),
-      );
-      return;
-    }
-    setState(() {
-      _scannedMaterialBarcodes.add(_materialBarcodeKey(match.barcode));
-    });
-    await _loadMaterialAssignments(showLoading: false);
-    if (mounted && _materialStartRequirements?.scanSatisfied == true) {
-      _showSheetNotice(
-        context.l10n.productionText('worker.notice.materials_confirmed'),
-      );
-    }
-  }
-
   Future<void> _toggleMaterialIntakeMode() async {
     if (_materialIntakeMode) {
       setState(() {
@@ -1722,31 +1630,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
-  Future<void> _scanStartInputProgressQr(String previousStage) async {
-    try {
-      final batch = await _scanProgressBatchFromQrDialog(context);
-      if (!mounted) {
-        return;
-      }
-      if (batch == null) {
-        return;
-      }
-      final accepted = await _acceptProgressBatch(batch, previousStage);
-      if (accepted && mounted) {
-        _showSheetNotice(
-          context.l10n.productionText('worker.progress.previous.confirmed'),
-        );
-      } else if (mounted) {
-        _showSheetNotice(_quickScanStatus);
-      }
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      _showSheetNotice(_progressQrLookupErrorText(error, context.l10n));
-    }
-  }
-
   Future<void> _loadInputProgressBatches() async {
     final station = widget.apparatus?.id.trim() ?? '';
     if (station.isEmpty) {
@@ -1831,10 +1714,27 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final requiresQolipScan = uiState.qolipScanRequired;
     final qolipScanAllowsStart =
         !requiresQolipScan || _allRequiredQolipsScanned;
+    final materialStartUnavailableReason = _materialStartUnavailableReason(
+      materialRequirements: _materialStartRequirements,
+      materialsLoading: _materialsLoading,
+      materialsError: _materialsError,
+      materialScanRequired: uiState.showStartMaterials,
+      l10n: context.l10n,
+    );
+    final materialStartBlockingText = uiState.showStart &&
+            !_materialsLoading &&
+            materialStartUnavailableReason != null
+        ? materialStartUnavailableReason
+        : '';
+    final materialStartReady = !uiState.showStartMaterials ||
+        (!_materialsLoading &&
+            materialStartUnavailableReason == null &&
+            _materialStartRequirements?.scanSatisfied == true);
     final startMaterialScanPending = uiState.showStart &&
         uiState.showStartMaterials &&
         !_materialsLoading &&
         _materialsError.isEmpty &&
+        materialStartUnavailableReason == null &&
         uiState.materialRequiredCount > uiState.materialScannedCount;
     final qolipScanPending = uiState.showStart &&
         requiresQolipScan &&
@@ -1877,6 +1777,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       queueStatesByApparatus: widget.queueStatesByApparatus,
       materialsLoading: _materialsLoading,
       materialsError: _materialsError,
+      materialStartReady: materialStartReady,
+      materialStartBlockingText: materialStartBlockingText,
       actionInFlight: _actionInFlight,
       materialIntakeInFlight: _materialIntakeInFlight,
       materialIntakeMode: _materialIntakeMode,
@@ -1920,12 +1822,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       onToggleSummaryExpanded: () {
         setState(() => _summaryExpanded = !_summaryExpanded);
       },
-      onScan: () => unawaited(_scanMaterial()),
       onMaterialIntake: _toggleMaterialIntakeMode,
-      onProgressScan: uiState.previousStage == null
-          ? null
-          : () => unawaited(_scanStartInputProgressQr(uiState.previousStage!)),
-      onQolipScan: () => unawaited(_scanQolip()),
       onStart: () => unawaited(_runQueueAction('start')),
       onPause: () => unawaited(_runProgressAction('pause')),
       onRollComplete: () => unawaited(_runProgressAction('roll_complete')),

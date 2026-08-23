@@ -17,6 +17,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.queueStatesByApparatus,
     required this.materialsLoading,
     required this.materialsError,
+    required this.materialStartReady,
+    required this.materialStartBlockingText,
     required this.actionInFlight,
     required this.materialIntakeInFlight,
     required this.materialIntakeMode,
@@ -46,10 +48,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onToggleQolipsExpanded,
     required this.mapExpanded,
     required this.onToggleMapExpanded,
-    required this.onScan,
     required this.onMaterialIntake,
-    required this.onProgressScan,
-    required this.onQolipScan,
     required this.onStart,
     required this.onPause,
     required this.onRollComplete,
@@ -76,6 +75,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final bool materialsLoading;
   final String materialsError;
+  final bool materialStartReady;
+  final String materialStartBlockingText;
   final bool actionInFlight;
   final bool materialIntakeInFlight;
   final bool materialIntakeMode;
@@ -105,10 +106,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onToggleQolipsExpanded;
   final bool mapExpanded;
   final VoidCallback onToggleMapExpanded;
-  final VoidCallback onScan;
   final VoidCallback onMaterialIntake;
-  final VoidCallback? onProgressScan;
-  final VoidCallback onQolipScan;
   final VoidCallback onStart;
   final VoidCallback onPause;
   final VoidCallback onRollComplete;
@@ -179,11 +177,12 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 materialIntakeAllowed: uiState.materialIntakeAllowed,
                 materialsLoading: materialsLoading,
                 materialsError: materialsError,
+                materialStartReady: materialStartReady,
+                materialStartBlockingText: materialStartBlockingText,
                 scannedBarcodes: uiState.confirmedMaterialBarcodes,
                 scannedCount: uiState.scannedCount,
                 requiredCount: uiState.materialRequiredCount,
                 showStart: uiState.showStart,
-                hasMaterialAssignments: uiState.hasMaterialAssignments,
                 allMaterialsScanned: uiState.allMaterialsScanned,
                 actionInFlight: actionInFlight,
                 materialIntakeInFlight: materialIntakeInFlight,
@@ -205,7 +204,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 inputProgressBatches: inputProgressBatches,
                 inputProgressLoading: inputProgressLoading,
                 inputProgressError: inputProgressError,
-                showEmbeddedQuickScanner: showQuickScanner,
                 requiresQolipScan: requiresQolipScan,
                 qolipScanned: qolipScanned,
                 qolipCodes: qolipCodes,
@@ -218,10 +216,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 qolipsExpanded: qolipsExpanded,
                 onToggleQolipsExpanded: onToggleQolipsExpanded,
                 rezkaInstructionLines: rezkaInstructionLines,
-                onScan: onScan,
                 onMaterialIntake: onMaterialIntake,
-                onProgressScan: onProgressScan,
-                onQolipScan: onQolipScan,
                 onStart: onStart,
                 onPause: onPause,
                 onRollComplete: onRollComplete,
@@ -730,11 +725,12 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.materialIntakeAllowed,
     required this.materialsLoading,
     required this.materialsError,
+    required this.materialStartReady,
+    required this.materialStartBlockingText,
     required this.scannedBarcodes,
     required this.scannedCount,
     required this.requiredCount,
     required this.showStart,
-    required this.hasMaterialAssignments,
     required this.allMaterialsScanned,
     required this.actionInFlight,
     required this.materialIntakeInFlight,
@@ -755,7 +751,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.inputProgressBatches,
     required this.inputProgressLoading,
     required this.inputProgressError,
-    required this.showEmbeddedQuickScanner,
     required this.requiresQolipScan,
     required this.qolipScanned,
     required this.qolipCodes,
@@ -768,10 +763,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.qolipsExpanded,
     required this.onToggleQolipsExpanded,
     required this.rezkaInstructionLines,
-    required this.onScan,
     required this.onMaterialIntake,
-    required this.onProgressScan,
-    required this.onQolipScan,
     required this.onStart,
     required this.onPause,
     required this.onRollComplete,
@@ -799,11 +791,12 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool materialIntakeAllowed;
   final bool materialsLoading;
   final String materialsError;
+  final bool materialStartReady;
+  final String materialStartBlockingText;
   final Set<String> scannedBarcodes;
   final int scannedCount;
   final int requiredCount;
   final bool showStart;
-  final bool hasMaterialAssignments;
   final bool allMaterialsScanned;
   final bool actionInFlight;
   final bool materialIntakeInFlight;
@@ -824,7 +817,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final List<AdminProgressBatch> inputProgressBatches;
   final bool inputProgressLoading;
   final String inputProgressError;
-  final bool showEmbeddedQuickScanner;
   final bool requiresQolipScan;
   final bool qolipScanned;
   final List<String> qolipCodes;
@@ -837,10 +829,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool qolipsExpanded;
   final VoidCallback onToggleQolipsExpanded;
   final List<String> rezkaInstructionLines;
-  final VoidCallback onScan;
   final VoidCallback onMaterialIntake;
-  final VoidCallback? onProgressScan;
-  final VoidCallback onQolipScan;
   final VoidCallback onStart;
   final VoidCallback onPause;
   final VoidCallback onRollComplete;
@@ -894,6 +883,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     final attachedMaterialsExpandable = materialsLoading ||
         materialsError.trim().isNotEmpty ||
         assignedAssignments.isNotEmpty;
+    final startMaterialsExpandable = startAssignments.isNotEmpty;
     final qolipsExpandable = requiredQolips.isNotEmpty;
     final customer = customerName?.trim() ?? '';
     final product = productTitle.trim();
@@ -1030,15 +1020,19 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-start-materials-expansion'),
               title: context.l10n.productionText(
-                'worker.materials.start',
+                startMaterialsExpandable || materialsLoading
+                    ? 'worker.materials.start'
+                    : 'worker.materials.start.empty',
               ),
               countText:
                   materialsLoading ? '...' : '$scannedCount/$requiredCount',
-              expanded: startMaterialsExpanded,
+              expanded: startMaterialsExpandable && startMaterialsExpanded,
               complete: requiredCount > 0 && allMaterialsScanned,
-              onTap: onToggleStartMaterialsExpanded,
+              onTap: startMaterialsExpandable
+                  ? onToggleStartMaterialsExpanded
+                  : null,
             ),
-            if (startMaterialsExpanded) ...[
+            if (startMaterialsExpandable && startMaterialsExpanded) ...[
               const SizedBox(height: 12),
               _RawMaterialAssignmentsExpansionBody(
                 assignments: startAssignments,
@@ -1052,6 +1046,23 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 allowUnlink: allowMaterialUnlink,
                 onUnlink: onUnlinkMaterial,
                 unlinkingBarcode: unlinkingMaterialBarcode,
+              ),
+            ],
+            if (materialStartBlockingText.trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.errorContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  materialStartBlockingText,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: scheme.onErrorContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
             Divider(
@@ -1167,63 +1178,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             Divider(
                 height: 28,
                 color: scheme.outlineVariant.withValues(alpha: 0.5)),
-            if (showStart &&
-                hasMaterialAssignments &&
-                !showEmbeddedQuickScanner)
-              FilledButton.tonalIcon(
-                onPressed:
-                    actionInFlight || allMaterialsScanned ? null : onScan,
-                icon: Icon(
-                  allMaterialsScanned
-                      ? Icons.check_circle_rounded
-                      : Icons.qr_code_scanner_rounded,
-                ),
-                label: Text(
-                  allMaterialsScanned
-                      ? context.l10n.productionText(
-                          'worker.action.material_confirmed',
-                        )
-                      : context.l10n.productionText(
-                          'worker.action.scan_material',
-                        ),
-                ),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            if (showStart &&
-                hasMaterialAssignments &&
-                !showEmbeddedQuickScanner)
-              const SizedBox(height: 10),
-            if (showStart &&
-                requiresQolipScan &&
-                requiredQolips.isNotEmpty &&
-                !showEmbeddedQuickScanner) ...[
-              FilledButton.tonalIcon(
-                onPressed: actionInFlight ? null : onQolipScan,
-                icon: const Icon(Icons.qr_code_scanner_rounded),
-                label: Text(
-                  qolipCodes.isEmpty
-                      ? context.l10n.productionText(
-                          'worker.action.scan_mold',
-                        )
-                      : context.l10n.productionText(
-                          'worker.action.scan_more_molds',
-                          values: {'progress': qolipProgressText},
-                        ),
-                ),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
             if (showRezkaInputProgressScan) ...[
               _PreviousProgressQrTile(
                 previousStage: previousStage ?? '',
@@ -1233,9 +1187,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 availableBatches: inputProgressBatches,
                 loading: inputProgressLoading,
                 error: inputProgressError,
-                actionInFlight: actionInFlight,
-                embeddedScanner: showEmbeddedQuickScanner,
-                onScan: onProgressScan,
               ),
               const SizedBox(height: 10),
             ],
@@ -1280,7 +1231,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             if (showStart)
               FilledButton.icon(
                 onPressed: actionInFlight ||
-                        (hasMaterialAssignments && !allMaterialsScanned) ||
+                        !materialStartReady ||
                         (requiresQolipScan && !qolipScanned) ||
                         !previousProgressReady
                     ? null
