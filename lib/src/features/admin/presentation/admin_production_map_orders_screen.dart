@@ -11,6 +11,7 @@ import '../../../core/print_service.dart';
 import '../../../core/print_transport.dart';
 import '../../../core/session/state/app_session.dart';
 import '../../../core/test_mode/test_mode_controller.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
@@ -462,6 +463,7 @@ class _AdminProductionMapOrdersScreenState
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
+      sheetAnimationStyle: AppMotion.sheetEaseOut,
       builder: (context) => _ReadOnlyOrderDetailSheet(
         order: order,
         apparatusCatalog: _apparatus,
@@ -489,6 +491,7 @@ class _AdminProductionMapOrdersScreenState
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
+      sheetAnimationStyle: AppMotion.sheetEaseOut,
       builder: (context) => _ReadOnlyOrderDetailSheet(
         order: order,
         apparatus: apparatus,

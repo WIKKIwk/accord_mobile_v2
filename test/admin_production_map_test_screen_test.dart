@@ -3264,11 +3264,18 @@ void main() {
     expect(find.text('Ish boshlash uchun homashyolar'), findsOneWidget);
     expect(find.text('Biriktirilgan homashyolar'), findsOneWidget);
     expect(find.text('0/1'), findsOneWidget);
-    expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
+    final scannerFinder = find.byType(ProductionQuickScannerPanel);
+    expect(scannerFinder, findsOneWidget);
+    final scannerClosedHeight = tester.getSize(scannerFinder).height;
     await tester.tap(
       find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
     );
+    await tester.pump(const Duration(milliseconds: 80));
+    final scannerOpeningHeight = tester.getSize(scannerFinder).height;
     await tester.pumpAndSettle();
+    final scannerOpenHeight = tester.getSize(scannerFinder).height;
+    expect(scannerOpenHeight, greaterThan(scannerClosedHeight));
+    expect(scannerOpeningHeight, lessThan(scannerOpenHeight));
     await tester.enterText(
       find.byKey(const ValueKey('production-quick-scanner-manual')),
       stagedBarcode,

@@ -140,15 +140,46 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
             controller: controller,
             padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
             children: [
-              if (showQuickScanner) ...[
-                ProductionQuickScannerPanel(
-                  statusText: quickScanStatus,
-                  busy: quickScanInFlight,
-                  allowConcurrentDetections: allowConcurrentQuickScanner,
-                  onCodeDetected: onQuickScan,
+              AnimatedSize(
+                key: const ValueKey('production-order-quick-scanner-motion'),
+                duration: AppMotion.medium,
+                curve: AppMotion.standardDecelerate,
+                alignment: Alignment.topCenter,
+                child: AnimatedSwitcher(
+                  duration: AppMotion.medium,
+                  switchInCurve: AppMotion.standardDecelerate,
+                  switchOutCurve: AppMotion.standardAccelerate,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SizeTransition(
+                      sizeFactor: animation,
+                      axisAlignment: -1,
+                      child: child,
+                    ),
+                  ),
+                  child: showQuickScanner
+                      ? Column(
+                          key: const ValueKey(
+                            'production-order-quick-scanner-visible',
+                          ),
+                          children: [
+                            ProductionQuickScannerPanel(
+                              statusText: quickScanStatus,
+                              busy: quickScanInFlight,
+                              allowConcurrentDetections:
+                                  allowConcurrentQuickScanner,
+                              onCodeDetected: onQuickScan,
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        )
+                      : const SizedBox(
+                          key: ValueKey(
+                            'production-order-quick-scanner-hidden',
+                          ),
+                        ),
                 ),
-                const SizedBox(height: 10),
-              ],
+              ),
               _OrderStartUnifiedCard(
                 apparatusCatalog: apparatusCatalog,
                 orderCode: _openedOrderDisplayCode(map),
@@ -1202,131 +1233,208 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
             ],
-            if (showMaterialIntake) ...[
-              FilledButton.tonalIcon(
-                key: const ValueKey('receive-additional-raw-material'),
-                onPressed: actionInFlight || materialIntakeInFlight
-                    ? null
-                    : onMaterialIntake,
-                icon: materialIntakeInFlight
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(
-                        materialIntakeMode
-                            ? Icons.close_rounded
-                            : Icons.add_box_outlined,
+            AnimatedSize(
+              key: const ValueKey('production-order-material-intake-motion'),
+              duration: AppMotion.medium,
+              curve: AppMotion.standardDecelerate,
+              alignment: Alignment.topCenter,
+              child: showMaterialIntake
+                  ? Column(
+                      key: const ValueKey(
+                        'production-order-material-intake-visible',
                       ),
-                label: Text(
-                  materialIntakeMode
-                      ? context.l10n.productionText(
-                          'worker.action.close_scanner',
-                        )
-                      : context.l10n.productionText(
-                          'worker.action.receive_material',
+                      children: [
+                        FilledButton.tonalIcon(
+                          key: const ValueKey(
+                            'receive-additional-raw-material',
+                          ),
+                          onPressed: actionInFlight || materialIntakeInFlight
+                              ? null
+                              : onMaterialIntake,
+                          icon: materialIntakeInFlight
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Icon(
+                                  materialIntakeMode
+                                      ? Icons.close_rounded
+                                      : Icons.add_box_outlined,
+                                ),
+                          label: Text(
+                            materialIntakeMode
+                                ? context.l10n.productionText(
+                                    'worker.action.close_scanner',
+                                  )
+                                : context.l10n.productionText(
+                                    'worker.action.receive_material',
+                                  ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
                         ),
-                ),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
+                        const SizedBox(height: 10),
+                      ],
+                    )
+                  : const SizedBox(
+                      key: ValueKey('production-order-material-intake-hidden'),
+                    ),
+            ),
             if (rezkaInstructionLines.isNotEmpty) ...[
               _RezkaWipSplitInstruction(lines: rezkaInstructionLines),
               const SizedBox(height: 10),
             ],
-            if (showStart)
-              FilledButton.icon(
-                onPressed: actionInFlight ||
-                        !materialStartReady ||
-                        (requiresQolipScan && !qolipScanned) ||
-                        !previousProgressReady
-                    ? null
-                    : onStart,
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: Text(
-                  context.l10n.productionText('worker.action.start'),
-                ),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            if (showPause || showComplete) ...[
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  if (showPause)
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: actionInFlight ? null : onPause,
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: Text(pauseLabel),
+            AnimatedSize(
+              key: const ValueKey('production-order-start-action-motion'),
+              duration: AppMotion.medium,
+              curve: AppMotion.standardDecelerate,
+              alignment: Alignment.topCenter,
+              child: showStart
+                  ? FilledButton.icon(
+                      key: const ValueKey('production-order-start-action'),
+                      onPressed: actionInFlight ||
+                              !materialStartReady ||
+                              (requiresQolipScan && !qolipScanned) ||
+                              !previousProgressReady
+                          ? null
+                          : onStart,
+                      icon: const Icon(Icons.play_arrow_rounded),
+                      label: Text(
+                        context.l10n.productionText('worker.action.start'),
                       ),
-                    ),
-                  if (showPause && showComplete) const SizedBox(width: 10),
-                  if (showComplete)
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: actionInFlight ? null : onComplete,
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: Text(
-                          context.l10n.productionText('worker.action.complete'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
+                    )
+                  : const SizedBox(
+                      key: ValueKey('production-order-start-action-hidden'),
                     ),
-                ],
-              ),
-            ],
-            if (showRollComplete) ...[
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: actionInFlight ? null : onRollComplete,
-                icon: const Icon(Icons.call_made_rounded),
-                label: Text(
-                  context.l10n.productionText('worker.action.roll_complete'),
-                ),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ],
-            if (showResume) ...[
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: actionInFlight ? null : onResume,
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: Text(
-                  context.l10n.productionText('worker.action.resume'),
-                ),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ],
+            ),
+            AnimatedSize(
+              key: const ValueKey('production-order-pause-complete-motion'),
+              duration: AppMotion.medium,
+              curve: AppMotion.standardDecelerate,
+              alignment: Alignment.topCenter,
+              child: showPause || showComplete
+                  ? Column(
+                      key: const ValueKey(
+                        'production-order-pause-complete-visible',
+                      ),
+                      children: [
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            if (showPause)
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: actionInFlight ? null : onPause,
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size.fromHeight(48),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  child: Text(pauseLabel),
+                                ),
+                              ),
+                            if (showPause && showComplete)
+                              const SizedBox(width: 10),
+                            if (showComplete)
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: actionInFlight ? null : onComplete,
+                                  style: FilledButton.styleFrom(
+                                    minimumSize: const Size.fromHeight(48),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    context.l10n.productionText(
+                                      'worker.action.complete',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    )
+                  : const SizedBox(
+                      key: ValueKey('production-order-pause-complete-hidden'),
+                    ),
+            ),
+            AnimatedSize(
+              key: const ValueKey('production-order-roll-complete-motion'),
+              duration: AppMotion.medium,
+              curve: AppMotion.standardDecelerate,
+              alignment: Alignment.topCenter,
+              child: showRollComplete
+                  ? Column(
+                      key: const ValueKey(
+                        'production-order-roll-complete-visible',
+                      ),
+                      children: [
+                        const SizedBox(height: 10),
+                        FilledButton.icon(
+                          onPressed: actionInFlight ? null : onRollComplete,
+                          icon: const Icon(Icons.call_made_rounded),
+                          label: Text(
+                            context.l10n.productionText(
+                              'worker.action.roll_complete',
+                            ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : const SizedBox(
+                      key: ValueKey('production-order-roll-complete-hidden'),
+                    ),
+            ),
+            AnimatedSize(
+              key: const ValueKey('production-order-resume-motion'),
+              duration: AppMotion.medium,
+              curve: AppMotion.standardDecelerate,
+              alignment: Alignment.topCenter,
+              child: showResume
+                  ? Column(
+                      key: const ValueKey('production-order-resume-visible'),
+                      children: [
+                        const SizedBox(height: 10),
+                        FilledButton.icon(
+                          onPressed: actionInFlight ? null : onResume,
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: Text(
+                            context.l10n.productionText('worker.action.resume'),
+                          ),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : const SizedBox(
+                      key: ValueKey('production-order-resume-hidden'),
+                    ),
+            ),
             if (showWaitingForPrevious && previousStage != null) ...[
               const SizedBox(height: 10),
               Row(

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/theme/app_motion.dart';
 
 Future<String?> showRawMaterialScanDialog(
   BuildContext context, {
@@ -75,6 +76,7 @@ class _ProductionQuickScannerPanelState
   final _manualController = TextEditingController();
   int _activeDetections = 0;
   bool _manualEntryVisible = false;
+  bool _cameraReady = false;
 
   bool get _processing => _activeDetections > 0;
 
@@ -124,6 +126,10 @@ class _ProductionQuickScannerPanelState
     } catch (_) {
       // MobileScanner renders its own camera error state when permission or
       // initialization fails. Manual entry remains available below it.
+    } finally {
+      if (mounted) {
+        setState(() => _cameraReady = true);
+      }
     }
   }
 
@@ -240,42 +246,68 @@ class _ProductionQuickScannerPanelState
                               child: Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  MobileScanner(
-                                    controller: controller,
-                                    fit: BoxFit.cover,
-                                    useAppLifecycleState: true,
-                                    tapToFocus: true,
-                                    onDetect: _handleDetect,
-                                    errorBuilder: (context, error) =>
-                                        const _QuickScannerUnavailableView(),
-                                  ),
-                                  IgnorePointer(
+                                  AnimatedOpacity(
+                                    opacity: _cameraReady ? 1 : 0,
+                                    duration: AppMotion.fast,
+                                    curve: AppMotion.standardDecelerate,
                                     child: Stack(
                                       fit: StackFit.expand,
                                       children: [
-                                        CustomPaint(
-                                          painter:
-                                              _RawMaterialScannerGridPainter(),
+                                        MobileScanner(
+                                          controller: controller,
+                                          fit: BoxFit.cover,
+                                          useAppLifecycleState: true,
+                                          tapToFocus: true,
+                                          onDetect: _handleDetect,
+                                          errorBuilder: (context, error) =>
+                                              const _QuickScannerUnavailableView(),
                                         ),
-                                        Align(
-                                          alignment: Alignment.bottomCenter,
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: 12,
-                                            ),
-                                            child: _QuickScannerStatus(
-                                              text: _processing || widget.busy
-                                                  ? context.l10n.productionText(
-                                                      'worker.scanner.checking',
-                                                    )
-                                                  : widget.statusText,
-                                              busy: _processing || widget.busy,
-                                            ),
+                                        IgnorePointer(
+                                          child: Stack(
+                                            fit: StackFit.expand,
+                                            children: [
+                                              CustomPaint(
+                                                painter:
+                                                    _RawMaterialScannerGridPainter(),
+                                              ),
+                                              Align(
+                                                alignment: Alignment.bottomCenter,
+                                                child: Padding(
+                                                  padding: const EdgeInsets.only(
+                                                    bottom: 12,
+                                                  ),
+                                                  child: _QuickScannerStatus(
+                                                    text: _processing ||
+                                                            widget.busy
+                                                        ? context.l10n
+                                                            .productionText(
+                                                              'worker.scanner.checking',
+                                                            )
+                                                        : widget.statusText,
+                                                    busy: _processing ||
+                                                        widget.busy,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
+                                  if (!_cameraReady)
+                                    ColoredBox(
+                                      color: scheme.surfaceContainerHighest,
+                                      child: Center(
+                                        child: SizedBox.square(
+                                          dimension: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: scheme.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
@@ -309,10 +341,18 @@ class _ProductionQuickScannerPanelState
                         });
                       },
                       color: scheme.onPrimary,
-                      icon: Icon(
-                        _manualEntryVisible
-                            ? Icons.close_rounded
-                            : Icons.edit_rounded,
+                      icon: AnimatedSwitcher(
+                        duration: AppMotion.fast,
+                        switchInCurve: AppMotion.standardDecelerate,
+                        switchOutCurve: AppMotion.standardAccelerate,
+                        child: Icon(
+                          _manualEntryVisible
+                              ? Icons.close_rounded
+                              : Icons.edit_rounded,
+                          key: ValueKey(
+                            _manualEntryVisible ? 'manual-close' : 'manual-edit',
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -320,42 +360,81 @@ class _ProductionQuickScannerPanelState
               ],
             ),
           ),
-          if (_manualEntryVisible)
-            ColoredBox(
-              color: scheme.surface,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        key: const ValueKey('production-quick-scanner-manual'),
-                        controller: _manualController,
-                        enabled: !_processing && !widget.busy,
-                        decoration: InputDecoration(
-                          labelText: context.l10n.productionText(
-                            'worker.scanner.manual.label',
-                          ),
-                          isDense: true,
-                          border: OutlineInputBorder(),
-                        ),
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _submitManualValue(),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton.filled(
-                      tooltip: context.l10n.productionText(
-                        'worker.scanner.accept',
-                      ),
-                      onPressed: _processing || widget.busy
-                          ? null
-                          : _submitManualValue,
-                      icon: const Icon(Icons.check_rounded),
-                    ),
-                  ],
+          AnimatedSize(
+            key: const ValueKey('production-quick-scanner-manual-motion'),
+            duration: AppMotion.medium,
+            curve: AppMotion.standardDecelerate,
+            alignment: Alignment.topCenter,
+            child: AnimatedSwitcher(
+              duration: AppMotion.medium,
+              switchInCurve: AppMotion.standardDecelerate,
+              switchOutCurve: AppMotion.standardAccelerate,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SizeTransition(
+                  sizeFactor: animation,
+                  axisAlignment: -1,
+                  child: child,
                 ),
               ),
+              child: _manualEntryVisible
+                  ? ColoredBox(
+                      key: const ValueKey('production-quick-scanner-manual-visible'),
+                      color: scheme.surface,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                key: const ValueKey(
+                                  'production-quick-scanner-manual',
+                                ),
+                                controller: _manualController,
+                                enabled: !_processing && !widget.busy,
+                                decoration: InputDecoration(
+                                  labelText: context.l10n.productionText(
+                                    'worker.scanner.manual.label',
+                                  ),
+                                  isDense: true,
+                                  border: OutlineInputBorder(),
+                                ),
+                                textInputAction: TextInputAction.done,
+                                onSubmitted: (_) => _submitManualValue(),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton.filled(
+                              tooltip: context.l10n.productionText(
+                                'worker.scanner.accept',
+                              ),
+                              onPressed: _processing || widget.busy
+                                  ? null
+                                  : _submitManualValue,
+                              icon: AnimatedSwitcher(
+                                duration: AppMotion.fast,
+                                child: _processing || widget.busy
+                                    ? const SizedBox.square(
+                                        key: ValueKey('manual-submit-busy'),
+                                        dimension: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.check_rounded,
+                                        key: ValueKey('manual-submit-ready'),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : const SizedBox(
+                      key: ValueKey('production-quick-scanner-manual-hidden'),
+                    ),
+            ),
             ),
         ],
       ),
@@ -382,32 +461,42 @@ class _QuickScannerStatus extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
-              if (busy) ...[
-                const SizedBox.square(
-                  dimension: 15,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ] else ...[
-                const Icon(
-                  Icons.qr_code_scanner_rounded,
-                  size: 17,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 8),
-              ],
+              AnimatedSwitcher(
+                duration: AppMotion.fast,
+                switchInCurve: AppMotion.standardDecelerate,
+                switchOutCurve: AppMotion.standardAccelerate,
+                child: busy
+                    ? const SizedBox.square(
+                        key: ValueKey('quick-scanner-status-busy'),
+                        dimension: 15,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.qr_code_scanner_rounded,
+                        key: ValueKey('quick-scanner-status-ready'),
+                        size: 17,
+                        color: Colors.white,
+                      ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  text,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
+                child: AnimatedSwitcher(
+                  duration: AppMotion.fast,
+                  switchInCurve: AppMotion.standardDecelerate,
+                  switchOutCurve: AppMotion.standardAccelerate,
+                  child: Text(
+                    text,
+                    key: ValueKey(text),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
