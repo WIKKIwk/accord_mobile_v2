@@ -3,7 +3,7 @@ part of 'admin_production_map_orders_screen.dart';
 class _ReadOnlyOrderDetailContent extends StatelessWidget {
   const _ReadOnlyOrderDetailContent({
     required this.noticeAnchorKey,
-    required this.onBack,
+    this.onBack,
     required this.map,
     required this.apparatusCatalog,
     required this.baseMetraj,
@@ -61,7 +61,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   });
 
   final GlobalKey noticeAnchorKey;
-  final VoidCallback onBack;
+  final VoidCallback? onBack;
   final ProductionMapDefinition map;
   final List<AdminApparatus> apparatusCatalog;
   final double? baseMetraj;
@@ -138,16 +138,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
             controller: controller,
             padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
             children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton.filledTonal(
-                  tooltip: context.l10n.productionText(
-                    'worker.action.back_to_order',
-                  ),
-                  onPressed: onBack,
-                  icon: const Icon(Icons.arrow_back_rounded),
-                ),
-              ),
               if (showQuickScanner) ...[
                 ProductionQuickScannerPanel(
                   statusText: quickScanStatus,
