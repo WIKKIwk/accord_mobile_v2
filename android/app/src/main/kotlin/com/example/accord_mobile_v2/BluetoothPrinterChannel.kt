@@ -590,7 +590,11 @@ class BluetoothPrinterChannel(
             label.itemName.ifBlank { label.itemCode }.ifBlank { "-" },
         )
         val product = progressProductName(rawProduct, label.itemCode)
-        val apparatus = progressApparatusName(label.apparatus, rawProduct)
+        val apparatus = progressApparatusName(
+            label.apparatusDisplayName,
+            label.apparatus,
+            rawProduct,
+        )
         val status = progressStatusLabel(rawProduct)
         var y = PROGRESS_TEXT_TOP_Y
         y = printProgressField(printer, y, "MIJOZ", customer, maxLines = 2)
@@ -827,10 +831,18 @@ class BluetoothPrinterChannel(
         }
     }
 
-    private fun progressApparatusName(apparatus: String, itemName: String): String {
-        val explicit = cleanLabelText(apparatus).trim()
+    private fun progressApparatusName(
+        displayName: String,
+        canonicalApparatus: String,
+        itemName: String,
+    ): String {
+        val explicit = cleanLabelText(displayName).trim()
         if (explicit.isNotEmpty()) {
             return explicit
+        }
+        val canonical = cleanLabelText(canonicalApparatus).trim()
+        if (canonical.isNotEmpty()) {
+            return canonical
         }
         val marker = ", APPARAT:"
         val markerStart = itemName.indexOf(marker, ignoreCase = true)
@@ -1201,6 +1213,7 @@ private data class BluetoothLabelRequest(
     val itemCode: String,
     val itemName: String,
     val apparatus: String,
+    val apparatusDisplayName: String,
     val customerName: String,
     val qolipColor: String,
     val grossQty: Double,
@@ -1247,6 +1260,9 @@ private data class BluetoothLabelRequest(
                 itemCode = call.argument<String>("item_code").orEmpty().trim(),
                 itemName = call.argument<String>("item_name").orEmpty().trim(),
                 apparatus = call.argument<String>("apparatus").orEmpty().trim(),
+                apparatusDisplayName = call.argument<String>("apparatus_display_name")
+                    .orEmpty()
+                    .trim(),
                 customerName = call.argument<String>("customer_name").orEmpty().trim(),
                 qolipColor = call.argument<String>("qolip_color").orEmpty().trim(),
                 grossQty = grossQty.coerceAtLeast(0.0),

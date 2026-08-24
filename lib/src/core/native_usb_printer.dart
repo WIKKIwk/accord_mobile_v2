@@ -153,6 +153,7 @@ class UsbRpsPrintRequest {
     required this.itemCode,
     required this.itemName,
     this.apparatus = '',
+    this.apparatusDisplayName = '',
     required this.warehouse,
     required this.printer,
     required this.printMode,
@@ -195,6 +196,8 @@ class UsbRpsPrintRequest {
       itemCode: json['item_code']?.toString() ?? '',
       itemName: json['item_name']?.toString() ?? '',
       apparatus: apparatus,
+      apparatusDisplayName:
+          json['apparatus_display_name']?.toString().trim() ?? '',
       warehouse: json['warehouse']?.toString() ??
           (executorName.isEmpty ? 'ACCORD' : 'Ijrochi: $executorName'),
       printer: json['printer']?.toString() ?? 'godex',
@@ -218,6 +221,7 @@ class UsbRpsPrintRequest {
   final String itemCode;
   final String itemName;
   final String apparatus;
+  final String apparatusDisplayName;
   final String warehouse;
   final String printer;
   final String printMode;
@@ -279,6 +283,7 @@ class UsbRpsPrintRequest {
       itemCode: itemCode,
       itemName: itemName,
       apparatus: apparatus,
+      apparatusDisplayName: apparatusDisplayName,
       warehouse: warehouse,
       printer: profile.printer,
       printMode: profile.printMode,
@@ -302,6 +307,7 @@ class UsbRpsPrintRequest {
       itemCode: itemCode,
       itemName: cellLabel.trim(),
       apparatus: apparatus,
+      apparatusDisplayName: apparatusDisplayName,
       warehouse: warehouse,
       printer: printer,
       printMode: printMode,
@@ -331,6 +337,7 @@ class UsbRpsPrintRequest {
       itemCode: code.trim(),
       itemName: name.trim(),
       apparatus: apparatus,
+      apparatusDisplayName: apparatusDisplayName,
       warehouse: warehouse,
       printer: printer,
       printMode: printMode,
@@ -357,6 +364,9 @@ class UsbRpsPrintRequest {
       'item_name': _cleanText(itemName, fallback: 'USB printer test'),
       if (apparatus.trim().isNotEmpty)
         'apparatus': _cleanText(apparatus, fallback: ''),
+      if (apparatusDisplayName.trim().isNotEmpty)
+        'apparatus_display_name':
+            _cleanText(apparatusDisplayName, fallback: ''),
       'warehouse': _cleanText(warehouse, fallback: 'RPS USB TEST'),
       'printer': _cleanText(printer, fallback: 'godex').toLowerCase(),
       'print_mode': _cleanText(printMode, fallback: 'label').toLowerCase(),

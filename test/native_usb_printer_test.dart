@@ -60,6 +60,8 @@ void main() {
       'qr_payload': '303132333435363738394142',
       'item_code': 'ORDER-2',
       'item_name': 'Progress label',
+      'apparatus': 'apparatus:default:bosma_7',
+      'apparatus_display_name': '7 ta rangli bosma',
       'customer_name': 'Customer One',
       'executor_name': 'Ali',
       'gross_qty': 10.0,
@@ -79,6 +81,12 @@ void main() {
     expect(request.isProgressLabel, isTrue);
     expect(request.effectiveProgressQty, 35.75);
     expect(request.customerName, 'Customer One');
+    expect(request.apparatus, 'apparatus:default:bosma_7');
+    expect(request.apparatusDisplayName, '7 ta rangli bosma');
+    expect(
+      request.toJson(),
+      containsPair('apparatus_display_name', '7 ta rangli bosma'),
+    );
     expect(request.netQty, 9.0);
     expect(request.progressUnit, 'm');
     expect(request.printCount, 2);

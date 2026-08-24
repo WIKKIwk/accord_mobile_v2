@@ -38,6 +38,7 @@ class PrintService {
         itemCode: request.itemCode,
         itemName: request.itemName,
         apparatus: request.apparatus,
+        apparatusDisplayName: request.apparatusDisplayName,
         warehouse: request.warehouse,
         printer: printer.printer,
         printMode: printer.printMode,

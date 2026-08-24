@@ -723,7 +723,11 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
         : label.itemName
     )
     let product = progressProductName(rawProduct, fallback: label.itemCode)
-    let apparatus = progressApparatusName(label.apparatus, fallback: rawProduct)
+    let apparatus = progressApparatusName(
+      label.apparatusDisplayName,
+      canonicalApparatus: label.apparatus,
+      fallback: rawProduct
+    )
     let status = progressStatusLabel(rawProduct)
 
     var result = command
@@ -986,10 +990,19 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     return "YARIM TAYYOR MAHSULOT"
   }
 
-  private func progressApparatusName(_ apparatus: String, fallback itemName: String) -> String {
-    let explicit = cleanLabelText(apparatus).trimmingCharacters(in: .whitespacesAndNewlines)
+  private func progressApparatusName(
+    _ displayName: String,
+    canonicalApparatus: String,
+    fallback itemName: String
+  ) -> String {
+    let explicit = cleanLabelText(displayName).trimmingCharacters(in: .whitespacesAndNewlines)
     if !explicit.isEmpty {
       return explicit
+    }
+    let canonical = cleanLabelText(canonicalApparatus)
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    if !canonical.isEmpty {
+      return canonical
     }
     guard let marker = itemName.range(of: ", APPARAT:", options: [.caseInsensitive]) else {
       return "-"
@@ -1385,6 +1398,7 @@ private struct BluetoothLabelRequest {
   let itemCode: String
   let itemName: String
   let apparatus: String
+  let apparatusDisplayName: String
   let customerName: String
   let qolipColor: String
   let grossQty: Double
@@ -1410,6 +1424,8 @@ private struct BluetoothLabelRequest {
     itemCode = (arguments["item_code"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     itemName = (arguments["item_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     apparatus = (arguments["apparatus"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    apparatusDisplayName = (arguments["apparatus_display_name"] as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     customerName = (arguments["customer_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     qolipColor = (arguments["qolip_color"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     self.grossQty = max(0, grossQty)
