@@ -30,8 +30,10 @@ Future<void> showAccountSwitcherSheet(BuildContext context) async {
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
     builder: (sheetContext) {
-      return FractionallySizedBox(
-        heightFactor: 0.82,
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.72,
+        ),
         child: AccountSwitcherSheet(
           accounts: accounts,
           activeAccountId: savedAccounts.store.activeAccountId,

@@ -4,6 +4,7 @@ import 'package:accord_mobile_v2/src/core/session/accounts/saved_account_runtime
 import 'package:accord_mobile_v2/src/core/session/accounts/saved_account_store.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
+import 'package:accord_mobile_v2/src/features/auth/presentation/account_switcher_sheet.dart';
 import 'package:accord_mobile_v2/src/features/auth/presentation/login_screen.dart';
 import 'package:accord_mobile_v2/src/features/auth/presentation/welcome_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -24,6 +25,19 @@ void main() {
 
     expect(find.text('Profilni tanlang'), findsOneWidget);
     expect(find.text('Saman'), findsOneWidget);
+  });
+
+  testWidgets('account switcher sizes to one profile instead of fixed height',
+      (tester) async {
+    await _pumpProfileAction(tester);
+
+    await tester.longPress(find.byType(AppShellProfileAction));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final viewportHeight = tester.getSize(find.byType(Navigator)).height;
+    final sheetHeight =
+        tester.getSize(find.byType(AccountSwitcherSheet)).height;
+    expect(sheetHeight, lessThan(viewportHeight * 0.6));
   });
 
   testWidgets(
