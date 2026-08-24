@@ -4,11 +4,54 @@ import 'package:accord_mobile_v2/src/core/session/accounts/saved_account_runtime
 import 'package:accord_mobile_v2/src/core/session/accounts/saved_account_store.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  tearDown(() {
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  test('default storage persists accounts when no native channel exists',
+      () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final preferences = await SharedPreferences.getInstance();
+
+    await SavedAccountRuntime.instance.initialize(
+      preferences: preferences,
+      baseUrl: 'https://erp.example.com',
+    );
+    final account =
+        await SavedAccountRuntime.instance.store.upsertAuthenticated(
+      baseUrl: 'https://erp.example.com',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Saman',
+        legalName: 'Saman',
+        ref: 'worker-saman',
+        phone: '+998900000001',
+        avatarUrl: '',
+      ),
+      token: 'web-token',
+      phone: '+998900000001',
+      code: '401111',
+      makeActive: true,
+    );
+
+    await SavedAccountRuntime.instance.initialize(
+      preferences: preferences,
+      baseUrl: 'https://erp.example.com',
+    );
+
+    final restored =
+        await SavedAccountRuntime.instance.store.sessionFor(account.id);
+    expect(restored?.token, 'web-token');
+    expect(restored?.code, '401111');
+  });
 
   test('secure migration failure leaves legacy data but fails closed',
       () async {

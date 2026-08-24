@@ -23,16 +23,19 @@ class SavedAccountRuntime {
 
   Future<void> initialize({
     SharedPreferences? preferences,
-    AccountSecretStore secretStore = const PlatformAccountSecretStore(),
+    AccountSecretStore? secretStore,
     SavedAccountPersistenceHook? beforeMetadataPersist,
     required String baseUrl,
   }) async {
     _store = null;
     _hasInitializationFailure = false;
     try {
+      final resolvedPreferences =
+          preferences ?? await SharedPreferences.getInstance();
       final nextStore = SavedAccountStore(
-        preferences: preferences ?? await SharedPreferences.getInstance(),
-        secretStore: secretStore,
+        preferences: resolvedPreferences,
+        secretStore:
+            secretStore ?? createDefaultAccountSecretStore(resolvedPreferences),
         beforeMetadataPersist: beforeMetadataPersist,
       );
       await nextStore.load();
