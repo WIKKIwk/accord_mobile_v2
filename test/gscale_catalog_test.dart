@@ -6,6 +6,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('gscale catalog item reads server-owned dimension requirement', () {
+    final item = SupplierItem.fromJson({
+      'code': 'pet',
+      'name': 'PET',
+      'uom': 'Kg',
+      'warehouse': '',
+      'item_group': 'Rulon eni',
+      'requires_dimensions': true,
+    });
+
+    expect(item.requiresDimensions, isTrue);
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
@@ -72,6 +85,23 @@ void main() {
     );
   });
 
+  test('material taminotchi always uses dimension-aware catalog', () {
+    const profile = SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Materialchi',
+      legalName: '',
+      ref: 'MAT-001',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['catalog.item.read', 'gscale.catalog.read'],
+    );
+
+    expect(
+      gscaleCatalogItemSourceForProfile(profile),
+      GScaleCatalogItemSource.gscaleItems,
+    );
+  });
+
   test('admin item warehouses include mini erp warehouses', () {
     final warehouses = mergeGScaleCatalogWarehouses(
       const [
@@ -87,20 +117,6 @@ void main() {
       warehouses.map((warehouse) => warehouse.warehouse),
       ['Stores - CH', 'Kalidor', 'Ombor'],
     );
-  });
-
-  test('material taminotchi create item groups use assigned scope', () {
-    const profile = SessionProfile(
-      role: UserRole.materialTaminotchi,
-      displayName: 'Materialchi',
-      legalName: '',
-      ref: 'MAT-001',
-      phone: '',
-      avatarUrl: '',
-      assignedItemGroups: ['Kraska', 'Kley', 'Kraska', ' '],
-    );
-
-    expect(gscaleCreateItemGroupsForProfile(profile), ['Kley', 'Kraska']);
   });
 
   test('material receipt uses scoped admin warehouses', () {
@@ -225,19 +241,6 @@ void main() {
     );
 
     expect(warehouses, isEmpty);
-  });
-
-  test('non material create item group keeps default catalog group', () {
-    const profile = SessionProfile(
-      role: UserRole.admin,
-      displayName: 'Admin',
-      legalName: '',
-      ref: 'admin',
-      phone: '',
-      avatarUrl: '',
-    );
-
-    expect(gscaleCreateItemGroupsForProfile(profile), ['All Item Groups']);
   });
 }
 

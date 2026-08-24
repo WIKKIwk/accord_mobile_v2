@@ -28,6 +28,8 @@ void main() {
       'qty': 1.72,
       'net_qty': 1.72,
       'gross_qty': 2.5,
+      'width_mm': 615,
+      'micron': 13,
       'unit': 'kg',
       'printer': 'zebra',
       'print_mode': 'rfid',
@@ -40,6 +42,8 @@ void main() {
     expect(response.draftName, 'MAT-STE-001');
     expect(response.netQty, 1.72);
     expect(response.grossQty, 2.5);
+    expect(response.widthMm, 615);
+    expect(response.micron, 13);
     expect(response.printer, 'zebra');
     expect(response.printCount, 5);
   });
@@ -216,6 +220,8 @@ void main() {
       manualQtyKg: 2.5,
       tareEnabled: true,
       tareKg: 0.78,
+      widthMm: 615,
+      micron: 13,
     );
 
     expect(request.toJson(), {
@@ -230,6 +236,8 @@ void main() {
       'manual_qty_kg': 2.5,
       'tare_enabled': true,
       'tare_kg': 0.78,
+      'width_mm': 615.0,
+      'micron': 13.0,
     });
   });
 
@@ -251,6 +259,8 @@ void main() {
         'manual_qty_kg': 2.5,
         'tare_enabled': true,
         'tare_kg': 0.78,
+        'width_mm': 615,
+        'micron': 13,
         'last_error': 'submit failed',
         'last_error_at': '2026-05-19T05:00:00Z',
         'prints': [
@@ -279,6 +289,8 @@ void main() {
     expect(response.batch.driverUrl, 'http://127.0.0.1:39117');
     expect(response.batch.quantitySource, 'manual');
     expect(response.batch.tareEnabled, isTrue);
+    expect(response.batch.widthMm, 615);
+    expect(response.batch.micron, 13);
     expect(response.batch.lastError, 'submit failed');
     expect(response.batch.lastErrorAt, '2026-05-19T05:00:00Z');
     expect(response.batch.prints, hasLength(1));
@@ -1047,6 +1059,8 @@ void main() {
       manualQtyKg: 0,
       tareEnabled: true,
       tareKg: 0.78,
+      widthMm: 615,
+      micron: 13,
     );
 
     expect(request.toJson(), {
@@ -1061,6 +1075,8 @@ void main() {
       'manual_qty_kg': 0,
       'tare_enabled': true,
       'tare_kg': 0.78,
+      'width_mm': 615.0,
+      'micron': 13.0,
     });
   });
 

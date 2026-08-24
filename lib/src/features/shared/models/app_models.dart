@@ -164,6 +164,7 @@ class SupplierItem {
     required this.uom,
     required this.warehouse,
     this.itemGroup = '',
+    this.requiresDimensions = false,
     this.customerNames = const [],
   });
 
@@ -172,6 +173,7 @@ class SupplierItem {
   final String uom;
   final String warehouse;
   final String itemGroup;
+  final bool requiresDimensions;
   final List<String> customerNames;
 
   factory SupplierItem.fromJson(Map<String, dynamic> json) {
@@ -181,6 +183,7 @@ class SupplierItem {
       uom: json['uom'] as String? ?? '',
       warehouse: json['warehouse'] as String? ?? '',
       itemGroup: json['item_group'] as String? ?? '',
+      requiresDimensions: json['requires_dimensions'] == true,
       customerNames: (json['customer_names'] as List<dynamic>? ?? const [])
           .map((item) => item.toString().trim())
           .where((item) => item.isNotEmpty)
@@ -820,6 +823,8 @@ class AdminRawMaterialStockEntry {
     required this.itemName,
     required this.barcode,
     required this.qty,
+    this.widthMm,
+    this.micron,
     required this.uom,
     required this.status,
     required this.reservedOrderId,
@@ -832,6 +837,8 @@ class AdminRawMaterialStockEntry {
   final String itemName;
   final String barcode;
   final double qty;
+  final double? widthMm;
+  final double? micron;
   final String uom;
   final String status;
   final String reservedOrderId;
@@ -845,6 +852,8 @@ class AdminRawMaterialStockEntry {
       itemName: json['item_name']?.toString() ?? '',
       barcode: json['barcode']?.toString() ?? '',
       qty: (json['qty'] as num?)?.toDouble() ?? 0,
+      widthMm: (json['width_mm'] as num?)?.toDouble(),
+      micron: (json['micron'] as num?)?.toDouble(),
       uom: json['uom']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       reservedOrderId: json['reserved_order_id']?.toString() ?? '',

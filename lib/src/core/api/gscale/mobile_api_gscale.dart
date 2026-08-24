@@ -277,6 +277,8 @@ class GScaleRpsBatchStartRequest {
     this.manualQtyKg = 0,
     this.tareEnabled = false,
     this.tareKg = 0,
+    this.widthMm,
+    this.micron,
   });
 
   final String clientBatchId;
@@ -290,9 +292,11 @@ class GScaleRpsBatchStartRequest {
   final double manualQtyKg;
   final bool tareEnabled;
   final double tareKg;
+  final double? widthMm;
+  final double? micron;
 
   Map<String, dynamic> toJson() {
-    return {
+    return <String, dynamic>{
       'client_batch_id': clientBatchId.trim(),
       'driver_url': driverUrl.trim().trimRightSlash(),
       'item_code': itemCode.trim(),
@@ -304,6 +308,8 @@ class GScaleRpsBatchStartRequest {
       'manual_qty_kg': manualQtyKg,
       'tare_enabled': tareEnabled,
       'tare_kg': tareKg,
+      if (widthMm != null) 'width_mm': widthMm,
+      if (micron != null) 'micron': micron,
     };
   }
 }
@@ -385,6 +391,8 @@ class GScaleRpsBatchSession {
     required this.manualQtyKg,
     required this.tareEnabled,
     required this.tareKg,
+    this.widthMm,
+    this.micron,
     this.batchCode = '',
     this.revision = 0,
     this.lastError = '',
@@ -410,6 +418,8 @@ class GScaleRpsBatchSession {
       manualQtyKg: _gscaleNumber(json['manual_qty_kg']),
       tareEnabled: json['tare_enabled'] == true || json['tare'] == true,
       tareKg: _gscaleNumber(json['tare_kg']),
+      widthMm: _gscaleOptionalNumber(json['width_mm']),
+      micron: _gscaleOptionalNumber(json['micron']),
       lastError: _gscaleText(json['last_error']),
       lastErrorAt: _gscaleText(json['last_error_at']),
       createdAt: _gscaleText(json['created_at']),
@@ -440,6 +450,8 @@ class GScaleRpsBatchSession {
   final double manualQtyKg;
   final bool tareEnabled;
   final double tareKg;
+  final double? widthMm;
+  final double? micron;
   final String lastError;
   final String lastErrorAt;
   final String createdAt;
@@ -505,6 +517,8 @@ class GScaleMaterialReceiptPrintResponse {
     required this.qty,
     required this.netQty,
     required this.grossQty,
+    this.widthMm,
+    this.micron,
     required this.unit,
     required this.printer,
     required this.printMode,
@@ -526,6 +540,8 @@ class GScaleMaterialReceiptPrintResponse {
       qty: _gscaleNumber(json['qty']),
       netQty: _gscaleNumber(json['net_qty']),
       grossQty: _gscaleNumber(json['gross_qty']),
+      widthMm: _gscaleOptionalNumber(json['width_mm']),
+      micron: _gscaleOptionalNumber(json['micron']),
       unit: _gscaleText(json['unit'], fallback: 'kg'),
       printer: _gscaleText(json['printer']),
       printMode: _gscaleText(json['print_mode']),
@@ -544,6 +560,8 @@ class GScaleMaterialReceiptPrintResponse {
   final double qty;
   final double netQty;
   final double grossQty;
+  final double? widthMm;
+  final double? micron;
   final String unit;
   final String printer;
   final String printMode;
@@ -562,6 +580,8 @@ class GScaleMaterialReceiptPrintResponse {
       qty: qty,
       netQty: netQty,
       grossQty: grossQty,
+      widthMm: widthMm,
+      micron: micron,
       unit: unit,
       printer: printer,
       printMode: printMode,
@@ -602,6 +622,14 @@ double _gscaleNumber(Object? value) {
     return value.toDouble();
   }
   return double.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+double? _gscaleOptionalNumber(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  final number = value is num ? value.toDouble() : double.tryParse('$value');
+  return number != null && number.isFinite && number > 0 ? number : null;
 }
 
 String _gscaleText(Object? value, {String fallback = ''}) {

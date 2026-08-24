@@ -16,29 +16,16 @@ class GScaleCatalogWarehouse {
 
 enum GScaleCatalogItemSource { adminItems, gscaleItems }
 
-const gscaleDefaultCreateItemGroup = 'All Item Groups';
-
 GScaleCatalogItemSource gscaleCatalogItemSourceForProfile(
   SessionProfile? profile,
 ) {
+  if (profile?.role == UserRole.materialTaminotchi) {
+    return GScaleCatalogItemSource.gscaleItems;
+  }
   if (profile?.hasCapability('catalog.item.read') == true) {
     return GScaleCatalogItemSource.adminItems;
   }
   return GScaleCatalogItemSource.gscaleItems;
-}
-
-List<String> gscaleCreateItemGroupsForProfile(SessionProfile? profile) {
-  if (profile?.role != UserRole.materialTaminotchi) {
-    return const [gscaleDefaultCreateItemGroup];
-  }
-  final groups = profile?.assignedItemGroups ?? const <String>[];
-  final normalized = groups
-      .map((group) => group.trim())
-      .where((group) => group.isNotEmpty)
-      .toSet()
-      .toList(growable: false)
-    ..sort();
-  return normalized;
 }
 
 bool gscaleUsesScopedAdminWarehousesForProfile(

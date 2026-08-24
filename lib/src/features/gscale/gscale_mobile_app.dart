@@ -893,6 +893,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   final TextEditingController _defaultWarehouseController =
       TextEditingController();
   final TextEditingController _babinaWeightController = TextEditingController();
+  final TextEditingController _widthController = TextEditingController();
+  final TextEditingController _micronController = TextEditingController();
   final TextEditingController _manualQtyController = TextEditingController();
   final TextEditingController _manualDuplicateController =
       TextEditingController();
@@ -947,6 +949,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     _manualQtyController.addListener(_scheduleSaveControlPrefs);
     _manualDuplicateController.addListener(_scheduleSaveControlPrefs);
     _babinaWeightController.addListener(_scheduleSaveControlPrefs);
+    _widthController.addListener(_scheduleSaveControlPrefs);
+    _micronController.addListener(_scheduleSaveControlPrefs);
     final server = widget.server;
     if (server != null) {
       _snapshot = MonitorSnapshot.empty().copyWithLatency(server.latencyMs);
@@ -1003,6 +1007,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     _controlPrefsDebounce?.cancel();
     _defaultWarehouseController.dispose();
     _babinaWeightController.dispose();
+    _widthController.dispose();
+    _micronController.dispose();
     _manualQtyController.dispose();
     _manualDuplicateController.dispose();
     _controlTabController
@@ -1119,6 +1125,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
             itemCode: draft.itemCode,
             itemName:
                 draft.itemName.isNotEmpty ? draft.itemName : draft.itemCode,
+            requiresDimensions: draft.itemRequiresDimensions,
           );
         }
         if (_selectedItem != null && draft.warehouse.trim().isNotEmpty) {
@@ -1137,6 +1144,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
               : _quantitySource;
           _babinaEnabled = draft.babinaEnabled;
           _babinaWeightController.text = draft.babinaText;
+          _widthController.text = draft.widthText;
+          _micronController.text = draft.micronText;
         }
         _manualQtyController.text = draft.manualQtyText;
         _manualDuplicateController.text = draft.manualDuplicateText;
@@ -1156,6 +1165,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     final draft = OperatorControlDraft(
       itemCode: _selectedItem?.itemCode ?? '',
       itemName: _selectedItem?.itemName ?? '',
+      itemRequiresDimensions: _selectedItem?.requiresDimensions ?? false,
       warehouse: _selectedWarehouse?.warehouse ?? '',
       printMode: _batchPrinter == 'godex'
           ? 'label'
@@ -1166,6 +1176,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       manualDuplicateText: _manualDuplicateController.text.trim(),
       babinaEnabled: _babinaEnabled,
       babinaText: _babinaWeightController.text.trim(),
+      widthText: _widthController.text.trim(),
+      micronText: _micronController.text.trim(),
       warehouseMode: _warehouseMode == 'default' ? 'default' : 'manual',
       defaultWarehouse: _currentDefaultWarehouse,
     );
@@ -1598,6 +1610,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         _babinaWeightController.text = batch.tareEnabled && batch.tareKg > 0
             ? formatCompactKg(batch.tareKg)
             : '';
+        _widthController.text =
+            batch.widthMm == null ? '' : formatCompactKg(batch.widthMm!);
+        _micronController.text =
+            batch.micron == null ? '' : formatCompactKg(batch.micron!);
       });
     }
     _snapshot = _snapshot.copyWithBatch(MobileBatchState.fromRpsBatch(batch));
@@ -1844,7 +1860,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
 
   void _selectItem(MobileItem item) {
     setState(() {
+      final changedItem = _selectedItem?.itemCode != item.itemCode;
       _selectedItem = item;
+      if (changedItem) {
+        _widthController.clear();
+        _micronController.clear();
+      }
       if (!_warehouseIndependentOfItem) {
         _selectedWarehouse = null;
       }
@@ -1885,10 +1906,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           itemTitle: (item) => item.name,
           itemSubtitle: (item) => item.code,
           onSelected: (item) => Navigator.of(context).pop(item),
-          emptyActionLabel:
-              _canCreateCatalogItem ? (query) => '$query ni qo‘shish' : null,
-          onEmptyAction:
-              _canCreateCatalogItem ? _createCatalogItemFromSearch : null,
         );
       },
     );
@@ -1899,71 +1916,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       MobileItem(
         itemCode: option.code,
         itemName: option.name.trim().isEmpty ? option.code : option.name.trim(),
+        requiresDimensions: option.requiresDimensions,
       ),
-    );
-  }
-
-  bool get _canCreateCatalogItem {
-    return AppSession.instance.profile?.hasCapability('catalog.item.create') ==
-        true;
-  }
-
-  Future<SupplierItem?> _createCatalogItemFromSearch(String query) async {
-    final value = query.trim();
-    final confirmed = await showM3ConfirmDialog(
-      context: context,
-      title: 'Mahsulot qo‘shish',
-      message: '$value mahsulotini ERPNext katalogiga qo‘shaymi?',
-      cancelLabel: 'Yo‘q',
-      confirmLabel: 'Ha',
-    );
-    if (confirmed != true || !mounted) {
-      return null;
-    }
-    final itemGroup = await _resolveCreateCatalogItemGroup();
-    if (itemGroup == null || !mounted) {
-      return null;
-    }
-    final item = await MobileApi.instance.adminCreateItem(
-      code: value,
-      name: value,
-      uom: 'Kg',
-      itemGroup: itemGroup,
-    );
-    M3AsyncPickerSheet.clearMemoryCache();
-    return item;
-  }
-
-  Future<String?> _resolveCreateCatalogItemGroup() async {
-    final groups =
-        gscaleCreateItemGroupsForProfile(AppSession.instance.profile);
-    if (groups.isEmpty) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Mahsulot guruhi biriktirilmagan.')),
-      );
-      return null;
-    }
-    if (groups.length == 1) {
-      return groups.single;
-    }
-    return showGeneralDialog<String>(
-      context: context,
-      useRootNavigator: true,
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      barrierColor: Colors.black.withValues(alpha: 0.32),
-      transitionDuration: const Duration(milliseconds: 220),
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return _GScaleItemGroupPickerSheet(itemGroups: groups);
-      },
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return FadeTransition(opacity: curved, child: child);
-      },
     );
   }
 
@@ -2051,6 +2005,14 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     if (item == null) {
       throw Exception('Mahsulot tanlang');
     }
+    final widthMm = parsePositiveKg(_widthController.text);
+    final micron = parsePositiveKg(_micronController.text);
+    if (item.requiresDimensions && widthMm == null) {
+      throw Exception("Material enini mm da to'g'ri kiriting");
+    }
+    if (item.requiresDimensions && micron == null) {
+      throw Exception("Material mikronini to'g'ri kiriting");
+    }
     final warehouse = _selectedPrintWarehouse();
     if (warehouse == null || warehouse.trim().isEmpty) {
       throw Exception('Ombor tanlang');
@@ -2097,6 +2059,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                 : 0,
             tareEnabled: _babinaEnabled,
             tareKg: tareKg ?? 0,
+            widthMm: item.requiresDimensions ? widthMm : null,
+            micron: item.requiresDimensions ? micron : null,
           ),
         )
         .timeout(const Duration(seconds: 15));
@@ -3283,6 +3247,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         : MobileItem(
             itemCode: activeBatch.itemCode,
             itemName: activeBatch.itemName,
+            requiresDimensions:
+                activeBatch.widthMm != null || activeBatch.micron != null,
           );
     final selectedWarehouse = activeBatch == null
         ? _selectedWarehouse
@@ -3319,8 +3285,21 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         _babinaWeightController.text.trim().isNotEmpty &&
         babinaKg == null;
     final scaleQtyKg = parseScaleDisplayKg(_snapshot.scaleValue);
+    final widthMm = parsePositiveKg(_widthController.text);
+    final micron = parsePositiveKg(_micronController.text);
+    final dimensionsReady = selectedProduct?.requiresDimensions != true ||
+        (widthMm != null && micron != null);
+    final widthInvalid = selectedProduct?.requiresDimensions == true &&
+        _widthController.text.trim().isNotEmpty &&
+        widthMm == null;
+    final micronInvalid = selectedProduct?.requiresDimensions == true &&
+        _micronController.text.trim().isNotEmpty &&
+        micron == null;
     final hasPrintSelection = selectedProduct != null &&
-        (defaultMode ? defaultWarehouse.isNotEmpty : selectedWarehouse != null);
+        (defaultMode
+            ? defaultWarehouse.isNotEmpty
+            : selectedWarehouse != null) &&
+        dimensionsReady;
     final scalePrintReady = canTriggerGrossPrint(
       grossKg: scaleQtyKg,
       babinaEnabled: _babinaEnabled,
@@ -3520,6 +3499,56 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           onTap: modeLocked ? null : _openItemPicker,
         ),
         const SizedBox(height: 8),
+        if (selectedProduct?.requiresDimensions == true) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _widthController,
+                  enabled: !modeLocked,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                  ],
+                  decoration: InputDecoration(
+                    isDense: true,
+                    labelText: 'Eni (mm)',
+                    errorText: widthInvalid ? "To'g'ri eni kiriting" : null,
+                    border: controlInputBorder,
+                    enabledBorder: controlInputBorder,
+                    focusedBorder: controlFocusedInputBorder,
+                    errorBorder: controlErrorInputBorder,
+                    focusedErrorBorder: controlFocusedErrorInputBorder,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _micronController,
+                  enabled: !modeLocked,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                  ],
+                  decoration: InputDecoration(
+                    isDense: true,
+                    labelText: 'Mikron',
+                    errorText: micronInvalid ? "To'g'ri mikron kiriting" : null,
+                    border: controlInputBorder,
+                    enabledBorder: controlInputBorder,
+                    focusedBorder: controlFocusedInputBorder,
+                    errorBorder: controlErrorInputBorder,
+                    focusedErrorBorder: controlFocusedErrorInputBorder,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
         if (defaultMode) ...[
           if (defaultWarehouse.isEmpty)
             Text(
@@ -4169,131 +4198,6 @@ class _MiniIconRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _GScaleItemGroupPickerSheet extends StatelessWidget {
-  const _GScaleItemGroupPickerSheet({required this.itemGroups});
-
-  final List<String> itemGroups;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final media = MediaQuery.of(context);
-    final view = View.of(context);
-    final viewHeight = view.physicalSize.height / view.devicePixelRatio;
-    final bottomOverflow =
-        media.size.height > viewHeight ? media.size.height - viewHeight : 0.0;
-    return Material(
-      type: MaterialType.transparency,
-      child: AnimatedPadding(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        padding: EdgeInsets.only(
-          bottom: media.viewInsets.bottom + bottomOverflow,
-        ),
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => Navigator.of(context).maybePop(),
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            child: GestureDetector(
-              onTap: () {},
-              child: Material(
-                color: scheme.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(28),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: SafeArea(
-                  top: false,
-                  bottom: false,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: media.size.height * 0.66,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Mahsulot guruhini tanlang',
-                                  style: theme.textTheme.titleLarge,
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                icon: const Icon(Icons.close_rounded),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Flexible(
-                            child: ListView.separated(
-                              shrinkWrap: true,
-                              itemCount: itemGroups.length,
-                              separatorBuilder: (context, index) =>
-                                  const SizedBox(height: 6),
-                              itemBuilder: (context, index) {
-                                final group = itemGroups[index];
-                                return Material(
-                                  color: scheme.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(16),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: InkWell(
-                                    onTap: () =>
-                                        Navigator.of(context).pop(group),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 16,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            Icons.category_outlined,
-                                            color: scheme.onSurfaceVariant,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Text(
-                                              group,
-                                              style: theme.textTheme.titleMedium
-                                                  ?.copyWith(
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.chevron_right_rounded,
-                                            color: scheme.onSurfaceVariant,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -5478,6 +5382,8 @@ GScaleRpsBatchStartRequest buildGScaleRpsBatchStartRequest({
   required double manualQtyKg,
   required bool tareEnabled,
   required double tareKg,
+  double? widthMm,
+  double? micron,
 }) {
   final normalizedPrinter = normalizePrinterChoice(printer);
   return GScaleRpsBatchStartRequest(
@@ -5494,6 +5400,9 @@ GScaleRpsBatchStartRequest buildGScaleRpsBatchStartRequest({
     manualQtyKg: manualQtyKg.isFinite && manualQtyKg > 0 ? manualQtyKg : 0,
     tareEnabled: tareEnabled || tareKg > 0,
     tareKg: tareKg.isFinite && tareKg > 0 ? tareKg : 0,
+    widthMm:
+        widthMm != null && widthMm.isFinite && widthMm > 0 ? widthMm : null,
+    micron: micron != null && micron.isFinite && micron > 0 ? micron : null,
   );
 }
 
@@ -5702,16 +5611,25 @@ String buildPrinterEventMessage({
 }
 
 class MobileItem {
-  const MobileItem({required this.itemCode, required this.itemName});
+  const MobileItem({
+    required this.itemCode,
+    required this.itemName,
+    this.requiresDimensions = false,
+  });
 
   factory MobileItem.fromJson(Map<String, dynamic> json) {
     final itemCode = _text(json['item_code'], fallback: _text(json['name']));
     final itemName = _text(json['item_name'], fallback: itemCode);
-    return MobileItem(itemCode: itemCode, itemName: itemName);
+    return MobileItem(
+      itemCode: itemCode,
+      itemName: itemName,
+      requiresDimensions: json['requires_dimensions'] == true,
+    );
   }
 
   final String itemCode;
   final String itemName;
+  final bool requiresDimensions;
 }
 
 class MobileWarehouse {
@@ -7025,6 +6943,7 @@ class OperatorControlDraft {
   const OperatorControlDraft({
     required this.itemCode,
     required this.itemName,
+    this.itemRequiresDimensions = false,
     required this.warehouse,
     required this.printMode,
     required this.printer,
@@ -7035,10 +6954,13 @@ class OperatorControlDraft {
     required this.babinaText,
     required this.warehouseMode,
     required this.defaultWarehouse,
+    this.widthText = '',
+    this.micronText = '',
   });
 
   final String itemCode;
   final String itemName;
+  final bool itemRequiresDimensions;
   final String warehouse;
   final String printMode;
   final String printer;
@@ -7049,11 +6971,14 @@ class OperatorControlDraft {
   final String babinaText;
   final String warehouseMode;
   final String defaultWarehouse;
+  final String widthText;
+  final String micronText;
 
   Map<String, dynamic> toJson() {
     return {
       'item_code': itemCode,
       'item_name': itemName,
+      'item_requires_dimensions': itemRequiresDimensions,
       'warehouse': warehouse,
       'print_mode': printMode,
       'printer': printer,
@@ -7064,6 +6989,8 @@ class OperatorControlDraft {
       'babina_text': babinaText,
       'warehouse_mode': warehouseMode,
       'default_warehouse': defaultWarehouse,
+      'width_text': widthText,
+      'micron_text': micronText,
     };
   }
 
@@ -7071,6 +6998,7 @@ class OperatorControlDraft {
     return OperatorControlDraft(
       itemCode: _text(json['item_code']),
       itemName: _text(json['item_name']),
+      itemRequiresDimensions: json['item_requires_dimensions'] == true,
       warehouse: _text(json['warehouse']),
       printMode: _text(json['print_mode']),
       printer: normalizePrinterChoice(_text(json['printer'])),
@@ -7084,6 +7012,8 @@ class OperatorControlDraft {
               ? 'default'
               : 'manual',
       defaultWarehouse: _text(json['default_warehouse']),
+      widthText: _text(json['width_text']),
+      micronText: _text(json['micron_text']),
     );
   }
 }
