@@ -44,6 +44,11 @@ class BluetoothPrinterChannel(
         private const val DEFAULT_PRINT_DENSITY = 10
         private const val MATERIAL_PRINT_DENSITY = 12
         private const val MATERIAL_TEXT_BOLD_OFFSET_DOTS = 1
+        private const val MATERIAL_TITLE_WIDTH_CHARS = 28
+        private const val MATERIAL_TITLE_TOP_Y = 6
+        private const val MATERIAL_TITLE_LINE_HEIGHT_DOTS = 26
+        private const val MATERIAL_TITLE_FONT_HEIGHT_DOTS = 19
+        private const val MATERIAL_TITLE_QR_GAP_DOTS = 8
         private const val PACK_QR_X = 278
         private const val PACK_QR_Y = 166
         private const val PACK_EPC_Y = 328
@@ -394,15 +399,23 @@ class BluetoothPrinterChannel(
         val qrX = centeredQrX(payload, cellSize)
         val qrSize = qrSymbolSizeDots(payload, cellSize)
         val baseQrY = centeredQrY(payload, cellSize)
-        val qrY = if (label.isQolipProductCode) {
-            val latestQrY = (LABEL_HEIGHT_DOTS - qrSize -
-                LARGE_QR_FOOTER_GAP_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS)
-                .coerceAtLeast(baseQrY)
-            val requestedQrY = qolipFieldsEndY(label, rawTitle) +
-                QOLIP_FIELD_QR_GAP_DOTS
-            requestedQrY.coerceIn(baseQrY, latestQrY)
-        } else {
-            baseQrY
+        val latestQrY = (LABEL_HEIGHT_DOTS - qrSize -
+            LARGE_QR_FOOTER_GAP_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS)
+            .coerceAtLeast(baseQrY)
+        val qrY = when {
+            label.isQolipProductCode -> {
+                val requestedQrY = qolipFieldsEndY(label, rawTitle) +
+                    QOLIP_FIELD_QR_GAP_DOTS
+                requestedQrY.coerceIn(baseQrY, latestQrY)
+            }
+            label.isMaterialProduct -> {
+                val titleEndY = MATERIAL_TITLE_TOP_Y +
+                    (titleLines.size - 1).coerceAtLeast(0) *
+                    MATERIAL_TITLE_LINE_HEIGHT_DOTS + MATERIAL_TITLE_FONT_HEIGHT_DOTS
+                val requestedQrY = titleEndY + MATERIAL_TITLE_QR_GAP_DOTS
+                requestedQrY.coerceIn(baseQrY, latestQrY)
+            }
+            else -> baseQrY
         }
         if (label.isQolipProductCode) {
             var fieldY = QOLIP_FIELD_TOP_Y
@@ -427,7 +440,11 @@ class BluetoothPrinterChannel(
         } else {
             titleLines.forEachIndexed { index, line ->
                 val titleX = LABEL_LEFT_MARGIN_DOTS
-                val titleY = 6 + index * 26
+                val titleY = if (label.isMaterialProduct) {
+                    MATERIAL_TITLE_TOP_Y + index * MATERIAL_TITLE_LINE_HEIGHT_DOTS
+                } else {
+                    6 + index * 26
+                }
                 if (label.isMaterialProduct) {
                     sdkText(printer, titleX, titleY, titleFont, line)
                     sdkText(
@@ -932,10 +949,21 @@ class BluetoothPrinterChannel(
             )
             val unit = cleanLabelText(label.unit.ifBlank { "kg" })
             val netWeight = compactLabelQty(label.netQty)
-            return listOf(
-                fitLabelText("MAHSULOT: $productName", 20),
-                fitLabelText("NET VAZNI: $netWeight $unit", 20),
+            val productLines = if (label.materialNameLines.isEmpty()) {
+                wrapLabelText(
+                    cleanLabelText("MAHSULOT: $productName"),
+                    MATERIAL_TITLE_WIDTH_CHARS,
+                )
+            } else {
+                label.materialNameLines.flatMap {
+                    wrapLabelText(cleanLabelText(it), MATERIAL_TITLE_WIDTH_CHARS)
+                }
+            }
+            val weightLines = wrapLabelText(
+                cleanLabelText("NET VAZNI: $netWeight $unit"),
+                MATERIAL_TITLE_WIDTH_CHARS,
             )
+            return productLines + weightLines
         }
         if (label.isQolipCode && label.customerName.isNotBlank()) {
             return listOf(
@@ -1181,6 +1209,7 @@ private data class BluetoothLabelRequest(
     val tareKg: Double,
     val printCount: Int,
     val labelKind: String,
+    val materialNameLines: List<String>,
     val progressQty: Double?,
     val progressUnit: String,
 ) {
@@ -1229,6 +1258,11 @@ private data class BluetoothLabelRequest(
                     .orEmpty()
                     .trim()
                     .lowercase(Locale.US),
+                materialNameLines = call.argument<List<Any?>>("material_name_lines")
+                    .orEmpty()
+                    .mapNotNull { value ->
+                        value?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+                    },
                 progressQty = call.argument<Number>("progress_qty")?.toDouble()
                     ?.takeIf { it.isFinite() },
                 progressUnit = call.argument<String>("progress_unit").orEmpty().trim(),

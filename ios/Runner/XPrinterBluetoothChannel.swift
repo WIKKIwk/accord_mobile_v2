@@ -27,6 +27,11 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private static let defaultPrintDensity: Int32 = 10
   private static let materialPrintDensity: Int32 = 12
   private static let materialTextBoldOffsetDots = 1
+  private static let materialTitleWidthChars = 28
+  private static let materialTitleTopY = 6
+  private static let materialTitleLineHeightDots = 26
+  private static let materialTitleFontHeightDots = 19
+  private static let materialTitleQrGapDots = 8
   private static let packQrX = 278
   private static let packQrY = 166
   private static let packEpcY = 328
@@ -527,6 +532,17 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       let requestedQrY = qolipFieldsEndY(label, rawTitle: rawTitle) +
         Self.qolipFieldQrGapDots
       qrY = min(max(requestedQrY, baseQrY), latestQrY)
+    } else if label.labelKind == "material_product" {
+      let latestQrY = max(
+        baseQrY,
+        Self.labelHeightDots - qrSize - Self.largeQrFooterGapDots -
+          Self.largeQrFooterHeightDots
+      )
+      let titleEndY = Self.materialTitleTopY +
+        max(0, titleLines.count - 1) * Self.materialTitleLineHeightDots +
+        Self.materialTitleFontHeightDots
+      let requestedQrY = titleEndY + Self.materialTitleQrGapDots
+      qrY = min(max(requestedQrY, baseQrY), latestQrY)
     } else {
       qrY = baseQrY
     }
@@ -557,7 +573,9 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     } else {
       for (index, line) in titleLines.enumerated() {
         let titleX = Self.labelLeftMarginDots
-        let titleY = 6 + index * 26
+        let titleY = label.labelKind == "material_product"
+          ? Self.materialTitleTopY + index * Self.materialTitleLineHeightDots
+          : 6 + index * 26
         result = text(
           result,
           x: titleX,
@@ -1094,10 +1112,19 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       let productName = cleanLabelText(label.itemName.isEmpty ? label.itemCode : label.itemName)
       let unit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
       let netWeight = compactLabelQty(label.netQty)
-      return [
-        fitLabelText("MAHSULOT: \(productName)", maxLength: 20),
-        fitLabelText("NET VAZNI: \(netWeight) \(unit)", maxLength: 20)
-      ]
+      let productLines = label.materialNameLines.isEmpty
+        ? wrapLabelText(
+            cleanLabelText("MAHSULOT: \(productName)"),
+            width: Self.materialTitleWidthChars
+          )
+        : label.materialNameLines.flatMap {
+            wrapLabelText(cleanLabelText($0), width: Self.materialTitleWidthChars)
+          }
+      let weightLines = wrapLabelText(
+        cleanLabelText("NET VAZNI: \(netWeight) \(unit)"),
+        width: Self.materialTitleWidthChars
+      )
+      return productLines + weightLines
     }
     if label.labelKind == "qolip_code" && !label.customerName.isEmpty {
       return [
@@ -1366,6 +1393,7 @@ private struct BluetoothLabelRequest {
   let tareKg: Double
   let printCount: Int
   let labelKind: String
+  let materialNameLines: [String]
   let progressQty: Double?
   let progressUnit: String
 
@@ -1393,6 +1421,12 @@ private struct BluetoothLabelRequest {
     self.printCount = printCount
     labelKind = ((arguments["label_kind"] as? String) ?? "")
       .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    materialNameLines = ((arguments["material_name_lines"] as? [Any]) ?? [])
+      .compactMap { value in
+        guard let line = value as? String else { return nil }
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+      }
     let progressQty = (arguments["progress_qty"] as? NSNumber)?.doubleValue
     self.progressQty = progressQty?.isFinite == true ? progressQty : nil
     progressUnit = (arguments["progress_unit"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

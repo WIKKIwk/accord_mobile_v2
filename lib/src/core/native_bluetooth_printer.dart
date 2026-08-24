@@ -68,7 +68,50 @@ Map<String, Object> _bluetoothLabelPayload(UsbRpsPrintRequest request) {
       payload[key] = bluetoothPrinterText(displayValue);
     }
   }
+  if (request.isMaterialProductLabel) {
+    final itemName = payload['item_name']?.toString() ?? '';
+    payload['material_name_lines'] = bluetoothMaterialProductNameLines(
+      itemName.isEmpty ? request.itemCode : itemName,
+    );
+  }
   return payload;
+}
+
+List<String> bluetoothMaterialProductNameLines(String itemName) {
+  const lineWidth = 28;
+  final productName = bluetoothPrinterText(itemName);
+  final title = bluetoothPrinterText(
+    'MAHSULOT: ${productName.isEmpty ? '-' : productName}',
+  );
+  return _wrapBluetoothLabelText(title, lineWidth);
+}
+
+List<String> _wrapBluetoothLabelText(String value, int width) {
+  final lines = <String>[];
+  var current = '';
+  for (final word
+      in value.split(RegExp(r'\s+')).where((word) => word.isNotEmpty)) {
+    var rest = word;
+    while (rest.length > width) {
+      if (current.isNotEmpty) {
+        lines.add(current);
+        current = '';
+      }
+      lines.add(rest.substring(0, width));
+      rest = rest.substring(width);
+    }
+    final candidate = current.isEmpty ? rest : '$current $rest';
+    if (candidate.length <= width) {
+      current = candidate;
+    } else {
+      lines.add(current);
+      current = rest;
+    }
+  }
+  if (current.isNotEmpty) {
+    lines.add(current);
+  }
+  return lines;
 }
 
 /// XP-P323B's built-in TSPL fonts are ASCII-oriented. Keep the Bluetooth

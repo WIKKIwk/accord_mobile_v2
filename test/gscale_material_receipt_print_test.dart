@@ -80,6 +80,19 @@ void main() {
     );
   });
 
+  test('bluetooth material product title wraps without truncating micron', () {
+    expect(
+      bluetoothMaterialProductNameLines('BOPP 200/12'),
+      ['MAHSULOT: BOPP 200/12'],
+    );
+
+    const longName = 'JUDA UZUN BOPP RULON MATERIALI 200/18';
+    expect(
+      bluetoothMaterialProductNameLines(longName).join(' '),
+      'MAHSULOT: $longName',
+    );
+  });
+
   test('receipt reprint preserves the existing EPC and prints one label', () {
     const stock = AdminRawMaterialStockEntry(
       id: 'stock-1',
