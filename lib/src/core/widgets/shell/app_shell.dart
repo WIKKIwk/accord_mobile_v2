@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'dart:async';
 
 import '../../../app/app_router.dart';
 import '../../../features/shared/data/profile_avatar_cache.dart';
@@ -16,6 +16,7 @@ import '../navigation/dock_system_bottom_inset.dart';
 import '../navigation/native_back_button.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 const double _drawerEdgeDragWidth = 28;
 const double _drawerOpenDragDistance = 48;
@@ -790,7 +791,10 @@ class _AppShellProfileActionState extends State<AppShellProfileAction> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => Navigator.of(context).pushNamed(AppRoutes.profile),
-        onLongPress: () => showAccountSwitcherSheet(context),
+        onLongPress: () {
+          unawaited(HapticFeedback.mediumImpact());
+          showAccountSwitcherSheet(context);
+        },
         child: SizedBox(
           width: 38,
           height: 38,

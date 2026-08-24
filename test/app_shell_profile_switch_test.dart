@@ -9,6 +9,7 @@ import 'package:accord_mobile_v2/src/features/auth/presentation/login_screen.dar
 import 'package:accord_mobile_v2/src/features/auth/presentation/welcome_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,6 +26,46 @@ void main() {
 
     expect(find.text('Profilni tanlang'), findsOneWidget);
     expect(find.text('Saman'), findsOneWidget);
+  });
+
+  testWidgets('holding profile action provides medium haptic feedback',
+      (tester) async {
+    final platformCalls = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        platformCalls.add(call);
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    await _pumpProfileAction(tester);
+
+    await tester.longPress(find.byType(AppShellProfileAction));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      platformCalls,
+      contains(
+        isA<MethodCall>().having(
+          (call) => call,
+          'medium haptic feedback',
+          isA<MethodCall>()
+              .having((call) => call.method, 'method', 'HapticFeedback.vibrate')
+              .having(
+                (call) => call.arguments,
+                'arguments',
+                'HapticFeedbackType.mediumImpact',
+              ),
+        ),
+      ),
+    );
   });
 
   testWidgets('account switcher sizes to one profile instead of fixed height',
