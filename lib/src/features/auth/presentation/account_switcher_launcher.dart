@@ -5,6 +5,7 @@ import '../../../core/session/accounts/saved_account_runtime.dart';
 import '../../../core/session/state/app_session.dart';
 import 'account_switcher_sheet.dart';
 import 'login_screen.dart';
+import 'welcome_screen.dart';
 import 'package:flutter/material.dart';
 
 Future<void> showAccountSwitcherSheet(BuildContext context) async {
@@ -52,10 +53,36 @@ Future<void> showAccountSwitcherSheet(BuildContext context) async {
             Navigator.of(sheetContext).pop();
             rootNavigator.push(
               MaterialPageRoute<void>(
-                builder: (loginContext) => LoginScreen(
-                  addAccountMode: true,
-                  onBack: () => Navigator.of(loginContext).pop(),
-                ),
+                builder: (loginContext) {
+                  final theme = Theme.of(loginContext);
+                  final scheme = theme.colorScheme;
+                  final authBackgroundColor =
+                      theme.brightness == Brightness.dark
+                          ? const Color(0xFF000000)
+                          : scheme.surfaceContainerLow;
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(color: authBackgroundColor),
+                        child: IgnorePointer(
+                          child: AuthAmbientOutlineBackground(
+                            outlineColor: scheme.outlineVariant,
+                            accentColor: scheme.primary,
+                            backgroundColor: authBackgroundColor,
+                            isDarkBackground:
+                                theme.brightness == Brightness.dark,
+                          ),
+                        ),
+                      ),
+                      LoginScreen(
+                        addAccountMode: true,
+                        useSharedBackground: true,
+                        onBack: () => Navigator.of(loginContext).pop(),
+                      ),
+                    ],
+                  );
+                },
               ),
             );
           },
