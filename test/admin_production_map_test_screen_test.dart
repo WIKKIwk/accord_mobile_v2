@@ -2233,6 +2233,70 @@ void main() {
     },
   );
 
+  testWidgets(
+    'admin map apparatus tap shows WIP produced by that apparatus',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      const orderId = 'zakaz-admin-map-apparatus-wip';
+      await MobileApi.instance.adminSaveProductionMap(
+        _productionOrderMap(
+          id: orderId,
+          title: 'Admin map apparatus WIP',
+          productCode: 'ADMIN-MAP-WIP',
+          apparatusId: _print7Id,
+          product: 'admin map WIP product',
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: _print7Id,
+        orderIds: const [orderId],
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: _print7Id,
+        orderId: orderId,
+        action: 'start',
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: _print7Id,
+        orderId: orderId,
+        action: 'pause',
+        producedQty: 12,
+        uom: 'm',
+      );
+
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapOrdersScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mapni ko‘rish'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('7 ta rangli bosma aparat'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('apparatus-wip-history-sheet')),
+        findsOneWidget,
+      );
+      expect(find.text('1 ta WIP yaratilgan'), findsOneWidget);
+      expect(find.text('12 m'), findsOneWidget);
+    },
+  );
+
   testWidgets('opened orders modules are ordered orders move sequence closed', (
     tester,
   ) async {

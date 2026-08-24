@@ -10,6 +10,7 @@ class _OrderMapProgressCard extends StatelessWidget {
     required this.queueStatesByApparatus,
     required this.expanded,
     required this.onToggleExpanded,
+    required this.onTapApparatus,
   });
 
   final List<ProductionMapNode> steps;
@@ -20,6 +21,7 @@ class _OrderMapProgressCard extends StatelessWidget {
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final bool expanded;
   final VoidCallback onToggleExpanded;
+  final ValueChanged<ProductionMapNode> onTapApparatus;
 
   @override
   Widget build(BuildContext context) {
@@ -133,6 +135,11 @@ class _OrderMapProgressCard extends StatelessWidget {
                                   queueStatesByApparatus:
                                       queueStatesByApparatus,
                                 ),
+                                onTap: steps[index].kind == 'apparatus' &&
+                                        _orderMapNodeStationId(steps[index])
+                                            .isNotEmpty
+                                    ? () => onTapApparatus(steps[index])
+                                    : null,
                               ),
                             ],
                           ],

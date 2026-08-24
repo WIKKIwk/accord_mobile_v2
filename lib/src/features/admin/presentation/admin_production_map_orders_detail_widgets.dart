@@ -48,6 +48,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onToggleQolipsExpanded,
     required this.mapExpanded,
     required this.onToggleMapExpanded,
+    required this.onTapMapApparatus,
     required this.onMaterialIntake,
     required this.onStart,
     required this.onPause,
@@ -106,6 +107,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onToggleQolipsExpanded;
   final bool mapExpanded;
   final VoidCallback onToggleMapExpanded;
+  final ValueChanged<ProductionMapNode> onTapMapApparatus;
   final VoidCallback onMaterialIntake;
   final VoidCallback onStart;
   final VoidCallback onPause;
@@ -235,6 +237,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 queueStatesByApparatus: queueStatesByApparatus,
                 expanded: mapExpanded,
                 onToggleExpanded: onToggleMapExpanded,
+                onTapApparatus: onTapMapApparatus,
               ),
             ],
           ),
@@ -396,6 +399,7 @@ class _SequenceStepTile extends StatelessWidget {
     required this.status,
     required this.current,
     required this.isDone,
+    this.onTap,
   });
 
   final ProductionMapNode node;
@@ -405,6 +409,7 @@ class _SequenceStepTile extends StatelessWidget {
   final ApparatusQueueOrderState? status;
   final bool current;
   final bool isDone;
+  final VoidCallback? onTap;
 
   static const _completedGreen = Color(0xFF2E7D32);
 
@@ -504,11 +509,20 @@ class _SequenceStepTile extends StatelessWidget {
           border:
               current ? Border.all(color: scheme.primary, width: 1.5) : null,
         ),
-        child: Padding(
-          padding: current
-              ? const EdgeInsets.fromLTRB(10, 8, 10, 8)
-              : EdgeInsets.zero,
-          child: content,
+        child: InkWell(
+          key: node.kind == 'apparatus'
+              ? ValueKey(
+                  'production-map-apparatus-${_orderMapNodeStationId(node)}',
+                )
+              : null,
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: current
+                ? const EdgeInsets.fromLTRB(10, 8, 10, 8)
+                : EdgeInsets.zero,
+            child: content,
+          ),
         ),
       ),
     );

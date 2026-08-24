@@ -1693,6 +1693,31 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return batches;
   }
 
+  void _showMapApparatusWipHistory(ProductionMapNode node) {
+    final apparatusId = _orderMapNodeStationId(node);
+    if (node.kind != 'apparatus' || apparatusId.isEmpty) return;
+
+    final apparatus = _canonicalApparatusForId(
+      widget.apparatusCatalog,
+      apparatusId,
+    );
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (context) => _WorkerWipHistorySheet(
+          order: widget.order,
+          apparatus: apparatus,
+          apparatusCatalog: widget.apparatusCatalog,
+          sourceApparatusId: apparatusId,
+          apparatusTitle: node.title,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final map = widget.order.map;
@@ -1818,6 +1843,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       onToggleMapExpanded: () {
         setState(() => _mapExpanded = !_mapExpanded);
       },
+      onTapMapApparatus: _showMapApparatusWipHistory,
       summaryExpanded: _summaryExpanded,
       onToggleSummaryExpanded: () {
         setState(() => _summaryExpanded = !_summaryExpanded);

@@ -109,11 +109,15 @@ class _WorkerWipHistorySheet extends StatefulWidget {
     required this.order,
     required this.apparatus,
     required this.apparatusCatalog,
+    this.sourceApparatusId = '',
+    this.apparatusTitle = '',
   });
 
   final ProductionMapSaved order;
   final AdminApparatus? apparatus;
   final List<AdminApparatus> apparatusCatalog;
+  final String sourceApparatusId;
+  final String apparatusTitle;
 
   @override
   State<_WorkerWipHistorySheet> createState() => _WorkerWipHistorySheetState();
@@ -130,6 +134,20 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
 
   Future<List<AdminProgressBatch>> _load() async {
     final orderId = widget.order.map.id.trim();
+    final sourceApparatusId = widget.sourceApparatusId.trim();
+    if (sourceApparatusId.isNotEmpty) {
+      final batches = await MobileApi.instance.adminWipBatches(
+        status: 'all',
+        orderId: orderId,
+        limit: 1000,
+      );
+      return _wipBatchesProducedByApparatus(
+        batches,
+        orderId: orderId,
+        apparatusId: sourceApparatusId,
+      );
+    }
+
     final batches = await MobileApi.instance.adminProgressQrHistory(limit: 200);
     return batches
         .where((batch) => batch.orderId.trim() == orderId)
@@ -152,9 +170,16 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
       map.id,
     ]);
     final product = _workerWipFirstNotEmpty([map.title, map.productCode]);
+    final apparatusTitle = _workerWipFirstNotEmpty([
+      widget.apparatus?.name ?? '',
+      widget.apparatusTitle,
+    ]);
     final maxHeight = MediaQuery.sizeOf(context).height * 0.86;
 
     return SafeArea(
+      key: widget.sourceApparatusId.trim().isNotEmpty
+          ? const ValueKey('apparatus-wip-history-sheet')
+          : null,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxHeight),
         child: Padding(
@@ -173,8 +198,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                 [
                   if (title.isNotEmpty) title,
                   if (product.isNotEmpty && product != title) product,
-                  if (widget.apparatus?.name.trim().isNotEmpty == true)
-                    widget.apparatus!.name.trim(),
+                  if (apparatusTitle.isNotEmpty) apparatusTitle,
                 ].join(' • '),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -196,7 +220,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                     final batches =
                         snapshot.data ?? const <AdminProgressBatch>[];
                     if (batches.isEmpty) {
-                      return _WorkerWipHistoryEmpty();
+                      return const _WorkerWipHistoryEmpty();
                     }
                     return _WorkerWipHistoryList(
                       batches: batches,
@@ -211,6 +235,24 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
       ),
     );
   }
+}
+
+List<AdminProgressBatch> _wipBatchesProducedByApparatus(
+  Iterable<AdminProgressBatch> batches, {
+  required String orderId,
+  required String apparatusId,
+}) {
+  final normalizedOrderId = orderId.trim();
+  final normalizedApparatusId = apparatusId.trim();
+  if (normalizedOrderId.isEmpty || normalizedApparatusId.isEmpty) {
+    return const <AdminProgressBatch>[];
+  }
+  return [
+    for (final batch in batches)
+      if (batch.orderId.trim() == normalizedOrderId &&
+          batch.apparatus.trim() == normalizedApparatusId)
+        batch,
+  ];
 }
 
 class _WorkerWipHistoryList extends StatelessWidget {
