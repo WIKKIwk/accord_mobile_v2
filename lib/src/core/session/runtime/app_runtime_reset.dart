@@ -22,6 +22,7 @@ class AppRuntimeReset {
 
   Future<void> resetSessionScopedState({
     required SessionProfile? previousProfile,
+    bool preserveLegacyLoginCredentials = false,
   }) async {
     CustomerStore.instance.clear();
     if (previousProfile != null) {
@@ -49,11 +50,12 @@ class AppRuntimeReset {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys();
     for (final key in keys) {
+      final isLegacyLoginCredential =
+          key == 'last_login_phone' || key == 'last_login_code';
       if (key.startsWith('notification_snapshot_v1:') ||
           key == 'cache_customer_notifications' ||
           key == 'cache_werka_notifications' ||
-          key == 'last_login_phone' ||
-          key == 'last_login_code' ||
+          (isLegacyLoginCredential && !preserveLegacyLoginCredentials) ||
           key.startsWith('profile_avatar_bytes_') ||
           key.startsWith('profile_avatar_url_') ||
           key.startsWith('profile_cover_bytes_')) {

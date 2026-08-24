@@ -1,8 +1,12 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/app_preview.dart';
+import '../../../core/security/state/security_controller.dart';
+import '../../../core/session/accounts/account_switch_runtime.dart';
+import '../../../core/session/accounts/saved_account_runtime.dart';
 import '../../../core/session/session.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import 'account_switcher_sheet.dart';
 import 'login_screen.dart';
 import 'welcome_screen.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +22,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
   bool _booting = true;
   bool _showLogin = false;
   bool _showWelcome = false;
+  bool _showSavedAccounts = false;
   bool _navigated = false;
 
   @override
@@ -48,7 +53,8 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
       }
       setState(() {
         _booting = false;
-        _showWelcome = true;
+        _showSavedAccounts = _hasSavedAccounts;
+        _showWelcome = !_showSavedAccounts;
         _showLogin = false;
       });
       return;
@@ -69,8 +75,9 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
     if (!AppSession.instance.isLoggedIn) {
       setState(() {
         _booting = false;
+        _showSavedAccounts = _hasSavedAccounts;
         _showWelcome = false;
-        _showLogin = true;
+        _showLogin = !_showSavedAccounts;
       });
       return;
     }
@@ -82,8 +89,43 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
     );
   }
 
+  bool get _hasSavedAccounts {
+    final runtime = SavedAccountRuntime.instance;
+    return runtime.isInitialized &&
+        runtime.store.accountsForEndpoint(MobileApi.baseUrl).isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_showSavedAccounts) {
+      final runtime = SavedAccountRuntime.instance;
+      final accounts = runtime.store.accountsForEndpoint(MobileApi.baseUrl);
+      return Scaffold(
+        body: AccountSwitcherSheet(
+          accounts: accounts,
+          activeAccountId: runtime.store.activeAccountId,
+          hasPinForProfile: SecurityController.instance.hasPinForProfile,
+          verifyPinForProfile: SecurityController.instance.verifyPinForProfile,
+          onSwitch: (account) async {
+            await createRuntimeAccountSwitchController().switchTo(account.id);
+            if (!mounted) {
+              return;
+            }
+            Navigator.of(this.context).pushNamedAndRemoveUntil(
+              AppSession.instance.homeRoute,
+              (route) => false,
+            );
+          },
+          onAddAccount: () {
+            setState(() {
+              _showSavedAccounts = false;
+              _showWelcome = false;
+              _showLogin = true;
+            });
+          },
+        ),
+      );
+    }
     if (_showWelcome || _showLogin) {
       final scheme = Theme.of(context).colorScheme;
       final Color authBackgroundColor =
@@ -99,6 +141,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
                   return;
                 }
                 setState(() {
+                  _showSavedAccounts = false;
                   _showWelcome = false;
                   _showLogin = true;
                 });
@@ -110,7 +153,8 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
               onBack: () {
                 setState(() {
                   _showLogin = false;
-                  _showWelcome = true;
+                  _showSavedAccounts = _hasSavedAccounts;
+                  _showWelcome = !_showSavedAccounts;
                 });
               },
             );

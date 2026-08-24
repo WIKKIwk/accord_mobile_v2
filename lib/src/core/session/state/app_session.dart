@@ -1,9 +1,23 @@
 import 'dart:convert';
 
 import '../runtime/app_runtime_reset.dart';
+import '../accounts/saved_account_runtime.dart';
+import '../../network/server_endpoint_store.dart';
 import '../../../features/shared/models/app_models.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class AppSessionSnapshot {
+  const AppSessionSnapshot({
+    required this.token,
+    required this.profile,
+    required this.werkaHomeBootstrap,
+  });
+
+  final String? token;
+  final SessionProfile? profile;
+  final WerkaHomeData? werkaHomeBootstrap;
+}
 
 class AppSession {
   AppSession._();
@@ -107,8 +121,59 @@ class AppSession {
     return profile?.hasCapability(capability) ?? false;
   }
 
+  AppSessionSnapshot snapshot() {
+    return AppSessionSnapshot(
+      token: token,
+      profile: profile,
+      werkaHomeBootstrap: werkaHomeBootstrap,
+    );
+  }
+
+  Future<void> restore(AppSessionSnapshot snapshot) async {
+    final restoredToken = snapshot.token?.trim() ?? '';
+    final restoredProfile = snapshot.profile;
+    if (restoredToken.isEmpty || restoredProfile == null) {
+      await clear();
+      return;
+    }
+    await setSession(
+      token: restoredToken,
+      profile: restoredProfile,
+      werkaHomeBootstrap: snapshot.werkaHomeBootstrap,
+      forceResetSessionScopedState: true,
+    );
+  }
+
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
+    final savedAccounts = SavedAccountRuntime.instance;
+    if (savedAccounts.hasInitializationFailure) {
+      await _clearMemoryPreservingLegacySession();
+      return;
+    }
+    if (savedAccounts.isInitialized) {
+      final activeId = savedAccounts.store.activeAccountId;
+      final savedSession = activeId == null
+          ? null
+          : await savedAccounts.store.sessionFor(activeId);
+      if (savedSession != null &&
+          savedSession.account.baseUrl ==
+              ServerEndpointStore.normalize(
+                ServerEndpointStore.instance.baseUrl,
+              )) {
+        token = savedSession.token;
+        profile = savedSession.account.profile;
+        await prefs.remove(_tokenKey);
+        await prefs.remove(_profileKey);
+        revision.value++;
+        return;
+      }
+      if (activeId != null) {
+        await savedAccounts.store.clearActive();
+      }
+      await clear();
+      return;
+    }
     final storedToken = prefs.getString(_tokenKey);
     final storedProfile = prefs.getString(_profileKey);
     if (storedToken == null ||
@@ -162,12 +227,17 @@ class AppSession {
         previousProfile: previousProfile,
       );
     }
+    final prefs = await SharedPreferences.getInstance();
+    if (SavedAccountRuntime.instance.isInitialized) {
+      await prefs.remove(_tokenKey);
+      await prefs.remove(_profileKey);
+    } else {
+      await prefs.setString(_tokenKey, normalizedToken);
+      await prefs.setString(_profileKey, jsonEncode(profile.toJson()));
+    }
     this.token = normalizedToken;
     this.profile = profile;
     this.werkaHomeBootstrap = werkaHomeBootstrap;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, normalizedToken);
-    await prefs.setString(_profileKey, jsonEncode(profile.toJson()));
     revision.value++;
   }
 
@@ -193,9 +263,36 @@ class AppSession {
         'must not be empty',
       );
     }
-    profile = nextProfile;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_profileKey, jsonEncode(nextProfile.toJson()));
+    final savedAccounts = SavedAccountRuntime.instance;
+    if (savedAccounts.isInitialized) {
+      final store = savedAccounts.store;
+      await store.runAccountOperation(() async {
+        final activeId = store.activeAccountId;
+        if (activeId != null) {
+          await store.updateProfile(activeId, nextProfile);
+        }
+        await prefs.remove(_profileKey);
+        profile = nextProfile;
+        revision.value++;
+      });
+      return;
+    } else {
+      await prefs.setString(_profileKey, jsonEncode(nextProfile.toJson()));
+    }
+    profile = nextProfile;
+    revision.value++;
+  }
+
+  Future<void> _clearMemoryPreservingLegacySession() async {
+    final previousProfile = profile;
+    token = null;
+    profile = null;
+    werkaHomeBootstrap = null;
+    await AppRuntimeReset.instance.resetSessionScopedState(
+      previousProfile: previousProfile,
+      preserveLegacyLoginCredentials: true,
+    );
     revision.value++;
   }
 

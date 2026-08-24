@@ -10,25 +10,83 @@ extension MobileApiAuthProfile on MobileApi {
     return _performLogin(phone: phone, code: code);
   }
 
-  Future<SessionProfile> _performLogin({
+  Future<AuthenticatedMobileAccount> authenticateAccount({
     required String phone,
     required String code,
-  }) async {
-    final result = await _loginAt(
+  }) {
+    return _loginAt(
       targetBaseUrl: baseUrl,
       phone: phone,
       code: code,
     );
-    await AppSession.instance.setSession(
-      token: result.token,
-      profile: result.profile,
-      werkaHomeBootstrap: result.werkaHome,
-    );
-    await _storeLoginCredentials(phone: phone, code: code);
+  }
+
+  Future<SessionProfile> _performLogin({
+    required String phone,
+    required String code,
+  }) async {
+    final result = await authenticateAccount(phone: phone, code: code);
+    final savedAccounts = SavedAccountRuntime.instance;
+    if (savedAccounts.isInitialized) {
+      final store = savedAccounts.store;
+      await store.runAccountOperation(() async {
+        final previousActiveId = store.activeAccountId;
+        final previousSession = AppSession.instance.snapshot();
+        try {
+          final account = await store.upsertAuthenticated(
+            baseUrl: baseUrl,
+            profile: result.profile,
+            token: result.token,
+            phone: phone,
+            code: code,
+            makeActive: false,
+          );
+          await store.activate(account.id);
+          await AppSession.instance.setSession(
+            token: result.token,
+            profile: result.profile,
+            werkaHomeBootstrap: result.werkaHome,
+          );
+        } catch (error, stackTrace) {
+          final rollbackErrors = <Object>[];
+          try {
+            if (previousActiveId == null) {
+              await store.clearActive();
+            } else if (store.activeAccountId != previousActiveId) {
+              await store.activate(previousActiveId);
+            }
+          } catch (rollbackError) {
+            rollbackErrors.add(rollbackError);
+          }
+          try {
+            await AppSession.instance.restore(previousSession);
+          } catch (rollbackError) {
+            rollbackErrors.add(rollbackError);
+          }
+          if (rollbackErrors.isNotEmpty) {
+            Error.throwWithStackTrace(
+              StateError(
+                'Login failed and account rollback was incomplete: $error; '
+                '${rollbackErrors.join('; ')}',
+              ),
+              stackTrace,
+            );
+          }
+          Error.throwWithStackTrace(error, stackTrace);
+        }
+      });
+    } else {
+      await _storeLoginCredentials(phone: phone, code: code);
+      await AppSession.instance.setSession(
+        token: result.token,
+        profile: result.profile,
+        werkaHomeBootstrap: result.werkaHome,
+      );
+    }
     return result.profile;
   }
 
-  Future<_MobileLoginResult> _loginAt({
+  Future<AuthenticatedMobileAccount> _loginAt({
     required String targetBaseUrl,
     required String phone,
     required String code,
@@ -77,7 +135,7 @@ extension MobileApiAuthProfile on MobileApi {
             json['werka_home'] is Map<String, dynamic>
         ? WerkaHomeData.fromJson(json['werka_home'] as Map<String, dynamic>)
         : null;
-    return _MobileLoginResult(
+    return AuthenticatedMobileAccount(
       token: token,
       profile: profile,
       werkaHome: werkaHome,
@@ -139,19 +197,60 @@ extension MobileApiAuthProfile on MobileApi {
   }
 
   Future<void> logout() async {
+    final savedAccounts = SavedAccountRuntime.instance;
+    if (savedAccounts.isInitialized) {
+      final store = savedAccounts.store;
+      await store.runAccountOperation(() async {
+        try {
+          final activeId = store.activeAccountId;
+          final savedSession =
+              activeId == null ? null : await store.sessionFor(activeId);
+          if (AppSession.instance.token != null) {
+            try {
+              await PushMessagingService.instance.unregisterCurrentToken();
+            } catch (_) {}
+          }
+          if (savedSession != null) {
+            try {
+              await logoutSavedSession(
+                token: savedSession.token,
+                baseUrl: savedSession.account.baseUrl,
+              );
+            } catch (_) {}
+          }
+          if (activeId != null) {
+            await store.remove(activeId);
+          }
+        } finally {
+          await AppSession.instance.clear();
+        }
+      });
+      return;
+    }
     final String? token = AppSession.instance.token;
     if (token != null) {
       try {
         await PushMessagingService.instance.unregisterCurrentToken();
       } catch (_) {}
       try {
-        await _post(
-          Uri.parse('$baseUrl/v1/mobile/auth/logout'),
-          headers: _headers(token),
-        );
+        await logoutSavedSession(token: token, baseUrl: baseUrl);
       } catch (_) {}
     }
     await AppSession.instance.clear();
+  }
+
+  Future<void> logoutSavedSession({
+    required String token,
+    required String baseUrl,
+  }) async {
+    final normalizedToken = token.trim();
+    if (normalizedToken.isEmpty) {
+      return;
+    }
+    await _post(
+      Uri.parse('$baseUrl/v1/mobile/auth/logout'),
+      headers: _headers(normalizedToken),
+    );
   }
 
   Future<SessionProfile> profile() async {
@@ -233,8 +332,8 @@ extension MobileApiAuthProfile on MobileApi {
   }
 }
 
-class _MobileLoginResult {
-  const _MobileLoginResult({
+class AuthenticatedMobileAccount {
+  const AuthenticatedMobileAccount({
     required this.token,
     required this.profile,
     required this.werkaHome,

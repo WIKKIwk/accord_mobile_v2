@@ -9,6 +9,7 @@ import 'src/core/notifications/service/push_messaging_service.dart';
 import 'src/core/notifications/store/notification_unread_store.dart';
 import 'src/core/network/server_endpoint_store.dart';
 import 'src/core/security/state/security_controller.dart';
+import 'src/core/session/accounts/saved_account_runtime.dart';
 import 'src/core/session/session.dart';
 import 'src/core/theme/theme_controller.dart';
 import 'dart:async';
@@ -30,6 +31,11 @@ Future<void> main() async {
     LocalNotificationService.instance.initialize,
   );
   await _runStartupStep('server endpoint', ServerEndpointStore.instance.load);
+  await _runStartupStep('saved accounts', () async {
+    await SavedAccountRuntime.instance.initialize(
+      baseUrl: ServerEndpointStore.instance.baseUrl,
+    );
+  });
   await _runStartupStep('session', AppSession.instance.load);
   await _runStartupStep(
     'notification unread store',

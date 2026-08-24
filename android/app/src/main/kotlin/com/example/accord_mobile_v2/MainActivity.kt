@@ -50,6 +50,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var irohTransportChannel: IrohTransportChannel? = null
     private var gscaleNsdDiscoveryBridge: GScaleNsdDiscoveryBridge? = null
     private var appUpdateChannel: AppUpdateChannel? = null
+    private var secureAccountStorageChannel: SecureAccountStorageChannel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,6 +113,10 @@ class MainActivity : FlutterFragmentActivity() {
         )
         appUpdateChannel = AppUpdateChannel(
             activity = this,
+            messenger = flutterEngine.dartExecutor.binaryMessenger,
+        )
+        secureAccountStorageChannel = SecureAccountStorageChannel(
+            context = applicationContext,
             messenger = flutterEngine.dartExecutor.binaryMessenger,
         )
         irohTransportChannel = try {

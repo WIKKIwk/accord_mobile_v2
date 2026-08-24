@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../../../app/app_router.dart';
 import '../../../features/shared/data/profile_avatar_cache.dart';
+import '../../../features/auth/presentation/account_switcher_launcher.dart';
 import '../../localization/app_localizations.dart';
 import '../../session/session.dart';
 import '../../theme/app_motion.dart';
@@ -785,9 +786,11 @@ class _AppShellProfileActionState extends State<AppShellProfileAction> {
     return Semantics(
       button: true,
       label: localizations?.profileTitle ?? 'Profile',
+      onLongPressHint: localizations?.accountSwitchHint,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => Navigator.of(context).pushNamed(AppRoutes.profile),
+        onLongPress: () => showAccountSwitcherSheet(context),
         child: SizedBox(
           width: 38,
           height: 38,

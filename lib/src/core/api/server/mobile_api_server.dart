@@ -80,9 +80,21 @@ extension MobileApiServer on MobileApi {
       );
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final phone = prefs.getString(MobileApi._lastPhoneKey)?.trim() ?? '';
-    final code = prefs.getString(MobileApi._lastCodeKey)?.trim() ?? '';
+    String phone = '';
+    String code = '';
+    final savedAccounts = SavedAccountRuntime.instance;
+    if (savedAccounts.isInitialized) {
+      final activeId = savedAccounts.store.activeAccountId;
+      final activeSession = activeId == null
+          ? null
+          : await savedAccounts.store.sessionFor(activeId);
+      phone = activeSession?.phone ?? '';
+      code = activeSession?.code ?? '';
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      phone = prefs.getString(MobileApi._lastPhoneKey)?.trim() ?? '';
+      code = prefs.getString(MobileApi._lastCodeKey)?.trim() ?? '';
+    }
     if (phone.isEmpty || code.isEmpty) {
       return MobileServerSwitchResult(
         status: MobileServerSwitchStatus.credentialsNotFound,
@@ -91,7 +103,7 @@ extension MobileApiServer on MobileApi {
       );
     }
 
-    late final _MobileLoginResult loginResult;
+    late final AuthenticatedMobileAccount loginResult;
     try {
       loginResult = await _loginAt(
         targetBaseUrl: normalized,
@@ -167,18 +179,109 @@ extension MobileApiServer on MobileApi {
 
   Future<void> _activateLoggedInEndpoint({
     required String baseUrl,
-    required _MobileLoginResult loginResult,
+    required AuthenticatedMobileAccount loginResult,
     required String phone,
     required String code,
   }) async {
-    await NativeIrohTransport.resetEndpoint();
-    await ServerEndpointStore.instance.setBaseUrl(baseUrl);
-    await AppSession.instance.setSession(
-      token: loginResult.token,
-      profile: loginResult.profile,
-      werkaHomeBootstrap: loginResult.werkaHome,
-      forceResetSessionScopedState: true,
+    final savedAccounts = SavedAccountRuntime.instance;
+    if (savedAccounts.isInitialized) {
+      await savedAccounts.store.runAccountOperation(
+        () => _activateLoggedInEndpointUnlocked(
+          baseUrl: baseUrl,
+          loginResult: loginResult,
+          phone: phone,
+          code: code,
+        ),
+      );
+      return;
+    }
+    await _activateLoggedInEndpointUnlocked(
+      baseUrl: baseUrl,
+      loginResult: loginResult,
+      phone: phone,
+      code: code,
     );
-    await _storeLoginCredentials(phone: phone, code: code);
+  }
+
+  Future<void> _activateLoggedInEndpointUnlocked({
+    required String baseUrl,
+    required AuthenticatedMobileAccount loginResult,
+    required String phone,
+    required String code,
+  }) async {
+    final endpointStore = ServerEndpointStore.instance;
+    final previousBaseUrl = endpointStore.baseUrl;
+    final previousWasRuntimeOverride = endpointStore.isRuntimeOverride;
+    final savedAccounts = SavedAccountRuntime.instance;
+    final previousActiveId = savedAccounts.isInitialized
+        ? savedAccounts.store.activeAccountId
+        : null;
+    final previousSession = AppSession.instance.snapshot();
+    try {
+      String? targetAccountId;
+      if (savedAccounts.isInitialized) {
+        final target = await savedAccounts.store.upsertAuthenticated(
+          baseUrl: baseUrl,
+          profile: loginResult.profile,
+          token: loginResult.token,
+          phone: phone,
+          code: code,
+          makeActive: false,
+        );
+        targetAccountId = target.id;
+      }
+
+      await NativeIrohTransport.resetEndpoint();
+      await endpointStore.setBaseUrl(baseUrl);
+      if (savedAccounts.isInitialized) {
+        await savedAccounts.store.activate(targetAccountId!);
+      } else {
+        await _storeLoginCredentials(phone: phone, code: code);
+      }
+      await AppSession.instance.setSession(
+        token: loginResult.token,
+        profile: loginResult.profile,
+        werkaHomeBootstrap: loginResult.werkaHome,
+        forceResetSessionScopedState: true,
+      );
+    } catch (error, stackTrace) {
+      final rollbackErrors = <Object>[];
+      if (savedAccounts.isInitialized) {
+        try {
+          if (previousActiveId == null) {
+            await savedAccounts.store.clearActive();
+          } else if (savedAccounts.store.activeAccountId != previousActiveId) {
+            await savedAccounts.store.activate(previousActiveId);
+          }
+        } catch (rollbackError) {
+          rollbackErrors.add(rollbackError);
+        }
+      }
+      try {
+        await NativeIrohTransport.resetEndpoint();
+        if (previousWasRuntimeOverride) {
+          await endpointStore.setBaseUrl(previousBaseUrl);
+        } else {
+          await endpointStore.clearOverride();
+        }
+      } catch (rollbackError) {
+        rollbackErrors.add(rollbackError);
+      }
+      try {
+        await AppSession.instance.restore(previousSession);
+      } catch (rollbackError) {
+        rollbackErrors.add(rollbackError);
+      }
+      if (rollbackErrors.isNotEmpty) {
+        Error.throwWithStackTrace(
+          StateError(
+            'Server endpoint switch failed and rollback was incomplete: '
+            '$error; ${rollbackErrors.join('; ')}',
+          ),
+          stackTrace,
+        );
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 }

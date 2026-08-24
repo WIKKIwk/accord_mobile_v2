@@ -1,6 +1,5 @@
 import '../../localization/app_localizations.dart';
-import '../../security/state/security_controller.dart';
-import '../../session/session.dart';
+import '../../session/accounts/account_switch_runtime.dart';
 import 'm3_confirm_dialog.dart';
 import 'package:flutter/material.dart';
 
@@ -24,8 +23,7 @@ Future<void> showLogoutPrompt(BuildContext context) async {
     return;
   }
 
-  await AppSession.instance.clear();
-  await SecurityController.instance.clearForLogout();
+  await createRuntimeAccountSwitchController().logoutCurrent();
   if (!navigator.mounted) {
     return;
   }

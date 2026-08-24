@@ -53,6 +53,28 @@ class AppLocalizations {
         'Пожалуйста, подключитесь к интернету.',
       );
   String get profileTitle => _t('Profil', 'Profile', 'Профиль');
+  String get accountSwitchTitle =>
+      _t('Profilni tanlang', 'Choose a profile', 'Выберите профиль');
+  String get accountSwitchHint => _t(
+        'Profil tugmasini bosib turing',
+        'Press and hold the profile button',
+        'Нажмите и удерживайте кнопку профиля',
+      );
+  String get accountAdd =>
+      _t('Profil qo‘shish', 'Add profile', 'Добавить профиль');
+  String get accountCurrent => _t('Joriy', 'Current', 'Текущий');
+  String accountPinPrompt(String name) => _t(
+        '$name uchun PIN kiriting',
+        'Enter the PIN for $name',
+        'Введите PIN для $name',
+      );
+  String get accountSwitchFailed => _t(
+        'Profilga o‘tib bo‘lmadi',
+        'Could not switch profile',
+        'Не удалось переключить профиль',
+      );
+  String get addProfileTitle =>
+      _t('Yangi profil', 'New profile', 'Новый профиль');
   String get adminUserTitle => _t('Foydalanuvchi', 'User', 'Пользователь');
   String get profileSettingsTitle =>
       _t('Profil sozlamalari', 'Profile settings', 'Настройки профиля');

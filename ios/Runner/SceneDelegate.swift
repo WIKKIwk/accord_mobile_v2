@@ -1,6 +1,7 @@
 import Flutter
 import Foundation
 import Darwin
+import Security
 import UIKit
 
 class SceneDelegate: FlutterSceneDelegate {
@@ -9,6 +10,7 @@ class SceneDelegate: FlutterSceneDelegate {
   private var gscaleBonjourBridge: GScaleBonjourDiscoveryBridge?
   private var gscaleUdpDiscoveryBridge: GScaleUdpDiscoveryBridge?
   private var xprinterBluetoothChannel: XPrinterBluetoothChannel?
+  private var secureAccountStorageBridge: SecureAccountStorageChannelBridge?
 
   override func scene(
     _ scene: UIScene,
@@ -29,7 +31,138 @@ class SceneDelegate: FlutterSceneDelegate {
       xprinterBluetoothChannel = XPrinterBluetoothChannel(
         messenger: flutterViewController.binaryMessenger
       )
+      secureAccountStorageBridge = SecureAccountStorageChannelBridge(
+        messenger: flutterViewController.binaryMessenger
+      )
     }
+  }
+}
+
+private final class SecureAccountStorageChannelBridge {
+  private static let channelName = "accord/secure_account_storage"
+  private static let service =
+    "\(Bundle.main.bundleIdentifier ?? "accord_mobile_v2").saved-accounts.v1"
+
+  private let channel: FlutterMethodChannel
+
+  init(messenger: FlutterBinaryMessenger) {
+    channel = FlutterMethodChannel(
+      name: Self.channelName,
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { [weak self] call, result in
+      self?.handle(call: call, result: result)
+    }
+  }
+
+  deinit {
+    channel.setMethodCallHandler(nil)
+  }
+
+  private func handle(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard
+      let arguments = call.arguments as? [String: Any],
+      let key = (arguments["key"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !key.isEmpty
+    else {
+      result(FlutterError(
+        code: "invalid_key",
+        message: "Secure storage key is required",
+        details: nil
+      ))
+      return
+    }
+
+    switch call.method {
+    case "read":
+      read(key: key, result: result)
+    case "write":
+      guard let value = arguments["value"] as? String else {
+        result(FlutterError(
+          code: "invalid_value",
+          message: "Secure storage value is required",
+          details: nil
+        ))
+        return
+      }
+      write(key: key, value: value, result: result)
+    case "delete":
+      delete(key: key, result: result)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func read(key: String, result: @escaping FlutterResult) {
+    var item: CFTypeRef?
+    var query = baseQuery(key: key)
+    query[kSecReturnData as String] = true
+    query[kSecMatchLimit as String] = kSecMatchLimitOne
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    if status == errSecItemNotFound {
+      result(nil)
+      return
+    }
+    guard status == errSecSuccess,
+          let data = item as? Data,
+          let value = String(data: data, encoding: .utf8)
+    else {
+      result(keychainError(code: "read_failed", status: status))
+      return
+    }
+    result(value)
+  }
+
+  private func write(key: String, value: String, result: @escaping FlutterResult) {
+    let valueData = Data(value.utf8)
+    let query = baseQuery(key: key)
+    let updateStatus = SecItemUpdate(
+      query as CFDictionary,
+      [kSecValueData as String: valueData] as CFDictionary
+    )
+    if updateStatus == errSecSuccess {
+      result(nil)
+      return
+    }
+    guard updateStatus == errSecItemNotFound else {
+      result(keychainError(code: "write_failed", status: updateStatus))
+      return
+    }
+    var attributes = query
+    attributes[kSecValueData as String] = valueData
+    attributes[kSecAttrAccessible as String] =
+      kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+    let addStatus = SecItemAdd(attributes as CFDictionary, nil)
+    guard addStatus == errSecSuccess else {
+      result(keychainError(code: "write_failed", status: addStatus))
+      return
+    }
+    result(nil)
+  }
+
+  private func delete(key: String, result: @escaping FlutterResult) {
+    let status = SecItemDelete(baseQuery(key: key) as CFDictionary)
+    guard status == errSecSuccess || status == errSecItemNotFound else {
+      result(keychainError(code: "delete_failed", status: status))
+      return
+    }
+    result(nil)
+  }
+
+  private func baseQuery(key: String) -> [String: Any] {
+    return [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: Self.service,
+      kSecAttrAccount as String: key,
+    ]
+  }
+
+  private func keychainError(code: String, status: OSStatus) -> FlutterError {
+    FlutterError(
+      code: code,
+      message: "Secure storage operation failed",
+      details: Int(status)
+    )
   }
 }
 

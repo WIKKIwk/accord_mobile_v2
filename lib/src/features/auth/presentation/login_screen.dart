@@ -6,6 +6,7 @@ import '../../../core/localization/locale_controller.dart';
 import '../../../core/network/network_required_dialog.dart';
 import '../../../core/notifications/service/push_messaging_service.dart';
 import '../../../core/security/state/security_controller.dart';
+import '../../../core/session/accounts/account_switch_runtime.dart';
 import '../../../core/session/state/app_session.dart';
 import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/theme/theme_controller.dart';
@@ -26,10 +27,16 @@ bool loginCodeUsesNumericKeyboard(String code) {
 }
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, this.onBack, this.useSharedBackground = false});
+  const LoginScreen({
+    super.key,
+    this.onBack,
+    this.useSharedBackground = false,
+    this.addAccountMode = false,
+  });
 
   final VoidCallback? onBack;
   final bool useSharedBackground;
+  final bool addAccountMode;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -158,9 +165,9 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final bool testModeEnabled = await TestModeController.instance
-          .isEnabled();
-      if (testModeEnabled) {
+      final bool testModeEnabled =
+          await TestModeController.instance.isEnabled();
+      if (testModeEnabled && !widget.addAccountMode) {
         await AppSession.instance.setSession(
           token: 'test-mode-token',
           profile: SessionProfile(
@@ -173,8 +180,23 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       } else {
-        await MobileApi.instance.login(phone: phone, code: code);
-        PushMessagingService.instance.syncCurrentToken();
+        if (widget.addAccountMode) {
+          final authenticated = await MobileApi.instance.authenticateAccount(
+            phone: phone,
+            code: code,
+          );
+          await createRuntimeAccountSwitchController().addAndSwitch(
+            baseUrl: MobileApi.baseUrl,
+            profile: authenticated.profile,
+            token: authenticated.token,
+            phone: phone,
+            code: code,
+            werkaHomeBootstrap: authenticated.werkaHome,
+          );
+        } else {
+          await MobileApi.instance.login(phone: phone, code: code);
+          PushMessagingService.instance.syncCurrentToken();
+        }
       }
       if (!context.mounted) {
         return;
@@ -222,25 +244,24 @@ class _LoginScreenState extends State<LoginScreen> {
             curve: Curves.easeOutCubic,
             reverseCurve: Curves.easeInCubic,
           );
-          final Animation<Offset> lift =
-              Tween<Offset>(
-                begin: const Offset(0, 0.035),
-                end: Offset.zero,
-              ).animate(
-                CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                  reverseCurve: Curves.easeInCubic,
-                ),
-              );
-          final Animation<double> scale = Tween<double>(begin: 0.992, end: 1)
-              .animate(
-                CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                  reverseCurve: Curves.easeInCubic,
-                ),
-              );
+          final Animation<Offset> lift = Tween<Offset>(
+            begin: const Offset(0, 0.035),
+            end: Offset.zero,
+          ).animate(
+            CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            ),
+          );
+          final Animation<double> scale =
+              Tween<double>(begin: 0.992, end: 1).animate(
+            CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            ),
+          );
           return FadeTransition(
             opacity: fade,
             child: SlideTransition(
@@ -266,12 +287,10 @@ class _LoginScreenState extends State<LoginScreen> {
         final scheme = theme.colorScheme;
         final l10n = AppLocalizations.of(context);
         final bool isDark = ThemeController.instance.isDark;
-        final Color authBackgroundColor = isDark
-            ? const Color(0xFF000000)
-            : scheme.surfaceContainerLow;
-        final Color inputFillColor = isDark
-            ? const Color(0xFF000000)
-            : scheme.surface;
+        final Color authBackgroundColor =
+            isDark ? const Color(0xFF000000) : scheme.surfaceContainerLow;
+        final Color inputFillColor =
+            isDark ? const Color(0xFF000000) : scheme.surface;
         final darkTheme = theme.copyWith(
           colorScheme: scheme.copyWith(
             surface: const Color(0xFF000000),
@@ -363,9 +382,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     LayoutBuilder(
                       builder: (context, constraints) {
-                        final double topSpacing = constraints.maxHeight >= 760
-                            ? 160
-                            : 120;
+                        final double topSpacing =
+                            constraints.maxHeight >= 760 ? 160 : 120;
                         return SingleChildScrollView(
                           physics: const ClampingScrollPhysics(),
                           child: Align(
@@ -391,13 +409,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                       delay: const Duration(milliseconds: 20),
                                       offset: const Offset(0, 12),
                                       child: Text(
-                                        l10n.signInTitle,
+                                        widget.addAccountMode
+                                            ? l10n.addProfileTitle
+                                            : l10n.signInTitle,
                                         style: theme.textTheme.displaySmall
                                             ?.copyWith(
-                                              fontSize: 40,
-                                              letterSpacing: -1.4,
-                                              height: 1.02,
-                                            ),
+                                          fontSize: 40,
+                                          letterSpacing: -1.4,
+                                          height: 1.02,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(height: 28),
@@ -488,9 +508,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                           milliseconds: 260,
                                         ),
                                         curve: Curves.easeOutCubic,
-                                        opacity: (_canSubmit || loading)
-                                            ? 1
-                                            : 0,
+                                        opacity:
+                                            (_canSubmit || loading) ? 1 : 0,
                                         child: AnimatedSlide(
                                           duration: const Duration(
                                             milliseconds: 260,
@@ -505,18 +524,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                               onPressed: loading
                                                   ? null
                                                   : _canSubmit
-                                                  ? () => submitLogin(context)
-                                                  : null,
+                                                      ? () =>
+                                                          submitLogin(context)
+                                                      : null,
                                               child: loading
                                                   ? const SizedBox(
                                                       height: 18,
                                                       width: 18,
                                                       child:
                                                           CircularProgressIndicator(
-                                                            strokeWidth: 2.2,
-                                                          ),
+                                                        strokeWidth: 2.2,
+                                                      ),
                                                     )
-                                                  : Text(l10n.loginAction),
+                                                  : Text(
+                                                      widget.addAccountMode
+                                                          ? l10n.accountAdd
+                                                          : l10n.loginAction,
+                                                    ),
                                             ),
                                           ),
                                         ),

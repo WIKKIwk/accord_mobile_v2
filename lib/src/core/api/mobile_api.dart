@@ -21,6 +21,7 @@ import '../realtime/warehouse_live_client.dart';
 import '../search/search_activity_store.dart';
 import '../search/search_normalizer.dart';
 import '../network/server_endpoint_store.dart';
+import '../session/accounts/saved_account_runtime.dart';
 import '../session/session.dart';
 import '../test_mode/test_mode_controller.dart';
 import '../test_mode/test_mode_demo_data.dart';
@@ -260,7 +261,6 @@ class MobileApi {
 
     final bool refreshed = await _reauthenticateFromStorage();
     if (!refreshed) {
-      await AppSession.instance.clear();
       return response;
     }
     return send();
@@ -282,13 +282,57 @@ class MobileApi {
 
     final bool refreshed = await _reauthenticateFromStorage();
     if (!refreshed) {
-      await AppSession.instance.clear();
       return response;
     }
     return send();
   }
 
   Future<bool> _reauthenticateFromStorage() async {
+    final savedAccounts = SavedAccountRuntime.instance;
+    if (savedAccounts.isInitialized) {
+      final store = savedAccounts.store;
+      try {
+        return await store.runAccountOperation(() async {
+          final activeId = store.activeAccountId;
+          final savedSession =
+              activeId == null ? null : await store.sessionFor(activeId);
+          if (savedSession == null ||
+              savedSession.phone.isEmpty ||
+              savedSession.code.isEmpty) {
+            await store.clearActive();
+            await AppSession.instance.clear();
+            return false;
+          }
+          try {
+            final result = await _loginAt(
+              targetBaseUrl: savedSession.account.baseUrl,
+              phone: savedSession.phone,
+              code: savedSession.code,
+            );
+            await store.upsertAuthenticated(
+              baseUrl: savedSession.account.baseUrl,
+              profile: result.profile,
+              token: result.token,
+              phone: savedSession.phone,
+              code: savedSession.code,
+              makeActive: true,
+            );
+            await AppSession.instance.setSession(
+              token: result.token,
+              profile: result.profile,
+              werkaHomeBootstrap: result.werkaHome,
+            );
+            return true;
+          } catch (_) {
+            await store.clearActive();
+            await AppSession.instance.clear();
+            return false;
+          }
+        });
+      } catch (_) {
+        return false;
+      }
+    }
     final prefs = await SharedPreferences.getInstance();
     final String phone = prefs.getString(_lastPhoneKey)?.trim() ?? '';
     final String code = prefs.getString(_lastCodeKey)?.trim() ?? '';
@@ -300,6 +344,7 @@ class MobileApi {
       await _performLogin(phone: phone, code: code);
       return true;
     } catch (_) {
+      await AppSession.instance.clear();
       return false;
     }
   }

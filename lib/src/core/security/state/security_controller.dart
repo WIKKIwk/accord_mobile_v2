@@ -32,6 +32,8 @@ class SecurityController extends ChangeNotifier with WidgetsBindingObserver {
   bool get biometricEnabledForCurrentUser =>
       _biometricEnabledForProfile(AppSession.instance.profile);
 
+  bool hasPinForProfile(SessionProfile profile) => _hasPinForProfile(profile);
+
   Future<void> load() async {
     _prefs ??= await SharedPreferences.getInstance();
     WidgetsBinding.instance.addObserver(this);
@@ -91,14 +93,25 @@ class SecurityController extends ChangeNotifier with WidgetsBindingObserver {
     if (profile == null) {
       return false;
     }
-    final storedHash = _prefs!.getString(_pinKey(profile)) ?? '';
-    if (storedHash.isEmpty || storedHash != _hash(pin)) {
+    if (!await verifyPinForProfile(profile, pin)) {
       return false;
     }
     _locked = false;
     _privacyShieldVisible = false;
     notifyListeners();
     return true;
+  }
+
+  Future<bool> verifyPinForProfile(
+    SessionProfile profile,
+    String pin,
+  ) async {
+    _prefs ??= await SharedPreferences.getInstance();
+    if (!_isValidPin(pin)) {
+      return false;
+    }
+    final storedHash = _prefs!.getString(_pinKey(profile)) ?? '';
+    return storedHash.isNotEmpty && storedHash == _hash(pin);
   }
 
   Future<bool> canUseBiometrics() async {
