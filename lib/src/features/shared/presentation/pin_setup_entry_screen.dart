@@ -1,11 +1,16 @@
 import '../../../app/app_router.dart';
 import '../../../core/localization/app_localizations.dart';
-import 'pin_setup_confirm_screen.dart';
+import 'pin_setup_purpose.dart';
 import 'widgets/pin_entry_scaffold.dart';
 import 'package:flutter/material.dart';
 
 class PinSetupEntryScreen extends StatefulWidget {
-  const PinSetupEntryScreen({super.key});
+  const PinSetupEntryScreen({
+    super.key,
+    this.purpose = PinSetupPurpose.appLock,
+  });
+
+  final PinSetupPurpose purpose;
 
   @override
   State<PinSetupEntryScreen> createState() => _PinSetupEntryScreenState();
@@ -27,7 +32,10 @@ class _PinSetupEntryScreenState extends State<PinSetupEntryScreen> {
     }
     final result = await Navigator.of(context).pushNamed(
       AppRoutes.pinSetupConfirm,
-      arguments: PinSetupConfirmArgs(firstPin: pin),
+      arguments: PinSetupConfirmArgs(
+        firstPin: pin,
+        purpose: widget.purpose,
+      ),
     );
     if (!mounted) {
       return;
@@ -43,7 +51,9 @@ class _PinSetupEntryScreenState extends State<PinSetupEntryScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return PinEntryScaffold(
-      title: l10n.pinEnterTitle,
+      title: widget.purpose == PinSetupPurpose.profileSwitch
+          ? l10n.switchPinEnterTitle
+          : l10n.pinEnterTitle,
       subtitle: '',
       controller: _pinController,
       actionLabel: l10n.nextItemAction,

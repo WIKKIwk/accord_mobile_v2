@@ -19,6 +19,7 @@ import '../../../core/widgets/display/image_fade.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../data/profile_avatar_cache.dart';
 import '../models/app_models.dart';
+import 'pin_setup_purpose.dart';
 import 'widgets/profile_info_chip.dart';
 import 'widgets/profile_avatar_preview.dart';
 import '../../admin/presentation/widgets/admin_dock.dart';
@@ -59,6 +60,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool savingNickname = false;
   bool savingAvatar = false;
   bool savingPin = false;
+  bool savingSwitchPin = false;
   bool savingBiometric = false;
   String? errorMessage;
   final ImagePicker _avatarPicker = ImagePicker();
@@ -400,6 +402,41 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
+  Future<void> _showSwitchPinFlow() async {
+    final result = await Navigator.of(context).pushNamed(
+      AppRoutes.pinSetupEntry,
+      arguments: PinSetupPurpose.profileSwitch,
+    );
+    if (result == true && mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _removeSwitchPin() async {
+    setState(() {
+      savingSwitchPin = true;
+      errorMessage = null;
+    });
+    try {
+      await SecurityController.instance.clearSwitchPinForCurrentUser();
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          errorMessage = context.l10n.pinRemoveFailed;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          savingSwitchPin = false;
+        });
+      }
+    }
+  }
+
   Future<void> _toggleBiometric(bool enabled) async {
     setState(() {
       savingBiometric = true;
@@ -457,11 +494,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                         hasPin:
                             SecurityController.instance.hasPinForCurrentUser,
                         savingPin: savingPin,
+                        hasSwitchPin: SecurityController
+                            .instance.hasSwitchPinForCurrentUser,
+                        savingSwitchPin: savingSwitchPin,
                         biometricEnabled: SecurityController
                             .instance.biometricEnabledForCurrentUser,
                         savingBiometric: savingBiometric,
                         onShowPinFlow: _showPinFlow,
                         onRemovePin: _removePin,
+                        onShowSwitchPinFlow: _showSwitchPinFlow,
+                        onRemoveSwitchPin: _removeSwitchPin,
                         onToggleBiometric: _toggleBiometric,
                         onCheckForUpdate: () async {
                           await AppUpdateCoordinator.instance.checkAndPrompt(
@@ -1105,10 +1147,14 @@ class _ProfileSettingsSheet extends StatelessWidget {
     required this.isDarkMode,
     required this.hasPin,
     required this.savingPin,
+    required this.hasSwitchPin,
+    required this.savingSwitchPin,
     required this.biometricEnabled,
     required this.savingBiometric,
     required this.onShowPinFlow,
     required this.onRemovePin,
+    required this.onShowSwitchPinFlow,
+    required this.onRemoveSwitchPin,
     required this.onToggleBiometric,
     required this.onCheckForUpdate,
     required this.onLogout,
@@ -1121,10 +1167,14 @@ class _ProfileSettingsSheet extends StatelessWidget {
   final bool isDarkMode;
   final bool hasPin;
   final bool savingPin;
+  final bool hasSwitchPin;
+  final bool savingSwitchPin;
   final bool biometricEnabled;
   final bool savingBiometric;
   final VoidCallback onShowPinFlow;
   final VoidCallback onRemovePin;
+  final VoidCallback onShowSwitchPinFlow;
+  final VoidCallback onRemoveSwitchPin;
   final ValueChanged<bool> onToggleBiometric;
   final VoidCallback onCheckForUpdate;
   final VoidCallback onLogout;
@@ -1168,6 +1218,15 @@ class _ProfileSettingsSheet extends StatelessWidget {
             const SizedBox(height: 22),
             Text(l10n.securityTitle, style: theme.textTheme.titleLarge),
             const SizedBox(height: 14),
+            Text(l10n.appLockPinTitle, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              l10n.appLockPinBody,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
             _ProfileActionButton(
               primary: true,
               onPressed: savingPin ? null : onShowPinFlow,
@@ -1193,6 +1252,39 @@ class _ProfileSettingsSheet extends StatelessWidget {
                 onChanged: onToggleBiometric,
               ),
             ),
+            const SizedBox(height: 22),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: scheme.outlineVariant.withValues(alpha: 0.55),
+            ),
+            const SizedBox(height: 22),
+            Text(l10n.switchPinTitle, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              l10n.switchPinBody,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _ProfileActionButton(
+              primary: true,
+              onPressed: savingSwitchPin ? null : onShowSwitchPinFlow,
+              label: savingSwitchPin
+                  ? l10n.pinSaving
+                  : hasSwitchPin
+                      ? l10n.switchPinChange
+                      : l10n.switchPinSet,
+            ),
+            if (hasSwitchPin) ...[
+              const SizedBox(height: 10),
+              _ProfileActionButton(
+                primary: false,
+                onPressed: savingSwitchPin ? null : onRemoveSwitchPin,
+                label: l10n.switchPinRemove,
+              ),
+            ],
             const SizedBox(height: 22),
             Divider(
               height: 1,

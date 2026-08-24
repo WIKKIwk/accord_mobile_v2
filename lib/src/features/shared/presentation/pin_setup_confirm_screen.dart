@@ -1,13 +1,8 @@
 import '../../../core/security/state/security_controller.dart';
 import '../../../core/localization/app_localizations.dart';
+import 'pin_setup_purpose.dart';
 import 'widgets/pin_entry_scaffold.dart';
 import 'package:flutter/material.dart';
-
-class PinSetupConfirmArgs {
-  const PinSetupConfirmArgs({required this.firstPin});
-
-  final String firstPin;
-}
 
 class PinSetupConfirmScreen extends StatefulWidget {
   const PinSetupConfirmScreen({super.key, required this.args});
@@ -46,7 +41,12 @@ class _PinSetupConfirmScreenState extends State<PinSetupConfirmScreen> {
     }
     setState(() => _saving = true);
     try {
-      await SecurityController.instance.savePinForCurrentUser(pin);
+      switch (widget.args.purpose) {
+        case PinSetupPurpose.appLock:
+          await SecurityController.instance.savePinForCurrentUser(pin);
+        case PinSetupPurpose.profileSwitch:
+          await SecurityController.instance.saveSwitchPinForCurrentUser(pin);
+      }
       if (!mounted) {
         return;
       }
@@ -70,7 +70,9 @@ class _PinSetupConfirmScreenState extends State<PinSetupConfirmScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return PinEntryScaffold(
-      title: l10n.pinRepeatTitle,
+      title: widget.args.purpose == PinSetupPurpose.profileSwitch
+          ? l10n.switchPinRepeatTitle
+          : l10n.pinRepeatTitle,
       subtitle: '',
       controller: _pinController,
       actionLabel: l10n.save,

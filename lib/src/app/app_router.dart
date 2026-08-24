@@ -67,6 +67,7 @@ import '../features/rezka/presentation/rezka_split_screen.dart';
 import '../features/shared/models/app_models.dart';
 import '../features/shared/presentation/pin_setup_confirm_screen.dart';
 import '../features/shared/presentation/pin_setup_entry_screen.dart';
+import '../features/shared/presentation/pin_setup_purpose.dart';
 import '../features/shared/presentation/notification_detail_screen.dart';
 import '../features/shared/presentation/profile_screen.dart';
 import '../features/supplier/presentation/supplier_confirm_screen.dart';
@@ -491,7 +492,13 @@ class AppRouter {
       case AppRoutes.inventoryMovements:
         return _buildRoute(settings, const InventoryMovementsScreen());
       case AppRoutes.pinSetupEntry:
-        return _buildRoute(settings, const PinSetupEntryScreen());
+        final purpose = settings.arguments is PinSetupPurpose
+            ? settings.arguments! as PinSetupPurpose
+            : PinSetupPurpose.appLock;
+        return _buildRoute(
+          settings,
+          PinSetupEntryScreen(purpose: purpose),
+        );
       case AppRoutes.pinSetupConfirm:
         final PinSetupConfirmArgs args =
             settings.arguments as PinSetupConfirmArgs;

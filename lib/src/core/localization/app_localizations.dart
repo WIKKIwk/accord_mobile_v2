@@ -134,6 +134,41 @@ class AppLocalizations {
         'Имя, видимое только вам',
       );
   String get securityTitle => _t('Xavfsizlik', 'Security', 'Безопасность');
+  String get appLockPinTitle => _t(
+        'Ilova qulfi PIN-kodi',
+        'App lock PIN',
+        'PIN-код блокировки приложения',
+      );
+  String get appLockPinBody => _t(
+        'Ilova ochilganda va fondan qaytganda so‘raladi',
+        'Required when opening the app and returning from the background',
+        'Запрашивается при открытии приложения и возврате из фона',
+      );
+  String get switchPinTitle => _t(
+        'Profil almashtirish PIN-kodi',
+        'Profile switching PIN',
+        'PIN-код переключения профиля',
+      );
+  String get switchPinBody => _t(
+        'Faqat ushbu profilga o‘tilayotganda so‘raladi',
+        'Required only when switching to this profile',
+        'Запрашивается только при переключении на этот профиль',
+      );
+  String get switchPinSet => _t(
+        'Switch PIN o‘rnatish',
+        'Set switch PIN',
+        'Установить PIN переключения',
+      );
+  String get switchPinChange => _t(
+        'Switch PINni almashtirish',
+        'Change switch PIN',
+        'Изменить PIN переключения',
+      );
+  String get switchPinRemove => _t(
+        'Switch PINni o‘chirish',
+        'Remove switch PIN',
+        'Удалить PIN переключения',
+      );
   String get pinEnabled => _t('PIN yoqilgan', 'PIN enabled', 'PIN включен');
   String get pinDisabled => _t('PIN o‘rnating', 'Set PIN', 'Установите PIN');
   String get pinSaving => _t('Saqlanmoqda...', 'Saving...', 'Сохранение...');
@@ -143,6 +178,16 @@ class AppLocalizations {
   String get pinEnterTitle => _t('PIN kiriting', 'Enter PIN', 'Введите PIN');
   String get pinRepeatTitle =>
       _t('PIN takrorlang', 'Repeat PIN', 'Повторите PIN');
+  String get switchPinEnterTitle => _t(
+        'Switch PIN kiriting',
+        'Enter switch PIN',
+        'Введите PIN переключения',
+      );
+  String get switchPinRepeatTitle => _t(
+        'Switch PINni takrorlang',
+        'Repeat switch PIN',
+        'Повторите PIN переключения',
+      );
   String get pinMismatch => _t(
         'PIN bir xil emas. Qayta kiriting.',
         'PINs do not match. Enter again.',

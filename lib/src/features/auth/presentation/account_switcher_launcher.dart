@@ -34,8 +34,9 @@ Future<void> showAccountSwitcherSheet(BuildContext context) async {
         child: AccountSwitcherSheet(
           accounts: accounts,
           activeAccountId: savedAccounts.store.activeAccountId,
-          hasPinForProfile: SecurityController.instance.hasPinForProfile,
-          verifyPinForProfile: SecurityController.instance.verifyPinForProfile,
+          hasPinForProfile: SecurityController.instance.hasSwitchPinForProfile,
+          verifyPinForProfile:
+              SecurityController.instance.verifySwitchPinForProfile,
           onSwitch: (account) async {
             await switchController.switchTo(account.id);
             if (!sheetContext.mounted) {

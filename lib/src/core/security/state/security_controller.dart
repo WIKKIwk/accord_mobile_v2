@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import '../../../features/shared/models/app_models.dart';
+import '../../network/server_endpoint_store.dart';
 import '../../session/session.dart';
+import '../../session/accounts/saved_account_store.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/widgets.dart';
 import 'package:local_auth/local_auth.dart';
@@ -12,6 +14,7 @@ class SecurityController extends ChangeNotifier with WidgetsBindingObserver {
 
   static final SecurityController instance = SecurityController._();
   static const String _pinKeyPrefix = 'security_pin_hash_';
+  static const String _switchPinKeyPrefix = 'security_switch_pin_hash_';
   static const String _biometricKeyPrefix = 'security_biometric_';
 
   final LocalAuthentication _localAuth = LocalAuthentication();
@@ -29,10 +32,14 @@ class SecurityController extends ChangeNotifier with WidgetsBindingObserver {
       _loaded && _privacyShieldVisible && hasPinForCurrentUser;
   bool get hasPinForCurrentUser =>
       _hasPinForProfile(AppSession.instance.profile);
+  bool get hasSwitchPinForCurrentUser =>
+      _hasSwitchPinForProfile(AppSession.instance.profile);
   bool get biometricEnabledForCurrentUser =>
       _biometricEnabledForProfile(AppSession.instance.profile);
 
   bool hasPinForProfile(SessionProfile profile) => _hasPinForProfile(profile);
+  bool hasSwitchPinForProfile(SessionProfile profile) =>
+      _hasSwitchPinForProfile(profile);
 
   Future<void> load() async {
     _prefs ??= await SharedPreferences.getInstance();
@@ -87,6 +94,29 @@ class SecurityController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  Future<void> saveSwitchPinForCurrentUser(String pin) async {
+    _prefs ??= await SharedPreferences.getInstance();
+    final profile = AppSession.instance.profile;
+    if (profile == null) {
+      throw Exception('No active profile');
+    }
+    if (!_isValidPin(pin)) {
+      throw Exception('PIN 4 xonali bo‘lishi kerak');
+    }
+    await _prefs!.setString(_switchPinKey(profile), _hash(pin));
+    notifyListeners();
+  }
+
+  Future<void> clearSwitchPinForCurrentUser() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    final profile = AppSession.instance.profile;
+    if (profile == null) {
+      return;
+    }
+    await _prefs!.remove(_switchPinKey(profile));
+    notifyListeners();
+  }
+
   Future<bool> unlockWithPin(String pin) async {
     _prefs ??= await SharedPreferences.getInstance();
     final profile = AppSession.instance.profile;
@@ -111,6 +141,18 @@ class SecurityController extends ChangeNotifier with WidgetsBindingObserver {
       return false;
     }
     final storedHash = _prefs!.getString(_pinKey(profile)) ?? '';
+    return storedHash.isNotEmpty && storedHash == _hash(pin);
+  }
+
+  Future<bool> verifySwitchPinForProfile(
+    SessionProfile profile,
+    String pin,
+  ) async {
+    _prefs ??= await SharedPreferences.getInstance();
+    if (!_isValidPin(pin)) {
+      return false;
+    }
+    final storedHash = _prefs!.getString(_switchPinKey(profile)) ?? '';
     return storedHash.isNotEmpty && storedHash == _hash(pin);
   }
 
@@ -215,6 +257,14 @@ class SecurityController extends ChangeNotifier with WidgetsBindingObserver {
     return value.isNotEmpty;
   }
 
+  bool _hasSwitchPinForProfile(SessionProfile? profile) {
+    if (profile == null || _prefs == null) {
+      return false;
+    }
+    final value = _prefs!.getString(_switchPinKey(profile)) ?? '';
+    return value.isNotEmpty;
+  }
+
   bool _biometricEnabledForProfile(SessionProfile? profile) {
     if (profile == null || _prefs == null) {
       return false;
@@ -224,6 +274,14 @@ class SecurityController extends ChangeNotifier with WidgetsBindingObserver {
 
   String _pinKey(SessionProfile profile) =>
       '$_pinKeyPrefix${_profileKey(profile)}';
+  String _switchPinKey(SessionProfile profile) {
+    final accountId = SavedAccount.buildId(
+      baseUrl: ServerEndpointStore.instance.baseUrl,
+      profile: profile,
+    );
+    return '$_switchPinKeyPrefix${_hash(accountId)}';
+  }
+
   String _biometricKey(SessionProfile profile) =>
       '$_biometricKeyPrefix${_profileKey(profile)}';
 

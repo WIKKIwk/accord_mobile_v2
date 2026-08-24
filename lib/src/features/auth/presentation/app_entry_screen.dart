@@ -104,8 +104,9 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
         body: AccountSwitcherSheet(
           accounts: accounts,
           activeAccountId: runtime.store.activeAccountId,
-          hasPinForProfile: SecurityController.instance.hasPinForProfile,
-          verifyPinForProfile: SecurityController.instance.verifyPinForProfile,
+          hasPinForProfile: SecurityController.instance.hasSwitchPinForProfile,
+          verifyPinForProfile:
+              SecurityController.instance.verifySwitchPinForProfile,
           onSwitch: (account) async {
             await createRuntimeAccountSwitchController().switchTo(account.id);
             if (!mounted) {
