@@ -9,6 +9,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../shared/models/app_models.dart';
 import '../logic/apparatus_queue_state.dart';
+import '../logic/factory_map_mapping.dart';
 import '../logic/factory_map_order_filter.dart';
 import '../models/production_map_models.dart';
 import 'admin_factory_map_viewer.dart';
@@ -121,9 +122,11 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
         return;
       }
       setState(() => _apparatus = apparatus);
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        setState(() => _mappingError = loadFailed);
+        setState(
+          () => _mappingError = factoryMapLoadErrorMessage(error, loadFailed),
+        );
       }
     } finally {
       if (mounted) {
@@ -133,17 +136,15 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
   }
 
   void _handleObjectTap(FactoryMapObjectSelection selection) {
-    AdminApparatus? mapped;
-    for (final apparatus in _apparatus) {
-      if (apparatus.factoryMapObjectId.trim() == selection.objectId) {
-        mapped = apparatus;
-        break;
-      }
-    }
+    final mapped = resolveFactoryMapApparatus(_apparatus, selection.objectId);
     if (mapped == null) {
       showAdminTopNotice(
         context,
-        context.l10n.adminText('factory_map.unassigned_object'),
+        context.l10n.adminText(
+          hasLegacyFactoryMapBinding(_apparatus, selection.objectId)
+              ? 'factory_map.legacy_object_binding'
+              : 'factory_map.unassigned_object',
+        ),
       );
       return;
     }

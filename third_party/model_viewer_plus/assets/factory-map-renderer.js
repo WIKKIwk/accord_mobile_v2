@@ -17,6 +17,7 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const selectableMeshes = [];
 const selectableObjectsById = new Map();
+const selectableInstancedMeshesById = new Map();
 let selectionHelper = null;
 let pointerStart = null;
 
@@ -95,6 +96,33 @@ function selectableObjectFor(mesh, parser, fallbackIndex) {
   };
 }
 
+function selectionIdFor(baseId, instanceId) {
+  return Number.isInteger(instanceId)
+    ? `${baseId}:instance:${instanceId}`
+    : baseId;
+}
+
+function selectionBaseIdFor(object, selectable, parser) {
+  const association = parser.associations.get(object);
+  const primitiveIndex = association?.primitives;
+  if (
+    selectable.target !== object &&
+    Number.isInteger(primitiveIndex)
+  ) {
+    return `${selectable.id}:primitive:${primitiveIndex}`;
+  }
+  return selectable.id;
+}
+
+function registerSelectableTarget(objectId, object, instanceId = null) {
+  if (!selectableObjectsById.has(objectId)) {
+    selectableObjectsById.set(objectId, {
+      object,
+      instanceId,
+    });
+  }
+}
+
 function registerSelectableObjects(root, parser) {
   let fallbackIndex = 0;
   root.traverse((object) => {
@@ -102,16 +130,66 @@ function registerSelectableObjects(root, parser) {
       return;
     }
     const selectable = selectableObjectFor(object, parser, fallbackIndex++);
-    object.userData.factoryMapObjectId = selectable.id;
+    const selectionBaseId = selectionBaseIdFor(object, selectable, parser);
     selectableMeshes.push(object);
-    if (!selectableObjectsById.has(selectable.id)) {
-      selectableObjectsById.set(selectable.id, selectable.target);
+    if (object.isInstancedMesh) {
+      object.userData.factoryMapObjectSelectionBaseId = selectionBaseId;
+      selectableInstancedMeshesById.set(selectionBaseId, object);
+      // Keep old node-level IDs resolvable for existing placements. New taps
+      // use the instance-specific ID below.
+      registerSelectableTarget(selectionBaseId, object);
+      return;
     }
+    object.userData.factoryMapObjectId = selectionBaseId;
+    registerSelectableTarget(selectionBaseId, object);
   });
 }
 
+function selectableTargetForId(objectId) {
+  const directTarget = selectableObjectsById.get(objectId);
+  if (directTarget) {
+    return directTarget;
+  }
+
+  const match = /^(.*):instance:(\d+)$/.exec(objectId);
+  if (!match) {
+    return null;
+  }
+  const instanceId = Number(match[2]);
+  const object = selectableInstancedMeshesById.get(match[1]);
+  if (
+    !object ||
+    !Number.isInteger(instanceId) ||
+    instanceId < 0 ||
+    instanceId >= object.count
+  ) {
+    return null;
+  }
+  const target = {
+    object,
+    instanceId: Number.isInteger(instanceId) ? instanceId : null,
+  };
+  selectableObjectsById.set(objectId, target);
+  return target;
+}
+
+function selectionHelperFor(target) {
+  if (!Number.isInteger(target.instanceId) || !target.object.isInstancedMesh) {
+    return new THREE.BoxHelper(target.object, 0xffd54f);
+  }
+
+  target.object.geometry.computeBoundingBox();
+  const instanceBox = target.object.geometry.boundingBox.clone();
+  const instanceMatrix = new THREE.Matrix4();
+  target.object.getMatrixAt(target.instanceId, instanceMatrix);
+  instanceBox.applyMatrix4(instanceMatrix);
+  target.object.updateWorldMatrix(true, false);
+  instanceBox.applyMatrix4(target.object.matrixWorld);
+  return new THREE.Box3Helper(instanceBox, 0xffd54f);
+}
+
 function selectObject(objectId, emitMessage = true) {
-  const target = selectableObjectsById.get(objectId);
+  const target = selectableTargetForId(objectId);
   if (!target) {
     return;
   }
@@ -120,7 +198,7 @@ function selectObject(objectId, emitMessage = true) {
     selectionHelper.geometry.dispose();
     selectionHelper.material.dispose();
   }
-  selectionHelper = new THREE.BoxHelper(target, 0xffd54f);
+  selectionHelper = selectionHelperFor(target);
   selectionHelper.material.depthTest = false;
   selectionHelper.renderOrder = 1000;
   scene.add(selectionHelper);
@@ -143,7 +221,11 @@ function selectObjectAt(clientX, clientY) {
   pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
   const hit = raycaster.intersectObjects(selectableMeshes, false)[0];
-  const objectId = hit?.object?.userData?.factoryMapObjectId;
+  const instanceId = hit?.instanceId;
+  const selectionBaseId = hit?.object?.userData?.factoryMapObjectSelectionBaseId;
+  const objectId = selectionBaseId
+    ? selectionIdFor(selectionBaseId, instanceId)
+    : hit?.object?.userData?.factoryMapObjectId;
   if (objectId) {
     selectObject(objectId);
   }

@@ -2584,6 +2584,14 @@ const Map<String, Map<String, String>> adminTranslations = {
     'en': 'This 3D object is not assigned to any equipment yet',
     'ru': 'Этот 3D-объект ещё не привязан к оборудованию',
   },
+  'admin.factory_map.legacy_object_binding': {
+    'uz':
+        'Bu obyekt eski umumiy ID bilan bog‘langan. Apparati uchun uni qayta tanlang',
+    'en':
+        'This object uses an old shared ID. Select it again for this equipment',
+    'ru':
+        'Этот объект использует старый общий ID. Выберите его заново для оборудования',
+  },
   'admin.factory_map.loading_equipment': {
     'uz': 'Aparatlar yuklanmoqda…',
     'en': 'Loading equipment…',

@@ -5065,6 +5065,11 @@ MobileApiException _adminApiException(
 
 String _adminErrorMessage(String code) {
   return switch (code.trim().toLowerCase()) {
+    'aasx_integrity_failed' => 'Aparat AASX ma’lumotlari tekshirilmadi',
+    'apparatus_persistence_failed' => 'Aparatlar bazadan yuklanmadi',
+    'apparatus_cutover_blocked' =>
+      'Aparatlar canonical ma’lumotlari tayyor emas',
+    'apparatus_projection_invalid' => 'Aparat ma’lumotlari formati noto‘g‘ri',
     'worker phone already exists' =>
       'Bu telefon raqami boshqa ishchiga biriktirilgan',
     'worker not found' => 'Ishchi topilmadi',

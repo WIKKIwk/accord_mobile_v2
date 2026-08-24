@@ -382,24 +382,36 @@ extension MobileApiAdminItems on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin apparatus failed');
+      throw _adminApiException(
+        response,
+        fallbackCode: 'apparatus_list_failed',
+        fallbackMessage: 'Aparatlar yuklanmadi',
+      );
     }
     final json = await decodeJsonListPayload(response.body);
     final apparatus = <AdminApparatus>[];
-    for (final item in json) {
+    for (var index = 0; index < json.length; index++) {
+      final item = json[index];
       if (item is! Map) {
-        throw const MobileApiException(
+        throw MobileApiException(
           code: 'apparatus_projection_invalid',
-          message: 'Canonical apparat projection noto‘g‘ri',
+          message:
+              'Canonical apparat projection noto‘g‘ri (${index + 1}-qator)',
+          details: ['item_index=${index + 1}'],
         );
       }
       try {
         final parsed = AdminApparatus.fromJson(item.cast<String, dynamic>());
         apparatus.add(parsed);
-      } on FormatException {
-        throw const MobileApiException(
+      } catch (error) {
+        throw MobileApiException(
           code: 'apparatus_projection_invalid',
-          message: 'Canonical apparat projection noto‘g‘ri',
+          message:
+              'Canonical apparat projection noto‘g‘ri (${index + 1}-qator)',
+          details: [
+            'item_index=${index + 1}',
+            'error=$error',
+          ],
         );
       }
     }
