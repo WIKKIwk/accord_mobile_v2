@@ -170,6 +170,7 @@ Widget _progressQtySectionLabel(BuildContext context, String label) {
     padding: const EdgeInsets.only(top: 4, bottom: 8),
     child: Text(
       label,
+      textAlign: TextAlign.center,
       style: theme.textTheme.labelLarge?.copyWith(
         color: scheme.primary,
         fontWeight: FontWeight.w800,

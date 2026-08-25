@@ -6153,6 +6153,17 @@ void main() {
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
 
+    for (final sectionTitle in const [
+      'Standart miqdor',
+      'Tayyor mahsulot',
+      'Qaytim va chiqindi',
+    ]) {
+      expect(
+        tester.widget<Text>(find.text(sectionTitle)).textAlign,
+        TextAlign.center,
+        reason: '$sectionTitle should be centered',
+      );
+    }
     expect(find.text('Qaytarilgan bo‘yoq'), findsOneWidget);
     expect(find.text('Jami chiqindi'), findsOneWidget);
     expect(find.text('Og‘irlik'), findsOneWidget);
