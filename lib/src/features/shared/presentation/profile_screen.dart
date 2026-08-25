@@ -511,9 +511,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                             manual: true,
                           );
                         },
-                        onLogout: () async {
+                        onDisconnectSession: () async {
                           Navigator.of(sheetContext).pop();
-                          await showLogoutPrompt(context);
+                          await showDisconnectSessionPrompt(context);
                         },
                       );
                     },
@@ -1157,7 +1157,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
     required this.onRemoveSwitchPin,
     required this.onToggleBiometric,
     required this.onCheckForUpdate,
-    required this.onLogout,
+    required this.onDisconnectSession,
   });
 
   final double maxHeight;
@@ -1177,7 +1177,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
   final VoidCallback onRemoveSwitchPin;
   final ValueChanged<bool> onToggleBiometric;
   final VoidCallback onCheckForUpdate;
-  final VoidCallback onLogout;
+  final VoidCallback onDisconnectSession;
 
   @override
   Widget build(BuildContext context) {
@@ -1292,7 +1292,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
               color: scheme.outlineVariant.withValues(alpha: 0.55),
             ),
             const SizedBox(height: 14),
-            _LogoutSettingsRow(onTap: onLogout),
+            _DisconnectSessionSettingsRow(onTap: onDisconnectSession),
           ],
         ),
       ),
@@ -1360,8 +1360,8 @@ class _ProfileSettingsRowPadding extends StatelessWidget {
   }
 }
 
-class _LogoutSettingsRow extends StatelessWidget {
-  const _LogoutSettingsRow({required this.onTap});
+class _DisconnectSessionSettingsRow extends StatelessWidget {
+  const _DisconnectSessionSettingsRow({required this.onTap});
 
   final VoidCallback onTap;
 
@@ -1384,14 +1384,14 @@ class _LogoutSettingsRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    l10n.logoutTitle,
+                    l10n.disconnectSessionTitle,
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: scheme.error,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    l10n.logoutBody,
+                    l10n.disconnectSessionBody,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),

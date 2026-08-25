@@ -57,5 +57,22 @@ void main() {
       find.text('Faqat ushbu profilga o‘tilayotganda so‘raladi'),
       findsOneWidget,
     );
+
+    final disconnectAction = find.text('Sessiyani uzish');
+    expect(disconnectAction, findsOneWidget);
+    expect(
+      find.text('Profil faqat ushbu qurilmadan olib tashlanadi'),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(disconnectAction);
+    await tester.tap(disconnectAction);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Ushbu profil sessiyasini shu qurilmadan uzaymi?'),
+      findsOneWidget,
+    );
+    expect(find.text('Uzish'), findsOneWidget);
   });
 }

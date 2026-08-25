@@ -295,6 +295,26 @@ class AppLocalizations {
         'Do you want to log out?',
         'Выйти из приложения?',
       );
+  String get disconnectSessionTitle => _t(
+        'Sessiyani uzish',
+        'Disconnect session',
+        'Отключить сессию',
+      );
+  String get disconnectSessionBody => _t(
+        'Profil faqat ushbu qurilmadan olib tashlanadi',
+        'This profile will be removed only from this device',
+        'Профиль будет удалён только с этого устройства',
+      );
+  String get disconnectSessionPrompt => _t(
+        'Ushbu profil sessiyasini shu qurilmadan uzaymi?',
+        'Disconnect this profile session from this device?',
+        'Отключить сессию этого профиля на данном устройстве?',
+      );
+  String get disconnectSessionConfirm => _t(
+        'Uzish',
+        'Disconnect',
+        'Отключить',
+      );
   String get yes => _t('Ha', 'Yes', 'Да');
   String get no => _t('Yo‘q', 'No', 'Нет');
   String get retry => _t('Qayta urinish', 'Retry', 'Повторить');

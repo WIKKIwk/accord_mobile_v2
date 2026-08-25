@@ -100,6 +100,47 @@ void main() {
     await AppSession.instance.clear();
   });
 
+  test('logout clears only the current profile local security', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final security = SecurityController.instance;
+    await security.load();
+    const current = SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Current worker',
+      legalName: 'Current worker',
+      ref: 'worker-logout-current',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.read'],
+    );
+    const other = SessionProfile(
+      role: UserRole.qolipchi,
+      displayName: 'Other worker',
+      legalName: 'Other worker',
+      ref: 'worker-logout-other',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['qolip.manage'],
+    );
+
+    await AppSession.instance
+        .setSession(token: 'token-current', profile: current);
+    await security.savePinForCurrentUser('1111');
+    await security.saveSwitchPinForCurrentUser('2222');
+    await AppSession.instance.setSession(token: 'token-other', profile: other);
+    await security.saveSwitchPinForCurrentUser('3333');
+    await AppSession.instance
+        .setSession(token: 'token-current', profile: current);
+
+    await security.clearForLogout();
+
+    expect(security.hasPinForProfile(current), isFalse);
+    expect(security.hasSwitchPinForProfile(current), isFalse);
+    expect(security.hasSwitchPinForProfile(other), isTrue);
+
+    await AppSession.instance.clear();
+  });
+
   test('switch PIN storage is isolated by server endpoint', () async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     final security = SecurityController.instance;

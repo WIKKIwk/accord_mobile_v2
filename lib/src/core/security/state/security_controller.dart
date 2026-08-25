@@ -58,6 +58,12 @@ class SecurityController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> clearForLogout() async {
     _prefs ??= await SharedPreferences.getInstance();
+    final profile = AppSession.instance.profile;
+    if (profile != null) {
+      await _prefs!.remove(_pinKey(profile));
+      await _prefs!.remove(_switchPinKey(profile));
+      await _prefs!.remove(_biometricKey(profile));
+    }
     _locked = false;
     _privacyShieldVisible = false;
     _wasBackgrounded = false;

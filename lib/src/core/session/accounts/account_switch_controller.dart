@@ -88,6 +88,7 @@ class AccountSwitchController {
         operationStackTrace = stackTrace;
       }
 
+      await _runBestEffort(_clearAfterLogout);
       try {
         await AppSession.instance.clear();
       } catch (clearError, clearStackTrace) {
@@ -102,7 +103,6 @@ class AccountSwitchController {
           operationStackTrace!,
         );
       }
-      await _runBestEffort(_clearAfterLogout);
       if (operationError != null) {
         Error.throwWithStackTrace(operationError, operationStackTrace!);
       }

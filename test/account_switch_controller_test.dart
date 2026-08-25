@@ -181,12 +181,19 @@ void main() {
       logoutSavedSession: (session) async {
         events.add('logout:${session.token}');
       },
-      clearAfterLogout: () async => events.add('security-clear'),
+      clearAfterLogout: () async {
+        events.add(
+          'security-clear:${AppSession.instance.profile?.ref ?? 'none'}',
+        );
+      },
     );
 
     await controller.logoutCurrent();
 
-    expect(events, ['unregister', 'logout:token-a', 'security-clear']);
+    expect(
+      events,
+      ['unregister', 'logout:token-a', 'security-clear:worker-a'],
+    );
     expect(AppSession.instance.isLoggedIn, isFalse);
     expect(store.activeAccountId, isNull);
     expect(store.accounts.map((account) => account.id), [second.id]);
