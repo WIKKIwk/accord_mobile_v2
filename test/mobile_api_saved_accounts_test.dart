@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:accord_mobile_v2/src/core/session/accounts/account_switch_controller.dart';
+import 'package:accord_mobile_v2/src/core/session/accounts/account_switch_runtime.dart';
 import 'package:accord_mobile_v2/src/core/session/accounts/saved_account_runtime.dart';
 import 'package:accord_mobile_v2/src/core/session/accounts/saved_account_store.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
@@ -53,6 +54,102 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
+  test(
+      'runtime switch refreshes target token and permissions before activation',
+      () async {
+    final preferences = await SharedPreferences.getInstance();
+    await SavedAccountRuntime.instance.initialize(
+      preferences: preferences,
+      secretStore: _MemoryAccountSecretStore(),
+      baseUrl: MobileApi.baseUrl,
+    );
+    final store = SavedAccountRuntime.instance.store;
+    final current = await store.upsertAuthenticated(
+      baseUrl: MobileApi.baseUrl,
+      profile: _profile(ref: 'worker-saman', name: 'Saman'),
+      token: 'current-token',
+      phone: '+998900000001',
+      code: '401111',
+      makeActive: true,
+    );
+    final target = await store.upsertAuthenticated(
+      baseUrl: MobileApi.baseUrl,
+      profile: _profile(ref: 'worker-akmal', name: 'Old Akmal'),
+      token: 'stale-target-token',
+      phone: '+998900000002',
+      code: '402222',
+      makeActive: false,
+    );
+    await AppSession.instance.setSession(
+      token: 'current-token',
+      profile: current.profile,
+    );
+    final client = _SavedAccountHttpClient(
+      assignedApparatus: const ['apparatus:default:asset-007'],
+      assignedApparatusLabels: const ['Laminatsiya 1'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final switched =
+          await createRuntimeAccountSwitchController().switchTo(target.id);
+
+      expect(client.loginRequests, 1);
+      expect(switched.ref, 'worker-akmal');
+      expect(switched.assignedApparatus, ['apparatus:default:asset-007']);
+      expect(AppSession.instance.token, 'new-token');
+      expect(AppSession.instance.profile?.displayName, 'Akmal');
+      final stored = await store.sessionFor(target.id);
+      expect(stored?.token, 'new-token');
+      expect(stored?.account.profile.displayName, 'Akmal');
+      expect(stored?.phone, '+998900000002');
+      expect(stored?.code, '402222');
+    }, createHttpClient: (_) => client);
+  });
+
+  test('failed target refresh leaves current profile active', () async {
+    final preferences = await SharedPreferences.getInstance();
+    await SavedAccountRuntime.instance.initialize(
+      preferences: preferences,
+      secretStore: _MemoryAccountSecretStore(),
+      baseUrl: MobileApi.baseUrl,
+    );
+    final store = SavedAccountRuntime.instance.store;
+    final current = await store.upsertAuthenticated(
+      baseUrl: MobileApi.baseUrl,
+      profile: _profile(ref: 'worker-saman', name: 'Saman'),
+      token: 'current-token',
+      phone: '+998900000001',
+      code: '401111',
+      makeActive: true,
+    );
+    final target = await store.upsertAuthenticated(
+      baseUrl: MobileApi.baseUrl,
+      profile: _profile(ref: 'worker-akmal', name: 'Akmal'),
+      token: 'stale-target-token',
+      phone: '+998900000002',
+      code: '402222',
+      makeActive: false,
+    );
+    await AppSession.instance.setSession(
+      token: 'current-token',
+      profile: current.profile,
+    );
+    final client = _SavedAccountHttpClient(loginUnauthorized: true);
+
+    await HttpOverrides.runZoned(() async {
+      await expectLater(
+        createRuntimeAccountSwitchController().switchTo(target.id),
+        throwsException,
+      );
+    }, createHttpClient: (_) => client);
+
+    expect(client.loginRequests, 1);
+    expect(store.activeAccountId, current.id);
+    expect(AppSession.instance.token, 'current-token');
+    expect(AppSession.instance.profile?.ref, 'worker-saman');
+    expect((await store.sessionFor(target.id))?.token, 'stale-target-token');
+  });
+
   test('401 reauthenticates only the active saved account and retries',
       () async {
     final preferences = await SharedPreferences.getInstance();
@@ -92,6 +189,58 @@ void main() {
       expect(client.profileAuthorizationHeaders,
           ['Bearer expired-token', 'Bearer new-token']);
     }, createHttpClient: (_) => client);
+  });
+
+  test('concurrent 401 requests share one saved-account reauthentication',
+      () async {
+    final preferences = await SharedPreferences.getInstance();
+    await SavedAccountRuntime.instance.initialize(
+      preferences: preferences,
+      secretStore: _MemoryAccountSecretStore(),
+      baseUrl: MobileApi.baseUrl,
+    );
+    final profile = _profile(ref: 'worker-akmal', name: 'Akmal');
+    await SavedAccountRuntime.instance.store.upsertAuthenticated(
+      baseUrl: MobileApi.baseUrl,
+      profile: profile,
+      token: 'expired-token',
+      phone: '+998900000002',
+      code: '402222',
+      makeActive: true,
+    );
+    await AppSession.instance.setSession(
+      token: 'expired-token',
+      profile: profile,
+    );
+    final loginStarted = Completer<void>();
+    final releaseLogin = Completer<void>();
+    final secondPushRequest = Completer<void>();
+    final client = _SavedAccountHttpClient(
+      pushUnauthorizedUntilLogin: true,
+      loginStarted: loginStarted,
+      releaseLogin: releaseLogin,
+      secondPushRequest: secondPushRequest,
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final first = MobileApi.instance.registerPushToken(
+        tokenValue: 'device-token-a',
+        platform: 'ios',
+      );
+      await loginStarted.future;
+      final second = MobileApi.instance.registerPushToken(
+        tokenValue: 'device-token-b',
+        platform: 'ios',
+      );
+      await secondPushRequest.future;
+      releaseLogin.complete();
+
+      await Future.wait([first, second]);
+    }, createHttpClient: (_) => client);
+
+    expect(client.loginRequests, 1);
+    expect(client.pushRequests, 4);
+    expect(AppSession.instance.token, 'new-token');
   });
 
   test('failed 401 reauthentication clears the stale active marker', () async {
@@ -315,6 +464,10 @@ class _SavedAccountHttpClient implements HttpClient {
     this.loginProfileRef = 'worker-akmal',
     this.assignedApparatus = const <String>[],
     this.assignedApparatusLabels = const <String>[],
+    this.pushUnauthorizedUntilLogin = false,
+    this.loginStarted,
+    this.releaseLogin,
+    this.secondPushRequest,
   });
 
   final bool firstProfileRequestUnauthorized;
@@ -323,8 +476,15 @@ class _SavedAccountHttpClient implements HttpClient {
   final String loginProfileRef;
   final List<String> assignedApparatus;
   final List<String> assignedApparatusLabels;
+  final bool pushUnauthorizedUntilLogin;
+  final Completer<void>? loginStarted;
+  final Completer<void>? releaseLogin;
+  final Completer<void>? secondPushRequest;
   final List<String> profileAuthorizationHeaders = <String>[];
   int _profileRequests = 0;
+  int loginRequests = 0;
+  int pushRequests = 0;
+  bool _loginSucceeded = false;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -345,7 +505,7 @@ class _SavedAccountHttpClient implements HttpClient {
       'assigned_warehouses': <String>[],
     };
     final request = _SavedAccountHttpRequest(
-      responseBuilder: (headers) {
+      responseBuilder: (headers) async {
         if (method == 'GET' &&
             url.path == '/v1/mobile/server/handshake' &&
             supportHandshake) {
@@ -376,7 +536,33 @@ class _SavedAccountHttpClient implements HttpClient {
           );
         }
         if (method == 'POST' && url.path == '/v1/mobile/auth/login') {
+          loginRequests++;
+          final started = loginStarted;
+          if (started != null && !started.isCompleted) {
+            started.complete();
+          }
+          await releaseLogin?.future;
           if (loginUnauthorized) {
+            return _SavedAccountHttpResponse(
+              statusCode: HttpStatus.unauthorized,
+              body: jsonEncode(const {'error': 'unauthorized'}),
+            );
+          }
+          _loginSucceeded = true;
+          return _SavedAccountHttpResponse(
+            statusCode: HttpStatus.ok,
+            body: jsonEncode(responseBody),
+          );
+        }
+        if (method == 'POST' && url.path == '/v1/mobile/push/token') {
+          pushRequests++;
+          final secondRequest = secondPushRequest;
+          if (pushRequests == 2 &&
+              secondRequest != null &&
+              !secondRequest.isCompleted) {
+            secondRequest.complete();
+          }
+          if (pushUnauthorizedUntilLogin && !_loginSucceeded) {
             return _SavedAccountHttpResponse(
               statusCode: HttpStatus.unauthorized,
               body: jsonEncode(const {'error': 'unauthorized'}),
@@ -384,7 +570,7 @@ class _SavedAccountHttpClient implements HttpClient {
           }
           return _SavedAccountHttpResponse(
             statusCode: HttpStatus.ok,
-            body: jsonEncode(responseBody),
+            body: jsonEncode(const {'ok': true}),
           );
         }
         return _SavedAccountHttpResponse(
@@ -409,7 +595,7 @@ class _SavedAccountHttpClient implements HttpClient {
 class _SavedAccountHttpRequest implements HttpClientRequest {
   _SavedAccountHttpRequest({required this.responseBuilder});
 
-  final HttpClientResponse Function(_SavedAccountHttpHeaders headers)
+  final Future<HttpClientResponse> Function(_SavedAccountHttpHeaders headers)
       responseBuilder;
   final _SavedAccountHttpHeaders _headers = _SavedAccountHttpHeaders();
 
@@ -435,7 +621,7 @@ class _SavedAccountHttpRequest implements HttpClientRequest {
   HttpHeaders get headers => _headers;
 
   @override
-  Future<HttpClientResponse> close() async => responseBuilder(_headers);
+  Future<HttpClientResponse> close() => responseBuilder(_headers);
 
   @override
   void write(Object? object) {}

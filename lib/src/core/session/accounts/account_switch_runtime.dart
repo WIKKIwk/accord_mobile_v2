@@ -15,5 +15,16 @@ AccountSwitchController createRuntimeAccountSwitchController() {
       baseUrl: session.account.baseUrl,
     ),
     clearAfterLogout: SecurityController.instance.clearForLogout,
+    reauthenticateSavedSession: (session) async {
+      final authenticated = await MobileApi.instance.authenticateAccount(
+        phone: session.phone,
+        code: session.code,
+      );
+      return RefreshedSavedAccountSession(
+        token: authenticated.token,
+        profile: authenticated.profile,
+        werkaHomeBootstrap: authenticated.werkaHome,
+      );
+    },
   );
 }

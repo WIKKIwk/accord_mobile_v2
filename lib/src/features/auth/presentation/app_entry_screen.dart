@@ -1,6 +1,7 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/app_preview.dart';
 import '../../../core/security/state/security_controller.dart';
+import '../../../core/session/accounts/account_switch_controller.dart';
 import '../../../core/session/accounts/account_switch_runtime.dart';
 import '../../../core/session/accounts/saved_account_runtime.dart';
 import '../../../core/session/session.dart';
@@ -12,7 +13,12 @@ import 'welcome_screen.dart';
 import 'package:flutter/material.dart';
 
 class AppEntryScreen extends StatefulWidget {
-  const AppEntryScreen({super.key});
+  const AppEntryScreen({
+    super.key,
+    this.accountSwitchControllerFactory,
+  });
+
+  final AccountSwitchController Function()? accountSwitchControllerFactory;
 
   @override
   State<AppEntryScreen> createState() => _AppEntryScreenState();
@@ -108,7 +114,10 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
           verifyPinForProfile:
               SecurityController.instance.verifySwitchPinForProfile,
           onSwitch: (account) async {
-            await createRuntimeAccountSwitchController().switchTo(account.id);
+            final switchController =
+                widget.accountSwitchControllerFactory?.call() ??
+                    createRuntimeAccountSwitchController();
+            await switchController.switchTo(account.id);
             if (!mounted) {
               return;
             }

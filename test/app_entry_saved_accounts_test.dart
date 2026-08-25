@@ -1,6 +1,7 @@
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/security/state/security_controller.dart';
+import 'package:accord_mobile_v2/src/core/session/accounts/account_switch_controller.dart';
 import 'package:accord_mobile_v2/src/core/session/accounts/saved_account_runtime.dart';
 import 'package:accord_mobile_v2/src/core/session/accounts/saved_account_store.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
@@ -146,7 +147,11 @@ Future<void> _pumpEntry(WidgetTester tester) async {
       onGenerateRoute: (_) => MaterialPageRoute<void>(
         builder: (_) => const Scaffold(body: Text('switched-profile')),
       ),
-      home: const AppEntryScreen(),
+      home: AppEntryScreen(
+        accountSwitchControllerFactory: () => AccountSwitchController(
+          store: SavedAccountRuntime.instance.store,
+        ),
+      ),
     ),
   );
   await tester.pump();

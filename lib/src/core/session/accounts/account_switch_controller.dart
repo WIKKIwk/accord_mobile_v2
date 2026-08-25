@@ -10,6 +10,20 @@ typedef SavedAccountActivationHook = Future<void> Function(
   SavedAccountSession session,
   WerkaHomeData? werkaHomeBootstrap,
 );
+typedef SavedAccountReauthenticationHook = Future<RefreshedSavedAccountSession>
+    Function(SavedAccountSession session);
+
+class RefreshedSavedAccountSession {
+  const RefreshedSavedAccountSession({
+    required this.token,
+    required this.profile,
+    this.werkaHomeBootstrap,
+  });
+
+  final String token;
+  final SessionProfile profile;
+  final WerkaHomeData? werkaHomeBootstrap;
+}
 
 class AccountSwitchController {
   AccountSwitchController({
@@ -20,13 +34,15 @@ class AccountSwitchController {
     SavedAccountSessionHook? logoutSavedSession,
     AccountSwitchHook? clearAfterLogout,
     SavedAccountActivationHook? activateSavedSession,
+    SavedAccountReauthenticationHook? reauthenticateSavedSession,
   })  : _store = store,
         _unregisterCurrentPush = unregisterCurrentPush,
         _syncCurrentPush = syncCurrentPush,
         _unlockAfterSwitch = unlockAfterSwitch,
         _logoutSavedSession = logoutSavedSession,
         _clearAfterLogout = clearAfterLogout,
-        _activateSavedSession = activateSavedSession;
+        _activateSavedSession = activateSavedSession,
+        _reauthenticateSavedSession = reauthenticateSavedSession;
 
   final SavedAccountStore _store;
   final AccountSwitchHook? _unregisterCurrentPush;
@@ -35,6 +51,7 @@ class AccountSwitchController {
   final SavedAccountSessionHook? _logoutSavedSession;
   final AccountSwitchHook? _clearAfterLogout;
   final SavedAccountActivationHook? _activateSavedSession;
+  final SavedAccountReauthenticationHook? _reauthenticateSavedSession;
 
   bool get switching => _store.accountOperationInProgress;
 
@@ -64,7 +81,7 @@ class AccountSwitchController {
 
   Future<SessionProfile> switchTo(String accountId) {
     return _runExclusive(
-      () => _switchToUnlocked(accountId),
+      () => _switchToUnlocked(accountId, reauthenticate: true),
     );
   }
 
@@ -112,8 +129,9 @@ class AccountSwitchController {
   Future<SessionProfile> _switchToUnlocked(
     String accountId, {
     WerkaHomeData? werkaHomeBootstrap,
+    bool reauthenticate = false,
   }) async {
-    final target = await _store.sessionFor(accountId);
+    var target = await _store.sessionFor(accountId);
     if (target == null) {
       throw StateError('Saved account session is unavailable');
     }
@@ -123,6 +141,33 @@ class AccountSwitchController {
         AppSession.instance.profile?.ref == target.account.profile.ref &&
         AppSession.instance.token == target.token) {
       return target.account.profile;
+    }
+
+    final reauthenticateSavedSession = _reauthenticateSavedSession;
+    if (reauthenticate && reauthenticateSavedSession != null) {
+      final refreshed = await reauthenticateSavedSession(target);
+      final refreshedId = SavedAccount.buildId(
+        baseUrl: target.account.baseUrl,
+        profile: refreshed.profile,
+      );
+      if (refreshedId != accountId) {
+        throw StateError('Refreshed account identity does not match target');
+      }
+      final refreshedAccount = await _store.upsertAuthenticated(
+        baseUrl: target.account.baseUrl,
+        profile: refreshed.profile,
+        token: refreshed.token,
+        phone: target.phone,
+        code: target.code,
+        makeActive: false,
+      );
+      target = SavedAccountSession(
+        account: refreshedAccount,
+        token: refreshed.token,
+        phone: target.phone,
+        code: target.code,
+      );
+      werkaHomeBootstrap = refreshed.werkaHomeBootstrap;
     }
 
     final previousSession = AppSession.instance.snapshot();

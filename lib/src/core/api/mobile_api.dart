@@ -102,6 +102,7 @@ class MobileApi {
   static const String compiledBaseUrl = ServerEndpointStore.compiledBaseUrl;
   static const Duration _requestTimeout = Duration(seconds: 10);
   int _canonicalMutationCounter = 0;
+  Future<bool>? _reauthenticationInFlight;
 
   static String get baseUrl => ServerEndpointStore.instance.baseUrl;
 
@@ -288,6 +289,21 @@ class MobileApi {
   }
 
   Future<bool> _reauthenticateFromStorage() async {
+    final inFlight = _reauthenticationInFlight;
+    if (inFlight != null) {
+      return inFlight;
+    }
+    late final Future<bool> refresh;
+    refresh = _performStoredAccountReauthentication().whenComplete(() {
+      if (identical(_reauthenticationInFlight, refresh)) {
+        _reauthenticationInFlight = null;
+      }
+    });
+    _reauthenticationInFlight = refresh;
+    return refresh;
+  }
+
+  Future<bool> _performStoredAccountReauthentication() async {
     final savedAccounts = SavedAccountRuntime.instance;
     if (savedAccounts.isInitialized) {
       final store = savedAccounts.store;
