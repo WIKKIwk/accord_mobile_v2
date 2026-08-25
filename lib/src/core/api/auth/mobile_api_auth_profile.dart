@@ -122,6 +122,8 @@ extension MobileApiAuthProfile on MobileApi {
     profileJson['capabilities'] = json['capabilities'] as List<dynamic>? ?? [];
     profileJson['assigned_apparatus'] =
         json['assigned_apparatus'] as List<dynamic>? ?? [];
+    profileJson['assigned_apparatus_labels'] =
+        json['assigned_apparatus_labels'] as List<dynamic>? ?? [];
     profileJson['assigned_item_groups'] =
         json['assigned_item_groups'] as List<dynamic>? ?? [];
     final rawAssignedWarehouses = json['assigned_warehouses'];

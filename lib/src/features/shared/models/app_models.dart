@@ -1849,6 +1849,7 @@ class SessionProfile {
     required this.avatarUrl,
     this.capabilities = const [],
     this.assignedApparatus = const [],
+    this.assignedApparatusLabels = const [],
     this.assignedItemGroups = const [],
     List<String>? assignedWarehouses = const [],
   }) : _assignedWarehouses = assignedWarehouses;
@@ -1861,6 +1862,7 @@ class SessionProfile {
   final String avatarUrl;
   final List<String> capabilities;
   final List<String> assignedApparatus;
+  final List<String> assignedApparatusLabels;
   final List<String> assignedItemGroups;
   final List<String>? _assignedWarehouses;
 
@@ -1880,6 +1882,11 @@ class SessionProfile {
       assignedApparatus: _canonicalApparatusIdListFromJson(
         json['assigned_apparatus'],
       ),
+      assignedApparatusLabels:
+          (json['assigned_apparatus_labels'] as List<dynamic>? ?? const [])
+              .map((item) => item.toString().trim())
+              .where((item) => item.isNotEmpty)
+              .toList(growable: false),
       assignedItemGroups:
           (json['assigned_item_groups'] as List<dynamic>? ?? const [])
               .map((item) => item as String)
@@ -1902,6 +1909,7 @@ class SessionProfile {
       'avatar_url': avatarUrl,
       'capabilities': capabilities,
       'assigned_apparatus': assignedApparatus,
+      'assigned_apparatus_labels': assignedApparatusLabels,
       'assigned_item_groups': assignedItemGroups,
       'assigned_warehouses': assignedWarehouses,
     };
@@ -1972,6 +1980,7 @@ class SessionProfile {
     String? avatarUrl,
     List<String>? capabilities,
     List<String>? assignedApparatus,
+    List<String>? assignedApparatusLabels,
     List<String>? assignedItemGroups,
     List<String>? assignedWarehouses,
   }) {
@@ -1984,6 +1993,8 @@ class SessionProfile {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       capabilities: capabilities ?? this.capabilities,
       assignedApparatus: assignedApparatus ?? this.assignedApparatus,
+      assignedApparatusLabels:
+          assignedApparatusLabels ?? this.assignedApparatusLabels,
       assignedItemGroups: assignedItemGroups ?? this.assignedItemGroups,
       assignedWarehouses: assignedWarehouses ?? this.assignedWarehouses,
     );

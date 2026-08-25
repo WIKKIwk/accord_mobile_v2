@@ -7,6 +7,45 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('apparatus profiles show compact assigned apparatus subtitles',
+      (tester) async {
+    final accounts = [
+      _account(
+        ref: 'worker-a',
+        name: 'Saman',
+        hour: 9,
+        assignedApparatus: const ['apparatus:default:bosma_7'],
+        assignedApparatusLabels: const ['7 ta rangli bosma aparat'],
+      ),
+      _account(
+        ref: 'worker-b',
+        name: 'Akmal',
+        hour: 8,
+        assignedApparatus: const [
+          'apparatus:default:asset-007',
+          'apparatus:default:asset-010',
+          'apparatus:default:paket',
+        ],
+        assignedApparatusLabels: const ['Laminatsiya 1', 'Rezka', 'Paket'],
+      ),
+    ];
+
+    await _pumpSheet(
+      tester,
+      AccountSwitcherSheet(
+        accounts: accounts,
+        activeAccountId: accounts.first.id,
+        hasPinForProfile: (_) => false,
+        verifyPinForProfile: (_, __) async => false,
+        onSwitch: (_) async {},
+        onAddAccount: () {},
+      ),
+    );
+
+    expect(find.text('7 ta rangli bosma'), findsOneWidget);
+    expect(find.text('Laminatsiya 1 +2'), findsOneWidget);
+  });
+
   testWidgets('unlocked profile switches directly and add action is exposed',
       (tester) async {
     final accounts = [
@@ -106,16 +145,20 @@ SavedAccount _account({
   required String ref,
   required String name,
   required int hour,
+  List<String> assignedApparatus = const [],
+  List<String> assignedApparatusLabels = const [],
 }) {
-  final profile = SessionProfile(
-    role: UserRole.aparatchi,
-    displayName: name,
-    legalName: name,
-    ref: ref,
-    phone: '',
-    avatarUrl: '',
-    capabilities: const ['apparatus.queue.read'],
-  );
+  final profile = SessionProfile.fromJson({
+    'role': 'aparatchi',
+    'display_name': name,
+    'legal_name': name,
+    'ref': ref,
+    'phone': '',
+    'avatar_url': '',
+    'capabilities': const ['apparatus.queue.read'],
+    'assigned_apparatus': assignedApparatus,
+    'assigned_apparatus_labels': assignedApparatusLabels,
+  });
   const baseUrl = 'https://erp.example.com';
   return SavedAccount(
     id: SavedAccount.buildId(baseUrl: baseUrl, profile: profile),

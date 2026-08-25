@@ -23,6 +23,7 @@ void main() {
       'ref': 'werka',
       'capabilities': ['gscale.print', 'rps.batch.manage'],
       'assigned_apparatus': ['apparatus:test:godex-demo'],
+      'assigned_apparatus_labels': ['Godex demo'],
       'assigned_item_groups': ['Kraska', 'Kley'],
       'assigned_warehouses': ['Xomashyo ombori - DEMO'],
     });
@@ -34,6 +35,7 @@ void main() {
       'rps.batch.manage',
     ]);
     expect(profile.assignedApparatus, ['apparatus:test:godex-demo']);
+    expect(profile.toJson()['assigned_apparatus_labels'], ['Godex demo']);
     expect(profile.assignedItemGroups, ['Kraska', 'Kley']);
     expect(profile.assignedWarehouses, ['Xomashyo ombori - DEMO']);
     expect(profile.toJson()['assigned_item_groups'], ['Kraska', 'Kley']);

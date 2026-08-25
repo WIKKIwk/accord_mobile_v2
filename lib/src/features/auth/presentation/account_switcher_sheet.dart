@@ -282,7 +282,7 @@ class _SavedAccountTile extends StatelessWidget {
                   children: [
                     Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
                     Text(
-                      userRoleLabel(account.profile.role),
+                      _accountSubtitle(account.profile),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
@@ -312,6 +312,38 @@ class _SavedAccountTile extends StatelessWidget {
       ),
     );
   }
+}
+
+String _accountSubtitle(SessionProfile profile) {
+  if (profile.role != UserRole.aparatchi) {
+    return userRoleLabel(profile.role);
+  }
+  final labels = profile.assignedApparatusLabels
+      .map(_compactApparatusLabel)
+      .where((label) => label.isNotEmpty)
+      .toList(growable: false);
+  if (labels.isEmpty) {
+    return userRoleLabel(profile.role);
+  }
+  final assignedCount = profile.assignedApparatus.isEmpty
+      ? labels.length
+      : profile.assignedApparatus.length;
+  final remainingCount = assignedCount > 1 ? assignedCount - 1 : 0;
+  return remainingCount == 0
+      ? labels.first
+      : '${labels.first} +$remainingCount';
+}
+
+String _compactApparatusLabel(String value) {
+  final label = value.trim();
+  final compact = label.replaceFirst(
+    RegExp(r'\s+apparat(?:i)?$', caseSensitive: false),
+    '',
+  );
+  return compact.replaceFirst(
+    RegExp(r'\s+aparat(?:i)?$', caseSensitive: false),
+    '',
+  );
 }
 
 class _SheetHandle extends StatelessWidget {

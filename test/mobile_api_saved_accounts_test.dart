@@ -32,7 +32,10 @@ void main() {
       token: 'current-token',
       profile: _profile(ref: 'worker-saman', name: 'Saman'),
     );
-    final client = _SavedAccountHttpClient();
+    final client = _SavedAccountHttpClient(
+      assignedApparatus: const ['apparatus:default:asset-007'],
+      assignedApparatusLabels: const ['Laminatsiya 1'],
+    );
 
     await HttpOverrides.runZoned(() async {
       final authenticated = await MobileApi.instance.authenticateAccount(
@@ -42,6 +45,9 @@ void main() {
 
       expect(authenticated.token, 'new-token');
       expect(authenticated.profile.ref, 'worker-akmal');
+      expect(authenticated.profile.toJson()['assigned_apparatus_labels'], [
+        'Laminatsiya 1',
+      ]);
       expect(AppSession.instance.token, 'current-token');
       expect(AppSession.instance.profile?.ref, 'worker-saman');
     }, createHttpClient: (_) => client);
@@ -307,12 +313,16 @@ class _SavedAccountHttpClient implements HttpClient {
     this.loginUnauthorized = false,
     this.supportHandshake = false,
     this.loginProfileRef = 'worker-akmal',
+    this.assignedApparatus = const <String>[],
+    this.assignedApparatusLabels = const <String>[],
   });
 
   final bool firstProfileRequestUnauthorized;
   final bool loginUnauthorized;
   final bool supportHandshake;
   final String loginProfileRef;
+  final List<String> assignedApparatus;
+  final List<String> assignedApparatusLabels;
   final List<String> profileAuthorizationHeaders = <String>[];
   int _profileRequests = 0;
 
@@ -329,7 +339,8 @@ class _SavedAccountHttpClient implements HttpClient {
         'avatar_url': '',
       },
       'capabilities': ['apparatus.queue.read'],
-      'assigned_apparatus': <String>[],
+      'assigned_apparatus': assignedApparatus,
+      'assigned_apparatus_labels': assignedApparatusLabels,
       'assigned_item_groups': <String>[],
       'assigned_warehouses': <String>[],
     };
