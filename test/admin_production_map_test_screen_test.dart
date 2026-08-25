@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
@@ -17,6 +19,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
@@ -46,6 +49,15 @@ String _fixtureApparatusName(String apparatusId) => switch (apparatusId) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  final originalMobileScannerPlatform = MobileScannerPlatform.instance;
+
+  setUpAll(() {
+    MobileScannerPlatform.instance = _TestMobileScannerPlatform();
+  });
+
+  tearDownAll(() {
+    MobileScannerPlatform.instance = originalMobileScannerPlatform;
+  });
 
   setUp(() {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
@@ -8028,6 +8040,36 @@ List<String> _alternativeAssignedTitles(
 
 Future<String?> _testProgressDriverUrlPicker(BuildContext _) async {
   return 'test://progress-printer';
+}
+
+class _TestMobileScannerPlatform extends MobileScannerPlatform {
+  @override
+  Stream<BarcodeCapture?> get barcodesStream => const Stream.empty();
+
+  @override
+  Stream<TorchState> get torchStateStream =>
+      Stream<TorchState>.value(TorchState.unavailable);
+
+  @override
+  Stream<double> get zoomScaleStateStream => Stream<double>.value(1);
+
+  @override
+  Future<MobileScannerViewAttributes> start(StartOptions startOptions) {
+    return Future.value(
+      const MobileScannerViewAttributes(
+        cameraDirection: CameraFacing.back,
+        currentTorchMode: TorchState.unavailable,
+        size: Size(200, 200),
+        numberOfCameras: 1,
+      ),
+    );
+  }
+
+  @override
+  Widget buildCameraView() => const SizedBox.square(dimension: 100);
+
+  @override
+  Future<void> dispose() async {}
 }
 
 AdminApparatusQueueOrderActionControl _freshStartQueueControl({
