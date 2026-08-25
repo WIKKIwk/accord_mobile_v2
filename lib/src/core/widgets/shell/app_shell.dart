@@ -658,6 +658,9 @@ class _AppShellState extends State<AppShell>
     if (widget.bottom == null) {
       return 0;
     }
+    if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+      return 0;
+    }
     final viewMetrics = MediaQueryData.fromView(View.of(context));
     return widget.bottomDockHeight +
         dockLayoutBottomInset(

@@ -5,6 +5,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('AppShell keeps content flush with the keyboard', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 800);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(
+          size: Size(400, 800),
+          viewInsets: EdgeInsets.only(bottom: 300),
+        ),
+        child: MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: const AppShell(
+            title: 'Keyboard',
+            subtitle: '',
+            bottom: SizedBox(height: 60),
+            child: SizedBox.expand(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final contentRect = tester.getRect(find.byType(ClipRRect));
+    expect(contentRect.bottom, closeTo(500, 1));
+  });
+
   testWidgets('AppShell native top bar mode uses AppBar only', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
