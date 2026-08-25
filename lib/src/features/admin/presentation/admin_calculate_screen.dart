@@ -38,6 +38,25 @@ class AdminCalculateArgs {
   final String trainingApparatusId;
 }
 
+const _calculateOrderTypeOptions = <String>['Paket', 'Rulon'];
+
+String _calculateOrderTypeDisplay(String raw) {
+  switch (raw.trim().toLowerCase()) {
+    case 'paket':
+      return 'Paket';
+    case 'rulo':
+    case 'rulon':
+      return 'Rulon';
+    default:
+      return raw.trim();
+  }
+}
+
+bool _sameCalculateOrderType(String left, String right) {
+  return _calculateOrderTypeDisplay(left).toLowerCase() ==
+      _calculateOrderTypeDisplay(right).toLowerCase();
+}
+
 class AdminCalculateScreen extends StatefulWidget {
   const AdminCalculateScreen({
     super.key,
@@ -61,7 +80,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _imagePicker = ImagePicker();
   final _customer = TextEditingController();
   final _product = TextEditingController();
-  final _status = TextEditingController();
+  String _orderType = '';
   final _kg = TextEditingController();
   final _frameProductSizeMm = TextEditingController();
   final _frameCount = TextEditingController();
@@ -116,7 +135,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     _calculationListenersAttached = false;
     _customer.dispose();
     _product.dispose();
-    _status.dispose();
     _kg.dispose();
     _frameProductSizeMm.dispose();
     _frameCount.dispose();
@@ -226,7 +244,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       _customer.text = template.customer;
       _itemCode = template.itemCode;
       _product.text = template.product;
-      _status.text = template.status;
+      _orderType = template.status;
       _imageId = template.imageId;
       _imageName = template.imageName;
       _imageMime = template.imageMime;
@@ -770,7 +788,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       customer: _customer.text.trim(),
       itemCode: _itemCode,
       product: _product.text.trim(),
-      status: _status.text.trim(),
+      status: _orderType.trim(),
       materialDisplay: '',
       color: '',
       imageId: _imageId,
@@ -839,6 +857,59 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           picked.name.trim().isEmpty ? picked.ref : picked.name.trim();
       _itemCode = '';
       _product.clear();
+    });
+  }
+
+  Future<void> _openOrderTypePicker() async {
+    final current = _orderType.trim();
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        final l10n = sheetContext.l10n;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.adminText('calculate.order_type_input'),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                for (final option in _calculateOrderTypeOptions)
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                    title: Text(option),
+                    trailing: _sameCalculateOrderType(current, option)
+                        ? const Icon(Icons.check_rounded)
+                        : null,
+                    onTap: () => Navigator.of(sheetContext).pop(option),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _orderType = picked;
     });
   }
 
@@ -1001,7 +1072,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           orderNumber: '',
           customer: _customer.text,
           product: _product.text,
-          status: _status.text,
+          status: _orderType,
           materialDisplay: '',
           color: '',
           kg: _parseRequiredDouble(_kg.text),
@@ -1129,9 +1200,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         required: true,
         onTap: _openProductPicker,
       ),
-      _TextInput(
-        controller: _status,
-        label: l10n.adminText('calculate.status_input'),
+      _PickerInput(
+        label: l10n.adminText('calculate.order_type_input'),
+        value: _calculateOrderTypeDisplay(_orderType),
+        onTap: _openOrderTypePicker,
       ),
       _ImageUploadInput(
         localPath: _imageLocalPath,
@@ -1175,8 +1247,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         suffixText: l10n.adminText('calculate.pieces_suffix'),
       ),
       const SizedBox(height: 18),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        runSpacing: 8,
         children: [
           _SectionHeader(title: l10n.adminText('calculate.layers_section')),
           TextButton.icon(
@@ -1225,7 +1299,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         customerRef: _customerRef,
         product: _product.text,
         itemCode: _itemCode,
-        status: _status.text,
+        status: _calculateOrderTypeDisplay(_orderType),
         imageUrl: _imageUrl,
         imageName: _imageName,
         imageSizeBytes: _imageSizeBytes,
@@ -1375,6 +1449,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       subtitle:
           widget.trainingMode ? l10n.adminText('calculate.test_mode') : '',
       nativeTopBar: true,
+      resizeToAvoidBottomInset: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       actions: [
         Padding(
@@ -1399,7 +1474,12 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           child: Form(
             key: _formKey,
             child: ListView(
-              padding: EdgeInsets.fromLTRB(4, 12, 4, bottomPadding),
+              padding: EdgeInsets.fromLTRB(
+                4,
+                12,
+                4,
+                bottomPadding + MediaQuery.viewInsetsOf(context).bottom,
+              ),
               children: children,
             ),
           ),
@@ -1609,7 +1689,7 @@ class _SavedTemplateSummary extends StatelessWidget {
                   subtitle: itemCode,
                 ),
                 _ChecklistRowData(
-                  l10n.adminText('calculate.status_input'),
+                  l10n.adminText('calculate.order_type_input'),
                   status,
                 ),
               ],

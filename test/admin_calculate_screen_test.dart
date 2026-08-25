@@ -124,6 +124,43 @@ void main() {
     expect(find.text('Production mapga ulash'), findsNothing);
   });
 
+  testWidgets('order type picker offers only Paket and Rulon', (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await _pumpCalculateScreen(tester);
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.labelText == 'Buyurtma turi',
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('Buyurtma turi').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Paket'), findsOneWidget);
+    expect(find.text('Rulon'), findsOneWidget);
+    expect(find.text('Ready'), findsNothing);
+
+    await tester.tap(find.text('Rulon'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rulon'), findsOneWidget);
+  });
+
+  testWidgets('calculate screen does not resize shell for keyboard', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await _pumpCalculateScreen(tester);
+
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+
+    expect(scaffold.resizeToAvoidBottomInset, isFalse);
+  });
+
   testWidgets('product picker selects assigned customer automatically', (
     tester,
   ) async {

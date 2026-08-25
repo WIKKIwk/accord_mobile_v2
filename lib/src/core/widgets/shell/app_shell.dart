@@ -64,6 +64,7 @@ class AppShell extends StatefulWidget {
     this.actions,
     this.drawer,
     this.bottom,
+    this.resizeToAvoidBottomInset = true,
     this.bottomDockFadeStrength,
     this.bottomDockHeight = _contentBottomDockHeight,
     this.contentPadding = const EdgeInsets.fromLTRB(4, 0, 6, 0),
@@ -90,6 +91,7 @@ class AppShell extends StatefulWidget {
   final List<Widget>? actions;
   final Widget? drawer;
   final Widget? bottom;
+  final bool resizeToAvoidBottomInset;
 
   /// Pastki dock ustidagi yumshoq scrim: **0** yo‘q, **1** to‘liq. `null` — scrim chizilmaydi.
   final ValueListenable<double>? bottomDockFadeStrength;
@@ -339,6 +341,7 @@ class _AppShellState extends State<AppShell>
     final Widget scaffold = Scaffold(
       backgroundColor: Colors.transparent,
       extendBody: true,
+      resizeToAvoidBottomInset: widget.resizeToAvoidBottomInset,
       appBar: widget.nativeTopBar
           ? AppBar(
               title: widget.titleWidget ?? _nativeAppBarTitle(theme),

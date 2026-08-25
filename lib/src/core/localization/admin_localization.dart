@@ -3121,6 +3121,11 @@ const Map<String, Map<String, String>> adminTranslations = {
     'en': 'Status',
     'ru': 'Статус',
   },
+  'admin.calculate.order_type_input': {
+    'uz': 'Buyurtma turi',
+    'en': 'Order type',
+    'ru': 'Тип заказа',
+  },
   'admin.calculate.kg_input': {
     'uz': 'KG',
     'en': 'Weight',
