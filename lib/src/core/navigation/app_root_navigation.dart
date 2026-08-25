@@ -19,6 +19,7 @@ abstract final class AppRootNavigation {
     if (current == routeName) {
       return;
     }
+    FocusManager.instance.primaryFocus?.unfocus();
     _scheduledRootRoute = routeName;
     if (_rootCallbackScheduled) {
       return;

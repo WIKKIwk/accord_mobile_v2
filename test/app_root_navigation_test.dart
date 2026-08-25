@@ -50,6 +50,54 @@ void main() {
     await tester.pumpAndSettle();
     expect(observer.events, ['pop:/activity']);
   });
+
+  testWidgets('root navigation clears the active field focus', (tester) async {
+    final fieldFocusNode = FocusNode();
+    addTearDown(fieldFocusNode.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        initialRoute: '/home',
+        navigatorObservers: [AppRootNavigation.navigatorObserver],
+        onGenerateRoute: (settings) {
+          return MaterialPageRoute<void>(
+            settings: settings,
+            builder: (context) {
+              return Scaffold(
+                body: Column(
+                  children: [
+                    Focus(
+                      key: const ValueKey('root-navigation-field'),
+                      focusNode: fieldFocusNode,
+                      child: const SizedBox(height: 48, width: 200),
+                    ),
+                    TextButton(
+                      key: const ValueKey('root-navigation-focus-trigger'),
+                      onPressed: () =>
+                          AppRootNavigation.replaceRootRoute(context, '/next'),
+                      child: const Text('Next'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    fieldFocusNode.requestFocus();
+    await tester.pump();
+    expect(fieldFocusNode.hasFocus, isTrue);
+
+    await tester.tap(
+      find.byKey(const ValueKey('root-navigation-focus-trigger')),
+    );
+    await tester.pump();
+
+    expect(fieldFocusNode.hasFocus, isFalse);
+  });
 }
 
 class _RecordingNavigatorObserver extends NavigatorObserver {
