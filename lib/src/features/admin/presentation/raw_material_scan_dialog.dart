@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/localization/app_localizations.dart';
@@ -86,7 +87,7 @@ class _ProductionQuickScannerPanelState
     if (_supportsScanner) {
       _controller = MobileScannerController(
         autoStart: false,
-        autoZoom: true,
+        autoZoom: false,
         facing: CameraFacing.back,
         detectionSpeed: DetectionSpeed.noDuplicates,
         formats: const [BarcodeFormat.qrCode],
@@ -155,14 +156,13 @@ class _ProductionQuickScannerPanelState
       return;
     }
     setState(() => _activeDetections += 1);
+    unawaited(HapticFeedback.mediumImpact());
     try {
       await widget.onCodeDetected(rawValue);
     } finally {
       if (mounted) {
         setState(() {
-          _activeDetections = _activeDetections > 0
-              ? _activeDetections - 1
-              : 0;
+          _activeDetections = _activeDetections > 0 ? _activeDetections - 1 : 0;
         });
       }
     }
@@ -201,9 +201,7 @@ class _ProductionQuickScannerPanelState
     } finally {
       if (mounted) {
         setState(() {
-          _activeDetections = _activeDetections > 0
-              ? _activeDetections - 1
-              : 0;
+          _activeDetections = _activeDetections > 0 ? _activeDetections - 1 : 0;
         });
       }
     }
@@ -257,7 +255,7 @@ class _ProductionQuickScannerPanelState
                                           controller: controller,
                                           fit: BoxFit.cover,
                                           useAppLifecycleState: true,
-                                          tapToFocus: true,
+                                          tapToFocus: false,
                                           onDetect: _handleDetect,
                                           errorBuilder: (context, error) =>
                                               const _QuickScannerUnavailableView(),
@@ -271,9 +269,11 @@ class _ProductionQuickScannerPanelState
                                                     _RawMaterialScannerGridPainter(),
                                               ),
                                               Align(
-                                                alignment: Alignment.bottomCenter,
+                                                alignment:
+                                                    Alignment.bottomCenter,
                                                 child: Padding(
-                                                  padding: const EdgeInsets.only(
+                                                  padding:
+                                                      const EdgeInsets.only(
                                                     bottom: 12,
                                                   ),
                                                   child: _QuickScannerStatus(
@@ -281,8 +281,8 @@ class _ProductionQuickScannerPanelState
                                                             widget.busy
                                                         ? context.l10n
                                                             .productionText(
-                                                              'worker.scanner.checking',
-                                                            )
+                                                            'worker.scanner.checking',
+                                                          )
                                                         : widget.statusText,
                                                     busy: _processing ||
                                                         widget.busy,
@@ -350,7 +350,9 @@ class _ProductionQuickScannerPanelState
                               ? Icons.close_rounded
                               : Icons.edit_rounded,
                           key: ValueKey(
-                            _manualEntryVisible ? 'manual-close' : 'manual-edit',
+                            _manualEntryVisible
+                                ? 'manual-close'
+                                : 'manual-edit',
                           ),
                         ),
                       ),
@@ -379,7 +381,8 @@ class _ProductionQuickScannerPanelState
               ),
               child: _manualEntryVisible
                   ? ColoredBox(
-                      key: const ValueKey('production-quick-scanner-manual-visible'),
+                      key: const ValueKey(
+                          'production-quick-scanner-manual-visible'),
                       color: scheme.surface,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
@@ -435,7 +438,7 @@ class _ProductionQuickScannerPanelState
                       key: ValueKey('production-quick-scanner-manual-hidden'),
                     ),
             ),
-            ),
+          ),
         ],
       ),
     );
