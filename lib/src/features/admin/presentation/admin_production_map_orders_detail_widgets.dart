@@ -140,6 +140,17 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
             controller: controller,
             padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
             children: [
+              if (onBack != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton.filledTonal(
+                    tooltip: context.l10n.productionText(
+                      'worker.action.back_to_order',
+                    ),
+                    onPressed: onBack,
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  ),
+                ),
               AnimatedSize(
                 key: const ValueKey('production-order-quick-scanner-motion'),
                 duration: AppMotion.medium,
