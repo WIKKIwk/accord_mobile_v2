@@ -5735,10 +5735,11 @@ void main() {
     expect(find.text('Metraj'), findsOneWidget);
     expect(find.text('Og‘irlik'), findsOneWidget);
     expect(find.text('Babina'), findsOneWidget);
-    expect(find.widgetWithText(TextFormField, 'Muammo izohi'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Muammo izohi'), findsNothing);
 
     await tester.tap(find.text('Tasdiqlash'));
     await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextFormField, 'Muammo izohi'), findsOneWidget);
     expect(
       find.text(
           'Miqdorlarni to‘liq kiriting yoki faqat muammo izohini yozing.'),
@@ -6153,6 +6154,13 @@ void main() {
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
 
+    expect(
+      find.widgetWithText(
+        TextFormField,
+        '0 yoki noodatiy tugatish sababi',
+      ),
+      findsNothing,
+    );
     for (final sectionTitle in const [
       'Standart miqdor',
       'Tayyor mahsulot',
@@ -6168,6 +6176,16 @@ void main() {
     expect(find.text('Jami chiqindi'), findsOneWidget);
     expect(find.text('Og‘irlik'), findsOneWidget);
     expect(find.text('Metraj'), findsOneWidget);
+
+    await tester.tap(find.text('Tasdiqlash'));
+    await tester.pumpAndSettle();
+    expect(
+      find.widgetWithText(
+        TextFormField,
+        '0 yoki noodatiy tugatish sababi',
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Bekor qilish'));
     await tester.pumpAndSettle();

@@ -226,6 +226,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final _descriptionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String _completionError = '';
+  bool _descriptionFieldRevealed = false;
   late final List<_RezkaFrameControllers> _rezkaFrameControllers;
   final Set<int> _rezkaFrameIssuePrompted = <int>{};
 
@@ -248,6 +249,29 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   bool get _isRollRemoval => widget.removeRollFromApparatus;
 
   bool get _isFreezeRequestSafeStop => widget.freezeRequestSafeStop;
+
+  bool get _descriptionFieldRelevant =>
+      _isComplete ||
+      (widget.action == 'roll_complete' && widget.isRezka) ||
+      _isAstatkaReport ||
+      _isFreezeRequestSafeStop;
+
+  void _revealDescriptionField() {
+    if (!mounted || _descriptionFieldRevealed) {
+      return;
+    }
+    setState(() => _descriptionFieldRevealed = true);
+  }
+
+  void _setCompletionError(String message) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _descriptionFieldRevealed = true;
+      _completionError = message;
+    });
+  }
 
   int get _rezkaFrameCount {
     final node = _rezkaNodeForStation(
@@ -495,6 +519,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       if (hasNewIncompleteFrame) {
         setState(() {
           _rezkaFrameIssuePrompted.addAll(incompleteFrameIndexes);
+          _descriptionFieldRevealed = true;
         });
         return;
       }
@@ -505,11 +530,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           _ProgressQtyInput(description: description, isIssue: true),
         );
       } else {
-        setState(() {
-          _completionError = context.l10n.productionText(
+        _setCompletionError(
+          context.l10n.productionText(
             'worker.freeze.safe_stop.output_or_issue_required',
-          );
-        });
+          ),
+        );
       }
       return;
     }
@@ -520,6 +545,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       return;
     }
     final formValid = _formKey.currentState?.validate() ?? false;
+    if (!formValid) {
+      _revealDescriptionField();
+    }
 
     final meterQty = _parseQty(_meterController.text);
     final kgQty = _parseQty(_kgController.text);
@@ -528,11 +556,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     if (_requiresFullCompletionReport &&
         widget.isBosma &&
         returnedPaintDraftHasInvalidValues(_returnedPaintDraft)) {
-      setState(() {
-        _completionError = context.l10n.productionText(
+      _setCompletionError(
+        context.l10n.productionText(
           'worker.progress.qty.returned_paint_invalid',
-        );
-      });
+        ),
+      );
       return;
     }
     final returnedPaintItems = _returnedPaintItems;
@@ -563,8 +591,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     if (_requiresFullCompletionReport &&
         widget.isBosma &&
         !returnedPaintValid) {
-      setState(() {
-        _completionError = returnedPaintFieldCount > 0
+      _setCompletionError(
+        returnedPaintFieldCount > 0
             ? context.l10n.productionText(
                 'worker.progress.qty.returned_paint_min',
                 values: {
@@ -574,8 +602,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
               )
             : context.l10n.productionText(
                 'worker.progress.qty.returned_paint_image',
-              );
-      });
+              ),
+      );
       return;
     }
     final printLeftoverRolls = _parseQty(_printLeftoverController.text);
@@ -598,13 +626,13 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       fallbackIssueNote: frameIssueFallback,
     );
     if (_showRezkaFrameInputs && rezkaFrameInputs == null) {
-      setState(() {
-        _completionError = context.l10n.productionText(
+      _setCompletionError(
+        context.l10n.productionText(
           widget.action == 'roll_complete'
               ? 'worker.freeze.safe_stop.output_or_issue_required'
               : 'worker.progress.qty.completion_reason',
-        );
-      });
+        ),
+      );
       return;
     }
     _RezkaFrameInput? firstRezkaFrame;
@@ -651,7 +679,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final hasWaste =
         totalWaste != null && totalWaste.isFinite && totalWaste > 0;
     if (_isAstatkaReport) {
-      if (!formValid) return;
+      if (!formValid) {
+        _revealDescriptionField();
+        return;
+      }
       if (widget.isRezka) {
         Navigator.of(context).pop(
           _ProgressQtyInput(
@@ -795,11 +826,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       return;
     }
     if (_isFreezeRequestSafeStop) {
-      setState(() {
-        _completionError = context.l10n.productionText(
+      _setCompletionError(
+        context.l10n.productionText(
           'worker.freeze.safe_stop.output_incomplete',
-        );
-      });
+        ),
+      );
       return;
     }
     if (_isComplete && !_requiresFullCompletionReport) {
@@ -807,11 +838,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     }
     if (_isComplete) {
       if (!formValid) return;
-      setState(() {
-        _completionError = context.l10n.productionText(
+      _setCompletionError(
+        context.l10n.productionText(
           'worker.progress.qty.completion_reason',
-        );
-      });
+        ),
+      );
       return;
     }
   }
@@ -1450,80 +1481,97 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             ),
                           ),
                         ],
-                        if (_isComplete ||
-                            (widget.action == 'roll_complete' && isRezka) ||
-                            _isAstatkaReport ||
-                            _isFreezeRequestSafeStop) ...[
-                          const SizedBox(height: 6),
-                          _progressQtySectionLabel(
-                            context,
-                            context.l10n.productionText(
-                              'worker.progress.qty.note',
-                            ),
-                          ),
-                          TextFormField(
-                            controller: _descriptionController,
-                            minLines: 3,
-                            maxLines: 4,
-                            decoration: appSurfaceInputDecoration(
-                              context,
-                              labelText: _isAstatkaReport
-                                  ? context.l10n.productionText(
-                                      'worker.progress.qty.optional_note',
-                                    )
-                                  : (_isFreezeRequestSafeStop ||
-                                          (widget.action == 'roll_complete' &&
-                                              isRezka))
-                                      ? context.l10n.productionText(
-                                          'worker.freeze.safe_stop.issue_note',
-                                        )
-                                      : context.l10n.productionText(
-                                          'worker.progress.qty.reason',
-                                        ),
-                              alignLabelWithHint: true,
-                            ),
-                            onChanged: (_) {
-                              if (_completionError.isNotEmpty) {
-                                setState(() => _completionError = '');
-                              }
-                            },
-                          ),
-                          if (_completionError.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: scheme.errorContainer
-                                    .withValues(alpha: 0.55),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(10),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Icon(
-                                      Icons.error_outline_rounded,
-                                      size: 18,
-                                      color: scheme.error,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        _completionError,
-                                        style:
-                                            theme.textTheme.bodySmall?.copyWith(
-                                          color: scheme.onErrorContainer,
-                                          fontWeight: FontWeight.w600,
-                                          height: 1.3,
+                        if (_descriptionFieldRelevant)
+                          AnimatedSize(
+                            duration: AppMotion.fast,
+                            curve: AppMotion.easeOut,
+                            alignment: Alignment.topCenter,
+                            child: _descriptionFieldRevealed
+                                ? Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      const SizedBox(height: 6),
+                                      _progressQtySectionLabel(
+                                        context,
+                                        context.l10n.productionText(
+                                          'worker.progress.qty.note',
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+                                      TextFormField(
+                                        controller: _descriptionController,
+                                        minLines: 3,
+                                        maxLines: 4,
+                                        decoration: appSurfaceInputDecoration(
+                                          context,
+                                          labelText: _isAstatkaReport
+                                              ? context.l10n.productionText(
+                                                  'worker.progress.qty.optional_note',
+                                                )
+                                              : (_isFreezeRequestSafeStop ||
+                                                      (widget.action ==
+                                                              'roll_complete' &&
+                                                          isRezka))
+                                                  ? context.l10n.productionText(
+                                                      'worker.freeze.safe_stop.issue_note',
+                                                    )
+                                                  : context.l10n.productionText(
+                                                      'worker.progress.qty.reason',
+                                                    ),
+                                          alignLabelWithHint: true,
+                                        ),
+                                        onChanged: (_) {
+                                          if (_completionError.isNotEmpty) {
+                                            setState(
+                                              () => _completionError = '',
+                                            );
+                                          }
+                                        },
+                                      ),
+                                      if (_completionError.isNotEmpty) ...[
+                                        const SizedBox(height: 10),
+                                        DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            color: scheme.errorContainer
+                                                .withValues(alpha: 0.55),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(10),
+                                            child: Row(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Icon(
+                                                  Icons.error_outline_rounded,
+                                                  size: 18,
+                                                  color: scheme.error,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    _completionError,
+                                                    style: theme
+                                                        .textTheme.bodySmall
+                                                        ?.copyWith(
+                                                      color: scheme
+                                                          .onErrorContainer,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      height: 1.3,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
                       ],
                     ),
                   ),
