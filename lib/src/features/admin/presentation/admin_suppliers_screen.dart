@@ -90,6 +90,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _usersScrollController = ScrollController();
   final List<AdminUserListEntry> _items = [];
+  final List<AdminUserListEntry> _authoritativeItems = [];
   final Map<String, AdminUserListEntry> _exitingItems = {};
   final Set<String> _enteringItemKeys = {};
   final List<AdminWorker> _workers = [];
@@ -145,7 +146,10 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     }
   }
 
-  Future<void> _bootstrap({bool forceRefresh = false}) async {
+  Future<void> _bootstrap({
+    bool forceRefresh = false,
+    bool showLoading = true,
+  }) async {
     final generation = ++_requestGeneration;
     final sessionRevision = AppSession.instance.revision.value;
     if (!forceRefresh && _restoreCache(sessionRevision)) {
@@ -157,7 +161,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
 
     if (mounted) {
       setState(() {
-        _initialLoading = true;
+        if (showLoading) {
+          _initialLoading = true;
+        }
         _loadingMore = false;
         _loadError = null;
       });
@@ -206,7 +212,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       setState(() {
         _initialLoading = false;
         _loadingMore = false;
-        _loadError = error;
+        if (showLoading) {
+          _loadError = error;
+        }
       });
     }
   }
@@ -218,6 +226,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   }) {
     final previousIds = _items.map((item) => item.id).toSet();
     final nextIds = page.items.map((item) => item.id).toSet();
+    final previousExitingItems = Map<String, AdminUserListEntry>.of(
+      _exitingItems,
+    );
     final exitingItems = _animateNextListUpdate
         ? _items.where((item) => !nextIds.contains(item.id)).toList()
         : const <AdminUserListEntry>[];
@@ -229,15 +240,22 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         : <String>{};
     final animationGeneration = ++_listAnimationGeneration;
     _animateNextListUpdate = false;
+    _authoritativeQuery = _searchQuery;
 
     setState(() {
       _items
         ..clear()
         ..addAll(page.items);
+      _authoritativeItems
+        ..clear()
+        ..addAll(page.items);
       _exitingItems
         ..clear()
         ..addEntries(
-          exitingItems.map((item) => MapEntry(item.id, item)),
+          [
+            ...previousExitingItems.entries,
+            ...exitingItems.map((item) => MapEntry(item.id, item)),
+          ].where((entry) => !nextIds.contains(entry.key)),
         );
       _enteringItemKeys
         ..clear()
@@ -306,6 +324,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       }
       setState(() {
         _items.addAll(page.items);
+        _authoritativeItems.addAll(page.items);
         _offset += page.items.length;
         _hasMore = page.hasMore;
       });
@@ -432,6 +451,10 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         _items
           ..clear()
           ..addAll(cache.items);
+        _authoritativeItems
+          ..clear()
+          ..addAll(cache.items);
+        _authoritativeQuery = cache.query;
         _workers
           ..clear()
           ..addAll(cache.workers);
@@ -470,6 +493,58 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     }
   }
 
+  bool _matchesLocalSearch(AdminUserListEntry item, String query) {
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty) {
+      return true;
+    }
+    return item.name.toLowerCase().contains(needle) ||
+        item.phone.toLowerCase().contains(needle) ||
+        item.id.toLowerCase().contains(needle) ||
+        item.roleLabel.toLowerCase().contains(needle);
+  }
+
+  bool _canFilterLocally(String query) {
+    return _selectedKind != null &&
+        _authoritativeItems.isNotEmpty &&
+        query.startsWith(_authoritativeQuery);
+  }
+
+  String _authoritativeQuery = '';
+
+  void _applyLocalSearchFilter(String query) {
+    final nextItems = _authoritativeItems
+        .where((item) => _matchesLocalSearch(item, query))
+        .toList(growable: false);
+    final nextIds = nextItems.map((item) => item.id).toSet();
+    final exitingItems = _items
+        .where((item) => !nextIds.contains(item.id))
+        .toList(growable: false);
+    final animationGeneration = ++_listAnimationGeneration;
+    setState(() {
+      _items
+        ..clear()
+        ..addAll(nextItems);
+      _exitingItems
+        ..clear()
+        ..addEntries(exitingItems.map((item) => MapEntry(item.id, item)));
+      _enteringItemKeys.clear();
+      _initialLoading = false;
+      _loadingMore = false;
+      _loadError = null;
+    });
+    if (exitingItems.isNotEmpty) {
+      unawaited(
+        Future<void>.delayed(m3ListMutationAnimationDuration).then((_) {
+          if (!mounted || animationGeneration != _listAnimationGeneration) {
+            return;
+          }
+          setState(() => _exitingItems.clear());
+        }),
+      );
+    }
+  }
+
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
     final query = value.trim();
@@ -477,19 +552,29 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       return;
     }
     _requestGeneration++;
+    final filterLocally = _canFilterLocally(query);
     _animateNextListUpdate = true;
     _listAnimationGeneration++;
     _resetUsersScroll();
     setState(() {
       _searchQuery = query;
-      _exitingItems.clear();
-      _enteringItemKeys.clear();
-      _initialLoading = true;
+      _initialLoading = !filterLocally;
       _loadingMore = false;
       _loadError = null;
     });
+    if (filterLocally) {
+      _applyLocalSearchFilter(query);
+    } else {
+      _exitingItems.clear();
+      _enteringItemKeys.clear();
+    }
     _searchDebounce = Timer(const Duration(milliseconds: 220), () {
-      unawaited(_bootstrap(forceRefresh: true));
+      unawaited(
+        _bootstrap(
+          forceRefresh: true,
+          showLoading: !filterLocally,
+        ),
+      );
     });
   }
 
@@ -512,6 +597,8 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     _resetUsersScroll();
     setState(() {
       _selectedKind = kind;
+      _authoritativeItems.clear();
+      _authoritativeQuery = '';
       _exitingItems.clear();
       _enteringItemKeys.clear();
       _roleMenuOpen = false;

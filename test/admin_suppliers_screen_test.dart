@@ -8,6 +8,7 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_retry_state.dart';
+import 'package:accord_mobile_v2/src/core/widgets/shell/app_loading_indicator.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_suppliers_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_user_create_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_worker_detail_screen.dart';
@@ -759,7 +760,7 @@ void main() {
   });
 
   testWidgets(
-    'admin user search animates removed rows after the new result arrives',
+    'admin user search animates locally removed rows before server reconcile',
     (tester) async {
       final client = _AdminUsersHttpClient(
         userListResponder: (url) async {
@@ -803,19 +804,85 @@ void main() {
         expect(find.text('Ali'), findsOneWidget);
 
         await tester.enterText(search, 'alina');
-        await tester.pump(const Duration(milliseconds: 221));
-        for (var i = 0; i < 20 && find.text('Alina').evaluate().isEmpty; i++) {
-          await tester.pump(const Duration(milliseconds: 10));
-        }
-
-        expect(find.text('Alina'), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 100));
         expect(
           find.byKey(const ValueKey('admin-user-animation-ALI')),
           findsOneWidget,
         );
 
-        await tester.pump(const Duration(milliseconds: 220));
+        await tester.pumpAndSettle();
+        expect(find.text('Alina'), findsOneWidget);
         expect(find.text('Ali'), findsNothing);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+      }, createHttpClient: (_) => client);
+    },
+  );
+
+  testWidgets(
+    'admin user search keeps a verified subset visible while request is pending',
+    (tester) async {
+      final releaseNarrowSearch = Completer<void>();
+      final client = _AdminUsersHttpClient(
+        userListResponder: (url) async {
+          final query = url.queryParameters['q'] ?? '';
+          if (query.isEmpty || query == 'abdu') {
+            return _UserListResponse(
+              items: [
+                _supplierUser('ABDU-SOMA', 'Abdusoma'),
+                _supplierUser('ABDU-LLA', 'Abdulla'),
+              ],
+            );
+          }
+          if (query == 'abdusoma') {
+            await releaseNarrowSearch.future;
+            return _UserListResponse(
+              items: [_supplierUser('ABDU-SOMA', 'Abdusoma')],
+            );
+          }
+          return const _UserListResponse(items: []);
+        },
+      );
+
+      await HttpOverrides.runZoned(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(useMaterial3: true),
+            locale: const Locale('uz'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const AdminSuppliersScreen(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await _selectUserRole(tester, 'Ta’minotchi');
+        expect(find.text('Abdusoma'), findsOneWidget);
+        expect(find.text('Abdulla'), findsOneWidget);
+
+        final search = find.byType(EditableText).first;
+        await tester.enterText(search, 'abdu');
+        await tester.pump(const Duration(milliseconds: 221));
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(find.byType(AppLoadingIndicator), findsNothing);
+        expect(find.text('Abdusoma'), findsOneWidget);
+        expect(find.text('Abdulla'), findsOneWidget);
+
+        await tester.enterText(search, 'abdusoma');
+        await tester.pump(const Duration(milliseconds: 221));
+        await tester.pump(const Duration(milliseconds: 200));
+
+        expect(find.byType(AppLoadingIndicator), findsNothing);
+        expect(find.text('Abdusoma'), findsOneWidget);
+        expect(find.text('Abdulla'), findsNothing);
+
+        releaseNarrowSearch.complete();
+        await tester.pumpAndSettle();
+        expect(find.text('Abdusoma'), findsOneWidget);
 
         await tester.pumpWidget(const SizedBox.shrink());
       }, createHttpClient: (_) => client);
