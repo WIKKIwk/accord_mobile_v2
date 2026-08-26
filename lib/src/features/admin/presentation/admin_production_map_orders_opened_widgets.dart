@@ -28,35 +28,42 @@ class _OpenedOrderList extends StatelessWidget {
       queueStatesByApparatus: queueStatesByApparatus,
       visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
     );
-    return M3SegmentSpacedColumn(
-      children: [
-        for (var index = 0; index < orders.length; index++)
-          _OpenedOrderRow(
-            key: ValueKey('opened-order-${orders[index].map.id.trim()}'),
-            slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-              index,
-              orders.length,
-            ),
-            order: orders[index],
-            customerName:
-                customerNameByMapId[orders[index].map.id.trim()] ?? '',
-            activeApparatuses: _activeApparatusWatermarks(
-              order: orders[index],
-              queueStatesByApparatus: queueStatesByApparatus,
-            ),
-            tone: _resolveOrderCardTone(
-              orderStatus: orderStatusesByOrderId[orders[index].map.id.trim()],
-              orderControl: adminProductionMapOrderControlFor(
-                orderControlsByOrderId,
-                orders[index].map.id.trim(),
-              ),
-              orderActivityState:
-                  orderActivityStates[orders[index].map.id.trim()],
-            ),
-            onInfo: () => onInfoOrder(orders[index]),
-            onLongPress: () => onLongPressOrder(orders[index]),
+    final l10n = context.l10n;
+    final children = <Widget>[];
+    for (var index = 0; index < orders.length; index++) {
+      final order = orders[index];
+      final orderId = order.map.id.trim();
+      final tone = _resolveOrderCardTone(
+        orderStatus: orderStatusesByOrderId[orderId],
+        orderControl: adminProductionMapOrderControlFor(
+          orderControlsByOrderId,
+          orderId,
+        ),
+        orderActivityState: orderActivityStates[orderId],
+      );
+      children.add(
+        _OpenedOrderRow(
+          key: ValueKey('opened-order-$orderId'),
+          slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+            index,
+            orders.length,
           ),
-      ],
+          order: order,
+          customerName: customerNameByMapId[orderId] ?? '',
+          watermarks: _orderWatermarks(
+            order: order,
+            tone: tone,
+            queueStatesByApparatus: queueStatesByApparatus,
+            l10n: l10n,
+          ),
+          tone: tone,
+          onInfo: () => onInfoOrder(order),
+          onLongPress: () => onLongPressOrder(order),
+        ),
+      );
+    }
+    return M3SegmentSpacedColumn(
+      children: children,
     );
   }
 }
@@ -67,7 +74,7 @@ class _OpenedOrderRow extends StatelessWidget {
     required this.slot,
     required this.order,
     required this.customerName,
-    required this.activeApparatuses,
+    required this.watermarks,
     required this.tone,
     required this.onInfo,
     required this.onLongPress,
@@ -76,7 +83,7 @@ class _OpenedOrderRow extends StatelessWidget {
   final M3SegmentVerticalSlot slot;
   final ProductionMapSaved order;
   final String customerName;
-  final List<_ActiveApparatusWatermarkData> activeApparatuses;
+  final List<_OrderWatermarkData> watermarks;
   final _OrderCardTone tone;
   final VoidCallback onInfo;
   final VoidCallback onLongPress;
@@ -102,13 +109,13 @@ class _OpenedOrderRow extends StatelessWidget {
         child: Stack(
           fit: StackFit.passthrough,
           children: [
-            if (activeApparatuses.isNotEmpty)
+            if (watermarks.isNotEmpty)
               Positioned.fill(
-                child: _ActiveApparatusWatermark(
+                child: _OrderWatermark(
                   key: ValueKey(
                     'opened-order-active-watermark-${map.id.trim()}',
                   ),
-                  apparatuses: activeApparatuses,
+                  apparatuses: watermarks,
                 ),
               ),
             Padding(
@@ -158,8 +165,8 @@ class _OpenedOrderRow extends StatelessWidget {
   }
 }
 
-class _ActiveApparatusWatermarkData {
-  const _ActiveApparatusWatermarkData({
+class _OrderWatermarkData {
+  const _OrderWatermarkData({
     required this.label,
     required this.icon,
   });
@@ -168,7 +175,7 @@ class _ActiveApparatusWatermarkData {
   final IconData icon;
 }
 
-List<_ActiveApparatusWatermarkData> _activeApparatusWatermarks({
+List<_OrderWatermarkData> _activeApparatusWatermarks({
   required ProductionMapSaved order,
   required Map<String, Map<String, String>> queueStatesByApparatus,
 }) {
@@ -177,7 +184,7 @@ List<_ActiveApparatusWatermarkData> _activeApparatusWatermarks({
     return const [];
   }
   final seen = <String>{};
-  final active = <_ActiveApparatusWatermarkData>[];
+  final active = <_OrderWatermarkData>[];
   for (final stage in productionMapLinearWorkStages(order.map)) {
     final apparatusId = stage.apparatusId?.trim() ?? '';
     if (apparatusId.isEmpty || !seen.add(apparatusId)) {
@@ -192,13 +199,168 @@ List<_ActiveApparatusWatermarkData> _activeApparatusWatermarks({
         ? stage.displayTitle.trim()
         : apparatusId;
     active.add(
-      _ActiveApparatusWatermarkData(
+      _OrderWatermarkData(
         label: label,
         icon: _activeApparatusIcon(label),
       ),
     );
   }
   return List.unmodifiable(active);
+}
+
+List<_OrderWatermarkData> _orderWatermarks({
+  required ProductionMapSaved order,
+  required _OrderCardTone tone,
+  required Map<String, Map<String, String>> queueStatesByApparatus,
+  required AppLocalizations l10n,
+}) {
+  return switch (tone) {
+    _OrderCardTone.inProgress => _activeApparatusWatermarks(
+        order: order,
+        queueStatesByApparatus: queueStatesByApparatus,
+      ),
+    _OrderCardTone.waitingNextStage => _waitingNextStageWatermarks(
+        order: order,
+        queueStatesByApparatus: queueStatesByApparatus,
+        l10n: l10n,
+      ),
+    _OrderCardTone.paused => _stageStatusWatermarks(
+        order: order,
+        queueStatesByApparatus: queueStatesByApparatus,
+        l10n: l10n,
+        targetState: ApparatusQueueOrderState.paused,
+        statusKey: 'orders.watermark.paused',
+        icon: Icons.pause_circle_outline_rounded,
+      ),
+    _OrderCardTone.frozen => _stageStatusWatermarks(
+        order: order,
+        queueStatesByApparatus: queueStatesByApparatus,
+        l10n: l10n,
+        targetState: ApparatusQueueOrderState.frozen,
+        statusKey: 'orders.watermark.frozen',
+        icon: Icons.error_outline_rounded,
+      ),
+    _OrderCardTone.issue => _stageStatusWatermarks(
+        order: order,
+        queueStatesByApparatus: queueStatesByApparatus,
+        l10n: l10n,
+        targetState: ApparatusQueueOrderState.frozen,
+        statusKey: 'orders.watermark.issue',
+        icon: Icons.error_outline_rounded,
+      ),
+    _OrderCardTone.neutral || _OrderCardTone.completed => const [],
+  };
+}
+
+List<_OrderWatermarkData> _waitingNextStageWatermarks({
+  required ProductionMapSaved order,
+  required Map<String, Map<String, String>> queueStatesByApparatus,
+  required AppLocalizations l10n,
+}) {
+  final orderId = order.map.id.trim();
+  if (orderId.isEmpty) {
+    return const [];
+  }
+  final seen = <String>{};
+  var completedSeen = false;
+  for (final stage in productionMapLinearWorkStages(order.map)) {
+    final apparatusId = stage.apparatusId?.trim() ?? '';
+    if (apparatusId.isEmpty || !seen.add(apparatusId)) {
+      continue;
+    }
+    final state = apparatusQueueOrderStateFromRaw(
+      queueStatesByApparatus[apparatusId]?[orderId],
+    );
+    if (state == ApparatusQueueOrderState.completed) {
+      completedSeen = true;
+      continue;
+    }
+    if (completedSeen && state == ApparatusQueueOrderState.pending) {
+      final label = _stageApparatusLabel(stage, apparatusId);
+      return [
+        _OrderWatermarkData(
+          label: l10n.adminText(
+            'orders.watermark.waiting',
+            values: {'apparatus': label},
+          ),
+          icon: Icons.hourglass_top_rounded,
+        ),
+      ];
+    }
+  }
+  return [
+    _OrderWatermarkData(
+      label: l10n.adminText('orders.watermark.waiting_generic'),
+      icon: Icons.hourglass_top_rounded,
+    ),
+  ];
+}
+
+List<_OrderWatermarkData> _stageStatusWatermarks({
+  required ProductionMapSaved order,
+  required Map<String, Map<String, String>> queueStatesByApparatus,
+  required AppLocalizations l10n,
+  required ApparatusQueueOrderState targetState,
+  required String statusKey,
+  required IconData icon,
+}) {
+  final orderId = order.map.id.trim();
+  if (orderId.isEmpty) {
+    return const [];
+  }
+  final seen = <String>{};
+  final matchingLabels = <String>[];
+  final unfinishedLabels = <String>[];
+  final allLabels = <String>[];
+  for (final stage in productionMapLinearWorkStages(order.map)) {
+    final apparatusId = stage.apparatusId?.trim() ?? '';
+    if (apparatusId.isEmpty || !seen.add(apparatusId)) {
+      continue;
+    }
+    final label = _stageApparatusLabel(stage, apparatusId);
+    allLabels.add(label);
+    final state = apparatusQueueOrderStateFromRaw(
+      queueStatesByApparatus[apparatusId]?[orderId],
+    );
+    if (state == targetState) {
+      matchingLabels.add(label);
+    } else if (state != ApparatusQueueOrderState.completed) {
+      unfinishedLabels.add(label);
+    }
+  }
+  final labels = matchingLabels.isNotEmpty
+      ? matchingLabels
+      : unfinishedLabels.isNotEmpty
+          ? [unfinishedLabels.first]
+          : allLabels.isNotEmpty
+              ? [allLabels.first]
+              : <String>[];
+  if (labels.isEmpty) {
+    return [
+      _OrderWatermarkData(
+        label: l10n.adminText(statusKey),
+        icon: icon,
+      ),
+    ];
+  }
+  return [
+    for (final label in labels)
+      _OrderWatermarkData(
+        label: l10n.adminText(
+          statusKey,
+          values: {'apparatus': label},
+        ),
+        icon: icon,
+      ),
+  ];
+}
+
+String _stageApparatusLabel(
+  ProductionMapChainStage stage,
+  String apparatusId,
+) {
+  final displayTitle = stage.displayTitle.trim();
+  return displayTitle.isNotEmpty ? displayTitle : apparatusId;
 }
 
 IconData _activeApparatusIcon(String label) {
@@ -212,13 +374,13 @@ IconData _activeApparatusIcon(String label) {
   return Icons.print_outlined;
 }
 
-class _ActiveApparatusWatermark extends StatelessWidget {
-  const _ActiveApparatusWatermark({
+class _OrderWatermark extends StatelessWidget {
+  const _OrderWatermark({
     super.key,
     required this.apparatuses,
   });
 
-  final List<_ActiveApparatusWatermarkData> apparatuses;
+  final List<_OrderWatermarkData> apparatuses;
 
   @override
   Widget build(BuildContext context) {
@@ -230,7 +392,7 @@ class _ActiveApparatusWatermark extends StatelessWidget {
               children: [
                 for (final apparatus in apparatuses)
                   Expanded(
-                    child: _ActiveApparatusWatermarkLane(
+                    child: _OrderWatermarkLane(
                       apparatus: apparatus,
                       availableWidth: constraints.maxWidth /
                           (apparatuses.isEmpty ? 1 : apparatuses.length),
@@ -245,13 +407,13 @@ class _ActiveApparatusWatermark extends StatelessWidget {
   }
 }
 
-class _ActiveApparatusWatermarkLane extends StatelessWidget {
-  const _ActiveApparatusWatermarkLane({
+class _OrderWatermarkLane extends StatelessWidget {
+  const _OrderWatermarkLane({
     required this.apparatus,
     required this.availableWidth,
   });
 
-  final _ActiveApparatusWatermarkData apparatus;
+  final _OrderWatermarkData apparatus;
   final double availableWidth;
 
   @override
@@ -265,7 +427,7 @@ class _ActiveApparatusWatermarkLane extends StatelessWidget {
           offset: const Offset(0, _activeWatermarkVerticalShift),
           child: Align(
             alignment: Alignment.center,
-            child: _ActiveApparatusWatermarkStamp(apparatus: apparatus),
+            child: _OrderWatermarkStamp(apparatus: apparatus),
           ),
         ),
       );
@@ -280,7 +442,7 @@ class _ActiveApparatusWatermarkLane extends StatelessWidget {
             Positioned(
               left: start + pitch * index,
               top: (index.isEven ? -6.0 : 6.0) + _activeWatermarkVerticalShift,
-              child: _ActiveApparatusWatermarkStamp(apparatus: apparatus),
+              child: _OrderWatermarkStamp(apparatus: apparatus),
             ),
         ],
       ),
@@ -300,10 +462,10 @@ int _watermarkRepeatCount({
   return (availableWidth / denseWatermarkSlotWidth).floor().clamp(1, 4);
 }
 
-class _ActiveApparatusWatermarkStamp extends StatelessWidget {
-  const _ActiveApparatusWatermarkStamp({required this.apparatus});
+class _OrderWatermarkStamp extends StatelessWidget {
+  const _OrderWatermarkStamp({required this.apparatus});
 
-  final _ActiveApparatusWatermarkData apparatus;
+  final _OrderWatermarkData apparatus;
 
   @override
   Widget build(BuildContext context) {

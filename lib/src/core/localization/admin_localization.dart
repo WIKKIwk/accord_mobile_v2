@@ -6208,6 +6208,31 @@ const Map<String, Map<String, String>> adminTranslations = {
     'en': 'Closed with an issue',
     'ru': 'Закрыто с проблемой',
   },
+  'admin.orders.watermark.waiting': {
+    'uz': 'Keyingi: {apparatus}',
+    'en': 'Next: {apparatus}',
+    'ru': 'Следующий: {apparatus}',
+  },
+  'admin.orders.watermark.waiting_generic': {
+    'uz': 'Keyingi bosqich kutilmoqda',
+    'en': 'Waiting for the next stage',
+    'ru': 'Ожидается следующий этап',
+  },
+  'admin.orders.watermark.paused': {
+    'uz': 'Pauza · {apparatus}',
+    'en': 'Paused · {apparatus}',
+    'ru': 'Пауза · {apparatus}',
+  },
+  'admin.orders.watermark.frozen': {
+    'uz': 'Muzlatilgan · {apparatus}',
+    'en': 'Frozen · {apparatus}',
+    'ru': 'Заморожено · {apparatus}',
+  },
+  'admin.orders.watermark.issue': {
+    'uz': 'Muammo · {apparatus}',
+    'en': 'Issue · {apparatus}',
+    'ru': 'Проблема · {apparatus}',
+  },
   'admin.detail.action_start': {
     'uz': 'Boshladi',
     'en': 'Started',

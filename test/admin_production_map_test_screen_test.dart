@@ -6052,6 +6052,45 @@ void main() {
     );
     await pumpAdminScreen();
     expect(cardColor(), expectedTint(const Color(0xFFF9A825)));
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey(
+            'opened-order-active-watermark-'
+            'zakaz-opened-laminatsiya-status-colors',
+          ),
+        ),
+        matching: find.text('Pauza · Laminatsiya 1'),
+      ),
+      findsNWidgets(4),
+    );
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'resume',
+    );
+    expect(
+      await MobileApi.instance.adminProductionMapOrderControl(
+        orderId: orderId,
+        action: AdminOrderControlAction.freeze,
+      ),
+      AdminOrderControlState.freezeRequested,
+    );
+    await pumpAdminScreen();
+    expect(cardColor(), expectedTint(const Color(0xFFC62828)));
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey(
+            'opened-order-active-watermark-'
+            'zakaz-opened-laminatsiya-status-colors',
+          ),
+        ),
+        matching: find.text('Muzlatilgan · Laminatsiya 1'),
+      ),
+      findsNWidgets(4),
+    );
   });
 
   testWidgets('opened order cards use blue while WIP waits for next stage', (
@@ -6119,6 +6158,15 @@ void main() {
         const Color(0xFF1565C0).withValues(alpha: 0.16),
         theme.colorScheme.surfaceContainerLowest,
       ),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey('opened-order-active-watermark-$orderId'),
+        ),
+        matching: find.text('Keyingi: Laminatsiya 1'),
+      ),
+      findsNWidgets(4),
     );
   });
 
