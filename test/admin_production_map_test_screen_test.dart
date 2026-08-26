@@ -6005,6 +6005,16 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey('opened-order-active-watermark-'
+              'zakaz-opened-laminatsiya-status-colors'),
+        ),
+        matching: find.text('Laminatsiya 1'),
+      ),
+      findsNWidgets(4),
+    );
     expect(find.text('Laminatsiya 1'), findsAtLeastNWidgets(2));
 
     await MobileApi.instance.adminApparatusQueueActionResult(

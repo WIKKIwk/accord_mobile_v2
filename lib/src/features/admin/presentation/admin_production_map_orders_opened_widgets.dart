@@ -257,7 +257,6 @@ class _ActiveApparatusWatermarkLane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final repeatCount = _watermarkRepeatCount(
-      label: apparatus.label,
       availableWidth: availableWidth,
     );
     return ClipRect(
@@ -277,14 +276,13 @@ class _ActiveApparatusWatermarkLane extends StatelessWidget {
 }
 
 int _watermarkRepeatCount({
-  required String label,
   required double availableWidth,
 }) {
   if (!availableWidth.isFinite || availableWidth <= 0) {
     return 1;
   }
-  final estimatedStampWidth = 58 + label.length * 7.2;
-  return (availableWidth / estimatedStampWidth).floor().clamp(1, 4);
+  const denseWatermarkSlotWidth = 80.0;
+  return (availableWidth / denseWatermarkSlotWidth).floor().clamp(1, 4);
 }
 
 class _ActiveApparatusWatermarkStamp extends StatelessWidget {
