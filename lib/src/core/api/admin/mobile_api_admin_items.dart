@@ -418,6 +418,209 @@ extension MobileApiAdminItems on MobileApi {
     return apparatus;
   }
 
+  Future<List<AdminApparatusCollection>> adminApparatusCollections() async {
+    if (await TestModeController.instance.isEnabled()) {
+      final collections = [..._testModeApparatusCollections]..sort(
+          (left, right) =>
+              left.name.toLowerCase().compareTo(right.name.toLowerCase()),
+        );
+      return List.unmodifiable(collections);
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/apparatus-collections',
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode == 404) {
+      return const <AdminApparatusCollection>[];
+    }
+    if (response.statusCode != 200) {
+      throw _adminApiException(
+        response,
+        fallbackCode: 'apparatus_collections_list_failed',
+        fallbackMessage: 'Aparat guruhlari yuklanmadi',
+      );
+    }
+    final json = await decodeJsonListPayload(response.body);
+    return [
+      for (final item in json)
+        AdminApparatusCollection.fromJson(
+          (item as Map).cast<String, dynamic>(),
+        ),
+    ];
+  }
+
+  Future<AdminApparatusCollection> adminCreateApparatusCollection({
+    required String name,
+    required Iterable<String> apparatusIds,
+  }) async {
+    final normalizedName = _normalizedApparatusCollectionName(name);
+    final normalizedIds = _normalizedApparatusCollectionIds(apparatusIds);
+    if (await TestModeController.instance.isEnabled()) {
+      _testModeValidateApparatusCollectionMembers(normalizedIds);
+      if (_testModeApparatusCollections.any(
+        (item) => item.name.toLowerCase() == normalizedName.toLowerCase(),
+      )) {
+        throw const MobileApiException(
+          code: 'apparatus_collection_name_exists',
+          message: 'Bu nomdagi aparat guruhi mavjud',
+          statusCode: 409,
+        );
+      }
+      _testModeApparatusCollectionCounter++;
+      final opaque = _testModeApparatusCollectionCounter
+          .toRadixString(16)
+          .padLeft(32, '0');
+      final collection = AdminApparatusCollection(
+        id: 'apparatus-collection:$opaque',
+        name: normalizedName,
+        apparatusIds: normalizedIds,
+        revision: 1,
+      );
+      _testModeApparatusCollections.add(collection);
+      return collection;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/apparatus-collections',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'name': normalizedName,
+          'apparatus_ids': normalizedIds,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminApiException(
+        response,
+        fallbackCode: 'apparatus_collection_create_failed',
+        fallbackMessage: 'Aparat guruhi yaratilmadi',
+      );
+    }
+    return AdminApparatusCollection.fromJson(
+      await decodeJsonMapPayload(response.body),
+    );
+  }
+
+  Future<AdminApparatusCollection> adminUpdateApparatusCollection({
+    required AdminApparatusCollection collection,
+    required String name,
+    required Iterable<String> apparatusIds,
+  }) async {
+    final normalizedName = _normalizedApparatusCollectionName(name);
+    final normalizedIds = _normalizedApparatusCollectionIds(apparatusIds);
+    if (await TestModeController.instance.isEnabled()) {
+      _testModeValidateApparatusCollectionMembers(normalizedIds);
+      final index = _testModeApparatusCollections.indexWhere(
+        (item) => item.id == collection.id,
+      );
+      if (index < 0) {
+        throw const MobileApiException(
+          code: 'apparatus_collection_not_found',
+          message: 'Aparat guruhi topilmadi',
+          statusCode: 404,
+        );
+      }
+      final current = _testModeApparatusCollections[index];
+      if (current.revision != collection.revision) {
+        throw const MobileApiException(
+          code: 'apparatus_collection_revision_conflict',
+          message: 'Aparat guruhi boshqa joyda o‘zgartirilgan',
+          statusCode: 409,
+        );
+      }
+      if (_testModeApparatusCollections.any(
+        (item) =>
+            item.id != collection.id &&
+            item.name.toLowerCase() == normalizedName.toLowerCase(),
+      )) {
+        throw const MobileApiException(
+          code: 'apparatus_collection_name_exists',
+          message: 'Bu nomdagi aparat guruhi mavjud',
+          statusCode: 409,
+        );
+      }
+      final updated = AdminApparatusCollection(
+        id: current.id,
+        name: normalizedName,
+        apparatusIds: normalizedIds,
+        revision: current.revision + 1,
+      );
+      _testModeApparatusCollections[index] = updated;
+      return updated;
+    }
+    final response = await _sendAuthorized(
+      () => _put(
+        _apparatusCollectionUri(collection.id),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'expected_revision': collection.revision,
+          'name': normalizedName,
+          'apparatus_ids': normalizedIds,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminApiException(
+        response,
+        fallbackCode: 'apparatus_collection_update_failed',
+        fallbackMessage: 'Aparat guruhi saqlanmadi',
+      );
+    }
+    return AdminApparatusCollection.fromJson(
+      await decodeJsonMapPayload(response.body),
+    );
+  }
+
+  Future<void> adminDeleteApparatusCollection(
+    AdminApparatusCollection collection,
+  ) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final index = _testModeApparatusCollections.indexWhere(
+        (item) => item.id == collection.id,
+      );
+      if (index < 0) {
+        throw const MobileApiException(
+          code: 'apparatus_collection_not_found',
+          message: 'Aparat guruhi topilmadi',
+          statusCode: 404,
+        );
+      }
+      if (_testModeApparatusCollections[index].revision !=
+          collection.revision) {
+        throw const MobileApiException(
+          code: 'apparatus_collection_revision_conflict',
+          message: 'Aparat guruhi boshqa joyda o‘zgartirilgan',
+          statusCode: 409,
+        );
+      }
+      _testModeApparatusCollections.removeAt(index);
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => _delete(
+        _apparatusCollectionUri(collection.id),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'expected_revision': collection.revision}),
+      ),
+    );
+    if (response.statusCode != 204) {
+      throw _adminApiException(
+        response,
+        fallbackCode: 'apparatus_collection_delete_failed',
+        fallbackMessage: 'Aparat guruhi o‘chirilmadi',
+      );
+    }
+  }
+
   Future<AdminApparatusMasterOptions> adminApparatusMasterOptions() async {
     if (await TestModeController.instance.isEnabled()) {
       return AdminApparatusMasterOptions.fromJson(
@@ -1578,6 +1781,65 @@ List<AdminApparatus> _testModeApparatusCatalog() {
       trainingMaterialTrackingEnabled: apparatus.trainingEnabled,
     );
   }).toList(growable: false);
+}
+
+String _normalizedApparatusCollectionName(String value) {
+  final name = value.trim();
+  if (name.isEmpty) {
+    throw const MobileApiException(
+      code: 'apparatus_collection_name_required',
+      message: 'Aparat guruhi nomi kiritilmadi',
+    );
+  }
+  if (name.runes.length > 80) {
+    throw const MobileApiException(
+      code: 'apparatus_collection_name_too_long',
+      message: 'Aparat guruhi nomi juda uzun',
+    );
+  }
+  return name;
+}
+
+List<String> _normalizedApparatusCollectionIds(Iterable<String> values) {
+  final raw = values.toList(growable: false);
+  if (raw.length > 500) {
+    throw const MobileApiException(
+      code: 'apparatus_collection_too_many_apparatus',
+      message: 'Aparat guruhida juda ko‘p aparat bor',
+    );
+  }
+  final ids = <String>{};
+  for (final value in raw) {
+    final id = value.trim();
+    if (!canonicalApparatusIdIsValid(id)) {
+      throw const MobileApiException(
+        code: 'apparatus_id_invalid',
+        message: 'Canonical apparat ID noto‘g‘ri',
+      );
+    }
+    ids.add(id);
+  }
+  return List.unmodifiable(ids.toList()..sort());
+}
+
+void _testModeValidateApparatusCollectionMembers(List<String> apparatusIds) {
+  final activeIds = {
+    for (final apparatus in _testModeApparatusCatalog())
+      if (apparatus.isActive) apparatus.id,
+  };
+  if (apparatusIds.any((id) => !activeIds.contains(id))) {
+    throw const MobileApiException(
+      code: 'apparatus_id_invalid',
+      message: 'Canonical apparat ID noto‘g‘ri',
+    );
+  }
+}
+
+Uri _apparatusCollectionUri(String id) {
+  return Uri.parse(
+    '${MobileApi.baseUrl}/v1/mobile/admin/apparatus-collections/'
+    '${Uri.encodeComponent(id.trim())}',
+  );
 }
 
 MobileApiException _adminItemCreateException(http.Response response) {

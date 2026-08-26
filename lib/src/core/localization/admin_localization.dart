@@ -537,6 +537,24 @@ const Map<String, Map<String, String>> adminTranslations = {
     'ru':
         'Группы автоматически формируются из canonical-поля operation. Чтобы изменить группу, отредактируйте тип мастер-данных оборудования.',
   },
+  'admin.apparatus.custom_groups_description': {
+    'uz':
+        'Maxsus guruhlar faqat aparatlar ro‘yxatini tartiblash uchun. Ular canonical operation, navbat yoki ishlab chiqarish jarayonini o‘zgartirmaydi.',
+    'en':
+        'Custom groups only organize the equipment list. They do not change canonical operations, queues, or production workflows.',
+    'ru':
+        'Пользовательские группы только упорядочивают список оборудования. Они не меняют canonical operation, очереди или производство.',
+  },
+  'admin.apparatus.automatic_groups': {
+    'uz': 'Avtomatik guruhlar',
+    'en': 'Automatic groups',
+    'ru': 'Автоматические группы',
+  },
+  'admin.apparatus.custom_groups_empty': {
+    'uz': 'Maxsus guruhlar hali qo‘shilmagan',
+    'en': 'No custom groups yet',
+    'ru': 'Пользовательских групп пока нет',
+  },
   'admin.apparatus.group': {
     'uz': 'Aparat guruhi',
     'en': 'Equipment group',
@@ -551,6 +569,51 @@ const Map<String, Map<String, String>> adminTranslations = {
     'uz': 'Guruhni saqlash',
     'en': 'Save group',
     'ru': 'Сохранить группу',
+  },
+  'admin.apparatus.group_add': {
+    'uz': 'Aparat guruhi qo‘shish',
+    'en': 'Add equipment group',
+    'ru': 'Добавить группу оборудования',
+  },
+  'admin.apparatus.group_edit': {
+    'uz': 'Aparat guruhini tahrirlash',
+    'en': 'Edit equipment group',
+    'ru': 'Изменить группу оборудования',
+  },
+  'admin.apparatus.group_delete': {
+    'uz': 'Aparat guruhini o‘chirish',
+    'en': 'Delete equipment group',
+    'ru': 'Удалить группу оборудования',
+  },
+  'admin.apparatus.group_delete_confirm': {
+    'uz': '{name} guruhi o‘chirilsinmi? Aparatlarning o‘zi o‘chirilmaydi.',
+    'en': 'Delete {name}? The equipment itself will not be deleted.',
+    'ru': 'Удалить группу {name}? Само оборудование не будет удалено.',
+  },
+  'admin.apparatus.group_added': {
+    'uz': 'Aparat guruhi qo‘shildi',
+    'en': 'Equipment group added',
+    'ru': 'Группа оборудования добавлена',
+  },
+  'admin.apparatus.group_updated': {
+    'uz': 'Aparat guruhi saqlandi',
+    'en': 'Equipment group saved',
+    'ru': 'Группа оборудования сохранена',
+  },
+  'admin.apparatus.group_deleted': {
+    'uz': 'Aparat guruhi o‘chirildi',
+    'en': 'Equipment group deleted',
+    'ru': 'Группа оборудования удалена',
+  },
+  'admin.apparatus.group_save_failed': {
+    'uz': 'Aparat guruhi saqlanmadi',
+    'en': 'Equipment group was not saved',
+    'ru': 'Не удалось сохранить группу оборудования',
+  },
+  'admin.apparatus.group_delete_failed': {
+    'uz': 'Aparat guruhi o‘chirilmadi',
+    'en': 'Equipment group was not deleted',
+    'ru': 'Не удалось удалить группу оборудования',
   },
   'admin.apparatus.unassigned': {
     'uz': 'Guruhsiz',

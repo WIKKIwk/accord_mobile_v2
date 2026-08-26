@@ -58,6 +58,16 @@ void main() {
     final printGroup = find.byKey(
       const ValueKey('canonical-apparatus-group-print'),
     );
+    await tester.scrollUntilVisible(
+      printGroup,
+      240,
+      scrollable: find.descendant(
+        of: find.byKey(
+          const ValueKey('canonical-apparatus-groups-list'),
+        ),
+        matching: find.byType(Scrollable),
+      ),
+    );
     expect(printGroup, findsOneWidget);
     expect(find.text('Bosma aparat'), findsOneWidget);
 
@@ -74,6 +84,138 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  test('custom apparatus collections CRUD does not mutate canonical apparatus',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    final before = await MobileApi.instance.adminApparatus(limit: 500);
+
+    final created = await MobileApi.instance.adminCreateApparatusCollection(
+      name: ' Bosma A liniyasi ',
+      apparatusIds: const [
+        'apparatus:default:bosma_8',
+        'apparatus:default:bosma_7',
+        'apparatus:default:bosma_8',
+      ],
+    );
+
+    expect(created.name, 'Bosma A liniyasi');
+    expect(created.revision, 1);
+    expect(created.apparatusIds, const [
+      'apparatus:default:bosma_7',
+      'apparatus:default:bosma_8',
+    ]);
+    expect(await MobileApi.instance.adminApparatusCollections(), [created]);
+
+    final updated = await MobileApi.instance.adminUpdateApparatusCollection(
+      collection: created,
+      name: 'Aralash liniya',
+      apparatusIds: const ['apparatus:default:bosma_7'],
+    );
+    expect(updated.revision, 2);
+    expect(updated.name, 'Aralash liniya');
+
+    await expectLater(
+      MobileApi.instance.adminDeleteApparatusCollection(created),
+      throwsA(
+        isA<MobileApiException>()
+            .having((error) => error.statusCode, 'statusCode', 409),
+      ),
+    );
+
+    await MobileApi.instance.adminDeleteApparatusCollection(updated);
+    expect(await MobileApi.instance.adminApparatusCollections(), isEmpty);
+    expect(
+      (await MobileApi.instance.adminApparatus(limit: 500))
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      before.map((item) => item.toJson()).toList(growable: false),
+    );
+  });
+
+  testWidgets('apparatus groups tab shows custom collection controls', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    final collection = await MobileApi.instance.adminCreateApparatusCollection(
+      name: 'Bosma A liniyasi',
+      apparatusIds: const ['apparatus:default:bosma_7'],
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AdminApparatusSettingsScreen(
+          initialTab: AdminApparatusSettingsTab.groups,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('add-custom-apparatus-collection')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(ValueKey('custom-apparatus-collection-${collection.id}')),
+      findsOneWidget,
+    );
+    expect(find.text('Bosma A liniyasi'), findsOneWidget);
+  });
+
+  testWidgets('admin can create a custom apparatus collection from groups tab',
+      (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AdminApparatusSettingsScreen(
+          initialTab: AdminApparatusSettingsTab.groups,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('add-custom-apparatus-collection')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('apparatus-collection-name')),
+      'Bosma navbatchilar',
+    );
+    final member = find.byKey(
+      const ValueKey(
+        'apparatus-collection-member-apparatus:default:bosma_7',
+      ),
+    );
+    await tester.ensureVisible(member);
+    await tester.tap(member);
+    await tester.tap(find.text('Guruhni saqlash'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bosma navbatchilar'), findsOneWidget);
+    final saved = (await MobileApi.instance.adminApparatusCollections()).single;
+    expect(saved.apparatusIds, const ['apparatus:default:bosma_7']);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
   });
 
   test('custom apparatus keeps its stable id while being renamed', () async {

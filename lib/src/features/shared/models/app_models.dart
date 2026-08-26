@@ -617,6 +617,48 @@ class AdminApparatus {
   }
 }
 
+class AdminApparatusCollection {
+  const AdminApparatusCollection({
+    required this.id,
+    required this.name,
+    required this.apparatusIds,
+    required this.revision,
+  });
+
+  final String id;
+  final String name;
+  final List<String> apparatusIds;
+  final int revision;
+
+  factory AdminApparatusCollection.fromJson(Map<String, dynamic> json) {
+    final id = json['id']?.toString().trim() ?? '';
+    final name = json['name']?.toString().trim() ?? '';
+    final revision = (json['revision'] as num?)?.toInt() ?? 0;
+    final rawApparatusIds = json['apparatus_ids'];
+    if (!RegExp(r'^apparatus-collection:[0-9a-f]{32}$').hasMatch(id) ||
+        name.isEmpty ||
+        revision < 1 ||
+        rawApparatusIds is! List) {
+      throw const FormatException('Invalid apparatus collection');
+    }
+    final apparatusIds = <String>[];
+    final seen = <String>{};
+    for (final rawId in rawApparatusIds) {
+      final apparatusId = rawId.toString().trim();
+      if (!canonicalApparatusIdIsValid(apparatusId)) {
+        throw const FormatException('Invalid collection apparatus id');
+      }
+      if (seen.add(apparatusId)) apparatusIds.add(apparatusId);
+    }
+    return AdminApparatusCollection(
+      id: id,
+      name: name,
+      apparatusIds: List.unmodifiable(apparatusIds),
+      revision: revision,
+    );
+  }
+}
+
 class AdminApparatusMasterOptions {
   const AdminApparatusMasterOptions({
     required this.families,

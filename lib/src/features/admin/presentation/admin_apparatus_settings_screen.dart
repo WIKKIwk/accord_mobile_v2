@@ -53,6 +53,7 @@ class _AdminApparatusSettingsScreenState
 
   late final TabController _tabController;
   List<AdminApparatus> _apparatus = const [];
+  List<AdminApparatusCollection> _collections = const [];
   late AdminApparatusMasterOptions _options;
   bool _loading = true;
   bool _saving = false;
@@ -70,6 +71,7 @@ class _AdminApparatusSettingsScreenState
     final cached = _cache;
     if (cached != null) {
       _apparatus = cached.apparatus;
+      _collections = cached.collections;
       _options = cached.options;
       _loading = false;
       unawaited(_load(showLoading: false));
@@ -96,20 +98,24 @@ class _AdminApparatusSettingsScreenState
       final results = await Future.wait<Object>([
         MobileApi.instance.adminApparatus(limit: 500),
         MobileApi.instance.adminApparatusMasterOptions(),
+        MobileApi.instance.adminApparatusCollections(),
       ]);
       if (!mounted) return;
       final apparatus = [
         ...(results[0] as List<AdminApparatus>).where((item) => item.isActive),
       ]..sort(_compareApparatus);
       final options = results[1] as AdminApparatusMasterOptions;
+      final collections = results[2] as List<AdminApparatusCollection>;
       setState(() {
         _apparatus = apparatus;
+        _collections = collections;
         _options = options;
         _loading = false;
         _loadError = null;
       });
       _cache = _AdminApparatusSettingsCache(
         apparatus: apparatus,
+        collections: collections,
         options: options,
       );
       _maybeOpenFocusedEditor();
@@ -155,7 +161,11 @@ class _AdminApparatusSettingsScreenState
       saved,
     ]..sort(_compareApparatus);
     setState(() => _apparatus = next);
-    _cache = _AdminApparatusSettingsCache(apparatus: next, options: _options);
+    _cache = _AdminApparatusSettingsCache(
+      apparatus: next,
+      collections: _collections,
+      options: _options,
+    );
   }
 
   Future<void> _showEditor([AdminApparatus? current]) async {
@@ -601,14 +611,364 @@ class _AdminApparatusSettingsScreenState
     );
   }
 
+  void _replaceCollection(AdminApparatusCollection saved) {
+    final next = [
+      for (final item in _collections)
+        if (item.id != saved.id) item,
+      saved,
+    ]..sort(
+        (left, right) =>
+            left.name.toLowerCase().compareTo(right.name.toLowerCase()),
+      );
+    setState(() => _collections = next);
+    _cache = _AdminApparatusSettingsCache(
+      apparatus: _apparatus,
+      collections: next,
+      options: _options,
+    );
+  }
+
+  Future<void> _showCollectionEditor([
+    AdminApparatusCollection? current,
+  ]) async {
+    if (_saving) return;
+    var collectionName = current?.name ?? '';
+    final selectedIds = <String>{...?current?.apparatusIds};
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          Future<void> save() async {
+            setState(() => _saving = true);
+            setDialogState(() {});
+            try {
+              final saved = current == null
+                  ? await MobileApi.instance.adminCreateApparatusCollection(
+                      name: collectionName,
+                      apparatusIds: selectedIds,
+                    )
+                  : await MobileApi.instance.adminUpdateApparatusCollection(
+                      collection: current,
+                      name: collectionName,
+                      apparatusIds: selectedIds,
+                    );
+              if (!mounted) return;
+              _replaceCollection(saved);
+              if (dialogContext.mounted) {
+                Navigator.of(dialogContext).pop();
+              }
+              showAdminTopNotice(
+                this.context,
+                this.context.l10n.adminText(
+                      current == null
+                          ? 'apparatus.group_added'
+                          : 'apparatus.group_updated',
+                    ),
+              );
+            } catch (error) {
+              if (mounted) {
+                showAdminTopNotice(
+                  this.context,
+                  error is MobileApiException
+                      ? error.message
+                      : this.context.l10n.adminText(
+                            'apparatus.group_save_failed',
+                          ),
+                );
+              }
+            } finally {
+              if (mounted) setState(() => _saving = false);
+              if (dialogContext.mounted) setDialogState(() {});
+            }
+          }
+
+          return AlertDialog(
+            title: Text(
+              context.l10n.adminText(
+                current == null
+                    ? 'apparatus.group_add'
+                    : 'apparatus.group_edit',
+              ),
+            ),
+            content: SizedBox(
+              width: 520,
+              height: 480,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    key: const ValueKey('apparatus-collection-name'),
+                    initialValue: collectionName,
+                    onChanged: (value) => collectionName = value,
+                    autofocus: true,
+                    maxLength: 80,
+                    decoration: InputDecoration(
+                      labelText: context.l10n.adminText(
+                        'apparatus.group_name',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    context.l10n.adminText('apparatus.available'),
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  Expanded(
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      child: ListView.builder(
+                        itemCount: _apparatus.length,
+                        itemBuilder: (context, index) {
+                          final apparatus = _apparatus[index];
+                          return CheckboxListTile(
+                            key: ValueKey(
+                              'apparatus-collection-member-${apparatus.id}',
+                            ),
+                            value: selectedIds.contains(apparatus.id),
+                            onChanged: _saving
+                                ? null
+                                : (selected) {
+                                    setDialogState(() {
+                                      if (selected == true) {
+                                        selectedIds.add(apparatus.id);
+                                      } else {
+                                        selectedIds.remove(apparatus.id);
+                                      }
+                                    });
+                                  },
+                            secondary: Icon(_apparatusIcon(apparatus)),
+                            title: Text(apparatus.name),
+                            subtitle: Text(
+                              apparatus.id,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed:
+                    _saving ? null : () => Navigator.of(dialogContext).pop(),
+                child: Text(context.l10n.adminText('action.cancel')),
+              ),
+              FilledButton(
+                onPressed: _saving ? null : save,
+                child: _saving
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(
+                        context.l10n.adminText('apparatus.group_save'),
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _deleteCollection(
+    AdminApparatusCollection collection,
+  ) async {
+    if (_saving) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.adminText('apparatus.group_delete')),
+        content: Text(
+          context.l10n.adminText(
+            'apparatus.group_delete_confirm',
+            values: {'name': collection.name},
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(context.l10n.adminText('action.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(context.l10n.adminText('action.delete')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      await MobileApi.instance.adminDeleteApparatusCollection(collection);
+      if (!mounted) return;
+      final next = [
+        for (final item in _collections)
+          if (item.id != collection.id) item,
+      ];
+      setState(() => _collections = next);
+      _cache = _AdminApparatusSettingsCache(
+        apparatus: _apparatus,
+        collections: next,
+        options: _options,
+      );
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('apparatus.group_deleted'),
+      );
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : context.l10n.adminText('apparatus.group_delete_failed'),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   Widget _buildGroups(double bottomPadding) {
     final groups = canonicalApparatusGroups(_apparatus);
+    final apparatusById = {
+      for (final apparatus in _apparatus) apparatus.id: apparatus,
+    };
     return ColoredBox(
       color: AppTheme.shellStart(context),
       child: ListView(
         key: const ValueKey('canonical-apparatus-groups-list'),
         padding: EdgeInsets.fromLTRB(8, 10, 8, bottomPadding),
         children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.folder_copy_outlined),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      context.l10n.adminText(
+                        'apparatus.custom_groups_description',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            key: const ValueKey('add-custom-apparatus-collection'),
+            onPressed: _saving ? null : () => _showCollectionEditor(),
+            icon: const Icon(Icons.add_rounded),
+            label: Text(context.l10n.adminText('apparatus.group_add')),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            context.l10n.adminText('apparatus.saved_groups'),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          if (_collections.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  context.l10n.adminText('apparatus.custom_groups_empty'),
+                ),
+              ),
+            )
+          else
+            for (final collection in _collections)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: ExpansionTile(
+                    key: ValueKey(
+                      'custom-apparatus-collection-${collection.id}',
+                    ),
+                    leading: const Icon(Icons.folder_outlined),
+                    title: Text(collection.name),
+                    subtitle: Text(
+                      context.l10n.adminText(
+                        'apparatus.count',
+                        values: {
+                          'count': '${collection.apparatusIds.length}',
+                        },
+                      ),
+                    ),
+                    trailing: PopupMenuButton<String>(
+                      enabled: !_saving,
+                      onSelected: (action) {
+                        if (action == 'edit') {
+                          unawaited(_showCollectionEditor(collection));
+                        } else if (action == 'delete') {
+                          unawaited(_deleteCollection(collection));
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Text(
+                            context.l10n.adminText('action.edit'),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text(
+                            context.l10n.adminText('action.delete'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    children: [
+                      for (final apparatusId in collection.apparatusIds)
+                        Builder(
+                          builder: (context) {
+                            final apparatus = apparatusById[apparatusId];
+                            return ListTile(
+                              key: ValueKey(
+                                'custom-apparatus-collection-item-'
+                                '${collection.id}-$apparatusId',
+                              ),
+                              leading: Icon(
+                                apparatus == null
+                                    ? Icons.warning_amber_rounded
+                                    : _apparatusIcon(apparatus),
+                              ),
+                              title: Text(apparatus?.name ?? apparatusId),
+                              subtitle: apparatus == null
+                                  ? null
+                                  : SelectableText(apparatusId),
+                              trailing: apparatus == null
+                                  ? null
+                                  : const Icon(Icons.chevron_right_rounded),
+                              onTap: apparatus == null
+                                  ? null
+                                  : () => _showSettings(apparatus),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+          const SizedBox(height: 16),
+          Text(
+            context.l10n.adminText('apparatus.automatic_groups'),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -933,10 +1293,12 @@ class _CanonicalApparatusSettingsCardState
 class _AdminApparatusSettingsCache {
   const _AdminApparatusSettingsCache({
     required this.apparatus,
+    required this.collections,
     required this.options,
   });
 
   final List<AdminApparatus> apparatus;
+  final List<AdminApparatusCollection> collections;
   final AdminApparatusMasterOptions options;
 }
 

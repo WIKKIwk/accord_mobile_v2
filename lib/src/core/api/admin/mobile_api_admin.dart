@@ -2,6 +2,8 @@ part of '../mobile_api.dart';
 
 final List<ProductionMapSaved> _testModeProductionMaps = [];
 final List<AdminApparatus> _testModeApparatus = [];
+final List<AdminApparatusCollection> _testModeApparatusCollections = [];
+int _testModeApparatusCollectionCounter = 0;
 final List<AdminWarehouse> _testModeWarehouses = [];
 final List<AdminWarehouseAssignment> _testModeWarehouseAssignments = [];
 final Map<String, List<String>> _testModeMaterialItemGroups = {};
@@ -107,6 +109,8 @@ void resetMobileApiTestModeData() {
   _testModeAdminItemDetailOverrides.clear();
   _testModeDeletedAdminItemCodes.clear();
   _testModeApparatus.clear();
+  _testModeApparatusCollections.clear();
+  _testModeApparatusCollectionCounter = 0;
   _testModeWarehouses.clear();
   _testModeWarehouseAssignments.clear();
   _testModeMaterialItemGroups.clear();
