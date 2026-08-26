@@ -5989,7 +5989,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Laminatsiya 1'), findsOneWidget);
+    expect(find.text('Laminatsiya 1'), findsAtLeastNWidgets(2));
 
     await MobileApi.instance.adminApparatusQueueActionResult(
       apparatus: apparatus,

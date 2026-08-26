@@ -224,55 +224,108 @@ class _ActiveApparatusWatermark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return ExcludeSemantics(
       child: IgnorePointer(
-        child: Row(
-          children: [
-            for (final apparatus in apparatuses)
-              Expanded(
-                child: Align(
-                  alignment: apparatuses.length == 1
-                      ? Alignment.centerRight
-                      : Alignment.center,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Opacity(
-                      opacity: 0.10,
-                      child: Transform.rotate(
-                        angle: -0.12,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                apparatus.icon,
-                                size: 36,
-                                color: scheme.onSurface,
-                              ),
-                              const SizedBox(width: 7),
-                              Text(
-                                apparatus.label,
-                                maxLines: 1,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleSmall
-                                    ?.copyWith(
-                                      color: scheme.onSurface,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.2,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Row(
+              children: [
+                for (final apparatus in apparatuses)
+                  Expanded(
+                    child: _ActiveApparatusWatermarkLane(
+                      apparatus: apparatus,
+                      availableWidth: constraints.maxWidth /
+                          (apparatuses.isEmpty ? 1 : apparatuses.length),
                     ),
                   ),
-                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ActiveApparatusWatermarkLane extends StatelessWidget {
+  const _ActiveApparatusWatermarkLane({
+    required this.apparatus,
+    required this.availableWidth,
+  });
+
+  final _ActiveApparatusWatermarkData apparatus;
+  final double availableWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final repeatCount = _watermarkRepeatCount(
+      label: apparatus.label,
+      availableWidth: availableWidth,
+    );
+    return ClipRect(
+      child: Row(
+        children: [
+          for (var index = 0; index < repeatCount; index++)
+            Expanded(
+              child: Align(
+                alignment: Alignment.center,
+                child: _ActiveApparatusWatermarkStamp(apparatus: apparatus),
               ),
-          ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+int _watermarkRepeatCount({
+  required String label,
+  required double availableWidth,
+}) {
+  if (!availableWidth.isFinite || availableWidth <= 0) {
+    return 1;
+  }
+  final estimatedStampWidth = 58 + label.length * 7.2;
+  return (availableWidth / estimatedStampWidth).floor().clamp(1, 4);
+}
+
+class _ActiveApparatusWatermarkStamp extends StatelessWidget {
+  const _ActiveApparatusWatermarkStamp({required this.apparatus});
+
+  final _ActiveApparatusWatermarkData apparatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Opacity(
+        opacity: 0.10,
+        child: Transform.rotate(
+          angle: -0.12,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  apparatus.icon,
+                  size: 36,
+                  color: scheme.onSurface,
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  apparatus.label,
+                  maxLines: 1,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: scheme.onSurface,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                      ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
