@@ -139,13 +139,13 @@ void main() {
         id: 'training-0001',
         productCode: 'PROD-42',
         title: 'Demo mahsulot',
-        nodes: const [],
-        edges: const [],
+        nodes: [],
+        edges: [],
       ),
       program: ProductionMapProgram(
         mapId: 'training-0001',
         productCode: 'PROD-42',
-        operations: const [],
+        operations: [],
       ),
     );
     const products = [
@@ -169,19 +169,20 @@ void main() {
     );
   });
 
-  test('training order does not resolve a mold from a partial product code', () {
+  test('training order does not resolve a mold from a partial product code',
+      () {
     const order = ProductionMapSaved(
       map: ProductionMapDefinition(
         id: 'training-0002',
         productCode: 'PROD-42',
         title: 'Demo mahsulot',
-        nodes: const [],
-        edges: const [],
+        nodes: [],
+        edges: [],
       ),
       program: ProductionMapProgram(
         mapId: 'training-0002',
         productCode: 'PROD-42',
-        operations: const [],
+        operations: [],
       ),
     );
 

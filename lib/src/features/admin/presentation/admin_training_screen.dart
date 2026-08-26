@@ -22,6 +22,7 @@ import '../../admin/logic/production_map_chain.dart';
 import '../../admin/models/production_map_models.dart';
 import '../../shared/models/app_models.dart';
 import 'admin_calculate_screen.dart';
+import 'admin_training_order_helpers.dart';
 import 'progress_printer_picker.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
@@ -492,6 +493,8 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         inputBatches: _inputBatchesFor(order),
         onLinkMaterial: () => _linkTrainingMaterial(order),
         onDeleteMaterial: _deleteTrainingMaterial,
+        onPrintMaterialAndQolip: (assignments) =>
+            _printTrainingMaterialAndQolip(order, assignments),
         onGenerateInputBatch: () => _generateTrainingInputBatch(order),
         onBatchTap: _showTrainingInputBatchDetails,
       ),
@@ -807,8 +810,17 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
     if (printer == null) {
       throw StateError(context.l10n.adminText('training.printer_missing'));
     }
-    final printRequest = UsbRpsPrintRequest(
-      epc: barcode,
+    final printRequest = _trainingMaterialPrintRequest(assignment, printer);
+    await _printTrainingLabel(printer, printRequest);
+    return null;
+  }
+
+  UsbRpsPrintRequest _trainingMaterialPrintRequest(
+    AdminRawMaterialAssignment assignment,
+    ProgressPrinterOption printer,
+  ) {
+    return UsbRpsPrintRequest(
+      epc: assignment.barcode.trim(),
       itemCode: assignment.itemCode.trim().isEmpty
           ? 'TRAINING-MATERIAL'
           : assignment.itemCode.trim(),
@@ -825,8 +837,6 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       unit: assignment.stockUom.trim().isEmpty ? 'kg' : assignment.stockUom,
       labelKind: 'material_product',
     );
-    await _printTrainingLabel(printer, printRequest);
-    return null;
   }
 
   Future<AdminRawMaterialAssignment?> _linkTrainingMaterial(
@@ -985,6 +995,115 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       throw StateError(
         detail.isEmpty ? l10n.adminText('training.print_failed') : detail,
       );
+    }
+  }
+
+  Future<bool> _printTrainingMaterialAndQolip(
+    ProductionMapSaved order,
+    List<AdminRawMaterialAssignment> assignments,
+  ) async {
+    final l10n = context.l10n;
+    if (assignments.isEmpty) {
+      showAdminTopNotice(
+        context,
+        l10n.adminText('training.no_material_assigned'),
+        icon: Icons.inventory_2_outlined,
+      );
+      return false;
+    }
+    try {
+      final products = await MobileApi.instance.qolipProducts(
+        query: order.map.productCode,
+        limit: 20,
+        withQolipOnly: true,
+      );
+      final qolip = trainingQolipForOrder(order: order, products: products);
+      if (qolip == null) {
+        throw StateError(l10n.adminText('training.qolip_missing'));
+      }
+      if (!mounted) {
+        return false;
+      }
+      final printer = await pickProgressPrinter(context);
+      if (!mounted || printer == null) {
+        if (mounted) {
+          showAdminTopNotice(
+            context,
+            l10n.adminText('training.printer_missing'),
+            icon: Icons.print_disabled_outlined,
+          );
+        }
+        return false;
+      }
+      for (final assignment in assignments) {
+        if (assignment.barcode.trim().isEmpty) {
+          throw StateError(l10n.adminText('training.material_qr_missing'));
+        }
+        await _printTrainingLabel(
+          printer,
+          _trainingMaterialPrintRequest(assignment, printer),
+        );
+      }
+      await _printTrainingQolipLabel(printer, qolip);
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          l10n.adminText('training.material_qolip_printed'),
+          icon: Icons.print_rounded,
+        );
+      }
+      return true;
+    } catch (error) {
+      if (mounted) {
+        final message = error is MobileApiException
+            ? error.message
+            : error.toString().replaceFirst('Bad state: ', '');
+        showAdminTopNotice(
+          context,
+          message.trim().isEmpty
+              ? l10n.adminText('training.material_qolip_print_failed')
+              : message,
+          icon: Icons.error_outline,
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<void> _printTrainingQolipLabel(
+    ProgressPrinterOption printer,
+    QolipProduct qolip,
+  ) async {
+    final qolipPrintFailedMessage =
+        context.l10n.adminText('training.qolip_print_failed');
+    final code = qolip.qolipCode.trim();
+    if (code.isEmpty) {
+      throw StateError(context.l10n.adminText('training.qolip_missing'));
+    }
+    final selectedPrinter =
+        printer.printer.trim().isEmpty ? 'godex' : printer.printer.trim();
+    final selectedPrintMode =
+        printer.printMode.trim().isEmpty ? 'label' : printer.printMode.trim();
+    final result = await MobileApi.instance.qolipPrintCodeQr(
+      qolipCode: code,
+      driverUrl: printer.driverUrl,
+      printer: selectedPrinter,
+      printMode: selectedPrintMode,
+      customerName: qolip.customerNames.join(', '),
+      qolipColor: qolip.qolipColor,
+      printTransport: printer.transport,
+    );
+    if (!printer.transport.isLocal) {
+      return;
+    }
+    final printResult = await PrintService.printRps(
+      result.printJob,
+      printerProfile: printer.offlinePrinter,
+      bluetoothPrinter: printer.bluetoothPrinter,
+      transport: printer.transport,
+    );
+    if (!printResult.ok) {
+      throw StateError(qolipPrintFailedMessage);
     }
   }
 
@@ -1842,6 +1961,7 @@ class _TrainingOrderDetailsSheet extends StatefulWidget {
     required this.inputBatches,
     required this.onLinkMaterial,
     required this.onDeleteMaterial,
+    required this.onPrintMaterialAndQolip,
     required this.onGenerateInputBatch,
     required this.onBatchTap,
   });
@@ -1852,6 +1972,8 @@ class _TrainingOrderDetailsSheet extends StatefulWidget {
   final List<AdminProgressBatch> inputBatches;
   final Future<AdminRawMaterialAssignment?> Function() onLinkMaterial;
   final Future<bool> Function(AdminRawMaterialAssignment) onDeleteMaterial;
+  final Future<bool> Function(List<AdminRawMaterialAssignment>)
+      onPrintMaterialAndQolip;
   final Future<AdminProgressBatch?> Function() onGenerateInputBatch;
   final ValueChanged<AdminProgressBatch> onBatchTap;
 
@@ -1866,6 +1988,7 @@ class _TrainingOrderDetailsSheetState
   late List<AdminProgressBatch> _inputBatches;
   bool _linking = false;
   bool _generatingInputBatch = false;
+  bool _printingMaterialAndQolip = false;
   String? _deletingMaterialKey;
 
   @override
@@ -1944,6 +2067,20 @@ class _TrainingOrderDetailsSheetState
     } finally {
       if (mounted) {
         setState(() => _deletingMaterialKey = null);
+      }
+    }
+  }
+
+  Future<void> _printMaterialAndQolip() async {
+    if (_printingMaterialAndQolip || _assignments.isEmpty) {
+      return;
+    }
+    setState(() => _printingMaterialAndQolip = true);
+    try {
+      await widget.onPrintMaterialAndQolip(_assignments);
+    } finally {
+      if (mounted) {
+        setState(() => _printingMaterialAndQolip = false);
       }
     }
   }
@@ -2130,6 +2267,25 @@ class _TrainingOrderDetailsSheetState
               ],
               if (_assignments.isNotEmpty) ...[
                 const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  key: const ValueKey('training-print-material-qolip'),
+                  onPressed:
+                      _printingMaterialAndQolip ? null : _printMaterialAndQolip,
+                  icon: _printingMaterialAndQolip
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.print_outlined),
+                  label: Text(
+                    _printingMaterialAndQolip
+                        ? l10n.adminText(
+                            'training.printing_material_qolip',
+                          )
+                        : l10n.adminText('training.print_material_qolip'),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 _TrainingOrderDetailsSection(
                   title: l10n.adminText('training.assigned_materials'),
                   icon: Icons.inventory_2_outlined,

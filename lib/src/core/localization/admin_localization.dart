@@ -2374,6 +2374,31 @@ const Map<String, Map<String, String>> adminTranslations = {
     'en': 'Printer server not found',
     'ru': 'Сервер принтера не найден',
   },
+  'admin.training.print_material_qolip': {
+    'uz': 'Qolip + homashyo chiqarish',
+    'en': 'Print mold + material',
+    'ru': 'Напечатать форму + сырьё',
+  },
+  'admin.training.printing_material_qolip': {
+    'uz': 'Qolip + homashyo chiqarilmoqda…',
+    'en': 'Printing mold + material…',
+    'ru': 'Печать формы + сырья…',
+  },
+  'admin.training.material_qolip_printed': {
+    'uz': 'Qolip va ulangan homashyolar chop etildi',
+    'en': 'The mold and assigned materials were printed',
+    'ru': 'Форма и назначенное сырьё напечатаны',
+  },
+  'admin.training.material_qolip_print_failed': {
+    'uz': 'Qolip va homashyolar chop etilmadi',
+    'en': 'The mold and materials could not be printed',
+    'ru': 'Не удалось напечатать форму и сырьё',
+  },
+  'admin.training.qolip_missing': {
+    'uz': 'Bu order productiga qolip biriktirilmagan',
+    'en': 'No mold is assigned to this order product',
+    'ru': 'К продукту этого заказа не привязана форма',
+  },
   'admin.training.order_details': {
     'uz': 'Training order ma’lumotlari',
     'en': 'Training order details',
