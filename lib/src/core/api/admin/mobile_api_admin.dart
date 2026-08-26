@@ -2990,6 +2990,7 @@ bool adminProgressBatchIsFinishedGoodsOutput({
 
 class AdminProductionOrderStatusDetail {
   const AdminProductionOrderStatusDetail({
+    this.lifecycleStatus = '',
     this.orderStatus = '',
     this.workStatus = '',
     this.flowStatus = '',
@@ -3009,6 +3010,7 @@ class AdminProductionOrderStatusDetail {
     this.completedWithIssueCount = 0,
   });
 
+  final String lifecycleStatus;
   final String orderStatus;
   final String workStatus;
   final String flowStatus;
@@ -3033,6 +3035,7 @@ class AdminProductionOrderStatusDetail {
     }
     final json = raw.cast<String, dynamic>();
     return AdminProductionOrderStatusDetail(
+      lifecycleStatus: json['lifecycle_status']?.toString() ?? '',
       orderStatus: json['order_status']?.toString() ?? '',
       workStatus: json['work_status']?.toString() ?? '',
       flowStatus: json['flow_status']?.toString() ?? '',
@@ -3061,11 +3064,13 @@ class AdminProductionOrderStatusDetail {
   }
 
   AdminProductionOrderStatusDetail copyWith({
+    String? lifecycleStatus,
     String? orderStatus,
     String? workStatus,
     String? flowStatus,
   }) {
     return AdminProductionOrderStatusDetail(
+      lifecycleStatus: lifecycleStatus ?? this.lifecycleStatus,
       orderStatus: orderStatus ?? this.orderStatus,
       workStatus: workStatus ?? this.workStatus,
       flowStatus: flowStatus ?? this.flowStatus,

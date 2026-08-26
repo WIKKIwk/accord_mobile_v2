@@ -100,6 +100,7 @@ void main() {
       },
       'order_statuses': const {
         'zakaz-visible-alt': {
+          'lifecycle_status': 'in_progress',
           'order_status': 'in_progress',
           'active_session_count': 1,
         },
@@ -136,6 +137,10 @@ void main() {
     );
     expect(
       snapshot.orderStatuses['zakaz-visible-alt']?.orderStatus,
+      'in_progress',
+    );
+    expect(
+      snapshot.orderStatuses['zakaz-visible-alt']?.lifecycleStatus,
       'in_progress',
     );
     expect(
