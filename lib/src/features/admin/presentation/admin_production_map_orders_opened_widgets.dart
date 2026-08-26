@@ -259,15 +259,25 @@ class _ActiveApparatusWatermarkLane extends StatelessWidget {
     final repeatCount = _watermarkRepeatCount(
       availableWidth: availableWidth,
     );
+    if (repeatCount == 1) {
+      return ClipRect(
+        child: Align(
+          alignment: Alignment.center,
+          child: _ActiveApparatusWatermarkStamp(apparatus: apparatus),
+        ),
+      );
+    }
+    final pitch = (availableWidth / repeatCount).clamp(96.0, 128.0).toDouble();
+    final start = (availableWidth - pitch * repeatCount) / 2;
     return ClipRect(
-      child: Row(
+      child: Stack(
+        fit: StackFit.expand,
         children: [
           for (var index = 0; index < repeatCount; index++)
-            Expanded(
-              child: Align(
-                alignment: Alignment.center,
-                child: _ActiveApparatusWatermarkStamp(apparatus: apparatus),
-              ),
+            Positioned(
+              left: start + pitch * index,
+              top: index.isEven ? -6 : 6,
+              child: _ActiveApparatusWatermarkStamp(apparatus: apparatus),
             ),
         ],
       ),
@@ -299,28 +309,25 @@ class _ActiveApparatusWatermarkStamp extends StatelessWidget {
         opacity: 0.10,
         child: Transform.rotate(
           angle: -0.12,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  apparatus.icon,
-                  size: 36,
-                  color: scheme.onSurface,
-                ),
-                const SizedBox(width: 7),
-                Text(
-                  apparatus.label,
-                  maxLines: 1,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: scheme.onSurface,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.2,
-                      ),
-                ),
-              ],
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                apparatus.icon,
+                size: 36,
+                color: scheme.onSurface,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                apparatus.label,
+                maxLines: 1,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: scheme.onSurface,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.2,
+                    ),
+              ),
+            ],
           ),
         ),
       ),
