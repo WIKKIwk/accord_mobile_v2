@@ -2307,6 +2307,15 @@ void main() {
 
       await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
       await tester.pumpAndSettle();
+      final detailBottomSheet = tester.widget<BottomSheet>(
+        find.byType(BottomSheet).first,
+      );
+      expect(detailBottomSheet.shape, isA<RoundedRectangleBorder>());
+      expect(
+        (detailBottomSheet.shape! as RoundedRectangleBorder).borderRadius,
+        const BorderRadius.vertical(top: Radius.circular(28)),
+      );
+      expect(detailBottomSheet.clipBehavior, Clip.antiAlias);
       expect(find.text('Zakaz kodi'), findsOneWidget);
       expect(
         find.text('Kutilayotgan buyurtma ko‘rsatkichlari'),

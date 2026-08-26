@@ -102,6 +102,9 @@ enum _OrderLongPressAction {
 
 const double _openedOrderPanelCardGap = 4;
 const double _openedOrderPanelTopGap = 8;
+const ShapeBorder _orderDetailSheetShape = RoundedRectangleBorder(
+  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+);
 
 Future<void> showAdminProductionMapOrderReadOnlyDetail(
   BuildContext context, {
@@ -129,6 +132,8 @@ Future<void> showAdminProductionMapOrderReadOnlyDetail(
     useSafeArea: true,
     isDismissible: false,
     enableDrag: false,
+    shape: _orderDetailSheetShape,
+    clipBehavior: Clip.antiAlias,
     builder: (context) => _ReadOnlyOrderDetailSheet(
       order: order,
       apparatus: apparatus,
@@ -205,6 +210,8 @@ Future<bool> showProductionMapFreezePauseFlow(
     useSafeArea: true,
     isDismissible: false,
     enableDrag: false,
+    shape: _orderDetailSheetShape,
+    clipBehavior: Clip.antiAlias,
     builder: (context) => _ReadOnlyOrderDetailSheet(
       order: order,
       apparatus: target,
@@ -473,6 +480,8 @@ class _AdminProductionMapOrdersScreenState
       useSafeArea: true,
       isDismissible: false,
       enableDrag: false,
+      shape: _orderDetailSheetShape,
+      clipBehavior: Clip.antiAlias,
       sheetAnimationStyle: AppMotion.sheetEaseOut,
       builder: (context) => _ReadOnlyOrderDetailSheet(
         order: order,
@@ -502,6 +511,8 @@ class _AdminProductionMapOrdersScreenState
       useSafeArea: true,
       isDismissible: false,
       enableDrag: false,
+      shape: _orderDetailSheetShape,
+      clipBehavior: Clip.antiAlias,
       sheetAnimationStyle: AppMotion.sheetEaseOut,
       builder: (context) => _ReadOnlyOrderDetailSheet(
         order: order,
