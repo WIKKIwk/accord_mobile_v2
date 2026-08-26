@@ -6025,6 +6025,23 @@ void main() {
       ),
       findsNothing,
     );
+    final cardRect = tester.getRect(find.byKey(const ValueKey('opened-order-'
+        'zakaz-opened-laminatsiya-status-colors')));
+    final watermarkTextRect = tester.getRect(
+      find
+          .descendant(
+            of: find.byKey(
+              const ValueKey('opened-order-active-watermark-'
+                  'zakaz-opened-laminatsiya-status-colors'),
+            ),
+            matching: find.text('Laminatsiya 1'),
+          )
+          .first,
+    );
+    expect(
+      watermarkTextRect.center.dy,
+      greaterThan(cardRect.top + cardRect.height * 0.25),
+    );
     expect(find.text('Laminatsiya 1'), findsAtLeastNWidgets(2));
 
     await MobileApi.instance.adminApparatusQueueActionResult(

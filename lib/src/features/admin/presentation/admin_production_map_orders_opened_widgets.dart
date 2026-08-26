@@ -261,9 +261,12 @@ class _ActiveApparatusWatermarkLane extends StatelessWidget {
     );
     if (repeatCount == 1) {
       return ClipRect(
-        child: Align(
-          alignment: Alignment.center,
-          child: _ActiveApparatusWatermarkStamp(apparatus: apparatus),
+        child: Transform.translate(
+          offset: const Offset(0, _activeWatermarkVerticalShift),
+          child: Align(
+            alignment: Alignment.center,
+            child: _ActiveApparatusWatermarkStamp(apparatus: apparatus),
+          ),
         ),
       );
     }
@@ -276,7 +279,7 @@ class _ActiveApparatusWatermarkLane extends StatelessWidget {
           for (var index = 0; index < repeatCount; index++)
             Positioned(
               left: start + pitch * index,
-              top: index.isEven ? -6 : 6,
+              top: (index.isEven ? -6.0 : 6.0) + _activeWatermarkVerticalShift,
               child: _ActiveApparatusWatermarkStamp(apparatus: apparatus),
             ),
         ],
@@ -284,6 +287,8 @@ class _ActiveApparatusWatermarkLane extends StatelessWidget {
     );
   }
 }
+
+const _activeWatermarkVerticalShift = 8.0;
 
 int _watermarkRepeatCount({
   required double availableWidth,
