@@ -132,4 +132,72 @@ void main() {
       ['Laminatsiya 1'],
     );
   });
+
+  test('training order resolves its mold by exact product code', () {
+    const order = ProductionMapSaved(
+      map: ProductionMapDefinition(
+        id: 'training-0001',
+        productCode: 'PROD-42',
+        title: 'Demo mahsulot',
+        nodes: const [],
+        edges: const [],
+      ),
+      program: ProductionMapProgram(
+        mapId: 'training-0001',
+        productCode: 'PROD-42',
+        operations: const [],
+      ),
+    );
+    const products = [
+      QolipProduct(
+        code: 'PROD-4',
+        name: 'Boshqa mahsulot',
+        itemGroup: 'group',
+        qolipCode: 'MOLD-WRONG',
+      ),
+      QolipProduct(
+        code: 'PROD-42',
+        name: 'Demo mahsulot',
+        itemGroup: 'group',
+        qolipCode: 'MOLD-42',
+      ),
+    ];
+
+    expect(
+      trainingQolipForOrder(order: order, products: products)?.qolipCode,
+      'MOLD-42',
+    );
+  });
+
+  test('training order does not resolve a mold from a partial product code', () {
+    const order = ProductionMapSaved(
+      map: ProductionMapDefinition(
+        id: 'training-0002',
+        productCode: 'PROD-42',
+        title: 'Demo mahsulot',
+        nodes: const [],
+        edges: const [],
+      ),
+      program: ProductionMapProgram(
+        mapId: 'training-0002',
+        productCode: 'PROD-42',
+        operations: const [],
+      ),
+    );
+
+    expect(
+      trainingQolipForOrder(
+        order: order,
+        products: const [
+          QolipProduct(
+            code: 'PROD-4',
+            name: 'Boshqa mahsulot',
+            itemGroup: 'group',
+            qolipCode: 'MOLD-WRONG',
+          ),
+        ],
+      ),
+      isNull,
+    );
+  });
 }

@@ -7,6 +7,23 @@ bool trainingOrderHasApparatus(ProductionMapDefinition map) {
   );
 }
 
+QolipProduct? trainingQolipForOrder({
+  required ProductionMapSaved order,
+  required Iterable<QolipProduct> products,
+}) {
+  final productCode = order.map.productCode.trim().toLowerCase();
+  if (productCode.isEmpty) {
+    return null;
+  }
+  for (final product in products) {
+    if (product.code.trim().toLowerCase() == productCode &&
+        product.qolipCode.trim().isNotEmpty) {
+      return product;
+    }
+  }
+  return null;
+}
+
 ProductionMapDefinition assignTrainingOrderToApparatus({
   required ProductionMapDefinition map,
   required AdminApparatus apparatus,
