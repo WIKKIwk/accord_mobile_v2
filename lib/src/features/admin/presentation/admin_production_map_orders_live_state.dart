@@ -132,6 +132,7 @@ extension _AdminProductionMapOrdersLiveState
       _workerCompletedHistoryError = false;
       _workerCompletedHistoryErrorMessage = null;
       _completionRequests = snapshot.completionRequests;
+      _completionRequestsErrorMessage = null;
       _loading = false;
       if (_queueSnapshotContractError) {
         _queueSnapshotContractError = false;
@@ -413,15 +414,26 @@ extension _AdminProductionMapOrdersLiveState
       return;
     }
     try {
-      final closed = await _loadClosedProductionMapOrders();
+      final loader =
+          widget.closedOrdersLoader ?? _loadClosedProductionMapOrders;
+      final closed = await loader();
       if (!mounted) {
         return;
       }
       _updateScreenState(() {
         _closedOrders = closed;
+        _closedOrdersErrorMessage = null;
       });
-    } catch (_) {
-      return;
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _updateScreenState(() {
+        _closedOrdersErrorMessage =
+            error is MobileApiException && error.message.trim().isNotEmpty
+                ? error.message
+                : 'Yopilgan orderlar yuklanmadi';
+      });
     }
   }
 
@@ -430,15 +442,26 @@ extension _AdminProductionMapOrdersLiveState
       return;
     }
     try {
-      final requests = await _loadProductionMapCompletionRequests();
+      final loader = widget.completionRequestsLoader ??
+          _loadProductionMapCompletionRequests;
+      final requests = await loader();
       if (!mounted) {
         return;
       }
       _updateScreenState(() {
         _completionRequests = requests;
+        _completionRequestsErrorMessage = null;
       });
-    } catch (_) {
-      return;
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _updateScreenState(() {
+        _completionRequestsErrorMessage =
+            error is MobileApiException && error.message.trim().isNotEmpty
+                ? error.message
+                : 'Tugatish so‘rovlari yuklanmadi';
+      });
     }
   }
 

@@ -2166,6 +2166,94 @@ void main() {
     );
   });
 
+  testWidgets('closed orders failure is visible and retry clears it', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    var loadCount = 0;
+    await _usePhoneViewport(tester);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AdminProductionMapOrdersScreen(
+          closedOrdersLoader: () async {
+            loadCount++;
+            if (loadCount == 1) {
+              throw const MobileApiException(
+                code: 'closed_orders',
+                message: 'Yopilgan orderlar yuklanmadi',
+              );
+            }
+            return const [];
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Yopilgan orderlar yuklanmadi'), findsOneWidget);
+    expect(find.text('Ochilgan zakaz qidirish'), findsOneWidget);
+
+    await tester.tap(find.text('Qayta urinish'));
+    await tester.pumpAndSettle();
+
+    expect(loadCount, 2);
+    expect(find.text('Yopilgan orderlar yuklanmadi'), findsNothing);
+  });
+
+  testWidgets('completion requests failure is visible and retry clears it', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    var loadCount = 0;
+    await _usePhoneViewport(tester);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AdminProductionMapOrdersScreen(
+          completionRequestsLoader: () async {
+            loadCount++;
+            if (loadCount == 1) {
+              throw const MobileApiException(
+                code: 'completion_requests',
+                message: 'Tugatish so‘rovlari yuklanmadi',
+              );
+            }
+            return const [];
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tugatish so‘rovlari yuklanmadi'), findsOneWidget);
+    expect(find.text('Ochilgan zakaz qidirish'), findsOneWidget);
+
+    await tester.tap(find.text('Qayta urinish'));
+    await tester.pumpAndSettle();
+
+    expect(loadCount, 2);
+    expect(find.text('Tugatish so‘rovlari yuklanmadi'), findsNothing);
+  });
+
   testWidgets(
     'opened production map order info sheet shows readable order details',
     (tester) async {

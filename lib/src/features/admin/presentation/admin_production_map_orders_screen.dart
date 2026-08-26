@@ -245,12 +245,17 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
     this.workerMode = false,
     this.supplyViewerMode = false,
     this.progressDriverUrlPicker,
+    this.closedOrdersLoader,
+    this.completionRequestsLoader,
   }) : assert(!(workerMode && supplyViewerMode));
 
   final bool readOnly;
   final bool workerMode;
   final bool supplyViewerMode;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
+  final Future<List<AdminClosedProductionOrder>> Function()? closedOrdersLoader;
+  final Future<List<AdminCompletionRequestNotification>> Function()?
+      completionRequestsLoader;
 
   @override
   State<AdminProductionMapOrdersScreen> createState() =>
@@ -274,6 +279,8 @@ class _AdminProductionMapOrdersScreenState
   String? _queueSnapshotErrorMessage;
   bool _workerCompletedHistoryError = false;
   String? _workerCompletedHistoryErrorMessage;
+  String? _closedOrdersErrorMessage;
+  String? _completionRequestsErrorMessage;
   int _liveStreamGeneration = 0;
   int _queueSnapshotGeneration = 0;
   StreamSubscription<AdminProductionMapLiveSnapshot>? _liveStreamSubscription;
@@ -1373,6 +1380,17 @@ class _AdminProductionMapOrdersScreenState
                         message: _workerCompletedHistoryErrorMessage ??
                             context.l10n.productionText('worker.error.sync'),
                         onRetry: _refreshWorkerCompletedOrders,
+                      ),
+                    if (!widget.workerMode &&
+                        _completionRequestsErrorMessage != null)
+                      _QueueSnapshotWarningBanner(
+                        message: _completionRequestsErrorMessage!,
+                        onRetry: _refreshCompletionRequests,
+                      ),
+                    if (!widget.workerMode && _closedOrdersErrorMessage != null)
+                      _QueueSnapshotWarningBanner(
+                        message: _closedOrdersErrorMessage!,
+                        onRetry: _refreshClosedOrders,
                       ),
                     Expanded(
                       child: widget.workerMode
