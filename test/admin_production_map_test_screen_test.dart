@@ -5725,7 +5725,7 @@ void main() {
     }
 
     await pumpWorkerScreen();
-    expect(cardColor(), expectedTint(const Color(0xFF1565C0)));
+    expect(cardColor(), expectedTint(const Color(0xFF2E7D32)));
 
     await MobileApi.instance.adminApparatusQueueActionResult(
       apparatus: apparatus,
@@ -5981,7 +5981,15 @@ void main() {
     }
 
     await pumpAdminScreen();
-    expect(cardColor(), expectedTint(const Color(0xFF1565C0)));
+    expect(cardColor(), expectedTint(const Color(0xFF2E7D32)));
+    expect(
+      find.byKey(
+        const ValueKey('opened-order-active-watermark-'
+            'zakaz-opened-laminatsiya-status-colors'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Laminatsiya 1'), findsOneWidget);
 
     await MobileApi.instance.adminApparatusQueueActionResult(
       apparatus: apparatus,
@@ -5991,6 +5999,74 @@ void main() {
     );
     await pumpAdminScreen();
     expect(cardColor(), expectedTint(const Color(0xFFF9A825)));
+  });
+
+  testWidgets('opened order cards use blue while WIP waits for next stage', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    const orderId = 'zakaz-opened-wip-next-stage';
+    await MobileApi.instance.adminSaveProductionMap(
+      _twoStageProductionOrderMap(
+        id: orderId,
+        title: 'Opened WIP next stage',
+        productCode: 'OWNP',
+        product: 'opened WIP next stage product',
+        firstApparatusId: _print7Id,
+        secondApparatusId: _lamination1Id,
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: _print7Id,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: _lamination1Id,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: _print7Id,
+      orderId: orderId,
+      action: 'start',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: _print7Id,
+      orderId: orderId,
+      action: 'complete',
+      producedQty: 12,
+      grossQty: 9,
+      uom: 'm',
+    );
+    await _usePhoneViewport(tester);
+    final theme = ThemeData(useMaterial3: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final row = find.byKey(const ValueKey('opened-order-$orderId'));
+    expect(row, findsOneWidget);
+    final card = tester.widget<Material>(
+      find.descendant(of: row, matching: find.byType(Material)).first,
+    );
+    expect(
+      card.color,
+      Color.alphaBlend(
+        const Color(0xFF1565C0).withValues(alpha: 0.16),
+        theme.colorScheme.surfaceContainerLowest,
+      ),
+    );
   });
 
   testWidgets('opened order cards refresh after another worker pauses', (
@@ -6052,7 +6128,7 @@ void main() {
       );
     }
 
-    expect(cardColor(), expectedTint(const Color(0xFF1565C0)));
+    expect(cardColor(), expectedTint(const Color(0xFF2E7D32)));
 
     await MobileApi.instance.adminApparatusQueueActionResult(
       apparatus: apparatus,

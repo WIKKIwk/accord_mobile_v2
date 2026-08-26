@@ -9,6 +9,7 @@ class _OrdersModulePage extends StatelessWidget {
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
     required this.queueStatesByApparatus,
+    required this.visibleOrderIdsByApparatus,
     required this.onInfoOrder,
     required this.onLongPressOrder,
   });
@@ -20,6 +21,7 @@ class _OrdersModulePage extends StatelessWidget {
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, List<String>> visibleOrderIdsByApparatus;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
@@ -48,6 +50,7 @@ class _OrdersModulePage extends StatelessWidget {
             orderStatusesByOrderId: orderStatusesByOrderId,
             orderControlsByOrderId: orderControlsByOrderId,
             queueStatesByApparatus: queueStatesByApparatus,
+            visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
             onInfoOrder: onInfoOrder,
             onLongPressOrder: onLongPressOrder,
           ),
@@ -89,6 +92,7 @@ class _AdminModulesBody extends StatelessWidget {
     required this.onMove,
     required this.customerNameByMapId,
     required this.queueStatesByApparatus,
+    required this.visibleOrderIdsByApparatus,
     required this.frozenOrdersByApparatus,
     required this.orderStatusesByOrderId,
     required this.qolipOrderNotesByOrderId,
@@ -155,6 +159,7 @@ class _AdminModulesBody extends StatelessWidget {
   })? onInfoSequenceOrder;
   final Map<String, String> customerNameByMapId;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, List<String>> visibleOrderIdsByApparatus;
   final Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminQolipOrderNote> qolipOrderNotesByOrderId;
@@ -214,6 +219,7 @@ class _AdminModulesBody extends StatelessWidget {
                       orderStatusesByOrderId: orderStatusesByOrderId,
                       orderControlsByOrderId: orderControlsByOrderId,
                       queueStatesByApparatus: queueStatesByApparatus,
+                      visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
                       onInfoOrder: onInfoOrder,
                       onLongPressOrder: onLongPressOrder,
                     ),

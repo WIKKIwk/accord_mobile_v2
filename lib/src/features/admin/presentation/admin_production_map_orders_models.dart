@@ -256,6 +256,7 @@ bool _sameMoveApparatusIdentity(
 enum _OrderCardTone {
   neutral,
   inProgress,
+  waitingNextStage,
   paused,
   frozen,
   issue,
@@ -284,10 +285,11 @@ _OrderCardTone _resolveOrderCardTone({
   if (status == 'paused') {
     return _OrderCardTone.paused;
   }
-  if (status == 'in_progress' ||
-      status == 'waiting_next_stage' ||
-      status == 'partially_completed') {
+  if (status == 'in_progress') {
     return _OrderCardTone.inProgress;
+  }
+  if (status == 'waiting_next_stage' || status == 'partially_completed') {
+    return _OrderCardTone.waitingNextStage;
   }
   if (status == 'completed' ||
       lifecycleStatus == 'production_completed' ||
@@ -306,9 +308,9 @@ _OrderCardTone _resolveOrderCardTone({
       };
   if (activityState != null) {
     return switch (activityState) {
-      OrderQueueActivityState.inProgress ||
+      OrderQueueActivityState.inProgress => _OrderCardTone.inProgress,
       OrderQueueActivityState.waitingNextStage =>
-        _OrderCardTone.inProgress,
+        _OrderCardTone.waitingNextStage,
       OrderQueueActivityState.paused => _OrderCardTone.paused,
       OrderQueueActivityState.frozen => _OrderCardTone.frozen,
       OrderQueueActivityState.completed => _OrderCardTone.completed,
@@ -327,7 +329,8 @@ Color? _orderCardBackgroundColor(
   }
   final theme = Theme.of(context);
   final accent = switch (tone) {
-    _OrderCardTone.inProgress => const Color(0xFF1565C0),
+    _OrderCardTone.inProgress => const Color(0xFF2E7D32),
+    _OrderCardTone.waitingNextStage => const Color(0xFF1565C0),
     _OrderCardTone.paused => const Color(0xFFF9A825),
     _OrderCardTone.frozen => const Color(0xFFC62828),
     _OrderCardTone.issue => const Color(0xFFC62828),

@@ -104,6 +104,35 @@ void main() {
       ),
       OrderQueueActivityState.completed,
     );
+    expect(
+      queueActivityStatesForOrders(
+        orderIds: const [
+          'zakaz-active',
+          'zakaz-between-stages',
+          'zakaz-visible-waiting',
+        ],
+        queueStatesByApparatus: const {
+          _printId: {
+            'zakaz-active': 'completed',
+            'zakaz-between-stages': 'completed',
+          },
+          _cutId: {'zakaz-active': 'in_progress'},
+        },
+        visibleOrderIdsByApparatus: const {
+          _printId: [
+            'zakaz-active',
+            'zakaz-between-stages',
+            'zakaz-visible-waiting',
+          ],
+          _cutId: ['zakaz-active', 'zakaz-between-stages'],
+        },
+      ),
+      const {
+        'zakaz-active': OrderQueueActivityState.inProgress,
+        'zakaz-between-stages': OrderQueueActivityState.waitingNextStage,
+        'zakaz-visible-waiting': OrderQueueActivityState.pending,
+      },
+    );
   });
 
   test('production map node preserves canonical alternative metadata', () {

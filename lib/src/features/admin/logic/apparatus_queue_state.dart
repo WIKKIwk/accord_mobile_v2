@@ -15,6 +15,12 @@ enum OrderQueueActivityState {
   completed,
 }
 
+const _queuePendingFlag = 1 << 0;
+const _queueInProgressFlag = 1 << 1;
+const _queuePausedFlag = 1 << 2;
+const _queueFrozenFlag = 1 << 3;
+const _queueCompletedFlag = 1 << 4;
+
 ApparatusQueueOrderState apparatusQueueOrderStateFromRaw(String? raw) {
   switch (raw?.trim().toLowerCase()) {
     case 'in_progress':
@@ -33,52 +39,111 @@ ApparatusQueueOrderState apparatusQueueOrderStateFromRaw(String? raw) {
 OrderQueueActivityState? queueActivityStateForOrder({
   required String orderId,
   required Map<String, Map<String, String>> queueStatesByApparatus,
+  Map<String, List<String>>? visibleOrderIdsByApparatus,
 }) {
   final normalizedOrderId = orderId.trim();
   if (normalizedOrderId.isEmpty) {
     return null;
   }
 
-  var hasPending = false;
-  var hasInProgress = false;
-  var hasPaused = false;
-  var hasCompleted = false;
-  for (final states in queueStatesByApparatus.values) {
+  return queueActivityStatesForOrders(
+    orderIds: [normalizedOrderId],
+    queueStatesByApparatus: queueStatesByApparatus,
+    visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
+  )[normalizedOrderId];
+}
+
+Map<String, OrderQueueActivityState> queueActivityStatesForOrders({
+  required Iterable<String> orderIds,
+  required Map<String, Map<String, String>> queueStatesByApparatus,
+  Map<String, List<String>>? visibleOrderIdsByApparatus,
+}) {
+  final normalizedOrderIds = <String>{
+    for (final orderId in orderIds)
+      if (orderId.trim().isNotEmpty) orderId.trim(),
+  };
+  if (normalizedOrderIds.isEmpty) {
+    return const {};
+  }
+
+  final flagsByOrderId = <String, int>{
+    for (final orderId in normalizedOrderIds) orderId: 0,
+  };
+  final knownOrderIdsByApparatus = <String, Set<String>>{};
+  for (final apparatusEntry in queueStatesByApparatus.entries) {
+    final knownOrderIds = <String>{};
+    knownOrderIdsByApparatus[apparatusEntry.key] = knownOrderIds;
+    final states = apparatusEntry.value;
     for (final entry in states.entries) {
-      if (entry.key.trim() != normalizedOrderId) {
+      final normalizedOrderId = entry.key.trim();
+      if (normalizedOrderId.isEmpty) {
+        continue;
+      }
+      knownOrderIds.add(normalizedOrderId);
+      if (!flagsByOrderId.containsKey(normalizedOrderId)) {
         continue;
       }
       final state = apparatusQueueOrderStateFromRaw(entry.value);
-      if (state == ApparatusQueueOrderState.frozen) {
-        return OrderQueueActivityState.frozen;
-      }
-      switch (state) {
-        case ApparatusQueueOrderState.pending:
-          hasPending = true;
-        case ApparatusQueueOrderState.inProgress:
-          hasInProgress = true;
-        case ApparatusQueueOrderState.paused:
-          hasPaused = true;
-        case ApparatusQueueOrderState.completed:
-          hasCompleted = true;
-        case ApparatusQueueOrderState.frozen:
-          break;
+      flagsByOrderId[normalizedOrderId] =
+          flagsByOrderId[normalizedOrderId]! | _queueStateFlag(state);
+    }
+  }
+  if (visibleOrderIdsByApparatus != null) {
+    for (final apparatusEntry in visibleOrderIdsByApparatus.entries) {
+      final knownOrderIds =
+          knownOrderIdsByApparatus[apparatusEntry.key] ?? const <String>{};
+      for (final orderId in apparatusEntry.value) {
+        final normalizedOrderId = orderId.trim();
+        if (!flagsByOrderId.containsKey(normalizedOrderId) ||
+            knownOrderIds.contains(normalizedOrderId)) {
+          continue;
+        }
+        flagsByOrderId[normalizedOrderId] =
+            flagsByOrderId[normalizedOrderId]! | _queuePendingFlag;
       }
     }
   }
-  if (hasPaused) {
+
+  final result = <String, OrderQueueActivityState>{};
+  for (final orderId in normalizedOrderIds) {
+    final state = _orderQueueActivityStateFromFlags(flagsByOrderId[orderId]!);
+    if (state != null) {
+      result[orderId] = state;
+    }
+  }
+  return Map.unmodifiable(result);
+}
+
+int _queueStateFlag(ApparatusQueueOrderState state) {
+  return switch (state) {
+    ApparatusQueueOrderState.pending => _queuePendingFlag,
+    ApparatusQueueOrderState.inProgress => _queueInProgressFlag,
+    ApparatusQueueOrderState.paused => _queuePausedFlag,
+    ApparatusQueueOrderState.frozen => _queueFrozenFlag,
+    ApparatusQueueOrderState.completed => _queueCompletedFlag,
+  };
+}
+
+OrderQueueActivityState? _orderQueueActivityStateFromFlags(int flags) {
+  if ((flags & _queueFrozenFlag) != 0) {
+    return OrderQueueActivityState.frozen;
+  }
+  if ((flags & _queuePausedFlag) != 0) {
     return OrderQueueActivityState.paused;
   }
-  if (hasInProgress) {
+  if ((flags & _queueInProgressFlag) != 0) {
     return OrderQueueActivityState.inProgress;
   }
-  if (hasCompleted && hasPending) {
+  if ((flags & _queueCompletedFlag) != 0 && (flags & _queuePendingFlag) != 0) {
     return OrderQueueActivityState.waitingNextStage;
   }
-  if (hasCompleted) {
+  if ((flags & _queueCompletedFlag) != 0) {
     return OrderQueueActivityState.completed;
   }
-  return hasPending ? OrderQueueActivityState.pending : null;
+  if ((flags & _queuePendingFlag) != 0) {
+    return OrderQueueActivityState.pending;
+  }
+  return null;
 }
 
 List<String> effectiveQueueSequence({

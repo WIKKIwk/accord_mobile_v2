@@ -1472,6 +1472,8 @@ class _AdminProductionMapOrdersScreenState
                                   : _showWatchOrderDetail,
                               customerNameByMapId: _customerByMapId,
                               queueStatesByApparatus: _queueStatesByApparatus,
+                              visibleOrderIdsByApparatus:
+                                  _visibleOrderIdsByApparatus,
                               frozenOrdersByApparatus: _frozenOrdersByApparatus,
                               orderStatusesByOrderId: _orderStatusesByOrderId,
                               qolipOrderNotesByOrderId:
