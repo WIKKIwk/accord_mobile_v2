@@ -127,7 +127,8 @@ Future<void> showAdminProductionMapOrderReadOnlyDetail(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    showDragHandle: true,
+    isDismissible: false,
+    enableDrag: false,
     builder: (context) => _ReadOnlyOrderDetailSheet(
       order: order,
       apparatus: apparatus,
@@ -202,7 +203,8 @@ Future<bool> showProductionMapFreezePauseFlow(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    showDragHandle: true,
+    isDismissible: false,
+    enableDrag: false,
     builder: (context) => _ReadOnlyOrderDetailSheet(
       order: order,
       apparatus: target,
@@ -462,7 +464,8 @@ class _AdminProductionMapOrdersScreenState
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      showDragHandle: true,
+      isDismissible: false,
+      enableDrag: false,
       sheetAnimationStyle: AppMotion.sheetEaseOut,
       builder: (context) => _ReadOnlyOrderDetailSheet(
         order: order,
@@ -490,7 +493,8 @@ class _AdminProductionMapOrdersScreenState
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      showDragHandle: true,
+      isDismissible: false,
+      enableDrag: false,
       sheetAnimationStyle: AppMotion.sheetEaseOut,
       builder: (context) => _ReadOnlyOrderDetailSheet(
         order: order,

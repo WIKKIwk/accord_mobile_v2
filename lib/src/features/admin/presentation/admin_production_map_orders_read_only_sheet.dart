@@ -1779,85 +1779,88 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         qolipScanPending ||
         previousWipScanPending ||
         materialIntakeScanActive;
-    return _ReadOnlyOrderDetailContent(
-      noticeAnchorKey: _noticeAnchorKey,
-      onBack: () => Navigator.of(context).pop(),
-      map: map,
-      apparatusCatalog: widget.apparatusCatalog,
-      baseMetraj: widget.baseMetraj,
-      orderKg: widget.orderKg,
-      customerName: widget.customerName,
-      steps: steps,
-      uiState: uiState,
-      showContractWarning: widget.workerMode && widget.canManageQueue,
-      pauseLabel: widget.workerMode
-          ? context.l10n.productionText(
-              _queueActionControl?.interaction?.mode ==
-                      AdminQueueInteractionMode.freezeRequested
-                  ? 'worker.freeze.safe_stop.action'
-                  : 'worker.action.detach_roll',
-            )
-          : context.l10n.productionText('worker.action.pause'),
-      queueStates: _queueStates,
-      queueStatesByApparatus: widget.queueStatesByApparatus,
-      materialsLoading: _materialsLoading,
-      materialsError: _materialsError,
-      materialStartReady: materialStartReady,
-      materialStartBlockingText: materialStartBlockingText,
-      actionInFlight: _actionInFlight,
-      materialIntakeInFlight: _materialIntakeInFlight,
-      materialIntakeMode: _materialIntakeMode,
-      intakeCandidatesExpanded: _intakeCandidatesExpanded,
-      onToggleIntakeCandidatesExpanded: () {
-        setState(() {
-          _intakeCandidatesExpanded = !_intakeCandidatesExpanded;
-        });
-      },
-      previousProgressBatch: _startInputProgressBatch,
-      inputProgressBatches: _availableInputProgressBatches,
-      inputProgressLoading: _inputProgressLoading,
-      inputProgressError: _inputProgressError,
-      quickScanStatus: _quickScanStatus,
-      quickScanInFlight: _quickScanInFlight,
-      showQuickScanner: showQuickScanner,
-      allowConcurrentQuickScanner: widget.workerMode,
-      onQuickScan: _handleQuickScan,
-      requiresQolipScan: requiresQolipScan,
-      qolipScanned: qolipScanAllowsStart,
-      qolipCodes: _scannedQolipCodes.values.toList(growable: false),
-      requiredQolips: _requiredQolips.values.toList(growable: false),
-      qolipRequirementsStatusText: _qolipRequirementsStatusText,
-      startMaterialsExpanded: _startMaterialsExpanded,
-      onToggleStartMaterialsExpanded: () {
-        setState(() => _startMaterialsExpanded = !_startMaterialsExpanded);
-      },
-      materialsExpanded: _materialsExpanded,
-      onToggleMaterialsExpanded: () {
-        setState(() => _materialsExpanded = !_materialsExpanded);
-      },
-      qolipsExpanded: _qolipsExpanded,
-      onToggleQolipsExpanded: () {
-        setState(() => _qolipsExpanded = !_qolipsExpanded);
-      },
-      mapExpanded: _mapExpanded,
-      onToggleMapExpanded: () {
-        setState(() => _mapExpanded = !_mapExpanded);
-      },
-      onTapMapApparatus: _showMapApparatusWipHistory,
-      summaryExpanded: _summaryExpanded,
-      onToggleSummaryExpanded: () {
-        setState(() => _summaryExpanded = !_summaryExpanded);
-      },
-      onMaterialIntake: _toggleMaterialIntakeMode,
-      onStart: () => unawaited(_runQueueAction('start')),
-      onPause: () => unawaited(_runProgressAction('pause')),
-      onRollComplete: () => unawaited(_runProgressAction('roll_complete')),
-      onComplete: () => unawaited(_runProgressAction('complete')),
-      onResume: () => unawaited(_runQueueAction('resume')),
-      orderControlState: _orderControlState,
-      allowMaterialUnlink: _allowMaterialUnlink,
-      onUnlinkMaterial: _unlinkMaterialAssignment,
-      unlinkingMaterialBarcode: _unlinkingMaterialBarcode,
+    return PopScope(
+      canPop: false,
+      child: _ReadOnlyOrderDetailContent(
+        noticeAnchorKey: _noticeAnchorKey,
+        onClose: () => Navigator.of(context).pop(),
+        map: map,
+        apparatusCatalog: widget.apparatusCatalog,
+        baseMetraj: widget.baseMetraj,
+        orderKg: widget.orderKg,
+        customerName: widget.customerName,
+        steps: steps,
+        uiState: uiState,
+        showContractWarning: widget.workerMode && widget.canManageQueue,
+        pauseLabel: widget.workerMode
+            ? context.l10n.productionText(
+                _queueActionControl?.interaction?.mode ==
+                        AdminQueueInteractionMode.freezeRequested
+                    ? 'worker.freeze.safe_stop.action'
+                    : 'worker.action.detach_roll',
+              )
+            : context.l10n.productionText('worker.action.pause'),
+        queueStates: _queueStates,
+        queueStatesByApparatus: widget.queueStatesByApparatus,
+        materialsLoading: _materialsLoading,
+        materialsError: _materialsError,
+        materialStartReady: materialStartReady,
+        materialStartBlockingText: materialStartBlockingText,
+        actionInFlight: _actionInFlight,
+        materialIntakeInFlight: _materialIntakeInFlight,
+        materialIntakeMode: _materialIntakeMode,
+        intakeCandidatesExpanded: _intakeCandidatesExpanded,
+        onToggleIntakeCandidatesExpanded: () {
+          setState(() {
+            _intakeCandidatesExpanded = !_intakeCandidatesExpanded;
+          });
+        },
+        previousProgressBatch: _startInputProgressBatch,
+        inputProgressBatches: _availableInputProgressBatches,
+        inputProgressLoading: _inputProgressLoading,
+        inputProgressError: _inputProgressError,
+        quickScanStatus: _quickScanStatus,
+        quickScanInFlight: _quickScanInFlight,
+        showQuickScanner: showQuickScanner,
+        allowConcurrentQuickScanner: widget.workerMode,
+        onQuickScan: _handleQuickScan,
+        requiresQolipScan: requiresQolipScan,
+        qolipScanned: qolipScanAllowsStart,
+        qolipCodes: _scannedQolipCodes.values.toList(growable: false),
+        requiredQolips: _requiredQolips.values.toList(growable: false),
+        qolipRequirementsStatusText: _qolipRequirementsStatusText,
+        startMaterialsExpanded: _startMaterialsExpanded,
+        onToggleStartMaterialsExpanded: () {
+          setState(() => _startMaterialsExpanded = !_startMaterialsExpanded);
+        },
+        materialsExpanded: _materialsExpanded,
+        onToggleMaterialsExpanded: () {
+          setState(() => _materialsExpanded = !_materialsExpanded);
+        },
+        qolipsExpanded: _qolipsExpanded,
+        onToggleQolipsExpanded: () {
+          setState(() => _qolipsExpanded = !_qolipsExpanded);
+        },
+        mapExpanded: _mapExpanded,
+        onToggleMapExpanded: () {
+          setState(() => _mapExpanded = !_mapExpanded);
+        },
+        onTapMapApparatus: _showMapApparatusWipHistory,
+        summaryExpanded: _summaryExpanded,
+        onToggleSummaryExpanded: () {
+          setState(() => _summaryExpanded = !_summaryExpanded);
+        },
+        onMaterialIntake: _toggleMaterialIntakeMode,
+        onStart: () => unawaited(_runQueueAction('start')),
+        onPause: () => unawaited(_runProgressAction('pause')),
+        onRollComplete: () => unawaited(_runProgressAction('roll_complete')),
+        onComplete: () => unawaited(_runProgressAction('complete')),
+        onResume: () => unawaited(_runQueueAction('resume')),
+        orderControlState: _orderControlState,
+        allowMaterialUnlink: _allowMaterialUnlink,
+        onUnlinkMaterial: _unlinkMaterialAssignment,
+        unlinkingMaterialBarcode: _unlinkingMaterialBarcode,
+      ),
     );
   }
 

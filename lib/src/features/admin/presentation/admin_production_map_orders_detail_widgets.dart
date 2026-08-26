@@ -3,7 +3,7 @@ part of 'admin_production_map_orders_screen.dart';
 class _ReadOnlyOrderDetailContent extends StatelessWidget {
   const _ReadOnlyOrderDetailContent({
     required this.noticeAnchorKey,
-    this.onBack,
+    required this.onClose,
     required this.map,
     required this.apparatusCatalog,
     required this.baseMetraj,
@@ -62,7 +62,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   });
 
   final GlobalKey noticeAnchorKey;
-  final VoidCallback? onBack;
+  final VoidCallback onClose;
   final ProductionMapDefinition map;
   final List<AdminApparatus> apparatusCatalog;
   final double? baseMetraj;
@@ -130,156 +130,162 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.86,
-      minChildSize: 0.5,
-      maxChildSize: 0.96,
+      minChildSize: 0.86,
+      maxChildSize: 0.86,
       builder: (context, controller) {
         return ColoredBox(
           key: noticeAnchorKey,
           color: scheme.surfaceContainerHighest,
-          child: ListView(
-            controller: controller,
-            padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
+          child: Stack(
             children: [
-              if (onBack != null)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton.filledTonal(
-                    tooltip: context.l10n.productionText(
-                      'worker.action.back_to_order',
-                    ),
-                    onPressed: onBack,
-                    icon: const Icon(Icons.arrow_back_rounded),
-                  ),
-                ),
-              AnimatedSize(
-                key: const ValueKey('production-order-quick-scanner-motion'),
-                duration: AppMotion.medium,
-                curve: AppMotion.standardDecelerate,
-                alignment: Alignment.topCenter,
-                child: AnimatedSwitcher(
-                  duration: AppMotion.medium,
-                  switchInCurve: AppMotion.standardDecelerate,
-                  switchOutCurve: AppMotion.standardAccelerate,
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: SizeTransition(
-                      sizeFactor: animation,
-                      axisAlignment: -1,
-                      child: child,
-                    ),
-                  ),
-                  child: showQuickScanner
-                      ? Column(
-                          key: const ValueKey(
-                            'production-order-quick-scanner-visible',
-                          ),
-                          children: [
-                            ProductionQuickScannerPanel(
-                              statusText: quickScanStatus,
-                              busy: quickScanInFlight,
-                              allowConcurrentDetections:
-                                  allowConcurrentQuickScanner,
-                              onCodeDetected: onQuickScan,
-                            ),
-                            const SizedBox(height: 10),
-                          ],
-                        )
-                      : const SizedBox(
-                          key: ValueKey(
-                            'production-order-quick-scanner-hidden',
-                          ),
+              ListView(
+                controller: controller,
+                padding: const EdgeInsets.fromLTRB(4, 56, 4, 24),
+                children: [
+                  AnimatedSize(
+                    key:
+                        const ValueKey('production-order-quick-scanner-motion'),
+                    duration: AppMotion.medium,
+                    curve: AppMotion.standardDecelerate,
+                    alignment: Alignment.topCenter,
+                    child: AnimatedSwitcher(
+                      duration: AppMotion.medium,
+                      switchInCurve: AppMotion.standardDecelerate,
+                      switchOutCurve: AppMotion.standardAccelerate,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: SizeTransition(
+                          sizeFactor: animation,
+                          axisAlignment: -1,
+                          child: child,
                         ),
+                      ),
+                      child: showQuickScanner
+                          ? Column(
+                              key: const ValueKey(
+                                'production-order-quick-scanner-visible',
+                              ),
+                              children: [
+                                ProductionQuickScannerPanel(
+                                  statusText: quickScanStatus,
+                                  busy: quickScanInFlight,
+                                  allowConcurrentDetections:
+                                      allowConcurrentQuickScanner,
+                                  onCodeDetected: onQuickScan,
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                            )
+                          : const SizedBox(
+                              key: ValueKey(
+                                'production-order-quick-scanner-hidden',
+                              ),
+                            ),
+                    ),
+                  ),
+                  _OrderStartUnifiedCard(
+                    apparatusCatalog: apparatusCatalog,
+                    orderCode: _openedOrderDisplayCode(map),
+                    productTitle: _openedOrderPrimaryTitle(
+                      map,
+                      l10n: context.l10n,
+                    ),
+                    customerName: customerName,
+                    contractSynchronized: uiState.contractSynchronized,
+                    showContractWarning: showContractWarning,
+                    blockingReasonCode: uiState.blockingReasonCode,
+                    showBackendBlockingState: uiState.showBackendBlockingState,
+                    startAssignments: uiState.materialAssignments,
+                    intakeCandidateAssignments:
+                        uiState.intakeCandidateAssignments,
+                    assignedAssignments: uiState.assignedMaterialAssignments,
+                    showStartMaterials: uiState.showStartMaterials,
+                    showIntakeCandidates: uiState.showIntakeCandidates,
+                    materialIntakeAllowed: uiState.materialIntakeAllowed,
+                    materialsLoading: materialsLoading,
+                    materialsError: materialsError,
+                    materialStartReady: materialStartReady,
+                    materialStartBlockingText: materialStartBlockingText,
+                    scannedBarcodes: uiState.confirmedMaterialBarcodes,
+                    scannedCount: uiState.scannedCount,
+                    requiredCount: uiState.materialRequiredCount,
+                    showStart: uiState.showStart,
+                    allMaterialsScanned: uiState.allMaterialsScanned,
+                    actionInFlight: actionInFlight,
+                    materialIntakeInFlight: materialIntakeInFlight,
+                    materialIntakeMode: materialIntakeMode,
+                    intakeCandidatesExpanded: intakeCandidatesExpanded,
+                    onToggleIntakeCandidatesExpanded:
+                        onToggleIntakeCandidatesExpanded,
+                    showPause: uiState.showPause,
+                    pauseLabel: pauseLabel,
+                    showRollComplete: uiState.showRollComplete,
+                    showComplete: uiState.showComplete,
+                    showResume: uiState.showResume,
+                    showWaitingForPrevious: uiState.showWaitingForPrevious,
+                    showWaitingForSequence: uiState.showWaitingForSequence,
+                    previousStage: uiState.previousStage,
+                    previousProgressRequired: uiState.previousProgressRequired,
+                    previousProgressReady: uiState.previousProgressReady,
+                    previousProgressBatch: previousProgressBatch,
+                    inputProgressBatches: inputProgressBatches,
+                    inputProgressLoading: inputProgressLoading,
+                    inputProgressError: inputProgressError,
+                    requiresQolipScan: requiresQolipScan,
+                    qolipScanned: qolipScanned,
+                    qolipCodes: qolipCodes,
+                    requiredQolips: requiredQolips,
+                    qolipRequirementsStatusText: qolipRequirementsStatusText,
+                    startMaterialsExpanded: startMaterialsExpanded,
+                    onToggleStartMaterialsExpanded:
+                        onToggleStartMaterialsExpanded,
+                    materialsExpanded: materialsExpanded,
+                    onToggleMaterialsExpanded: onToggleMaterialsExpanded,
+                    qolipsExpanded: qolipsExpanded,
+                    onToggleQolipsExpanded: onToggleQolipsExpanded,
+                    rezkaInstructionLines: rezkaInstructionLines,
+                    onMaterialIntake: onMaterialIntake,
+                    onStart: onStart,
+                    onPause: onPause,
+                    onRollComplete: onRollComplete,
+                    onComplete: onComplete,
+                    onResume: onResume,
+                    orderControlState: orderControlState,
+                    allowMaterialUnlink: allowMaterialUnlink,
+                    onUnlinkMaterial: onUnlinkMaterial,
+                    unlinkingMaterialBarcode: unlinkingMaterialBarcode,
+                  ),
+                  const SizedBox(height: 10),
+                  _OrderSummaryCard(
+                    map: map,
+                    baseMetraj: baseMetraj,
+                    orderKg: orderKg,
+                    expanded: summaryExpanded,
+                    onToggleExpanded: onToggleSummaryExpanded,
+                  ),
+                  const SizedBox(height: 10),
+                  _OrderMapProgressCard(
+                    steps: steps,
+                    apparatusCatalog: apparatusCatalog,
+                    orderId: uiState.orderId,
+                    currentStation: uiState.station,
+                    queueStates: queueStates,
+                    queueStatesByApparatus: queueStatesByApparatus,
+                    expanded: mapExpanded,
+                    onToggleExpanded: onToggleMapExpanded,
+                    onTapApparatus: onTapMapApparatus,
+                  ),
+                ],
+              ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: IconButton.filledTonal(
+                  key: const ValueKey('production-order-detail-close'),
+                  tooltip: context.l10n.productionText('worker.action.close'),
+                  onPressed: onClose,
+                  icon: const Icon(Icons.close_rounded),
                 ),
-              ),
-              _OrderStartUnifiedCard(
-                apparatusCatalog: apparatusCatalog,
-                orderCode: _openedOrderDisplayCode(map),
-                productTitle: _openedOrderPrimaryTitle(
-                  map,
-                  l10n: context.l10n,
-                ),
-                customerName: customerName,
-                contractSynchronized: uiState.contractSynchronized,
-                showContractWarning: showContractWarning,
-                blockingReasonCode: uiState.blockingReasonCode,
-                showBackendBlockingState: uiState.showBackendBlockingState,
-                startAssignments: uiState.materialAssignments,
-                intakeCandidateAssignments: uiState.intakeCandidateAssignments,
-                assignedAssignments: uiState.assignedMaterialAssignments,
-                showStartMaterials: uiState.showStartMaterials,
-                showIntakeCandidates: uiState.showIntakeCandidates,
-                materialIntakeAllowed: uiState.materialIntakeAllowed,
-                materialsLoading: materialsLoading,
-                materialsError: materialsError,
-                materialStartReady: materialStartReady,
-                materialStartBlockingText: materialStartBlockingText,
-                scannedBarcodes: uiState.confirmedMaterialBarcodes,
-                scannedCount: uiState.scannedCount,
-                requiredCount: uiState.materialRequiredCount,
-                showStart: uiState.showStart,
-                allMaterialsScanned: uiState.allMaterialsScanned,
-                actionInFlight: actionInFlight,
-                materialIntakeInFlight: materialIntakeInFlight,
-                materialIntakeMode: materialIntakeMode,
-                intakeCandidatesExpanded: intakeCandidatesExpanded,
-                onToggleIntakeCandidatesExpanded:
-                    onToggleIntakeCandidatesExpanded,
-                showPause: uiState.showPause,
-                pauseLabel: pauseLabel,
-                showRollComplete: uiState.showRollComplete,
-                showComplete: uiState.showComplete,
-                showResume: uiState.showResume,
-                showWaitingForPrevious: uiState.showWaitingForPrevious,
-                showWaitingForSequence: uiState.showWaitingForSequence,
-                previousStage: uiState.previousStage,
-                previousProgressRequired: uiState.previousProgressRequired,
-                previousProgressReady: uiState.previousProgressReady,
-                previousProgressBatch: previousProgressBatch,
-                inputProgressBatches: inputProgressBatches,
-                inputProgressLoading: inputProgressLoading,
-                inputProgressError: inputProgressError,
-                requiresQolipScan: requiresQolipScan,
-                qolipScanned: qolipScanned,
-                qolipCodes: qolipCodes,
-                requiredQolips: requiredQolips,
-                qolipRequirementsStatusText: qolipRequirementsStatusText,
-                startMaterialsExpanded: startMaterialsExpanded,
-                onToggleStartMaterialsExpanded: onToggleStartMaterialsExpanded,
-                materialsExpanded: materialsExpanded,
-                onToggleMaterialsExpanded: onToggleMaterialsExpanded,
-                qolipsExpanded: qolipsExpanded,
-                onToggleQolipsExpanded: onToggleQolipsExpanded,
-                rezkaInstructionLines: rezkaInstructionLines,
-                onMaterialIntake: onMaterialIntake,
-                onStart: onStart,
-                onPause: onPause,
-                onRollComplete: onRollComplete,
-                onComplete: onComplete,
-                onResume: onResume,
-                orderControlState: orderControlState,
-                allowMaterialUnlink: allowMaterialUnlink,
-                onUnlinkMaterial: onUnlinkMaterial,
-                unlinkingMaterialBarcode: unlinkingMaterialBarcode,
-              ),
-              const SizedBox(height: 10),
-              _OrderSummaryCard(
-                map: map,
-                baseMetraj: baseMetraj,
-                orderKg: orderKg,
-                expanded: summaryExpanded,
-                onToggleExpanded: onToggleSummaryExpanded,
-              ),
-              const SizedBox(height: 10),
-              _OrderMapProgressCard(
-                steps: steps,
-                apparatusCatalog: apparatusCatalog,
-                orderId: uiState.orderId,
-                currentStation: uiState.station,
-                queueStates: queueStates,
-                queueStatesByApparatus: queueStatesByApparatus,
-                expanded: mapExpanded,
-                onToggleExpanded: onToggleMapExpanded,
-                onTapApparatus: onTapMapApparatus,
               ),
             ],
           ),

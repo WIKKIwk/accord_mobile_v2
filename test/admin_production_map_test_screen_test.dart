@@ -2231,15 +2231,39 @@ void main() {
       expect(find.text('Metraj'), findsOneWidget);
       expect(find.text('Val'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Orderga qaytish'));
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+      expect(find.text('Zakaz kodi'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Zakaz kodi'), findsOneWidget);
+
+      final detailSheet = find.byType(DraggableScrollableSheet);
+      expect(detailSheet, findsOneWidget);
+      final sheetTopLeft = tester.getTopLeft(detailSheet);
+      await tester.dragFrom(
+        sheetTopLeft + const Offset(200, 12),
+        const Offset(0, 500),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Zakaz kodi'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('production-order-detail-close')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Zakaz kodi'), findsNothing);
 
       await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
       await tester.pumpAndSettle();
-      expect(find.text('Zakaz kodi'), findsOneWidget);
-      expect(find.byTooltip('Orderga qaytish'), findsOneWidget);
-      await tester.tap(find.byTooltip('Orderga qaytish'));
+      expect(
+        find.byKey(const ValueKey('production-order-detail-close')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('production-order-detail-close')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Zakaz kodi'), findsNothing);
     },
@@ -3207,7 +3231,9 @@ void main() {
     expect(find.text(stagedBarcode), findsOneWidget);
     expect(find.text(unstagedBarcode), findsOneWidget);
 
-    await tester.tapAt(const Offset(1, 1));
+    await tester.tap(
+      find.byKey(const ValueKey('production-order-detail-close')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ketma-ketlik'));
     await tester.pumpAndSettle();
@@ -3234,7 +3260,9 @@ void main() {
     expect(find.text(stagedBarcode), findsOneWidget);
     expect(find.text(unstagedBarcode), findsOneWidget);
 
-    await tester.tapAt(const Offset(1, 1));
+    await tester.tap(
+      find.byKey(const ValueKey('production-order-detail-close')),
+    );
     await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
@@ -4976,7 +5004,9 @@ void main() {
       qolipCode: 'TEST-QOLIP-QR',
       size: 50,
     );
-    await tester.tapAt(const Offset(1, 1));
+    await tester.tap(
+      find.byKey(const ValueKey('production-order-detail-close')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('worker-queue').first);
     await tester.pumpAndSettle();
