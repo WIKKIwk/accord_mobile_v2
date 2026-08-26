@@ -418,8 +418,10 @@ class _OrderWatermarkLane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final stampWidth = _watermarkStampWidth(context, apparatus);
     final repeatCount = _watermarkRepeatCount(
       availableWidth: availableWidth,
+      stampWidth: stampWidth,
     );
     if (repeatCount == 1) {
       return ClipRect(
@@ -427,13 +429,20 @@ class _OrderWatermarkLane extends StatelessWidget {
           offset: const Offset(0, _activeWatermarkVerticalShift),
           child: Align(
             alignment: Alignment.center,
-            child: _OrderWatermarkStamp(apparatus: apparatus),
+            child: OverflowBox(
+              alignment: Alignment.center,
+              maxWidth: double.infinity,
+              maxHeight: double.infinity,
+              child: _OrderWatermarkStamp(apparatus: apparatus),
+            ),
           ),
         ),
       );
     }
-    final pitch = (availableWidth / repeatCount).clamp(96.0, 128.0).toDouble();
-    final start = (availableWidth - pitch * repeatCount) / 2;
+    final pitch = stampWidth + _watermarkHorizontalGap;
+    final occupiedWidth =
+        stampWidth * repeatCount + _watermarkHorizontalGap * (repeatCount - 1);
+    final start = (availableWidth - occupiedWidth) / 2;
     return ClipRect(
       child: Stack(
         fit: StackFit.expand,
@@ -451,15 +460,50 @@ class _OrderWatermarkLane extends StatelessWidget {
 }
 
 const _activeWatermarkVerticalShift = 8.0;
+const _watermarkHorizontalGap = 12.0;
 
 int _watermarkRepeatCount({
   required double availableWidth,
+  required double stampWidth,
 }) {
-  if (!availableWidth.isFinite || availableWidth <= 0) {
+  if (!availableWidth.isFinite ||
+      availableWidth <= 0 ||
+      !stampWidth.isFinite ||
+      stampWidth <= 0) {
     return 1;
   }
-  const denseWatermarkSlotWidth = 80.0;
-  return (availableWidth / denseWatermarkSlotWidth).floor().clamp(1, 4);
+  return ((availableWidth + _watermarkHorizontalGap) /
+          (stampWidth + _watermarkHorizontalGap))
+      .floor()
+      .clamp(1, 4);
+}
+
+double _watermarkStampWidth(
+  BuildContext context,
+  _OrderWatermarkData apparatus,
+) {
+  final textPainter = TextPainter(
+    text: TextSpan(
+      text: apparatus.label,
+      style: _orderWatermarkTextStyle(context),
+    ),
+    maxLines: 1,
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  final rowHeight = textPainter.height > 36 ? textPainter.height : 36.0;
+  // This is a conservative bound for the rotated stamp, so adjacent stamps
+  // never paint over each other even when the label is long.
+  return 36 + 7 + textPainter.width + rowHeight + 20;
+}
+
+TextStyle? _orderWatermarkTextStyle(BuildContext context) {
+  final scheme = Theme.of(context).colorScheme;
+  return Theme.of(context).textTheme.titleSmall?.copyWith(
+        color: scheme.onSurface,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.2,
+      );
 }
 
 class _OrderWatermarkStamp extends StatelessWidget {
@@ -488,11 +532,7 @@ class _OrderWatermarkStamp extends StatelessWidget {
               Text(
                 apparatus.label,
                 maxLines: 1,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: scheme.onSurface,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.2,
-                    ),
+                style: _orderWatermarkTextStyle(context),
               ),
             ],
           ),

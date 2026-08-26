@@ -6013,7 +6013,7 @@ void main() {
         ),
         matching: find.text('Laminatsiya 1'),
       ),
-      findsNWidgets(4),
+      findsOneWidget,
     );
     expect(
       find.descendant(
@@ -6042,7 +6042,7 @@ void main() {
       watermarkTextRect.center.dy,
       greaterThan(cardRect.top + cardRect.height * 0.25),
     );
-    expect(find.text('Laminatsiya 1'), findsAtLeastNWidgets(2));
+    expect(find.text('Laminatsiya 1'), findsOneWidget);
 
     await MobileApi.instance.adminApparatusQueueActionResult(
       apparatus: apparatus,
@@ -6062,7 +6062,7 @@ void main() {
         ),
         matching: find.text('Pauza · Laminatsiya 1'),
       ),
-      findsNWidgets(4),
+      findsOneWidget,
     );
 
     await MobileApi.instance.adminApparatusQueueActionResult(
@@ -6089,7 +6089,7 @@ void main() {
         ),
         matching: find.text('Muzlatilgan · Laminatsiya 1'),
       ),
-      findsNWidgets(4),
+      findsOneWidget,
     );
   });
 
@@ -6166,7 +6166,7 @@ void main() {
         ),
         matching: find.text('Keyingi: Laminatsiya 1'),
       ),
-      findsNWidgets(4),
+      findsOneWidget,
     );
   });
 
