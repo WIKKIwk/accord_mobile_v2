@@ -493,8 +493,6 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
         inputBatches: _inputBatchesFor(order),
         onLinkMaterial: () => _linkTrainingMaterial(order),
         onDeleteMaterial: _deleteTrainingMaterial,
-        onPrintMaterialAndQolip: (assignments) =>
-            _printTrainingMaterialAndQolip(order, assignments),
         onGenerateInputBatch: () => _generateTrainingInputBatch(order),
         onBatchTap: _showTrainingInputBatchDetails,
       ),
@@ -1232,6 +1230,8 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                                 onDeleteOrder: _deleteTrainingOrder,
                                 onDeleteMaterial: _deleteTrainingMaterial,
                                 onOrderTap: _showTrainingOrderDetails,
+                                onPrintMaterialAndQolip:
+                                    _printTrainingMaterialAndQolip,
                                 onAssignmentTap: _showTrainingMaterialDetails,
                                 onBatchTap: _showTrainingInputBatchDetails,
                                 onGenerateInputBatch:
@@ -1382,6 +1382,38 @@ Color _trainingOrderStatusColor(
   }
 }
 
+class AdminTrainingMaterialPrintButton extends StatelessWidget {
+  const AdminTrainingMaterialPrintButton({
+    super.key,
+    required this.buttonKey,
+    required this.label,
+    required this.busyLabel,
+    required this.onPressed,
+    this.busy = false,
+  });
+
+  final Key buttonKey;
+  final String label;
+  final String busyLabel;
+  final VoidCallback? onPressed;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      key: buttonKey,
+      onPressed: onPressed,
+      icon: busy
+          ? const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.print_outlined),
+      label: Text(busy ? busyLabel : label),
+    );
+  }
+}
+
 class _TrainingApparatusTile extends StatelessWidget {
   const _TrainingApparatusTile({
     required this.apparatus,
@@ -1402,6 +1434,7 @@ class _TrainingApparatusTile extends StatelessWidget {
     required this.onDeleteOrder,
     required this.onDeleteMaterial,
     required this.onOrderTap,
+    required this.onPrintMaterialAndQolip,
     required this.onAssignmentTap,
     required this.onBatchTap,
     required this.onGenerateInputBatch,
@@ -1427,6 +1460,10 @@ class _TrainingApparatusTile extends StatelessWidget {
   final ValueChanged<ProductionMapSaved> onDeleteOrder;
   final Future<bool> Function(AdminRawMaterialAssignment) onDeleteMaterial;
   final ValueChanged<ProductionMapSaved> onOrderTap;
+  final Future<bool> Function(
+    ProductionMapSaved,
+    List<AdminRawMaterialAssignment>,
+  ) onPrintMaterialAndQolip;
   final ValueChanged<AdminRawMaterialAssignment> onAssignmentTap;
   final ValueChanged<AdminProgressBatch> onBatchTap;
   final Future<AdminProgressBatch?> Function(ProductionMapSaved)
@@ -1655,6 +1692,12 @@ class _TrainingApparatusTile extends StatelessWidget {
                               onDelete: () => onDeleteOrder(order),
                               onDeleteMaterial: onDeleteMaterial,
                               onOpenDetails: () => onOrderTap(order),
+                              onPrintMaterialAndQolip: () =>
+                                  onPrintMaterialAndQolip(
+                                order,
+                                assignmentsByOrderId[order.map.id.trim()] ??
+                                    const [],
+                              ),
                               onAssignmentTap: onAssignmentTap,
                               onBatchTap: onBatchTap,
                               onGenerateInputBatch: () =>
@@ -1685,6 +1728,7 @@ class _TrainingOrderCard extends StatefulWidget {
     required this.onDelete,
     required this.onDeleteMaterial,
     required this.onOpenDetails,
+    required this.onPrintMaterialAndQolip,
     required this.onAssignmentTap,
     required this.onBatchTap,
     required this.onGenerateInputBatch,
@@ -1701,6 +1745,7 @@ class _TrainingOrderCard extends StatefulWidget {
   final VoidCallback onDelete;
   final Future<bool> Function(AdminRawMaterialAssignment) onDeleteMaterial;
   final VoidCallback onOpenDetails;
+  final Future<bool> Function() onPrintMaterialAndQolip;
   final ValueChanged<AdminRawMaterialAssignment> onAssignmentTap;
   final ValueChanged<AdminProgressBatch> onBatchTap;
   final Future<AdminProgressBatch?> Function() onGenerateInputBatch;
@@ -1711,6 +1756,21 @@ class _TrainingOrderCard extends StatefulWidget {
 
 class _TrainingOrderCardState extends State<_TrainingOrderCard> {
   bool _expanded = false;
+  bool _printingMaterialAndQolip = false;
+
+  Future<void> _printMaterialAndQolip() async {
+    if (_printingMaterialAndQolip || widget.assignments.isEmpty) {
+      return;
+    }
+    setState(() => _printingMaterialAndQolip = true);
+    try {
+      await widget.onPrintMaterialAndQolip();
+    } finally {
+      if (mounted) {
+        setState(() => _printingMaterialAndQolip = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1814,6 +1874,25 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: scheme.onSurfaceVariant,
                                 ),
+                              ),
+                            ),
+                          if (widget.assignments.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: AdminTrainingMaterialPrintButton(
+                                buttonKey: ValueKey(
+                                  'training-print-material-qolip-inline-${widget.order.map.id}',
+                                ),
+                                label: l10n.adminText(
+                                  'training.print_material_qolip',
+                                ),
+                                busyLabel: l10n.adminText(
+                                  'training.printing_material_qolip',
+                                ),
+                                busy: _printingMaterialAndQolip,
+                                onPressed: _printingMaterialAndQolip
+                                    ? null
+                                    : _printMaterialAndQolip,
                               ),
                             ),
                           for (final assignment in widget.assignments)
@@ -1961,7 +2040,6 @@ class _TrainingOrderDetailsSheet extends StatefulWidget {
     required this.inputBatches,
     required this.onLinkMaterial,
     required this.onDeleteMaterial,
-    required this.onPrintMaterialAndQolip,
     required this.onGenerateInputBatch,
     required this.onBatchTap,
   });
@@ -1972,8 +2050,6 @@ class _TrainingOrderDetailsSheet extends StatefulWidget {
   final List<AdminProgressBatch> inputBatches;
   final Future<AdminRawMaterialAssignment?> Function() onLinkMaterial;
   final Future<bool> Function(AdminRawMaterialAssignment) onDeleteMaterial;
-  final Future<bool> Function(List<AdminRawMaterialAssignment>)
-      onPrintMaterialAndQolip;
   final Future<AdminProgressBatch?> Function() onGenerateInputBatch;
   final ValueChanged<AdminProgressBatch> onBatchTap;
 
@@ -1988,7 +2064,6 @@ class _TrainingOrderDetailsSheetState
   late List<AdminProgressBatch> _inputBatches;
   bool _linking = false;
   bool _generatingInputBatch = false;
-  bool _printingMaterialAndQolip = false;
   String? _deletingMaterialKey;
 
   @override
@@ -2067,20 +2142,6 @@ class _TrainingOrderDetailsSheetState
     } finally {
       if (mounted) {
         setState(() => _deletingMaterialKey = null);
-      }
-    }
-  }
-
-  Future<void> _printMaterialAndQolip() async {
-    if (_printingMaterialAndQolip || _assignments.isEmpty) {
-      return;
-    }
-    setState(() => _printingMaterialAndQolip = true);
-    try {
-      await widget.onPrintMaterialAndQolip(_assignments);
-    } finally {
-      if (mounted) {
-        setState(() => _printingMaterialAndQolip = false);
       }
     }
   }
@@ -2267,25 +2328,6 @@ class _TrainingOrderDetailsSheetState
               ],
               if (_assignments.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  key: const ValueKey('training-print-material-qolip'),
-                  onPressed:
-                      _printingMaterialAndQolip ? null : _printMaterialAndQolip,
-                  icon: _printingMaterialAndQolip
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.print_outlined),
-                  label: Text(
-                    _printingMaterialAndQolip
-                        ? l10n.adminText(
-                            'training.printing_material_qolip',
-                          )
-                        : l10n.adminText('training.print_material_qolip'),
-                  ),
-                ),
-                const SizedBox(height: 8),
                 _TrainingOrderDetailsSection(
                   title: l10n.adminText('training.assigned_materials'),
                   icon: Icons.inventory_2_outlined,

@@ -1,10 +1,36 @@
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_training_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_training_order_helpers.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('training print button is tappable in the inline order list',
+      (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AdminTrainingMaterialPrintButton(
+          buttonKey: const ValueKey('training-print-material-qolip-inline'),
+          label: 'Qolip + homashyo chiqarish',
+          busyLabel: 'Qolip + homashyo chiqarilmoqda…',
+          onPressed: () => taps += 1,
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('training-print-material-qolip-inline')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('training-print-material-qolip-inline')),
+    );
+    expect(taps, 1);
+  });
+
   test('training order flow includes the selected apparatus stage', () {
     const context = ProductionMapOrderContext(
       orderName: 'Training order',
