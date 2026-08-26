@@ -115,8 +115,6 @@ class _OpenedOrderRow extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
               child: Row(
                 children: [
-                  const _OpenedOrderTreeBadge(),
-                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -503,29 +501,6 @@ class _OpenedOrderIndexBadge extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: badge,
-      ),
-    );
-  }
-}
-
-class _OpenedOrderTreeBadge extends StatelessWidget {
-  const _OpenedOrderTreeBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return SizedBox.square(
-      dimension: 30,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.primaryContainer,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          Icons.account_tree_outlined,
-          color: scheme.onPrimaryContainer,
-          size: 16,
-        ),
       ),
     );
   }

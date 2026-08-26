@@ -5983,6 +5983,13 @@ void main() {
     await pumpAdminScreen();
     expect(cardColor(), expectedTint(const Color(0xFF2E7D32)));
     expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('opened-order-$orderId')),
+        matching: find.byIcon(Icons.account_tree_outlined),
+      ),
+      findsNothing,
+    );
+    expect(
       find.byKey(
         const ValueKey('opened-order-active-watermark-'
             'zakaz-opened-laminatsiya-status-colors'),
