@@ -5725,7 +5725,7 @@ void main() {
     }
 
     await pumpWorkerScreen();
-    expect(cardColor(), expectedTint(const Color(0xFF2E7D32)));
+    expect(cardColor(), expectedTint(const Color(0xFF1565C0)));
 
     await MobileApi.instance.adminApparatusQueueActionResult(
       apparatus: apparatus,
@@ -5749,7 +5749,7 @@ void main() {
       AdminOrderControlState.freezeRequested,
     );
     await pumpWorkerScreen();
-    expect(cardColor(), expectedTint(const Color(0xFF1565C0)));
+    expect(cardColor(), expectedTint(const Color(0xFFC62828)));
   });
 
   testWidgets(
@@ -5981,7 +5981,7 @@ void main() {
     }
 
     await pumpAdminScreen();
-    expect(cardColor(), expectedTint(const Color(0xFF2E7D32)));
+    expect(cardColor(), expectedTint(const Color(0xFF1565C0)));
 
     await MobileApi.instance.adminApparatusQueueActionResult(
       apparatus: apparatus,
@@ -6052,7 +6052,7 @@ void main() {
       );
     }
 
-    expect(cardColor(), expectedTint(const Color(0xFF2E7D32)));
+    expect(cardColor(), expectedTint(const Color(0xFF1565C0)));
 
     await MobileApi.instance.adminApparatusQueueActionResult(
       apparatus: apparatus,
@@ -6064,6 +6064,72 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(cardColor(), expectedTint(const Color(0xFFF9A825)));
+  });
+
+  testWidgets('fully completed order leaves the admin opened orders tab', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = _godexId;
+    const orderId = 'zakaz-admin-fully-completed-hidden';
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Admin fully completed hidden',
+        productCode: 'AFCH',
+        apparatusId: apparatus,
+        product: 'admin fully completed hidden product',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+    );
+    await _usePhoneViewport(tester);
+
+    Future<void> pumpAdminScreen() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapOrdersScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pumpAdminScreen();
+    expect(
+      find.byKey(const ValueKey('opened-order-$orderId')),
+      findsOneWidget,
+    );
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'complete',
+      producedQty: 1,
+    );
+    await pumpAdminScreen();
+
+    expect(
+      find.byKey(const ValueKey('opened-order-$orderId')),
+      findsNothing,
+    );
   });
 
   testWidgets('worker completed orders move to own completed tab', (

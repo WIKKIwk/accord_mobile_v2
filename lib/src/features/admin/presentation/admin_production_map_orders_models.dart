@@ -253,14 +253,24 @@ bool _sameMoveApparatusIdentity(
   return leftId.isNotEmpty && rightId.isNotEmpty && leftId == rightId;
 }
 
-enum _OrderCardTone { neutral, inProgress, paused, frozen, issue }
+enum _OrderCardTone {
+  neutral,
+  inProgress,
+  paused,
+  frozen,
+  issue,
+  completed,
+}
 
 _OrderCardTone _resolveOrderCardTone({
   AdminProductionOrderStatusDetail? orderStatus,
   AdminOrderControlState orderControl = AdminOrderControlState.active,
+  OrderQueueActivityState? orderActivityState,
   ApparatusQueueOrderState? apparatusState,
 }) {
-  final status = orderStatus?.orderStatus.trim() ?? '';
+  final status = orderStatus?.orderStatus.trim().toLowerCase() ?? '';
+  final lifecycleStatus =
+      orderStatus?.lifecycleStatus.trim().toLowerCase() ?? '';
   if (status == 'completed_with_issue' ||
       (orderStatus?.completedWithIssueCount ?? 0) > 0) {
     return _OrderCardTone.issue;
@@ -268,20 +278,44 @@ _OrderCardTone _resolveOrderCardTone({
   if (orderControl != AdminOrderControlState.active) {
     return _OrderCardTone.frozen;
   }
-  if (apparatusState != null) {
-    return switch (apparatusState) {
-      ApparatusQueueOrderState.inProgress => _OrderCardTone.inProgress,
-      ApparatusQueueOrderState.paused => _OrderCardTone.paused,
-      ApparatusQueueOrderState.frozen => _OrderCardTone.frozen,
-      ApparatusQueueOrderState.completed => _OrderCardTone.neutral,
-      ApparatusQueueOrderState.pending => _OrderCardTone.neutral,
+  if (status == 'frozen') {
+    return _OrderCardTone.frozen;
+  }
+  if (status == 'paused') {
+    return _OrderCardTone.paused;
+  }
+  if (status == 'in_progress' ||
+      status == 'waiting_next_stage' ||
+      status == 'partially_completed') {
+    return _OrderCardTone.inProgress;
+  }
+  if (status == 'completed' ||
+      lifecycleStatus == 'production_completed' ||
+      lifecycleStatus == 'closed') {
+    return _OrderCardTone.completed;
+  }
+  final activityState = orderActivityState ??
+      switch (apparatusState) {
+        ApparatusQueueOrderState.pending => OrderQueueActivityState.pending,
+        ApparatusQueueOrderState.inProgress =>
+          OrderQueueActivityState.inProgress,
+        ApparatusQueueOrderState.paused => OrderQueueActivityState.paused,
+        ApparatusQueueOrderState.frozen => OrderQueueActivityState.frozen,
+        ApparatusQueueOrderState.completed => OrderQueueActivityState.completed,
+        null => null,
+      };
+  if (activityState != null) {
+    return switch (activityState) {
+      OrderQueueActivityState.inProgress ||
+      OrderQueueActivityState.waitingNextStage =>
+        _OrderCardTone.inProgress,
+      OrderQueueActivityState.paused => _OrderCardTone.paused,
+      OrderQueueActivityState.frozen => _OrderCardTone.frozen,
+      OrderQueueActivityState.completed => _OrderCardTone.completed,
+      OrderQueueActivityState.pending => _OrderCardTone.neutral,
     };
   }
-  return switch (status) {
-    'in_progress' => _OrderCardTone.inProgress,
-    'paused' => _OrderCardTone.paused,
-    _ => _OrderCardTone.neutral,
-  };
+  return _OrderCardTone.neutral;
 }
 
 Color? _orderCardBackgroundColor(
@@ -293,10 +327,11 @@ Color? _orderCardBackgroundColor(
   }
   final theme = Theme.of(context);
   final accent = switch (tone) {
-    _OrderCardTone.inProgress => const Color(0xFF2E7D32),
+    _OrderCardTone.inProgress => const Color(0xFF1565C0),
     _OrderCardTone.paused => const Color(0xFFF9A825),
-    _OrderCardTone.frozen => const Color(0xFF1565C0),
+    _OrderCardTone.frozen => const Color(0xFFC62828),
     _OrderCardTone.issue => const Color(0xFFC62828),
+    _OrderCardTone.completed => const Color(0xFF2E7D32),
     _OrderCardTone.neutral => Colors.transparent,
   };
   final opacity = theme.brightness == Brightness.dark ? 0.30 : 0.16;

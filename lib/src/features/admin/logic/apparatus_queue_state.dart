@@ -6,6 +6,15 @@ enum ApparatusQueueOrderState {
   completed,
 }
 
+enum OrderQueueActivityState {
+  pending,
+  inProgress,
+  waitingNextStage,
+  paused,
+  frozen,
+  completed,
+}
+
 ApparatusQueueOrderState apparatusQueueOrderStateFromRaw(String? raw) {
   switch (raw?.trim().toLowerCase()) {
     case 'in_progress':
@@ -21,7 +30,7 @@ ApparatusQueueOrderState apparatusQueueOrderStateFromRaw(String? raw) {
   }
 }
 
-ApparatusQueueOrderState? queueActivityStateForOrder({
+OrderQueueActivityState? queueActivityStateForOrder({
   required String orderId,
   required Map<String, Map<String, String>> queueStatesByApparatus,
 }) {
@@ -30,8 +39,10 @@ ApparatusQueueOrderState? queueActivityStateForOrder({
     return null;
   }
 
+  var hasPending = false;
   var hasInProgress = false;
   var hasPaused = false;
+  var hasCompleted = false;
   for (final states in queueStatesByApparatus.values) {
     for (final entry in states.entries) {
       if (entry.key.trim() != normalizedOrderId) {
@@ -39,19 +50,35 @@ ApparatusQueueOrderState? queueActivityStateForOrder({
       }
       final state = apparatusQueueOrderStateFromRaw(entry.value);
       if (state == ApparatusQueueOrderState.frozen) {
-        return ApparatusQueueOrderState.frozen;
+        return OrderQueueActivityState.frozen;
       }
-      if (state == ApparatusQueueOrderState.inProgress) {
-        hasInProgress = true;
-      } else if (state == ApparatusQueueOrderState.paused) {
-        hasPaused = true;
+      switch (state) {
+        case ApparatusQueueOrderState.pending:
+          hasPending = true;
+        case ApparatusQueueOrderState.inProgress:
+          hasInProgress = true;
+        case ApparatusQueueOrderState.paused:
+          hasPaused = true;
+        case ApparatusQueueOrderState.completed:
+          hasCompleted = true;
+        case ApparatusQueueOrderState.frozen:
+          break;
       }
     }
   }
   if (hasPaused) {
-    return ApparatusQueueOrderState.paused;
+    return OrderQueueActivityState.paused;
   }
-  return hasInProgress ? ApparatusQueueOrderState.inProgress : null;
+  if (hasInProgress) {
+    return OrderQueueActivityState.inProgress;
+  }
+  if (hasCompleted && hasPending) {
+    return OrderQueueActivityState.waitingNextStage;
+  }
+  if (hasCompleted) {
+    return OrderQueueActivityState.completed;
+  }
+  return hasPending ? OrderQueueActivityState.pending : null;
 }
 
 List<String> effectiveQueueSequence({

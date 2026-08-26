@@ -82,16 +82,27 @@ void main() {
           _cutId: {'zakaz-active': 'in_progress'},
         },
       ),
-      ApparatusQueueOrderState.inProgress,
+      OrderQueueActivityState.inProgress,
+    );
+    expect(
+      queueActivityStateForOrder(
+        orderId: 'zakaz-between-stages',
+        queueStatesByApparatus: const {
+          _printId: {'zakaz-between-stages': 'completed'},
+          _cutId: {'zakaz-between-stages': 'pending'},
+        },
+      ),
+      OrderQueueActivityState.waitingNextStage,
     );
     expect(
       queueActivityStateForOrder(
         orderId: 'zakaz-done',
         queueStatesByApparatus: const {
+          _printId: {'zakaz-done': 'completed'},
           _cutId: {'zakaz-done': 'completed'},
         },
       ),
-      isNull,
+      OrderQueueActivityState.completed,
     );
   });
 

@@ -178,6 +178,11 @@ class _AdminModulesBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeOrders = _activeProductionMapOrders(
+      orders: orders,
+      orderStatusesByOrderId: orderStatusesByOrderId,
+      queueStatesByApparatus: queueStatesByApparatus,
+    );
     return Column(
       children: [
         if (modules.length > 1)
@@ -200,9 +205,9 @@ class _AdminModulesBody extends StatelessWidget {
                 switch (module) {
                   _OpenedOrderModule.orders => _OrdersModulePage(
                       bottomPadding: bottomPadding,
-                      orders: orders,
+                      orders: activeOrders,
                       visibleOrders: _visibleOrders(
-                        orders: orders,
+                        orders: activeOrders,
                         query: searchQuery,
                       ),
                       customerNameByMapId: customerNameByMapId,

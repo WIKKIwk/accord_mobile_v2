@@ -9,6 +9,41 @@ List<ProductionMapSaved> _productionMapZakazOrders(
   }).toList(growable: false);
 }
 
+List<ProductionMapSaved> _activeProductionMapOrders({
+  required List<ProductionMapSaved> orders,
+  required Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId,
+  required Map<String, Map<String, String>> queueStatesByApparatus,
+}) {
+  return orders.where((order) {
+    final orderId = order.map.id.trim();
+    final lifecycleStatus =
+        orderStatusesByOrderId[orderId]?.lifecycleStatus.trim().toLowerCase() ??
+            '';
+    if (lifecycleStatus.isNotEmpty) {
+      return lifecycleStatus != 'production_completed' &&
+          lifecycleStatus != 'closed' &&
+          lifecycleStatus != 'cancelled';
+    }
+
+    // Legacy and test snapshots do not carry the persisted lifecycle header.
+    // Only use per-apparatus states as a compatibility fallback.
+    final apparatusIds = productionMapLinearWorkStages(order.map)
+        .map((stage) => stage.apparatusId?.trim() ?? '')
+        .where((apparatusId) => apparatusId.isNotEmpty)
+        .toSet();
+    if (apparatusIds.isEmpty) {
+      return true;
+    }
+    final allApparatusCompleted = apparatusIds.every((apparatusId) {
+      final rawState = queueStatesByApparatus[apparatusId]?[orderId];
+      return rawState != null &&
+          apparatusQueueOrderStateFromRaw(rawState) ==
+              ApparatusQueueOrderState.completed;
+    });
+    return !allApparatusCompleted;
+  }).toList(growable: false);
+}
+
 List<AdminCompletionRequestDecisionNotification>
     _newRejectedCompletionRequestDecisions({
   required List<AdminCompletionRequestDecisionNotification> decisions,

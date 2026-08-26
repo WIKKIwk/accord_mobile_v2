@@ -39,7 +39,7 @@ class _OpenedOrderList extends StatelessWidget {
                 orderControlsByOrderId,
                 orders[index].map.id.trim(),
               ),
-              apparatusState: queueActivityStateForOrder(
+              orderActivityState: queueActivityStateForOrder(
                 orderId: orders[index].map.id,
                 queueStatesByApparatus: queueStatesByApparatus,
               ),
