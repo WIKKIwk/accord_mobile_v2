@@ -758,6 +758,70 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
+  testWidgets(
+    'admin user search animates removed rows after the new result arrives',
+    (tester) async {
+      final client = _AdminUsersHttpClient(
+        userListResponder: (url) async {
+          final query = url.queryParameters['q'] ?? '';
+          if (query == 'ali') {
+            return _UserListResponse(items: [_supplierUser('ALI', 'Ali')]);
+          }
+          if (query == 'alina') {
+            return _UserListResponse(
+              items: [_supplierUser('ALINA', 'Alina')],
+            );
+          }
+          return const _UserListResponse(items: []);
+        },
+      );
+
+      await HttpOverrides.runZoned(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(useMaterial3: true),
+            locale: const Locale('uz'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const AdminSuppliersScreen(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await _selectUserRole(tester, 'Ta’minotchi');
+
+        final search = find.byType(EditableText).first;
+        await tester.enterText(search, 'ali');
+        await tester.pump(const Duration(milliseconds: 221));
+        for (var i = 0; i < 20 && find.text('Ali').evaluate().isEmpty; i++) {
+          await tester.pump(const Duration(milliseconds: 10));
+        }
+        expect(find.text('Ali'), findsOneWidget);
+
+        await tester.enterText(search, 'alina');
+        await tester.pump(const Duration(milliseconds: 221));
+        for (var i = 0; i < 20 && find.text('Alina').evaluate().isEmpty; i++) {
+          await tester.pump(const Duration(milliseconds: 10));
+        }
+
+        expect(find.text('Alina'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('admin-user-animation-ALI')),
+          findsOneWidget,
+        );
+
+        await tester.pump(const Duration(milliseconds: 220));
+        expect(find.text('Ali'), findsNothing);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+      }, createHttpClient: (_) => client);
+    },
+  );
+
   testWidgets('admin user list shows retry instead of empty state on error', (
     tester,
   ) async {

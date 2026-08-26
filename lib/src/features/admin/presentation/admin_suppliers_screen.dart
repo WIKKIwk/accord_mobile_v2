@@ -6,6 +6,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/session.dart';
+import '../../../core/widgets/lists/m3_animated_list_entry.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -87,7 +88,10 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final ScrollController _usersScrollController = ScrollController();
   final List<AdminUserListEntry> _items = [];
+  final Map<String, AdminUserListEntry> _exitingItems = {};
+  final Set<String> _enteringItemKeys = {};
   final List<AdminWorker> _workers = [];
   final List<AdminRoleAssignment> _assignments = [];
   Timer? _searchDebounce;
@@ -100,6 +104,8 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   bool _roleMenuOpen = false;
   Object? _loadError;
   int _requestGeneration = 0;
+  int _listAnimationGeneration = 0;
+  bool _animateNextListUpdate = false;
 
   @override
   void initState() {
@@ -114,14 +120,17 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     _searchDebounce?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _usersScrollController.dispose();
     super.dispose();
   }
 
   void _handleUsersChanged() {
+    _animateNextListUpdate = false;
     unawaited(_bootstrap(forceRefresh: true));
   }
 
   Future<void> _reload() async {
+    _animateNextListUpdate = false;
     await _bootstrap(forceRefresh: true);
   }
 
@@ -177,22 +186,11 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       final workers = results[1] as List<AdminWorker>;
       final assignments = results[2] as List<AdminRoleAssignment>;
 
-      setState(() {
-        _items
-          ..clear()
-          ..addAll(page.items);
-        _workers
-          ..clear()
-          ..addAll(workers);
-        _assignments
-          ..clear()
-          ..addAll(assignments);
-        _hasMore = page.hasMore;
-        _offset = page.items.length;
-        _initialLoading = false;
-        _loadingMore = false;
-        _loadError = null;
-      });
+      _applyUserListResult(
+        page: page,
+        workers: workers,
+        assignments: assignments,
+      );
       _saveCache(sessionRevision);
     } catch (error) {
       debugPrint('admin users bootstrap failed: $error');
@@ -204,11 +202,71 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       )) {
         return;
       }
+      _animateNextListUpdate = false;
       setState(() {
         _initialLoading = false;
         _loadingMore = false;
         _loadError = error;
       });
+    }
+  }
+
+  void _applyUserListResult({
+    required AdminUserListPage page,
+    required List<AdminWorker> workers,
+    required List<AdminRoleAssignment> assignments,
+  }) {
+    final previousIds = _items.map((item) => item.id).toSet();
+    final nextIds = page.items.map((item) => item.id).toSet();
+    final exitingItems = _animateNextListUpdate
+        ? _items.where((item) => !nextIds.contains(item.id)).toList()
+        : const <AdminUserListEntry>[];
+    final enteringKeys = _animateNextListUpdate
+        ? page.items
+            .where((item) => !previousIds.contains(item.id))
+            .map((item) => item.id)
+            .toSet()
+        : <String>{};
+    final animationGeneration = ++_listAnimationGeneration;
+    _animateNextListUpdate = false;
+
+    setState(() {
+      _items
+        ..clear()
+        ..addAll(page.items);
+      _exitingItems
+        ..clear()
+        ..addEntries(
+          exitingItems.map((item) => MapEntry(item.id, item)),
+        );
+      _enteringItemKeys
+        ..clear()
+        ..addAll(enteringKeys);
+      _workers
+        ..clear()
+        ..addAll(workers);
+      _assignments
+        ..clear()
+        ..addAll(assignments);
+      _hasMore = page.hasMore;
+      _offset = page.items.length;
+      _initialLoading = false;
+      _loadingMore = false;
+      _loadError = null;
+    });
+
+    if (exitingItems.isNotEmpty || enteringKeys.isNotEmpty) {
+      unawaited(
+        Future<void>.delayed(m3ListMutationAnimationDuration).then((_) {
+          if (!mounted || animationGeneration != _listAnimationGeneration) {
+            return;
+          }
+          setState(() {
+            _exitingItems.clear();
+            _enteringItemKeys.removeAll(enteringKeys);
+          });
+        }),
+      );
     }
   }
 
@@ -406,6 +464,12 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     );
   }
 
+  void _resetUsersScroll() {
+    if (_usersScrollController.hasClients) {
+      _usersScrollController.jumpTo(0);
+    }
+  }
+
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
     final query = value.trim();
@@ -413,8 +477,13 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       return;
     }
     _requestGeneration++;
+    _animateNextListUpdate = true;
+    _listAnimationGeneration++;
+    _resetUsersScroll();
     setState(() {
       _searchQuery = query;
+      _exitingItems.clear();
+      _enteringItemKeys.clear();
       _initialLoading = true;
       _loadingMore = false;
       _loadError = null;
@@ -438,8 +507,13 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       return;
     }
     _requestGeneration++;
+    _animateNextListUpdate = false;
+    _listAnimationGeneration++;
+    _resetUsersScroll();
     setState(() {
       _selectedKind = kind;
+      _exitingItems.clear();
+      _enteringItemKeys.clear();
       _roleMenuOpen = false;
       _initialLoading = true;
       _loadingMore = false;
@@ -498,28 +572,47 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     if (kind == null) {
       return const <AdminUserListEntry>[];
     }
+    late final List<AdminUserListEntry> items;
     if (kind == AdminUserKind.materialTaminotchi) {
-      return _items
+      items = _items
           .where(_itemIsMaterialTaminotchi)
           .map((item) => _materialTaminotchiEntry(item, context.l10n))
           .toList(growable: false);
-    }
-    if (kind == AdminUserKind.worker) {
-      return [
+    } else if (kind == AdminUserKind.worker) {
+      items = [
         ..._workerEntries(kind),
         ..._items.where((item) => item.kind == kind),
       ];
-    }
-    if (kind == AdminUserKind.customer) {
-      return _items
+    } else if (kind == AdminUserKind.customer) {
+      items = _items
           .where(
             (item) =>
                 item.kind == AdminUserKind.customer &&
                 !_itemIsMaterialTaminotchi(item),
           )
           .toList(growable: false);
+    } else {
+      items = _items.where((item) => item.kind == kind).toList();
     }
-    return _items.where((item) => item.kind == kind).toList(growable: false);
+
+    final exitingItems = _exitingItems.values.where((item) {
+      if (kind == AdminUserKind.materialTaminotchi) {
+        return _itemIsMaterialTaminotchi(item);
+      }
+      if (kind == AdminUserKind.worker) {
+        return item.kind == kind;
+      }
+      if (kind == AdminUserKind.customer) {
+        return item.kind == AdminUserKind.customer &&
+            !_itemIsMaterialTaminotchi(item);
+      }
+      return item.kind == kind;
+    }).map((item) {
+      return kind == AdminUserKind.materialTaminotchi
+          ? _materialTaminotchiEntry(item, context.l10n)
+          : item;
+    });
+    return [...items, ...exitingItems];
   }
 
   Widget _buildUserList(AdminUserKind? kind) {
@@ -537,19 +630,39 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         ),
       );
     }
-    final showFooter = kind != AdminUserKind.qolipchi &&
-        kind != AdminUserKind.boyoqchi &&
-        visibleItems.isNotEmpty &&
-        (_loadingMore || _hasMore);
-    if (_initialLoading) {
-      return const Center(child: AppLoadingIndicator());
-    }
     if (_loadError != null) {
       return AppRetryState(
         onRetry: _reload,
         message: l10n.adminText('users.load_failed'),
       );
     }
+    final list = _buildLoadedUserList(kind, visibleItems, l10n);
+    if (_initialLoading) {
+      if (_items.isEmpty && _exitingItems.isEmpty) {
+        return const Center(child: AppLoadingIndicator());
+      }
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          IgnorePointer(
+            child: Opacity(opacity: 0, child: list),
+          ),
+          const Center(child: AppLoadingIndicator()),
+        ],
+      );
+    }
+    return list;
+  }
+
+  Widget _buildLoadedUserList(
+    AdminUserKind kind,
+    List<AdminUserListEntry> visibleItems,
+    AppLocalizations l10n,
+  ) {
+    final showFooter = kind != AdminUserKind.qolipchi &&
+        kind != AdminUserKind.boyoqchi &&
+        visibleItems.isNotEmpty &&
+        (_loadingMore || _hasMore);
     return AppRefreshIndicator(
       onRefresh: _reload,
       allowRefreshOnShortContent: true,
@@ -561,6 +674,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
           return false;
         },
         child: ListView.builder(
+          controller: _usersScrollController,
           physics: const TopRefreshScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(4, 4, 4, 116),
           itemCount: visibleItems.isEmpty
@@ -589,17 +703,34 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
               return const SizedBox(height: 14);
             }
             final item = visibleItems[index];
+            final exiting = _exitingItems.containsKey(item.id);
             return Padding(
               padding: EdgeInsets.only(
                 top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
               ),
-              child: AdminSupplierListRow(
-                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                  index,
-                  visibleItems.length,
+              child: M3AnimatedListEntry(
+                key: ValueKey('admin-user-animation-${item.id}'),
+                visible: !exiting,
+                animateIn: _enteringItemKeys.contains(item.id),
+                transitionKey: ValueKey(
+                  exiting
+                      ? 'admin-user-exiting-${item.id}'
+                      : 'admin-user-transition-${item.id}',
                 ),
-                item: item,
-                onTap: () => _openUser(item),
+                revision: '${item.name}:${item.phone}:${item.roleLabel}:'
+                    '${item.blocked}',
+                child: IgnorePointer(
+                  ignoring: exiting,
+                  child: AdminSupplierListRow(
+                    key: ValueKey('admin-user-${item.id}'),
+                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                      index,
+                      visibleItems.length,
+                    ),
+                    item: item,
+                    onTap: () => _openUser(item),
+                  ),
+                ),
               ),
             );
           },
