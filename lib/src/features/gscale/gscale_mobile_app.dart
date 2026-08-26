@@ -867,6 +867,7 @@ class OperatorDashboardPage extends StatefulWidget {
     this.onServerUnavailable,
     this.rpsBatchStateLoader,
     this.rpsBatchHistoryLoader,
+    this.rpsBatchUpdater,
     super.key,
   });
 
@@ -881,6 +882,8 @@ class OperatorDashboardPage extends StatefulWidget {
   final VoidCallback? onServerUnavailable;
   final Future<GScaleRpsBatchResponse> Function()? rpsBatchStateLoader;
   final Future<List<GScaleRpsBatchSession>> Function()? rpsBatchHistoryLoader;
+  final Future<GScaleRpsBatchResponse> Function(GScaleRpsBatchUpdateRequest)?
+      rpsBatchUpdater;
 
   @override
   State<OperatorDashboardPage> createState() => _OperatorDashboardPageState();
@@ -911,6 +914,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   bool _warehouseSetupLoading = false;
   bool _archiveLoading = false;
   bool _rpsBatchStateResolved = false;
+  bool _batchContextEditing = false;
+  bool _draftContextSaved = false;
   String _archivePrintLoadingSessionId = '';
   String _errorText = '';
   String _warehousesError = '';
@@ -1132,6 +1137,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           _selectedWarehouse = MobileWarehouse(warehouse: draft.warehouse);
         }
         if (_authoritativeRsBatch?.active != true) {
+          _draftContextSaved = draft.contextSaved;
           _batchPrintMode =
               draft.printMode.isNotEmpty ? draft.printMode : _batchPrintMode;
           _batchPrinter =
@@ -1180,6 +1186,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       micronText: _micronController.text.trim(),
       warehouseMode: _warehouseMode == 'default' ? 'default' : 'manual',
       defaultWarehouse: _currentDefaultWarehouse,
+      contextSaved: _draftContextSaved,
     );
     await saveOperatorControlDraft(draft);
   }
@@ -1496,6 +1503,162 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     }
   }
 
+  void _beginBatchContextEdit() {
+    final batch = _authoritativeRsBatch;
+    if (_batchActionLoading) {
+      return;
+    }
+    if (batch == null || !batch.active) {
+      if (!_draftContextSaved) {
+        return;
+      }
+      setState(() {
+        _draftContextSaved = false;
+        _batchContextEditing = true;
+        _errorText = '';
+      });
+      _scheduleSaveControlPrefs();
+      return;
+    }
+    setState(() {
+      _selectedItem = MobileItem(
+        itemCode: batch.itemCode,
+        itemName: batch.itemName,
+        requiresDimensions: batch.widthMm != null || batch.micron != null,
+      );
+      _selectedWarehouse = MobileWarehouse(warehouse: batch.warehouse);
+      _warehouseMode = 'manual';
+      _quantitySource = normalizeQuantitySource(batch.quantitySource);
+      _babinaEnabled = batch.tareEnabled;
+      _babinaWeightController.text = batch.tareEnabled && batch.tareKg > 0
+          ? formatCompactKg(batch.tareKg)
+          : '';
+      _widthController.text =
+          batch.widthMm == null ? '' : formatCompactKg(batch.widthMm!);
+      _micronController.text =
+          batch.micron == null ? '' : formatCompactKg(batch.micron!);
+      _batchContextEditing = true;
+      _errorText = '';
+    });
+  }
+
+  Future<void> _saveBatchContextEdit() async {
+    final batch = _authoritativeRsBatch;
+    final savingDraft = batch == null || !batch.active;
+    final savingInitialDraft = savingDraft && !_draftContextSaved;
+    if ((!_batchContextEditing && !savingInitialDraft) ||
+        _manualPrintLoading ||
+        _batchActionLoading ||
+        _requestInFlight) {
+      return;
+    }
+    if (!savingDraft &&
+        (!_rpsBatchStateResolved ||
+            !batch.active ||
+            !hasExactRpsBatchContext(batch))) {
+      setState(() {
+        _errorText = 'Faol batch holati tasdiqlanmagan. Qayta yuklang.';
+      });
+      return;
+    }
+    final item = _selectedItem;
+    if (item == null) {
+      setState(() {
+        _errorText = 'Mahsulot tanlang';
+      });
+      return;
+    }
+    final widthMm = parsePositiveKg(_widthController.text);
+    final micron = parsePositiveKg(_micronController.text);
+    if (item.requiresDimensions && widthMm == null) {
+      setState(() {
+        _errorText = "Material enini mm da to'g'ri kiriting";
+      });
+      return;
+    }
+    if (item.requiresDimensions && micron == null) {
+      setState(() {
+        _errorText = "Material mikronini to'g'ri kiriting";
+      });
+      return;
+    }
+    final warehouse = _selectedPrintWarehouse();
+    if (warehouse == null || warehouse.trim().isEmpty) {
+      setState(() {
+        _errorText = 'Ombor tanlang';
+      });
+      return;
+    }
+    if (!await _materialWarehouseAllowed(warehouse)) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _errorText = 'Bu ombor sizga biriktirilmagan';
+      });
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    if (savingDraft) {
+      setState(() {
+        _draftContextSaved = true;
+        _batchContextEditing = false;
+        _errorText = '';
+      });
+      _scheduleSaveControlPrefs();
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(content: Text('Sozlamalar saqlandi')),
+      );
+      return;
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _batchActionLoading = true;
+      _errorText = '';
+    });
+    final request = GScaleRpsBatchUpdateRequest(
+      batchId: batch.id,
+      expectedRevision: batch.revision,
+      itemCode: item.itemCode,
+      itemName: item.itemName,
+      warehouse: warehouse,
+      widthMm: item.requiresDimensions ? widthMm : null,
+      micron: item.requiresDimensions ? micron : null,
+      quantitySource: normalizeQuantitySource(_quantitySource),
+      tareEnabled: _babinaEnabled,
+      tareKg: parsePositiveKg(_babinaWeightController.text) ?? 0,
+    );
+    try {
+      final updater = widget.rpsBatchUpdater;
+      final response = await (updater == null
+              ? MobileApi.instance.gscaleRpsBatchUpdate(request)
+              : updater(request))
+          .timeout(const Duration(seconds: 15));
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _batchContextEditing = false;
+        _applyRsBatchSession(response.batch);
+        _batchActionLoading = false;
+      });
+      _scheduleSaveControlPrefs();
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(content: Text('Batch ma’lumotlari saqlandi')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _batchActionLoading = false;
+        _errorText = rpsBatchActionErrorMessage(error);
+      });
+    }
+  }
+
   Future<void> _stopRsBatchAfterLateErpError(String message) async {
     final batch = _authoritativeRsBatch;
     if (!_rpsBatchStateResolved ||
@@ -1598,9 +1761,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   }
 
   void _applyRsBatchSession(GScaleRpsBatchSession batch) {
+    final keepContextDraft = _batchContextEditing &&
+        batch.active &&
+        _authoritativeRsBatch?.id == batch.id;
     _rpsBatchStateResolved = true;
     _authoritativeRsBatch = batch;
-    if (batch.active) {
+    if (batch.active && !keepContextDraft) {
       _runWithoutSavingControlPrefs(() {
         _batchPrinter = normalizePrinterChoice(batch.printer);
         _batchPrintMode =
@@ -1615,6 +1781,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         _micronController.text =
             batch.micron == null ? '' : formatCompactKg(batch.micron!);
       });
+    }
+    if (!batch.active) {
+      _batchContextEditing = false;
     }
     _snapshot = _snapshot.copyWithBatch(MobileBatchState.fromRpsBatch(batch));
     _batchPrints = batch.prints;
@@ -1862,6 +2031,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     setState(() {
       final changedItem = _selectedItem?.itemCode != item.itemCode;
       _selectedItem = item;
+      if (_authoritativeRsBatch?.active != true) {
+        _draftContextSaved = false;
+      }
       if (changedItem) {
         _widthController.clear();
         _micronController.clear();
@@ -3241,8 +3413,14 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
             _authoritativeRsBatch!.active
         ? _authoritativeRsBatch
         : null;
+    final editingBatchContext = activeBatch != null && _batchContextEditing;
+    final draftContextSummaryVisible =
+        activeBatch == null && _draftContextSaved && !_batchContextEditing;
+    final showContextFields =
+        activeBatch == null ? !draftContextSummaryVisible : editingBatchContext;
+    final lockedBatchContext = activeBatch != null && !editingBatchContext;
     final batchContextReady = hasExactRpsBatchContext(activeBatch);
-    final selectedProduct = activeBatch == null
+    final selectedProduct = activeBatch == null || editingBatchContext
         ? _selectedItem
         : MobileItem(
             itemCode: activeBatch.itemCode,
@@ -3250,18 +3428,22 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
             requiresDimensions:
                 activeBatch.widthMm != null || activeBatch.micron != null,
           );
-    final selectedWarehouse = activeBatch == null
+    final selectedWarehouse = activeBatch == null || editingBatchContext
         ? _selectedWarehouse
         : MobileWarehouse(warehouse: activeBatch.warehouse);
     final defaultWarehouse = _currentDefaultWarehouse;
     final defaultMode = activeBatch == null && _warehouseMode == 'default';
-    final modeLocked =
+    final contextFieldsLocked = (activeBatch != null && !editingBatchContext) ||
+        _batchActionLoading ||
+        _manualPrintLoading;
+    final printerLocked =
         _snapshot.batchActive || _batchActionLoading || _manualPrintLoading;
-    final printerLocked = modeLocked;
     final selectedPrinter = normalizePrinterChoice(_batchPrinter);
     final selectedQuantitySource = normalizeQuantitySource(
-      _snapshot.batchActive ? _snapshot.batchQuantitySource : _quantitySource,
+      lockedBatchContext ? activeBatch.quantitySource : _quantitySource,
     );
+    final selectedBabinaEnabled =
+        lockedBatchContext ? activeBatch.tareEnabled : _babinaEnabled;
     final manualQtyKg = selectedQuantitySource == 'manual'
         ? parsePositiveKg(_manualQtyController.text)
         : null;
@@ -3270,7 +3452,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         : 1;
     final manualPrintReady = canTriggerManualPrint(
       qtyText: _manualQtyController.text,
-      babinaEnabled: _babinaEnabled,
+      babinaEnabled: selectedBabinaEnabled,
       babinaText: _babinaWeightController.text,
     );
     final manualQtyInvalid = selectedQuantitySource == 'manual' &&
@@ -3279,11 +3461,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     final duplicateInvalid = selectedQuantitySource == 'manual' &&
         _manualDuplicateController.text.trim().isNotEmpty &&
         duplicateCount == null;
-    final babinaKg =
-        _babinaEnabled ? parsePositiveKg(_babinaWeightController.text) : null;
-    final babinaInvalid = _babinaEnabled &&
+    final babinaInvalid = selectedBabinaEnabled &&
         _babinaWeightController.text.trim().isNotEmpty &&
-        babinaKg == null;
+        parsePositiveKg(_babinaWeightController.text) == null;
     final scaleQtyKg = parseScaleDisplayKg(_snapshot.scaleValue);
     final widthMm = parsePositiveKg(_widthController.text);
     final micron = parsePositiveKg(_micronController.text);
@@ -3300,9 +3480,15 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
             ? defaultWarehouse.isNotEmpty
             : selectedWarehouse != null) &&
         dimensionsReady;
+    final batchContextSaveEnabled = showContextFields &&
+        (activeBatch == null || batchContextReady) &&
+        hasPrintSelection &&
+        !_batchActionLoading &&
+        !_manualPrintLoading &&
+        !_requestInFlight;
     final scalePrintReady = canTriggerGrossPrint(
       grossKg: scaleQtyKg,
-      babinaEnabled: _babinaEnabled,
+      babinaEnabled: selectedBabinaEnabled,
       babinaText: _babinaWeightController.text,
     );
     final scaleBatchActionEnabled = canPressScaleBatchAction(
@@ -3327,10 +3513,14 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         !_manualPrintLoading &&
         !_batchActionLoading &&
         !_requestInFlight;
+    final bluetoothPrinterLabel =
+        widget.bluetoothPrinter?.displayName.trim().isNotEmpty == true
+            ? widget.bluetoothPrinter!.displayName.trim()
+            : 'XP-P323B';
     final printerStatusText = widget.printTransport.isOffline
         ? 'USB printer • Offline'
         : widget.printTransport.isBluetooth
-            ? 'XP-P323B • Bluetooth'
+            ? '$bluetoothPrinterLabel • Bluetooth'
             : _printerStatusOverride.isNotEmpty
                 ? _printerStatusOverride
                 : !_snapshot.hasPrinterState
@@ -3342,9 +3532,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       minimumSize: const Size.fromHeight(52),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       visualDensity: const VisualDensity(horizontal: -1, vertical: 0),
-    );
-    final batchActionTextStyle = theme.textTheme.titleMedium?.copyWith(
-      fontWeight: FontWeight.w800,
+      textStyle: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w800,
+      ),
     );
     final controlInputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
@@ -3421,12 +3611,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           ),
           const SizedBox(height: 6),
         ],
-        if (widget.printTransport.isLocal && !hasScaleDevice) ...[
+        if (widget.printTransport.isOffline && !hasScaleDevice) ...[
           _OfflinePrintStatus(
             onChangeMode: widget.onChangeServer,
             printer: widget.offlinePrinter,
-            bluetoothPrinter: widget.bluetoothPrinter,
-            transport: widget.printTransport,
           ),
           const SizedBox(height: 8),
         ],
@@ -3479,203 +3667,192 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           ),
           const SizedBox(height: 6),
         ],
-        if (_snapshot.batchActive) ...[
-          _MiniIconRow(
-            icon: Icons.playlist_add_check_rounded,
-            text: [
-              _snapshot.batchItemName.isEmpty
-                  ? _snapshot.batchItemCode
-                  : _snapshot.batchItemName,
-              if (_snapshot.batchWarehouse.isNotEmpty) _snapshot.batchWarehouse,
-            ].where((part) => part.trim().isNotEmpty).join(' • '),
+        if (activeBatch != null && !editingBatchContext) ...[
+          _BatchContextSummary(
+            itemName: activeBatch.displayItemName,
+            warehouse: activeBatch.warehouse,
+            widthMm: activeBatch.widthMm,
+            micron: activeBatch.micron,
+            quantitySource: activeBatch.quantitySource,
+            babinaEnabled: activeBatch.tareEnabled,
+            tareKg: activeBatch.tareKg,
+            onEdit: _batchActionLoading || _manualPrintLoading
+                ? null
+                : _beginBatchContextEdit,
           ),
           const SizedBox(height: 8),
         ],
-        _PickerField(
-          icon: Icons.search_rounded,
-          label: 'Mahsulot tanlang',
-          value: selectedProduct?.itemCode,
-          subtitle: null,
-          onTap: modeLocked ? null : _openItemPicker,
-        ),
-        const SizedBox(height: 8),
-        if (selectedProduct?.requiresDimensions == true) ...[
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _widthController,
-                  enabled: !modeLocked,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-                  ],
-                  decoration: InputDecoration(
-                    isDense: true,
-                    labelText: 'Eni (mm)',
-                    errorText: widthInvalid ? "To'g'ri eni kiriting" : null,
-                    border: controlInputBorder,
-                    enabledBorder: controlInputBorder,
-                    focusedBorder: controlFocusedInputBorder,
-                    errorBorder: controlErrorInputBorder,
-                    focusedErrorBorder: controlFocusedErrorInputBorder,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _micronController,
-                  enabled: !modeLocked,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-                  ],
-                  decoration: InputDecoration(
-                    isDense: true,
-                    labelText: 'Mikron',
-                    errorText: micronInvalid ? "To'g'ri mikron kiriting" : null,
-                    border: controlInputBorder,
-                    enabledBorder: controlInputBorder,
-                    focusedBorder: controlFocusedInputBorder,
-                    errorBorder: controlErrorInputBorder,
-                    focusedErrorBorder: controlFocusedErrorInputBorder,
-                  ),
-                ),
-              ),
-            ],
+        if (draftContextSummaryVisible) ...[
+          _BatchContextSummary(
+            itemName:
+                selectedProduct?.itemName ?? selectedProduct?.itemCode ?? '',
+            warehouse: _selectedPrintWarehouse() ?? '',
+            widthMm: parsePositiveKg(_widthController.text),
+            micron: parsePositiveKg(_micronController.text),
+            quantitySource: _quantitySource,
+            babinaEnabled: _babinaEnabled,
+            tareKg: parsePositiveKg(_babinaWeightController.text) ?? 0,
+            onEdit: _batchActionLoading || _manualPrintLoading
+                ? null
+                : _beginBatchContextEdit,
           ),
           const SizedBox(height: 8),
         ],
-        if (defaultMode) ...[
-          if (defaultWarehouse.isEmpty)
-            Text(
-              'Default ombor tanlanmagan.',
-              style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
-            )
-          else
-            _MiniIconRow(
-              icon: Icons.flag_rounded,
-              text: 'Standart ombor: $defaultWarehouse',
-            ),
-        ] else if (selectedProduct == null) ...[
-          const SizedBox(height: 6),
-          Text(
-            'Avval mahsulot tanlang, keyin ombor chiqadi.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ] else ...[
+        if (showContextFields) ...[
           _PickerField(
-            icon: Icons.warehouse_outlined,
-            label: 'Ombor tanlang',
-            value: selectedWarehouse?.warehouse,
+            icon: Icons.search_rounded,
+            label: 'Mahsulot tanlang',
+            value: selectedProduct?.itemCode,
             subtitle: null,
-            onTap: modeLocked ? null : _openWarehousePicker,
+            onTap: contextFieldsLocked ? null : _openItemPicker,
           ),
-          if (_warehousesError.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              _warehousesError,
-              style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
-            ),
-          ],
-        ],
-        const SizedBox(height: 8),
-        IgnorePointer(
-          ignoring: printerLocked,
-          child: Opacity(
-            opacity: printerLocked ? 0.6 : 1,
-            child: Row(
+          const SizedBox(height: 8),
+          if (selectedProduct?.requiresDimensions == true) ...[
+            Row(
               children: [
-                Text(
-                  'Miqdor',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
+                Expanded(
+                  child: TextField(
+                    controller: _widthController,
+                    enabled: !contextFieldsLocked,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                    ],
+                    decoration: InputDecoration(
+                      isDense: true,
+                      labelText: 'Eni (mm)',
+                      errorText: widthInvalid ? "To'g'ri eni kiriting" : null,
+                      border: controlInputBorder,
+                      enabledBorder: controlInputBorder,
+                      focusedBorder: controlFocusedInputBorder,
+                      errorBorder: controlErrorInputBorder,
+                      focusedErrorBorder: controlFocusedErrorInputBorder,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: SegmentedButton<String>(
-                    style: _segmentStyle(context),
-                    segments: const [
-                      ButtonSegment<String>(
-                        value: 'scale',
-                        label: Text('Tarozidan kg'),
-                        icon: Icon(Icons.scale_outlined),
-                      ),
-                      ButtonSegment<String>(
-                        value: 'manual',
-                        label: Text('Qo‘lda kg'),
-                        icon: Icon(Icons.edit_note_rounded),
-                      ),
+                  child: TextField(
+                    controller: _micronController,
+                    enabled: !contextFieldsLocked,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                     ],
-                    selected: <String>{selectedQuantitySource},
-                    onSelectionChanged: (selection) {
-                      if (selection.isEmpty) {
-                        return;
-                      }
-                      setState(() {
-                        _quantitySource =
-                            normalizeQuantitySource(selection.first);
-                      });
-                      _scheduleSaveControlPrefs();
-                    },
+                    decoration: InputDecoration(
+                      isDense: true,
+                      labelText: 'Mikron',
+                      errorText:
+                          micronInvalid ? "To'g'ri mikron kiriting" : null,
+                      border: controlInputBorder,
+                      enabledBorder: controlInputBorder,
+                      focusedBorder: controlFocusedInputBorder,
+                      errorBorder: controlErrorInputBorder,
+                      focusedErrorBorder: controlFocusedErrorInputBorder,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
+            const SizedBox(height: 8),
+          ],
+          if (defaultMode) ...[
+            if (defaultWarehouse.isEmpty)
+              Text(
+                'Default ombor tanlanmagan.',
+                style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+              )
+            else
+              _MiniIconRow(
+                icon: Icons.flag_rounded,
+                text: 'Standart ombor: $defaultWarehouse',
+              ),
+          ] else if (selectedProduct == null) ...[
+            const SizedBox(height: 6),
             Text(
-              'Babina',
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w700,
+              'Avval mahsulot tanlang, keyin ombor chiqadi.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(width: 8),
-            SegmentedButton<bool>(
-              style: _segmentStyle(context),
-              segments: const [
-                ButtonSegment<bool>(
-                  value: false,
-                  label: Text("Yo'q"),
-                  icon: Icon(Icons.close_rounded),
-                ),
-                ButtonSegment<bool>(
-                  value: true,
-                  label: Text('Bor'),
-                  icon: Icon(Icons.functions_rounded),
-                ),
-              ],
-              selected: <bool>{_babinaEnabled},
-              onSelectionChanged: printerLocked
-                  ? null
-                  : (selection) {
-                      if (selection.isEmpty) {
-                        return;
+          ] else ...[
+            _PickerField(
+              icon: Icons.warehouse_outlined,
+              label: 'Ombor tanlang',
+              value: selectedWarehouse?.warehouse,
+              subtitle: null,
+              onTap: contextFieldsLocked ? null : _openWarehousePicker,
+            ),
+            if (_warehousesError.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                _warehousesError,
+                style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+              ),
+            ],
+          ],
+          const SizedBox(height: 8),
+          _ContextSwitchRow(
+            label: 'Miqdor (kg)',
+            valueText: selectedQuantitySource == 'manual'
+                ? 'Qo‘lda kg'
+                : 'Tarozidan kg',
+            value: selectedQuantitySource == 'manual',
+            onChanged: contextFieldsLocked
+                ? null
+                : (manual) {
+                    setState(() {
+                      _quantitySource = manual ? 'manual' : 'scale';
+                    });
+                    _scheduleSaveControlPrefs();
+                  },
+          ),
+          const SizedBox(height: 4),
+          _ContextSwitchRow(
+            label: 'Babina',
+            valueText: selectedBabinaEnabled ? 'Bor' : 'Yo‘q',
+            value: selectedBabinaEnabled,
+            onChanged: contextFieldsLocked
+                ? null
+                : (enabled) {
+                    setState(() {
+                      _babinaEnabled = enabled;
+                      if (!enabled) {
+                        _babinaWeightController.clear();
                       }
-                      setState(() {
-                        _babinaEnabled = selection.first;
-                      });
-                      _scheduleSaveControlPrefs();
-                    },
+                    });
+                    _scheduleSaveControlPrefs();
+                  },
+          ),
+          if (showContextFields) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: batchContextSaveEnabled
+                    ? () => unawaited(_saveBatchContextEdit())
+                    : null,
+                icon: _batchActionLoading
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined),
+                label: const Text('Saqlash'),
+              ),
             ),
           ],
-        ),
-        if (_babinaEnabled) ...[
-          const SizedBox(height: 6),
+        ],
+        if (selectedBabinaEnabled) ...[
+          const SizedBox(height: 8),
           SizedBox(
             height: babinaInvalid ? 72 : 50,
             child: TextField(
               controller: _babinaWeightController,
-              enabled: !printerLocked,
+              enabled: !_batchActionLoading && !_manualPrintLoading,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
@@ -3686,7 +3863,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
               textAlignVertical: TextAlignVertical.center,
               decoration: InputDecoration(
                 isDense: true,
-                labelText: 'Babina',
+                labelText: 'Babina og‘irligi',
                 suffixText: 'kg',
                 hintText: '0.78',
                 errorText: babinaInvalid ? 'Masalan: 0.78' : null,
@@ -3704,6 +3881,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
             ),
           ),
         ],
+        const SizedBox(height: 8),
         if (selectedQuantitySource == 'manual') ...[
           const SizedBox(height: 8),
           Row(
@@ -3800,10 +3978,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.print_rounded, size: 23),
-                    label: Text(
-                      'Chop etish',
-                      style: batchActionTextStyle,
-                    ),
+                    label: const Text('Chop etish'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -3814,10 +3989,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                         ? () => unawaited(_stopRsBatch())
                         : null,
                     icon: const Icon(Icons.stop_circle_outlined, size: 23),
-                    label: Text(
-                      'Batch stop',
-                      style: batchActionTextStyle,
-                    ),
+                    label: const Text('Batch stop'),
                   ),
                 ),
               ],
@@ -3833,10 +4005,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                         )
                     : null,
                 icon: const Icon(Icons.play_circle_outline_rounded, size: 23),
-                label: Text(
-                  'Batch start',
-                  style: batchActionTextStyle,
-                ),
+                label: const Text('Batch start'),
               ),
             ),
           if (!_snapshot.batchActive) ...[
@@ -3989,9 +4158,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
             ],
             const SizedBox(height: 10),
             IgnorePointer(
-              ignoring: modeLocked || selectedPrinter == 'godex',
+              ignoring: printerLocked || selectedPrinter == 'godex',
               child: Opacity(
-                opacity: modeLocked || selectedPrinter == 'godex' ? 0.6 : 1,
+                opacity: printerLocked || selectedPrinter == 'godex' ? 0.6 : 1,
                 child: SegmentedButton<String>(
                   style: _segmentStyle(context),
                   segments: const [
@@ -4169,6 +4338,132 @@ class _PickerField extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BatchContextSummary extends StatelessWidget {
+  const _BatchContextSummary({
+    required this.itemName,
+    required this.warehouse,
+    required this.widthMm,
+    required this.micron,
+    required this.quantitySource,
+    required this.babinaEnabled,
+    required this.tareKg,
+    required this.onEdit,
+  });
+
+  final String itemName;
+  final String warehouse;
+  final double? widthMm;
+  final double? micron;
+  final String quantitySource;
+  final bool babinaEnabled;
+  final double tareKg;
+  final VoidCallback? onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final title = [
+      itemName,
+      if (widthMm != null) '${formatCompactKg(widthMm!)} mm',
+      if (micron != null) '${formatCompactKg(micron!)} mikron',
+    ].join(' • ');
+    final quantityText = normalizeQuantitySource(quantitySource) == 'manual'
+        ? 'Qo‘lda kg'
+        : 'Tarozidan kg';
+    final babinaText = babinaEnabled
+        ? 'Babina: ${formatCompactKg(tareKg)} kg'
+        : 'Babina: Yo‘q';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.playlist_add_check_rounded,
+          size: 19,
+          color: scheme.primary,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Ombor: $warehouse • $quantityText • $babinaText',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          onPressed: onEdit,
+          tooltip: 'Batch ma’lumotini tahrirlash',
+          visualDensity: VisualDensity.compact,
+          iconSize: 19,
+          icon: const Icon(Icons.edit_outlined),
+        ),
+      ],
+    );
+  }
+}
+
+class _ContextSwitchRow extends StatelessWidget {
+  const _ContextSwitchRow({
+    required this.label,
+    required this.valueText,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String valueText;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                valueText,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Switch(value: value, onChanged: onChanged),
+      ],
     );
   }
 }
@@ -4351,14 +4646,10 @@ class _OfflinePrintStatus extends StatelessWidget {
   const _OfflinePrintStatus({
     required this.onChangeMode,
     required this.printer,
-    required this.bluetoothPrinter,
-    required this.transport,
   });
 
   final Future<void> Function() onChangeMode;
   final UsbPrinterProfile? printer;
-  final BluetoothPrinterProfile? bluetoothPrinter;
-  final PrintTransport transport;
 
   @override
   Widget build(BuildContext context) {
@@ -4375,9 +4666,7 @@ class _OfflinePrintStatus extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              transport.isBluetooth
-                  ? Icons.bluetooth_rounded
-                  : Icons.usb_rounded,
+              Icons.usb_rounded,
               color: scheme.primary,
             ),
             const SizedBox(width: 12),
@@ -4386,20 +4675,16 @@ class _OfflinePrintStatus extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    transport.isBluetooth
-                        ? bluetoothPrinter?.displayName ?? 'XP-P323B'
-                        : printer?.displayName ?? 'Offline USB printer',
+                    printer?.displayName ?? 'Offline USB printer',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    transport.isBluetooth
-                        ? 'XP-P323B • Bluetooth local print'
-                        : printer == null
-                            ? 'Qo‘lda kg kiritib WiFi printersiz chop etish mumkin.'
-                            : '${printer!.printer.toUpperCase()} • ${printer!.printMode.toUpperCase()} avtomatik tanlandi.',
+                    printer == null
+                        ? 'Qo‘lda kg kiritib WiFi printersiz chop etish mumkin.'
+                        : '${printer!.printer.toUpperCase()} • ${printer!.printMode.toUpperCase()} avtomatik tanlandi.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -6956,6 +7241,7 @@ class OperatorControlDraft {
     required this.defaultWarehouse,
     this.widthText = '',
     this.micronText = '',
+    this.contextSaved = false,
   });
 
   final String itemCode;
@@ -6973,6 +7259,7 @@ class OperatorControlDraft {
   final String defaultWarehouse;
   final String widthText;
   final String micronText;
+  final bool contextSaved;
 
   Map<String, dynamic> toJson() {
     return {
@@ -6991,6 +7278,7 @@ class OperatorControlDraft {
       'default_warehouse': defaultWarehouse,
       'width_text': widthText,
       'micron_text': micronText,
+      'context_saved': contextSaved,
     };
   }
 
@@ -7014,6 +7302,7 @@ class OperatorControlDraft {
       defaultWarehouse: _text(json['default_warehouse']),
       widthText: _text(json['width_text']),
       micronText: _text(json['micron_text']),
+      contextSaved: json['context_saved'] == true,
     );
   }
 }

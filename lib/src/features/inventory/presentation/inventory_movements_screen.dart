@@ -2,12 +2,15 @@ import 'dart:async';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/print_service.dart';
 import '../../../core/session/session.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../../core/widgets/lists/m3_animated_list_entry.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../admin/models/production_map_models.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
@@ -48,6 +51,9 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
   String _error = '';
   final Set<String> _busyKeys = {};
   final Set<String> _selectedAssetKeys = {};
+  final Set<String> _exitingAssetKeys = {};
+  final Set<String> _enteringAssetKeys = {};
+  final Set<String> _enteringTransferIds = {};
   int _selectedStateAssetCount = 0;
   final GlobalKey<MaterialStateLocationsTabState> _materialStateLocationsKey =
       GlobalKey<MaterialStateLocationsTabState>();
@@ -252,12 +258,259 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
     );
   }
 
-  Future<void> _handleStateAssetReturned() async {
-    final stateReload = _materialStateLocationsKey.currentState?.reload();
-    await _loadAssets();
-    if (stateReload != null) {
-      await stateReload;
+  bool _assetMatchesSearch(InventoryAsset asset) {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      return true;
     }
+    return [
+      asset.itemCode,
+      asset.itemName,
+      asset.identifier,
+      asset.assetRef,
+    ].any((value) => value.toLowerCase().contains(query));
+  }
+
+  bool _assetBelongsToSelectedWarehouse(InventoryAsset asset) {
+    if (asset.physicalLocation.kind != InventoryLocationKind.warehouse ||
+        !_assetMatchesSearch(asset)) {
+      return false;
+    }
+    return _warehouseLocations.any(
+      (location) =>
+          location.warehouseId == _selectedWarehouseId &&
+          location.id == asset.physicalLocation.id,
+    );
+  }
+
+  Future<void> _applyWarehouseAssetMutations(
+    List<InventoryAsset> mutations,
+  ) async {
+    final unique = <String, InventoryAsset>{
+      for (final asset in mutations) _selectionKey(asset): asset,
+    };
+    if (unique.isEmpty || !mounted) {
+      return;
+    }
+    final currentKeys = _assets.map(_selectionKey).toSet();
+    final exitingKeys = unique.entries
+        .where(
+          (entry) =>
+              currentKeys.contains(entry.key) &&
+              !_assetBelongsToSelectedWarehouse(entry.value),
+        )
+        .map((entry) => entry.key)
+        .toSet();
+    if (exitingKeys.isNotEmpty) {
+      setState(() => _exitingAssetKeys.addAll(exitingKeys));
+      await Future<void>.delayed(m3ListMutationAnimationDuration);
+      if (!mounted) {
+        return;
+      }
+    }
+    final enteringKeys = <String>{};
+    setState(() {
+      final next = List<InventoryAsset>.of(_assets);
+      for (final entry in unique.entries) {
+        final index = next.indexWhere(
+          (asset) => _selectionKey(asset) == entry.key,
+        );
+        if (!_assetBelongsToSelectedWarehouse(entry.value)) {
+          if (index >= 0) {
+            next.removeAt(index);
+          }
+          continue;
+        }
+        if (index >= 0) {
+          next[index] = entry.value;
+        } else {
+          next.add(entry.value);
+          enteringKeys.add(entry.key);
+        }
+      }
+      _assets = List<InventoryAsset>.unmodifiable(next);
+      _exitingAssetKeys.removeAll(unique.keys);
+      _enteringAssetKeys.addAll(enteringKeys);
+      final visibleKeys = _assets.map(_selectionKey).toSet();
+      _selectedAssetKeys.removeWhere((key) => !visibleKeys.contains(key));
+    });
+    if (enteringKeys.isNotEmpty) {
+      unawaited(
+        Future<void>.delayed(m3ListMutationAnimationDuration).then((_) {
+          _enteringAssetKeys.removeAll(enteringKeys);
+        }),
+      );
+    }
+  }
+
+  Future<void> _applyAssetMutations(List<InventoryAsset> mutations) async {
+    final stateTab = _materialStateLocationsKey.currentState;
+    await Future.wait<void>([
+      _applyWarehouseAssetMutations(mutations),
+      if (stateTab != null) stateTab.applyAssetMutations(mutations),
+    ]);
+  }
+
+  Future<void> _reloadOrderAssignments() async {
+    try {
+      final assignments = await _loadRawMaterialOrderAssignments();
+      if (mounted) {
+        setState(() => _rawMaterialOrderAssignments = assignments);
+      }
+    } catch (error) {
+      if (mounted) {
+        _showMessage(_message(error));
+      }
+    }
+  }
+
+  InventoryLocation? _warehouseLocationFor(String warehouseId) {
+    for (final location in _warehouseLocations) {
+      if (location.warehouseId == warehouseId) {
+        return location;
+      }
+    }
+    return null;
+  }
+
+  void _upsertTransfer(InventoryTransfer transfer) {
+    final assignedWarehouses = _assignedWarehouseNames;
+    final wasKnown = _allIncoming.any((item) => item.id == transfer.id) ||
+        _allOutgoing.any((item) => item.id == transfer.id);
+
+    List<InventoryTransfer> reconcile(
+      List<InventoryTransfer> current, {
+      required bool belongs,
+    }) {
+      final next = List<InventoryTransfer>.of(current);
+      final index = next.indexWhere((item) => item.id == transfer.id);
+      if (!belongs) {
+        if (index >= 0) {
+          next.removeAt(index);
+        }
+      } else if (index >= 0) {
+        next[index] = transfer;
+      } else {
+        next.insert(0, transfer);
+      }
+      return List<InventoryTransfer>.unmodifiable(next);
+    }
+
+    final incoming = reconcile(
+      _allIncoming,
+      belongs: _isAdmin ||
+          assignedWarehouses
+              .contains(transfer.destinationWarehouse.trim().toLowerCase()),
+    );
+    final outgoing = reconcile(
+      _allOutgoing,
+      belongs: _isAdmin ||
+          assignedWarehouses
+              .contains(transfer.sourceWarehouse.trim().toLowerCase()),
+    );
+    final selected = _warehouseLocationFor(_selectedWarehouseId);
+    setState(() {
+      _allIncoming = incoming;
+      _allOutgoing = outgoing;
+      _incoming = selected == null
+          ? const []
+          : _filterTransfersByWarehouse(
+              incoming,
+              warehouseName: selected.name,
+              incoming: true,
+            );
+      _outgoing = selected == null
+          ? const []
+          : _filterTransfersByWarehouse(
+              outgoing,
+              warehouseName: selected.name,
+              incoming: false,
+            );
+      if (!wasKnown) {
+        _enteringTransferIds.add(transfer.id);
+      }
+    });
+    if (!wasKnown) {
+      unawaited(
+        Future<void>.delayed(m3ListMutationAnimationDuration).then((_) {
+          _enteringTransferIds.remove(transfer.id);
+        }),
+      );
+    }
+  }
+
+  List<InventoryAsset> _assetMutationsForTransfer(
+    InventoryTransfer transfer,
+  ) {
+    final terminal = transfer.status == InventoryTransferStatus.received ||
+        transfer.status == InventoryTransferStatus.rejected ||
+        transfer.status == InventoryTransferStatus.cancelled;
+    final received = transfer.status == InventoryTransferStatus.received;
+    final sourceLocation = _warehouseLocationFor(transfer.sourceWarehouseId);
+    final destinationLocation =
+        _warehouseLocationFor(transfer.destinationWarehouseId);
+    final mutations = <InventoryAsset>[];
+    for (final line in transfer.lines) {
+      final key = '${line.assetKind.apiValue}:${line.assetRef.toLowerCase()}';
+      InventoryAsset? current;
+      for (final asset in _assets) {
+        if (_selectionKey(asset) == key) {
+          current = asset;
+          break;
+        }
+      }
+      InventoryLocationReference? physicalLocation;
+      if (received && destinationLocation != null) {
+        physicalLocation = InventoryLocationReference(
+          id: destinationLocation.id,
+          kind: destinationLocation.kind,
+          name: destinationLocation.name,
+        );
+      } else if (!received &&
+          current?.physicalLocation.kind == InventoryLocationKind.warehouse) {
+        physicalLocation = current!.physicalLocation;
+      } else if (!received && sourceLocation != null) {
+        physicalLocation = InventoryLocationReference(
+          id: sourceLocation.id,
+          kind: sourceLocation.kind,
+          name: sourceLocation.name,
+        );
+      }
+      if (physicalLocation == null) {
+        continue;
+      }
+      final status = switch (transfer.status) {
+        InventoryTransferStatus.inTransit => 'in_transit',
+        InventoryTransferStatus.received ||
+        InventoryTransferStatus.rejected ||
+        InventoryTransferStatus.cancelled =>
+          'available',
+        _ => 'transfer_reserved',
+      };
+      mutations.add(
+        InventoryAsset(
+          kind: line.assetKind,
+          assetRef: line.assetRef,
+          custodyWarehouseId: received
+              ? transfer.destinationWarehouseId
+              : transfer.sourceWarehouseId,
+          custodyWarehouse: received
+              ? transfer.destinationWarehouse
+              : transfer.sourceWarehouse,
+          itemCode: current?.itemCode ?? line.itemCode,
+          itemName: current?.itemName ?? line.itemName,
+          identifier: current?.identifier ?? line.identifier,
+          qty: current?.qty ?? line.qty,
+          uom: current?.uom ?? line.uom,
+          status: status,
+          physicalLocation: physicalLocation,
+          transferId: terminal ? '' : transfer.id,
+          placementVersion:
+              (current?.placementVersion ?? 1) + (received ? 1 : 0),
+        ),
+      );
+    }
+    return mutations;
   }
 
   void _onSearchChanged(String _) {
@@ -340,6 +593,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
     }
     await _runBusy('unlink-raw-material-batch', () async {
       var unlinkedCount = 0;
+      final unlinkedBarcodes = <String>{};
       for (final asset in assets) {
         final barcode = rawMaterialAssetBarcode(asset);
         final assignment = _rawMaterialOrderAssignments[barcode];
@@ -351,13 +605,19 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
           barcode: barcode,
         );
         unlinkedCount += 1;
+        unlinkedBarcodes.add(barcode);
       }
       if (!mounted) {
         return;
       }
-      setState(_selectedAssetKeys.clear);
+      setState(() {
+        _selectedAssetKeys.clear();
+        _rawMaterialOrderAssignments = {
+          for (final entry in _rawMaterialOrderAssignments.entries)
+            if (!unlinkedBarcodes.contains(entry.key)) entry.key: entry.value,
+        };
+      });
       _showMessage('$unlinkedCount ta homashyo orderdan uzildi');
-      await _loadAll();
     });
   }
 
@@ -392,7 +652,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
       return;
     }
     await _runBusy('relocate-batch', () async {
-      await MobileApi.instance.inventoryRelocateBatch(
+      final updatedAssets = await MobileApi.instance.inventoryRelocateBatch(
         assets: assets,
         physicalLocationId: selected.id,
         idempotencyKey: _idempotencyKey('relocate-batch'),
@@ -401,7 +661,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         setState(_selectedAssetKeys.clear);
       }
       _showMessage('${assets.length} ta mahsulot — ${selected.name}');
-      await _handleStateAssetReturned();
+      await _applyAssetMutations(updatedAssets);
     });
   }
 
@@ -465,14 +725,14 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
     }
     final busyKey = 'relocate:${asset.kind.apiValue}:${asset.assetRef}';
     await _runBusy(busyKey, () async {
-      await MobileApi.instance.inventoryRelocate(
+      final updated = await MobileApi.instance.inventoryRelocate(
         assetKind: asset.kind,
         assetRef: asset.assetRef,
         physicalLocationId: selected.id,
         idempotencyKey: _idempotencyKey('relocate'),
       );
       _showMessage('${asset.itemName} — ${selected.name}');
-      await _loadAll();
+      await _applyAssetMutations([updated]);
     });
   }
 
@@ -528,7 +788,25 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
             ? '${asset.itemName} — ${selected.name} omboriga ko‘chirildi'
             : 'Transfer so‘rovi yuborildi',
       );
-      await _loadAll();
+      _upsertTransfer(transfer);
+      final updatedAsset = transfer.status == InventoryTransferStatus.received
+          ? asset.copyWith(
+              custodyWarehouseId: selected.warehouseId,
+              custodyWarehouse: selected.name,
+              status: 'available',
+              physicalLocation: InventoryLocationReference(
+                id: selected.id,
+                kind: selected.kind,
+                name: selected.name,
+              ),
+              transferId: '',
+              placementVersion: asset.placementVersion + 1,
+            )
+          : asset.copyWith(
+              status: 'transfer_reserved',
+              transferId: transfer.id,
+            );
+      await _applyAssetMutations([updatedAsset]);
     });
   }
 
@@ -554,7 +832,15 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
             asset.isAvailable &&
             physicallyInWarehouse &&
             !busy,
-        onOrderAssignmentChanged: _loadAssets,
+        onOrderAssignmentChanged: _reloadOrderAssignments,
+        onQrRequested: _rawMaterialAssetBarcode(asset).trim().isEmpty
+            ? null
+            : () async {
+                await Navigator.of(sheetContext).maybePop();
+                if (mounted) {
+                  await _showAssetQr(asset);
+                }
+              },
         onRelocate: asset.isAvailable && !busy
             ? () async {
                 Navigator.of(sheetContext).pop();
@@ -567,6 +853,27 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                 await _requestTransfer(asset);
               }
             : null,
+      ),
+    );
+  }
+
+  Future<void> _showAssetQr(InventoryAsset asset) async {
+    if (asset.kind != InventoryAssetKind.rawMaterial) {
+      return;
+    }
+    final barcode = _rawMaterialAssetBarcode(asset).trim();
+    if (barcode.isEmpty) {
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (_) => _InventoryAssetQrSheet(
+        asset: asset,
+        barcode: barcode,
       ),
     );
   }
@@ -617,12 +924,13 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
       return;
     }
     await _runBusy('${transfer.id}:$action', () async {
-      await MobileApi.instance.inventoryTransferAction(
+      final updated = await MobileApi.instance.inventoryTransferAction(
         transferId: transfer.id,
         action: action,
         idempotencyKey: _idempotencyKey(action),
       );
-      await _loadAll();
+      _upsertTransfer(updated);
+      await _applyAssetMutations(_assetMutationsForTransfer(updated));
     });
   }
 
@@ -725,9 +1033,9 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         MaterialStateLocationsTab(
           key: _materialStateLocationsKey,
           bottomPadding: MediaQuery.viewPaddingOf(context).bottom + 128,
-          onAssetReturned: _handleStateAssetReturned,
+          onAssetsChanged: _applyAssetMutations,
           orderAssignments: _rawMaterialOrderAssignments,
-          onOrderAssignmentChanged: _loadAssets,
+          onOrderAssignmentChanged: _reloadOrderAssignments,
           onSelectionChanged: _handleStateSelectionChanged,
         ),
       _TransferList(
@@ -735,6 +1043,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         emptyMessage: 'Kiruvchi transfer yo‘q',
         header: _warehouseFilter(),
         busyKeys: _busyKeys,
+        enteringTransferIds: _enteringTransferIds,
         actionsFor: (_) => const [],
         onTransferTap: _showTransferDetails,
         onRefresh: _loadAll,
@@ -744,6 +1053,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         emptyMessage: 'Chiquvchi transfer yo‘q',
         header: _warehouseFilter(),
         busyKeys: _busyKeys,
+        enteringTransferIds: _enteringTransferIds,
         actionsFor: (_) => const [],
         onTransferTap: _showTransferDetails,
         onRefresh: _loadAll,
@@ -907,28 +1217,46 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                     _selectionKey(asset),
                   );
                   final selectable = _canBulkRelocate(asset) && !busy;
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
+                  final selectionKey = _selectionKey(asset);
+                  final exiting = _exitingAssetKeys.contains(selectionKey);
+                  return M3AnimatedListEntry(
+                    key: ValueKey('inventory-asset-animation-$selectionKey'),
+                    visible: !exiting,
+                    animateIn: _enteringAssetKeys.contains(selectionKey),
+                    transitionKey: ValueKey<String>(
+                      exiting
+                          ? 'inventory-asset-exiting-${asset.assetRef}'
+                          : 'inventory-asset-transition-${asset.assetRef}',
                     ),
-                    child: _InventoryAssetListRow(
-                      key: ValueKey('inventory-asset-${asset.assetRef}'),
-                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                        index,
-                        _assets.length,
+                    revision: '${asset.status}:${asset.transferId}:'
+                        '${asset.placementVersion}:'
+                        '${asset.physicalLocation.id}:'
+                        '${orderAssignment?.orderId ?? ''}:'
+                        '${orderAssignment?.orderControl.name ?? ''}',
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
                       ),
-                      asset: asset,
-                      orderAssignment: orderAssignment,
-                      busy: busy,
-                      selected: selected,
-                      onTap: _selectionMode
-                          ? (selectable
-                              ? () => _toggleAssetSelection(asset)
-                              : null)
-                          : () => _showAssetDetails(asset),
-                      onLongPress: selectable
-                          ? () => _toggleAssetSelection(asset)
-                          : null,
+                      child: _InventoryAssetListRow(
+                        key: ValueKey('inventory-asset-${asset.assetRef}'),
+                        slot:
+                            M3SegmentedListGeometry.standaloneListSlotForIndex(
+                          index,
+                          _assets.length,
+                        ),
+                        asset: asset,
+                        orderAssignment: orderAssignment,
+                        busy: busy,
+                        selected: selected,
+                        onTap: _selectionMode
+                            ? (selectable
+                                ? () => _toggleAssetSelection(asset)
+                                : null)
+                            : () => _showAssetDetails(asset),
+                        onLongPress: selectable
+                            ? () => _toggleAssetSelection(asset)
+                            : null,
+                      ),
                     ),
                   );
                 },
@@ -1186,6 +1514,7 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
     required this.showOrderAssignment,
     required this.allowOrderAssignment,
     required this.onOrderAssignmentChanged,
+    required this.onQrRequested,
     required this.onRelocate,
     required this.onTransfer,
   });
@@ -1196,6 +1525,7 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
   final bool showOrderAssignment;
   final bool allowOrderAssignment;
   final Future<void> Function() onOrderAssignmentChanged;
+  final Future<void> Function()? onQrRequested;
   final Future<void> Function()? onRelocate;
   final Future<void> Function()? onTransfer;
 
@@ -1272,7 +1602,22 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
                     ],
                   ),
                 ),
-                _StatusBadge(status: asset.status),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _StatusBadge(status: asset.status),
+                    if (onQrRequested != null)
+                      IconButton(
+                        key: ValueKey(
+                          'inventory-asset-qr-button-${asset.assetRef}',
+                        ),
+                        onPressed: () => unawaited(onQrRequested!()),
+                        tooltip: 'QR kodni ko‘rish',
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.qr_code_2_rounded),
+                      ),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 18),
@@ -1398,6 +1743,7 @@ class _TransferList extends StatelessWidget {
     required this.emptyMessage,
     required this.header,
     required this.busyKeys,
+    required this.enteringTransferIds,
     required this.actionsFor,
     required this.onTransferTap,
     required this.onRefresh,
@@ -1407,6 +1753,7 @@ class _TransferList extends StatelessWidget {
   final String emptyMessage;
   final Widget header;
   final Set<String> busyKeys;
+  final Set<String> enteringTransferIds;
   final List<String> Function(InventoryTransfer) actionsFor;
   final Future<void> Function(InventoryTransfer, List<String>) onTransferTap;
   final Future<void> Function() onRefresh;
@@ -1442,15 +1789,29 @@ class _TransferList extends StatelessWidget {
                 }
                 final transfer = transfers[index - 1];
                 final actions = actionsFor(transfer);
-                return _InventoryTransferListRow(
-                  key: ValueKey('inventory-transfer-${transfer.id}'),
-                  slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                    index - 1,
-                    transfers.length,
+                return M3AnimatedListEntry(
+                  key: ValueKey('inventory-transfer-animation-${transfer.id}'),
+                  visible: true,
+                  animateIn: enteringTransferIds.contains(transfer.id),
+                  transitionKey: ValueKey(
+                    'inventory-transfer-transition-${transfer.id}',
                   ),
-                  transfer: transfer,
-                  busy: busyKeys.any((key) => key.startsWith(transfer.id)),
-                  onTap: () => unawaited(onTransferTap(transfer, actions)),
+                  revision: '${transfer.status.apiValue}:'
+                      '${transfer.approvedAtUnix}:'
+                      '${transfer.dispatchedAtUnix}:'
+                      '${transfer.receivedAtUnix}:'
+                      '${transfer.rejectedAtUnix}:'
+                      '${transfer.cancelledAtUnix}',
+                  child: _InventoryTransferListRow(
+                    key: ValueKey('inventory-transfer-${transfer.id}'),
+                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                      index - 1,
+                      transfers.length,
+                    ),
+                    transfer: transfer,
+                    busy: busyKeys.any((key) => key.startsWith(transfer.id)),
+                    onTap: () => unawaited(onTransferTap(transfer, actions)),
+                  ),
                 );
               },
             ),
@@ -1513,6 +1874,82 @@ class _InventoryTransferListRow extends StatelessWidget {
             height: 1.05,
           ),
       elevation: 1,
+    );
+  }
+}
+
+class _InventoryAssetQrSheet extends StatefulWidget {
+  const _InventoryAssetQrSheet({
+    required this.asset,
+    required this.barcode,
+  });
+
+  final InventoryAsset asset;
+  final String barcode;
+
+  @override
+  State<_InventoryAssetQrSheet> createState() => _InventoryAssetQrSheetState();
+}
+
+class _InventoryAssetQrSheetState extends State<_InventoryAssetQrSheet> {
+  Future<String?> _reprint() async {
+    final prepared = await MobileApi.instance
+        .adminPrepareRawMaterialStockReprint(barcode: widget.barcode);
+    final expectedBarcode = widget.barcode.trim().toUpperCase();
+    if (prepared.reprintId.trim().isEmpty ||
+        prepared.stock.barcode.trim().toUpperCase() != expectedBarcode ||
+        prepared.printRequest.epc.trim().toUpperCase() != expectedBarcode) {
+      throw const MobileApiException(
+        code: 'raw_material_stock_reprint_identity_mismatch',
+        message: 'Serverdagi QR identifikatori mos kelmadi',
+      );
+    }
+    final result = await PrintService.printRps(prepared.printRequest);
+    if (!result.ok) {
+      throw StateError('Printer QR kodini chop etmadi');
+    }
+    try {
+      await MobileApi.instance.adminConfirmRawMaterialStockReprint(
+        barcode: prepared.stock.barcode,
+        reprintId: prepared.reprintId,
+      );
+      return null;
+    } catch (_) {
+      return 'QR chop etildi, lekin server tasdig‘i saqlanmadi';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final asset = widget.asset;
+    final itemName = asset.itemName.trim().isEmpty
+        ? asset.itemCode.trim()
+        : asset.itemName.trim();
+    return RpsQrReprintSheet(
+      title: 'Homashyo QR',
+      payload: widget.barcode,
+      itemName: itemName,
+      previewKey: ValueKey(
+        'inventory-asset-qr-preview-${asset.assetRef}',
+      ),
+      reprintButtonKey: ValueKey(
+        'inventory-asset-qr-reprint-${asset.assetRef}',
+      ),
+      details: [
+        if (asset.itemCode.trim().isNotEmpty)
+          RpsQrDetail('Mahsulot kodi', asset.itemCode),
+        RpsQrDetail('Identifikator', widget.barcode),
+        RpsQrDetail('Miqdor', '${_qty(asset.qty)} ${asset.uom}'.trim()),
+        if (asset.custodyWarehouse.trim().isNotEmpty)
+          RpsQrDetail('Ombor', asset.custodyWarehouse),
+        if (asset.physicalLocation.name.trim().isNotEmpty)
+          RpsQrDetail('Fizik joy', asset.physicalLocation.name),
+        RpsQrDetail('Holati', _statusLabel(asset.status)),
+      ],
+      onReprint: _reprint,
+      errorMessage: (error) => error is MobileApiException
+          ? error.message
+          : 'QR kodini qayta chop etib bo‘lmadi',
     );
   }
 }

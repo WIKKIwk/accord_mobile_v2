@@ -4,6 +4,7 @@ import 'package:accord_mobile_v2/src/core/native_usb_printer.dart';
 import 'package:accord_mobile_v2/src/core/print_service.dart';
 import 'package:accord_mobile_v2/src/core/print_transport.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
+import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
 import 'package:accord_mobile_v2/src/features/gscale/gscale_mobile_app.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -46,6 +47,34 @@ void main() {
     expect(response.micron, 13);
     expect(response.printer, 'zebra');
     expect(response.printCount, 5);
+  });
+
+  test('active batch update request serializes editable context', () {
+    const request = GScaleRpsBatchUpdateRequest(
+      batchId: 'batch-1',
+      expectedRevision: 4,
+      itemCode: 'ROLL-1000',
+      itemName: 'CPP 1000/35',
+      warehouse: 'Kalidor',
+      widthMm: 783,
+      micron: 18,
+      quantitySource: 'manual',
+      tareEnabled: true,
+      tareKg: 0.78,
+    );
+
+    expect(request.toJson(), {
+      'batch_id': 'batch-1',
+      'expected_revision': 4,
+      'item_code': 'ROLL-1000',
+      'item_name': 'CPP 1000/35',
+      'warehouse': 'Kalidor',
+      'width_mm': 783,
+      'micron': 18,
+      'quantity_source': 'manual',
+      'tare_enabled': true,
+      'tare_kg': 0.78,
+    });
   });
 
   test('material receipt USB request opts into the large QR product label', () {
@@ -519,8 +548,10 @@ void main() {
         avatarUrl: '',
         capabilities: ['rps.batch.manage', 'gscale.print'],
         assignedItemGroups: ['Rulon'],
+        assignedWarehouses: ['Kalidor'],
       );
       var stateLoadCount = 0;
+      GScaleRpsBatchUpdateRequest? capturedUpdate;
       const activeBatch = GScaleRpsBatchSession(
         id: 'batch-active-1',
         revision: 1,
@@ -535,6 +566,8 @@ void main() {
         manualQtyKg: 23,
         tareEnabled: false,
         tareKg: 0,
+        widthMm: 783,
+        micron: 18,
       );
       const offlinePrinter = UsbPrinterProfile(
         kind: UsbPrinterKind.godex,
@@ -562,6 +595,29 @@ void main() {
                   batch: activeBatch,
                 );
               },
+              rpsBatchUpdater: (request) async {
+                capturedUpdate = request;
+                return const GScaleRpsBatchResponse(
+                  ok: true,
+                  batch: GScaleRpsBatchSession(
+                    id: 'batch-active-1',
+                    revision: 2,
+                    active: true,
+                    driverUrl: 'usb://local',
+                    itemCode: 'ITEM-1',
+                    itemName: 'Green Tea',
+                    warehouse: 'Kalidor',
+                    printer: 'godex',
+                    printMode: 'label',
+                    quantitySource: 'manual',
+                    manualQtyKg: 23,
+                    tareEnabled: true,
+                    tareKg: 0.78,
+                    widthMm: 800,
+                    micron: 20,
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -569,8 +625,21 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(stateLoadCount, 1);
-      expect(find.text('Green Tea • Kalidor'), findsOneWidget);
-      expect(find.text('ITEM-1'), findsOneWidget);
+      expect(find.text('Batch ma’lumoti'), findsNothing);
+      expect(find.text('Green Tea • 783 mm • 18 mikron'), findsOneWidget);
+      expect(
+        find.text('Ombor: Kalidor • Qo‘lda kg • Babina: Yo‘q'),
+        findsOneWidget,
+      );
+      expect(find.text('Tahrirlash'), findsNothing);
+      expect(
+        find.byTooltip('Batch ma’lumotini tahrirlash'),
+        findsOneWidget,
+      );
+      expect(find.text('Mahsulot tanlang'), findsNothing);
+      expect(find.text('Eni (mm)'), findsNothing);
+      expect(find.text('Mikron'), findsNothing);
+      expect(find.text('Ombor tanlang'), findsNothing);
       expect(find.text('STALE-ITEM'), findsNothing);
       expect(find.text('Wrong warehouse'), findsNothing);
       expect(
@@ -584,6 +653,74 @@ void main() {
       expect(
         find.widgetWithText(FilledButton, 'Batch start'),
         findsNothing,
+      );
+
+      await tester.tap(find.byTooltip('Batch ma’lumotini tahrirlash'));
+      await tester.pump();
+
+      expect(find.text('Batch ma’lumoti'), findsNothing);
+      expect(find.text('Mahsulot tanlang'), findsOneWidget);
+      expect(find.text('Eni (mm)'), findsOneWidget);
+      expect(find.text('Mikron'), findsOneWidget);
+      expect(find.text('Ombor tanlang'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Saqlash'), findsOneWidget);
+      expect(find.text('Miqdor (kg)'), findsOneWidget);
+      expect(find.text('Babina'), findsOneWidget);
+      expect(find.byType(Switch), findsNWidgets(2));
+
+      await tester.tap(find.byType(Switch).at(0));
+      await tester.pump();
+      await tester.tap(find.byType(Switch).at(0));
+      await tester.pump();
+      await tester.tap(find.byType(Switch).at(1));
+      await tester.pump();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Saqlash'),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Babina og‘irligi'),
+        '0.78',
+      );
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Eni (mm)'),
+        '800',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Mikron'),
+        '20',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
+      await tester.pumpAndSettle();
+
+      expect(capturedUpdate?.batchId, 'batch-active-1');
+      expect(capturedUpdate?.expectedRevision, 1);
+      expect(capturedUpdate?.itemCode, 'ITEM-1');
+      expect(capturedUpdate?.warehouse, 'Kalidor');
+      expect(capturedUpdate?.widthMm, 800);
+      expect(capturedUpdate?.micron, 20);
+      expect(capturedUpdate?.quantitySource, 'manual');
+      expect(capturedUpdate?.tareEnabled, isTrue);
+      expect(capturedUpdate?.tareKg, 0.78);
+      expect(find.text('Batch ma’lumoti'), findsNothing);
+      expect(find.text('Green Tea • 800 mm • 20 mikron'), findsOneWidget);
+      expect(
+        find.text('Ombor: Kalidor • Qo‘lda kg • Babina: 0.78 kg'),
+        findsOneWidget,
+      );
+      expect(find.text('Mahsulot tanlang'), findsNothing);
+      final babinaField = tester.widget<TextField>(
+        find.widgetWithText(TextField, 'Babina og‘irligi'),
+      );
+      expect(babinaField.enabled, isTrue);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Babina og‘irligi'),
+        '0.80',
       );
 
       await tester.enterText(
@@ -600,6 +737,126 @@ void main() {
             .onPressed,
         isNotNull,
       );
+    },
+  );
+
+  testWidgets(
+    'material control saves draft context into a compact summary before batch start',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await saveOperatorControlDraft(
+        const OperatorControlDraft(
+          itemCode: 'BOPP-324-234',
+          itemName: 'BOPP',
+          itemRequiresDimensions: true,
+          warehouse: 'test',
+          printMode: 'label',
+          printer: 'godex',
+          quantitySource: 'manual',
+          manualQtyText: '10',
+          manualDuplicateText: '',
+          babinaEnabled: false,
+          babinaText: '',
+          warehouseMode: 'manual',
+          defaultWarehouse: '',
+          widthText: '324',
+          micronText: '234',
+        ),
+      );
+      AppSession.instance.token = 'token';
+      AppSession.instance.profile = const SessionProfile(
+        role: UserRole.materialTaminotchi,
+        displayName: 'Materialchi',
+        legalName: '',
+        ref: 'MAT-DRAFT',
+        phone: '+998900000003',
+        avatarUrl: '',
+        capabilities: ['rps.batch.manage', 'gscale.print'],
+        assignedWarehouses: ['test'],
+      );
+      const offlinePrinter = UsbPrinterProfile(
+        kind: UsbPrinterKind.godex,
+        deviceName: 'usb:test',
+        vendorId: 1,
+        productId: 2,
+        manufacturerName: 'GoDEX',
+        productName: 'G500',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: OperatorDashboardPage(
+              server: null,
+              printTransport: PrintTransport.offline,
+              offlinePrinter: offlinePrinter,
+              controlOnly: true,
+              onExitMode: () async {},
+              onChangeServer: () async {},
+              rpsBatchStateLoader: () async {
+                return const GScaleRpsBatchResponse(
+                  ok: true,
+                  batch: GScaleRpsBatchSession(
+                    id: '',
+                    active: false,
+                    driverUrl: '',
+                    itemCode: '',
+                    itemName: '',
+                    warehouse: '',
+                    printer: '',
+                    printMode: 'label',
+                    quantitySource: 'manual',
+                    manualQtyKg: 0,
+                    tareEnabled: false,
+                    tareKg: 0,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(FilledButton, 'Saqlash'), findsOneWidget);
+      expect(find.text('Mahsulot tanlang'), findsOneWidget);
+      expect(find.text('Eni (mm)'), findsOneWidget);
+      expect(find.text('Mikron'), findsOneWidget);
+      expect(find.text('Ombor tanlang'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('BOPP • 324 mm • 234 mikron'), findsOneWidget);
+      expect(
+        find.text('Ombor: test • Qo‘lda kg • Babina: Yo‘q'),
+        findsOneWidget,
+      );
+      expect(find.text('Mahsulot tanlang'), findsNothing);
+      expect(find.text('Eni (mm)'), findsNothing);
+      expect(find.text('Mikron'), findsNothing);
+      expect(find.text('Ombor tanlang'), findsNothing);
+      expect(find.byTooltip('Batch ma’lumotini tahrirlash'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Batch start'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Batch ma’lumotini tahrirlash'));
+      await tester.pump();
+      expect(find.widgetWithText(FilledButton, 'Saqlash'), findsOneWidget);
+      expect(find.text('Mahsulot tanlang'), findsOneWidget);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Eni (mm)'),
+        '500',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Mikron'),
+        '12',
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
+      await tester.pumpAndSettle();
+      expect(find.text('BOPP • 500 mm • 12 mikron'), findsOneWidget);
+      expect(find.text('Mahsulot tanlang'), findsNothing);
     },
   );
 
@@ -644,6 +901,7 @@ void main() {
         BluetoothPrinterProfile? printer,
       }) {
         return MaterialApp(
+          theme: AppTheme.dark(),
           home: Scaffold(
             body: OperatorDashboardPage(
               server: null,
@@ -689,6 +947,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(stateLoadCount, 1);
+      expect(find.text('XP-P323B-3972 • Bluetooth'), findsOneWidget);
+      expect(find.text('XP-P323B • Bluetooth local print'), findsNothing);
+      expect(find.byTooltip('Print rejimini almashtirish'), findsNothing);
       expect(
         tester
             .widget<FilledButton>(
@@ -699,6 +960,101 @@ void main() {
       );
     },
   );
+
+  testWidgets('dark manual batch action labels match their icon colors', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await saveOperatorControlDraft(
+      const OperatorControlDraft(
+        itemCode: 'OPP-445-20',
+        itemName: 'opp 445/20',
+        warehouse: 'b blok',
+        printMode: 'label',
+        printer: 'xp-p323b',
+        quantitySource: 'manual',
+        manualQtyText: '10',
+        manualDuplicateText: '',
+        babinaEnabled: false,
+        babinaText: '',
+        warehouseMode: 'manual',
+        defaultWarehouse: '',
+      ),
+    );
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '+998880000000',
+      avatarUrl: '',
+      capabilities: ['rps.batch.manage', 'gscale.print'],
+    );
+    final theme = AppTheme.dark();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        home: Scaffold(
+          body: OperatorDashboardPage(
+            server: null,
+            printTransport: PrintTransport.bluetooth,
+            bluetoothPrinter: const BluetoothPrinterProfile(
+              name: 'XP-P323B-3972',
+              address: '00:11:22:33:44:55',
+            ),
+            controlOnly: true,
+            onExitMode: () async {},
+            onChangeServer: () async {},
+            rpsBatchStateLoader: () async {
+              return const GScaleRpsBatchResponse(
+                ok: true,
+                batch: GScaleRpsBatchSession(
+                  id: 'batch-active-dark-1',
+                  revision: 1,
+                  active: true,
+                  driverUrl: 'bluetooth://local',
+                  itemCode: 'OPP-445-20',
+                  itemName: 'opp 445/20',
+                  warehouse: 'b blok',
+                  printer: 'xp-p323b',
+                  printMode: 'label',
+                  quantitySource: 'manual',
+                  manualQtyKg: 10,
+                  tareEnabled: false,
+                  tareKg: 0,
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Color? effectiveTextColor(String label) {
+      final finder = find.text(label);
+      final text = tester.widget<Text>(finder);
+      return DefaultTextStyle.of(
+        tester.element(finder),
+      ).style.merge(text.style).color;
+    }
+
+    Color? effectiveIconColor(IconData icon) {
+      final finder = find.byIcon(icon);
+      return IconTheme.of(tester.element(finder)).color;
+    }
+
+    expect(
+      effectiveTextColor('Chop etish'),
+      effectiveIconColor(Icons.print_rounded),
+    );
+    expect(
+      effectiveTextColor('Batch stop'),
+      effectiveIconColor(Icons.stop_circle_outlined),
+    );
+  });
 
   testWidgets(
     'receipt long press opens its EPC instead of the batch QR action',

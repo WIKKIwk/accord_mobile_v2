@@ -74,6 +74,35 @@ extension MobileApiGScale on MobileApi {
     return GScaleRpsBatchResponse.fromJson(payload);
   }
 
+  Future<GScaleRpsBatchResponse> gscaleRpsBatchUpdate(
+    GScaleRpsBatchUpdateRequest request,
+  ) async {
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/rps/batch/update'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(request.toJson()),
+      ),
+    );
+    final payload = _gscaleDecodeObject(response.body);
+    if (response.statusCode != 200) {
+      throw MobileApiException(
+        code:
+            _gscaleText(payload['error'], fallback: 'rps_batch_update_failed'),
+        message: _gscaleText(
+          payload['detail'],
+          fallback: _gscaleText(
+            payload['message'],
+            fallback: 'RPS batch update failed',
+          ),
+        ),
+        statusCode: response.statusCode,
+      );
+    }
+    return GScaleRpsBatchResponse.fromJson(payload);
+  }
+
   Future<GScaleRpsBatchResponse> gscaleRpsBatchState() async {
     final response = await _sendAuthorized(
       () => _get(
@@ -237,6 +266,48 @@ extension MobileApiGScale on MobileApi {
       );
     }
     return GScaleMaterialReceiptPrintResponse.fromJson(payload);
+  }
+}
+
+class GScaleRpsBatchUpdateRequest {
+  const GScaleRpsBatchUpdateRequest({
+    required this.batchId,
+    required this.expectedRevision,
+    required this.itemCode,
+    required this.itemName,
+    required this.warehouse,
+    this.widthMm,
+    this.micron,
+    this.quantitySource = 'scale',
+    this.tareEnabled = false,
+    this.tareKg = 0,
+  });
+
+  final String batchId;
+  final int expectedRevision;
+  final String itemCode;
+  final String itemName;
+  final String warehouse;
+  final double? widthMm;
+  final double? micron;
+  final String quantitySource;
+  final bool tareEnabled;
+  final double tareKg;
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'batch_id': batchId.trim(),
+      'expected_revision': expectedRevision,
+      'item_code': itemCode.trim(),
+      'item_name': itemName.trim(),
+      'warehouse': warehouse.trim(),
+      if (widthMm != null) 'width_mm': widthMm,
+      if (micron != null) 'micron': micron,
+      'quantity_source':
+          quantitySource.trim().toLowerCase() == 'manual' ? 'manual' : 'scale',
+      'tare_enabled': tareEnabled,
+      'tare_kg': tareKg,
+    };
   }
 }
 

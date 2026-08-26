@@ -3,8 +3,9 @@ import 'dart:async';
 import '../../../../core/api/mobile_api.dart';
 import '../../../../core/formatters/quantity_formatters.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../../../core/widgets/lists/m3_animated_list_entry.dart';
+import '../../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../../core/widgets/shell/app_retry_state.dart';
 import '../../../../core/widgets/shell/app_shell.dart';
@@ -29,14 +30,16 @@ class MaterialStateLocationsTab extends StatefulWidget {
   const MaterialStateLocationsTab({
     super.key,
     required this.bottomPadding,
-    required this.onAssetReturned,
+    this.onAssetReturned,
+    this.onAssetsChanged,
     this.orderAssignments = const {},
     this.onOrderAssignmentChanged,
     this.onSelectionChanged,
-  });
+  }) : assert(onAssetReturned != null || onAssetsChanged != null);
 
   final double bottomPadding;
-  final Future<void> Function() onAssetReturned;
+  final Future<void> Function()? onAssetReturned;
+  final Future<void> Function(List<InventoryAsset>)? onAssetsChanged;
   final Map<String, RawMaterialListAssignment> orderAssignments;
   final Future<void> Function()? onOrderAssignmentChanged;
   final ValueChanged<int>? onSelectionChanged;
@@ -48,14 +51,26 @@ class MaterialStateLocationsTab extends StatefulWidget {
 
 class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
   late Future<_MaterialStateLocationsData> _future;
+  _MaterialStateLocationsData? _data;
   Timer? _searchDebounce;
   String _query = '';
   String _selectedStateId = '';
   String _busyAssetKey = '';
   bool _filterExpanded = false;
   final Set<String> _selectedAssetKeys = {};
+  final Set<String> _exitingAssetKeys = {};
+  final Set<String> _enteringAssetKeys = {};
 
   bool get _selectionMode => _selectedAssetKeys.isNotEmpty;
+
+  Future<void> _notifyAssetsChanged(List<InventoryAsset> assets) async {
+    final onAssetsChanged = widget.onAssetsChanged;
+    if (onAssetsChanged != null) {
+      await onAssetsChanged(assets);
+      return;
+    }
+    await widget.onAssetReturned?.call();
+  }
 
   @override
   void initState() {
@@ -97,10 +112,83 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
     final future = _load();
     if (mounted) {
       setState(() {
+        _data = null;
         _future = future;
       });
     }
     await future;
+  }
+
+  Future<void> applyAssetMutations(List<InventoryAsset> mutations) async {
+    final unique = <String, InventoryAsset>{
+      for (final asset in mutations) _inventoryStateAssetKey(asset): asset,
+    };
+    if (unique.isEmpty) {
+      return;
+    }
+    final current = _data ?? await _future;
+    if (!mounted) {
+      return;
+    }
+    final currentKeys = current.assets.map(_inventoryStateAssetKey).toSet();
+    final exitingKeys = unique.entries
+        .where(
+          (entry) =>
+              currentKeys.contains(entry.key) &&
+              (entry.value.kind != InventoryAssetKind.rawMaterial ||
+                  entry.value.physicalLocation.kind !=
+                      InventoryLocationKind.state),
+        )
+        .map((entry) => entry.key)
+        .toSet();
+    if (exitingKeys.isNotEmpty) {
+      setState(() => _exitingAssetKeys.addAll(exitingKeys));
+      await Future<void>.delayed(m3ListMutationAnimationDuration);
+      if (!mounted) {
+        return;
+      }
+    }
+    final enteringKeys = <String>{};
+    setState(() {
+      final next = List<InventoryAsset>.of(current.assets);
+      for (final entry in unique.entries) {
+        final index = next.indexWhere(
+          (asset) => _inventoryStateAssetKey(asset) == entry.key,
+        );
+        final remainsInState = entry.value.kind ==
+                InventoryAssetKind.rawMaterial &&
+            entry.value.physicalLocation.kind == InventoryLocationKind.state;
+        if (!remainsInState) {
+          if (index >= 0) {
+            next.removeAt(index);
+          }
+          continue;
+        }
+        if (index >= 0) {
+          next[index] = entry.value;
+        } else {
+          next.add(entry.value);
+          enteringKeys.add(entry.key);
+        }
+      }
+      _data = _MaterialStateLocationsData(
+        assets: List<InventoryAsset>.unmodifiable(next),
+        locations: current.locations,
+      );
+      _exitingAssetKeys.removeAll(unique.keys);
+      _enteringAssetKeys.addAll(enteringKeys);
+      _selectedAssetKeys.removeWhere(
+        (key) => !next.any((asset) => _inventoryStateAssetKey(asset) == key),
+      );
+    });
+    widget.onSelectionChanged?.call(_selectedAssetKeys.length);
+    if (enteringKeys.isNotEmpty) {
+      unawaited(
+        Future<void>.delayed(m3ListMutationAnimationDuration).then((_) {
+          _enteringAssetKeys.removeAll(enteringKeys);
+        }),
+      );
+    }
   }
 
   void clearSelection() {
@@ -148,7 +236,7 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
     if (_selectedAssetKeys.isEmpty || _busyAssetKey.isNotEmpty) {
       return;
     }
-    final data = await _future;
+    final data = _data ?? await _future;
     if (!mounted) {
       return;
     }
@@ -191,7 +279,8 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
     }
     setState(() => _busyAssetKey = 'return-batch');
     try {
-      await MobileApi.instance.inventoryReturnToWarehousesBatch(
+      final updatedAssets =
+          await MobileApi.instance.inventoryReturnToWarehousesBatch(
         assets: assets,
         idempotencyKey:
             'state-return-batch-${DateTime.now().microsecondsSinceEpoch}',
@@ -199,7 +288,7 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
       );
       _selectedAssetKeys.clear();
       widget.onSelectionChanged?.call(0);
-      await widget.onAssetReturned();
+      await _notifyAssetsChanged(updatedAssets);
       if (mounted) {
         _showMaterialStateNotice(
           context,
@@ -283,14 +372,14 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
     final assetKey = _inventoryStateAssetKey(asset);
     setState(() => _busyAssetKey = assetKey);
     try {
-      await MobileApi.instance.inventoryRelocate(
+      final updated = await MobileApi.instance.inventoryRelocate(
         assetKind: asset.kind,
         assetRef: asset.assetRef,
         physicalLocationId: warehouseLocation.id,
         idempotencyKey: 'state-return-${DateTime.now().microsecondsSinceEpoch}',
         note: 'State’dan omborga qaytarildi',
       );
-      await widget.onAssetReturned();
+      await _notifyAssetsChanged([updated]);
       if (mounted) {
         _showMaterialStateNotice(
           context,
@@ -325,7 +414,8 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
         if (snapshot.hasError) {
           return AppRetryState(onRetry: reload);
         }
-        final data = snapshot.data ??
+        final data = _data ??
+            snapshot.data ??
             const _MaterialStateLocationsData(assets: [], locations: []);
         final stateNames = <String, String>{};
         for (final asset in data.assets) {
@@ -409,47 +499,11 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     children: [
                       for (var index = 0; index < visibleAssets.length; index++)
-                        _MaterialStateAssetRow(
-                          key: ValueKey(
-                            'material-state-asset-'
-                            '${visibleAssets[index].assetRef}',
-                          ),
-                          slot: M3SegmentedListGeometry
-                              .standaloneListSlotForIndex(
-                            index,
-                            visibleAssets.length,
-                          ),
+                        _buildAnimatedAssetRow(
                           asset: visibleAssets[index],
-                          orderAssignment: widget.orderAssignments[
-                              rawMaterialAssetBarcode(visibleAssets[index])],
-                          busy: _busyAssetKey ==
-                                  _inventoryStateAssetKey(
-                                    visibleAssets[index],
-                                  ) ||
-                              (_busyAssetKey == 'return-batch' &&
-                                  _selectedAssetKeys.contains(
-                                    _inventoryStateAssetKey(
-                                      visibleAssets[index],
-                                    ),
-                                  )),
-                          selected: _selectedAssetKeys.contains(
-                            _inventoryStateAssetKey(visibleAssets[index]),
-                          ),
-                          onTap: _selectionMode
-                              ? () => _toggleSelection(
-                                    visibleAssets[index],
-                                    data.locations,
-                                  )
-                              : () => _showAssetDetails(
-                                    visibleAssets[index],
-                                    data.locations,
-                                  ),
-                          onLongPress: widget.onSelectionChanged != null
-                              ? () => _toggleSelection(
-                                    visibleAssets[index],
-                                    data.locations,
-                                  )
-                              : null,
+                          index: index,
+                          visibleCount: visibleAssets.length,
+                          locations: data.locations,
                         ),
                     ],
                   ),
@@ -458,6 +512,51 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAnimatedAssetRow({
+    required InventoryAsset asset,
+    required int index,
+    required int visibleCount,
+    required List<InventoryLocation> locations,
+  }) {
+    final assetKey = _inventoryStateAssetKey(asset);
+    final exiting = _exitingAssetKeys.contains(assetKey);
+    final orderAssignment =
+        widget.orderAssignments[rawMaterialAssetBarcode(asset)];
+    return M3AnimatedListEntry(
+      key: ValueKey('material-state-asset-animation-$assetKey'),
+      visible: !exiting,
+      animateIn: _enteringAssetKeys.contains(assetKey),
+      transitionKey: ValueKey<String>(
+        exiting
+            ? 'material-state-asset-exiting-${asset.assetRef}'
+            : 'material-state-asset-transition-${asset.assetRef}',
+      ),
+      revision: '${asset.status}:${asset.transferId}:'
+          '${asset.placementVersion}:${asset.physicalLocation.id}:'
+          '${orderAssignment?.orderId ?? ''}:'
+          '${orderAssignment?.orderControl.name ?? ''}',
+      child: _MaterialStateAssetRow(
+        key: ValueKey('material-state-asset-${asset.assetRef}'),
+        slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+          index,
+          visibleCount,
+        ),
+        asset: asset,
+        orderAssignment: orderAssignment,
+        busy: _busyAssetKey == assetKey ||
+            (_busyAssetKey == 'return-batch' &&
+                _selectedAssetKeys.contains(assetKey)),
+        selected: _selectedAssetKeys.contains(assetKey),
+        onTap: _selectionMode
+            ? () => _toggleSelection(asset, locations)
+            : () => _showAssetDetails(asset, locations),
+        onLongPress: widget.onSelectionChanged != null
+            ? () => _toggleSelection(asset, locations)
+            : null,
+      ),
     );
   }
 }

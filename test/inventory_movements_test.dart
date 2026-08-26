@@ -424,6 +424,105 @@ void main() {
     expect(find.text('Bosma oldi'), findsOneWidget);
   });
 
+  testWidgets('asset details sheet opens QR details from its corner action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Polietilen'));
+    await tester.pumpAndSettle();
+
+    final qrAction = find.byKey(
+      const ValueKey('inventory-asset-qr-button-raw:1'),
+    );
+    expect(qrAction, findsOneWidget);
+
+    await tester.tap(qrAction);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('inventory-asset-qr-preview-raw:1')),
+      findsOneWidget,
+    );
+    expect(find.text('Homashyo QR'), findsOneWidget);
+    expect(find.text('Polietilen'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey('inventory-asset-qr-reprint-raw:1')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('available warehouse raw material requires confirmation to delete', (
+    tester,
+  ) async {
+    seedMobileApiInventoryMovementTestData(
+      locations: const [source, destination, factoryState],
+      assets: const [asset, secondAsset],
+    );
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Polietilen'));
+    await tester.pumpAndSettle();
+
+    final deleteAction = find.byKey(
+      const ValueKey('inventory-asset-delete-button-raw:1'),
+    );
+    expect(deleteAction, findsOneWidget);
+    await tester.tap(deleteAction);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Homashyoni o‘chirish'), findsOneWidget);
+    expect(find.textContaining('30AA'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('inventory-asset-delete-confirm-raw:1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('inventory-asset-card-raw:1')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('inventory-asset-delete-confirm-raw:1')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('inventory-asset-card-raw:1')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('inventory-asset-card-raw:2')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('warehouse assets can be selected and moved to a state in bulk', (
     tester,
   ) async {
@@ -506,6 +605,231 @@ void main() {
     );
     expect(stateAssets.map((item) => item.assetRef),
         containsAll(['raw:1', 'raw:2']));
+  });
+
+  testWidgets('single relocation keeps sibling mounted while changed row exits',
+      (
+    tester,
+  ) async {
+    seedMobileApiInventoryMovementTestData(
+      locations: const [source, destination, factoryState],
+      assets: const [asset, secondAsset],
+      transfers: const [],
+    );
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    const movedTransition =
+        ValueKey<String>('inventory-asset-transition-raw:1');
+    const siblingRow = ValueKey<String>('inventory-asset-raw:2');
+    expect(find.byKey(movedTransition), findsOneWidget);
+    expect(find.byKey(siblingRow), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('inventory-asset-raw:1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Joylashtirish'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const ValueKey(
+          'inventory-location-inventory_location:state:bosma',
+        ),
+      ),
+    );
+
+    var tabStayedMounted = true;
+    var siblingStayedMounted = true;
+    var sawExitTransition = false;
+    var sawPartialExitFrame = false;
+    for (var frame = 0; frame < 150; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      tabStayedMounted =
+          tabStayedMounted && find.byType(TabBarView).evaluate().isNotEmpty;
+      siblingStayedMounted =
+          siblingStayedMounted && find.byKey(siblingRow).evaluate().isNotEmpty;
+      final exitTransition = find.byKey(
+        const ValueKey<String>('inventory-asset-exiting-raw:1'),
+        skipOffstage: false,
+      );
+      sawExitTransition =
+          sawExitTransition || exitTransition.evaluate().isNotEmpty;
+      if (exitTransition.evaluate().isNotEmpty) {
+        final animatedAligns = find.ancestor(
+          of: exitTransition,
+          matching: find.byType(Align, skipOffstage: false),
+        );
+        sawPartialExitFrame = sawPartialExitFrame ||
+            tester.widgetList<Align>(animatedAligns).any(
+                  (align) =>
+                      align.heightFactor != null &&
+                      align.heightFactor! > 0 &&
+                      align.heightFactor! < 1,
+                );
+      }
+    }
+    await tester.pumpAndSettle();
+
+    expect(tabStayedMounted, isTrue);
+    expect(siblingStayedMounted, isTrue);
+    expect(sawExitTransition, isTrue);
+    expect(sawPartialExitFrame, isTrue);
+    expect(find.byKey(movedTransition), findsNothing);
+    expect(find.byKey(siblingRow), findsOneWidget);
+  });
+
+  testWidgets('state return keeps sibling mounted while changed row exits', (
+    tester,
+  ) async {
+    seedMobileApiInventoryMovementTestData(
+      locations: const [source, destination, factoryState],
+      assets: const [asset, secondAsset],
+      transfers: const [],
+    );
+    await MobileApi.instance.inventoryRelocateBatch(
+      assets: const [asset, secondAsset],
+      physicalLocationId: factoryState.id,
+      idempotencyKey: 'state-animation-placement',
+    );
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('State’lar'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('material-state-filter-chip')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bosma oldi'));
+    await tester.pumpAndSettle();
+
+    const movedTransition =
+        ValueKey<String>('material-state-asset-transition-raw:1');
+    const siblingRow = ValueKey<String>('material-state-asset-raw:2');
+    expect(find.byKey(movedTransition), findsOneWidget);
+    expect(find.byKey(siblingRow), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('material-state-asset-raw:1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('material-state-return-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ha'));
+
+    var siblingStayedMounted = true;
+    var sawExitTransition = false;
+    for (var frame = 0; frame < 150; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      siblingStayedMounted =
+          siblingStayedMounted && find.byKey(siblingRow).evaluate().isNotEmpty;
+      sawExitTransition = sawExitTransition ||
+          find
+              .byKey(
+                const ValueKey<String>(
+                  'material-state-asset-exiting-raw:1',
+                ),
+                skipOffstage: false,
+              )
+              .evaluate()
+              .isNotEmpty;
+    }
+    await tester.pumpAndSettle();
+
+    expect(siblingStayedMounted, isTrue);
+    expect(sawExitTransition, isTrue);
+    expect(find.byKey(movedTransition), findsNothing);
+    expect(find.byKey(siblingRow), findsOneWidget);
+  });
+
+  testWidgets('transfer request updates its asset without replacing the tab', (
+    tester,
+  ) async {
+    seedMobileApiInventoryMovementTestData(
+      locations: const [source, destination, factoryState],
+      assets: const [asset, secondAsset],
+      transfers: const [],
+    );
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    const changedTransition =
+        ValueKey<String>('inventory-asset-transition-raw:1');
+    const siblingRow = ValueKey<String>('inventory-asset-raw:2');
+    expect(find.byKey(changedTransition), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('inventory-asset-raw:1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Transfer'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const ValueKey('inventory-location-inventory_location:warehouse:b'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('So‘rov yuborish'));
+
+    var tabStayedMounted = true;
+    var siblingStayedMounted = true;
+    for (var frame = 0; frame < 150; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      tabStayedMounted =
+          tabStayedMounted && find.byType(TabBarView).evaluate().isNotEmpty;
+      siblingStayedMounted =
+          siblingStayedMounted && find.byKey(siblingRow).evaluate().isNotEmpty;
+    }
+    await tester.pumpAndSettle();
+
+    expect(tabStayedMounted, isTrue);
+    expect(siblingStayedMounted, isTrue);
+    final changedCard = tester.widget<AdminSummaryCard>(
+      find.byKey(const ValueKey('inventory-asset-card-raw:1')),
+    );
+    expect(changedCard.subtitle, contains('Band'));
+    await tester.tap(find.text('Chiquvchi'));
+    await tester.pumpAndSettle();
+    expect(find.text('Material ombor → Qolip ombor'), findsOneWidget);
   });
 
   testWidgets('warehouse raw material links only to an eligible order', (
