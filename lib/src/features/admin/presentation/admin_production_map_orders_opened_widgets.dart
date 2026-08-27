@@ -3,6 +3,7 @@ part of 'admin_production_map_orders_screen.dart';
 class _OpenedOrderList extends StatelessWidget {
   const _OpenedOrderList({
     required this.orders,
+    required this.apparatusCatalog,
     required this.customerNameByMapId,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
@@ -13,6 +14,7 @@ class _OpenedOrderList extends StatelessWidget {
   });
 
   final List<ProductionMapSaved> orders;
+  final List<AdminApparatus> apparatusCatalog;
   final Map<String, String> customerNameByMapId;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
@@ -53,6 +55,7 @@ class _OpenedOrderList extends StatelessWidget {
           watermarks: _orderWatermarks(
             order: order,
             tone: tone,
+            apparatusCatalog: apparatusCatalog,
             queueStatesByApparatus: queueStatesByApparatus,
             l10n: l10n,
           ),
@@ -175,6 +178,7 @@ class _OrderWatermarkData {
 
 List<_OrderWatermarkData> _activeApparatusWatermarks({
   required ProductionMapSaved order,
+  required List<AdminApparatus> apparatusCatalog,
   required Map<String, Map<String, String>> queueStatesByApparatus,
 }) {
   final orderId = order.map.id.trim();
@@ -193,9 +197,11 @@ List<_OrderWatermarkData> _activeApparatusWatermarks({
         ApparatusQueueOrderState.inProgress) {
       continue;
     }
-    final label = stage.displayTitle.trim().isNotEmpty
-        ? stage.displayTitle.trim()
-        : apparatusId;
+    final label = _stageApparatusLabel(
+      stage,
+      apparatusId,
+      apparatusCatalog: apparatusCatalog,
+    );
     active.add(
       _OrderWatermarkData(
         label: label,
@@ -208,21 +214,25 @@ List<_OrderWatermarkData> _activeApparatusWatermarks({
 List<_OrderWatermarkData> _orderWatermarks({
   required ProductionMapSaved order,
   required _OrderCardTone tone,
+  required List<AdminApparatus> apparatusCatalog,
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required AppLocalizations l10n,
 }) {
   return switch (tone) {
     _OrderCardTone.inProgress => _activeApparatusWatermarks(
         order: order,
+        apparatusCatalog: apparatusCatalog,
         queueStatesByApparatus: queueStatesByApparatus,
       ),
     _OrderCardTone.waitingNextStage => _waitingNextStageWatermarks(
         order: order,
+        apparatusCatalog: apparatusCatalog,
         queueStatesByApparatus: queueStatesByApparatus,
         l10n: l10n,
       ),
     _OrderCardTone.paused => _stageStatusWatermarks(
         order: order,
+        apparatusCatalog: apparatusCatalog,
         queueStatesByApparatus: queueStatesByApparatus,
         l10n: l10n,
         targetState: ApparatusQueueOrderState.paused,
@@ -230,6 +240,7 @@ List<_OrderWatermarkData> _orderWatermarks({
       ),
     _OrderCardTone.frozen => _stageStatusWatermarks(
         order: order,
+        apparatusCatalog: apparatusCatalog,
         queueStatesByApparatus: queueStatesByApparatus,
         l10n: l10n,
         targetState: ApparatusQueueOrderState.frozen,
@@ -237,6 +248,7 @@ List<_OrderWatermarkData> _orderWatermarks({
       ),
     _OrderCardTone.issue => _stageStatusWatermarks(
         order: order,
+        apparatusCatalog: apparatusCatalog,
         queueStatesByApparatus: queueStatesByApparatus,
         l10n: l10n,
         targetState: ApparatusQueueOrderState.frozen,
@@ -248,6 +260,7 @@ List<_OrderWatermarkData> _orderWatermarks({
 
 List<_OrderWatermarkData> _waitingNextStageWatermarks({
   required ProductionMapSaved order,
+  required List<AdminApparatus> apparatusCatalog,
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required AppLocalizations l10n,
 }) {
@@ -270,7 +283,11 @@ List<_OrderWatermarkData> _waitingNextStageWatermarks({
       continue;
     }
     if (completedSeen && state == ApparatusQueueOrderState.pending) {
-      final label = _stageApparatusLabel(stage, apparatusId);
+      final label = _stageApparatusLabel(
+        stage,
+        apparatusId,
+        apparatusCatalog: apparatusCatalog,
+      );
       return [
         _OrderWatermarkData(
           label: l10n.adminText(
@@ -290,6 +307,7 @@ List<_OrderWatermarkData> _waitingNextStageWatermarks({
 
 List<_OrderWatermarkData> _stageStatusWatermarks({
   required ProductionMapSaved order,
+  required List<AdminApparatus> apparatusCatalog,
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required AppLocalizations l10n,
   required ApparatusQueueOrderState targetState,
@@ -308,7 +326,11 @@ List<_OrderWatermarkData> _stageStatusWatermarks({
     if (apparatusId.isEmpty || !seen.add(apparatusId)) {
       continue;
     }
-    final label = _stageApparatusLabel(stage, apparatusId);
+    final label = _stageApparatusLabel(
+      stage,
+      apparatusId,
+      apparatusCatalog: apparatusCatalog,
+    );
     allLabels.add(label);
     final state = apparatusQueueOrderStateFromRaw(
       queueStatesByApparatus[apparatusId]?[orderId],
@@ -346,10 +368,20 @@ List<_OrderWatermarkData> _stageStatusWatermarks({
 
 String _stageApparatusLabel(
   ProductionMapChainStage stage,
-  String apparatusId,
-) {
-  final displayTitle = stage.displayTitle.trim();
-  return displayTitle.isNotEmpty ? displayTitle : apparatusId;
+  String apparatusId, {
+  required List<AdminApparatus> apparatusCatalog,
+}) {
+  final catalogLabel = canonicalApparatusDisplayLabel(
+    apparatusId,
+    apparatusCatalog,
+  ).trim();
+  if (catalogLabel.isNotEmpty && catalogLabel != apparatusId) {
+    return catalogLabel;
+  }
+  // A map stage title can be a group label such as "Laminatsiya" rather
+  // than the physical apparatus name. Never use it as a fallback: the
+  // canonical id is more truthful until the catalog is available.
+  return apparatusId;
 }
 
 class _OrderWatermark extends StatelessWidget {

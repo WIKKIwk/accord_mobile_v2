@@ -4,6 +4,7 @@ class _OrdersModulePage extends StatelessWidget {
   const _OrdersModulePage({
     required this.bottomPadding,
     required this.orders,
+    required this.apparatusCatalog,
     required this.visibleOrders,
     required this.customerNameByMapId,
     required this.orderStatusesByOrderId,
@@ -16,6 +17,7 @@ class _OrdersModulePage extends StatelessWidget {
 
   final double bottomPadding;
   final List<ProductionMapSaved> orders;
+  final List<AdminApparatus> apparatusCatalog;
   final List<ProductionMapSaved> visibleOrders;
   final Map<String, String> customerNameByMapId;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
@@ -46,6 +48,7 @@ class _OrdersModulePage extends StatelessWidget {
         else
           _OpenedOrderList(
             orders: visibleOrders,
+            apparatusCatalog: apparatusCatalog,
             customerNameByMapId: customerNameByMapId,
             orderStatusesByOrderId: orderStatusesByOrderId,
             orderControlsByOrderId: orderControlsByOrderId,
@@ -211,6 +214,7 @@ class _AdminModulesBody extends StatelessWidget {
                   _OpenedOrderModule.orders => _OrdersModulePage(
                       bottomPadding: bottomPadding,
                       orders: activeOrders,
+                      apparatusCatalog: apparatus,
                       visibleOrders: _visibleOrders(
                         orders: activeOrders,
                         query: searchQuery,
