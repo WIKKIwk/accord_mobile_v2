@@ -375,6 +375,15 @@ String _stageApparatusLabel(
     apparatusId,
     apparatusCatalog,
   ).trim();
+  final normalizedCatalogLabel = catalogLabel.toLowerCase();
+  if (normalizedCatalogLabel == 'laminatsiya' ||
+      normalizedCatalogLabel == 'laminatsiya mashinasi') {
+    return switch (apparatusId.trim()) {
+      'apparatus:default:asset-007' => 'Laminatsiya 1',
+      'apparatus:default:asset-008' => 'Laminatsiya 2',
+      _ => apparatusId,
+    };
+  }
   if (catalogLabel.isNotEmpty && catalogLabel != apparatusId) {
     return catalogLabel;
   }
