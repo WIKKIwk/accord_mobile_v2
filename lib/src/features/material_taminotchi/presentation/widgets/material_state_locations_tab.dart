@@ -32,6 +32,7 @@ class MaterialStateLocationsTab extends StatefulWidget {
     required this.bottomPadding,
     this.onAssetReturned,
     this.onAssetsChanged,
+    this.onAssetQrRequested,
     this.orderAssignments = const {},
     this.onOrderAssignmentChanged,
     this.onSelectionChanged,
@@ -40,6 +41,7 @@ class MaterialStateLocationsTab extends StatefulWidget {
   final double bottomPadding;
   final Future<void> Function()? onAssetReturned;
   final Future<void> Function(List<InventoryAsset>)? onAssetsChanged;
+  final Future<void> Function(InventoryAsset asset)? onAssetQrRequested;
   final Map<String, RawMaterialListAssignment> orderAssignments;
   final Future<void> Function()? onOrderAssignmentChanged;
   final ValueChanged<int>? onSelectionChanged;
@@ -341,6 +343,12 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
         busy: busy,
         canReturn: asset.isAvailable && returnLocation != null && !busy,
         onOrderAssignmentChanged: widget.onOrderAssignmentChanged,
+        onQrRequested: widget.onAssetQrRequested == null
+            ? null
+            : () async {
+                Navigator.of(sheetContext).pop();
+                await widget.onAssetQrRequested!(asset);
+              },
         onReturn: returnLocation == null
             ? null
             : () async {
@@ -681,6 +689,7 @@ class _MaterialStateAssetSheet extends StatelessWidget {
     required this.canReturn,
     required this.onReturn,
     required this.onOrderAssignmentChanged,
+    required this.onQrRequested,
   });
 
   final InventoryAsset asset;
@@ -688,6 +697,7 @@ class _MaterialStateAssetSheet extends StatelessWidget {
   final bool canReturn;
   final Future<void> Function()? onReturn;
   final Future<void> Function()? onOrderAssignmentChanged;
+  final Future<void> Function()? onQrRequested;
 
   @override
   Widget build(BuildContext context) {
@@ -722,22 +732,44 @@ class _MaterialStateAssetSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              title,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            if (asset.itemCode.trim().isNotEmpty &&
-                asset.itemCode.trim() != title.trim()) ...[
-              const SizedBox(height: 2),
-              Text(
-                asset.itemCode,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (asset.itemCode.trim().isNotEmpty &&
+                          asset.itemCode.trim() != title.trim()) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          asset.itemCode,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                if (onQrRequested != null)
+                  IconButton(
+                    key: ValueKey(
+                      'material-state-asset-qr-button-${asset.assetRef}',
+                    ),
+                    onPressed: () => unawaited(onQrRequested!()),
+                    tooltip: 'QR kodni ko‘rish',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.qr_code_2_rounded),
+                  ),
+              ],
+            ),
             const SizedBox(height: 18),
             _MaterialStateAssetDetail(
               icon: Icons.qr_code_rounded,

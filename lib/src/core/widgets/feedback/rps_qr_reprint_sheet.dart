@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../godex_rps_renderer.dart';
 
+class RpsQrReprintCancelled implements Exception {
+  const RpsQrReprintCancelled();
+}
+
 class RpsQrDetail {
   const RpsQrDetail(this.label, this.value);
 
@@ -72,6 +76,13 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(content: Text(widget.successMessage)),
       );
+    } on RpsQrReprintCancelled {
+      if (mounted) {
+        setState(() {
+          _printing = false;
+          _errorText = null;
+        });
+      }
     } catch (error) {
       if (mounted) {
         setState(() {

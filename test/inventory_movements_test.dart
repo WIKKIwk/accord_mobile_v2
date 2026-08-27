@@ -889,7 +889,7 @@ void main() {
       tester
           .widget<FilledButton>(
             find.byKey(const ValueKey('raw-material-assign-order-button')),
-          )
+      )
           .onPressed,
       isNotNull,
     );
@@ -1231,6 +1231,24 @@ void main() {
       find.byKey(const ValueKey('raw-material-assign-order-button')),
       findsNothing,
     );
+
+    final qrButton = find.byKey(
+      const ValueKey('material-state-asset-qr-button-raw:1'),
+    );
+    expect(qrButton, findsOneWidget);
+    await tester.tap(qrButton);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('inventory-asset-qr-preview-raw:1')),
+      findsOneWidget,
+    );
+    expect(find.text('Homashyo QR'), findsOneWidget);
+    await tester.tap(find.byTooltip('Yopish'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('material-state-asset-raw:1')),
+    );
+    await tester.pumpAndSettle();
 
     await tester.tap(
       find.byKey(const ValueKey('raw-material-unlink-button')),

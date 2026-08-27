@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/native_usb_printer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/session/session.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
@@ -15,6 +19,8 @@ import '../../admin/models/production_map_models.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import '../../admin/presentation/widgets/admin_summary_card.dart';
+import '../../gscale/gscale_mobile_app.dart'
+    show PrintDeviceSelection, showPrintDevicePicker;
 import '../../material_taminotchi/presentation/widgets/material_state_locations_tab.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
@@ -1081,6 +1087,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
           key: _materialStateLocationsKey,
           bottomPadding: MediaQuery.viewPaddingOf(context).bottom + 128,
           onAssetsChanged: _applyAssetMutations,
+          onAssetQrRequested: _showAssetQr,
           orderAssignments: _rawMaterialOrderAssignments,
           onOrderAssignmentChanged: _reloadOrderAssignments,
           onSelectionChanged: _handleStateSelectionChanged,
@@ -1968,10 +1975,14 @@ class _InventoryAssetQrSheetState extends State<_InventoryAssetQrSheet> {
         message: 'Serverdagi QR identifikatori mos kelmadi',
       );
     }
-    final result = await PrintService.printRps(prepared.printRequest);
-    if (!result.ok) {
-      throw StateError('Printer QR kodini chop etmadi');
+    if (!mounted) {
+      throw const RpsQrReprintCancelled();
     }
+    final selection = await showPrintDevicePicker(context);
+    if (selection == null) {
+      throw const RpsQrReprintCancelled();
+    }
+    await _printToSelectedDevice(selection, prepared.printRequest);
     try {
       await MobileApi.instance.adminConfirmRawMaterialStockReprint(
         barcode: prepared.stock.barcode,
@@ -1980,6 +1991,45 @@ class _InventoryAssetQrSheetState extends State<_InventoryAssetQrSheet> {
       return null;
     } catch (_) {
       return 'QR chop etildi, lekin server tasdig‘i saqlanmadi';
+    }
+  }
+
+  Future<void> _printToSelectedDevice(
+    PrintDeviceSelection selection,
+    UsbRpsPrintRequest request,
+  ) async {
+    if (selection.transport.isLocal) {
+      final result = await PrintService.printRps(
+        request,
+        printerProfile: selection.offlinePrinter,
+        bluetoothPrinter: selection.bluetoothPrinter,
+        transport: selection.transport,
+      );
+      if (!result.ok) {
+        throw StateError('Printer QR kodini chop etmadi');
+      }
+      return;
+    }
+    final server = selection.server;
+    if (server == null) {
+      throw StateError('Printer serveri tanlanmadi');
+    }
+    final response = await http
+        .post(
+          Uri.parse('${server.endpoint.baseUrl}/v1/mobile/driver/print'),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode(request.toJson()),
+        )
+        .timeout(const Duration(seconds: 15));
+    final payload = jsonDecode(response.body);
+    final ok = payload is Map && payload['ok'] == true;
+    if (response.statusCode < 200 || response.statusCode > 299 || !ok) {
+      final detail = payload is Map
+          ? (payload['detail'] ?? payload['error'])?.toString().trim() ?? ''
+          : '';
+      throw StateError(
+        detail.isEmpty ? 'Printer QR kodini chop etmadi' : detail,
+      );
     }
   }
 
