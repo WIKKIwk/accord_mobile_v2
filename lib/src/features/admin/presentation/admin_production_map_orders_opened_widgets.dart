@@ -168,11 +168,9 @@ class _OpenedOrderRow extends StatelessWidget {
 class _OrderWatermarkData {
   const _OrderWatermarkData({
     required this.label,
-    required this.icon,
   });
 
   final String label;
-  final IconData icon;
 }
 
 List<_OrderWatermarkData> _activeApparatusWatermarks({
@@ -201,7 +199,6 @@ List<_OrderWatermarkData> _activeApparatusWatermarks({
     active.add(
       _OrderWatermarkData(
         label: label,
-        icon: _activeApparatusIcon(label),
       ),
     );
   }
@@ -230,7 +227,6 @@ List<_OrderWatermarkData> _orderWatermarks({
         l10n: l10n,
         targetState: ApparatusQueueOrderState.paused,
         statusKey: 'orders.watermark.paused',
-        icon: Icons.pause_circle_outline_rounded,
       ),
     _OrderCardTone.frozen => _stageStatusWatermarks(
         order: order,
@@ -238,7 +234,6 @@ List<_OrderWatermarkData> _orderWatermarks({
         l10n: l10n,
         targetState: ApparatusQueueOrderState.frozen,
         statusKey: 'orders.watermark.frozen',
-        icon: Icons.error_outline_rounded,
       ),
     _OrderCardTone.issue => _stageStatusWatermarks(
         order: order,
@@ -246,7 +241,6 @@ List<_OrderWatermarkData> _orderWatermarks({
         l10n: l10n,
         targetState: ApparatusQueueOrderState.frozen,
         statusKey: 'orders.watermark.issue',
-        icon: Icons.error_outline_rounded,
       ),
     _OrderCardTone.neutral || _OrderCardTone.completed => const [],
   };
@@ -283,7 +277,6 @@ List<_OrderWatermarkData> _waitingNextStageWatermarks({
             'orders.watermark.waiting',
             values: {'apparatus': label},
           ),
-          icon: Icons.hourglass_top_rounded,
         ),
       ];
     }
@@ -291,7 +284,6 @@ List<_OrderWatermarkData> _waitingNextStageWatermarks({
   return [
     _OrderWatermarkData(
       label: l10n.adminText('orders.watermark.waiting_generic'),
-      icon: Icons.hourglass_top_rounded,
     ),
   ];
 }
@@ -302,7 +294,6 @@ List<_OrderWatermarkData> _stageStatusWatermarks({
   required AppLocalizations l10n,
   required ApparatusQueueOrderState targetState,
   required String statusKey,
-  required IconData icon,
 }) {
   final orderId = order.map.id.trim();
   if (orderId.isEmpty) {
@@ -339,7 +330,6 @@ List<_OrderWatermarkData> _stageStatusWatermarks({
     return [
       _OrderWatermarkData(
         label: l10n.adminText(statusKey),
-        icon: icon,
       ),
     ];
   }
@@ -350,7 +340,6 @@ List<_OrderWatermarkData> _stageStatusWatermarks({
           statusKey,
           values: {'apparatus': label},
         ),
-        icon: icon,
       ),
   ];
 }
@@ -361,17 +350,6 @@ String _stageApparatusLabel(
 ) {
   final displayTitle = stage.displayTitle.trim();
   return displayTitle.isNotEmpty ? displayTitle : apparatusId;
-}
-
-IconData _activeApparatusIcon(String label) {
-  final normalized = label.trim().toLowerCase();
-  if (normalized.contains('lamin')) {
-    return Icons.layers_outlined;
-  }
-  if (normalized.contains('rezka') || normalized.contains('cut')) {
-    return Icons.content_cut_outlined;
-  }
-  return Icons.print_outlined;
 }
 
 class _OrderWatermark extends StatelessWidget {
@@ -396,6 +374,7 @@ class _OrderWatermark extends StatelessWidget {
                       apparatus: apparatus,
                       availableWidth: constraints.maxWidth /
                           (apparatuses.isEmpty ? 1 : apparatuses.length),
+                      availableHeight: constraints.maxHeight,
                     ),
                   ),
               ],
@@ -411,47 +390,46 @@ class _OrderWatermarkLane extends StatelessWidget {
   const _OrderWatermarkLane({
     required this.apparatus,
     required this.availableWidth,
+    required this.availableHeight,
   });
 
   final _OrderWatermarkData apparatus;
   final double availableWidth;
+  final double availableHeight;
 
   @override
   Widget build(BuildContext context) {
-    final stampWidth = _watermarkStampWidth(context, apparatus);
-    final repeatCount = _watermarkRepeatCount(
+    final stampSize = _watermarkStampSize(context, apparatus);
+    final columns = _watermarkRepeatCount(
       availableWidth: availableWidth,
-      stampWidth: stampWidth,
+      itemSize: stampSize.width,
+      maxCount: _maxWatermarkColumns,
     );
-    if (repeatCount == 1) {
-      return ClipRect(
-        child: Transform.translate(
-          offset: const Offset(0, _activeWatermarkVerticalShift),
-          child: Align(
-            alignment: Alignment.center,
-            child: OverflowBox(
-              alignment: Alignment.center,
-              maxWidth: double.infinity,
-              maxHeight: double.infinity,
-              child: _OrderWatermarkStamp(apparatus: apparatus),
-            ),
-          ),
-        ),
-      );
-    }
-    final pitch = stampWidth + _watermarkHorizontalGap;
-    final occupiedWidth =
-        stampWidth * repeatCount + _watermarkHorizontalGap * (repeatCount - 1);
-    final start = (availableWidth - occupiedWidth) / 2;
+    final repeatCount = columns;
+    final horizontalPitch = stampSize.width + _watermarkHorizontalGap;
+    final occupiedWidth = stampSize.width * repeatCount +
+        _watermarkHorizontalGap * (repeatCount - 1);
+    final startX = (availableWidth - occupiedWidth) / 2;
+    final maxStartY =
+        (availableHeight - stampSize.height).clamp(0.0, double.infinity);
+    final startY = ((availableHeight - stampSize.height) / 2)
+        .clamp(0.0, maxStartY)
+        .toDouble();
     return ClipRect(
       child: Stack(
         fit: StackFit.expand,
         children: [
           for (var index = 0; index < repeatCount; index++)
-            Positioned(
-              left: start + pitch * index,
-              top: (index.isEven ? -6.0 : 6.0) + _activeWatermarkVerticalShift,
-              child: _OrderWatermarkStamp(apparatus: apparatus),
+            Positioned.fromRect(
+              rect: Rect.fromLTWH(
+                startX + horizontalPitch * index,
+                startY,
+                stampSize.width,
+                stampSize.height,
+              ),
+              child: Center(
+                child: _OrderWatermarkStamp(apparatus: apparatus),
+              ),
             ),
         ],
       ),
@@ -459,26 +437,28 @@ class _OrderWatermarkLane extends StatelessWidget {
   }
 }
 
-const _activeWatermarkVerticalShift = 8.0;
-const _watermarkHorizontalGap = 12.0;
+const _watermarkHorizontalGap = 8.0;
+const _maxWatermarkColumns = 4;
+const _watermarkRotationAngle = -0.035;
 
 int _watermarkRepeatCount({
   required double availableWidth,
-  required double stampWidth,
+  required double itemSize,
+  required int maxCount,
 }) {
   if (!availableWidth.isFinite ||
       availableWidth <= 0 ||
-      !stampWidth.isFinite ||
-      stampWidth <= 0) {
+      !itemSize.isFinite ||
+      itemSize <= 0) {
     return 1;
   }
   return ((availableWidth + _watermarkHorizontalGap) /
-          (stampWidth + _watermarkHorizontalGap))
+          (itemSize + _watermarkHorizontalGap))
       .floor()
-      .clamp(1, 4);
+      .clamp(1, maxCount);
 }
 
-double _watermarkStampWidth(
+Size _watermarkStampSize(
   BuildContext context,
   _OrderWatermarkData apparatus,
 ) {
@@ -491,10 +471,15 @@ double _watermarkStampWidth(
     textDirection: Directionality.of(context),
     textScaler: MediaQuery.textScalerOf(context),
   )..layout();
-  final rowHeight = textPainter.height > 36 ? textPainter.height : 36.0;
-  // This is a conservative bound for the rotated stamp, so adjacent stamps
-  // never paint over each other even when the label is long.
-  return 36 + 7 + textPainter.width + rowHeight + 20;
+  final rowHeight = textPainter.height;
+  final rowWidth = textPainter.width;
+  final angle = _watermarkRotationAngle.abs();
+  final rotatedWidth = rowWidth * cos(angle) + rowHeight * sin(angle);
+  final rotatedHeight = rowWidth * sin(angle) + rowHeight * cos(angle);
+  return Size(
+    rotatedWidth,
+    rotatedHeight,
+  );
 }
 
 TextStyle? _orderWatermarkTextStyle(BuildContext context) {
@@ -513,29 +498,14 @@ class _OrderWatermarkStamp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: Opacity(
-        opacity: 0.10,
-        child: Transform.rotate(
-          angle: -0.12,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                apparatus.icon,
-                size: 36,
-                color: scheme.onSurface,
-              ),
-              const SizedBox(width: 7),
-              Text(
-                apparatus.label,
-                maxLines: 1,
-                style: _orderWatermarkTextStyle(context),
-              ),
-            ],
-          ),
+    return Opacity(
+      opacity: 0.10,
+      child: Transform.rotate(
+        angle: _watermarkRotationAngle,
+        child: Text(
+          apparatus.label,
+          maxLines: 1,
+          style: _orderWatermarkTextStyle(context),
         ),
       ),
     );

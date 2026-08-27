@@ -6209,14 +6209,14 @@ const Map<String, Map<String, String>> adminTranslations = {
     'ru': 'Закрыто с проблемой',
   },
   'admin.orders.watermark.waiting': {
-    'uz': 'Keyingi: {apparatus}',
-    'en': 'Next: {apparatus}',
-    'ru': 'Следующий: {apparatus}',
+    'uz': 'Kutmoqda: {apparatus}',
+    'en': 'Waiting: {apparatus}',
+    'ru': 'Ожидает: {apparatus}',
   },
   'admin.orders.watermark.waiting_generic': {
-    'uz': 'Keyingi bosqich kutilmoqda',
-    'en': 'Waiting for the next stage',
-    'ru': 'Ожидается следующий этап',
+    'uz': 'Kutmoqda',
+    'en': 'Waiting',
+    'ru': 'Ожидает',
   },
   'admin.orders.watermark.paused': {
     'uz': 'Pauza · {apparatus}',
