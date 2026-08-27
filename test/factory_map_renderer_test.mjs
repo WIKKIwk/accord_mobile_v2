@@ -44,6 +44,49 @@ test('factory map assigns a distinct selection id to each instanced hit', () => 
 test('factory map keeps an instance-specific selection target for highlighting', () => {
   assert.match(rendererSource, /instanceId: Number\.isInteger\(instanceId\)/);
   assert.match(rendererSource, /Box3Helper/);
+  assert.match(rendererSource, /FACTORY_PALETTE\.selected/);
+});
+
+test('factory map uses a calm runtime palette and reserves fault red', () => {
+  const paletteSource = rendererSource.match(
+    /const FACTORY_PALETTE = Object\.freeze\(\{[\s\S]*?\n\}\);/,
+  )?.[0];
+  assert.ok(paletteSource);
+  assert.match(paletteSource, /apparatus:\s*0x65798f/);
+  assert.match(paletteSource, /selected:\s*0x4f6fb5/);
+  assert.match(paletteSource, /healthy:\s*0x5faf7a/);
+  assert.match(paletteSource, /warning:\s*0xd6a34a/);
+  assert.match(paletteSource, /fault:\s*0xc85a5a/);
+  assert.match(rendererSource, /PaletteMaterial001/);
+  assert.match(rendererSource, /PaletteMaterial002/);
+  assert.match(rendererSource, /material\.map\s*=\s*null/);
+});
+
+test('factory map is grounded in a cool-gray environment', () => {
+  assert.match(
+    rendererSource,
+    /scene\.background\s*=\s*new THREE\.Color\(FACTORY_PALETTE\.background\)/,
+  );
+  assert.match(
+    rendererSource,
+    /new THREE\.Fog\(\s*FACTORY_PALETTE\.background,/,
+  );
+  assert.match(rendererSource, /const slabThickness\s*=/);
+  assert.match(
+    rendererSource,
+    /new THREE\.BoxGeometry\(floorSize,\s*slabThickness,\s*floorSize\)/,
+  );
+  assert.match(rendererSource, /slabEdge/);
+});
+
+test('factory map uses softer ambient and shadow settings', () => {
+  assert.match(rendererSource, /renderer\.toneMappingExposure\s*=\s*1/);
+  assert.match(rendererSource, /new THREE\.AmbientLight\(0xffffff,\s*0\.35\)/);
+  assert.match(
+    rendererSource,
+    /new THREE\.DirectionalLight\(0xfff4e6,\s*2\.1\)/,
+  );
+  assert.match(rendererSource, /keyLight\.shadow\.radius\s*=\s*3/);
 });
 
 test('factory map asset contains instanced geometry that needs per-instance ids', () => {

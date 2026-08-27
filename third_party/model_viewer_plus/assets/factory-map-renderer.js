@@ -21,6 +21,18 @@ const selectableInstancedMeshesById = new Map();
 let selectionHelper = null;
 let pointerStart = null;
 
+const FACTORY_PALETTE = Object.freeze({
+  background: 0xd7dde2,
+  ground: 0xe7ecef,
+  slab: 0xc4ced6,
+  apparatus: 0x65798f,
+  apparatusAccent: 0x8a9caf,
+  selected: 0x4f6fb5,
+  healthy: 0x5faf7a,
+  warning: 0xd6a34a,
+  fault: 0xc85a5a,
+});
+
 const renderer = new THREE.WebGLRenderer({
   canvas,
   antialias: true,
@@ -28,13 +40,14 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.08;
+renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = false;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35));
 
 const scene = new THREE.Scene();
+scene.background = new THREE.Color(FACTORY_PALETTE.background);
 const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 400);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = false;
@@ -49,17 +62,19 @@ controls.minDistance = 5;
 controls.maxDistance = 250;
 controls.target.set(0, 0, 0);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x51565a, 1.45));
+scene.add(new THREE.HemisphereLight(0xf7fafc, 0x7d8790, 1.7));
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
 
-const keyLight = new THREE.DirectionalLight(0xfff1dd, 3.2);
+const keyLight = new THREE.DirectionalLight(0xfff4e6, 2.1);
 keyLight.castShadow = true;
 keyLight.shadow.mapSize.set(512, 512);
-keyLight.shadow.bias = -0.0006;
-keyLight.shadow.normalBias = 0.025;
+keyLight.shadow.bias = -0.0003;
+keyLight.shadow.normalBias = 0.04;
+keyLight.shadow.radius = 3;
 scene.add(keyLight);
 scene.add(keyLight.target);
 
-const fillLight = new THREE.DirectionalLight(0xd5e6ff, 0.55);
+const fillLight = new THREE.DirectionalLight(0xd7e5f2, 0.8);
 fillLight.position.set(40, 45, -35);
 scene.add(fillLight);
 
@@ -175,7 +190,7 @@ function selectableTargetForId(objectId) {
 
 function selectionHelperFor(target) {
   if (!Number.isInteger(target.instanceId) || !target.object.isInstancedMesh) {
-    return new THREE.BoxHelper(target.object, 0xffd54f);
+    return new THREE.BoxHelper(target.object, FACTORY_PALETTE.selected);
   }
 
   target.object.geometry.computeBoundingBox();
@@ -185,7 +200,7 @@ function selectionHelperFor(target) {
   instanceBox.applyMatrix4(instanceMatrix);
   target.object.updateWorldMatrix(true, false);
   instanceBox.applyMatrix4(target.object.matrixWorld);
-  return new THREE.Box3Helper(instanceBox, 0xffd54f);
+  return new THREE.Box3Helper(instanceBox, FACTORY_PALETTE.selected);
 }
 
 function selectObject(objectId, emitMessage = true) {
@@ -271,8 +286,34 @@ function replaceUnlitMaterial(material) {
     roughness: 0.92,
     metalness: 0,
   });
+  litMaterial.name = material.name;
   material.dispose();
   return litMaterial;
+}
+
+function applyFactoryPalette(material) {
+  if (!material) {
+    return material;
+  }
+  const color = material.name === 'PaletteMaterial001'
+    ? FACTORY_PALETTE.apparatus
+    : material.name === 'PaletteMaterial002'
+      ? FACTORY_PALETTE.apparatusAccent
+      : null;
+  if (color === null) {
+    return material;
+  }
+  // The GLB palette texture is the source of the saturated red. Remove only
+  // that base-color texture at runtime and retain the original asset on disk.
+  material.map = null;
+  material.color.setHex(color);
+  material.roughness = Math.max(material.roughness ?? 0.82, 0.82);
+  material.metalness = Math.min(material.metalness ?? 0, 0.08);
+  return material;
+}
+
+function styleFactoryMaterial(material) {
+  return applyFactoryPalette(replaceUnlitMaterial(material));
 }
 
 function enableRealShadows(root, bounds) {
@@ -283,9 +324,9 @@ function enableRealShadows(root, bounds) {
     object.castShadow = true;
     object.receiveShadow = true;
     if (Array.isArray(object.material)) {
-      object.material = object.material.map(replaceUnlitMaterial);
+      object.material = object.material.map(styleFactoryMaterial);
     } else {
-      object.material = replaceUnlitMaterial(object.material);
+      object.material = styleFactoryMaterial(object.material);
     }
   });
 
@@ -293,21 +334,46 @@ function enableRealShadows(root, bounds) {
   const center = bounds.getCenter(new THREE.Vector3());
   const floorY = Math.min(bounds.min.y - 0.06, -0.06);
   const floorSize = Math.max(size.x, size.z) * 1.35;
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(floorSize, floorSize),
+  const slabThickness = Math.max(size.y * 0.003, 0.18);
+  const slab = new THREE.Mesh(
+    new THREE.BoxGeometry(floorSize, slabThickness, floorSize),
     new THREE.MeshStandardMaterial({
-      color: 0xe8ebe9,
-      roughness: 1,
+      color: FACTORY_PALETTE.ground,
+      roughness: 0.96,
       metalness: 0,
-      side: THREE.DoubleSide,
     }),
   );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(center.x, floorY, center.z);
-  floor.receiveShadow = true;
-  scene.add(floor);
+  slab.position.set(center.x, floorY - slabThickness / 2, center.z);
+  slab.receiveShadow = true;
+  scene.add(slab);
+
+  const slabEdgeThickness = Math.max(slabThickness * 0.4, 0.08);
+  const slabEdge = new THREE.Mesh(
+    new THREE.BoxGeometry(
+      floorSize * 1.025,
+      slabEdgeThickness,
+      floorSize * 1.025,
+    ),
+    new THREE.MeshStandardMaterial({
+      color: FACTORY_PALETTE.slab,
+      roughness: 0.9,
+      metalness: 0,
+    }),
+  );
+  slabEdge.position.set(
+    center.x,
+    floorY - slabThickness - slabEdgeThickness / 2,
+    center.z,
+  );
+  slabEdge.receiveShadow = true;
+  scene.add(slabEdge);
 
   const extent = Math.max(size.x, size.z, 30);
+  scene.fog = new THREE.Fog(
+    FACTORY_PALETTE.background,
+    extent * 2.4,
+    extent * 7,
+  );
   keyLight.position.set(center.x - extent, center.y + extent * 1.8, center.z + extent * 0.45);
   keyLight.target.position.set(center.x, 0, center.z);
   keyLight.shadow.camera.left = -extent * 1.25;

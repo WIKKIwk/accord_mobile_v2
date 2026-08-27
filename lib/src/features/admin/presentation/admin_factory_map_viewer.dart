@@ -66,19 +66,20 @@ class AdminFactoryMapViewer extends StatelessWidget {
       interactionEnabled: interactionEnabled,
       customHtml: '''
         <style>
-          html, body { background: #202426; }
+          html, body { background: #d7dde2; }
           #factory-map-canvas {
             width: 100%;
             height: 100%;
             display: block;
             touch-action: none;
+            background: #d7dde2;
           }
           #factory-map-status {
             position: fixed;
             inset: 0;
             display: grid;
             place-items: center;
-            color: #f4f4f4;
+            color: #314351;
             font: 14px sans-serif;
           }
         </style>
@@ -230,7 +231,7 @@ class _FactoryMapObjectPickerState extends State<_FactoryMapObjectPicker> {
             const Divider(height: 1),
             Expanded(
               child: ColoredBox(
-                color: const Color(0xFF202426),
+                color: const Color(0xFFD7DDE2),
                 child: AdminFactoryMapViewer(
                   selectedObjectId: widget.initialObjectId,
                   selectionMode: true,

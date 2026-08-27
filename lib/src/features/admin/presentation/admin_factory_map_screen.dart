@@ -200,9 +200,18 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
             Container(
               height: MediaQuery.sizeOf(context).height * 0.72,
               decoration: BoxDecoration(
-                color: scheme.surface,
+                color: scheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: scheme.outlineVariant),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.78),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.shadow.withValues(alpha: 0.18),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               clipBehavior: Clip.antiAlias,
               child: _showModel
