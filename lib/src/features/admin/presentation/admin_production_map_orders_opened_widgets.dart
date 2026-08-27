@@ -467,7 +467,8 @@ class _OrderWatermarkLane extends StatelessWidget {
 
 const _watermarkHorizontalGap = 8.0;
 const _maxWatermarkColumns = 4;
-const _watermarkRotationAngle = -0.035;
+const _watermarkRotationAngle = -0.122;
+const _watermarkStampSafetyPadding = 8.0;
 
 int _watermarkRepeatCount({
   required double availableWidth,
@@ -505,8 +506,8 @@ Size _watermarkStampSize(
   final rotatedWidth = rowWidth * cos(angle) + rowHeight * sin(angle);
   final rotatedHeight = rowWidth * sin(angle) + rowHeight * cos(angle);
   return Size(
-    rotatedWidth,
-    rotatedHeight,
+    rotatedWidth + _watermarkStampSafetyPadding * 2,
+    rotatedHeight + _watermarkStampSafetyPadding * 2,
   );
 }
 
