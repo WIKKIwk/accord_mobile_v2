@@ -5937,6 +5937,7 @@ void main() {
         title: 'Opened laminatsiya status colors',
         productCode: 'OLSC',
         apparatusId: apparatus,
+        apparatusName: 'Laminatsiya',
         product: 'opened laminatsiya status colors product',
       ),
     );
@@ -6013,7 +6014,7 @@ void main() {
         ),
         matching: find.text('Laminatsiya 1'),
       ),
-      findsOneWidget,
+      findsWidgets,
     );
     expect(
       find.descendant(
@@ -6042,7 +6043,7 @@ void main() {
       watermarkTextRect.center.dy,
       greaterThan(cardRect.top + cardRect.height * 0.25),
     );
-    expect(find.text('Laminatsiya 1'), findsOneWidget);
+    expect(find.text('Laminatsiya 1'), findsWidgets);
 
     await MobileApi.instance.adminApparatusQueueActionResult(
       apparatus: apparatus,
@@ -6062,7 +6063,7 @@ void main() {
         ),
         matching: find.text('Pauza · Laminatsiya 1'),
       ),
-      findsOneWidget,
+      findsWidgets,
     );
 
     await MobileApi.instance.adminApparatusQueueActionResult(
@@ -6089,7 +6090,7 @@ void main() {
         ),
         matching: find.text('Muzlatilgan · Laminatsiya 1'),
       ),
-      findsOneWidget,
+      findsWidgets,
     );
   });
 
@@ -6106,6 +6107,7 @@ void main() {
         product: 'opened WIP next stage product',
         firstApparatusId: _print7Id,
         secondApparatusId: _lamination1Id,
+        secondApparatusName: 'Laminatsiya',
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(

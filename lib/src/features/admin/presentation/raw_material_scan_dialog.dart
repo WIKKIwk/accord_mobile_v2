@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/scanner/reliable_mobile_scanner.dart';
 import '../../../core/theme/app_motion.dart';
 
 Future<String?> showRawMaterialScanDialog(
@@ -73,7 +74,7 @@ class ProductionQuickScannerPanel extends StatefulWidget {
 
 class _ProductionQuickScannerPanelState
     extends State<ProductionQuickScannerPanel> {
-  MobileScannerController? _controller;
+  ReliableScannerSession? _scannerSession;
   final _manualController = TextEditingController();
   int _activeDetections = 0;
   bool _manualEntryVisible = false;
@@ -85,25 +86,24 @@ class _ProductionQuickScannerPanelState
   void initState() {
     super.initState();
     if (_supportsScanner) {
-      _controller = MobileScannerController(
-        autoStart: false,
+      final session = ReliableScannerSession(
         autoZoom: false,
         facing: CameraFacing.back,
         detectionSpeed: DetectionSpeed.noDuplicates,
         formats: const [BarcodeFormat.qrCode],
       );
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(_startScanner());
-      });
+      _scannerSession = session;
+      session.addListener(_syncScannerPhase);
     }
   }
 
   @override
   void dispose() {
     _manualController.dispose();
-    final controller = _controller;
-    if (controller != null) {
-      unawaited(controller.dispose());
+    final session = _scannerSession;
+    if (session != null) {
+      session.removeListener(_syncScannerPhase);
+      unawaited(session.dispose());
     }
     super.dispose();
   }
@@ -117,20 +117,12 @@ class _ProductionQuickScannerPanelState
         defaultTargetPlatform == TargetPlatform.macOS;
   }
 
-  Future<void> _startScanner() async {
-    final controller = _controller;
-    if (!mounted || controller == null) {
-      return;
-    }
-    try {
-      await controller.start();
-    } catch (_) {
-      // MobileScanner renders its own camera error state when permission or
-      // initialization fails. Manual entry remains available below it.
-    } finally {
-      if (mounted) {
-        setState(() => _cameraReady = true);
-      }
+  void _syncScannerPhase() {
+    final phase = _scannerSession?.phase;
+    final cameraReady = phase == ReliableScannerPhase.running ||
+        phase == ReliableScannerPhase.error;
+    if (mounted && _cameraReady != cameraReady) {
+      setState(() => _cameraReady = cameraReady);
     }
   }
 
@@ -211,7 +203,7 @@ class _ProductionQuickScannerPanelState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final controller = _controller;
+    final session = _scannerSession;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -224,7 +216,7 @@ class _ProductionQuickScannerPanelState
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (controller == null)
+                if (session == null)
                   const _QuickScannerUnavailableView()
                 else
                   LayoutBuilder(
@@ -251,10 +243,9 @@ class _ProductionQuickScannerPanelState
                                     child: Stack(
                                       fit: StackFit.expand,
                                       children: [
-                                        MobileScanner(
-                                          controller: controller,
+                                        ReliableMobileScanner(
+                                          session: session,
                                           fit: BoxFit.cover,
-                                          useAppLifecycleState: true,
                                           tapToFocus: false,
                                           onDetect: _handleDetect,
                                           errorBuilder: (context, error) =>
@@ -299,12 +290,10 @@ class _ProductionQuickScannerPanelState
                                     ColoredBox(
                                       color: scheme.surfaceContainerHighest,
                                       child: Center(
-                                        child: SizedBox.square(
-                                          dimension: 22,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: scheme.primary,
-                                          ),
+                                        child: Icon(
+                                          Icons.qr_code_scanner_rounded,
+                                          color: scheme.primary,
+                                          size: 32,
                                         ),
                                       ),
                                     ),
@@ -548,15 +537,14 @@ class RawMaterialScanDialog extends StatefulWidget {
 
 class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
   final _manualController = TextEditingController();
-  MobileScannerController? _controller;
+  ReliableScannerSession? _scannerSession;
   bool _done = false;
 
   @override
   void initState() {
     super.initState();
     if (_supportsScanner) {
-      _controller = MobileScannerController(
-        autoStart: true,
+      _scannerSession = ReliableScannerSession(
         autoZoom: true,
         cameraResolution: const Size(1920, 1080),
         lensType: CameraLensType.normal,
@@ -570,9 +558,9 @@ class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
   @override
   void dispose() {
     _manualController.dispose();
-    final controller = _controller;
-    if (controller != null) {
-      unawaited(controller.dispose());
+    final session = _scannerSession;
+    if (session != null) {
+      unawaited(session.dispose());
     }
     super.dispose();
   }
@@ -612,7 +600,7 @@ class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final controller = _controller;
+    final session = _scannerSession;
     final title = widget.title.trim().isEmpty
         ? context.l10n.productionText('worker.material.scanner.title')
         : widget.title;
@@ -625,7 +613,7 @@ class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
         body: Column(
           children: [
             Expanded(
-              child: controller == null
+              child: session == null
                   ? Center(
                       child: Text(
                         context.l10n.productionText(
@@ -648,8 +636,8 @@ class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
                           width: guideSize,
                           height: guideSize,
                         );
-                        return MobileScanner(
-                          controller: controller,
+                        return ReliableMobileScanner(
+                          session: session,
                           fit: BoxFit.cover,
                           scanWindow: scanWindow,
                           tapToFocus: true,

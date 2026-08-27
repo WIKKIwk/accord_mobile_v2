@@ -465,7 +465,8 @@ void main() {
     );
   });
 
-  testWidgets('available warehouse raw material requires confirmation to delete', (
+  testWidgets(
+      'available warehouse raw material requires confirmation to delete', (
     tester,
   ) async {
     seedMobileApiInventoryMovementTestData(
@@ -498,7 +499,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Homashyoni o‘chirish'), findsOneWidget);
-    expect(find.textContaining('30AA'), findsOneWidget);
+    expect(find.textContaining('30AA'), findsWidgets);
     expect(
       find.byKey(const ValueKey('inventory-asset-delete-confirm-raw:1')),
       findsOneWidget,

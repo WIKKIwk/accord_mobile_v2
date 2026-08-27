@@ -6,6 +6,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/scanner/reliable_mobile_scanner.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import 'werka_archive_batch_qr.dart';
 import 'werka_archive_batch_qr_lookup_screen.dart';
@@ -22,7 +23,7 @@ class WerkaStockEntryQrScanScreen extends StatefulWidget {
 class _WerkaStockEntryQrScanScreenState
     extends State<WerkaStockEntryQrScanScreen> {
   final bool _scannerSupported = _supportsLiveScanner;
-  MobileScannerController? _controller;
+  ReliableScannerSession? _scannerSession;
   bool _processing = false;
   String _statusText = 'QR kodni ramkaga keltiring';
 
@@ -30,23 +31,19 @@ class _WerkaStockEntryQrScanScreenState
   void initState() {
     super.initState();
     if (_scannerSupported) {
-      _controller = MobileScannerController(
-        autoStart: false,
+      _scannerSession = ReliableScannerSession(
         facing: CameraFacing.back,
         detectionSpeed: DetectionSpeed.noDuplicates,
         formats: const <BarcodeFormat>[BarcodeFormat.qrCode],
       );
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(_startScanner());
-      });
     }
   }
 
   @override
   void dispose() {
-    final controller = _controller;
-    if (controller != null) {
-      unawaited(controller.dispose());
+    final session = _scannerSession;
+    if (session != null) {
+      unawaited(session.dispose());
     }
     super.dispose();
   }
@@ -61,40 +58,28 @@ class _WerkaStockEntryQrScanScreenState
   }
 
   Future<void> _startScanner() async {
-    final controller = _controller;
-    if (!mounted || controller == null) {
+    final session = _scannerSession;
+    if (!mounted || session == null) {
       return;
     }
-    try {
-      await controller.start();
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _processing = false;
-        _statusText = 'QR kodni ramkaga keltiring';
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _processing = false;
-        _statusText = 'Kamera ochilmadi';
-      });
+    final started = await session.retry();
+    if (!mounted) {
+      return;
     }
+    setState(() {
+      _processing = false;
+      _statusText = started || session.phase != ReliableScannerPhase.error
+          ? 'QR kodni ramkaga keltiring'
+          : 'Kamera ochilmadi';
+    });
   }
 
   Future<void> _stopScanner() async {
-    final controller = _controller;
-    if (controller == null) {
+    final session = _scannerSession;
+    if (session == null) {
       return;
     }
-    try {
-      await controller.stop();
-    } catch (_) {
-      // Best-effort stop.
-    }
+    await session.stop();
   }
 
   Future<void> _handleDetect(BarcodeCapture capture) async {
@@ -179,10 +164,9 @@ class _WerkaStockEntryQrScanScreenState
         'direct_db_lookup_unavailable' =>
           'Barcode lookup vaqtincha ishlamayapti.',
         'stock_entry_lookup_bad_request' => 'Barcode bo‘sh yoki noto‘g‘ri.',
-        _ =>
-          error.message.isEmpty
-              ? 'Barcode tekshirishda xatolik.'
-              : error.message,
+        _ => error.message.isEmpty
+            ? 'Barcode tekshirishda xatolik.'
+            : error.message,
       };
     }
     return 'Barcode tekshirishda xatolik.';
@@ -205,11 +189,9 @@ class _WerkaStockEntryQrScanScreenState
         return queryBarcode;
       }
 
-      final segments = uri.pathSegments
-          .where((segment) {
-            return segment.trim().isNotEmpty;
-          })
-          .toList(growable: false);
+      final segments = uri.pathSegments.where((segment) {
+        return segment.trim().isNotEmpty;
+      }).toList(growable: false);
       if (segments.isEmpty) {
         return null;
       }
@@ -246,9 +228,8 @@ class _WerkaStockEntryQrScanScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final backgroundColor = _scannerSupported
-        ? Colors.black
-        : scheme.surfaceContainerLow;
+    final backgroundColor =
+        _scannerSupported ? Colors.black : scheme.surfaceContainerLow;
     final appBarTheme = theme.appBarTheme.copyWith(
       backgroundColor: backgroundColor,
       foregroundColor: _scannerSupported ? Colors.white : scheme.onSurface,
@@ -278,10 +259,9 @@ class _WerkaStockEntryQrScanScreenState
             ? Stack(
                 children: [
                   Positioned.fill(
-                    child: MobileScanner(
-                      controller: _controller,
+                    child: ReliableMobileScanner(
+                      session: _scannerSession!,
                       fit: BoxFit.cover,
-                      useAppLifecycleState: true,
                       onDetect: _handleDetect,
                       errorBuilder: (context, error) {
                         return _ScannerErrorView(
@@ -327,14 +307,14 @@ class _WerkaStockEntryQrScanScreenState
                               builder: (context, constraints) {
                                 final double frameWidth =
                                     (constraints.maxWidth * 0.78).clamp(
-                                      220.0,
-                                      320.0,
-                                    );
+                                  220.0,
+                                  320.0,
+                                );
                                 final double frameHeight =
                                     (constraints.maxHeight * 0.42).clamp(
-                                      220.0,
-                                      340.0,
-                                    );
+                                  220.0,
+                                  340.0,
+                                );
                                 return Center(
                                   child: Container(
                                     width: frameWidth,
@@ -369,7 +349,8 @@ class _WerkaStockEntryQrScanScreenState
                                           top: 12,
                                           end: 12,
                                           child: _TorchButton(
-                                            controller: _controller!,
+                                            controller:
+                                                _scannerSession!.controller,
                                           ),
                                         ),
                                       ],
@@ -498,9 +479,9 @@ class _ScanStatusPill extends StatelessWidget {
                 child: Text(
                   text,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
               ),
             ],
@@ -550,8 +531,8 @@ class _ScannerErrorView extends StatelessWidget {
                       message,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+                            color: scheme.onSurfaceVariant,
+                          ),
                     ),
                     const SizedBox(height: 18),
                     FilledButton.tonalIcon(

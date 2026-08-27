@@ -197,8 +197,7 @@ List<_OrderWatermarkData> _activeApparatusWatermarks({
         ApparatusQueueOrderState.inProgress) {
       continue;
     }
-    final label = _stageApparatusLabel(
-      stage,
+    final label = _canonicalApparatusWatermarkLabel(
       apparatusId,
       apparatusCatalog: apparatusCatalog,
     );
@@ -283,8 +282,7 @@ List<_OrderWatermarkData> _waitingNextStageWatermarks({
       continue;
     }
     if (completedSeen && state == ApparatusQueueOrderState.pending) {
-      final label = _stageApparatusLabel(
-        stage,
+      final label = _canonicalApparatusWatermarkLabel(
         apparatusId,
         apparatusCatalog: apparatusCatalog,
       );
@@ -326,8 +324,7 @@ List<_OrderWatermarkData> _stageStatusWatermarks({
     if (apparatusId.isEmpty || !seen.add(apparatusId)) {
       continue;
     }
-    final label = _stageApparatusLabel(
-      stage,
+    final label = _canonicalApparatusWatermarkLabel(
       apparatusId,
       apparatusCatalog: apparatusCatalog,
     );
@@ -366,8 +363,7 @@ List<_OrderWatermarkData> _stageStatusWatermarks({
   ];
 }
 
-String _stageApparatusLabel(
-  ProductionMapChainStage stage,
+String _canonicalApparatusWatermarkLabel(
   String apparatusId, {
   required List<AdminApparatus> apparatusCatalog,
 }) {
@@ -375,21 +371,12 @@ String _stageApparatusLabel(
     apparatusId,
     apparatusCatalog,
   ).trim();
-  final normalizedCatalogLabel = catalogLabel.toLowerCase();
-  if (normalizedCatalogLabel == 'laminatsiya' ||
-      normalizedCatalogLabel == 'laminatsiya mashinasi') {
-    return switch (apparatusId.trim()) {
-      'apparatus:default:asset-007' => 'Laminatsiya 1',
-      'apparatus:default:asset-008' => 'Laminatsiya 2',
-      _ => apparatusId,
-    };
-  }
   if (catalogLabel.isNotEmpty && catalogLabel != apparatusId) {
     return catalogLabel;
   }
-  // A map stage title can be a group label such as "Laminatsiya" rather
-  // than the physical apparatus name. Never use it as a fallback: the
-  // canonical id is more truthful until the catalog is available.
+  // A map stage title can be a group label rather than the physical
+  // apparatus name. Never use it as a fallback: the canonical id is more
+  // truthful until the catalog is available.
   return apparatusId;
 }
 

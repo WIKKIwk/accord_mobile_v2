@@ -6,6 +6,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/scanner/reliable_mobile_scanner.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 
@@ -36,7 +37,7 @@ class _QolipQrScanScreen extends StatefulWidget {
 
 class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
   final bool _scannerSupported = _supportsLiveScanner;
-  MobileScannerController? _controller;
+  ReliableScannerSession? _scannerSession;
   bool _processing = false;
   String _statusText = '';
 
@@ -69,23 +70,19 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
   void initState() {
     super.initState();
     if (_scannerSupported) {
-      _controller = MobileScannerController(
-        autoStart: false,
+      _scannerSession = ReliableScannerSession(
         facing: CameraFacing.back,
         detectionSpeed: DetectionSpeed.noDuplicates,
         formats: const <BarcodeFormat>[BarcodeFormat.qrCode],
       );
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(_startScanner());
-      });
     }
   }
 
   @override
   void dispose() {
-    final controller = _controller;
-    if (controller != null) {
-      unawaited(controller.dispose());
+    final session = _scannerSession;
+    if (session != null) {
+      unawaited(session.dispose());
     }
     super.dispose();
   }
@@ -100,40 +97,28 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
   }
 
   Future<void> _startScanner() async {
-    final controller = _controller;
-    if (!mounted || controller == null) {
+    final session = _scannerSession;
+    if (!mounted || session == null) {
       return;
     }
-    try {
-      await controller.start();
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _processing = false;
-        _statusText = _initialStatusText(context.l10n);
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _processing = false;
-        _statusText = context.l10n.qolipText('scanner.camera_failed');
-      });
+    final started = await session.retry();
+    if (!mounted) {
+      return;
     }
+    setState(() {
+      _processing = false;
+      _statusText = started || session.phase != ReliableScannerPhase.error
+          ? _initialStatusText(context.l10n)
+          : context.l10n.qolipText('scanner.camera_failed');
+    });
   }
 
   Future<void> _stopScanner() async {
-    final controller = _controller;
-    if (controller == null) {
+    final session = _scannerSession;
+    if (session == null) {
       return;
     }
-    try {
-      await controller.stop();
-    } catch (_) {
-      // Best-effort stop.
-    }
+    await session.stop();
   }
 
   Future<void> _handleDetect(BarcodeCapture capture) async {
@@ -245,10 +230,9 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
             ? Stack(
                 children: [
                   Positioned.fill(
-                    child: MobileScanner(
-                      controller: _controller,
+                    child: ReliableMobileScanner(
+                      session: _scannerSession!,
                       fit: BoxFit.cover,
-                      useAppLifecycleState: true,
                       onDetect: _handleDetect,
                       errorBuilder: (context, error) {
                         return _ScannerErrorView(
@@ -335,7 +319,8 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
                                           top: 12,
                                           end: 12,
                                           child: _TorchButton(
-                                            controller: _controller!,
+                                            controller:
+                                                _scannerSession!.controller,
                                           ),
                                         ),
                                       ],

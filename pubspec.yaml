@@ -2,7 +2,7 @@ name: accord_mobile_v2
 description: Android-first operational app for supplier and warehouse workflows.
 publish_to: none
 
-version: 1.0.0+25
+version: 1.0.0+28
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -36,7 +36,7 @@ dependencies:
   firebase_messaging: ^15.2.10
   full_screen_back_gesture: ^0.0.2
   gal: ^2.3.2
-  mobile_scanner: ^7.2.0
+  mobile_scanner: ^7.4.0
   pdfx: ^2.9.2
   share_plus: ^12.0.2
   model_viewer_plus: ^1.10.0
@@ -50,6 +50,8 @@ dev_dependencies:
 dependency_overrides:
   local_auth_darwin:
     path: third_party/local_auth_darwin
+  mobile_scanner:
+    path: third_party/mobile_scanner
   pdfx:
     path: third_party/pdfx
   model_viewer_plus:

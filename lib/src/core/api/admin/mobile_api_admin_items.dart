@@ -797,6 +797,65 @@ extension MobileApiAdminItems on MobileApi {
     );
   }
 
+  Future<void> adminDeleteRawMaterialStock({required String barcode}) async {
+    final normalizedBarcode = barcode.trim();
+    if (normalizedBarcode.isEmpty) {
+      throw const MobileApiException(
+        code: 'raw_material_stock_delete_invalid',
+        message: 'QR kodi topilmadi',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final index = _testModeInventoryAssets.indexWhere(
+        (asset) {
+          final identifier = asset.identifier.trim();
+          final assetRef = asset.assetRef.trim();
+          final separator = assetRef.indexOf(':');
+          final assetBarcode = identifier.isNotEmpty
+              ? identifier
+              : separator < 0
+                  ? assetRef
+                  : assetRef.substring(separator + 1).trim();
+          return asset.kind == InventoryAssetKind.rawMaterial &&
+              assetBarcode.toLowerCase() == normalizedBarcode.toLowerCase();
+        },
+      );
+      if (index < 0) {
+        throw const MobileApiException(
+          code: 'raw_material_stock_not_found',
+          message: 'Homashyo omborda topilmadi',
+        );
+      }
+      final current = _testModeInventoryAssets[index];
+      final assigned = _testModeRawMaterialAssignments.any(
+        (assignment) =>
+            assignment.barcode.trim().toLowerCase() ==
+            normalizedBarcode.toLowerCase(),
+      );
+      if (!current.isAvailable ||
+          current.physicalLocation.kind != InventoryLocationKind.warehouse ||
+          assigned) {
+        throw const MobileApiException(
+          code: 'raw_material_stock_locked',
+          message: 'Band yoki omborda bo‘lmagan homashyoni o‘chirib bo‘lmaydi',
+        );
+      }
+      _testModeInventoryAssets.removeAt(index);
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => _delete(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/raw-material-stock'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'barcode': normalizedBarcode}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _rawMaterialStockDeleteException(response);
+    }
+  }
+
   Future<AdminRawMaterialStockReprintPreparation>
       adminPrepareRawMaterialStockReprint({required String barcode}) async {
     final normalizedBarcode = barcode.trim();
@@ -1955,6 +2014,30 @@ MobileApiException _rawMaterialStockUpdateException(http.Response response) {
       'item group is not assigned to material taminotchi' =>
         'Bu mahsulot guruhi sizga biriktirilmagan',
       _ => 'Homashyo ma’lumotlarini o‘zgartirib bo‘lmadi',
+    },
+  );
+}
+
+MobileApiException _rawMaterialStockDeleteException(http.Response response) {
+  var code = 'raw_material_stock_delete_failed';
+  try {
+    final payload = jsonDecode(response.body);
+    if (payload is Map && payload['error'] is String) {
+      final error = (payload['error'] as String).trim();
+      if (error.isNotEmpty) {
+        code = error;
+      }
+    }
+  } catch (_) {}
+  return MobileApiException(
+    code: code,
+    statusCode: response.statusCode,
+    message: switch (code) {
+      'raw_material_stock_locked' =>
+        'Zakazga biriktirilgan, transferdagi yoki State’dagi homashyoni o‘chirib bo‘lmaydi',
+      'raw_material_stock_not_found' => 'Homashyo omborda topilmadi',
+      'forbidden' => 'Bu homashyo sizga biriktirilgan omborda emas',
+      _ => 'Homashyoni o‘chirib bo‘lmadi',
     },
   );
 }

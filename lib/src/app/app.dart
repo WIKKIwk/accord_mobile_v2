@@ -9,6 +9,7 @@ import '../core/navigation/app_root_navigation.dart';
 import '../core/navigation/profile_route_overlay_notifier.dart';
 import '../core/network/network_requirement_runtime.dart';
 import '../core/notifications/runtime/notification_runtime.dart';
+import '../core/scanner/reliable_mobile_scanner.dart';
 import '../core/security/gate/app_lock_gate.dart';
 import '../features/chat/runtime/chat_runtime.dart';
 import '../core/theme/theme_controller.dart';
@@ -36,6 +37,7 @@ class ErpnextStockMobileApp extends StatelessWidget {
           navigatorKey: NativeBackButtonBridge.instance.navigatorKey,
           navigatorObservers: [
             AppRootNavigation.navigatorObserver,
+            reliableScannerRouteObserver,
             NativeBackButtonBridge.instance,
             NativeDockBridge.instance,
             ProfileRouteOverlayObserver.instance,

@@ -272,7 +272,8 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
   }
 
   bool _assetBelongsToSelectedWarehouse(InventoryAsset asset) {
-    if (asset.physicalLocation.kind != InventoryLocationKind.warehouse ||
+    if (asset.status.trim().toLowerCase() == 'deleted' ||
+        asset.physicalLocation.kind != InventoryLocationKind.warehouse ||
         !_assetMatchesSearch(asset)) {
       return false;
     }
@@ -810,11 +811,45 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
     });
   }
 
+  Future<void> _deleteRawMaterial(InventoryAsset asset) async {
+    final barcode = _rawMaterialAssetBarcode(asset).trim();
+    if (asset.kind != InventoryAssetKind.rawMaterial || barcode.isEmpty) {
+      return;
+    }
+    final confirmed = await showM3ConfirmDialog(
+          context: context,
+          title: 'Homashyoni o‘chirish',
+          message: '${asset.itemName} • $barcode\n'
+              '${_qty(asset.qty)} ${asset.uom}\n\n'
+              'Homashyo faol ombor ro‘yxatidan o‘chadi. Audit tarixi saqlanadi.',
+          cancelLabel: 'Bekor qilish',
+          confirmLabel: 'O‘chirish',
+          destructive: true,
+          verticalActions: true,
+          confirmButtonKey: ValueKey(
+            'inventory-asset-delete-confirm-${asset.assetRef}',
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) {
+      return;
+    }
+    final busyKey = 'delete:${asset.kind.apiValue}:${asset.assetRef}';
+    await _runBusy(busyKey, () async {
+      await MobileApi.instance.adminDeleteRawMaterialStock(barcode: barcode);
+      _showMessage('${asset.itemName} o‘chirildi');
+      await _applyAssetMutations([asset.copyWith(status: 'deleted')]);
+    });
+  }
+
   Future<void> _showAssetDetails(InventoryAsset asset) async {
     final key = '${asset.kind.apiValue}:${asset.assetRef}';
     final busy = _busyKeys.any((item) => item.contains(key));
     final physicallyInWarehouse =
         asset.physicalLocation.kind == InventoryLocationKind.warehouse;
+    final barcode = _rawMaterialAssetBarcode(asset).trim();
+    final hasOrderAssignment =
+        _rawMaterialOrderAssignments.containsKey(barcode);
     await showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
@@ -833,7 +868,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
             physicallyInWarehouse &&
             !busy,
         onOrderAssignmentChanged: _reloadOrderAssignments,
-        onQrRequested: _rawMaterialAssetBarcode(asset).trim().isEmpty
+        onQrRequested: barcode.isEmpty
             ? null
             : () async {
                 await Navigator.of(sheetContext).maybePop();
@@ -841,6 +876,18 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                   await _showAssetQr(asset);
                 }
               },
+        onDelete: _materialScoped &&
+                asset.kind == InventoryAssetKind.rawMaterial &&
+                asset.isAvailable &&
+                physicallyInWarehouse &&
+                !hasOrderAssignment &&
+                barcode.isNotEmpty &&
+                !busy
+            ? () async {
+                Navigator.of(sheetContext).pop();
+                await _deleteRawMaterial(asset);
+              }
+            : null,
         onRelocate: asset.isAvailable && !busy
             ? () async {
                 Navigator.of(sheetContext).pop();
@@ -1515,6 +1562,7 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
     required this.allowOrderAssignment,
     required this.onOrderAssignmentChanged,
     required this.onQrRequested,
+    required this.onDelete,
     required this.onRelocate,
     required this.onTransfer,
   });
@@ -1526,6 +1574,7 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
   final bool allowOrderAssignment;
   final Future<void> Function() onOrderAssignmentChanged;
   final Future<void> Function()? onQrRequested;
+  final Future<void> Function()? onDelete;
   final Future<void> Function()? onRelocate;
   final Future<void> Function()? onTransfer;
 
@@ -1685,6 +1734,21 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
                   ),
                 ],
               ),
+            if (onDelete != null) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                key: ValueKey(
+                  'inventory-asset-delete-button-${asset.assetRef}',
+                ),
+                onPressed: () => unawaited(onDelete!()),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: scheme.error,
+                  side: BorderSide(color: scheme.error),
+                ),
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: const Text('Homashyoni o‘chirish'),
+              ),
+            ],
           ],
         ),
       ),

@@ -9,6 +9,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/scanner/reliable_mobile_scanner.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../logic/canonical_apparatus_display.dart';
@@ -49,7 +50,7 @@ class AdminProgressQrScanScreen extends StatefulWidget {
 class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
   final bool _scannerSupported = _supportsLiveScanner;
   final _manualQrController = TextEditingController();
-  MobileScannerController? _controller;
+  ReliableScannerSession? _scannerSession;
   bool _processing = false;
   _QrScanStatus _scanStatus = _QrScanStatus.prompt;
   String? _scanErrorCode;
@@ -67,8 +68,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
     super.initState();
     unawaited(_loadApparatusCatalog());
     if (_scannerSupported) {
-      _controller = MobileScannerController(
-        autoStart: true,
+      _scannerSession = ReliableScannerSession(
         facing: CameraFacing.back,
         detectionSpeed: DetectionSpeed.noDuplicates,
         formats: const <BarcodeFormat>[BarcodeFormat.qrCode],
@@ -91,9 +91,9 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
   @override
   void dispose() {
     _manualQrController.dispose();
-    final controller = _controller;
-    if (controller != null) {
-      unawaited(controller.dispose());
+    final session = _scannerSession;
+    if (session != null) {
+      unawaited(session.dispose());
     }
     super.dispose();
   }
@@ -145,42 +145,31 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
   }
 
   Future<void> _startScanner() async {
-    final controller = _controller;
-    if (!mounted || controller == null) {
+    final session = _scannerSession;
+    if (!mounted || session == null) {
       return;
     }
-    try {
-      await controller.start();
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _processing = false;
-        _scanErrorCode = null;
-        _scanStatus = _QrScanStatus.prompt;
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _processing = false;
-        _scanErrorCode = 'camera_failed';
-        _scanStatus = _QrScanStatus.cameraFailed;
-      });
+    final started = await session.retry();
+    if (!mounted) {
+      return;
     }
+    setState(() {
+      _processing = false;
+      _scanErrorCode = started || session.phase != ReliableScannerPhase.error
+          ? null
+          : 'camera_failed';
+      _scanStatus = started || session.phase != ReliableScannerPhase.error
+          ? _QrScanStatus.prompt
+          : _QrScanStatus.cameraFailed;
+    });
   }
 
   Future<void> _stopScanner() async {
-    final controller = _controller;
-    if (controller == null) {
+    final session = _scannerSession;
+    if (session == null) {
       return;
     }
-    try {
-      await controller.stop();
-    } catch (_) {
-      // Camera stop is best-effort.
-    }
+    await session.stop();
   }
 
   Future<void> _handleDetect(BarcodeCapture capture) async {
@@ -512,7 +501,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
                       )
                     : scannerMode
                         ? _ScannerView(
-                            controller: _controller,
+                            session: _scannerSession,
                             statusText: _statusText(context.l10n),
                             processing: _processing,
                             errorText: _scanStatus == _QrScanStatus.error ||
@@ -534,7 +523,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
 
 class _ScannerView extends StatelessWidget {
   const _ScannerView({
-    required this.controller,
+    required this.session,
     required this.statusText,
     required this.processing,
     required this.errorText,
@@ -543,7 +532,7 @@ class _ScannerView extends StatelessWidget {
     required this.onManualEntry,
   });
 
-  final MobileScannerController? controller;
+  final ReliableScannerSession? session;
   final String statusText;
   final bool processing;
   final String? errorText;
@@ -553,17 +542,16 @@ class _ScannerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = this.controller;
-    if (controller == null) {
+    final session = this.session;
+    if (session == null) {
       return const Center(child: CircularProgressIndicator());
     }
     return Stack(
       children: [
         Positioned.fill(
-          child: MobileScanner(
-            controller: controller,
+          child: ReliableMobileScanner(
+            session: session,
             fit: BoxFit.cover,
-            useAppLifecycleState: true,
             onDetect: onDetect,
             errorBuilder: (context, error) {
               return _ScannerErrorView(
@@ -629,7 +617,9 @@ class _ScannerView extends StatelessWidget {
                           PositionedDirectional(
                             top: 12,
                             end: 12,
-                            child: _TorchButton(controller: controller),
+                            child: _TorchButton(
+                              controller: session.controller,
+                            ),
                           ),
                         ],
                       ),

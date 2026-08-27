@@ -9,6 +9,7 @@ import '../../../core/native_bluetooth_printer.dart';
 import '../../../core/native_usb_printer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/print_transport.dart';
+import '../../../core/scanner/reliable_mobile_scanner.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../gscale/gscale_mobile_app.dart'
@@ -955,15 +956,14 @@ class _RezkaScannerDialog extends StatefulWidget {
 }
 
 class _RezkaScannerDialogState extends State<_RezkaScannerDialog> {
-  MobileScannerController? _controller;
+  ReliableScannerSession? _scannerSession;
   bool _done = false;
 
   @override
   void initState() {
     super.initState();
     if (_supportsScanner) {
-      _controller = MobileScannerController(
-        autoStart: true,
+      _scannerSession = ReliableScannerSession(
         facing: CameraFacing.back,
         detectionSpeed: DetectionSpeed.noDuplicates,
         formats: const [BarcodeFormat.qrCode],
@@ -973,9 +973,9 @@ class _RezkaScannerDialogState extends State<_RezkaScannerDialog> {
 
   @override
   void dispose() {
-    final controller = _controller;
-    if (controller != null) {
-      unawaited(controller.dispose());
+    final session = _scannerSession;
+    if (session != null) {
+      unawaited(session.dispose());
     }
     super.dispose();
   }
@@ -1006,13 +1006,13 @@ class _RezkaScannerDialogState extends State<_RezkaScannerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
+    final session = _scannerSession;
     return Dialog.fullscreen(
       child: Scaffold(
         appBar: AppBar(title: const Text('QR scan')),
-        body: controller == null
+        body: session == null
             ? const Center(child: Text('Scanner bu qurilmada ishlamaydi'))
-            : MobileScanner(controller: controller, onDetect: _detect),
+            : ReliableMobileScanner(session: session, onDetect: _detect),
       ),
     );
   }
