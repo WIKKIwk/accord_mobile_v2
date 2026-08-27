@@ -35,6 +35,55 @@ void main() {
     expect(find.text('QR kodni shu to‘r ichiga olib keling'), findsOneWidget);
   });
 
+  testWidgets(
+      'raw material scanner keeps retrying frames until a QR is accepted',
+      (tester) async {
+    await tester.pumpWidget(
+      _testApp(
+        const RawMaterialScanDialog(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
+    expect(scanner.controller!.detectionSpeed, DetectionSpeed.normal);
+  });
+
+  testWidgets('raw material scanner forwards a camera barcode', (tester) async {
+    String? scannedBarcode;
+    await tester.pumpWidget(
+      _testApp(
+        Builder(
+          builder: (context) => TextButton(
+            key: const ValueKey('open-raw-material-scanner'),
+            onPressed: () {
+              unawaited(
+                showRawMaterialScanDialog(context).then((value) {
+                  scannedBarcode = value;
+                }),
+              );
+            },
+            child: const Text('Open scanner'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('open-raw-material-scanner')));
+    await tester.pumpAndSettle();
+
+    final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
+    scanner.onDetect!(
+      const BarcodeCapture(
+        barcodes: [Barcode(rawValue: '30AA')],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(scannedBarcode, '30AA');
+  });
+
   testWidgets('quick scanner leaves automatic zoom disabled', (tester) async {
     await tester.pumpWidget(
       _testApp(
@@ -236,6 +285,9 @@ class _SequencedScannerPlatform extends MobileScannerPlatform {
   Future<void> stop() async {
     events.add('stop');
   }
+
+  @override
+  Future<void> updateScanWindow(Rect? window) async {}
 
   @override
   Future<void> dispose() async {

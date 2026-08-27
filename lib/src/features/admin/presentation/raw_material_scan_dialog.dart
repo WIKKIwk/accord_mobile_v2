@@ -549,7 +549,11 @@ class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
         cameraResolution: const Size(1920, 1080),
         lensType: CameraLensType.normal,
         facing: CameraFacing.back,
-        detectionSpeed: DetectionSpeed.noDuplicates,
+        // This dialog closes after the first valid barcode. Keep retrying
+        // frames until the Dart callback accepts it, instead of letting the
+        // native no-duplicates gate consume a frame before scanWindow or the
+        // listener is ready.
+        detectionSpeed: DetectionSpeed.normal,
         formats: const [BarcodeFormat.qrCode],
       );
     }

@@ -552,10 +552,15 @@ class _ReliableScannerLifecycleState extends State<ReliableScannerLifecycle>
         WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
       ),
     );
-    // MobileScannerController.start() explicitly waits for the scanner widget
-    // to attach. Register ownership now so a dropped post-frame callback can
-    // never leave a visible scanner permanently idle.
-    unawaited(widget.session.attach());
+    // Let the child MobileScanner finish attaching its barcode subscription
+    // before the session starts the native camera. Otherwise an early native
+    // barcode event can be emitted while the Dart onDetect listener is not
+    // attached yet.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(widget.session.attach());
+      }
+    });
   }
 
   @override
