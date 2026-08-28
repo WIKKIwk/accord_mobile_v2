@@ -557,6 +557,32 @@ void main() {
     expect(map.toJson()['customer_name'], '555 kukuruz');
   });
 
+  test('entry stage accepts the backend Opening WIP scan contract', () {
+    final control = AdminApparatusQueueOrderActionControl.fromJson({
+      'state': 'pending',
+      'allowed_actions': ['start'],
+      'interaction': {
+        'mode': 'fresh_start',
+        'start_materials_mode': 'hidden',
+        'material_scan_required': false,
+        'assigned_materials_display_only': false,
+        'material_intake_allowed': true,
+        'previous_wip_mode': 'not_required',
+        'opening_wip_mode': 'scan_required',
+        'qolip_mode': 'not_required',
+      },
+      'previous_stage': '',
+      'previous_stage_ready': false,
+      'complete_requires_full_report': false,
+    });
+
+    expect(control.contractValid, isTrue);
+    expect(
+      control.interaction?.openingWipMode,
+      AdminQueuePreviousWipMode.scanRequired,
+    );
+  });
+
   test('worker action controls reject contradictory action modes', () {
     final freezeOnPaused = AdminApparatusQueueOrderActionControl.fromJson({
       'state': 'paused',

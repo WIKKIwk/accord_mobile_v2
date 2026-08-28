@@ -92,6 +92,21 @@ void main() {
     expect(request.printCount, 2);
   });
 
+  test('renders Opening WIP with the progress-label pipeline', () {
+    final request = UsbRpsPrintRequest.fromPrintJson(const {
+      'qr_payload': 'OPENING-WIP:batch-1',
+      'item_code': 'ORDER-1',
+      'item_name': 'Opening WIP 1/2',
+      'apparatus': 'apparatus:default:asset-007',
+      'gross_qty': 1.0,
+      'unit': 'kg',
+      'label_kind': 'opening_wip',
+    });
+
+    expect(request.isProgressLabel, isTrue);
+    expect(request.labelKind, 'opening_wip');
+  });
+
   test('keeps qolip color in the Bluetooth label request', () {
     const request = UsbRpsPrintRequest(
       epc: 'QOLIP-0007',

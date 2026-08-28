@@ -1,0 +1,145 @@
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/print_transport.dart';
+import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const _laminationId = 'apparatus:default:asset-007';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    resetMobileApiTestModeData();
+    await TestModeController.instance.setEnabled(true);
+  });
+
+  tearDown(() async {
+    resetMobileApiTestModeData();
+    await TestModeController.instance.setEnabled(false);
+  });
+
+  test('unknown Opening WIP quantity omits unverifiable quantity fields', () {
+    const input = AdminOpeningWipBatchInput(
+      quantityBasis: AdminOpeningWipQuantityBasis.unknown,
+      quantity: 25,
+      uom: 'kg',
+    );
+
+    expect(input.toJson(), {'quantity_basis': 'unknown'});
+  });
+
+  test('parses the durable Opening WIP intake and batch contract', () {
+    final record = AdminOpeningWipRecord.fromJson({
+      'intake': {
+        'intake_id': 'opening-wip-1',
+        'idempotency_key': 'request-1',
+        'order_id': 'ORDER-1',
+        'entry_apparatus': _laminationId,
+        'source_operation': 'Bosma',
+        'current_location': 'Laminatsiya oldi',
+        'history_status': 'unavailable_before_cutover',
+        'status': 'confirmed',
+        'actor': {
+          'role': 'admin',
+          'ref_': 'admin-1',
+          'display_name': 'Admin One',
+        },
+        'created_at_unix': 100,
+        'updated_at_unix': 100,
+      },
+      'batches': [
+        {
+          'batch_id': 'opening-wip-batch-1',
+          'intake_id': 'opening-wip-1',
+          'order_id': 'ORDER-1',
+          'sequence_no': 1,
+          'qr_payload': 'OPENING-WIP:batch-1',
+          'quantity_basis': 'estimated',
+          'quantity': 125.5,
+          'uom': 'kg',
+          'wip_status': 'waiting',
+          'label_item_code': 'ORDER-1',
+          'label_item_name': 'Opening WIP 1/1',
+          'created_at_unix': 100,
+          'updated_at_unix': 100,
+        },
+      ],
+    });
+
+    expect(record.intake.historyStatus, 'unavailable_before_cutover');
+    expect(record.intake.actorDisplayName, 'Admin One');
+    expect(
+      record.batches.single.quantityBasis,
+      AdminOpeningWipQuantityBasis.estimated,
+    );
+    expect(record.batches.single.quantity, 125.5);
+  });
+
+  test('test mode creates idempotently, lists, and prepares every roll QR',
+      () async {
+    const input = AdminOpeningWipCreateInput(
+      idempotencyKey: 'opening-wip-request-1',
+      orderId: 'ORDER-1',
+      entryApparatus: _laminationId,
+      sourceOperation: 'Bosma',
+      currentLocation: 'Laminatsiya oldi',
+      batches: [
+        AdminOpeningWipBatchInput(
+          quantityBasis: AdminOpeningWipQuantityBasis.unknown,
+        ),
+        AdminOpeningWipBatchInput(
+          quantityBasis: AdminOpeningWipQuantityBasis.measured,
+          quantity: 120,
+          uom: 'kg',
+        ),
+      ],
+    );
+
+    final created = await MobileApi.instance.adminCreateOpeningWip(input);
+    final replayed = await MobileApi.instance.adminCreateOpeningWip(input);
+    final records = await MobileApi.instance.adminOpeningWipRecords(
+      orderId: 'ORDER-1',
+      status: 'waiting',
+    );
+
+    expect(created.batches, hasLength(2));
+    expect(replayed.intake.intakeId, created.intake.intakeId);
+    expect(records, hasLength(1));
+
+    for (final batch in created.batches) {
+      final printed = await MobileApi.instance.adminPrintOpeningWip(
+        batchId: batch.batchId,
+        printTransport: PrintTransport.offline,
+      );
+      expect(printed.ok, isTrue);
+      expect(printed.printJob?.epc, batch.qrPayload);
+      expect(printed.printJob?.isProgressLabel, isTrue);
+    }
+
+    await expectLater(
+      MobileApi.instance.adminCreateOpeningWip(
+        const AdminOpeningWipCreateInput(
+          idempotencyKey: 'opening-wip-request-1',
+          orderId: 'ORDER-1',
+          entryApparatus: _laminationId,
+          sourceOperation: 'Rezka',
+          currentLocation: 'Laminatsiya oldi',
+          batches: [
+            AdminOpeningWipBatchInput(
+              quantityBasis: AdminOpeningWipQuantityBasis.unknown,
+            ),
+          ],
+        ),
+      ),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'opening_wip_idempotency_conflict',
+        ),
+      ),
+    );
+  });
+}

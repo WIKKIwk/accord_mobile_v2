@@ -239,7 +239,10 @@ class UsbRpsPrintRequest {
 
   double get netQty => (grossQty - tareKg).clamp(0, double.infinity).toDouble();
 
-  bool get isProgressLabel => labelKind.trim().toLowerCase() == 'progress';
+  bool get isProgressLabel {
+    final kind = labelKind.trim().toLowerCase();
+    return kind == 'progress' || kind == 'opening_wip';
+  }
 
   bool get isQolipCellLabel {
     final kind = labelKind.trim().toLowerCase();

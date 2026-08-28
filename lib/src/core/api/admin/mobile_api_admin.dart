@@ -1,6 +1,7 @@
 part of '../mobile_api.dart';
 
 final List<ProductionMapSaved> _testModeProductionMaps = [];
+final List<AdminOpeningWipRecord> _testModeOpeningWipRecords = [];
 final List<AdminApparatus> _testModeApparatus = [];
 final List<AdminApparatusCollection> _testModeApparatusCollections = [];
 int _testModeApparatusCollectionCounter = 0;
@@ -106,6 +107,7 @@ void setMobileApiTestModeQueueActionControlFixture({
 
 void resetMobileApiTestModeData() {
   _testModeProductionMaps.clear();
+  _testModeOpeningWipRecords.clear();
   _testModeAdminItemDetailOverrides.clear();
   _testModeDeletedAdminItemCodes.clear();
   _testModeApparatus.clear();
@@ -1179,6 +1181,7 @@ class AdminQueueWorkerInteraction {
     required this.materialIntakeAllowed,
     required this.previousWipMode,
     required this.qolipMode,
+    this.openingWipMode = AdminQueuePreviousWipMode.notRequired,
     this.blockingReasonCode = '',
   });
 
@@ -1189,6 +1192,7 @@ class AdminQueueWorkerInteraction {
   final bool materialIntakeAllowed;
   final AdminQueuePreviousWipMode previousWipMode;
   final AdminQueueQolipMode qolipMode;
+  final AdminQueuePreviousWipMode openingWipMode;
   final String blockingReasonCode;
 
   static AdminQueueWorkerInteraction? tryFromJson(Object? raw) {
@@ -1201,10 +1205,15 @@ class AdminQueueWorkerInteraction {
     final previousWipMode = AdminQueuePreviousWipMode.tryParse(
       json['previous_wip_mode'],
     );
+    final rawOpeningWipMode = json['opening_wip_mode'];
+    final openingWipMode = rawOpeningWipMode == null
+        ? AdminQueuePreviousWipMode.notRequired
+        : AdminQueuePreviousWipMode.tryParse(rawOpeningWipMode);
     final qolipMode = AdminQueueQolipMode.tryParse(json['qolip_mode']);
     if (mode == null ||
         startMaterialsMode == null ||
         previousWipMode == null ||
+        openingWipMode == null ||
         qolipMode == null ||
         json['material_scan_required'] is! bool ||
         json['assigned_materials_display_only'] is! bool ||
@@ -1220,6 +1229,7 @@ class AdminQueueWorkerInteraction {
       materialIntakeAllowed: json['material_intake_allowed'] as bool,
       previousWipMode: previousWipMode,
       qolipMode: qolipMode,
+      openingWipMode: openingWipMode,
       blockingReasonCode: json['blocking_reason_code']?.toString().trim() ?? '',
     );
   }
@@ -1275,6 +1285,10 @@ class AdminApparatusQueueOrderActionControl {
     }
     if (value.previousWipMode != AdminQueuePreviousWipMode.notRequired &&
         previousStage.trim().isEmpty) {
+      return false;
+    }
+    if (value.openingWipMode != AdminQueuePreviousWipMode.notRequired &&
+        previousStage.trim().isNotEmpty) {
       return false;
     }
     final expectedActions = switch (value.mode) {
