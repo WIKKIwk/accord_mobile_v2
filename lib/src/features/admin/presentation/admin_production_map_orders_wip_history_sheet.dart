@@ -136,22 +136,48 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
     final orderId = widget.order.map.id.trim();
     final sourceApparatusId = widget.sourceApparatusId.trim();
     if (sourceApparatusId.isNotEmpty) {
-      final batches = await MobileApi.instance.adminWipBatches(
-        status: 'all',
-        orderId: orderId,
-        limit: 1000,
-      );
-      return _wipBatchesProducedByApparatus(
-        batches,
-        orderId: orderId,
-        apparatusId: sourceApparatusId,
+      final results = await Future.wait<Object>([
+        MobileApi.instance.adminWipBatches(
+          status: 'all',
+          orderId: orderId,
+          limit: 1000,
+        ),
+        MobileApi.instance.adminOpeningWipRecords(
+          orderId: orderId,
+          status: 'all',
+          limit: 500,
+        ),
+      ]);
+      return _mergeWorkerWipBatches(
+        _wipBatchesProducedByApparatus(
+          results[0] as List<AdminProgressBatch>,
+          orderId: orderId,
+          apparatusId: sourceApparatusId,
+        ),
+        _openingWipBatchesProducedByApparatus(
+          results[1] as List<AdminOpeningWipRecord>,
+          order: widget.order,
+          apparatusId: sourceApparatusId,
+        ),
       );
     }
 
-    final batches = await MobileApi.instance.adminProgressQrHistory(limit: 200);
-    return batches
-        .where((batch) => batch.orderId.trim() == orderId)
-        .toList(growable: false);
+    final results = await Future.wait<Object>([
+      MobileApi.instance.adminProgressQrHistory(limit: 200),
+      MobileApi.instance.adminOpeningWipRecords(
+        orderId: orderId,
+        status: 'all',
+        limit: 500,
+      ),
+    ]);
+    return _mergeWorkerWipBatches(
+      (results[0] as List<AdminProgressBatch>)
+          .where((batch) => batch.orderId.trim() == orderId),
+      _openingWipBatchesProducedByApparatus(
+        results[1] as List<AdminOpeningWipRecord>,
+        order: widget.order,
+      ),
+    );
   }
 
   void _retry() {
@@ -235,6 +261,90 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
       ),
     );
   }
+}
+
+List<AdminProgressBatch> _mergeWorkerWipBatches(
+  Iterable<AdminProgressBatch> progressBatches,
+  Iterable<AdminProgressBatch> openingWipBatches,
+) {
+  final byBatchId = <String, AdminProgressBatch>{};
+  for (final batch in progressBatches) {
+    byBatchId[batch.batchId.trim()] = batch;
+  }
+  for (final batch in openingWipBatches) {
+    byBatchId.putIfAbsent(batch.batchId.trim(), () => batch);
+  }
+  final merged = byBatchId.values.toList(growable: false);
+  merged.sort((left, right) {
+    final leftAt = left.completedAtUnix > left.startedAtUnix
+        ? left.completedAtUnix
+        : left.startedAtUnix;
+    final rightAt = right.completedAtUnix > right.startedAtUnix
+        ? right.completedAtUnix
+        : right.startedAtUnix;
+    final byTime = rightAt.compareTo(leftAt);
+    return byTime != 0 ? byTime : right.batchId.compareTo(left.batchId);
+  });
+  return merged;
+}
+
+List<AdminProgressBatch> _openingWipBatchesProducedByApparatus(
+  Iterable<AdminOpeningWipRecord> records, {
+  required ProductionMapSaved order,
+  String apparatusId = '',
+}) {
+  final normalizedOrderId = order.map.id.trim();
+  final normalizedApparatusId = apparatusId.trim();
+  final batches = <AdminProgressBatch>[];
+  for (final record in records) {
+    final intake = record.intake;
+    final sourceApparatus = _workerWipFirstNotEmpty([
+      intake.sourceApparatus,
+      intake.entryApparatus,
+    ]);
+    if (intake.orderId.trim() != normalizedOrderId ||
+        sourceApparatus.isEmpty ||
+        (normalizedApparatusId.isNotEmpty &&
+            sourceApparatus != normalizedApparatusId)) {
+      continue;
+    }
+    for (final batch in record.batches) {
+      final wipStatus = batch.wipStatus.trim().toLowerCase();
+      if (wipStatus == 'void') continue;
+      final nextApparatus = _openingWipNextApparatus(
+        order: order,
+        intake: intake,
+        batch: batch,
+      );
+      batches.add(
+        _openingWipAsProgressBatch(
+          batch,
+          sourceApparatus,
+          intake: intake,
+          nextApparatus: nextApparatus,
+        ),
+      );
+    }
+  }
+  return batches;
+}
+
+String _openingWipNextApparatus({
+  required ProductionMapSaved order,
+  required AdminOpeningWipIntake intake,
+  required AdminOpeningWipBatch batch,
+}) {
+  final consumedBy = _workerWipFirstNotEmpty([
+    batch.usedByApparatus,
+    batch.processedByApparatus,
+  ]);
+  if (consumedBy.isNotEmpty) return consumedBy;
+  final nextStages = productionMapNextWorkStagesForNode(
+    map: order.map,
+    stageNodeId: intake.sourceStageNodeId,
+  );
+  if (nextStages.length != 1) return '';
+  return nextStages.single.apparatusId?.trim() ?? '';
 }
 
 List<AdminProgressBatch> _wipBatchesProducedByApparatus(
@@ -475,7 +585,12 @@ class _WorkerWipHistoryCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                _WorkerWipStatusChip(label: statusLabel, kind: kind),
+                Flexible(
+                  child: _WorkerWipStatusChip(
+                    label: statusLabel,
+                    kind: kind,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 10),

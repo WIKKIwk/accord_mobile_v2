@@ -2367,17 +2367,40 @@ void main() {
   );
 
   testWidgets(
-    'admin map apparatus tap shows WIP produced by that apparatus',
+    'admin map apparatus tap merges normal and Opening WIP',
     (tester) async {
       await TestModeController.instance.setEnabled(true);
       const orderId = 'zakaz-admin-map-apparatus-wip';
       await MobileApi.instance.adminSaveProductionMap(
-        _productionOrderMap(
+        _twoStageProductionOrderMap(
           id: orderId,
           title: 'Admin map apparatus WIP',
           productCode: 'ADMIN-MAP-WIP',
-          apparatusId: _print7Id,
           product: 'admin map WIP product',
+          firstApparatusId: _print7Id,
+          secondApparatusId: _rezkaId,
+        ),
+      );
+      await MobileApi.instance.adminCreateOpeningWip(
+        const AdminOpeningWipCreateInput(
+          idempotencyKey: 'admin-map-apparatus-opening-wip',
+          orderId: orderId,
+          sourceApparatus: _print7Id,
+          sourceStageNodeId: 'first-apparatus',
+          batches: [
+            AdminOpeningWipBatchInput(
+              quantityBasis: AdminOpeningWipQuantityBasis.measured,
+              finishedGoodsMeter: 11,
+              finishedGoodsKg: 2,
+              bobinaKg: 1,
+            ),
+            AdminOpeningWipBatchInput(
+              quantityBasis: AdminOpeningWipQuantityBasis.measured,
+              finishedGoodsMeter: 22,
+              finishedGoodsKg: 3,
+              bobinaKg: 1,
+            ),
+          ],
         ),
       );
       await MobileApi.instance.adminSaveProductionMapSequence(
@@ -2425,8 +2448,28 @@ void main() {
         find.byKey(const ValueKey('apparatus-wip-history-sheet')),
         findsOneWidget,
       );
-      expect(find.text('1 ta WIP yaratilgan'), findsOneWidget);
+      expect(find.text('3 ta WIP yaratilgan'), findsOneWidget);
+      expect(find.text('Kutmoqda: 3'), findsOneWidget);
       expect(find.text('12 m'), findsOneWidget);
+      final wipHistory = find.byKey(
+        const ValueKey('worker-wip-history-sheet'),
+      );
+      final wipHistoryScrollable = find.descendant(
+        of: wipHistory,
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('11 m'),
+        240,
+        scrollable: wipHistoryScrollable,
+      );
+      expect(find.text('11 m'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('22 m'),
+        240,
+        scrollable: wipHistoryScrollable,
+      );
+      expect(find.text('22 m'), findsOneWidget);
     },
   );
 

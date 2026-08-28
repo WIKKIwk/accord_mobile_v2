@@ -42,34 +42,65 @@ class _OpeningWipQrTile extends StatelessWidget {
 
 AdminProgressBatch _openingWipAsProgressBatch(
   AdminOpeningWipBatch batch,
-  String sourceApparatus,
-) {
+  String sourceApparatus, {
+  AdminOpeningWipIntake? intake,
+  String nextApparatus = '',
+}) {
+  final wipStatus = batch.wipStatus.trim().toLowerCase();
+  final producedQty =
+      batch.finishedGoodsMeter ?? batch.quantity ?? batch.finishedGoodsKg ?? 0;
+  final uom = batch.finishedGoodsMeter != null
+      ? 'm'
+      : batch.uom.trim().isNotEmpty
+          ? batch.uom.trim()
+          : 'kg';
+  final flowStatus = switch (wipStatus) {
+    'in_use' => 'in_progress',
+    'processed' => 'consumed_by_next_stage',
+    _ when nextApparatus.trim().isEmpty => 'free_wip',
+    _ => 'waiting_next_stage',
+  };
   return AdminProgressBatch(
     batchId: batch.batchId,
-    sessionId: batch.intakeId,
+    sessionId: _workerWipFirstNotEmpty([
+      batch.usedBySessionId,
+      batch.processedBySessionId,
+      batch.intakeId,
+    ]),
     apparatus: sourceApparatus,
     orderId: batch.orderId,
     action: '',
     status: batch.wipStatus,
-    producedQty: batch.quantity ??
-        batch.finishedGoodsMeter ??
-        batch.finishedGoodsKg ??
-        0,
-    uom: batch.uom,
+    producedQty: producedQty,
+    uom: uom,
     qrPayload: batch.qrPayload,
     labelItemCode: batch.labelItemCode,
     labelItemName: batch.labelItemName,
-    executorName: '',
+    executorName: intake?.actorDisplayName ?? '',
     diameter: batch.diameter,
     finishedGoodsKg: batch.finishedGoodsKg,
     bobinaKg: batch.bobinaKg,
     finishedGoodsMeter: batch.finishedGoodsMeter,
-    wipStatus: batch.wipStatus,
-    currentApparatus: batch.usedByApparatus,
+    description: intake?.note ?? '',
+    workerRole: intake?.actorRole ?? '',
+    workerRef: intake?.actorRef ?? '',
+    workerDisplayName: intake?.actorDisplayName ?? '',
+    wipStatus: wipStatus,
+    statusDetail: AdminProgressBatchStatusDetail(
+      workStatus: 'completed',
+      wipStatus: wipStatus,
+      flowStatus: flowStatus,
+    ),
+    currentApparatus: sourceApparatus,
+    currentApparatusKey: sourceApparatus,
+    nextApparatus: nextApparatus,
     usedBySessionId: batch.usedBySessionId,
     usedByApparatus: batch.usedByApparatus,
     processedBySessionId: batch.processedBySessionId,
     processedByApparatus: batch.processedByApparatus,
+    startedAtUnix: batch.createdAtUnix,
+    completedAtUnix: batch.updatedAtUnix,
+    payloadJson: const {'input_wip_source_kind': 'opening_wip'},
   );
 }
 
