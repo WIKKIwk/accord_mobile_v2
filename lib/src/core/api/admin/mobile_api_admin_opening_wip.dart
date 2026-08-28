@@ -444,24 +444,9 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
       message: 'Opening WIP ma’lumotlari to‘liq emas',
     );
   }
+  final locationStage = _testModeOpeningWipLocationStage(input);
   final apparatus = _testModeRequiredApparatus(input.entryApparatus);
   final requiresDiameter = apparatus.operation.trim().toLowerCase() == 'cut';
-  final locationMatches = _testModeFactoryLocations.any(
-    (location) =>
-        location.active &&
-        (location.id.trim() == input.currentLocation.trim() ||
-            location.name.trim().toLowerCase() ==
-                input.currentLocation.trim().toLowerCase()) &&
-        location.apparatus.any(
-          (candidate) => candidate.id.trim() == input.entryApparatus.trim(),
-        ),
-  );
-  if (!locationMatches) {
-    throw const MobileApiException(
-      code: 'opening_wip_location_mismatch',
-      message: 'Joylashuv ish boshlanadigan aparatga mos emas',
-    );
-  }
   for (final batch in input.batches) {
     final values = [
       batch.finishedGoodsMeter,
@@ -478,12 +463,6 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
       );
     }
   }
-  final location = _testModeFactoryLocations.firstWhere(
-    (location) =>
-        location.id.trim() == input.currentLocation.trim() ||
-        location.name.trim().toLowerCase() ==
-            input.currentLocation.trim().toLowerCase(),
-  );
   final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final suffix = now.toRadixString(36);
   final intakeId = 'opening-wip-test-$suffix';
@@ -494,7 +473,9 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
     entryApparatus: input.entryApparatus.trim(),
     sourceOperation: 'unavailable_before_cutover',
     sourceApparatus: '',
-    currentLocation: location.name.trim(),
+    currentLocation: locationStage.displayTitle.trim().isEmpty
+        ? input.currentLocation.trim()
+        : locationStage.displayTitle.trim(),
     historyStatus: 'unavailable_before_cutover',
     status: 'confirmed',
     note: input.note.trim(),
@@ -580,9 +561,13 @@ bool _testModeOpeningWipMatchesInput(
   AdminOpeningWipCreateInput input,
 ) {
   final intake = record.intake;
+  final locationStage = _testModeOpeningWipLocationStage(input);
+  final currentLocation = locationStage.displayTitle.trim().isEmpty
+      ? input.currentLocation.trim()
+      : locationStage.displayTitle.trim();
   if (intake.orderId != input.orderId.trim() ||
       intake.entryApparatus != input.entryApparatus.trim() ||
-      intake.currentLocation != input.currentLocation.trim() ||
+      intake.currentLocation != currentLocation ||
       intake.note != input.note.trim() ||
       record.batches.length != input.batches.length) {
     return false;
@@ -599,6 +584,45 @@ bool _testModeOpeningWipMatchesInput(
     }
   }
   return true;
+}
+
+ProductionMapChainStage _testModeOpeningWipLocationStage(
+  AdminOpeningWipCreateInput input,
+) {
+  ProductionMapSaved? saved;
+  for (final candidate in _testModeProductionMaps) {
+    if (candidate.map.id.trim() == input.orderId.trim()) {
+      saved = candidate;
+      break;
+    }
+  }
+  if (saved == null) {
+    throw const MobileApiException(
+      code: 'production_map_not_found',
+      message: 'Production map topilmadi',
+    );
+  }
+  final stages = productionMapLinearWorkStages(saved.map)
+      .where((stage) => stage.apparatusId != null)
+      .toList(growable: false);
+  final entryApparatus =
+      stages.isEmpty ? '' : stages.first.apparatusId?.trim() ?? '';
+  if (entryApparatus != input.entryApparatus.trim()) {
+    throw const MobileApiException(
+      code: 'opening_wip_entry_mismatch',
+      message:
+          'Opening WIP faqat production mapning birinchi aparatidan boshlanishi mumkin',
+    );
+  }
+  for (final stage in stages) {
+    if (stage.apparatusId?.trim() == input.currentLocation.trim()) {
+      return stage;
+    }
+  }
+  throw const MobileApiException(
+    code: 'opening_wip_location_mismatch',
+    message: 'Joylashuv production mapdagi aparat bo‘lishi kerak',
+  );
 }
 
 AdminOpeningWipPrintResult _testModePrintOpeningWip({

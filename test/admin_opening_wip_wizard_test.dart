@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _laminationId = 'apparatus:default:asset-007';
+const _lamination2Id = 'apparatus:default:asset-008';
 const _rezkaId = 'apparatus:default:asset-010';
 
 void main() {
@@ -42,11 +43,6 @@ void main() {
   testWidgets('admin creates distinct measured batches from selectable fields',
       (tester) async {
     await MobileApi.instance.adminSaveProductionMap(_openingOrder());
-    await MobileApi.instance.adminCreateFactoryLocation(name: 'Bosma oldi');
-    await MobileApi.instance.adminCreateFactoryLocation(
-      name: 'Laminatsiya oldi',
-      apparatusIds: const [_laminationId],
-    );
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(430, 1100);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -85,8 +81,9 @@ void main() {
     );
     await tester.tap(locationPicker);
     await tester.pumpAndSettle();
-    expect(find.text('Bosma oldi'), findsNothing);
-    await tester.tap(find.text('Laminatsiya oldi').last);
+    expect(find.text('Laminatsiya 1'), findsWidgets);
+    expect(find.text('Rezka'), findsOneWidget);
+    await tester.tap(find.text('Rezka').last);
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -146,7 +143,7 @@ void main() {
       orderId: 'zakaz-opening-wip-1',
     );
     expect(records, hasLength(1));
-    expect(records.single.intake.currentLocation, 'Laminatsiya oldi');
+    expect(records.single.intake.currentLocation, 'Rezka');
     expect(records.single.batches, hasLength(2));
     expect(
       records.single.batches.map((batch) => batch.finishedGoodsMeter).toList(),
@@ -170,16 +167,46 @@ void main() {
     );
   });
 
+  testWidgets(
+      'current location excludes apparatus outside map and keeps skip alternatives',
+      (tester) async {
+    await MobileApi.instance.adminSaveProductionMap(_openingAlternativeOrder());
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1100);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminOpeningWipScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('opening-wip-location')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Laminatsiya 1'), findsWidgets);
+    expect(find.text('Laminatsiya 2'), findsOneWidget);
+    expect(find.text('Rezka'), findsNothing);
+  });
+
   testWidgets('rezka Opening WIP requires diameter per roll', (tester) async {
     await MobileApi.instance.adminSaveProductionMap(
       _openingOrder(
         id: 'zakaz-opening-wip-rezka',
         apparatusId: _rezkaId,
+        includeRezkaStage: false,
       ),
-    );
-    await MobileApi.instance.adminCreateFactoryLocation(
-      name: 'Rezka oldi',
-      apparatusIds: const [_rezkaId],
     );
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(430, 1100);
@@ -240,6 +267,7 @@ void main() {
 ProductionMapDefinition _openingOrder({
   String id = 'zakaz-opening-wip-1',
   String apparatusId = _laminationId,
+  bool includeRezkaStage = true,
 }) {
   return ProductionMapDefinition(
     id: id,
@@ -251,14 +279,60 @@ ProductionMapDefinition _openingOrder({
       ProductionMapNode(
         id: 'lamination',
         kind: 'apparatus',
-        title: 'Laminatsiya 1',
+        title: apparatusId == _rezkaId ? 'Rezka' : 'Laminatsiya 1',
         apparatusId: apparatusId,
       ),
+      if (includeRezkaStage)
+        const ProductionMapNode(
+          id: 'rezka',
+          kind: 'apparatus',
+          title: 'Rezka',
+          apparatusId: _rezkaId,
+        ),
       const ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
     ],
     edges: [
       const ProductionMapEdge(from: 'start', to: 'lamination'),
-      const ProductionMapEdge(from: 'lamination', to: 'end'),
+      if (includeRezkaStage) ...const [
+        ProductionMapEdge(from: 'lamination', to: 'rezka'),
+        ProductionMapEdge(from: 'rezka', to: 'end'),
+      ] else
+        const ProductionMapEdge(from: 'lamination', to: 'end'),
+    ],
+  );
+}
+
+ProductionMapDefinition _openingAlternativeOrder() {
+  return const ProductionMapDefinition(
+    id: 'zakaz-opening-wip-alternative',
+    productCode: 'ITEM-OPENING-WIP-ALT',
+    title: 'Opening WIP alternative',
+    orderNumber: 'OWIP-ALT',
+    nodes: [
+      ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+      ProductionMapNode(
+        id: 'lamination-1',
+        kind: 'apparatus',
+        title: 'Laminatsiya 1',
+        apparatusId: _laminationId,
+        alternativeGroupId: 'alt-laminatsiya',
+        alternativeGroupLabel: 'Laminatsiya',
+      ),
+      ProductionMapNode(
+        id: 'lamination-2',
+        kind: 'apparatus',
+        title: 'Laminatsiya 2',
+        apparatusId: _lamination2Id,
+        alternativeGroupId: 'alt-laminatsiya',
+        alternativeGroupLabel: 'Laminatsiya',
+      ),
+      ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+    ],
+    edges: [
+      ProductionMapEdge(from: 'start', to: 'lamination-1'),
+      ProductionMapEdge(from: 'start', to: 'lamination-2'),
+      ProductionMapEdge(from: 'lamination-1', to: 'end'),
+      ProductionMapEdge(from: 'lamination-2', to: 'end'),
     ],
   );
 }

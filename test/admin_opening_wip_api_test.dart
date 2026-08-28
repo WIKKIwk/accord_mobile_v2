@@ -2,6 +2,7 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/print_transport.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -95,15 +96,12 @@ void main() {
 
   test('test mode creates idempotently, lists, and prepares every roll QR',
       () async {
-    await MobileApi.instance.adminCreateFactoryLocation(
-      name: 'Laminatsiya oldi',
-      apparatusIds: const [_laminationId],
-    );
+    await MobileApi.instance.adminSaveProductionMap(_openingWipMap());
     const input = AdminOpeningWipCreateInput(
       idempotencyKey: 'opening-wip-request-1',
       orderId: 'ORDER-1',
       entryApparatus: _laminationId,
-      currentLocation: 'Laminatsiya oldi',
+      currentLocation: _laminationId,
       batches: [
         AdminOpeningWipBatchInput(
           quantityBasis: AdminOpeningWipQuantityBasis.estimated,
@@ -184,7 +182,7 @@ void main() {
           idempotencyKey: 'opening-wip-request-1',
           orderId: 'ORDER-1',
           entryApparatus: _laminationId,
-          currentLocation: 'Laminatsiya oldi',
+          currentLocation: _laminationId,
           note: 'conflicting replay',
           batches: [
             AdminOpeningWipBatchInput(
@@ -205,4 +203,26 @@ void main() {
       ),
     );
   });
+}
+
+ProductionMapDefinition _openingWipMap() {
+  return const ProductionMapDefinition(
+    id: 'ORDER-1',
+    productCode: 'OPENING-WIP',
+    title: 'Opening WIP',
+    nodes: [
+      ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+      ProductionMapNode(
+        id: 'lamination',
+        kind: 'apparatus',
+        title: 'Laminatsiya 1',
+        apparatusId: _laminationId,
+      ),
+      ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+    ],
+    edges: [
+      ProductionMapEdge(from: 'start', to: 'lamination'),
+      ProductionMapEdge(from: 'lamination', to: 'end'),
+    ],
+  );
 }

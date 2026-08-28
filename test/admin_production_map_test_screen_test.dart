@@ -7370,16 +7370,12 @@ void main() {
         apparatus: _lamination1Id,
         orderIds: const [orderId],
       );
-      await MobileApi.instance.adminCreateFactoryLocation(
-        name: 'Laminatsiya oldi',
-        apparatusIds: const [_lamination1Id],
-      );
       final openingWip = await MobileApi.instance.adminCreateOpeningWip(
         const AdminOpeningWipCreateInput(
           idempotencyKey: 'worker-opening-wip-request',
           orderId: orderId,
           entryApparatus: _lamination1Id,
-          currentLocation: 'Laminatsiya oldi',
+          currentLocation: _lamination1Id,
           batches: [
             AdminOpeningWipBatchInput(
               quantityBasis: AdminOpeningWipQuantityBasis.measured,

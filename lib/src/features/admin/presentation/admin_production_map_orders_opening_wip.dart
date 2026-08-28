@@ -26,19 +26,16 @@ class _AdminOpeningWipScreenState extends State<AdminOpeningWipScreen> {
       MobileApi.instance.adminProductionMaps(),
       MobileApi.instance.adminApparatus(limit: 10000),
       MobileApi.instance.adminProductionMapQueueSnapshot(),
-      MobileApi.instance.adminFactoryLocations(),
     ]);
     final orders = results[0] as List<ProductionMapSaved>;
     final apparatus = results[1] as List<AdminApparatus>;
     final snapshot = results[2] as AdminApparatusQueueSnapshot;
-    final locations = results[3] as List<AdminFactoryLocation>;
     return _OpeningWipPageData(
       orders: _openingWipEligibleOrders(
         orders: orders,
         queueStatesByApparatus: snapshot.queueStates,
       ),
       apparatus: apparatus,
-      locations: locations.where((location) => location.active).toList(),
     );
   }
 
@@ -71,7 +68,6 @@ class _AdminOpeningWipScreenState extends State<AdminOpeningWipScreen> {
             return _OpeningWipWizard(
               orders: data.orders,
               apparatusCatalog: data.apparatus,
-              locations: data.locations,
               progressDriverUrlPicker: widget.progressDriverUrlPicker,
             );
           },
@@ -85,33 +81,22 @@ class _OpeningWipPageData {
   const _OpeningWipPageData({
     required this.orders,
     required this.apparatus,
-    required this.locations,
   });
 
   final List<ProductionMapSaved> orders;
   final List<AdminApparatus> apparatus;
-  final List<AdminFactoryLocation> locations;
 }
 
-List<AdminFactoryLocation> _openingWipLocationsForApparatus(
-  List<AdminFactoryLocation> locations,
-  String apparatusId,
-) {
-  final normalizedId = apparatusId.trim();
-  final values = [
-    for (final location in locations)
-      if (location.active &&
-          location.name.trim().isNotEmpty &&
-          location.apparatus.any(
-            (apparatus) => apparatus.id.trim() == normalizedId,
-          ))
-        location,
-  ];
-  values.sort(
-    (left, right) =>
-        left.name.toLowerCase().compareTo(right.name.toLowerCase()),
-  );
-  return List<AdminFactoryLocation>.unmodifiable(values);
+List<String> _openingWipLocationApparatuses(ProductionMapSaved? order) {
+  if (order == null) return const [];
+  final seen = <String>{};
+  return List<String>.unmodifiable([
+    for (final stage in productionMapLinearWorkStages(order.map))
+      if (stage.apparatusId?.trim().isNotEmpty == true &&
+          canonicalApparatusIdIsValid(stage.apparatusId!.trim()) &&
+          seen.add(stage.apparatusId!.trim()))
+        stage.apparatusId!.trim(),
+  ]);
 }
 
 List<ProductionMapSaved> _openingWipEligibleOrders({
@@ -155,13 +140,11 @@ class _OpeningWipWizard extends StatefulWidget {
   const _OpeningWipWizard({
     required this.orders,
     required this.apparatusCatalog,
-    required this.locations,
     this.progressDriverUrlPicker,
   });
 
   final List<ProductionMapSaved> orders;
   final List<AdminApparatus> apparatusCatalog;
-  final List<AdminFactoryLocation> locations;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
 
   @override
@@ -216,9 +199,8 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
   void initState() {
     super.initState();
     _selectedOrder = widget.orders.isEmpty ? null : widget.orders.first;
-    _currentLocation = _availableLocations.isEmpty
-        ? ''
-        : _availableLocations.first.name.trim();
+    _currentLocation =
+        _availableLocations.isEmpty ? '' : _availableLocations.first;
   }
 
   @override
@@ -258,14 +240,14 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
   bool get _requiresDiameter =>
       _entryApparatusDefinition?.operation.trim().toLowerCase() == 'cut';
 
-  List<AdminFactoryLocation> get _availableLocations =>
-      _openingWipLocationsForApparatus(widget.locations, _entryApparatus);
+  List<String> get _availableLocations =>
+      _openingWipLocationApparatuses(_selectedOrder);
 
   void _selectOrder(ProductionMapSaved? order) {
     setState(() {
       _selectedOrder = order;
       final locations = _availableLocations;
-      _currentLocation = locations.isEmpty ? '' : locations.first.name.trim();
+      _currentLocation = locations.isEmpty ? '' : locations.first;
       for (final roll in _rollControllers) {
         if (!_requiresDiameter) roll.diameter.clear();
       }
@@ -566,11 +548,11 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                           ),
                           isExpanded: true,
                           items: [
-                            for (final location in availableLocations)
+                            for (final apparatusId in availableLocations)
                               DropdownMenuItem(
-                                value: location.name.trim(),
+                                value: apparatusId,
                                 child: Text(
-                                  location.name.trim(),
+                                  _apparatusLabel(apparatusId),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
