@@ -24,14 +24,20 @@ void main() {
     await TestModeController.instance.setEnabled(false);
   });
 
-  test('unknown Opening WIP quantity omits unverifiable quantity fields', () {
+  test('serializes the complete Opening WIP roll passport', () {
     const input = AdminOpeningWipBatchInput(
-      quantityBasis: AdminOpeningWipQuantityBasis.unknown,
-      quantity: 25,
-      uom: 'kg',
+      quantityBasis: AdminOpeningWipQuantityBasis.measured,
+      finishedGoodsMeter: 125,
+      finishedGoodsKg: 12,
+      bobinaKg: 1,
     );
 
-    expect(input.toJson(), {'quantity_basis': 'unknown'});
+    expect(input.toJson(), {
+      'quantity_basis': 'measured',
+      'finished_goods_meter': 125,
+      'finished_goods_kg': 12,
+      'bobina_kg': 1,
+    });
   });
 
   test('parses the durable Opening WIP intake and batch contract', () {
@@ -63,6 +69,9 @@ void main() {
           'quantity_basis': 'estimated',
           'quantity': 125.5,
           'uom': 'kg',
+          'finished_goods_meter': 125.5,
+          'finished_goods_kg': 12.5,
+          'bobina_kg': 1.1,
           'wip_status': 'waiting',
           'label_item_code': 'ORDER-1',
           'label_item_name': 'Opening WIP 1/1',
@@ -79,24 +88,34 @@ void main() {
       AdminOpeningWipQuantityBasis.estimated,
     );
     expect(record.batches.single.quantity, 125.5);
+    expect(record.batches.single.finishedGoodsMeter, 125.5);
+    expect(record.batches.single.finishedGoodsKg, 12.5);
+    expect(record.batches.single.bobinaKg, 1.1);
   });
 
   test('test mode creates idempotently, lists, and prepares every roll QR',
       () async {
+    await MobileApi.instance.adminCreateFactoryLocation(
+      name: 'Laminatsiya oldi',
+      apparatusIds: const [_laminationId],
+    );
     const input = AdminOpeningWipCreateInput(
       idempotencyKey: 'opening-wip-request-1',
       orderId: 'ORDER-1',
       entryApparatus: _laminationId,
-      sourceOperation: 'Bosma',
       currentLocation: 'Laminatsiya oldi',
       batches: [
         AdminOpeningWipBatchInput(
-          quantityBasis: AdminOpeningWipQuantityBasis.unknown,
+          quantityBasis: AdminOpeningWipQuantityBasis.estimated,
+          finishedGoodsMeter: 100,
+          finishedGoodsKg: 10,
+          bobinaKg: 1,
         ),
         AdminOpeningWipBatchInput(
           quantityBasis: AdminOpeningWipQuantityBasis.measured,
-          quantity: 120,
-          uom: 'kg',
+          finishedGoodsMeter: 120,
+          finishedGoodsKg: 12,
+          bobinaKg: 1.2,
         ),
       ],
     );
@@ -154,6 +173,9 @@ void main() {
       expect(printed.ok, isTrue);
       expect(printed.printJob?.epc, batch.qrPayload);
       expect(printed.printJob?.isProgressLabel, isTrue);
+      expect(printed.printJob?.grossQty, batch.finishedGoodsKg);
+      expect(printed.printJob?.progressQty, batch.finishedGoodsMeter);
+      expect(printed.printJob?.tareKg, batch.bobinaKg);
     }
 
     await expectLater(
@@ -162,11 +184,14 @@ void main() {
           idempotencyKey: 'opening-wip-request-1',
           orderId: 'ORDER-1',
           entryApparatus: _laminationId,
-          sourceOperation: 'Rezka',
           currentLocation: 'Laminatsiya oldi',
+          note: 'conflicting replay',
           batches: [
             AdminOpeningWipBatchInput(
-              quantityBasis: AdminOpeningWipQuantityBasis.unknown,
+              quantityBasis: AdminOpeningWipQuantityBasis.measured,
+              finishedGoodsMeter: 100,
+              finishedGoodsKg: 10,
+              bobinaKg: 1,
             ),
           ],
         ),

@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _laminationId = 'apparatus:default:asset-007';
+const _rezkaId = 'apparatus:default:asset-010';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +45,7 @@ void main() {
     await MobileApi.instance.adminCreateFactoryLocation(name: 'Bosma oldi');
     await MobileApi.instance.adminCreateFactoryLocation(
       name: 'Laminatsiya oldi',
+      apparatusIds: const [_laminationId],
     );
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(430, 1100);
@@ -69,6 +71,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('opening-wip-order')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('opening-wip-source-operation')),
+      findsNothing,
+    );
 
     final locationPicker = find.byKey(
       const ValueKey('opening-wip-location'),
@@ -79,6 +85,7 @@ void main() {
     );
     await tester.tap(locationPicker);
     await tester.pumpAndSettle();
+    expect(find.text('Bosma oldi'), findsNothing);
     await tester.tap(find.text('Laminatsiya oldi').last);
     await tester.pumpAndSettle();
 
@@ -86,26 +93,33 @@ void main() {
       find.byKey(const ValueKey('opening-wip-roll-count')),
       '2',
     );
-    await tester.tap(
-      find.byKey(const ValueKey('opening-wip-quantity-basis')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('O‘lchangan').last);
-    await tester.pumpAndSettle();
-
-    final uomPicker = find.byKey(const ValueKey('opening-wip-uom'));
-    expect(
-      tester.widget(uomPicker),
-      isA<DropdownButtonFormField<String>>(),
-    );
-    expect(find.text('kg'), findsWidgets);
     await tester.enterText(
-      find.byKey(const ValueKey('opening-wip-roll-quantity-0')),
+      find.byKey(const ValueKey('opening-wip-roll-meter-0')),
+      '125',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('opening-wip-roll-kg-0')),
       '12.5',
     );
     await tester.enterText(
-      find.byKey(const ValueKey('opening-wip-roll-quantity-1')),
+      find.byKey(const ValueKey('opening-wip-roll-bobina-0')),
+      '1',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('opening-wip-roll-meter-1')),
+      '140',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('opening-wip-roll-kg-1')),
       '14',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('opening-wip-roll-bobina-1')),
+      '1.1',
+    );
+    expect(
+      find.byKey(const ValueKey('opening-wip-roll-diameter-0')),
+      findsNothing,
     );
     final printerButton =
         find.byKey(const ValueKey('opening-wip-pick-printer'));
@@ -135,12 +149,16 @@ void main() {
     expect(records.single.intake.currentLocation, 'Laminatsiya oldi');
     expect(records.single.batches, hasLength(2));
     expect(
-      records.single.batches.map((batch) => batch.quantity).toList(),
+      records.single.batches.map((batch) => batch.finishedGoodsMeter).toList(),
+      [125, 140],
+    );
+    expect(
+      records.single.batches.map((batch) => batch.finishedGoodsKg).toList(),
       [12.5, 14],
     );
     expect(
-      records.single.batches.map((batch) => batch.uom).toSet(),
-      {'kg'},
+      records.single.batches.map((batch) => batch.bobinaKg).toList(),
+      [1, 1.1],
     );
     expect(
       records.single.batches.map((batch) => batch.qrPayload).toSet(),
@@ -149,6 +167,44 @@ void main() {
     expect(
       records.single.intake.historyStatus,
       'unavailable_before_cutover',
+    );
+  });
+
+  testWidgets('rezka Opening WIP requires diameter per roll', (tester) async {
+    await MobileApi.instance.adminSaveProductionMap(
+      _openingOrder(
+        id: 'zakaz-opening-wip-rezka',
+        apparatusId: _rezkaId,
+      ),
+    );
+    await MobileApi.instance.adminCreateFactoryLocation(
+      name: 'Rezka oldi',
+      apparatusIds: const [_rezkaId],
+    );
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1100);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminOpeningWipScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('opening-wip-roll-diameter-0')),
+      findsOneWidget,
     );
   });
 
@@ -181,25 +237,28 @@ void main() {
   });
 }
 
-ProductionMapDefinition _openingOrder() {
-  return const ProductionMapDefinition(
-    id: 'zakaz-opening-wip-1',
+ProductionMapDefinition _openingOrder({
+  String id = 'zakaz-opening-wip-1',
+  String apparatusId = _laminationId,
+}) {
+  return ProductionMapDefinition(
+    id: id,
     productCode: 'ITEM-OPENING-WIP',
     title: 'Opening WIP mahsulot',
     orderNumber: 'OWIP-0001',
     nodes: [
-      ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+      const ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
       ProductionMapNode(
         id: 'lamination',
         kind: 'apparatus',
         title: 'Laminatsiya 1',
-        apparatusId: _laminationId,
+        apparatusId: apparatusId,
       ),
-      ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+      const ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
     ],
     edges: [
-      ProductionMapEdge(from: 'start', to: 'lamination'),
-      ProductionMapEdge(from: 'lamination', to: 'end'),
+      const ProductionMapEdge(from: 'start', to: 'lamination'),
+      const ProductionMapEdge(from: 'lamination', to: 'end'),
     ],
   );
 }

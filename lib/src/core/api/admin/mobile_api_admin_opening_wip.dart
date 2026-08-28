@@ -21,23 +21,25 @@ enum AdminOpeningWipQuantityBasis {
 class AdminOpeningWipBatchInput {
   const AdminOpeningWipBatchInput({
     required this.quantityBasis,
-    this.quantity,
-    this.uom = '',
+    required this.finishedGoodsMeter,
+    required this.finishedGoodsKg,
+    required this.bobinaKg,
+    this.diameter,
   });
 
   final AdminOpeningWipQuantityBasis quantityBasis;
-  final double? quantity;
-  final String uom;
+  final double finishedGoodsMeter;
+  final double finishedGoodsKg;
+  final double bobinaKg;
+  final double? diameter;
 
-  Map<String, dynamic> toJson() {
-    final includesQuantity =
-        quantityBasis != AdminOpeningWipQuantityBasis.unknown;
-    return {
-      'quantity_basis': quantityBasis.apiValue,
-      if (includesQuantity && quantity != null) 'quantity': quantity,
-      if (includesQuantity && uom.trim().isNotEmpty) 'uom': uom.trim(),
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'quantity_basis': quantityBasis.apiValue,
+        'finished_goods_meter': finishedGoodsMeter,
+        'finished_goods_kg': finishedGoodsKg,
+        'bobina_kg': bobinaKg,
+        if (diameter != null) 'diameter': diameter,
+      };
 }
 
 class AdminOpeningWipCreateInput {
@@ -45,18 +47,14 @@ class AdminOpeningWipCreateInput {
     required this.idempotencyKey,
     required this.orderId,
     required this.entryApparatus,
-    required this.sourceOperation,
     required this.currentLocation,
     required this.batches,
-    this.sourceApparatus = '',
     this.note = '',
   });
 
   final String idempotencyKey;
   final String orderId;
   final String entryApparatus;
-  final String sourceOperation;
-  final String sourceApparatus;
   final String currentLocation;
   final String note;
   final List<AdminOpeningWipBatchInput> batches;
@@ -66,9 +64,6 @@ class AdminOpeningWipCreateInput {
       'idempotency_key': idempotencyKey.trim(),
       'order_id': orderId.trim(),
       'entry_apparatus': entryApparatus.trim(),
-      'source_operation': sourceOperation.trim(),
-      if (sourceApparatus.trim().isNotEmpty)
-        'source_apparatus': sourceApparatus.trim(),
       'current_location': currentLocation.trim(),
       if (note.trim().isNotEmpty) 'note': note.trim(),
       'batches': batches.map((batch) => batch.toJson()).toList(growable: false),
@@ -146,6 +141,10 @@ class AdminOpeningWipBatch {
     required this.quantityBasis,
     required this.quantity,
     required this.uom,
+    required this.finishedGoodsMeter,
+    required this.finishedGoodsKg,
+    required this.bobinaKg,
+    required this.diameter,
     required this.wipStatus,
     required this.usedBySessionId,
     required this.usedByApparatus,
@@ -165,6 +164,10 @@ class AdminOpeningWipBatch {
   final AdminOpeningWipQuantityBasis quantityBasis;
   final double? quantity;
   final String uom;
+  final double? finishedGoodsMeter;
+  final double? finishedGoodsKg;
+  final double? bobinaKg;
+  final double? diameter;
   final String wipStatus;
   final String usedBySessionId;
   final String usedByApparatus;
@@ -187,6 +190,10 @@ class AdminOpeningWipBatch {
       ),
       quantity: (json['quantity'] as num?)?.toDouble(),
       uom: json['uom']?.toString().trim() ?? '',
+      finishedGoodsMeter: (json['finished_goods_meter'] as num?)?.toDouble(),
+      finishedGoodsKg: (json['finished_goods_kg'] as num?)?.toDouble(),
+      bobinaKg: (json['bobina_kg'] as num?)?.toDouble(),
+      diameter: (json['diameter'] as num?)?.toDouble(),
       wipStatus: json['wip_status']?.toString().trim() ?? '',
       usedBySessionId: json['used_by_session_id']?.toString().trim() ?? '',
       usedByApparatus: json['used_by_apparatus']?.toString().trim() ?? '',
@@ -430,7 +437,6 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
   if (key.isEmpty ||
       input.orderId.trim().isEmpty ||
       input.entryApparatus.trim().isEmpty ||
-      input.sourceOperation.trim().isEmpty ||
       input.currentLocation.trim().isEmpty ||
       input.batches.isEmpty) {
     throw const MobileApiException(
@@ -438,6 +444,46 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
       message: 'Opening WIP ma’lumotlari to‘liq emas',
     );
   }
+  final apparatus = _testModeRequiredApparatus(input.entryApparatus);
+  final requiresDiameter = apparatus.operation.trim().toLowerCase() == 'cut';
+  final locationMatches = _testModeFactoryLocations.any(
+    (location) =>
+        location.active &&
+        (location.id.trim() == input.currentLocation.trim() ||
+            location.name.trim().toLowerCase() ==
+                input.currentLocation.trim().toLowerCase()) &&
+        location.apparatus.any(
+          (candidate) => candidate.id.trim() == input.entryApparatus.trim(),
+        ),
+  );
+  if (!locationMatches) {
+    throw const MobileApiException(
+      code: 'opening_wip_location_mismatch',
+      message: 'Joylashuv ish boshlanadigan aparatga mos emas',
+    );
+  }
+  for (final batch in input.batches) {
+    final values = [
+      batch.finishedGoodsMeter,
+      batch.finishedGoodsKg,
+      batch.bobinaKg,
+      if (batch.diameter != null) batch.diameter!,
+    ];
+    if (batch.quantityBasis == AdminOpeningWipQuantityBasis.unknown ||
+        values.any((value) => !value.isFinite || value <= 0) ||
+        requiresDiameter != (batch.diameter != null)) {
+      throw const MobileApiException(
+        code: 'opening_wip_invalid_input',
+        message: 'Opening WIP rulon passporti to‘liq emas',
+      );
+    }
+  }
+  final location = _testModeFactoryLocations.firstWhere(
+    (location) =>
+        location.id.trim() == input.currentLocation.trim() ||
+        location.name.trim().toLowerCase() ==
+            input.currentLocation.trim().toLowerCase(),
+  );
   final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final suffix = now.toRadixString(36);
   final intakeId = 'opening-wip-test-$suffix';
@@ -446,9 +492,9 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
     idempotencyKey: key,
     orderId: input.orderId.trim(),
     entryApparatus: input.entryApparatus.trim(),
-    sourceOperation: input.sourceOperation.trim(),
-    sourceApparatus: input.sourceApparatus.trim(),
-    currentLocation: input.currentLocation.trim(),
+    sourceOperation: 'unavailable_before_cutover',
+    sourceApparatus: '',
+    currentLocation: location.name.trim(),
     historyStatus: 'unavailable_before_cutover',
     status: 'confirmed',
     note: input.note.trim(),
@@ -467,8 +513,12 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
         sequenceNo: index + 1,
         qrPayload: 'OPENING-WIP:$intakeId:${index + 1}',
         quantityBasis: input.batches[index].quantityBasis,
-        quantity: input.batches[index].quantity,
-        uom: input.batches[index].uom.trim(),
+        quantity: input.batches[index].finishedGoodsMeter,
+        uom: 'm',
+        finishedGoodsMeter: input.batches[index].finishedGoodsMeter,
+        finishedGoodsKg: input.batches[index].finishedGoodsKg,
+        bobinaKg: input.batches[index].bobinaKg,
+        diameter: input.batches[index].diameter,
         wipStatus: 'waiting',
         usedBySessionId: '',
         usedByApparatus: '',
@@ -532,8 +582,6 @@ bool _testModeOpeningWipMatchesInput(
   final intake = record.intake;
   if (intake.orderId != input.orderId.trim() ||
       intake.entryApparatus != input.entryApparatus.trim() ||
-      intake.sourceOperation != input.sourceOperation.trim() ||
-      intake.sourceApparatus != input.sourceApparatus.trim() ||
       intake.currentLocation != input.currentLocation.trim() ||
       intake.note != input.note.trim() ||
       record.batches.length != input.batches.length) {
@@ -543,8 +591,10 @@ bool _testModeOpeningWipMatchesInput(
     final stored = record.batches[index];
     final requested = input.batches[index];
     if (stored.quantityBasis != requested.quantityBasis ||
-        stored.quantity != requested.quantity ||
-        stored.uom != requested.uom.trim()) {
+        stored.finishedGoodsMeter != requested.finishedGoodsMeter ||
+        stored.finishedGoodsKg != requested.finishedGoodsKg ||
+        stored.bobinaKg != requested.bobinaKg ||
+        stored.diameter != requested.diameter) {
       return false;
     }
   }
@@ -575,11 +625,13 @@ AdminOpeningWipPrintResult _testModePrintOpeningWip({
             'Opening WIP → ${record.intake.entryApparatus}',
         'printer': printer.trim().isEmpty ? 'godex' : printer.trim(),
         'print_mode': printMode.trim().isEmpty ? 'label' : printMode.trim(),
-        'gross_qty': batch.quantity ?? 0,
-        'progress_qty': batch.quantity ?? 0,
-        'unit': batch.uom,
-        'progress_unit': batch.uom,
-        'label_kind': 'opening_wip',
+        'gross_qty': batch.finishedGoodsKg ?? 0,
+        'progress_qty': batch.finishedGoodsMeter ?? 0,
+        'unit': 'kg',
+        'progress_unit': 'm',
+        'tare_enabled': batch.bobinaKg != null,
+        'tare_kg': batch.bobinaKg ?? 0,
+        'label_kind': 'progress',
         'print_count': printCount.clamp(1, 100).toInt(),
       });
       return AdminOpeningWipPrintResult(

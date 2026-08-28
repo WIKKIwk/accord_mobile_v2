@@ -7370,16 +7370,22 @@ void main() {
         apparatus: _lamination1Id,
         orderIds: const [orderId],
       );
+      await MobileApi.instance.adminCreateFactoryLocation(
+        name: 'Laminatsiya oldi',
+        apparatusIds: const [_lamination1Id],
+      );
       final openingWip = await MobileApi.instance.adminCreateOpeningWip(
         const AdminOpeningWipCreateInput(
           idempotencyKey: 'worker-opening-wip-request',
           orderId: orderId,
           entryApparatus: _lamination1Id,
-          sourceOperation: 'Bosma',
           currentLocation: 'Laminatsiya oldi',
           batches: [
             AdminOpeningWipBatchInput(
-              quantityBasis: AdminOpeningWipQuantityBasis.unknown,
+              quantityBasis: AdminOpeningWipQuantityBasis.measured,
+              finishedGoodsMeter: 100,
+              finishedGoodsKg: 10,
+              bobinaKg: 1,
             ),
           ],
         ),
@@ -7471,7 +7477,7 @@ void main() {
 
       expect(find.text('Opening WIP ruloni tasdiqlandi'), findsWidgets);
       expect(find.textContaining('Rulon 1'), findsOneWidget);
-      expect(find.textContaining('Miqdor noma’lum'), findsOneWidget);
+      expect(find.textContaining('100 m'), findsOneWidget);
       expect(find.byType(ProductionQuickScannerPanel), findsNothing);
       final armedStartButton = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Boshlash'),

@@ -6662,6 +6662,11 @@ const Map<String, Map<String, String>> adminTranslations = {
     'en': 'Current location',
     'ru': 'Текущее местоположение',
   },
+  'admin.production.opening_wip.location_missing': {
+    'uz': 'Bu aparatga bog‘langan faol joylashuv topilmadi',
+    'en': 'No active location is linked to this apparatus',
+    'ru': 'Для этого оборудования не указано активное местоположение',
+  },
   'admin.production.opening_wip.note': {
     'uz': 'Izoh (ixtiyoriy)',
     'en': 'Note (optional)',
@@ -6701,6 +6706,31 @@ const Map<String, Map<String, String>> adminTranslations = {
     'uz': '{index}-rulon miqdori',
     'en': 'Roll {index} quantity',
     'ru': 'Количество рулона {index}',
+  },
+  'admin.production.opening_wip.roll_title': {
+    'uz': '{index}-rulon passporti',
+    'en': 'Roll {index} passport',
+    'ru': 'Паспорт рулона {index}',
+  },
+  'admin.production.opening_wip.finished_meter': {
+    'uz': 'Uzunligi',
+    'en': 'Length',
+    'ru': 'Длина',
+  },
+  'admin.production.opening_wip.finished_kg': {
+    'uz': 'Rulon og‘irligi',
+    'en': 'Roll weight',
+    'ru': 'Вес рулона',
+  },
+  'admin.production.opening_wip.bobina_kg': {
+    'uz': 'Bobina og‘irligi',
+    'en': 'Core weight',
+    'ru': 'Вес бобины',
+  },
+  'admin.production.opening_wip.diameter': {
+    'uz': 'Diametri',
+    'en': 'Diameter',
+    'ru': 'Диаметр',
   },
   'admin.production.opening_wip.uom': {
     'uz': 'Birlik',
