@@ -178,6 +178,7 @@ class _OpeningWipRollControllers {
 
 class _OpeningWipWizardState extends State<_OpeningWipWizard> {
   final _formKey = GlobalKey<FormState>();
+  final _locationFieldKey = GlobalKey<FormFieldState<String>>();
   final _noteController = TextEditingController();
   final _rollCountController = TextEditingController(text: '1');
   final List<_OpeningWipRollControllers> _rollControllers = [
@@ -244,14 +245,18 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
       _openingWipLocationApparatuses(_selectedOrder);
 
   void _selectOrder(ProductionMapSaved? order) {
+    final locations = _openingWipLocationApparatuses(order);
+    final nextLocation = locations.isEmpty ? '' : locations.first;
     setState(() {
       _selectedOrder = order;
-      final locations = _availableLocations;
-      _currentLocation = locations.isEmpty ? '' : locations.first;
+      _currentLocation = nextLocation;
       for (final roll in _rollControllers) {
         if (!_requiresDiameter) roll.diameter.clear();
       }
     });
+    _locationFieldKey.currentState?.didChange(
+      nextLocation.isEmpty ? null : nextLocation,
+    );
   }
 
   AdminOpeningWipBatchInput _rollInput(_OpeningWipRollControllers roll) {
@@ -279,12 +284,13 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
   String _submissionIdempotencyKey({
     required ProductionMapSaved order,
     required String entryApparatus,
+    required String currentLocation,
     required int rollCount,
   }) {
     final fingerprint = [
       order.map.id.trim(),
       entryApparatus,
-      _currentLocation,
+      currentLocation,
       _noteController.text.trim(),
       '$rollCount',
       _quantityBasis.apiValue,
@@ -302,6 +308,16 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
     if (_submitting) return;
     final created = _createdRecord;
     if (created == null && !(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    final selectedLocation =
+        _locationFieldKey.currentState?.value?.trim() ?? '';
+    if (created == null && !_availableLocations.contains(selectedLocation)) {
+      setState(() {
+        _error = context.l10n.adminText(
+          'production.opening_wip.location_missing',
+        );
+      });
       return;
     }
     final printer = _printer;
@@ -332,16 +348,24 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
             idempotencyKey: _submissionIdempotencyKey(
               order: order,
               entryApparatus: entryApparatus,
+              currentLocation: selectedLocation,
               rollCount: rollCount,
             ),
             orderId: order.map.id,
             entryApparatus: entryApparatus,
-            currentLocation: _currentLocation,
+            currentLocation: selectedLocation,
             note: _noteController.text,
             batches: batches,
           ),
         );
         if (!mounted) return;
+        if (record.intake.resumeApparatus.trim() != selectedLocation) {
+          throw const MobileApiException(
+            code: 'opening_wip_resume_mismatch',
+            message:
+                'Tanlangan joylashuv serverda saqlanmadi. QR chop etilmadi.',
+          );
+        }
         setState(() => _createdRecord = record);
       }
 
@@ -522,43 +546,46 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
+                        KeyedSubtree(
                           key: const ValueKey('opening-wip-location'),
-                          initialValue: _currentLocation.isEmpty
-                              ? null
-                              : _currentLocation,
-                          decoration: InputDecoration(
-                            labelText: context.l10n.adminText(
-                              'production.opening_wip.current_location',
-                            ),
-                          ),
-                          isExpanded: true,
-                          items: [
-                            for (final apparatusId in availableLocations)
-                              DropdownMenuItem(
-                                value: apparatusId,
-                                child: Text(
-                                  _apparatusLabel(apparatusId),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                          child: DropdownButtonFormField<String>(
+                            key: _locationFieldKey,
+                            initialValue: _currentLocation.isEmpty
+                                ? null
+                                : _currentLocation,
+                            decoration: InputDecoration(
+                              labelText: context.l10n.adminText(
+                                'production.opening_wip.current_location',
                               ),
-                          ],
-                          onChanged: availableLocations.isEmpty
-                              ? null
-                              : (value) {
-                                  setState(
-                                    () => _currentLocation = value ?? '',
-                                  );
-                                },
-                          validator: (value) {
-                            if (availableLocations.isEmpty) {
-                              return context.l10n.adminText(
-                                'production.opening_wip.location_missing',
-                              );
-                            }
-                            return _requiredText(value);
-                          },
+                            ),
+                            isExpanded: true,
+                            items: [
+                              for (final apparatusId in availableLocations)
+                                DropdownMenuItem(
+                                  value: apparatusId,
+                                  child: Text(
+                                    _apparatusLabel(apparatusId),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                            onChanged: availableLocations.isEmpty
+                                ? null
+                                : (value) {
+                                    setState(
+                                      () => _currentLocation = value ?? '',
+                                    );
+                                  },
+                            validator: (value) {
+                              if (availableLocations.isEmpty) {
+                                return context.l10n.adminText(
+                                  'production.opening_wip.location_missing',
+                                );
+                              }
+                              return _requiredText(value);
+                            },
+                          ),
                         ),
                         const SizedBox(height: 12),
                         TextFormField(

@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 const _laminationId = 'apparatus:default:asset-007';
 const _lamination2Id = 'apparatus:default:asset-008';
 const _rezkaId = 'apparatus:default:asset-010';
+const _printingId = 'apparatus:default:bosma_7';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -79,8 +80,12 @@ void main() {
     final locationPicker = find.byKey(
       const ValueKey('opening-wip-location'),
     );
+    final locationField = find.descendant(
+      of: locationPicker,
+      matching: find.byType(DropdownButtonFormField<String>),
+    );
     expect(
-      tester.widget(locationPicker),
+      tester.widget(locationField),
       isA<DropdownButtonFormField<String>>(),
     );
     await tester.tap(locationPicker);
@@ -169,6 +174,71 @@ void main() {
       records.single.intake.historyStatus,
       'unavailable_before_cutover',
     );
+  });
+
+  testWidgets(
+      'switching order resets the visible Opening WIP location to map entry',
+      (tester) async {
+    await MobileApi.instance.adminSaveProductionMap(
+      _printingOpeningOrder(
+        id: 'zakaz-opening-wip-switch-a',
+        orderNumber: 'OWIP-SWITCH-A',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _printingOpeningOrder(
+        id: 'zakaz-opening-wip-switch-b',
+        orderNumber: 'OWIP-SWITCH-B',
+      ),
+    );
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1100);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminOpeningWipScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Finder locationField() => find.descendant(
+          of: find.byKey(const ValueKey('opening-wip-location')),
+          matching: find.byType(DropdownButtonFormField<String>),
+        );
+    String selectedLocation() =>
+        tester.state<FormFieldState<String>>(locationField()).value ?? '';
+
+    expect(selectedLocation(), _printingId);
+    await tester.tap(find.byKey(const ValueKey('opening-wip-location')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Laminatsiya 1').last);
+    await tester.pumpAndSettle();
+    expect(selectedLocation(), _laminationId);
+
+    final orderField = find.byKey(const ValueKey('opening-wip-order'));
+    final selectedOrder =
+        tester.state<FormFieldState<ProductionMapSaved>>(orderField).value!;
+    final nextOrderLabel = selectedOrder.map.orderNumber == 'OWIP-SWITCH-A'
+        ? 'OWIP-SWITCH-B • Opening WIP switch'
+        : 'OWIP-SWITCH-A • Opening WIP switch';
+    await tester.tap(orderField);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(nextOrderLabel).last);
+    await tester.pumpAndSettle();
+
+    expect(selectedLocation(), _printingId);
+    expect(find.text('7 ta rangli bosma aparat'), findsWidgets);
   });
 
   testWidgets(
@@ -337,6 +407,39 @@ ProductionMapDefinition _openingAlternativeOrder() {
       ProductionMapEdge(from: 'start', to: 'lamination-2'),
       ProductionMapEdge(from: 'lamination-1', to: 'end'),
       ProductionMapEdge(from: 'lamination-2', to: 'end'),
+    ],
+  );
+}
+
+ProductionMapDefinition _printingOpeningOrder({
+  required String id,
+  required String orderNumber,
+}) {
+  return ProductionMapDefinition(
+    id: id,
+    productCode: 'ITEM-OPENING-WIP-SWITCH',
+    title: 'Opening WIP switch',
+    orderNumber: orderNumber,
+    nodes: const [
+      ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+      ProductionMapNode(
+        id: 'print',
+        kind: 'apparatus',
+        title: '7 ta rangli bosma aparat',
+        apparatusId: _printingId,
+      ),
+      ProductionMapNode(
+        id: 'lamination',
+        kind: 'apparatus',
+        title: 'Laminatsiya 1',
+        apparatusId: _laminationId,
+      ),
+      ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+    ],
+    edges: const [
+      ProductionMapEdge(from: 'start', to: 'print'),
+      ProductionMapEdge(from: 'print', to: 'lamination'),
+      ProductionMapEdge(from: 'lamination', to: 'end'),
     ],
   );
 }
