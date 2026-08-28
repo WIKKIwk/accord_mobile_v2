@@ -1,0 +1,9 @@
+name: admin_api_splitter
+description: AST-based, verifier-gated splitter for the Accord admin API library.
+publish_to: none
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  analyzer: ^10.1.0

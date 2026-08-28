@@ -35,6 +35,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'json_payload_decoder.dart';
 
 part 'admin/mobile_api_admin.dart';
+part 'admin/mobile_api_admin_settings_monitor.dart';
+part 'admin/mobile_api_admin_production_queue.dart';
+part 'admin/mobile_api_admin_raw_materials.dart';
+part 'admin/mobile_api_admin_progress_qr.dart';
+part 'admin/mobile_api_admin_users_workers.dart';
+part 'admin/mobile_api_admin_suppliers_customers.dart';
+part 'admin/mobile_api_admin_qolip_orders.dart';
 part 'admin/mobile_api_admin_opening_wip.dart';
 part 'admin/mobile_api_admin_training.dart';
 part 'admin/mobile_api_admin_telegram.dart';
