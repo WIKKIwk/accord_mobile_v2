@@ -1,6 +1,8 @@
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/print_transport.dart';
+import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,6 +19,8 @@ void main() {
 
   tearDown(() async {
     resetMobileApiTestModeData();
+    AppSession.instance.token = null;
+    AppSession.instance.profile = null;
     await TestModeController.instance.setEnabled(false);
   });
 
@@ -107,6 +111,40 @@ void main() {
     expect(created.batches, hasLength(2));
     expect(replayed.intake.intakeId, created.intake.intakeId);
     expect(records, hasLength(1));
+
+    await AppSession.instance.setSession(
+      token: 'opening-wip-worker-token',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Laminatsiya worker',
+        legalName: '',
+        ref: 'opening-wip-worker',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.manage'],
+        assignedApparatus: [_laminationId],
+      ),
+    );
+    final lookedUp = await MobileApi.instance.adminLookupOpeningWip(
+      apparatus: _laminationId,
+      orderId: 'ORDER-1',
+      qrPayload: created.batches.first.qrPayload,
+    );
+    expect(lookedUp.batchId, created.batches.first.batchId);
+    await expectLater(
+      MobileApi.instance.adminLookupOpeningWip(
+        apparatus: _laminationId,
+        orderId: 'ORDER-OTHER',
+        qrPayload: created.batches.first.qrPayload,
+      ),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'opening_wip_qr_mismatch',
+        ),
+      ),
+    );
 
     for (final batch in created.batches) {
       final printed = await MobileApi.instance.adminPrintOpeningWip(

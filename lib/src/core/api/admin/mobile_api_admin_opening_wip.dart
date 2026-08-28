@@ -317,6 +317,51 @@ extension MobileApiAdminOpeningWip on MobileApi {
     ];
   }
 
+  Future<AdminOpeningWipBatch> adminLookupOpeningWip({
+    required String apparatus,
+    required String orderId,
+    required String qrPayload,
+    String batchId = '',
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return _testModeLookupOpeningWip(
+        apparatus: apparatus,
+        orderId: orderId,
+        qrPayload: qrPayload,
+        batchId: batchId,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/opening-wip/lookup',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'apparatus': apparatus.trim(),
+          'order_id': orderId.trim(),
+          'qr_payload': qrPayload.trim(),
+          if (batchId.trim().isNotEmpty) 'batch_id': batchId.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'opening_wip_lookup');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final rawBatch = payload['batch'];
+    if (rawBatch is! Map) {
+      throw const MobileApiException(
+        code: 'opening_wip_lookup',
+        message: 'Opening WIP QR tasdiqlanmadi',
+      );
+    }
+    return AdminOpeningWipBatch.fromJson(
+      rawBatch.cast<String, dynamic>(),
+    );
+  }
+
   Future<AdminOpeningWipPrintResult> adminPrintOpeningWip({
     required String batchId,
     String qrPayload = '',
@@ -438,6 +483,46 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
   final record = AdminOpeningWipRecord(intake: intake, batches: batches);
   _testModeOpeningWipRecords.insert(0, record);
   return record;
+}
+
+AdminOpeningWipBatch _testModeLookupOpeningWip({
+  required String apparatus,
+  required String orderId,
+  required String qrPayload,
+  required String batchId,
+}) {
+  final normalizedApparatus = apparatus.trim();
+  final normalizedOrderId = orderId.trim();
+  final normalizedQr = qrPayload.trim().toUpperCase();
+  final normalizedBatchId = batchId.trim();
+  final profile = AppSession.instance.profile;
+  final canUseApparatus = profile?.role == UserRole.admin ||
+      (profile?.assignedApparatus ?? const <String>[])
+          .any((item) => item.trim() == normalizedApparatus);
+  if (!canUseApparatus) {
+    throw const MobileApiException(
+      code: 'apparatus_not_assigned',
+      message: 'Bu aparat sizga biriktirilmagan',
+    );
+  }
+  for (final record in _testModeOpeningWipRecords) {
+    if (record.intake.orderId.trim() != normalizedOrderId ||
+        record.intake.entryApparatus.trim() != normalizedApparatus ||
+        record.intake.status.trim().toLowerCase() != 'confirmed') {
+      continue;
+    }
+    for (final batch in record.batches) {
+      if (batch.wipStatus.trim().toLowerCase() == 'waiting' &&
+          batch.qrPayload.trim().toUpperCase() == normalizedQr &&
+          (normalizedBatchId.isEmpty || batch.batchId == normalizedBatchId)) {
+        return batch;
+      }
+    }
+  }
+  throw const MobileApiException(
+    code: 'opening_wip_qr_mismatch',
+    message: 'Bu QR ushbu orderning kutilayotgan Opening WIP ruloniga mos emas',
+  );
 }
 
 bool _testModeOpeningWipMatchesInput(

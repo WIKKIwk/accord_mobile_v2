@@ -1124,29 +1124,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     required String apparatus,
     required String qrPayload,
   }) async {
-    final records = await MobileApi.instance.adminOpeningWipRecords(
+    final match = await MobileApi.instance.adminLookupOpeningWip(
+      apparatus: apparatus,
       orderId: orderId,
-      status: 'waiting',
-      limit: 500,
+      qrPayload: qrPayload,
     );
     if (!_materialContextIsCurrent(orderId, apparatus)) {
       return false;
-    }
-    final qrKeys = <String>{
-      qrPayload.trim().toUpperCase(),
-      rawMaterialBarcodeFromQr(qrPayload).trim().toUpperCase(),
-    }..remove('');
-    AdminOpeningWipBatch? match;
-    for (final record in records) {
-      if (record.intake.orderId.trim() != orderId) continue;
-      for (final batch in record.batches) {
-        if (batch.wipStatus.trim().toLowerCase() == 'waiting' &&
-            qrKeys.contains(batch.qrPayload.trim().toUpperCase())) {
-          match = batch;
-          break;
-        }
-      }
-      if (match != null) break;
     }
     setState(() {
       _startInputOpeningWipBatch = match;
@@ -1154,12 +1138,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _inputProgressLoading = false;
       _inputProgressError = '';
       _quickScanStatus = context.l10n.productionText(
-        match == null
-            ? 'worker.opening_wip.qr_mismatch'
-            : 'worker.opening_wip.confirmed',
+        'worker.opening_wip.confirmed',
       );
     });
-    return match != null;
+    return true;
   }
 
   Future<bool> _acceptProgressBatch(

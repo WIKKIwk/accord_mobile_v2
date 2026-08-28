@@ -68,6 +68,26 @@ void main() {
     expect(request, contains('prepared.startInputQrPayload'));
   });
 
+  test('Opening WIP worker scan uses the apparatus-scoped lookup', () {
+    final source = File(
+      'lib/src/features/admin/presentation/'
+      'admin_production_map_orders_read_only_sheet.dart',
+    ).readAsStringSync();
+    final lookupStart = source.indexOf('Future<bool> _acceptOpeningWipQr(');
+    final lookupEnd = source.indexOf(
+      'Future<bool> _acceptProgressBatch(',
+      lookupStart,
+    );
+    expect(lookupStart, greaterThanOrEqualTo(0));
+    expect(lookupEnd, greaterThan(lookupStart));
+    final lookup = source.substring(lookupStart, lookupEnd);
+
+    expect(lookup, contains('adminLookupOpeningWip('));
+    expect(lookup, contains('apparatus: apparatus'));
+    expect(lookup, contains('orderId: orderId'));
+    expect(lookup, isNot(contains('adminOpeningWipRecords(')));
+  });
+
   test('worker QR switching uses backend controls instead of topology or WIP',
       () {
     final screenSource = File(

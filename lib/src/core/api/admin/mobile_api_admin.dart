@@ -4889,6 +4889,16 @@ MobileApiException _adminProductionMapException(
       'progress_batch_not_found' => 'Progress QR topilmadi',
       'progress_batch_not_accepted' =>
         'Bu QR oldingi bosqich mahsulotiga mos emas',
+      'opening_wip_invalid_input' => 'Opening WIP ma’lumotlari to‘liq emas',
+      'opening_wip_entry_mismatch' =>
+        'Opening WIP faqat production mapning birinchi aparatidan boshlanishi mumkin',
+      'opening_wip_order_already_started' =>
+        'Ish boshlangan orderga Opening WIP kiritib bo‘lmaydi',
+      'opening_wip_idempotency_conflict' =>
+        'Bu Opening WIP so‘rovi boshqa ma’lumot bilan ishlatilgan',
+      'opening_wip_status_invalid' => 'Opening WIP holati noto‘g‘ri',
+      'opening_wip_qr_mismatch' =>
+        'Bu QR ushbu orderning kutilayotgan Opening WIP ruloniga mos emas',
       'progress_batch_not_resumable' =>
         'Bu progress QR davom ettirishga yaramaydi',
       'progress_batch_correction_reason_required' =>
