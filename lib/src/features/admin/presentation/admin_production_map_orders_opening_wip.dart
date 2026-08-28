@@ -468,20 +468,6 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: scheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  context.l10n.adminText(
-                    'production.opening_wip.cutover_notice',
-                  ),
-                  style: TextStyle(color: scheme.onSecondaryContainer),
-                ),
-              ),
-              const SizedBox(height: 12),
               if (widget.orders.isEmpty)
                 Expanded(
                   child: Center(

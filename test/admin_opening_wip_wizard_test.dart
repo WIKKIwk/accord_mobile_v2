@@ -66,6 +66,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(
+      find.textContaining('Bu fake ishlab chiqarish tarixi emas'),
+      findsNothing,
+    );
     expect(find.byKey(const ValueKey('opening-wip-order')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('opening-wip-source-operation')),
