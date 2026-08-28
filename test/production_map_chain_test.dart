@@ -55,7 +55,67 @@ ProductionMapDefinition _canonicalMap() {
   );
 }
 
+ProductionMapDefinition _openingWipCutoverMap() {
+  return ProductionMapDefinition(
+    id: 'zakaz-opening-wip-cutover',
+    productCode: 'OWIP',
+    title: 'Opening WIP cutover',
+    nodes: [
+      _node('start', 'start', 'Start'),
+      _node('print', 'apparatus', 'Bosma', apparatusId: _printId),
+      _node(
+        'lamination',
+        'apparatus',
+        'Laminatsiya',
+        apparatusId: _lamination1Id,
+      ),
+      _node('rezka', 'apparatus', 'Rezka', apparatusId: _cutId),
+      _node('end', 'end', 'End'),
+    ],
+    edges: const [
+      ProductionMapEdge(from: 'start', to: 'print'),
+      ProductionMapEdge(from: 'print', to: 'lamination'),
+      ProductionMapEdge(from: 'lamination', to: 'rezka'),
+      ProductionMapEdge(from: 'rezka', to: 'end'),
+    ],
+  );
+}
+
 void main() {
+  test('Opening WIP source advances exactly after its target completes', () {
+    final map = _openingWipCutoverMap();
+
+    expect(
+      productionMapOpeningWipSourceStages(
+        map: map,
+        stageStates: const {},
+      ).map((stage) => stage.nodeId),
+      const ['print', 'lamination'],
+    );
+    expect(
+      productionMapOpeningWipSourceStages(
+        map: map,
+        stageStates: const {
+          'print': 'completed',
+          'lamination': 'completed',
+          'rezka': 'pending',
+        },
+      ).map((stage) => stage.nodeId),
+      const ['lamination'],
+    );
+    expect(
+      productionMapOpeningWipSourceStages(
+        map: map,
+        stageStates: const {
+          'print': 'completed',
+          'lamination': 'completed',
+          'rezka': 'completed',
+        },
+      ),
+      isEmpty,
+    );
+  });
+
   test('authorized apparatus are exact canonical ids in topology order', () {
     expect(
       productionMapAuthorizedOrderApparatus(

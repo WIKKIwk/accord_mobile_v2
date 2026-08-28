@@ -12,6 +12,7 @@ final Set<String> _testModeDeletedWarehouseNames = {};
 final List<AdminServerMonitorBackupSnapshot> _testModeBackupSnapshots = [];
 final Map<String, List<String>> _testModeApparatusSequences = {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
+final Map<String, Map<String, String>> _testModeProductionMapStageStates = {};
 final Map<String, _TestModeApparatusTransferReceipt>
     _testModeApparatusTransfers = {};
 final Map<String, AdminOrderControlState> _testModeOrderControls = {};
@@ -105,6 +106,18 @@ void setMobileApiTestModeQueueActionControlFixture({
   )[normalizedOrderId] = control;
 }
 
+void setMobileApiTestModeProductionMapStageStates({
+  required String orderId,
+  required Map<String, String> states,
+}) {
+  final normalizedOrderId = orderId.trim();
+  if (normalizedOrderId.isEmpty) return;
+  _testModeProductionMapStageStates[normalizedOrderId] = {
+    for (final entry in states.entries)
+      if (entry.key.trim().isNotEmpty) entry.key.trim(): entry.value.trim(),
+  };
+}
+
 void resetMobileApiTestModeData() {
   _testModeProductionMaps.clear();
   _testModeOpeningWipRecords.clear();
@@ -120,6 +133,7 @@ void resetMobileApiTestModeData() {
   _testModeBackupSnapshots.clear();
   _testModeApparatusSequences.clear();
   _testModeApparatusQueueStates.clear();
+  _testModeProductionMapStageStates.clear();
   _testModeApparatusTransfers.clear();
   _testModeOrderControls.clear();
   _testModeFrozenIssueNotesByOrderId.clear();
@@ -6777,7 +6791,10 @@ extension MobileApiAdmin on MobileApi {
           _testModeApparatusQueuePolicies,
         ),
         queueActionControls: _testModeQueueActionControls(),
-        stageStates: const {},
+        stageStates: {
+          for (final entry in _testModeProductionMapStageStates.entries)
+            entry.key: Map<String, String>.unmodifiable(entry.value),
+        },
         orderControls: orderControls,
         orderCustomers: {
           for (final saved in _testModeProductionMaps)

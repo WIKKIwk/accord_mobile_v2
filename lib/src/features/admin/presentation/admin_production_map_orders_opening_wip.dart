@@ -33,9 +33,10 @@ class _AdminOpeningWipScreenState extends State<AdminOpeningWipScreen> {
     return _OpeningWipPageData(
       orders: _openingWipEligibleOrders(
         orders: orders,
-        queueStatesByApparatus: snapshot.queueStates,
+        stageStatesByOrderId: snapshot.stageStates,
       ),
       apparatus: apparatus,
+      stageStatesByOrderId: snapshot.stageStates,
     );
   }
 
@@ -68,6 +69,7 @@ class _AdminOpeningWipScreenState extends State<AdminOpeningWipScreen> {
             return _OpeningWipWizard(
               orders: data.orders,
               apparatusCatalog: data.apparatus,
+              stageStatesByOrderId: data.stageStatesByOrderId,
               progressDriverUrlPicker: widget.progressDriverUrlPicker,
             );
           },
@@ -81,64 +83,50 @@ class _OpeningWipPageData {
   const _OpeningWipPageData({
     required this.orders,
     required this.apparatus,
+    required this.stageStatesByOrderId,
   });
 
   final List<ProductionMapSaved> orders;
   final List<AdminApparatus> apparatus;
+  final Map<String, Map<String, String>> stageStatesByOrderId;
 }
 
 List<ProductionMapChainStage> _openingWipSourceStages(
   ProductionMapSaved? order,
+  Map<String, Map<String, String>> stageStatesByOrderId,
 ) {
   if (order == null) return const [];
-  return List<ProductionMapChainStage>.unmodifiable([
-    for (final stage in productionMapLinearWorkStages(order.map))
-      if (stage.apparatusId?.trim().isNotEmpty == true &&
-          canonicalApparatusIdIsValid(stage.apparatusId!.trim()) &&
-          productionMapNextWorkStagesForNode(
-            map: order.map,
-            stageNodeId: stage.nodeId,
-          ).isNotEmpty)
-        stage,
-  ]);
+  return productionMapOpeningWipSourceStages(
+    map: order.map,
+    stageStates: stageStatesByOrderId[order.map.id.trim()] ?? const {},
+  ).where((stage) {
+    final apparatusId = stage.apparatusId?.trim() ?? '';
+    return apparatusId.isNotEmpty && canonicalApparatusIdIsValid(apparatusId);
+  }).toList(growable: false);
 }
 
 List<ProductionMapSaved> _openingWipEligibleOrders({
   required List<ProductionMapSaved> orders,
-  required Map<String, Map<String, String>> queueStatesByApparatus,
+  required Map<String, Map<String, String>> stageStatesByOrderId,
 }) {
   return [
     for (final order in orders)
-      if (_openingWipSourceStages(order).isNotEmpty &&
-          !_openingWipOrderHasStarted(
-            order.map.id,
-            queueStatesByApparatus,
-          ))
+      if (_openingWipSourceStages(order, stageStatesByOrderId).isNotEmpty)
         order,
   ];
-}
-
-bool _openingWipOrderHasStarted(
-  String orderId,
-  Map<String, Map<String, String>> queueStatesByApparatus,
-) {
-  final normalizedOrderId = orderId.trim();
-  for (final states in queueStatesByApparatus.values) {
-    final state = states[normalizedOrderId]?.trim().toLowerCase() ?? '';
-    if (state.isNotEmpty && state != 'pending') return true;
-  }
-  return false;
 }
 
 class _OpeningWipWizard extends StatefulWidget {
   const _OpeningWipWizard({
     required this.orders,
     required this.apparatusCatalog,
+    required this.stageStatesByOrderId,
     this.progressDriverUrlPicker,
   });
 
   final List<ProductionMapSaved> orders;
   final List<AdminApparatus> apparatusCatalog;
+  final Map<String, Map<String, String>> stageStatesByOrderId;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
 
   @override
@@ -223,7 +211,7 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
   }
 
   List<ProductionMapChainStage> get _availableSourceStages =>
-      _openingWipSourceStages(_selectedOrder);
+      _openingWipSourceStages(_selectedOrder, widget.stageStatesByOrderId);
 
   ProductionMapChainStage? get _selectedSourceStage {
     for (final stage in _availableSourceStages) {
@@ -246,7 +234,10 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
       _sourceApparatusDefinition?.operation.trim().toLowerCase() == 'cut';
 
   void _selectOrder(ProductionMapSaved? order) {
-    final sourceStages = _openingWipSourceStages(order);
+    final sourceStages = _openingWipSourceStages(
+      order,
+      widget.stageStatesByOrderId,
+    );
     final nextSourceNodeId =
         sourceStages.isEmpty ? '' : sourceStages.first.nodeId;
     setState(() {
@@ -312,8 +303,7 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
     if (created == null && !(_formKey.currentState?.validate() ?? false)) {
       return;
     }
-    final sourceStageNodeId =
-        _sourceFieldKey.currentState?.value?.trim() ?? '';
+    final sourceStageNodeId = _sourceFieldKey.currentState?.value?.trim() ?? '';
     ProductionMapChainStage? sourceStage;
     for (final candidate in _availableSourceStages) {
       if (candidate.nodeId.trim() == sourceStageNodeId) {

@@ -115,6 +115,30 @@ List<ProductionMapChainStage> productionMapNextWorkStagesForNode({
   return List<ProductionMapChainStage>.unmodifiable(result);
 }
 
+List<ProductionMapChainStage> productionMapOpeningWipSourceStages({
+  required ProductionMapDefinition map,
+  required Map<String, String> stageStates,
+}) {
+  final result = <ProductionMapChainStage>[];
+  for (final stage in productionMapLinearWorkStages(map)) {
+    if (stage.apparatusId?.trim().isEmpty != false) continue;
+    final targets = productionMapNextWorkStagesForNode(
+      map: map,
+      stageNodeId: stage.nodeId,
+    );
+    if (targets.isEmpty) continue;
+    final targetAlreadyCompleted = targets.any(
+      (target) =>
+          apparatusQueueOrderStateFromRaw(
+            stageStates[target.nodeId.trim()],
+          ) ==
+          ApparatusQueueOrderState.completed,
+    );
+    if (!targetAlreadyCompleted) result.add(stage);
+  }
+  return List<ProductionMapChainStage>.unmodifiable(result);
+}
+
 bool productionMapIsFinalWorkStageStation({
   required ProductionMapDefinition map,
   required String station,

@@ -313,6 +313,61 @@ void main() {
     );
   });
 
+  testWidgets(
+      'completed target hides its prior source and keeps the next source',
+      (tester) async {
+    const orderId = 'zakaz-opening-wip-stage-advance';
+    await MobileApi.instance.adminSaveProductionMap(
+      _printingOpeningOrder(
+        id: orderId,
+        orderNumber: 'OWIP-STAGE-ADVANCE',
+      ),
+    );
+    setMobileApiTestModeProductionMapStageStates(
+      orderId: orderId,
+      states: const {
+        'print': 'completed',
+        'lamination': 'completed',
+        'rezka': 'pending',
+      },
+    );
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1100);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminOpeningWipScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final sourceField = find.descendant(
+      of: find.byKey(const ValueKey('opening-wip-source-apparatus')),
+      matching: find.byType(DropdownButtonFormField<String>),
+    );
+    expect(
+      tester.state<FormFieldState<String>>(sourceField).value,
+      'lamination',
+    );
+    expect(find.text('Laminatsiya 1'), findsOneWidget);
+    await tester
+        .tap(find.byKey(const ValueKey('opening-wip-source-apparatus')));
+    await tester.pumpAndSettle();
+    expect(find.text('7 ta rangli bosma aparat'), findsNothing);
+    expect(find.text('Rezka'), findsNothing);
+  });
+
   testWidgets('work map does not render the Opening WIP intake',
       (tester) async {
     await MobileApi.instance.adminSaveProductionMap(_openingOrder());
