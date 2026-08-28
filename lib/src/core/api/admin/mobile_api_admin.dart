@@ -5017,6 +5017,9 @@ MobileApiException _adminProductionMapException(
       'opening_wip_status_invalid' => 'Opening WIP holati noto‘g‘ri',
       'opening_wip_qr_mismatch' =>
         'Bu QR ushbu orderning kutilayotgan Opening WIP ruloniga mos emas',
+      'opening_wip_delete_locked' =>
+        'Ishlatilgan Opening WIP rulonini o‘chirib bo‘lmaydi',
+      'opening_wip_delete' => 'Opening WIP ruloni o‘chirilmadi',
       'progress_batch_not_resumable' =>
         'Bu progress QR davom ettirishga yaramaydi',
       'progress_batch_correction_reason_required' =>

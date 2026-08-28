@@ -333,6 +333,33 @@ extension MobileApiAdminOpeningWip on MobileApi {
     ];
   }
 
+  Future<void> adminDeleteOpeningWipBatch({
+    required String batchId,
+  }) async {
+    final normalizedBatchId = batchId.trim();
+    if (normalizedBatchId.isEmpty) {
+      throw const MobileApiException(
+        code: 'opening_wip_invalid_input',
+        message: 'Opening WIP ma’lumotlari to‘liq emas',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      _testModeDeleteOpeningWipBatch(normalizedBatchId);
+      return;
+    }
+    final uri = Uri.parse(
+      '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/opening-wip',
+    ).replace(queryParameters: {'batch_id': normalizedBatchId});
+    final response = await _sendOpeningWipDeleteWithRetry(
+      () => _sendAuthorized(
+        () => _delete(uri, headers: _headers(requireToken())),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'opening_wip_delete');
+    }
+  }
+
   Future<AdminOpeningWipBatch> adminLookupOpeningWip({
     required String apparatus,
     required String orderId,
@@ -469,6 +496,38 @@ extension MobileApiAdminOpeningWip on MobileApi {
   }
 }
 
+Future<http.Response> _sendOpeningWipDeleteWithRetry(
+  Future<http.Response> Function() send,
+) async {
+  for (var attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await send();
+    } on http.ClientException catch (error) {
+      if (attempt == 1) {
+        throw MobileApiException(
+          code: 'opening_wip_delete_transport',
+          message:
+              'Server javobi olinmadi. Opening WIP holatini yangilab qayta tekshiring: ${error.message}',
+        );
+      }
+    } on TimeoutException catch (error) {
+      if (attempt == 1) {
+        final details = error.message?.trim() ?? '';
+        throw MobileApiException(
+          code: 'opening_wip_delete_timeout',
+          message: details.isEmpty
+              ? 'Server javobi vaqtida kelmadi. Opening WIP holatini yangilab qayta tekshiring.'
+              : 'Server javobi vaqtida kelmadi. Opening WIP holatini yangilab qayta tekshiring: $details',
+        );
+      }
+    }
+  }
+  throw const MobileApiException(
+    code: 'opening_wip_delete_transport',
+    message: 'Opening WIP o‘chirish natijasi serverdan tasdiqlanmadi.',
+  );
+}
+
 AdminOpeningWipRecord _testModeCreateOpeningWip(
   AdminOpeningWipCreateInput input,
 ) {
@@ -569,6 +628,52 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
   final record = AdminOpeningWipRecord(intake: intake, batches: batches);
   _testModeOpeningWipRecords.insert(0, record);
   return record;
+}
+
+void _testModeDeleteOpeningWipBatch(String batchId) {
+  final profile = AppSession.instance.profile;
+  if (profile?.role != UserRole.admin) {
+    throw const MobileApiException(
+      code: 'forbidden',
+      message: 'Bu amal uchun ruxsat yo‘q',
+    );
+  }
+  for (var recordIndex = 0;
+      recordIndex < _testModeOpeningWipRecords.length;
+      recordIndex++) {
+    final record = _testModeOpeningWipRecords[recordIndex];
+    final batchIndex =
+        record.batches.indexWhere((batch) => batch.batchId == batchId);
+    if (batchIndex < 0) continue;
+    final batch = record.batches[batchIndex];
+    if (batch.wipStatus.trim().toLowerCase() != 'waiting' ||
+        batch.usedBySessionId.trim().isNotEmpty ||
+        batch.usedByApparatus.trim().isNotEmpty ||
+        batch.processedBySessionId.trim().isNotEmpty ||
+        batch.processedByApparatus.trim().isNotEmpty) {
+      throw const MobileApiException(
+        code: 'opening_wip_delete_locked',
+        message: 'Ishlatilgan Opening WIP rulonini o‘chirib bo‘lmaydi',
+      );
+    }
+    final remaining = [
+      for (var index = 0; index < record.batches.length; index++)
+        if (index != batchIndex) record.batches[index],
+    ];
+    if (remaining.isEmpty) {
+      _testModeOpeningWipRecords.removeAt(recordIndex);
+    } else {
+      _testModeOpeningWipRecords[recordIndex] = AdminOpeningWipRecord(
+        intake: record.intake,
+        batches: remaining,
+      );
+    }
+    return;
+  }
+  throw const MobileApiException(
+    code: 'progress_batch_not_found',
+    message: 'Opening WIP ruloni topilmadi',
+  );
 }
 
 AdminOpeningWipBatch _testModeLookupOpeningWip({

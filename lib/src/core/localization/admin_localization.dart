@@ -1796,6 +1796,16 @@ const Map<String, Map<String, String>> adminTranslations = {
     'en': 'All locations',
     'ru': 'Все места',
   },
+  'admin.wip.apparatus': {
+    'uz': 'Aparat',
+    'en': 'Apparatus',
+    'ru': 'Оборудование',
+  },
+  'admin.wip.all_apparatus': {
+    'uz': 'Barcha apparatlar',
+    'en': 'All apparatuses',
+    'ru': 'Все аппараты',
+  },
   'admin.wip.intro': {
     'uz':
         'Bu yerda aparatdan chiqqan, lekin keyingi qabul yoki ish hali tasdiqlanmagan WIP mahsulotlar ko‘rinadi. Oxirgi bosqichdan chiqqan mahsulot ham boshqa tomon qabul qilmaguncha WIP bo‘lib qoladi.',
@@ -1858,6 +1868,58 @@ const Map<String, Map<String, String>> adminTranslations = {
     'uz': '{title} mahsuloti',
     'en': '{title}',
     'ru': '{title}',
+  },
+  'admin.wip.opening_intro': {
+    'uz': 'Tizimga kiritilgan Opening WIP rulonlari va ularning joriy holati.',
+    'en':
+        'Opening WIP rolls registered in the system and their current status.',
+    'ru':
+        'Зарегистрированные в системе рулоны начального WIP и их текущий статус.',
+  },
+  'admin.wip.created_at': {
+    'uz': 'Yaratilgan',
+    'en': 'Created',
+    'ru': 'Создано',
+  },
+  'admin.wip.empty.opening': {
+    'uz': 'Opening WIP topilmadi',
+    'en': 'No Opening WIP found',
+    'ru': 'Начальный WIP не найден',
+  },
+  'admin.wip.delete.title': {
+    'uz': 'Opening WIPni o‘chirish',
+    'en': 'Delete Opening WIP',
+    'ru': 'Удалить начальный WIP',
+  },
+  'admin.wip.delete.message': {
+    'uz': 'Bu ishlatilmagan Opening WIP ruloni o‘chirilsinmi?',
+    'en': 'Delete this unused Opening WIP roll?',
+    'ru': 'Удалить этот неиспользованный рулон начального WIP?',
+  },
+  'admin.wip.delete.locked': {
+    'uz': 'Bu Opening WIP ishlatilgan, uni o‘chirib bo‘lmaydi.',
+    'en': 'This Opening WIP has been used and cannot be deleted.',
+    'ru': 'Этот начальный WIP уже использован и не может быть удален.',
+  },
+  'admin.wip.delete.confirm': {
+    'uz': 'O‘chirish',
+    'en': 'Delete',
+    'ru': 'Удалить',
+  },
+  'admin.wip.delete.cancel': {
+    'uz': 'Bekor qilish',
+    'en': 'Cancel',
+    'ru': 'Отмена',
+  },
+  'admin.wip.delete.success': {
+    'uz': 'Opening WIP o‘chirildi',
+    'en': 'Opening WIP deleted',
+    'ru': 'Начальный WIP удален',
+  },
+  'admin.wip.delete.failed': {
+    'uz': 'Opening WIP o‘chirilmadi',
+    'en': 'Opening WIP was not deleted',
+    'ru': 'Начальный WIP не удален',
   },
   'admin.wip.unspecified': {
     'uz': 'Belgilanmagan',
@@ -6743,9 +6805,34 @@ const Map<String, Map<String, String>> adminTranslations = {
     'ru': 'Выбрать принтер',
   },
   'admin.production.opening_wip.create_print': {
-    'uz': 'Yaratish va QR chiqarish',
-    'en': 'Create and print QR labels',
-    'ru': 'Создать и напечатать QR',
+    'uz': 'QRsini chiqarish',
+    'en': 'Print QR labels',
+    'ru': 'Напечатать QR',
+  },
+  'admin.production.opening_wip.details_title': {
+    'uz': 'Opening WIP ma’lumoti',
+    'en': 'Opening WIP details',
+    'ru': 'Данные начального WIP',
+  },
+  'admin.production.opening_wip.batch_id': {
+    'uz': 'WIP ID',
+    'en': 'WIP ID',
+    'ru': 'ID WIP',
+  },
+  'admin.production.opening_wip.reprint_success': {
+    'uz': 'Opening WIP QR qayta chop etildi',
+    'en': 'Opening WIP QR was reprinted',
+    'ru': 'QR начального WIP напечатан повторно',
+  },
+  'admin.production.opening_wip.reprint_failed': {
+    'uz': 'Opening WIP QRni qayta chop etib bo‘lmadi',
+    'en': 'Opening WIP QR could not be reprinted',
+    'ru': 'Не удалось повторно напечатать QR начального WIP',
+  },
+  'admin.production.opening_wip.reprint_qr_missing': {
+    'uz': 'Bu Opening WIP uchun QR topilmadi',
+    'en': 'No QR was found for this Opening WIP',
+    'ru': 'Для этого начального WIP QR не найден',
   },
   'admin.production.opening_wip.retry_print': {
     'uz': 'Qolgan QRlarni chiqarish ({printed}/{total})',

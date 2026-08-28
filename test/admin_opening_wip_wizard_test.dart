@@ -44,6 +44,7 @@ void main() {
   testWidgets('admin creates distinct measured batches from selectable fields',
       (tester) async {
     await MobileApi.instance.adminSaveProductionMap(_openingOrder());
+    var printerPickerCalls = 0;
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(430, 1100);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -61,7 +62,10 @@ void main() {
         ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: AdminOpeningWipScreen(
-          progressDriverUrlPicker: (_) async => 'http://printer.test',
+          progressDriverUrlPicker: (_) async {
+            printerPickerCalls += 1;
+            return 'http://printer.test';
+          },
         ),
       ),
     );
@@ -87,6 +91,39 @@ void main() {
     expect(
       tester.widget(sourceField),
       isA<DropdownButtonFormField<String>>(),
+    );
+
+    for (final key in const [
+      ValueKey('opening-wip-roll-meter-0'),
+      ValueKey('opening-wip-roll-kg-0'),
+      ValueKey('opening-wip-roll-bobina-0'),
+    ]) {
+      final editable = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byKey(key),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(
+        editable.keyboardType,
+        const TextInputType.numberWithOptions(decimal: true),
+      );
+    }
+    final meterField = find.byKey(
+      const ValueKey('opening-wip-roll-meter-0'),
+    );
+    await tester.enterText(meterField, 'df12,5m');
+    expect(
+      tester
+          .widget<EditableText>(
+            find.descendant(
+              of: meterField,
+              matching: find.byType(EditableText),
+            ),
+          )
+          .controller
+          .text,
+      '12,5',
     );
     await tester.tap(sourcePicker);
     await tester.pumpAndSettle();
@@ -127,31 +164,16 @@ void main() {
       find.byKey(const ValueKey('opening-wip-roll-diameter-0')),
       findsNothing,
     );
-    final printerButton =
-        find.byKey(const ValueKey('opening-wip-pick-printer'));
-    final openingWipScrollable = find.descendant(
-      of: find.byKey(const ValueKey('opening-wip-fields')),
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is Scrollable && widget.axisDirection == AxisDirection.down,
-      ),
+    expect(
+      find.byKey(const ValueKey('opening-wip-pick-printer')),
+      findsNothing,
     );
-    await tester.scrollUntilVisible(
-      printerButton,
-      240,
-      scrollable: openingWipScrollable.first,
-    );
-    await tester.drag(
-      openingWipScrollable.first,
-      const Offset(0, -160),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(printerButton);
-    await tester.pumpAndSettle();
     final submit = find.byKey(const ValueKey('opening-wip-submit'));
+    expect(find.text('QRsini chiqarish'), findsOneWidget);
     await tester.ensureVisible(submit);
     await tester.tap(submit);
     await tester.pumpAndSettle();
+    expect(printerPickerCalls, 1);
 
     final records = await MobileApi.instance.adminOpeningWipRecords(
       orderId: 'zakaz-opening-wip-1',
@@ -181,6 +203,122 @@ void main() {
     expect(
       records.single.intake.historyStatus,
       'unavailable_before_cutover',
+    );
+  });
+
+  testWidgets('QR action opens the shared three-device printer sheet',
+      (tester) async {
+    await MobileApi.instance.adminSaveProductionMap(_openingOrder());
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1100);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminOpeningWipScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('opening-wip-roll-meter-0')),
+      '125',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('opening-wip-roll-kg-0')),
+      '12.5',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('opening-wip-roll-bobina-0')),
+      '1',
+    );
+
+    expect(
+      find.byKey(const ValueKey('opening-wip-pick-printer')),
+      findsNothing,
+    );
+    expect(find.text('QRsini chiqarish'), findsOneWidget);
+    final submit = find.byKey(const ValueKey('opening-wip-submit'));
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Qurilma tanlash'), findsOneWidget);
+    expect(find.text('USB'), findsOneWidget);
+    expect(find.text('Bluetooth'), findsOneWidget);
+    expect(find.text('Wi-Fi'), findsOneWidget);
+    expect(
+      await MobileApi.instance.adminOpeningWipRecords(
+        orderId: 'zakaz-opening-wip-1',
+      ),
+      isEmpty,
+    );
+  });
+
+  testWidgets('successful print stays on Opening WIP and opens WIP list',
+      (tester) async {
+    await MobileApi.instance.adminSaveProductionMap(
+      _openingOrder(id: 'zakaz-opening-wip-stay-page'),
+    );
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1100);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        initialRoute: '/opening-wip',
+        routes: {
+          '/': (_) => const Scaffold(body: Text('HOME_MARKER')),
+          '/opening-wip': (_) => AdminOpeningWipScreen(
+                progressDriverUrlPicker: (_) async => 'http://printer.test',
+              ),
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('opening-wip-roll-meter-0')),
+      '125',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('opening-wip-roll-kg-0')),
+      '12.5',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('opening-wip-roll-bobina-0')),
+      '1',
+    );
+    final submit = find.byKey(const ValueKey('opening-wip-submit'));
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+
+    expect(find.text('HOME_MARKER'), findsNothing);
+    expect(find.byType(AdminOpeningWipScreen), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('opening-wip-apparatus-filter-chip')),
+      findsOneWidget,
     );
   });
 
@@ -394,6 +532,265 @@ void main() {
 
     expect(find.byKey(const ValueKey('opening-wip-order')), findsNothing);
     expect(find.text('Opening WIP'), findsNothing);
+  });
+
+  testWidgets('Opening WIP list filters by its linked source apparatus',
+      (tester) async {
+    await MobileApi.instance.adminSaveProductionMap(
+      _openingOrder(
+        id: 'zakaz-opening-wip-filter-lamination',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _printingOpeningOrder(
+        id: 'zakaz-opening-wip-filter-print',
+        orderNumber: 'OWIP-FILTER-PRINT',
+      ),
+    );
+    await MobileApi.instance.adminCreateOpeningWip(
+      const AdminOpeningWipCreateInput(
+        idempotencyKey: 'opening-wip-filter-lamination',
+        orderId: 'zakaz-opening-wip-filter-lamination',
+        sourceApparatus: _laminationId,
+        sourceStageNodeId: 'lamination',
+        batches: [
+          AdminOpeningWipBatchInput(
+            quantityBasis: AdminOpeningWipQuantityBasis.measured,
+            finishedGoodsMeter: 120,
+            finishedGoodsKg: 12,
+            bobinaKg: 1,
+          ),
+        ],
+      ),
+    );
+    await MobileApi.instance.adminCreateOpeningWip(
+      const AdminOpeningWipCreateInput(
+        idempotencyKey: 'opening-wip-filter-print',
+        orderId: 'zakaz-opening-wip-filter-print',
+        sourceApparatus: _printingId,
+        sourceStageNodeId: 'print',
+        batches: [
+          AdminOpeningWipBatchInput(
+            quantityBasis: AdminOpeningWipQuantityBasis.estimated,
+            finishedGoodsMeter: 220,
+            finishedGoodsKg: 22,
+            bobinaKg: 2,
+          ),
+        ],
+      ),
+    );
+
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1100);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminOpeningWipScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('WIP list'));
+    await tester.pumpAndSettle();
+
+    final filter = find.byKey(
+      const ValueKey('opening-wip-apparatus-filter-chip'),
+    );
+    expect(filter, findsOneWidget);
+    await tester.tap(filter);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(
+        const ValueKey(
+          'opening-wip-apparatus-option-chip-apparatus:default:asset-007',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey(
+          'opening-wip-apparatus-option-chip-apparatus:default:bosma_7',
+        ),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey(
+          'opening-wip-apparatus-option-chip-apparatus:default:asset-007',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Laminatsiya 1'), findsWidgets);
+    expect(find.text('7 ta rangli bosma aparat'), findsNothing);
+  });
+
+  testWidgets('tapping Opening WIP opens details and reprints its QR',
+      (tester) async {
+    await MobileApi.instance.adminSaveProductionMap(
+      _openingOrder(id: 'zakaz-opening-wip-details-ui'),
+    );
+    final record = await MobileApi.instance.adminCreateOpeningWip(
+      const AdminOpeningWipCreateInput(
+        idempotencyKey: 'opening-wip-details-ui',
+        orderId: 'zakaz-opening-wip-details-ui',
+        sourceApparatus: _laminationId,
+        sourceStageNodeId: 'lamination',
+        note: 'Opening WIP test izohi',
+        batches: [
+          AdminOpeningWipBatchInput(
+            quantityBasis: AdminOpeningWipQuantityBasis.measured,
+            finishedGoodsMeter: 120,
+            finishedGoodsKg: 12,
+            bobinaKg: 1,
+          ),
+        ],
+      ),
+    );
+    final batch = record.batches.single;
+    var printerPickerCalls = 0;
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1100);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AdminOpeningWipScreen(
+          progressDriverUrlPicker: (_) async {
+            printerPickerCalls += 1;
+            return 'http://printer.test';
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('WIP list'));
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(ValueKey('opening-wip-batch-${batch.batchId}'));
+    expect(card, findsOneWidget);
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Opening WIP ma’lumoti'), findsOneWidget);
+    expect(find.text('WIP ID'), findsOneWidget);
+    expect(find.text(batch.batchId), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('opening-wip-preview-${batch.batchId}')),
+      findsOneWidget,
+    );
+    final reprint = find.byKey(
+      ValueKey('opening-wip-reprint-${batch.batchId}'),
+    );
+    expect(reprint, findsOneWidget);
+    await tester.ensureVisible(reprint);
+    await tester.tap(reprint);
+    await tester.pumpAndSettle();
+
+    expect(printerPickerCalls, 1);
+    expect(find.text('Opening WIP QR qayta chop etildi'), findsOneWidget);
+  });
+
+  testWidgets('long press cancel keeps WIP and confirm deletes unused WIP',
+      (tester) async {
+    await MobileApi.instance.adminSaveProductionMap(
+      _openingOrder(id: 'zakaz-opening-wip-delete-ui'),
+    );
+    final record = await MobileApi.instance.adminCreateOpeningWip(
+      const AdminOpeningWipCreateInput(
+        idempotencyKey: 'opening-wip-delete-ui',
+        orderId: 'zakaz-opening-wip-delete-ui',
+        sourceApparatus: _laminationId,
+        sourceStageNodeId: 'lamination',
+        batches: [
+          AdminOpeningWipBatchInput(
+            quantityBasis: AdminOpeningWipQuantityBasis.measured,
+            finishedGoodsMeter: 120,
+            finishedGoodsKg: 12,
+            bobinaKg: 1,
+          ),
+        ],
+      ),
+    );
+    final batchId = record.batches.single.batchId;
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1100);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminOpeningWipScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('WIP list'));
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(ValueKey('opening-wip-batch-$batchId'));
+    expect(card, findsOneWidget);
+    await tester.longPress(card);
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('opening-wip-delete-cancel')),
+    );
+    await tester.pumpAndSettle();
+    expect(card, findsOneWidget);
+    expect(
+      await MobileApi.instance.adminOpeningWipRecords(
+        orderId: 'zakaz-opening-wip-delete-ui',
+      ),
+      hasLength(1),
+    );
+
+    await tester.longPress(card);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('opening-wip-delete-confirm')),
+    );
+    await tester.pumpAndSettle();
+    expect(card, findsNothing);
+    expect(
+      await MobileApi.instance.adminOpeningWipRecords(
+        orderId: 'zakaz-opening-wip-delete-ui',
+      ),
+      isEmpty,
+    );
   });
 }
 
