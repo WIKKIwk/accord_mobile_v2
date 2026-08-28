@@ -4896,6 +4896,10 @@ MobileApiException _adminProductionMapException(
         'Ish boshlangan orderga Opening WIP kiritib bo‘lmaydi',
       'opening_wip_location_mismatch' =>
         'Joylashuv production mapdagi aparat bo‘lishi kerak',
+      'opening_wip_source_mismatch' =>
+        'Tanlangan chiqish apparati production mapga mos emas',
+      'opening_wip_source_final_stage' =>
+        'Oxirgi aparat chiqish WIP manbasi bo‘la olmaydi',
       'opening_wip_idempotency_conflict' =>
         'Bu Opening WIP so‘rovi boshqa ma’lumot bilan ishlatilgan',
       'opening_wip_status_invalid' => 'Opening WIP holati noto‘g‘ri',

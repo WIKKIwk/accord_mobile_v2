@@ -46,16 +46,16 @@ class AdminOpeningWipCreateInput {
   const AdminOpeningWipCreateInput({
     required this.idempotencyKey,
     required this.orderId,
-    required this.entryApparatus,
-    required this.currentLocation,
+    required this.sourceApparatus,
+    required this.sourceStageNodeId,
     required this.batches,
     this.note = '',
   });
 
   final String idempotencyKey;
   final String orderId;
-  final String entryApparatus;
-  final String currentLocation;
+  final String sourceApparatus;
+  final String sourceStageNodeId;
   final String note;
   final List<AdminOpeningWipBatchInput> batches;
 
@@ -63,8 +63,8 @@ class AdminOpeningWipCreateInput {
     return {
       'idempotency_key': idempotencyKey.trim(),
       'order_id': orderId.trim(),
-      'entry_apparatus': entryApparatus.trim(),
-      'current_location': currentLocation.trim(),
+      'source_apparatus': sourceApparatus.trim(),
+      'source_stage_node_id': sourceStageNodeId.trim(),
       if (note.trim().isNotEmpty) 'note': note.trim(),
       'batches': batches.map((batch) => batch.toJson()).toList(growable: false),
     };
@@ -109,6 +109,9 @@ class AdminOpeningWipIntake {
   final String actorDisplayName;
   final int createdAtUnix;
   final int updatedAtUnix;
+
+  String get sourceStageNodeId =>
+      sourceApparatus.trim().isEmpty ? '' : resumeStageNodeId;
 
   factory AdminOpeningWipIntake.fromJson(Map<String, dynamic> json) {
     final actor = json['actor'];
@@ -442,16 +445,16 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
   }
   if (key.isEmpty ||
       input.orderId.trim().isEmpty ||
-      input.entryApparatus.trim().isEmpty ||
-      input.currentLocation.trim().isEmpty ||
+      input.sourceApparatus.trim().isEmpty ||
+      input.sourceStageNodeId.trim().isEmpty ||
       input.batches.isEmpty) {
     throw const MobileApiException(
       code: 'opening_wip_invalid_input',
       message: 'Opening WIP ma’lumotlari to‘liq emas',
     );
   }
-  final locationStage = _testModeOpeningWipLocationStage(input);
-  final apparatus = _testModeRequiredApparatus(input.entryApparatus);
+  final sourceStage = _testModeOpeningWipSourceStage(input);
+  final apparatus = _testModeRequiredApparatus(input.sourceApparatus);
   final requiresDiameter = apparatus.operation.trim().toLowerCase() == 'cut';
   for (final batch in input.batches) {
     final values = [
@@ -476,14 +479,12 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
     intakeId: intakeId,
     idempotencyKey: key,
     orderId: input.orderId.trim(),
-    entryApparatus: input.entryApparatus.trim(),
-    sourceOperation: 'unavailable_before_cutover',
-    sourceApparatus: '',
-    currentLocation: locationStage.displayTitle.trim().isEmpty
-        ? input.currentLocation.trim()
-        : locationStage.displayTitle.trim(),
-    resumeApparatus: locationStage.apparatusId?.trim() ?? '',
-    resumeStageNodeId: locationStage.nodeId.trim(),
+    entryApparatus: input.sourceApparatus.trim(),
+    sourceOperation: apparatus.operation.trim().toLowerCase(),
+    sourceApparatus: input.sourceApparatus.trim(),
+    currentLocation: '',
+    resumeApparatus: '',
+    resumeStageNodeId: sourceStage.nodeId.trim(),
     historyStatus: 'unavailable_before_cutover',
     status: 'confirmed',
     note: input.note.trim(),
@@ -546,7 +547,7 @@ AdminOpeningWipBatch _testModeLookupOpeningWip({
   }
   for (final record in _testModeOpeningWipRecords) {
     if (record.intake.orderId.trim() != normalizedOrderId ||
-        record.intake.resumeApparatus.trim() != normalizedApparatus ||
+        !_testModeOpeningWipCanScanAt(record, normalizedApparatus) ||
         record.intake.status.trim().toLowerCase() != 'confirmed') {
       continue;
     }
@@ -569,15 +570,13 @@ bool _testModeOpeningWipMatchesInput(
   AdminOpeningWipCreateInput input,
 ) {
   final intake = record.intake;
-  final locationStage = _testModeOpeningWipLocationStage(input);
-  final currentLocation = locationStage.displayTitle.trim().isEmpty
-      ? input.currentLocation.trim()
-      : locationStage.displayTitle.trim();
+  final sourceStage = _testModeOpeningWipSourceStage(input);
   if (intake.orderId != input.orderId.trim() ||
-      intake.entryApparatus != input.entryApparatus.trim() ||
-      intake.currentLocation != currentLocation ||
-      intake.resumeApparatus != (locationStage.apparatusId?.trim() ?? '') ||
-      intake.resumeStageNodeId != locationStage.nodeId.trim() ||
+      intake.entryApparatus != input.sourceApparatus.trim() ||
+      intake.sourceApparatus != input.sourceApparatus.trim() ||
+      intake.sourceStageNodeId != sourceStage.nodeId.trim() ||
+      intake.currentLocation.isNotEmpty ||
+      intake.resumeApparatus.isNotEmpty ||
       intake.note != input.note.trim() ||
       record.batches.length != input.batches.length) {
     return false;
@@ -596,43 +595,56 @@ bool _testModeOpeningWipMatchesInput(
   return true;
 }
 
-ProductionMapChainStage _testModeOpeningWipLocationStage(
+ProductionMapChainStage _testModeOpeningWipSourceStage(
   AdminOpeningWipCreateInput input,
 ) {
-  ProductionMapSaved? saved;
-  for (final candidate in _testModeProductionMaps) {
-    if (candidate.map.id.trim() == input.orderId.trim()) {
-      saved = candidate;
-      break;
-    }
-  }
-  if (saved == null) {
-    throw const MobileApiException(
-      code: 'production_map_not_found',
-      message: 'Production map topilmadi',
-    );
-  }
+  final saved = _testModeOpeningWipMap(input.orderId);
   final stages = productionMapLinearWorkStages(saved.map)
       .where((stage) => stage.apparatusId != null)
       .toList(growable: false);
-  final entryApparatus =
-      stages.isEmpty ? '' : stages.first.apparatusId?.trim() ?? '';
-  if (entryApparatus != input.entryApparatus.trim()) {
-    throw const MobileApiException(
-      code: 'opening_wip_entry_mismatch',
-      message:
-          'Opening WIP faqat production mapning birinchi aparatidan boshlanishi mumkin',
-    );
-  }
   for (final stage in stages) {
-    if (stage.apparatusId?.trim() == input.currentLocation.trim()) {
+    if (stage.nodeId.trim() == input.sourceStageNodeId.trim() &&
+        stage.apparatusId?.trim() == input.sourceApparatus.trim()) {
+      if (productionMapNextWorkStagesForNode(
+        map: saved.map,
+        stageNodeId: stage.nodeId,
+      ).isEmpty) {
+        throw const MobileApiException(
+          code: 'opening_wip_source_final_stage',
+          message: 'Oxirgi aparat chiqish WIP manbasi bo‘la olmaydi',
+        );
+      }
       return stage;
     }
   }
   throw const MobileApiException(
-    code: 'opening_wip_location_mismatch',
-    message: 'Joylashuv production mapdagi aparat bo‘lishi kerak',
+    code: 'opening_wip_source_mismatch',
+    message: 'Tanlangan chiqish apparati production mapga mos emas',
   );
+}
+
+ProductionMapSaved _testModeOpeningWipMap(String orderId) {
+  for (final candidate in _testModeProductionMaps) {
+    if (candidate.map.id.trim() == orderId.trim()) return candidate;
+  }
+  throw const MobileApiException(
+    code: 'production_map_not_found',
+    message: 'Production map topilmadi',
+  );
+}
+
+bool _testModeOpeningWipCanScanAt(
+  AdminOpeningWipRecord record,
+  String apparatus,
+) {
+  if (record.intake.sourceApparatus.trim().isEmpty) {
+    return record.intake.resumeApparatus.trim() == apparatus.trim();
+  }
+  final map = _testModeOpeningWipMap(record.intake.orderId).map;
+  return productionMapNextWorkStagesForNode(
+    map: map,
+    stageNodeId: record.intake.sourceStageNodeId,
+  ).any((stage) => stage.apparatusId?.trim() == apparatus.trim());
 }
 
 AdminOpeningWipPrintResult _testModePrintOpeningWip({
@@ -654,9 +666,12 @@ AdminOpeningWipPrintResult _testModePrintOpeningWip({
         'epc': batch.qrPayload,
         'item_code': batch.labelItemCode,
         'item_name': batch.labelItemName,
-        'apparatus': record.intake.entryApparatus,
-        'apparatus_display_name':
-            'Opening WIP → ${record.intake.entryApparatus}',
+        'apparatus': record.intake.sourceApparatus.trim().isEmpty
+            ? record.intake.entryApparatus
+            : record.intake.sourceApparatus,
+        'apparatus_display_name': record.intake.sourceApparatus.trim().isEmpty
+            ? record.intake.entryApparatus
+            : record.intake.sourceApparatus,
         'printer': printer.trim().isEmpty ? 'godex' : printer.trim(),
         'print_mode': printMode.trim().isEmpty ? 'label' : printMode.trim(),
         'gross_qty': batch.finishedGoodsKg ?? 0,

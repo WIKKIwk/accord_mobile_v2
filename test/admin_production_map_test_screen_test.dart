@@ -7340,7 +7340,7 @@ void main() {
   );
 
   testWidgets(
-    'only the current order Opening WIP QR can arm first-stage Start',
+    'only the source output QR can arm the next-stage Start',
     (tester) async {
       await TestModeController.instance.setEnabled(true);
       await AppSession.instance.setSession(
@@ -7358,12 +7358,13 @@ void main() {
       );
       const orderId = 'zakaz-worker-opening-wip';
       await MobileApi.instance.adminSaveProductionMap(
-        _productionOrderMap(
+        _twoStageProductionOrderMap(
           id: orderId,
           title: 'Worker Opening WIP',
           productCode: 'OWIP',
-          apparatusId: _lamination1Id,
           product: 'opening WIP product',
+          firstApparatusId: _print7Id,
+          secondApparatusId: _lamination1Id,
         ),
       );
       await MobileApi.instance.adminSaveProductionMapSequence(
@@ -7374,8 +7375,8 @@ void main() {
         const AdminOpeningWipCreateInput(
           idempotencyKey: 'worker-opening-wip-request',
           orderId: orderId,
-          entryApparatus: _lamination1Id,
-          currentLocation: _lamination1Id,
+          sourceApparatus: _print7Id,
+          sourceStageNodeId: 'first-apparatus',
           batches: [
             AdminOpeningWipBatchInput(
               quantityBasis: AdminOpeningWipQuantityBasis.measured,

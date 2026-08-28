@@ -23,7 +23,7 @@ List<ProductionMapChainStage> productionMapLinearWorkStages(
 ) {
   final byId = {for (final node in map.nodes) node.id: node};
   final stages = <ProductionMapChainStage>[];
-  final seenStageIds = <String>{};
+  final seenStageNodeIds = <String>{};
   var seenApparatus = false;
   for (final nodeId in _reachableNodeIds(map)) {
     final node = byId[nodeId];
@@ -34,7 +34,7 @@ List<ProductionMapChainStage> productionMapLinearWorkStages(
         seenApparatus = true;
       }
       for (final stage in nodeStages) {
-        if (stage.stageId.isEmpty || !seenStageIds.add(stage.stageId)) {
+        if (stage.stageId.isEmpty || !seenStageNodeIds.add(stage.nodeId)) {
           continue;
         }
         stages.add(stage);
@@ -80,6 +80,38 @@ String? productionMapNextWorkStageStation({
 }) {
   final stages = _nextPhysicalStageIds(map, station);
   return stages.isEmpty ? null : stages.first;
+}
+
+List<ProductionMapChainStage> productionMapNextWorkStagesForNode({
+  required ProductionMapDefinition map,
+  required String stageNodeId,
+}) {
+  final stages = productionMapLinearWorkStages(map);
+  final normalizedNodeId = stageNodeId.trim();
+  if (!stages.any((stage) => stage.nodeId.trim() == normalizedNodeId)) {
+    return const [];
+  }
+  final physicalByNode = {
+    for (final stage in stages)
+      if (stage.isApparatus) stage.nodeId.trim(): stage,
+  };
+  final queue = <String>[..._routeSuccessors(map, normalizedNodeId)];
+  final visited = <String>{};
+  final foundNodes = <String>{};
+  final result = <ProductionMapChainStage>[];
+  for (var index = 0; index < queue.length; index += 1) {
+    final nodeId = queue[index];
+    if (!visited.add(nodeId)) continue;
+    final node = _nodeById(map, nodeId);
+    if (node == null || node.kind == 'end') continue;
+    final physicalStage = physicalByNode[nodeId.trim()];
+    if (physicalStage != null) {
+      if (foundNodes.add(nodeId.trim())) result.add(physicalStage);
+      continue;
+    }
+    queue.addAll(_routeSuccessors(map, nodeId));
+  }
+  return List<ProductionMapChainStage>.unmodifiable(result);
 }
 
 bool productionMapIsFinalWorkStageStation({

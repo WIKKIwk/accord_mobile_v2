@@ -77,22 +77,22 @@ void main() {
       findsNothing,
     );
 
-    final locationPicker = find.byKey(
-      const ValueKey('opening-wip-location'),
+    final sourcePicker = find.byKey(
+      const ValueKey('opening-wip-source-apparatus'),
     );
-    final locationField = find.descendant(
-      of: locationPicker,
+    final sourceField = find.descendant(
+      of: sourcePicker,
       matching: find.byType(DropdownButtonFormField<String>),
     );
     expect(
-      tester.widget(locationField),
+      tester.widget(sourceField),
       isA<DropdownButtonFormField<String>>(),
     );
-    await tester.tap(locationPicker);
+    await tester.tap(sourcePicker);
     await tester.pumpAndSettle();
     expect(find.text('Laminatsiya 1'), findsWidgets);
-    expect(find.text('Rezka'), findsOneWidget);
-    await tester.tap(find.text('Rezka').last);
+    expect(find.text('Rezka'), findsNothing);
+    await tester.tap(find.text('Laminatsiya 1').last);
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -141,6 +141,11 @@ void main() {
       240,
       scrollable: openingWipScrollable.first,
     );
+    await tester.drag(
+      openingWipScrollable.first,
+      const Offset(0, -160),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(printerButton);
     await tester.pumpAndSettle();
     final submit = find.byKey(const ValueKey('opening-wip-submit'));
@@ -152,7 +157,10 @@ void main() {
       orderId: 'zakaz-opening-wip-1',
     );
     expect(records, hasLength(1));
-    expect(records.single.intake.currentLocation, 'Rezka');
+    expect(records.single.intake.sourceApparatus, _laminationId);
+    expect(records.single.intake.sourceStageNodeId, 'lamination');
+    expect(records.single.intake.currentLocation, isEmpty);
+    expect(records.single.intake.resumeApparatus, isEmpty);
     expect(records.single.batches, hasLength(2));
     expect(
       records.single.batches.map((batch) => batch.finishedGoodsMeter).toList(),
@@ -177,7 +185,7 @@ void main() {
   });
 
   testWidgets(
-      'switching order resets the visible Opening WIP location to map entry',
+      'switching order resets the source apparatus to the first eligible stage',
       (tester) async {
     await MobileApi.instance.adminSaveProductionMap(
       _printingOpeningOrder(
@@ -212,19 +220,20 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    Finder locationField() => find.descendant(
-          of: find.byKey(const ValueKey('opening-wip-location')),
+    Finder sourceField() => find.descendant(
+          of: find.byKey(const ValueKey('opening-wip-source-apparatus')),
           matching: find.byType(DropdownButtonFormField<String>),
         );
-    String selectedLocation() =>
-        tester.state<FormFieldState<String>>(locationField()).value ?? '';
+    String selectedSourceNode() =>
+        tester.state<FormFieldState<String>>(sourceField()).value ?? '';
 
-    expect(selectedLocation(), _printingId);
-    await tester.tap(find.byKey(const ValueKey('opening-wip-location')));
+    expect(selectedSourceNode(), 'print');
+    await tester
+        .tap(find.byKey(const ValueKey('opening-wip-source-apparatus')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Laminatsiya 1').last);
     await tester.pumpAndSettle();
-    expect(selectedLocation(), _laminationId);
+    expect(selectedSourceNode(), 'lamination');
 
     final orderField = find.byKey(const ValueKey('opening-wip-order'));
     final selectedOrder =
@@ -237,12 +246,12 @@ void main() {
     await tester.tap(find.text(nextOrderLabel).last);
     await tester.pumpAndSettle();
 
-    expect(selectedLocation(), _printingId);
+    expect(selectedSourceNode(), 'print');
     expect(find.text('7 ta rangli bosma aparat'), findsWidgets);
   });
 
   testWidgets(
-      'current location excludes apparatus outside map and keeps skip alternatives',
+      'source selector keeps map alternatives and excludes the final stage',
       (tester) async {
     await MobileApi.instance.adminSaveProductionMap(_openingAlternativeOrder());
     tester.view.devicePixelRatio = 1;
@@ -266,7 +275,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('opening-wip-location')));
+    await tester
+        .tap(find.byKey(const ValueKey('opening-wip-source-apparatus')));
     await tester.pumpAndSettle();
 
     expect(find.text('Laminatsiya 1'), findsWidgets);
@@ -275,13 +285,7 @@ void main() {
   });
 
   testWidgets('rezka Opening WIP requires diameter per roll', (tester) async {
-    await MobileApi.instance.adminSaveProductionMap(
-      _openingOrder(
-        id: 'zakaz-opening-wip-rezka',
-        apparatusId: _rezkaId,
-        includeRezkaStage: false,
-      ),
-    );
+    await MobileApi.instance.adminSaveProductionMap(_rezkaSourceOrder());
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(430, 1100);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -385,6 +389,12 @@ ProductionMapDefinition _openingAlternativeOrder() {
     nodes: [
       ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
       ProductionMapNode(
+        id: 'print',
+        kind: 'apparatus',
+        title: '7 ta rangli bosma aparat',
+        apparatusId: _printingId,
+      ),
+      ProductionMapNode(
         id: 'lamination-1',
         kind: 'apparatus',
         title: 'Laminatsiya 1',
@@ -400,13 +410,21 @@ ProductionMapDefinition _openingAlternativeOrder() {
         alternativeGroupId: 'alt-laminatsiya',
         alternativeGroupLabel: 'Laminatsiya',
       ),
+      ProductionMapNode(
+        id: 'rezka',
+        kind: 'apparatus',
+        title: 'Rezka',
+        apparatusId: _rezkaId,
+      ),
       ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
     ],
     edges: [
-      ProductionMapEdge(from: 'start', to: 'lamination-1'),
-      ProductionMapEdge(from: 'start', to: 'lamination-2'),
-      ProductionMapEdge(from: 'lamination-1', to: 'end'),
-      ProductionMapEdge(from: 'lamination-2', to: 'end'),
+      ProductionMapEdge(from: 'start', to: 'print'),
+      ProductionMapEdge(from: 'print', to: 'lamination-1'),
+      ProductionMapEdge(from: 'print', to: 'lamination-2'),
+      ProductionMapEdge(from: 'lamination-1', to: 'rezka'),
+      ProductionMapEdge(from: 'lamination-2', to: 'rezka'),
+      ProductionMapEdge(from: 'rezka', to: 'end'),
     ],
   );
 }
@@ -434,11 +452,48 @@ ProductionMapDefinition _printingOpeningOrder({
         title: 'Laminatsiya 1',
         apparatusId: _laminationId,
       ),
+      ProductionMapNode(
+        id: 'rezka',
+        kind: 'apparatus',
+        title: 'Rezka',
+        apparatusId: _rezkaId,
+      ),
       ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
     ],
     edges: const [
       ProductionMapEdge(from: 'start', to: 'print'),
       ProductionMapEdge(from: 'print', to: 'lamination'),
+      ProductionMapEdge(from: 'lamination', to: 'rezka'),
+      ProductionMapEdge(from: 'rezka', to: 'end'),
+    ],
+  );
+}
+
+ProductionMapDefinition _rezkaSourceOrder() {
+  return const ProductionMapDefinition(
+    id: 'zakaz-opening-wip-rezka',
+    productCode: 'ITEM-OPENING-WIP-REZKA',
+    title: 'Rezka Opening WIP',
+    orderNumber: 'OWIP-REZKA',
+    nodes: [
+      ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+      ProductionMapNode(
+        id: 'rezka',
+        kind: 'apparatus',
+        title: 'Rezka',
+        apparatusId: _rezkaId,
+      ),
+      ProductionMapNode(
+        id: 'lamination',
+        kind: 'apparatus',
+        title: 'Laminatsiya 1',
+        apparatusId: _laminationId,
+      ),
+      ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+    ],
+    edges: [
+      ProductionMapEdge(from: 'start', to: 'rezka'),
+      ProductionMapEdge(from: 'rezka', to: 'lamination'),
       ProductionMapEdge(from: 'lamination', to: 'end'),
     ],
   );

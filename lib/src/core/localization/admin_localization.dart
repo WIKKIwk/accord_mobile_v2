@@ -6648,9 +6648,9 @@ const Map<String, Map<String, String>> adminTranslations = {
     'ru': 'Предыдущая операция',
   },
   'admin.production.opening_wip.source_apparatus': {
-    'uz': 'Oldingi aparat (ixtiyoriy)',
-    'en': 'Previous apparatus (optional)',
-    'ru': 'Предыдущее оборудование (необязательно)',
+    'uz': 'Qaysi aparatdan chiqqan',
+    'en': 'Produced by apparatus',
+    'ru': 'С какого оборудования вышел',
   },
   'admin.production.opening_wip.source_none': {
     'uz': 'Noma’lum / tanlanmagan',
@@ -6663,9 +6663,9 @@ const Map<String, Map<String, String>> adminTranslations = {
     'ru': 'Текущее местоположение',
   },
   'admin.production.opening_wip.location_missing': {
-    'uz': 'Bu aparatga bog‘langan faol joylashuv topilmadi',
-    'en': 'No active location is linked to this apparatus',
-    'ru': 'Для этого оборудования не указано активное местоположение',
+    'uz': 'Keyingi bosqichi bor chiqish aparati tanlanishi kerak',
+    'en': 'Select a source apparatus that has a next stage',
+    'ru': 'Выберите исходное оборудование со следующим этапом',
   },
   'admin.production.opening_wip.note': {
     'uz': 'Izoh (ixtiyoriy)',

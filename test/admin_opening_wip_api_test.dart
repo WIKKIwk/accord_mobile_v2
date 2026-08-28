@@ -105,8 +105,8 @@ void main() {
     const input = AdminOpeningWipCreateInput(
       idempotencyKey: 'opening-wip-request-1',
       orderId: 'ORDER-1',
-      entryApparatus: _printingId,
-      currentLocation: _laminationId,
+      sourceApparatus: _printingId,
+      sourceStageNodeId: 'printing',
       batches: [
         AdminOpeningWipBatchInput(
           quantityBasis: AdminOpeningWipQuantityBasis.estimated,
@@ -132,8 +132,9 @@ void main() {
 
     expect(created.batches, hasLength(2));
     expect(created.intake.entryApparatus, _printingId);
-    expect(created.intake.resumeApparatus, _laminationId);
-    expect(created.intake.resumeStageNodeId, 'lamination');
+    expect(created.intake.sourceApparatus, _printingId);
+    expect(created.intake.sourceStageNodeId, 'printing');
+    expect(created.intake.resumeApparatus, isEmpty);
     expect(replayed.intake.intakeId, created.intake.intakeId);
     expect(records, hasLength(1));
 
@@ -203,8 +204,8 @@ void main() {
         const AdminOpeningWipCreateInput(
           idempotencyKey: 'opening-wip-request-1',
           orderId: 'ORDER-1',
-          entryApparatus: _printingId,
-          currentLocation: _laminationId,
+          sourceApparatus: _printingId,
+          sourceStageNodeId: 'printing',
           note: 'conflicting replay',
           batches: [
             AdminOpeningWipBatchInput(

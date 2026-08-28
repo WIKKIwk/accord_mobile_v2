@@ -87,15 +87,19 @@ class _OpeningWipPageData {
   final List<AdminApparatus> apparatus;
 }
 
-List<String> _openingWipLocationApparatuses(ProductionMapSaved? order) {
+List<ProductionMapChainStage> _openingWipSourceStages(
+  ProductionMapSaved? order,
+) {
   if (order == null) return const [];
-  final seen = <String>{};
-  return List<String>.unmodifiable([
+  return List<ProductionMapChainStage>.unmodifiable([
     for (final stage in productionMapLinearWorkStages(order.map))
       if (stage.apparatusId?.trim().isNotEmpty == true &&
           canonicalApparatusIdIsValid(stage.apparatusId!.trim()) &&
-          seen.add(stage.apparatusId!.trim()))
-        stage.apparatusId!.trim(),
+          productionMapNextWorkStagesForNode(
+            map: order.map,
+            stageNodeId: stage.nodeId,
+          ).isNotEmpty)
+        stage,
   ]);
 }
 
@@ -105,23 +109,13 @@ List<ProductionMapSaved> _openingWipEligibleOrders({
 }) {
   return [
     for (final order in orders)
-      if (_openingWipEntryApparatus(order) != null &&
+      if (_openingWipSourceStages(order).isNotEmpty &&
           !_openingWipOrderHasStarted(
             order.map.id,
             queueStatesByApparatus,
           ))
         order,
   ];
-}
-
-String? _openingWipEntryApparatus(ProductionMapSaved order) {
-  for (final stage in productionMapLinearWorkStages(order.map)) {
-    final apparatusId = stage.apparatusId?.trim() ?? '';
-    if (apparatusId.isNotEmpty && canonicalApparatusIdIsValid(apparatusId)) {
-      return apparatusId;
-    }
-  }
-  return null;
 }
 
 bool _openingWipOrderHasStarted(
@@ -178,14 +172,14 @@ class _OpeningWipRollControllers {
 
 class _OpeningWipWizardState extends State<_OpeningWipWizard> {
   final _formKey = GlobalKey<FormState>();
-  final _locationFieldKey = GlobalKey<FormFieldState<String>>();
+  final _sourceFieldKey = GlobalKey<FormFieldState<String>>();
   final _noteController = TextEditingController();
   final _rollCountController = TextEditingController(text: '1');
   final List<_OpeningWipRollControllers> _rollControllers = [
     _OpeningWipRollControllers(),
   ];
   ProductionMapSaved? _selectedOrder;
-  String _currentLocation = '';
+  String _sourceStageNodeId = '';
   AdminOpeningWipQuantityBasis _quantityBasis =
       AdminOpeningWipQuantityBasis.measured;
   _ProgressPrinterOption? _printer;
@@ -200,8 +194,9 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
   void initState() {
     super.initState();
     _selectedOrder = widget.orders.isEmpty ? null : widget.orders.first;
-    _currentLocation =
-        _availableLocations.isEmpty ? '' : _availableLocations.first;
+    _sourceStageNodeId = _availableSourceStages.isEmpty
+        ? ''
+        : _availableSourceStages.first.nodeId;
   }
 
   @override
@@ -227,35 +222,42 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
     });
   }
 
-  String get _entryApparatus => _selectedOrder == null
-      ? ''
-      : _openingWipEntryApparatus(_selectedOrder!) ?? '';
+  List<ProductionMapChainStage> get _availableSourceStages =>
+      _openingWipSourceStages(_selectedOrder);
 
-  AdminApparatus? get _entryApparatusDefinition {
+  ProductionMapChainStage? get _selectedSourceStage {
+    for (final stage in _availableSourceStages) {
+      if (stage.nodeId.trim() == _sourceStageNodeId.trim()) return stage;
+    }
+    return null;
+  }
+
+  String get _sourceApparatus =>
+      _selectedSourceStage?.apparatusId?.trim() ?? '';
+
+  AdminApparatus? get _sourceApparatusDefinition {
     for (final apparatus in widget.apparatusCatalog) {
-      if (apparatus.id.trim() == _entryApparatus) return apparatus;
+      if (apparatus.id.trim() == _sourceApparatus) return apparatus;
     }
     return null;
   }
 
   bool get _requiresDiameter =>
-      _entryApparatusDefinition?.operation.trim().toLowerCase() == 'cut';
-
-  List<String> get _availableLocations =>
-      _openingWipLocationApparatuses(_selectedOrder);
+      _sourceApparatusDefinition?.operation.trim().toLowerCase() == 'cut';
 
   void _selectOrder(ProductionMapSaved? order) {
-    final locations = _openingWipLocationApparatuses(order);
-    final nextLocation = locations.isEmpty ? '' : locations.first;
+    final sourceStages = _openingWipSourceStages(order);
+    final nextSourceNodeId =
+        sourceStages.isEmpty ? '' : sourceStages.first.nodeId;
     setState(() {
       _selectedOrder = order;
-      _currentLocation = nextLocation;
+      _sourceStageNodeId = nextSourceNodeId;
       for (final roll in _rollControllers) {
         if (!_requiresDiameter) roll.diameter.clear();
       }
     });
-    _locationFieldKey.currentState?.didChange(
-      nextLocation.isEmpty ? null : nextLocation,
+    _sourceFieldKey.currentState?.didChange(
+      nextSourceNodeId.isEmpty ? null : nextSourceNodeId,
     );
   }
 
@@ -283,14 +285,14 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
 
   String _submissionIdempotencyKey({
     required ProductionMapSaved order,
-    required String entryApparatus,
-    required String currentLocation,
+    required String sourceApparatus,
+    required String sourceStageNodeId,
     required int rollCount,
   }) {
     final fingerprint = [
       order.map.id.trim(),
-      entryApparatus,
-      currentLocation,
+      sourceApparatus,
+      sourceStageNodeId,
       _noteController.text.trim(),
       '$rollCount',
       _quantityBasis.apiValue,
@@ -310,9 +312,16 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
     if (created == null && !(_formKey.currentState?.validate() ?? false)) {
       return;
     }
-    final selectedLocation =
-        _locationFieldKey.currentState?.value?.trim() ?? '';
-    if (created == null && !_availableLocations.contains(selectedLocation)) {
+    final sourceStageNodeId =
+        _sourceFieldKey.currentState?.value?.trim() ?? '';
+    ProductionMapChainStage? sourceStage;
+    for (final candidate in _availableSourceStages) {
+      if (candidate.nodeId.trim() == sourceStageNodeId) {
+        sourceStage = candidate;
+        break;
+      }
+    }
+    if (created == null && sourceStage == null) {
       setState(() {
         _error = context.l10n.adminText(
           'production.opening_wip.location_missing',
@@ -337,7 +346,8 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
       var record = created;
       if (record == null) {
         final order = _selectedOrder!;
-        final entryApparatus = _openingWipEntryApparatus(order)!;
+        final selectedSource = sourceStage!;
+        final sourceApparatus = selectedSource.apparatusId!.trim();
         final rollCount = int.parse(_rollCountController.text.trim());
         final batches = [
           for (var index = 0; index < rollCount; index++)
@@ -347,23 +357,25 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
           AdminOpeningWipCreateInput(
             idempotencyKey: _submissionIdempotencyKey(
               order: order,
-              entryApparatus: entryApparatus,
-              currentLocation: selectedLocation,
+              sourceApparatus: sourceApparatus,
+              sourceStageNodeId: selectedSource.nodeId,
               rollCount: rollCount,
             ),
             orderId: order.map.id,
-            entryApparatus: entryApparatus,
-            currentLocation: selectedLocation,
+            sourceApparatus: sourceApparatus,
+            sourceStageNodeId: selectedSource.nodeId,
             note: _noteController.text,
             batches: batches,
           ),
         );
         if (!mounted) return;
-        if (record.intake.resumeApparatus.trim() != selectedLocation) {
+        if (record.intake.sourceApparatus.trim() != sourceApparatus ||
+            record.intake.sourceStageNodeId.trim() !=
+                selectedSource.nodeId.trim()) {
           throw const MobileApiException(
-            code: 'opening_wip_resume_mismatch',
+            code: 'opening_wip_source_mismatch',
             message:
-                'Tanlangan joylashuv serverda saqlanmadi. QR chop etilmadi.',
+                'Tanlangan chiqish apparati serverda saqlanmadi. QR chop etilmadi.',
           );
         }
         setState(() => _createdRecord = record);
@@ -473,9 +485,7 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final order = _selectedOrder;
-    final entryApparatus =
-        order == null ? null : _openingWipEntryApparatus(order);
-    final availableLocations = _availableLocations;
+    final availableSourceStages = _availableSourceStages;
     final requiresDiameter = _requiresDiameter;
     final created = _createdRecord;
     return PopScope(
@@ -533,52 +543,46 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                           onChanged: _selectOrder,
                         ),
                         const SizedBox(height: 12),
-                        InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: context.l10n.adminText(
-                              'production.opening_wip.entry_apparatus',
-                            ),
-                          ),
-                          child: Text(
-                            entryApparatus == null
-                                ? '—'
-                                : _apparatusLabel(entryApparatus),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
                         KeyedSubtree(
-                          key: const ValueKey('opening-wip-location'),
+                          key: const ValueKey('opening-wip-source-apparatus'),
                           child: DropdownButtonFormField<String>(
-                            key: _locationFieldKey,
-                            initialValue: _currentLocation.isEmpty
+                            key: _sourceFieldKey,
+                            initialValue: _sourceStageNodeId.isEmpty
                                 ? null
-                                : _currentLocation,
+                                : _sourceStageNodeId,
                             decoration: InputDecoration(
                               labelText: context.l10n.adminText(
-                                'production.opening_wip.current_location',
+                                'production.opening_wip.source_apparatus',
                               ),
                             ),
                             isExpanded: true,
                             items: [
-                              for (final apparatusId in availableLocations)
+                              for (final stage in availableSourceStages)
                                 DropdownMenuItem(
-                                  value: apparatusId,
+                                  value: stage.nodeId,
                                   child: Text(
-                                    _apparatusLabel(apparatusId),
+                                    stage.displayTitle.trim().isEmpty
+                                        ? _apparatusLabel(stage.apparatusId!)
+                                        : stage.displayTitle.trim(),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                             ],
-                            onChanged: availableLocations.isEmpty
+                            onChanged: availableSourceStages.isEmpty
                                 ? null
                                 : (value) {
-                                    setState(
-                                      () => _currentLocation = value ?? '',
-                                    );
+                                    setState(() {
+                                      _sourceStageNodeId = value ?? '';
+                                      for (final roll in _rollControllers) {
+                                        if (!_requiresDiameter) {
+                                          roll.diameter.clear();
+                                        }
+                                      }
+                                    });
                                   },
                             validator: (value) {
-                              if (availableLocations.isEmpty) {
+                              if (availableSourceStages.isEmpty) {
                                 return context.l10n.adminText(
                                   'production.opening_wip.location_missing',
                                 );
