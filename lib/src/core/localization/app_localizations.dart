@@ -2953,6 +2953,11 @@ class AppLocalizations {
       'en': 'Roll {number}',
       'ru': 'Рулон {number}',
     },
+    'worker.opening_wip.epc': {
+      'uz': 'EPC: {epc}',
+      'en': 'EPC: {epc}',
+      'ru': 'EPC: {epc}',
+    },
     'worker.opening_wip.quantity_unknown': {
       'uz': 'Miqdor noma’lum',
       'en': 'Quantity unknown',

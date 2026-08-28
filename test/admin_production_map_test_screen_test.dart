@@ -7487,6 +7487,22 @@ void main() {
           ],
         ),
       );
+      final newerOpeningWip = await MobileApi.instance.adminCreateOpeningWip(
+        const AdminOpeningWipCreateInput(
+          idempotencyKey: 'worker-opening-wip-newer-request',
+          orderId: orderId,
+          sourceApparatus: _print7Id,
+          sourceStageNodeId: 'first-apparatus',
+          batches: [
+            AdminOpeningWipBatchInput(
+              quantityBasis: AdminOpeningWipQuantityBasis.measured,
+              finishedGoodsMeter: 80,
+              finishedGoodsKg: 8,
+              bobinaKg: 1,
+            ),
+          ],
+        ),
+      );
       setMobileApiTestModeQueueActionControlFixture(
         apparatus: _lamination1Id,
         orderId: orderId,
@@ -7538,7 +7554,7 @@ void main() {
       );
       expect(find.text('Opening WIP QR ni skan qiling'), findsOneWidget);
       expect(
-        find.text('Shu order uchun 3 ta Opening WIP ruloni kutilyapti'),
+        find.text('Shu order uchun 4 ta Opening WIP ruloni kutilyapti'),
         findsOneWidget,
       );
       expect(
@@ -7547,7 +7563,7 @@ void main() {
       );
       expect(
         find.text(
-          'QR ni skan qiling — tizim 3 ta rulondan qaysi biri ekanini aniqlaydi',
+          'QR ni skan qiling — tizim 4 ta rulondan qaysi biri ekanini aniqlaydi',
         ),
         findsOneWidget,
       );
@@ -7555,11 +7571,16 @@ void main() {
       expect(find.text('Rulon 1'), findsOneWidget);
       expect(find.text('Rulon 2'), findsOneWidget);
       expect(find.text('Rulon 3'), findsOneWidget);
+      expect(find.text('Rulon 4'), findsOneWidget);
       expect(find.textContaining('Metraj: 100 m'), findsOneWidget);
       expect(find.textContaining('Brutto: 10 kg'), findsOneWidget);
       expect(find.textContaining('Netto: 9 kg'), findsOneWidget);
-      expect(find.textContaining(openingWip.batches.first.qrPayload),
-          findsNothing);
+      for (final batch in [
+        ...newerOpeningWip.batches,
+        ...openingWip.batches,
+      ]) {
+        expect(find.text('EPC: ${batch.qrPayload}'), findsOneWidget);
+      }
       expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
       expect(
         find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
@@ -7596,7 +7617,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Opening WIP ruloni tasdiqlandi'), findsWidgets);
-      expect(find.textContaining('Rulon 1'), findsWidgets);
+      expect(find.textContaining('Rulon 2'), findsWidgets);
       expect(find.textContaining('100 m'), findsOneWidget);
       expect(find.byType(ProductionQuickScannerPanel), findsNothing);
       final armedStartButton = tester.widget<FilledButton>(

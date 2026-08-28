@@ -516,7 +516,10 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
     }
   }
   final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-  final suffix = now.toRadixString(36);
+  final suffix = [
+    DateTime.now().microsecondsSinceEpoch.toRadixString(36),
+    _testModeOpeningWipRecords.length + 1,
+  ].join('-');
   final intakeId = 'opening-wip-test-$suffix';
   final intake = AdminOpeningWipIntake(
     intakeId: intakeId,

@@ -20,6 +20,17 @@ class _OpeningWipQrTile extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final selectedBatch = batch;
+    final selectedBatchIndex = selectedBatch == null
+        ? -1
+        : availableBatches.indexWhere(
+            (candidate) => _openingWipBatchesMatch(
+              candidate,
+              selectedBatch,
+            ),
+          );
+    final selectedRollNumber = selectedBatchIndex >= 0
+        ? selectedBatchIndex + 1
+        : selectedBatch?.sequenceNo ?? 0;
     final waitingCount = availableBatches.length;
     final waitingText = loading
         ? context.l10n.loading
@@ -82,7 +93,7 @@ class _OpeningWipQrTile extends StatelessWidget {
                           ? waitingText
                           : context.l10n.productionText(
                               'worker.opening_wip.roll',
-                              values: {'number': selectedBatch.sequenceNo},
+                              values: {'number': selectedRollNumber},
                             ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -199,11 +210,12 @@ class _OpeningWipBatchList extends StatelessWidget {
               if (index > 0) const SizedBox(height: 8),
               _OpeningWipBatchTile(
                 batch: batches[index],
+                displayNumber: index + 1,
                 selected: selectedBatch != null &&
-                    (selectedBatch!.batchId.trim() ==
-                            batches[index].batchId.trim() ||
-                        selectedBatch!.qrPayload.trim().toUpperCase() ==
-                            batches[index].qrPayload.trim().toUpperCase()),
+                    _openingWipBatchesMatch(
+                      selectedBatch!,
+                      batches[index],
+                    ),
               ),
             ],
           ],
@@ -216,10 +228,12 @@ class _OpeningWipBatchList extends StatelessWidget {
 class _OpeningWipBatchTile extends StatelessWidget {
   const _OpeningWipBatchTile({
     required this.batch,
+    required this.displayNumber,
     required this.selected,
   });
 
   final AdminOpeningWipBatch batch;
+  final int displayNumber;
   final bool selected;
 
   @override
@@ -227,6 +241,7 @@ class _OpeningWipBatchTile extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final details = _openingWipBatchDetails(batch, context.l10n);
+    final epc = batch.qrPayload.trim();
     return Container(
       key: ValueKey('production-order-opening-wip-batch-${batch.batchId}'),
       padding: const EdgeInsets.all(10),
@@ -263,7 +278,7 @@ class _OpeningWipBatchTile extends StatelessWidget {
                 Text(
                   context.l10n.productionText(
                     'worker.opening_wip.roll',
-                    values: {'number': batch.sequenceNo},
+                    values: {'number': displayNumber},
                   ),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w800,
@@ -295,6 +310,21 @@ class _OpeningWipBatchTile extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (epc.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    context.l10n.productionText(
+                      'worker.opening_wip.epc',
+                      values: {'epc': epc},
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurface,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.25,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -302,6 +332,20 @@ class _OpeningWipBatchTile extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _openingWipBatchesMatch(
+  AdminOpeningWipBatch first,
+  AdminOpeningWipBatch second,
+) {
+  final firstBatchId = first.batchId.trim();
+  final secondBatchId = second.batchId.trim();
+  if (firstBatchId.isNotEmpty && firstBatchId == secondBatchId) {
+    return true;
+  }
+  final firstQr = first.qrPayload.trim();
+  final secondQr = second.qrPayload.trim();
+  return firstQr.isNotEmpty && firstQr.toUpperCase() == secondQr.toUpperCase();
 }
 
 List<String> _openingWipBatchDetails(
