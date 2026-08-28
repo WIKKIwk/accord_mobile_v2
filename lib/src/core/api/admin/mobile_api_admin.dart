@@ -1288,7 +1288,7 @@ class AdminApparatusQueueOrderActionControl {
       return false;
     }
     if (value.openingWipMode != AdminQueuePreviousWipMode.notRequired &&
-        previousStage.trim().isNotEmpty) {
+        value.previousWipMode != AdminQueuePreviousWipMode.notRequired) {
       return false;
     }
     final expectedActions = switch (value.mode) {

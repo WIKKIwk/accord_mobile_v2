@@ -557,7 +557,7 @@ void main() {
     expect(map.toJson()['customer_name'], '555 kukuruz');
   });
 
-  test('entry stage accepts the backend Opening WIP scan contract', () {
+  test('resume stage accepts the backend Opening WIP scan contract', () {
     final control = AdminApparatusQueueOrderActionControl.fromJson({
       'state': 'pending',
       'allowed_actions': ['start'],
@@ -571,7 +571,7 @@ void main() {
         'opening_wip_mode': 'scan_required',
         'qolip_mode': 'not_required',
       },
-      'previous_stage': '',
+      'previous_stage': 'apparatus:default:bosma_7',
       'previous_stage_ready': false,
       'complete_requires_full_report': false,
     });
