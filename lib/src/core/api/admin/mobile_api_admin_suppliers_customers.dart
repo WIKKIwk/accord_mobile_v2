@@ -177,7 +177,7 @@ Future<AdminCustomerDetail> _adminMaterialTaminotchiDetailFromPayload(
     // Hydrate them through the stable assignment APIs until every runtime is
     // upgraded to the richer response contract.
     if (!payload.containsKey('assigned_item_groups')) {
-      final assignments = await this.adminRoleAssignments();
+      final assignments = await adminRoleAssignments();
       final assignedGroups = <String>[];
       for (final assignment in assignments) {
         if (_isMaterialRoleAssignmentForRef(assignment, normalizedRef)) {
@@ -282,13 +282,13 @@ Future<AdminCustomerDetail> adminUpdateMaterialTaminotchiItemGroups({
     if (response.statusCode == 404) {
       final normalizedRef = ref.trim().toLowerCase();
       AdminRoleAssignment? existing;
-      for (final assignment in await this.adminRoleAssignments()) {
+      for (final assignment in await adminRoleAssignments()) {
         if (_isMaterialRoleAssignmentForRef(assignment, normalizedRef)) {
           existing = assignment;
           break;
         }
       }
-      await this.adminUpsertRoleAssignment(
+      await adminUpsertRoleAssignment(
         AdminRoleAssignment(
           principalRole: UserRole.materialTaminotchi,
           principalRef: ref.trim(),

@@ -47,13 +47,23 @@ const _domains = <_DomainSpec>[
 
 void main(List<String> args) {
   final apply = args.contains('--apply');
+  final audit = args.contains('--audit');
   final root = Directory(
     _argument(args, '--root') ?? _repositoryRoot(),
   ).absolute;
-  final plan = _SplitPlan.load(root);
+  final plan = _SplitPlan.load(
+    root,
+    sourceCommit: _argument(args, '--source-commit'),
+  );
 
   _verifyPlan(plan);
   _printPlan(plan);
+
+  if (audit) {
+    _verifyWrittenPlan(plan);
+    stdout.writeln('Current checkout matches the verified AST split.');
+    return;
+  }
 
   if (!apply) {
     stdout.writeln('Dry run only. Pass --apply to write the verified split.');
@@ -73,6 +83,19 @@ String? _argument(List<String> args, String name) {
 String _repositoryRoot() {
   final script = File.fromUri(Platform.script).absolute;
   return script.parent.parent.parent.parent.path;
+}
+
+String _readGitFile(Directory root, String commit, String relativePath) {
+  final result = Process.runSync(
+    'git',
+    ['-C', root.path, 'show', '$commit:$relativePath'],
+  );
+  if (result.exitCode != 0) {
+    throw StateError(
+      'Unable to read $relativePath from $commit: ${result.stderr}',
+    );
+  }
+  return result.stdout as String;
 }
 
 class _DomainSpec {
@@ -128,6 +151,8 @@ class _SplitPlan {
     required this.mobileApiPath,
     required this.originalAdminApiSource,
     required this.originalMobileApiSource,
+    required this.existingAdminApiSource,
+    required this.existingMobileApiSource,
     required this.sharedSource,
     required this.generatedSources,
     required this.updatedMobileApiSource,
@@ -140,19 +165,34 @@ class _SplitPlan {
   final File mobileApiPath;
   final String originalAdminApiSource;
   final String originalMobileApiSource;
+  final String existingAdminApiSource;
+  final String existingMobileApiSource;
   final String sharedSource;
   final Map<File, String> generatedSources;
   final String updatedMobileApiSource;
   final List<_DeclarationPiece> declarations;
   final List<_MethodPiece> methods;
 
-  static _SplitPlan load(Directory root) {
+  static _SplitPlan load(
+    Directory root, {
+    String? sourceCommit,
+  }) {
     final adminApiPath = File(
       '${root.path}/lib/src/core/api/admin/mobile_api_admin.dart',
     );
     final mobileApiPath = File('${root.path}/lib/src/core/api/mobile_api.dart');
-    final adminSource = adminApiPath.readAsStringSync();
-    final mobileSource = mobileApiPath.readAsStringSync();
+    final existingAdminSource = adminApiPath.readAsStringSync();
+    final existingMobileSource = mobileApiPath.readAsStringSync();
+    final adminSource = sourceCommit == null
+        ? existingAdminSource
+        : _readGitFile(
+            root,
+            sourceCommit,
+            'lib/src/core/api/admin/mobile_api_admin.dart',
+          );
+    final mobileSource = sourceCommit == null
+        ? existingMobileSource
+        : _readGitFile(root, sourceCommit, 'lib/src/core/api/mobile_api.dart');
     final parsed = parseString(
       content: adminSource,
       path: adminApiPath.path,
@@ -175,7 +215,6 @@ class _SplitPlan {
       );
     }
 
-    final methodDomains = <String, String>{};
     final methods = <_MethodPiece>[];
     for (var index = 0; index < extension.body.members.length; index++) {
       final member = extension.body.members[index];
@@ -186,7 +225,6 @@ class _SplitPlan {
       }
       final name = member.name.lexeme;
       final domain = _methodDomain(name);
-      methodDomains[name] = domain;
       methods.add(
         _MethodPiece(
           order: index,
@@ -235,12 +273,7 @@ class _SplitPlan {
           .where((item) => item.domain == spec.id)
           .toList()
         ..sort((a, b) => a.order.compareTo(b.order));
-      final methodSource = _extensionSource(
-        spec,
-        domainMethods,
-        methodDomains,
-        adminSource,
-      );
+      final methodSource = _extensionSource(spec, domainMethods, adminSource);
       generatedSources[File(
         '${root.path}/lib/src/core/api/admin/${spec.fileName}',
       )] = _partSource([
@@ -256,6 +289,8 @@ class _SplitPlan {
       mobileApiPath: mobileApiPath,
       originalAdminApiSource: adminSource,
       originalMobileApiSource: mobileSource,
+      existingAdminApiSource: existingAdminSource,
+      existingMobileApiSource: existingMobileSource,
       sharedSource: sharedSource,
       generatedSources: generatedSources,
       updatedMobileApiSource: updatedMobileApiSource,
@@ -360,31 +395,20 @@ String _partSource(Iterable<String> parts) {
 String _extensionSource(
   _DomainSpec spec,
   List<_MethodPiece> methods,
-  Map<String, String> methodDomains,
   String originalSource,
 ) {
   if (methods.isEmpty) return '';
   final body = methods
       .map(
-        (piece) => _transformMethod(
-          piece,
-          methodDomains,
-          originalSource,
-        ).trim(),
+        (piece) => _transformBaseUrl(piece, originalSource).trim(),
       )
       .join('\n\n');
   return 'extension ${spec.extensionName} on MobileApi {\n$body\n}\n';
 }
 
-String _transformMethod(
-  _MethodPiece piece,
-  Map<String, String> methodDomains,
-  String originalSource,
-) {
-  final visitor = _CrossExtensionReferenceVisitor(
+String _transformBaseUrl(_MethodPiece piece, String originalSource) {
+  final visitor = _BaseUrlReferenceVisitor(
     methodOffset: piece.method.offset,
-    callerDomain: piece.domain,
-    methodDomains: methodDomains,
     source: originalSource,
   );
   piece.method.accept(visitor);
@@ -407,32 +431,15 @@ class _Replacement {
   final String text;
 }
 
-class _CrossExtensionReferenceVisitor extends RecursiveAstVisitor<void> {
-  _CrossExtensionReferenceVisitor({
+class _BaseUrlReferenceVisitor extends RecursiveAstVisitor<void> {
+  _BaseUrlReferenceVisitor({
     required this.methodOffset,
-    required this.callerDomain,
-    required this.methodDomains,
     required this.source,
   });
 
   final int methodOffset;
-  final String callerDomain;
-  final Map<String, String> methodDomains;
   final String source;
   final List<_Replacement> replacements = [];
-
-  @override
-  void visitMethodInvocation(MethodInvocation node) {
-    if (node.target == null) {
-      final name = node.methodName.name;
-      final calleeDomain = methodDomains[name];
-      if (calleeDomain != null && calleeDomain != callerDomain) {
-        replacements.add(_Replacement(
-            node.methodName.offset, node.methodName.offset, 'this.'));
-      }
-    }
-    super.visitMethodInvocation(node);
-  }
 
   @override
   void visitSimpleIdentifier(SimpleIdentifier node) {
@@ -488,7 +495,9 @@ void _verifyPlan(_SplitPlan plan) {
   }
 
   final generatedDeclarations = <String, int>{};
+  final generatedDeclarationSources = <String, List<String>>{};
   final generatedMethods = <String, int>{};
+  final generatedMethodSources = <String, List<String>>{};
   for (final entry in <File, String>{
     plan.adminApiPath: plan.sharedSource,
     ...plan.generatedSources,
@@ -513,6 +522,9 @@ void _verifyPlan(_SplitPlan plan) {
               (count) => count + 1,
               ifAbsent: () => 1,
             );
+            generatedMethodSources
+                .putIfAbsent(member.name.lexeme, () => [])
+                .add(entry.value.substring(member.offset, member.end).trim());
           }
         }
       } else {
@@ -528,6 +540,8 @@ void _verifyPlan(_SplitPlan plan) {
           (count) => count + 1,
           ifAbsent: () => 1,
         );
+        generatedDeclarationSources.putIfAbsent(piece.key, () => []).add(
+            entry.value.substring(declaration.offset, declaration.end).trim());
       }
     }
   }
@@ -537,6 +551,13 @@ void _verifyPlan(_SplitPlan plan) {
       throw StateError(
         'Declaration ${declaration.key} was not emitted exactly once: '
         '${generatedDeclarations[declaration.key] ?? 0}.',
+      );
+    }
+    final generatedSource =
+        generatedDeclarationSources[declaration.key]!.single;
+    if (generatedSource != declaration.source.trim()) {
+      throw StateError(
+        'Declaration ${declaration.key} was modified during extraction.',
       );
     }
   }
@@ -549,6 +570,16 @@ void _verifyPlan(_SplitPlan plan) {
       throw StateError(
         'Extension method ${method.name} was not emitted exactly once: '
         '${generatedMethods[method.name] ?? 0}.',
+      );
+    }
+    final generatedSource = generatedMethodSources[method.name]!.single;
+    final expectedSource = _transformBaseUrl(
+      method,
+      plan.originalAdminApiSource,
+    ).trim();
+    if (generatedSource != expectedSource) {
+      throw StateError(
+        'Extension method ${method.name} differs from its AST-derived output.',
       );
     }
   }
@@ -600,8 +631,8 @@ String _fileNameForDomain(String domain) {
 
 void _applyPlan(_SplitPlan plan) {
   final originalFiles = <File, String>{
-    plan.adminApiPath: plan.originalAdminApiSource,
-    plan.mobileApiPath: plan.originalMobileApiSource,
+    plan.adminApiPath: plan.existingAdminApiSource,
+    plan.mobileApiPath: plan.existingMobileApiSource,
   };
   for (final file in plan.generatedSources.keys) {
     if (file.existsSync()) originalFiles[file] = file.readAsStringSync();
