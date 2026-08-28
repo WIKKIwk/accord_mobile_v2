@@ -2,6 +2,8 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _OpeningWipQrTile extends StatelessWidget {
   const _OpeningWipQrTile({
+    required this.previousStage,
+    required this.apparatusCatalog,
     required this.ready,
     required this.batch,
     required this.availableBatches,
@@ -9,6 +11,8 @@ class _OpeningWipQrTile extends StatelessWidget {
     required this.error,
   });
 
+  final String previousStage;
+  final List<AdminApparatus> apparatusCatalog;
   final bool ready;
   final AdminOpeningWipBatch? batch;
   final List<AdminOpeningWipBatch> availableBatches;
@@ -17,388 +21,61 @@ class _OpeningWipQrTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final selectedBatch = batch;
-    final selectedBatchIndex = selectedBatch == null
-        ? -1
-        : availableBatches.indexWhere(
-            (candidate) => _openingWipBatchesMatch(
-              candidate,
-              selectedBatch,
-            ),
-          );
-    final selectedRollNumber = selectedBatchIndex >= 0
-        ? selectedBatchIndex + 1
-        : selectedBatch?.sequenceNo ?? 0;
-    final waitingCount = availableBatches.length;
-    final waitingText = loading
-        ? context.l10n.loading
-        : error.trim().isNotEmpty
-            ? error.trim()
-            : waitingCount == 0
-                ? context.l10n.productionText('worker.opening_wip.none')
-                : context.l10n.productionText(
-                    'worker.opening_wip.waiting_count',
-                    values: {'count': waitingCount},
-                  );
-    return Container(
+    final progressBatches = availableBatches
+        .map((item) => _openingWipAsProgressBatch(item, previousStage))
+        .toList(growable: false);
+    final selectedProgressBatch = batch == null
+        ? null
+        : _openingWipAsProgressBatch(batch!, previousStage);
+    return _PreviousProgressQrTile(
       key: const ValueKey('production-order-opening-wip-input'),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: ready
-            ? scheme.primaryContainer.withValues(alpha: 0.45)
-            : scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: ready
-                      ? scheme.primary.withValues(alpha: 0.14)
-                      : scheme.surface,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  ready ? Icons.check_rounded : Icons.qr_code_scanner_rounded,
-                  color: ready ? scheme.primary : scheme.onSurfaceVariant,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.l10n.productionText(
-                        ready
-                            ? 'worker.opening_wip.confirmed'
-                            : 'worker.opening_wip.scan',
-                      ),
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      selectedBatch == null
-                          ? waitingText
-                          : context.l10n.productionText(
-                              'worker.opening_wip.roll',
-                              values: {'number': selectedRollNumber},
-                            ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (!ready && !loading && error.trim().isEmpty) ...[
-                const SizedBox(width: 8),
-                Container(
-                  key: const ValueKey('production-order-opening-wip-count'),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    context.l10n.productionCount(waitingCount),
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: scheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 12),
-          _OpeningWipBatchList(
-            selectedBatch: selectedBatch,
-            batches: availableBatches,
-            loading: loading,
-            error: error,
-          ),
-        ],
-      ),
+      previousStage: previousStage,
+      apparatusCatalog: apparatusCatalog,
+      ready: ready,
+      batch: selectedProgressBatch,
+      availableBatches: progressBatches,
+      loading: loading,
+      error: error,
     );
   }
 }
 
-class _OpeningWipBatchList extends StatelessWidget {
-  const _OpeningWipBatchList({
-    required this.selectedBatch,
-    required this.batches,
-    required this.loading,
-    required this.error,
-  });
-
-  final AdminOpeningWipBatch? selectedBatch;
-  final List<AdminOpeningWipBatch> batches;
-  final bool loading;
-  final String error;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Container(
-      key: const ValueKey('production-order-opening-wip-list'),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            context.l10n.productionText('worker.opening_wip.products'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            context.l10n.productionText(
-              'worker.opening_wip.list_summary',
-              values: {'count': batches.length},
-            ),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (loading) ...[
-            const SizedBox(height: 10),
-            LinearProgressIndicator(color: scheme.primary),
-          ] else if (error.trim().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              error,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.error,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ] else if (batches.isEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              context.l10n.productionText('worker.opening_wip.none'),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ] else ...[
-            const SizedBox(height: 10),
-            for (var index = 0; index < batches.length; index++) ...[
-              if (index > 0) const SizedBox(height: 8),
-              _OpeningWipBatchTile(
-                batch: batches[index],
-                displayNumber: index + 1,
-                selected: selectedBatch != null &&
-                    _openingWipBatchesMatch(
-                      selectedBatch!,
-                      batches[index],
-                    ),
-              ),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _OpeningWipBatchTile extends StatelessWidget {
-  const _OpeningWipBatchTile({
-    required this.batch,
-    required this.displayNumber,
-    required this.selected,
-  });
-
-  final AdminOpeningWipBatch batch;
-  final int displayNumber;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final details = _openingWipBatchDetails(batch, context.l10n);
-    final epc = batch.qrPayload.trim();
-    return Container(
-      key: ValueKey('production-order-opening-wip-batch-${batch.batchId}'),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: selected
-            ? scheme.primaryContainer.withValues(alpha: 0.62)
-            : scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(10),
-        border: selected ? Border.all(color: scheme.primary, width: 1.4) : null,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: selected
-                  ? scheme.primary.withValues(alpha: 0.14)
-                  : scheme.surface,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              selected ? Icons.check_rounded : Icons.qr_code_scanner_rounded,
-              color: scheme.primary,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.productionText(
-                    'worker.opening_wip.roll',
-                    values: {'number': displayNumber},
-                  ),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  selected
-                      ? context.l10n.productionText(
-                          'worker.opening_wip.confirmed',
-                        )
-                      : context.l10n.productionText(
-                          'worker.progress.scan_required',
-                        ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (details.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    details.join(' • '),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-                if (epc.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    context.l10n.productionText(
-                      'worker.opening_wip.epc',
-                      values: {'epc': epc},
-                    ),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurface,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.25,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-bool _openingWipBatchesMatch(
-  AdminOpeningWipBatch first,
-  AdminOpeningWipBatch second,
-) {
-  final firstBatchId = first.batchId.trim();
-  final secondBatchId = second.batchId.trim();
-  if (firstBatchId.isNotEmpty && firstBatchId == secondBatchId) {
-    return true;
-  }
-  final firstQr = first.qrPayload.trim();
-  final secondQr = second.qrPayload.trim();
-  return firstQr.isNotEmpty && firstQr.toUpperCase() == secondQr.toUpperCase();
-}
-
-List<String> _openingWipBatchDetails(
+AdminProgressBatch _openingWipAsProgressBatch(
   AdminOpeningWipBatch batch,
-  AppLocalizations l10n,
+  String sourceApparatus,
 ) {
-  final details = <String>[];
-  final meter = batch.finishedGoodsMeter;
-  final grossKg = batch.finishedGoodsKg;
-  final bobinaKg = batch.bobinaKg;
-  if (meter != null) {
-    details.add(
-      l10n.productionText(
-        'worker.opening_wip.metric.meter',
-        values: {'value': _productionMapQtyLabel(meter)},
-      ),
-    );
-  }
-  if (grossKg != null) {
-    details.add(
-      l10n.productionText(
-        'worker.opening_wip.metric.gross',
-        values: {'value': _productionMapQtyLabel(grossKg)},
-      ),
-    );
-    if (bobinaKg != null) {
-      final netKg = grossKg > bobinaKg ? grossKg - bobinaKg : 0.0;
-      details.add(
-        l10n.productionText(
-          'worker.opening_wip.metric.net',
-          values: {'value': _productionMapQtyLabel(netKg)},
-        ),
-      );
-    }
-  }
-  if (batch.diameter != null) {
-    details.add(
-      l10n.productionText(
-        'worker.opening_wip.metric.diameter',
-        values: {'value': _productionMapQtyLabel(batch.diameter!)},
-      ),
-    );
-  }
-  if (details.isEmpty && batch.quantity != null) {
-    details.add(
-      '${_productionMapQtyLabel(batch.quantity!)} ${batch.uom}'.trim(),
-    );
-  }
-  return details;
+  return AdminProgressBatch(
+    batchId: batch.batchId,
+    sessionId: batch.intakeId,
+    apparatus: sourceApparatus,
+    orderId: batch.orderId,
+    action: '',
+    status: batch.wipStatus,
+    producedQty: batch.quantity ??
+        batch.finishedGoodsMeter ??
+        batch.finishedGoodsKg ??
+        0,
+    uom: batch.uom,
+    qrPayload: batch.qrPayload,
+    labelItemCode: batch.labelItemCode,
+    labelItemName: batch.labelItemName,
+    executorName: '',
+    diameter: batch.diameter,
+    finishedGoodsKg: batch.finishedGoodsKg,
+    bobinaKg: batch.bobinaKg,
+    finishedGoodsMeter: batch.finishedGoodsMeter,
+    wipStatus: batch.wipStatus,
+    currentApparatus: batch.usedByApparatus,
+    usedBySessionId: batch.usedBySessionId,
+    usedByApparatus: batch.usedByApparatus,
+    processedBySessionId: batch.processedBySessionId,
+    processedByApparatus: batch.processedByApparatus,
+  );
 }
 
 class _PreviousProgressQrTile extends StatelessWidget {
   const _PreviousProgressQrTile({
+    super.key,
     required this.previousStage,
     required this.apparatusCatalog,
     required this.ready,

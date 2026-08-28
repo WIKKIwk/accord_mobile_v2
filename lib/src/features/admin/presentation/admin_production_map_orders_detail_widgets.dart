@@ -1261,6 +1261,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             if (showRezkaInputProgressScan) ...[
               if (openingWipRequired)
                 _OpeningWipQrTile(
+                  previousStage: previousStage ?? '',
+                  apparatusCatalog: apparatusCatalog,
                   ready: previousProgressReady,
                   batch: openingWipBatch,
                   availableBatches: openingWipBatches,
