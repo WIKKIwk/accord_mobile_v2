@@ -2921,6 +2921,21 @@ class AppLocalizations {
       'en': 'Select this order’s pre-ERP roll',
       'ru': 'Выберите рулон этого заказа, созданный до запуска ERP',
     },
+    'worker.opening_wip.waiting_count': {
+      'uz': 'Shu order uchun {count} ta Opening WIP ruloni kutilyapti',
+      'en': '{count} Opening WIP rolls are waiting for this order',
+      'ru': 'Для этого заказа ожидается рулонов Opening WIP: {count}',
+    },
+    'worker.opening_wip.none': {
+      'uz': 'Shu order uchun mos Opening WIP ruloni qolmagan',
+      'en': 'No matching Opening WIP rolls remain for this order',
+      'ru': 'Для этого заказа не осталось подходящих рулонов Opening WIP',
+    },
+    'worker.opening_wip.scanner_prompt': {
+      'uz': '{count} ta Opening WIP QR’dan birini tirqishga olib keling',
+      'en': 'Present one of {count} Opening WIP QR codes to the scanner',
+      'ru': 'Поднесите к сканеру один из QR Opening WIP: {count}',
+    },
     'worker.opening_wip.confirmed': {
       'uz': 'Opening WIP ruloni tasdiqlandi',
       'en': 'Opening WIP roll confirmed',

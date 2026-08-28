@@ -7472,6 +7472,18 @@ void main() {
               finishedGoodsKg: 10,
               bobinaKg: 1,
             ),
+            AdminOpeningWipBatchInput(
+              quantityBasis: AdminOpeningWipQuantityBasis.measured,
+              finishedGoodsMeter: 95,
+              finishedGoodsKg: 9.5,
+              bobinaKg: 1,
+            ),
+            AdminOpeningWipBatchInput(
+              quantityBasis: AdminOpeningWipQuantityBasis.measured,
+              finishedGoodsMeter: 90,
+              finishedGoodsKg: 9,
+              bobinaKg: 1,
+            ),
           ],
         ),
       );
@@ -7525,6 +7537,18 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Opening WIP QR ni skan qiling'), findsOneWidget);
+      expect(
+        find.text('Shu order uchun 3 ta Opening WIP ruloni kutilyapti'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('production-order-opening-wip-count')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('3 ta Opening WIP QR’dan birini tirqishga olib keling'),
+        findsOneWidget,
+      );
       expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
       var startButton = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Boshlash'),
@@ -7555,7 +7579,7 @@ void main() {
 
       await tester.enterText(
         find.byKey(const ValueKey('production-quick-scanner-manual')),
-        openingWip.batches.single.qrPayload,
+        openingWip.batches.first.qrPayload,
       );
       await tester.tap(find.byTooltip('Qabul qilish'));
       await tester.pumpAndSettle();

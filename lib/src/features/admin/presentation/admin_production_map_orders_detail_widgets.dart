@@ -27,6 +27,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onToggleIntakeCandidatesExpanded,
     required this.previousProgressBatch,
     required this.openingWipBatch,
+    required this.openingWipBatches,
     required this.inputProgressBatches,
     required this.inputProgressLoading,
     required this.inputProgressError,
@@ -88,6 +89,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onToggleIntakeCandidatesExpanded;
   final AdminProgressBatch? previousProgressBatch;
   final AdminOpeningWipBatch? openingWipBatch;
+  final List<AdminOpeningWipBatch> openingWipBatches;
   final List<AdminProgressBatch> inputProgressBatches;
   final bool inputProgressLoading;
   final String inputProgressError;
@@ -236,6 +238,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     previousProgressReady: uiState.previousProgressReady,
                     previousProgressBatch: previousProgressBatch,
                     openingWipBatch: openingWipBatch,
+                    openingWipBatches: openingWipBatches,
                     inputProgressBatches: inputProgressBatches,
                     inputProgressLoading: inputProgressLoading,
                     inputProgressError: inputProgressError,
@@ -812,6 +815,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.previousProgressReady,
     required this.previousProgressBatch,
     required this.openingWipBatch,
+    required this.openingWipBatches,
     required this.inputProgressBatches,
     required this.inputProgressLoading,
     required this.inputProgressError,
@@ -880,6 +884,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool previousProgressReady;
   final AdminProgressBatch? previousProgressBatch;
   final AdminOpeningWipBatch? openingWipBatch;
+  final List<AdminOpeningWipBatch> openingWipBatches;
   final List<AdminProgressBatch> inputProgressBatches;
   final bool inputProgressLoading;
   final String inputProgressError;
@@ -1257,6 +1262,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 _OpeningWipQrTile(
                   ready: previousProgressReady,
                   batch: openingWipBatch,
+                  availableBatches: openingWipBatches,
+                  loading: inputProgressLoading,
+                  error: inputProgressError,
                 )
               else
                 _PreviousProgressQrTile(

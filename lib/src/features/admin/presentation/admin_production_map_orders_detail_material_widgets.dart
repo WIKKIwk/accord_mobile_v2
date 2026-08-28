@@ -1,10 +1,19 @@
 part of 'admin_production_map_orders_screen.dart';
 
 class _OpeningWipQrTile extends StatelessWidget {
-  const _OpeningWipQrTile({required this.ready, required this.batch});
+  const _OpeningWipQrTile({
+    required this.ready,
+    required this.batch,
+    required this.availableBatches,
+    required this.loading,
+    required this.error,
+  });
 
   final bool ready;
   final AdminOpeningWipBatch? batch;
+  final List<AdminOpeningWipBatch> availableBatches;
+  final bool loading;
+  final String error;
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +29,17 @@ class _OpeningWipQrTile extends StatelessWidget {
         ? context.l10n.productionText('worker.opening_wip.quantity_unknown')
         : '${_productionMapQtyLabel(selectedBatch!.quantity!)} ${selectedBatch.uom}'
             .trim();
+    final waitingCount = availableBatches.length;
+    final waitingText = loading
+        ? context.l10n.loading
+        : error.trim().isNotEmpty
+            ? error.trim()
+            : waitingCount == 0
+                ? context.l10n.productionText('worker.opening_wip.none')
+                : context.l10n.productionText(
+                    'worker.opening_wip.waiting_count',
+                    values: {'count': waitingCount},
+                  );
     return Container(
       key: const ValueKey('production-order-opening-wip-input'),
       padding: const EdgeInsets.all(12),
@@ -65,9 +85,7 @@ class _OpeningWipQrTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   selectedBatch == null
-                      ? context.l10n.productionText(
-                          'worker.opening_wip.scan_hint',
-                        )
+                      ? waitingText
                       : [
                           if (itemLabel.isNotEmpty) itemLabel,
                           context.l10n.productionText(
@@ -86,6 +104,24 @@ class _OpeningWipQrTile extends StatelessWidget {
               ],
             ),
           ),
+          if (!ready && !loading && error.trim().isEmpty) ...[
+            const SizedBox(width: 8),
+            Container(
+              key: const ValueKey('production-order-opening-wip-count'),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                context.l10n.productionCount(waitingCount),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: scheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

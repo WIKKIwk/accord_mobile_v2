@@ -124,6 +124,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   bool get _materialIntakeInFlight => _materialIntakeActiveCount > 0;
 
+  String _defaultQuickScanStatus() {
+    final openingWipRequired =
+        _queueActionControl?.interaction?.openingWipMode ==
+            AdminQueuePreviousWipMode.scanRequired;
+    final waitingCount = _availableOpeningWipBatches.length;
+    if (openingWipRequired && waitingCount > 0) {
+      return context.l10n.productionText(
+        'worker.opening_wip.scanner_prompt',
+        values: {'count': waitingCount},
+      );
+    }
+    return context.l10n.productionText('worker.scanner.prompt');
+  }
+
   bool get _isTrainingOrder =>
       widget.order.map.id.trim().startsWith('training-');
 
@@ -184,14 +198,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     super.didChangeDependencies();
     final localeCode = context.l10n.locale.languageCode;
     if (_quickScanLocaleCode.isNotEmpty && _quickScanLocaleCode != localeCode) {
-      _quickScanStatus = context.l10n.productionText('worker.scanner.prompt');
+      _quickScanStatus = _defaultQuickScanStatus();
       _qolipRequirementsError = '';
       _materialsError = '';
       _inputProgressError = '';
     }
     _quickScanLocaleCode = localeCode;
     if (_quickScanStatus.isEmpty) {
-      _quickScanStatus = context.l10n.productionText('worker.scanner.prompt');
+      _quickScanStatus = _defaultQuickScanStatus();
     }
   }
 
@@ -223,13 +237,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _startMaterialsExpanded = false;
       _intakeCandidatesExpanded = false;
       _qolipsExpanded = false;
-      _quickScanStatus = context.l10n.productionText('worker.scanner.prompt');
       _materialIntakeMode = false;
       _seenQuickScanValues.clear();
       _startInputProgressBatch = null;
       _startInputOpeningWipBatch = null;
       _availableInputProgressBatches = const [];
       _availableOpeningWipBatches = const [];
+      _quickScanStatus = _defaultQuickScanStatus();
       _inputProgressError = '';
       _inputProgressLoading = false;
       _returnedPaintDraft = null;
@@ -1672,6 +1686,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           _availableInputProgressBatches = const [];
           _inputProgressLoading = false;
           _inputProgressError = '';
+          _quickScanStatus = context.l10n.productionText(
+            'worker.opening_wip.scanner_prompt',
+            values: {'count': batches.length},
+          );
           final currentBatch = _startInputOpeningWipBatch;
           _startInputOpeningWipBatch = currentBatch == null
               ? null
@@ -1858,6 +1876,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         },
         previousProgressBatch: _startInputProgressBatch,
         openingWipBatch: _startInputOpeningWipBatch,
+        openingWipBatches: _availableOpeningWipBatches,
         inputProgressBatches: _availableInputProgressBatches,
         inputProgressLoading: _inputProgressLoading,
         inputProgressError: _inputProgressError,
