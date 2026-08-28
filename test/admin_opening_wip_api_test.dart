@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _laminationId = 'apparatus:default:asset-007';
+const _printingId = 'apparatus:default:bosma_7';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -50,6 +51,8 @@ void main() {
         'entry_apparatus': _laminationId,
         'source_operation': 'Bosma',
         'current_location': 'Laminatsiya oldi',
+        'resume_apparatus': _laminationId,
+        'resume_stage_node_id': 'lamination',
         'history_status': 'unavailable_before_cutover',
         'status': 'confirmed',
         'actor': {
@@ -83,6 +86,8 @@ void main() {
     });
 
     expect(record.intake.historyStatus, 'unavailable_before_cutover');
+    expect(record.intake.resumeApparatus, _laminationId);
+    expect(record.intake.resumeStageNodeId, 'lamination');
     expect(record.intake.actorDisplayName, 'Admin One');
     expect(
       record.batches.single.quantityBasis,
@@ -100,7 +105,7 @@ void main() {
     const input = AdminOpeningWipCreateInput(
       idempotencyKey: 'opening-wip-request-1',
       orderId: 'ORDER-1',
-      entryApparatus: _laminationId,
+      entryApparatus: _printingId,
       currentLocation: _laminationId,
       batches: [
         AdminOpeningWipBatchInput(
@@ -126,6 +131,9 @@ void main() {
     );
 
     expect(created.batches, hasLength(2));
+    expect(created.intake.entryApparatus, _printingId);
+    expect(created.intake.resumeApparatus, _laminationId);
+    expect(created.intake.resumeStageNodeId, 'lamination');
     expect(replayed.intake.intakeId, created.intake.intakeId);
     expect(records, hasLength(1));
 
@@ -139,7 +147,7 @@ void main() {
         phone: '',
         avatarUrl: '',
         capabilities: ['apparatus.queue.manage'],
-        assignedApparatus: [_laminationId],
+        assignedApparatus: [_printingId, _laminationId],
       ),
     );
     final lookedUp = await MobileApi.instance.adminLookupOpeningWip(
@@ -148,6 +156,20 @@ void main() {
       qrPayload: created.batches.first.qrPayload,
     );
     expect(lookedUp.batchId, created.batches.first.batchId);
+    await expectLater(
+      MobileApi.instance.adminLookupOpeningWip(
+        apparatus: _printingId,
+        orderId: 'ORDER-1',
+        qrPayload: created.batches.first.qrPayload,
+      ),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'opening_wip_qr_mismatch',
+        ),
+      ),
+    );
     await expectLater(
       MobileApi.instance.adminLookupOpeningWip(
         apparatus: _laminationId,
@@ -181,7 +203,7 @@ void main() {
         const AdminOpeningWipCreateInput(
           idempotencyKey: 'opening-wip-request-1',
           orderId: 'ORDER-1',
-          entryApparatus: _laminationId,
+          entryApparatus: _printingId,
           currentLocation: _laminationId,
           note: 'conflicting replay',
           batches: [
@@ -213,6 +235,12 @@ ProductionMapDefinition _openingWipMap() {
     nodes: [
       ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
       ProductionMapNode(
+        id: 'printing',
+        kind: 'apparatus',
+        title: '7 ta rangli bosma aparat',
+        apparatusId: _printingId,
+      ),
+      ProductionMapNode(
         id: 'lamination',
         kind: 'apparatus',
         title: 'Laminatsiya 1',
@@ -221,7 +249,8 @@ ProductionMapDefinition _openingWipMap() {
       ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
     ],
     edges: [
-      ProductionMapEdge(from: 'start', to: 'lamination'),
+      ProductionMapEdge(from: 'start', to: 'printing'),
+      ProductionMapEdge(from: 'printing', to: 'lamination'),
       ProductionMapEdge(from: 'lamination', to: 'end'),
     ],
   );

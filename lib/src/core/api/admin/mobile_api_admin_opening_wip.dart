@@ -80,6 +80,8 @@ class AdminOpeningWipIntake {
     required this.sourceOperation,
     required this.sourceApparatus,
     required this.currentLocation,
+    required this.resumeApparatus,
+    required this.resumeStageNodeId,
     required this.historyStatus,
     required this.status,
     required this.note,
@@ -97,6 +99,8 @@ class AdminOpeningWipIntake {
   final String sourceOperation;
   final String sourceApparatus;
   final String currentLocation;
+  final String resumeApparatus;
+  final String resumeStageNodeId;
   final String historyStatus;
   final String status;
   final String note;
@@ -119,6 +123,8 @@ class AdminOpeningWipIntake {
       sourceOperation: json['source_operation']?.toString().trim() ?? '',
       sourceApparatus: json['source_apparatus']?.toString().trim() ?? '',
       currentLocation: json['current_location']?.toString().trim() ?? '',
+      resumeApparatus: json['resume_apparatus']?.toString().trim() ?? '',
+      resumeStageNodeId: json['resume_stage_node_id']?.toString().trim() ?? '',
       historyStatus: json['history_status']?.toString().trim() ?? '',
       status: json['status']?.toString().trim() ?? '',
       note: json['note']?.toString().trim() ?? '',
@@ -476,6 +482,8 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
     currentLocation: locationStage.displayTitle.trim().isEmpty
         ? input.currentLocation.trim()
         : locationStage.displayTitle.trim(),
+    resumeApparatus: locationStage.apparatusId?.trim() ?? '',
+    resumeStageNodeId: locationStage.nodeId.trim(),
     historyStatus: 'unavailable_before_cutover',
     status: 'confirmed',
     note: input.note.trim(),
@@ -538,7 +546,7 @@ AdminOpeningWipBatch _testModeLookupOpeningWip({
   }
   for (final record in _testModeOpeningWipRecords) {
     if (record.intake.orderId.trim() != normalizedOrderId ||
-        record.intake.entryApparatus.trim() != normalizedApparatus ||
+        record.intake.resumeApparatus.trim() != normalizedApparatus ||
         record.intake.status.trim().toLowerCase() != 'confirmed') {
       continue;
     }
@@ -568,6 +576,8 @@ bool _testModeOpeningWipMatchesInput(
   if (intake.orderId != input.orderId.trim() ||
       intake.entryApparatus != input.entryApparatus.trim() ||
       intake.currentLocation != currentLocation ||
+      intake.resumeApparatus != (locationStage.apparatusId?.trim() ?? '') ||
+      intake.resumeStageNodeId != locationStage.nodeId.trim() ||
       intake.note != input.note.trim() ||
       record.batches.length != input.batches.length) {
     return false;
