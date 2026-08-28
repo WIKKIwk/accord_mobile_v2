@@ -36,7 +36,14 @@ import 'json_payload_decoder.dart';
 
 part 'admin/mobile_api_admin.dart';
 part 'admin/mobile_api_admin_settings_monitor.dart';
-part 'admin/mobile_api_admin_production_queue.dart';
+part 'admin/mobile_api_admin_production_queue_runtime.dart';
+part 'admin/mobile_api_admin_queue_models.dart';
+part 'admin/mobile_api_admin_order_lifecycle.dart';
+part 'admin/mobile_api_admin_production_map.dart';
+part 'admin/mobile_api_admin_capacity_schedule.dart';
+part 'admin/mobile_api_admin_queue_state.dart';
+part 'admin/mobile_api_admin_queue_actions.dart';
+part 'admin/mobile_api_admin_users_list.dart';
 part 'admin/mobile_api_admin_raw_materials.dart';
 part 'admin/mobile_api_admin_progress_qr.dart';
 part 'admin/mobile_api_admin_users_workers.dart';
