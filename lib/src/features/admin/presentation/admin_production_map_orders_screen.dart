@@ -80,6 +80,7 @@ part 'admin_production_map_orders_move_module.dart';
 part 'admin_production_map_orders_progress_printer.dart';
 part 'admin_production_map_orders_progress_qty.dart';
 part 'admin_production_map_orders_module_pages.dart';
+part 'admin_production_map_orders_opening_wip.dart';
 part 'admin_production_map_orders_wip_history_sheet.dart';
 part 'admin_production_map_orders_models.dart';
 part 'admin_production_map_orders_calculation_helpers.dart';
@@ -1499,6 +1500,7 @@ class _AdminProductionMapOrdersScreenState
                               workflowAuditLoading: _workflowAuditLoading,
                               onRefreshWorkflowAudit: () =>
                                   _refreshWorkflowAudit(force: true),
+                              onCreateOpeningWip: _showOpeningWipWizard,
                               onLongPressOrder: (order) {
                                 unawaited(
                                   widget.supplyViewerMode && isQolipchi

@@ -151,6 +151,8 @@ bool _queueActionControlsEqual(
             other.interaction?.materialIntakeAllowed ||
         control.interaction?.previousWipMode !=
             other.interaction?.previousWipMode ||
+        control.interaction?.openingWipMode !=
+            other.interaction?.openingWipMode ||
         control.interaction?.qolipMode != other.interaction?.qolipMode ||
         control.interaction?.blockingReasonCode !=
             other.interaction?.blockingReasonCode ||

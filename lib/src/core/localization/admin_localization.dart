@@ -6604,6 +6604,155 @@ const Map<String, Map<String, String>> adminTranslations = {
     'en': 'No open orders',
     'ru': 'Открытых заказов нет',
   },
+  'admin.production.opening_wip.action': {
+    'uz': 'Opening WIP',
+    'en': 'Opening WIP',
+    'ru': 'Начальный WIP',
+  },
+  'admin.production.opening_wip.open': {
+    'uz': 'Kiritish',
+    'en': 'Open',
+    'ru': 'Открыть',
+  },
+  'admin.production.opening_wip.title': {
+    'uz': 'Boshlang‘ich yarim tayyor mahsulot',
+    'en': 'Opening work in progress',
+    'ru': 'Начальное незавершённое производство',
+  },
+  'admin.production.opening_wip.description': {
+    'uz': 'ERP boshlanishidan oldingi rulonlarni QR bilan tizimga kiriting',
+    'en': 'Register pre-ERP rolls with traceable QR labels',
+    'ru': 'Зарегистрируйте рулоны до запуска ERP с QR-метками',
+  },
+  'admin.production.opening_wip.cutover_notice': {
+    'uz':
+        'Bu fake ishlab chiqarish tarixi emas. Tizim aynan shu rulondan boshlab tarix yuritadi; undan oldingi jarayon “mavjud emas” deb qayd etiladi.',
+    'en':
+        'This does not create fake production history. Tracking starts from these rolls, and earlier history is recorded as unavailable.',
+    'ru':
+        'Это не создаёт фиктивную историю производства. Учёт начинается с этих рулонов, а ранняя история отмечается как недоступная.',
+  },
+  'admin.production.opening_wip.order': {
+    'uz': 'Buyurtma',
+    'en': 'Order',
+    'ru': 'Заказ',
+  },
+  'admin.production.opening_wip.entry_apparatus': {
+    'uz': 'Ish boshlanadigan aparat',
+    'en': 'Entry apparatus',
+    'ru': 'Начальное оборудование',
+  },
+  'admin.production.opening_wip.source_operation': {
+    'uz': 'Oldingi operatsiya',
+    'en': 'Previous operation',
+    'ru': 'Предыдущая операция',
+  },
+  'admin.production.opening_wip.source_apparatus': {
+    'uz': 'Oldingi aparat (ixtiyoriy)',
+    'en': 'Previous apparatus (optional)',
+    'ru': 'Предыдущее оборудование (необязательно)',
+  },
+  'admin.production.opening_wip.source_none': {
+    'uz': 'Noma’lum / tanlanmagan',
+    'en': 'Unknown / not selected',
+    'ru': 'Неизвестно / не выбрано',
+  },
+  'admin.production.opening_wip.current_location': {
+    'uz': 'Hozirgi joylashuvi',
+    'en': 'Current location',
+    'ru': 'Текущее местоположение',
+  },
+  'admin.production.opening_wip.note': {
+    'uz': 'Izoh (ixtiyoriy)',
+    'en': 'Note (optional)',
+    'ru': 'Примечание (необязательно)',
+  },
+  'admin.production.opening_wip.roll_count': {
+    'uz': 'Rulonlar soni',
+    'en': 'Roll count',
+    'ru': 'Количество рулонов',
+  },
+  'admin.production.opening_wip.quantity_basis': {
+    'uz': 'Miqdor ishonchliligi',
+    'en': 'Quantity basis',
+    'ru': 'Основание количества',
+  },
+  'admin.production.opening_wip.basis_unknown': {
+    'uz': 'Noma’lum — miqdorsiz',
+    'en': 'Unknown — no quantity',
+    'ru': 'Неизвестно — без количества',
+  },
+  'admin.production.opening_wip.basis_estimated': {
+    'uz': 'Taxminiy',
+    'en': 'Estimated',
+    'ru': 'Оценочное',
+  },
+  'admin.production.opening_wip.basis_measured': {
+    'uz': 'O‘lchangan',
+    'en': 'Measured',
+    'ru': 'Измеренное',
+  },
+  'admin.production.opening_wip.quantity': {
+    'uz': 'Har bir rulon miqdori',
+    'en': 'Quantity per roll',
+    'ru': 'Количество на рулон',
+  },
+  'admin.production.opening_wip.uom': {
+    'uz': 'Birlik',
+    'en': 'Unit',
+    'ru': 'Единица',
+  },
+  'admin.production.opening_wip.select_printer': {
+    'uz': 'Printerni tanlash',
+    'en': 'Select printer',
+    'ru': 'Выбрать принтер',
+  },
+  'admin.production.opening_wip.create_print': {
+    'uz': 'Yaratish va QR chiqarish',
+    'en': 'Create and print QR labels',
+    'ru': 'Создать и напечатать QR',
+  },
+  'admin.production.opening_wip.retry_print': {
+    'uz': 'Qolgan QRlarni chiqarish ({printed}/{total})',
+    'en': 'Print remaining QR labels ({printed}/{total})',
+    'ru': 'Напечатать оставшиеся QR ({printed}/{total})',
+  },
+  'admin.production.opening_wip.no_eligible': {
+    'uz':
+        'Opening WIP uchun ish boshlanmagan va birinchi aparati aniqlangan buyurtma topilmadi.',
+    'en':
+        'No unstarted order with a resolved first apparatus is eligible for Opening WIP.',
+    'ru':
+        'Нет неначатого заказа с определённым первым оборудованием для начального WIP.',
+  },
+  'admin.production.opening_wip.required': {
+    'uz': 'Majburiy maydon',
+    'en': 'Required field',
+    'ru': 'Обязательное поле',
+  },
+  'admin.production.opening_wip.invalid_roll_count': {
+    'uz': 'Rulonlar soni 1 dan 500 gacha bo‘lishi kerak',
+    'en': 'Roll count must be between 1 and 500',
+    'ru': 'Количество рулонов должно быть от 1 до 500',
+  },
+  'admin.production.opening_wip.invalid_quantity': {
+    'uz': 'Musbat miqdor kiriting',
+    'en': 'Enter a positive quantity',
+    'ru': 'Введите положительное количество',
+  },
+  'admin.production.opening_wip.printer_required': {
+    'uz': 'QR chiqarishdan oldin printerni tanlang',
+    'en': 'Select a printer before creating QR labels',
+    'ru': 'Выберите принтер перед созданием QR-меток',
+  },
+  'admin.production.opening_wip.print_failed': {
+    'uz':
+        'Opening WIP saqlandi, lekin QR chiqarish to‘xtadi ({printed}/{total}). Qolganlarini qayta chiqaring.',
+    'en':
+        'Opening WIP was saved, but printing stopped ({printed}/{total}). Retry the remaining labels.',
+    'ru':
+        'Начальный WIP сохранён, но печать остановилась ({printed}/{total}). Повторите оставшиеся метки.',
+  },
   'admin.production.search_empty': {
     'uz': 'Buyurtma topilmadi',
     'en': 'No orders found',

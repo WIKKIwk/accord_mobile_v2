@@ -11,6 +11,7 @@ class _OrdersModulePage extends StatelessWidget {
     required this.orderControlsByOrderId,
     required this.queueStatesByApparatus,
     required this.visibleOrderIdsByApparatus,
+    required this.onCreateOpeningWip,
     required this.onInfoOrder,
     required this.onLongPressOrder,
   });
@@ -24,6 +25,7 @@ class _OrdersModulePage extends StatelessWidget {
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
+  final VoidCallback? onCreateOpeningWip;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
@@ -37,6 +39,10 @@ class _OrdersModulePage extends StatelessWidget {
         bottomPadding,
       ),
       children: [
+        if (onCreateOpeningWip != null) ...[
+          _OpeningWipLaunchCard(onPressed: onCreateOpeningWip!),
+          const SizedBox(height: 8),
+        ],
         if (orders.isEmpty)
           _EmptyOpenedOrders(
             message: context.l10n.adminText('production.open_empty'),
@@ -105,6 +111,7 @@ class _AdminModulesBody extends StatelessWidget {
     required this.workflowAuditError,
     required this.workflowAuditLoading,
     required this.onRefreshWorkflowAudit,
+    required this.onCreateOpeningWip,
     required this.onInfoOrder,
     required this.onInfoSequenceOrder,
     required this.onLongPressOrder,
@@ -172,6 +179,7 @@ class _AdminModulesBody extends StatelessWidget {
   final String? workflowAuditError;
   final bool workflowAuditLoading;
   final Future<void> Function() onRefreshWorkflowAudit;
+  final VoidCallback onCreateOpeningWip;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   String _moduleLabel(_OpenedOrderModule module) {
@@ -224,6 +232,7 @@ class _AdminModulesBody extends StatelessWidget {
                       orderControlsByOrderId: orderControlsByOrderId,
                       queueStatesByApparatus: queueStatesByApparatus,
                       visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
+                      onCreateOpeningWip: readOnly ? null : onCreateOpeningWip,
                       onInfoOrder: onInfoOrder,
                       onLongPressOrder: onLongPressOrder,
                     ),
