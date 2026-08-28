@@ -98,6 +98,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   int _materialIntakeActiveCount = 0;
   int _materialLoadGeneration = 0;
   AdminProgressBatch? _startInputProgressBatch;
+  AdminOpeningWipBatch? _startInputOpeningWipBatch;
   bool _actionInFlight = false;
   bool _lastQueueActionPrintFailed = false;
   bool _materialIntakeMode = false;
@@ -216,6 +217,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _materialIntakeMode = false;
       _seenQuickScanValues.clear();
       _startInputProgressBatch = null;
+      _startInputOpeningWipBatch = null;
       _availableInputProgressBatches = const [];
       _inputProgressError = '';
       _inputProgressLoading = false;
@@ -740,6 +742,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       queueActionControl: _queueActionControl,
       scannedMaterialBarcodes: _scannedMaterialBarcodes,
       startInputProgressBatch: _startInputProgressBatch,
+      startInputOpeningWipBatch: _startInputOpeningWipBatch,
       qolipScanned: _allRequiredQolipsScanned,
       l10n: l10n,
     );
@@ -812,6 +815,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           result: states,
         )) {
           _startInputProgressBatch = null;
+          _startInputOpeningWipBatch = null;
         }
         if (action == 'start' && states != null) {
           _scannedQolipCodes.clear();
@@ -947,6 +951,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
       final orderId = widget.order.map.id.trim();
       final station = widget.apparatus?.id.trim() ?? '';
+      if (_queueActionControl?.interaction?.openingWipMode ==
+          AdminQueuePreviousWipMode.scanRequired) {
+        await _acceptOpeningWipQr(
+          orderId: orderId,
+          apparatus: station,
+          qrPayload: rawValue.trim(),
+        );
+        return;
+      }
       final scannedBeforeLoad = Set<String>.from(_scannedMaterialBarcodes);
       final snapshot = await _fetchMaterialAssignments(
         orderId: orderId,
@@ -1106,6 +1119,49 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return error is TimeoutException || error is http.ClientException;
   }
 
+  Future<bool> _acceptOpeningWipQr({
+    required String orderId,
+    required String apparatus,
+    required String qrPayload,
+  }) async {
+    final records = await MobileApi.instance.adminOpeningWipRecords(
+      orderId: orderId,
+      status: 'waiting',
+      limit: 500,
+    );
+    if (!_materialContextIsCurrent(orderId, apparatus)) {
+      return false;
+    }
+    final qrKeys = <String>{
+      qrPayload.trim().toUpperCase(),
+      rawMaterialBarcodeFromQr(qrPayload).trim().toUpperCase(),
+    }..remove('');
+    AdminOpeningWipBatch? match;
+    for (final record in records) {
+      if (record.intake.orderId.trim() != orderId) continue;
+      for (final batch in record.batches) {
+        if (batch.wipStatus.trim().toLowerCase() == 'waiting' &&
+            qrKeys.contains(batch.qrPayload.trim().toUpperCase())) {
+          match = batch;
+          break;
+        }
+      }
+      if (match != null) break;
+    }
+    setState(() {
+      _startInputOpeningWipBatch = match;
+      _startInputProgressBatch = null;
+      _inputProgressLoading = false;
+      _inputProgressError = '';
+      _quickScanStatus = context.l10n.productionText(
+        match == null
+            ? 'worker.opening_wip.qr_mismatch'
+            : 'worker.opening_wip.confirmed',
+      );
+    });
+    return match != null;
+  }
+
   Future<bool> _acceptProgressBatch(
     AdminProgressBatch batch,
     String previousStage,
@@ -1234,6 +1290,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             values: {'order': targetOrderId},
           );
           _startInputProgressBatch = null;
+          _startInputOpeningWipBatch = null;
         });
         _showSheetNotice(
           context.l10n.productionText('worker.order.switch.started'),
@@ -1735,6 +1792,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       scannedMaterialBarcodes: _scannedMaterialBarcodes,
       canManageQueue: widget.canManageQueue,
       startInputProgressBatch: _startInputProgressBatch,
+      startInputOpeningWipBatch: _startInputOpeningWipBatch,
     );
     final requiresQolipScan = uiState.qolipScanRequired;
     final qolipScanAllowsStart =
@@ -1767,17 +1825,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _qolipRequirementsError.isEmpty &&
         _requiredQolips.isNotEmpty &&
         !_allRequiredQolipsScanned;
-    final previousWipScanPending = uiState.showStart &&
+    final inputWipScanPending = uiState.showStart &&
         uiState.previousProgressRequired &&
         !uiState.previousProgressReady &&
         !_inputProgressLoading &&
         _inputProgressError.isEmpty &&
-        _availableInputProgressBatches.isNotEmpty;
+        (uiState.openingWipRequired ||
+            _availableInputProgressBatches.isNotEmpty);
     final materialIntakeScanActive =
         _materialIntakeMode && uiState.materialIntakeAllowed;
     final showQuickScanner = startMaterialScanPending ||
         qolipScanPending ||
-        previousWipScanPending ||
+        inputWipScanPending ||
         materialIntakeScanActive;
     return PopScope(
       canPop: false,
@@ -1816,6 +1875,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           });
         },
         previousProgressBatch: _startInputProgressBatch,
+        openingWipBatch: _startInputOpeningWipBatch,
         inputProgressBatches: _availableInputProgressBatches,
         inputProgressLoading: _inputProgressLoading,
         inputProgressError: _inputProgressError,

@@ -174,25 +174,25 @@ List<String> _queueActionMaterialBarcodes({
 String _queueActionQrPayload({
   required String action,
   required String qrPayload,
-  required AdminProgressBatch? startInputProgressBatch,
+  required String startInputQrPayload,
 }) {
   final explicitQrPayload = qrPayload.trim();
   if (explicitQrPayload.isNotEmpty) {
     return explicitQrPayload;
   }
-  return action == 'start' ? (startInputProgressBatch?.qrPayload ?? '') : '';
+  return action == 'start' ? startInputQrPayload.trim() : '';
 }
 
 String _queueActionProgressBatchId({
   required String action,
   required String progressBatchId,
-  required AdminProgressBatch? startInputProgressBatch,
+  required String startInputBatchId,
 }) {
   final explicitProgressBatchId = progressBatchId.trim();
   if (explicitProgressBatchId.isNotEmpty) {
     return explicitProgressBatchId;
   }
-  return action == 'start' ? (startInputProgressBatch?.batchId ?? '') : '';
+  return action == 'start' ? startInputBatchId.trim() : '';
 }
 
 bool _queueActionShouldClearStartInputProgress({
@@ -262,12 +262,12 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     qrPayload: _queueActionQrPayload(
       action: action,
       qrPayload: qrPayload,
-      startInputProgressBatch: prepared.startInputProgressBatch,
+      startInputQrPayload: prepared.startInputQrPayload,
     ),
     progressBatchId: _queueActionProgressBatchId(
       action: action,
       progressBatchId: progressBatchId,
-      startInputProgressBatch: prepared.startInputProgressBatch,
+      startInputBatchId: prepared.startInputBatchId,
     ),
     customerName: customerName.trim(),
     driverUrl: driverUrl,
@@ -294,7 +294,7 @@ String? _queueActionStartBlockReason({
   required AdminRawMaterialStartRequirements? materialRequirements,
   required bool materialsLoading,
   required String materialsError,
-  required AdminProgressBatch? startInputProgressBatch,
+  required bool inputWipReady,
   required bool materialScanRequired,
   required bool previousWipRequired,
   required bool qolipScanRequired,
@@ -325,7 +325,7 @@ String? _queueActionStartBlockReason({
   if (qolipScanRequired && !qolipScanned) {
     return l10n.productionText('worker.error.scan_molds');
   }
-  if (previousWipRequired && startInputProgressBatch == null) {
+  if (previousWipRequired && !inputWipReady) {
     return l10n.productionText('worker.error.scan_previous');
   }
   return null;
@@ -404,6 +404,7 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   required AdminApparatusQueueOrderActionControl? queueActionControl,
   required Set<String> scannedMaterialBarcodes,
   required AdminProgressBatch? startInputProgressBatch,
+  required AdminOpeningWipBatch? startInputOpeningWipBatch,
   required bool qolipScanned,
   required AppLocalizations l10n,
 }) {
@@ -415,22 +416,34 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   }
   final interaction = queueActionControl?.interaction;
   if (interaction == null) return null;
-  final inputProgressBatch = startInputProgressBatch;
+  final openingWipRequired =
+      interaction.openingWipMode == AdminQueuePreviousWipMode.scanRequired;
+  final previousWipRequired =
+      interaction.previousWipMode == AdminQueuePreviousWipMode.scanRequired;
+  final inputWipReady = openingWipRequired
+      ? startInputOpeningWipBatch != null
+      : !previousWipRequired || startInputProgressBatch != null;
+  final startInputBatchId = openingWipRequired
+      ? startInputOpeningWipBatch?.batchId ?? ''
+      : startInputProgressBatch?.batchId ?? '';
+  final startInputQrPayload = openingWipRequired
+      ? startInputOpeningWipBatch?.qrPayload ?? ''
+      : startInputProgressBatch?.qrPayload ?? '';
   return _PreparedReadOnlyQueueAction(
     apparatus: apparatus,
     onQueueAction: onQueueAction,
     materialAssignments: materialAssignments,
     scannedMaterialBarcodes: Set<String>.unmodifiable(scannedMaterialBarcodes),
-    startInputProgressBatch: inputProgressBatch,
+    startInputBatchId: startInputBatchId,
+    startInputQrPayload: startInputQrPayload,
     blockReason: _queueActionStartBlockReason(
       action: action,
       materialRequirements: materialRequirements,
       materialsLoading: materialsLoading,
       materialsError: materialsError,
-      startInputProgressBatch: inputProgressBatch,
+      inputWipReady: inputWipReady,
       materialScanRequired: interaction.materialScanRequired,
-      previousWipRequired:
-          interaction.previousWipMode == AdminQueuePreviousWipMode.scanRequired,
+      previousWipRequired: previousWipRequired || openingWipRequired,
       qolipScanRequired:
           interaction.qolipMode == AdminQueueQolipMode.scanRequired,
       qolipScanned: qolipScanned,
@@ -452,6 +465,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required AdminOrderControlState orderControlState,
   String? queueState,
   required AdminProgressBatch? startInputProgressBatch,
+  required AdminOpeningWipBatch? startInputOpeningWipBatch,
 }) {
   final map = order.map;
   final orderId = map.id.trim();
@@ -489,10 +503,15 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
       materialRequirements == null || bypassMaterialGate
           ? 0
           : materialRequirements.matchedScanCount;
-  final previousProgressRequired =
+  final normalPreviousProgressRequired =
       interaction?.previousWipMode == AdminQueuePreviousWipMode.scanRequired;
-  final acceptedPreviousWip =
-      previousProgressRequired && startInputProgressBatch != null;
+  final openingWipRequired =
+      interaction?.openingWipMode == AdminQueuePreviousWipMode.scanRequired;
+  final previousProgressRequired =
+      normalPreviousProgressRequired || openingWipRequired;
+  final acceptedPreviousWip = openingWipRequired
+      ? startInputOpeningWipBatch != null
+      : normalPreviousProgressRequired && startInputProgressBatch != null;
   final showStart = contractSynchronized &&
       canManageQueue &&
       queueActionControl.allows('start');
@@ -528,6 +547,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     qolipScanRequired: contractSynchronized &&
         interaction?.qolipMode == AdminQueueQolipMode.scanRequired,
     previousStage: previousStage,
+    openingWipRequired: openingWipRequired,
     previousProgressRequired: previousProgressRequired,
     previousProgressReady: !previousProgressRequired || acceptedPreviousWip,
     showStart: showStart,
@@ -537,7 +557,8 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     showResume: showResume,
     showWaitingForPrevious: contractSynchronized &&
         canManageQueue &&
-        interaction?.previousWipMode == AdminQueuePreviousWipMode.waiting,
+        (interaction?.previousWipMode == AdminQueuePreviousWipMode.waiting ||
+            interaction?.openingWipMode == AdminQueuePreviousWipMode.waiting),
     showWaitingForSequence: contractSynchronized &&
         canManageQueue &&
         interaction?.blockingReasonCode == 'waiting_sequence',

@@ -1,5 +1,97 @@
 part of 'admin_production_map_orders_screen.dart';
 
+class _OpeningWipQrTile extends StatelessWidget {
+  const _OpeningWipQrTile({required this.ready, required this.batch});
+
+  final bool ready;
+  final AdminOpeningWipBatch? batch;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final selectedBatch = batch;
+    final itemLabel = selectedBatch == null
+        ? ''
+        : selectedBatch.labelItemName.trim().isNotEmpty
+            ? selectedBatch.labelItemName.trim()
+            : selectedBatch.labelItemCode.trim();
+    final quantityLabel = selectedBatch?.quantity == null
+        ? context.l10n.productionText('worker.opening_wip.quantity_unknown')
+        : '${_productionMapQtyLabel(selectedBatch!.quantity!)} ${selectedBatch.uom}'
+            .trim();
+    return Container(
+      key: const ValueKey('production-order-opening-wip-input'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: ready
+            ? scheme.primaryContainer.withValues(alpha: 0.45)
+            : scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: ready
+                  ? scheme.primary.withValues(alpha: 0.14)
+                  : scheme.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              ready ? Icons.check_rounded : Icons.qr_code_scanner_rounded,
+              color: ready ? scheme.primary : scheme.onSurfaceVariant,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.l10n.productionText(
+                    ready
+                        ? 'worker.opening_wip.confirmed'
+                        : 'worker.opening_wip.scan',
+                  ),
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  selectedBatch == null
+                      ? context.l10n.productionText(
+                          'worker.opening_wip.scan_hint',
+                        )
+                      : [
+                          if (itemLabel.isNotEmpty) itemLabel,
+                          context.l10n.productionText(
+                            'worker.opening_wip.roll',
+                            values: {'number': selectedBatch.sequenceNo},
+                          ),
+                          quantityLabel,
+                        ].join(' • '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PreviousProgressQrTile extends StatelessWidget {
   const _PreviousProgressQrTile({
     required this.previousStage,

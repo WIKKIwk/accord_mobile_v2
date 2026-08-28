@@ -2911,6 +2911,36 @@ class AppLocalizations {
       'en': 'Previous stage QR',
       'ru': 'QR предыдущего этапа',
     },
+    'worker.opening_wip.scan': {
+      'uz': 'Opening WIP QR ni skan qiling',
+      'en': 'Scan the Opening WIP QR code',
+      'ru': 'Отсканируйте QR начального WIP',
+    },
+    'worker.opening_wip.scan_hint': {
+      'uz': 'ERP boshlanishidan oldingi shu order rulonini tanlang',
+      'en': 'Select this order’s pre-ERP roll',
+      'ru': 'Выберите рулон этого заказа, созданный до запуска ERP',
+    },
+    'worker.opening_wip.confirmed': {
+      'uz': 'Opening WIP ruloni tasdiqlandi',
+      'en': 'Opening WIP roll confirmed',
+      'ru': 'Рулон начального WIP подтвержден',
+    },
+    'worker.opening_wip.qr_mismatch': {
+      'uz': 'Bu QR ushbu orderning kutilayotgan Opening WIP ruloniga mos emas',
+      'en': 'This QR code is not a waiting Opening WIP roll for this order',
+      'ru': 'Этот QR не относится к ожидающему начальному WIP данного заказа',
+    },
+    'worker.opening_wip.roll': {
+      'uz': 'Rulon {number}',
+      'en': 'Roll {number}',
+      'ru': 'Рулон {number}',
+    },
+    'worker.opening_wip.quantity_unknown': {
+      'uz': 'Miqdor noma’lum',
+      'en': 'Quantity unknown',
+      'ru': 'Количество неизвестно',
+    },
     'worker.progress.products': {
       'uz': 'Oldingi bosqichdan kelgan mahsulotlar',
       'en': 'Products from the previous stage',

@@ -25,6 +25,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.intakeCandidatesExpanded,
     required this.onToggleIntakeCandidatesExpanded,
     required this.previousProgressBatch,
+    required this.openingWipBatch,
     required this.inputProgressBatches,
     required this.inputProgressLoading,
     required this.inputProgressError,
@@ -84,6 +85,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final bool intakeCandidatesExpanded;
   final VoidCallback onToggleIntakeCandidatesExpanded;
   final AdminProgressBatch? previousProgressBatch;
+  final AdminOpeningWipBatch? openingWipBatch;
   final List<AdminProgressBatch> inputProgressBatches;
   final bool inputProgressLoading;
   final String inputProgressError;
@@ -225,9 +227,11 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     showWaitingForPrevious: uiState.showWaitingForPrevious,
                     showWaitingForSequence: uiState.showWaitingForSequence,
                     previousStage: uiState.previousStage,
+                    openingWipRequired: uiState.openingWipRequired,
                     previousProgressRequired: uiState.previousProgressRequired,
                     previousProgressReady: uiState.previousProgressReady,
                     previousProgressBatch: previousProgressBatch,
+                    openingWipBatch: openingWipBatch,
                     inputProgressBatches: inputProgressBatches,
                     inputProgressLoading: inputProgressLoading,
                     inputProgressError: inputProgressError,
@@ -797,9 +801,11 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.showWaitingForPrevious,
     required this.showWaitingForSequence,
     required this.previousStage,
+    required this.openingWipRequired,
     required this.previousProgressRequired,
     required this.previousProgressReady,
     required this.previousProgressBatch,
+    required this.openingWipBatch,
     required this.inputProgressBatches,
     required this.inputProgressLoading,
     required this.inputProgressError,
@@ -863,9 +869,11 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool showWaitingForPrevious;
   final bool showWaitingForSequence;
   final String? previousStage;
+  final bool openingWipRequired;
   final bool previousProgressRequired;
   final bool previousProgressReady;
   final AdminProgressBatch? previousProgressBatch;
+  final AdminOpeningWipBatch? openingWipBatch;
   final List<AdminProgressBatch> inputProgressBatches;
   final bool inputProgressLoading;
   final String inputProgressError;
@@ -1239,15 +1247,21 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 height: 28,
                 color: scheme.outlineVariant.withValues(alpha: 0.5)),
             if (showRezkaInputProgressScan) ...[
-              _PreviousProgressQrTile(
-                previousStage: previousStage ?? '',
-                apparatusCatalog: apparatusCatalog,
-                ready: previousProgressReady,
-                batch: previousProgressBatch,
-                availableBatches: inputProgressBatches,
-                loading: inputProgressLoading,
-                error: inputProgressError,
-              ),
+              if (openingWipRequired)
+                _OpeningWipQrTile(
+                  ready: previousProgressReady,
+                  batch: openingWipBatch,
+                )
+              else
+                _PreviousProgressQrTile(
+                  previousStage: previousStage ?? '',
+                  apparatusCatalog: apparatusCatalog,
+                  ready: previousProgressReady,
+                  batch: previousProgressBatch,
+                  availableBatches: inputProgressBatches,
+                  loading: inputProgressLoading,
+                  error: inputProgressError,
+                ),
               const SizedBox(height: 10),
             ],
             AnimatedSize(

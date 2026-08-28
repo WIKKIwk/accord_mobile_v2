@@ -29,7 +29,43 @@ void main() {
     expect(helper, contains('interaction?.startMaterialsMode'));
     expect(helper, contains('interaction?.materialIntakeAllowed'));
     expect(helper, contains('interaction?.previousWipMode'));
+    expect(helper, contains('interaction?.openingWipMode'));
     expect(helper, contains('interaction?.qolipMode'));
+  });
+
+  test('Opening WIP Start keeps the exact selected batch and QR contract', () {
+    final source = File(
+      'lib/src/features/admin/presentation/'
+      'admin_production_map_orders_read_only_helpers.dart',
+    ).readAsStringSync();
+    final prepareStart = source.indexOf(
+      '_PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction(',
+    );
+    final prepareEnd = source.indexOf(
+      '_ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState(',
+      prepareStart,
+    );
+    expect(prepareStart, greaterThanOrEqualTo(0));
+    expect(prepareEnd, greaterThan(prepareStart));
+    final prepare = source.substring(prepareStart, prepareEnd);
+
+    expect(prepare, contains('startInputOpeningWipBatch?.batchId'));
+    expect(prepare, contains('startInputOpeningWipBatch?.qrPayload'));
+    expect(prepare, isNot(contains('AdminProgressBatch(')));
+
+    final requestStart = source.indexOf(
+      '_ReadOnlyQueueActionRequest _readOnlyQueueActionRequest(',
+    );
+    final requestEnd = source.indexOf(
+      'String? _queueActionStartBlockReason(',
+      requestStart,
+    );
+    expect(requestStart, greaterThanOrEqualTo(0));
+    expect(requestEnd, greaterThan(requestStart));
+    final request = source.substring(requestStart, requestEnd);
+
+    expect(request, contains('prepared.startInputBatchId'));
+    expect(request, contains('prepared.startInputQrPayload'));
   });
 
   test('worker QR switching uses backend controls instead of topology or WIP',

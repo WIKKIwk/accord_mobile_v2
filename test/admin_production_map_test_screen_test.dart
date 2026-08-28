@@ -7340,6 +7340,147 @@ void main() {
   );
 
   testWidgets(
+    'only the current order Opening WIP QR can arm first-stage Start',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      await AppSession.instance.setSession(
+        token: 'worker-lamin-opening-wip-token',
+        profile: const SessionProfile(
+          role: UserRole.aparatchi,
+          displayName: 'Laminatsiya aparatchi',
+          legalName: '',
+          ref: 'worker-lamin-opening-wip',
+          phone: '',
+          avatarUrl: '',
+          capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+          assignedApparatus: [_lamination1Id],
+        ),
+      );
+      const orderId = 'zakaz-worker-opening-wip';
+      await MobileApi.instance.adminSaveProductionMap(
+        _productionOrderMap(
+          id: orderId,
+          title: 'Worker Opening WIP',
+          productCode: 'OWIP',
+          apparatusId: _lamination1Id,
+          product: 'opening WIP product',
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: _lamination1Id,
+        orderIds: const [orderId],
+      );
+      final openingWip = await MobileApi.instance.adminCreateOpeningWip(
+        const AdminOpeningWipCreateInput(
+          idempotencyKey: 'worker-opening-wip-request',
+          orderId: orderId,
+          entryApparatus: _lamination1Id,
+          sourceOperation: 'Bosma',
+          currentLocation: 'Laminatsiya oldi',
+          batches: [
+            AdminOpeningWipBatchInput(
+              quantityBasis: AdminOpeningWipQuantityBasis.unknown,
+            ),
+          ],
+        ),
+      );
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: _lamination1Id,
+        orderId: orderId,
+        control: const AdminApparatusQueueOrderActionControl(
+          state: 'pending',
+          allowedActions: {'start'},
+          hasOnlyKnownActions: true,
+          interaction: AdminQueueWorkerInteraction(
+            mode: AdminQueueInteractionMode.freshStart,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+            materialScanRequired: false,
+            assignedMaterialsDisplayOnly: true,
+            materialIntakeAllowed: false,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired,
+            openingWipMode: AdminQueuePreviousWipMode.scanRequired,
+            qolipMode: AdminQueueQolipMode.notRequired,
+          ),
+        ),
+      );
+
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapOrdersScreen(
+            readOnly: true,
+            workerMode: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Laminatsiya 1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Worker Opening WIP').first);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('production-order-opening-wip-input')),
+        findsOneWidget,
+      );
+      expect(find.text('Opening WIP QR ni skan qiling'), findsOneWidget);
+      expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
+      var startButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Boshlash'),
+      );
+      expect(startButton.onPressed, isNull);
+
+      await tester.tap(
+        find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('production-quick-scanner-manual')),
+        'NOT-THIS-ORDER-OPENING-WIP',
+      );
+      await tester.tap(find.byTooltip('Qabul qilish'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Bu QR ushbu orderning kutilayotgan Opening WIP ruloniga mos emas',
+        ),
+        findsOneWidget,
+      );
+      startButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Boshlash'),
+      );
+      expect(startButton.onPressed, isNull);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('production-quick-scanner-manual')),
+        openingWip.batches.single.qrPayload,
+      );
+      await tester.tap(find.byTooltip('Qabul qilish'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Opening WIP ruloni tasdiqlandi'), findsWidgets);
+      expect(find.textContaining('Rulon 1'), findsOneWidget);
+      expect(find.textContaining('Miqdor noma’lum'), findsOneWidget);
+      expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+      final armedStartButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Boshlash'),
+      );
+      expect(armedStartButton.onPressed, isNotNull);
+    },
+  );
+
+  testWidgets(
     'later stage waits for previous apparatus before showing progress QR scan',
     (tester) async {
       await TestModeController.instance.setEnabled(true);

@@ -161,6 +161,7 @@ class _ReadOnlyOrderDetailUiState {
     required this.materialIntakeAllowed,
     required this.qolipScanRequired,
     required this.previousStage,
+    required this.openingWipRequired,
     required this.previousProgressRequired,
     required this.previousProgressReady,
     required this.showStart,
@@ -195,6 +196,7 @@ class _ReadOnlyOrderDetailUiState {
   final bool materialIntakeAllowed;
   final bool qolipScanRequired;
   final String? previousStage;
+  final bool openingWipRequired;
   final bool previousProgressRequired;
   final bool previousProgressReady;
   final bool showStart;
@@ -217,7 +219,8 @@ class _PreparedReadOnlyQueueAction {
     required this.onQueueAction,
     required this.materialAssignments,
     required this.scannedMaterialBarcodes,
-    required this.startInputProgressBatch,
+    required this.startInputBatchId,
+    required this.startInputQrPayload,
     this.blockReason,
   });
 
@@ -225,7 +228,8 @@ class _PreparedReadOnlyQueueAction {
   final _ReadOnlyQueueActionCallback onQueueAction;
   final List<AdminRawMaterialAssignment> materialAssignments;
   final Set<String> scannedMaterialBarcodes;
-  final AdminProgressBatch? startInputProgressBatch;
+  final String startInputBatchId;
+  final String startInputQrPayload;
   final String? blockReason;
 }
 
