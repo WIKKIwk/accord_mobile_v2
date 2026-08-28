@@ -28,6 +28,37 @@ void main() {
     AppSession.instance.profile = null;
   });
 
+  test('factory location parser accepts backend apparatus snapshots', () {
+    const compactApparatus = {
+      'id': 'apparatus:default:asset-007',
+      'name': 'Laminatsiya 1',
+      'source_revision': 4,
+      'equipment_class_id': 'equipment-class:lamination',
+      'physical_asset_id': 'physical-asset:lamination-1',
+      'active': true,
+    };
+
+    expect(
+      () => AdminApparatus.fromJson(compactApparatus),
+      throwsFormatException,
+    );
+
+    final location = AdminFactoryLocation.fromJson(const {
+      'id': 'state_lamination_1',
+      'name': 'Laminatsiya 1',
+      'active': true,
+      'apparatus': [compactApparatus],
+      'created_at_unix': 100,
+      'updated_at_unix': 200,
+    });
+
+    expect(location.isApparatusState, isTrue);
+    expect(location.apparatus.single.id, 'apparatus:default:asset-007');
+    expect(location.apparatus.single.name, 'Laminatsiya 1');
+    expect(location.apparatus.single.sourceRevision, 4);
+    expect(location.apparatus.single.isActive, isTrue);
+  });
+
   test('apparatus parser preserves backend catalog metadata', () {
     final item = AdminApparatus.fromJson(const {
       'apparatus_id': 'apparatus:default:rezka',

@@ -794,12 +794,38 @@ class AdminFactoryLocation {
       active: json['active'] != false,
       apparatus: (json['apparatus'] as List<dynamic>? ?? const [])
           .whereType<Map>()
-          .map((item) => AdminApparatus.fromJson(item.cast<String, dynamic>()))
+          .map(
+            (item) => _adminFactoryLocationApparatusFromJson(
+              item.cast<String, dynamic>(),
+            ),
+          )
           .toList(growable: false),
       createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
       updatedAtUnix: (json['updated_at_unix'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+AdminApparatus _adminFactoryLocationApparatusFromJson(
+  Map<String, dynamic> json,
+) {
+  if (json['runtime_projection'] is Map || json.containsKey('apparatus_id')) {
+    return AdminApparatus.fromJson(json);
+  }
+  final id = json['id']?.toString().trim() ?? '';
+  final name = json['name']?.toString().trim() ?? '';
+  final sourceRevision = (json['source_revision'] as num?)?.toInt() ?? 0;
+  if (!canonicalApparatusIdIsValid(id) || name.isEmpty || sourceRevision < 1) {
+    throw const FormatException('Invalid factory location apparatus snapshot');
+  }
+  return AdminApparatus(
+    id: id,
+    name: name,
+    sourceRevision: sourceRevision,
+    equipmentClassId: json['equipment_class_id']?.toString().trim() ?? '',
+    physicalAssetId: json['physical_asset_id']?.toString().trim() ?? '',
+    lifecycleState: json['active'] == false ? 'retired' : 'active',
+  );
 }
 
 class AdminWarehouse {
