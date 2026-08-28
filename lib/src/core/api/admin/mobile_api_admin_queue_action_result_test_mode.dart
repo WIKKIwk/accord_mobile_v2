@@ -426,865 +426,114 @@ final canonicalApparatus =
           );
         }
       }
+      final context = _TestModeQueueActionContext(
+        api: this,
+        apparatus: apparatus,
+        orderId: orderId,
+        action: action,
+        materialBarcode: materialBarcode,
+        materialBarcodes: materialBarcodes,
+        qolipCode: qolipCode,
+        qolipCodes: qolipCodes,
+        producedQty: producedQty,
+        grossQty: grossQty,
+        bobinaKg: bobinaKg,
+        diameter: diameter,
+        returnInkKg: returnInkKg,
+        laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
+        laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
+        rezkaBosmaWaste: rezkaBosmaWaste,
+        rezkaLaminationWaste: rezkaLaminationWaste,
+        rezkaEdgeWaste: rezkaEdgeWaste,
+        totalWaste: totalWaste,
+        finishedGoodsKg: finishedGoodsKg,
+        finishedGoodsMeter: finishedGoodsMeter,
+        rezkaFrames: rezkaFrames,
+        uom: uom,
+        qrPayload: qrPayload,
+        progressBatchId: progressBatchId,
+        customerName: customerName,
+        driverUrl: driverUrl,
+        printTransport: printTransport,
+        printer: printer,
+        printMode: printMode,
+        completionRequestNote: completionRequestNote,
+        returnedPaintItems: returnedPaintItems,
+        returnedPaintImageId: returnedPaintImageId,
+        fullCompletionReportRequired: fullCompletionReportRequired,
+        workerHandoff: workerHandoff,
+        removeRollFromApparatus: removeRollFromApparatus,
+        freezeRequestId: freezeRequestId,
+        freezeWithIssue: freezeWithIssue,
+        issueNote: issueNote,
+        normalizedApparatusId: normalizedApparatusId,
+        trimmedIssueNote: trimmedIssueNote,
+        issueFreezeRequested: issueFreezeRequested,
+        canonicalApparatus: canonicalApparatus,
+        operation: operation,
+        storageKey: storageKey,
+        sequence: sequence,
+        states: states,
+        control: control,
+        freezeRequestSafeStop: freezeRequestSafeStop,
+        frozenOnAnotherApparatus: frozenOnAnotherApparatus,
+        actionableStates: actionableStates,
+        policy: policy,
+        progressKey: progressKey,
+        startUsesProgressQr: startUsesProgressQr,
+        startInputBatch: startInputBatch,
+        queueInputKey: queueInputKey,
+        sessionInputBatch: sessionInputBatch,
+        activeInputBatch: activeInputBatch,
+        isLaminatsiya: isLaminatsiya,
+        laminatsiyaWipCanReuseMaterial: laminatsiyaWipCanReuseMaterial,
+        current: current,
+        isRezka: isRezka,
+        isPauseOrDetach: isPauseOrDetach,
+        isRezkaProgressAction: isRezkaProgressAction,
+        isPositive: isPositive,
+        frameMetric: frameMetric,
+        configuredRezkaKadrCount: configuredRezkaKadrCount,
+        hasRezkaFrameIssues: hasRezkaFrameIssues,
+        hasExplicitRezkaFrameMetrics: hasExplicitRezkaFrameMetrics,
+        hasRezkaQuantityMetrics: hasRezkaQuantityMetrics,
+        hasRezkaDiameter: hasRezkaDiameter,
+        hasRezkaWaste: hasRezkaWaste,
+        hasRezkaFrameWaste: hasRezkaFrameWaste,
+        testModeOrderMap: testModeOrderMap,
+        previousStage: previousStage,
+        hasPreviousStage: hasPreviousStage,
+        usesVirtualTrainingInput: usesVirtualTrainingInput,
+        previousStageCompleted: previousStageCompleted,
+        isPreviousStageBatch: isPreviousStageBatch,
+        hasUnprocessedPreviousWip: hasUnprocessedPreviousWip,
+        allowPartialStationCompletion: allowPartialStationCompletion,
+        explicitProgressInput: explicitProgressInput,
+      );
       if (action == 'start') {
-        if (_testModeRequeuedOrderIds.contains(orderId.trim())) {
-          throw const MobileApiException(
-            code: 'queue_action_not_allowed',
-            message:
-                'Muzlatishdan qaytgan order Resume orqali davom ettiriladi',
-          );
-        }
-        if (hasPreviousStage && startInputBatch == null) {
-          throw const MobileApiException(
-            code: 'progress_qr_required',
-            message: 'Oldingi bosqich QR sini scan qiling',
-          );
-        }
-        if (progressKey.isNotEmpty) {
-          final batch = startInputBatch;
-          final batchAction = batch?.action.trim().toLowerCase() ?? '';
-          final batchStatus = batch?.status.trim().toLowerCase() ?? '';
-          final batchWipStatus = batch?.wipStatus.trim().toLowerCase() ?? '';
-          final batchNextApparatus = batch?.nextApparatus.trim() ?? '';
-          if (batch == null) {
-            throw const MobileApiException(
-              code: 'progress_batch_not_accepted',
-              message: 'Bu QR oldingi bosqich mahsulotiga mos emas',
-            );
-          }
-          if ((progressBatchId.trim().isNotEmpty &&
-                  batch.batchId.trim() != progressBatchId.trim()) ||
-              batch.orderId.trim() != orderId.trim() ||
-              (batchAction != 'pause' &&
-                  batchAction != 'detach_roll' &&
-                  batchAction != 'roll_complete' &&
-                  batchAction != 'complete') ||
-              (batchStatus != 'paused' &&
-                  batchStatus != 'roll_detached' &&
-                  batchStatus != 'completed' &&
-                  batchStatus != 'resumed') ||
-              (hasPreviousStage &&
-                  ((batchWipStatus.isNotEmpty && batchWipStatus != 'waiting') ||
-                      batch.apparatus.trim() != previousStage ||
-                      (batchNextApparatus.isNotEmpty &&
-                          batchNextApparatus != storageKey)))) {
-            throw const MobileApiException(
-              code: 'progress_batch_not_accepted',
-              message: 'Bu QR oldingi bosqich mahsulotiga mos emas',
-            );
-          }
-        }
-        if (current != ApparatusQueueOrderState.pending) {
-          throw const MobileApiException(
-            code: 'queue_action_not_allowed',
-            message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
-          );
-        }
-        final requiredMaterials = _testModeRawMaterialAssignments
-            .where(
-              (assignment) =>
-                  assignment.orderId.trim() == orderId.trim() &&
-                  assignment.apparatus.trim() == storageKey,
-            )
-            .toList(growable: false);
-        final requiredBarcodes = {
-          for (final assignment in requiredMaterials)
-            _normalizeRawMaterialBarcode(assignment.barcode),
-        }..remove('');
-        final scannedBarcodes = {
-          for (final barcode in [
-            ...materialBarcodes,
-            if (materialBarcode.trim().isNotEmpty) materialBarcode,
-          ])
-            _normalizeRawMaterialBarcode(barcode),
-        }..remove('');
-        if (!laminatsiyaWipCanReuseMaterial) {
-          final requirements = await adminRawMaterialStartRequirements(
-            orderId: orderId,
-            apparatus: apparatus,
-            materialBarcodes: scannedBarcodes.toList(growable: false),
-          );
-          if (requiredBarcodes.isEmpty &&
-              requirements.requiresMaterial &&
-              !isLaminatsiya) {
-            throw const MobileApiException(
-              code: 'raw_material_assignment_not_found',
-              message: 'Homashyo biriktirilmagan',
-            );
-          }
-          if (requiredBarcodes.isNotEmpty && scannedBarcodes.isEmpty) {
-            throw const MobileApiException(
-              code: 'raw_material_scan_required',
-              message:
-                  'Ishni boshlash uchun biriktirilgan homashyolarni skaner qiling',
-            );
-          }
-          if (!requiredBarcodes.containsAll(scannedBarcodes)) {
-            throw const MobileApiException(
-              code: 'raw_material_mismatch',
-              message: 'Bu homashyo ish boshlash uchun mos emas',
-            );
-          }
-          if (requirements.policy == AdminRawMaterialStartPolicy.stateAll &&
-              requiredBarcodes.isNotEmpty &&
-              requirements.normalizedStagedBarcodes.isEmpty) {
-            throw const MobileApiException(
-              code: 'raw_material_state_not_ready',
-              message: 'Apparat oldiga homashyo olib kelinmagan',
-            );
-          }
-          if (!requirements.assignmentsSatisfied &&
-              !(isLaminatsiya && requiredBarcodes.isEmpty)) {
-            throw const MobileApiException(
-              code: 'raw_material_assignment_not_found',
-              message: 'Majburiy homashyo guruhlari to‘liq biriktirilmagan',
-            );
-          }
-          if (requiredBarcodes.isNotEmpty && !requirements.scanSatisfied) {
-            throw MobileApiException(
-              code: requirements.policy == AdminRawMaterialStartPolicy.stateAll
-                  ? 'raw_material_scan_incomplete'
-                  : 'raw_material_requirement_not_met',
-              message: requirements.policy ==
-                      AdminRawMaterialStartPolicy.stateAll
-                  ? 'Apparat oldidagi barcha homashyolarni skaner qiling'
-                  : 'Har bir majburiy guruhdan minimum homashyo skaner qiling',
-            );
-          }
-        }
-        if (startInputBatch != null) {
-          final inputForStation = startInputBatch.copyWith(
-            wipStatus: 'in_use',
-            currentApparatus: apparatus,
-            currentLocation: apparatus,
-            usedBySessionId: 'test-session-${orderId.trim()}',
-            usedByApparatus: apparatus,
-          );
-          _testModeProgressBatchesByQr[inputForStation.qrPayload] =
-              inputForStation;
-          _testModeActiveProgressInputByQueue[queueInputKey] =
-              inputForStation.qrPayload;
-          if (inputForStation.payloadJson['training_input'] == true) {
-            _testModeTrainingInputBatchSetClosedOrderIds.add(orderId.trim());
-          }
-        }
-        _testModeEnsureApparatusExecutionCapacity(
-          apparatusId: storageKey,
-          orderId: orderId,
-        );
-        states[orderId.trim()] = 'in_progress';
-        _testModeOrderStartedAtUnix.putIfAbsent(
-          orderId.trim(),
-          _testModeUnixSeconds,
-        );
-        for (var index = 0;
-            index < _testModeRawMaterialAssignments.length;
-            index += 1) {
-          final assignment = _testModeRawMaterialAssignments[index];
-          if (assignment.orderId.trim() == orderId.trim() &&
-              assignment.apparatus.trim() == storageKey &&
-              scannedBarcodes.contains(
-                assignment.barcode.trim().toUpperCase(),
-              )) {
-            _testModeRawMaterialAssignments[index] = assignment.copyWith(
-              stockStatus: 'in_use',
-              reservedOrderId: orderId.trim(),
-            );
-          }
-        }
-      } else if ((action == 'pause' && workerHandoff) ||
+        return context._runStart();
+      }
+      else if ((action == 'pause' && workerHandoff) ||
           (action == 'detach_roll' && removeRollFromApparatus)) {
-        if (!isLaminatsiya ||
-            (workerHandoff && removeRollFromApparatus) ||
-            (workerHandoff && current != ApparatusQueueOrderState.inProgress) ||
-            (removeRollFromApparatus &&
-                current != ApparatusQueueOrderState.paused)) {
-          throw const MobileApiException(
-            code: 'queue_action_not_allowed',
-            message: 'Bu laminatsiya worker handoff amali hozir mumkin emas',
-          );
-        }
-        bool isNonNegative(double? value) =>
-            value != null && value.isFinite && value >= 0;
-        final handoffMetricsReady =
-            isNonNegative(laminationPrintLeftoverRolls) &&
-                isNonNegative(laminationFilmLeftoverRolls) &&
-                isNonNegative(totalWaste);
-        if (workerHandoff && !handoffMetricsReady) {
-          throw const MobileApiException(
-            code: 'laminatsiya_completion_metrics_required',
-            message: 'Bosmadan, plyonkadan ortgan rulon va chiqindini kiriting',
-          );
-        }
-        final handoffInput = activeInputBatch;
-        if (handoffInput == null ||
-            handoffInput.wipStatus.trim().toLowerCase() != 'in_use') {
-          throw const MobileApiException(
-            code: 'progress_batch_not_accepted',
-            message: 'Apparatdagi joriy laminatsiya ruloni topilmadi',
-          );
-        }
-        final isHandoff = handoffInput.payloadJson['worker_handoff'] == true;
-        if (removeRollFromApparatus && !isHandoff) {
-          throw const MobileApiException(
-            code: 'progress_batch_not_accepted',
-            message: 'Bu rulon worker handoff holatida emas',
-          );
-        }
-        if (removeRollFromApparatus &&
-            (!isPositive(finishedGoodsMeter ?? producedQty) ||
-                !isPositive(finishedGoodsKg ?? grossQty))) {
-          throw const MobileApiException(
-            code: 'laminatsiya_completion_metrics_required',
-            message: 'Rulonni yechish uchun metraj va og‘irlikni kiriting',
-          );
-        }
-        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-        final updatedInput = removeRollFromApparatus
-            ? handoffInput.copyWith(
-                wipStatus: 'waiting',
-                currentApparatus: storageKey,
-                currentLocation: '$storageKey olib tashlandi',
-                usedBySessionId: '',
-                usedByApparatus: '',
-                payloadJson: {
-                  ...handoffInput.payloadJson,
-                  'worker_handoff': false,
-                  'roll_removed_from_apparatus': true,
-                  'roll_removed_at_unix': now,
-                  'roll_removed_finished_goods_meter':
-                      finishedGoodsMeter ?? producedQty,
-                  'roll_removed_finished_goods_kg': finishedGoodsKg ?? grossQty,
-                  if (bobinaKg != null) 'roll_removed_bobina_kg': bobinaKg,
-                },
-              )
-            : handoffInput.copyWith(
-                wipStatus: 'in_use',
-                currentApparatus: storageKey,
-                currentLocation: storageKey,
-                usedBySessionId: 'test-session-${orderId.trim()}',
-                usedByApparatus: storageKey,
-                payloadJson: {
-                  ...handoffInput.payloadJson,
-                  'worker_handoff': true,
-                  'roll_removed_from_apparatus': false,
-                  'worker_handoff_at_unix': now,
-                  'lamination_print_leftover_rolls':
-                      laminationPrintLeftoverRolls,
-                  'lamination_film_leftover_rolls': laminationFilmLeftoverRolls,
-                  'total_waste': totalWaste,
-                  if (bobinaKg != null) 'bobina_kg': bobinaKg,
-                },
-              );
-        _testModeProgressBatchesByQr[updatedInput.qrPayload] = updatedInput;
-        _testModeActiveProgressInputByQueue[queueInputKey] =
-            updatedInput.qrPayload;
-        states[orderId.trim()] = 'paused';
-        _testModeSyncScheduleReservationStatus(
-          orderId: orderId,
-          apparatusId: storageKey,
-          status: 'paused',
-        );
-        if (control == AdminOrderControlState.freezeRequested) {
-          _testModeOrderControls[orderId.trim()] =
-              AdminOrderControlState.frozen;
-        }
-        _testModeApparatusQueueStates[storageKey] = states;
-        return AdminApparatusQueueActionResult(
-          states: Map<String, String>.unmodifiable(states),
-        );
-      } else if (isPauseOrDetach) {
-        if (current != ApparatusQueueOrderState.inProgress) {
-          throw const MobileApiException(
-            code: 'queue_action_not_allowed',
-            message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
-          );
-        }
-        final hasFreezeSafeStopOutput = rezkaFrames.isNotEmpty ||
-            producedQty != null ||
-            grossQty != null ||
-            finishedGoodsMeter != null ||
-            finishedGoodsKg != null ||
-            bobinaKg != null ||
-            diameter != null ||
-            returnInkKg != null ||
-            laminationPrintLeftoverRolls != null ||
-            laminationFilmLeftoverRolls != null ||
-            rezkaBosmaWaste != null ||
-            rezkaLaminationWaste != null ||
-            rezkaEdgeWaste != null ||
-            totalWaste != null;
-        final freezeSafeStopIssueNote = completionRequestNote.trim();
-        if (freezeRequestSafeStop &&
-            !hasFreezeSafeStopOutput &&
-            freezeSafeStopIssueNote.isNotEmpty) {
-          states[orderId.trim()] = 'frozen';
-          _testModeOrderControls[orderId.trim()] =
-              AdminOrderControlState.frozen;
-          _testModeFrozenIssueNotesByOrderId[orderId.trim()] =
-              freezeSafeStopIssueNote;
-          _testModeSyncScheduleReservationStatus(
-            orderId: orderId,
-            apparatusId: storageKey,
-            status: 'paused',
-          );
-          _testModeApparatusQueueStates[storageKey] = states;
-          return AdminApparatusQueueActionResult(
-            states: Map<String, String>.unmodifiable(states),
-            orderControl: AdminOrderControlState.frozen,
-          );
-        }
-        final qty = producedQty ?? finishedGoodsMeter ?? 1;
-        final outputBatches = isRezka
-            ? _testModeRezkaProgressBatches(
-                apparatus: storageKey,
-                orderId: orderId.trim(),
-                action: action,
-                status: action == 'detach_roll' ? 'roll_detached' : 'paused',
-                producedQty: qty,
-                uom: uom.trim().isEmpty ? 'm' : uom.trim(),
-                frameCount: configuredRezkaKadrCount!,
-                inputBatch: activeInputBatch,
-                rezkaFrames: rezkaFrames,
-                diameter: diameter,
-                laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
-                laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
-                rezkaBosmaWaste: rezkaBosmaWaste,
-                rezkaLaminationWaste: rezkaLaminationWaste,
-                rezkaEdgeWaste: rezkaEdgeWaste,
-                totalWaste: totalWaste,
-                finishedGoodsKg: finishedGoodsKg ?? grossQty,
-                finishedGoodsMeter: finishedGoodsMeter ?? producedQty,
-                bobinaKg: bobinaKg,
-              )
-            : [
-                _testModeProgressBatch(
-                  apparatus: storageKey,
-                  orderId: orderId.trim(),
-                  action: action,
-                  status: action == 'detach_roll' ? 'roll_detached' : 'paused',
-                  producedQty: qty,
-                  uom: uom.trim().isEmpty && finishedGoodsMeter != null
-                      ? 'm'
-                      : (uom.trim().isEmpty ? 'kg' : uom.trim()),
-                  parentBatchId: activeInputBatch?.batchId ?? '',
-                  laminationPrintLeftoverRolls: null,
-                  laminationFilmLeftoverRolls:
-                      isLaminatsiya ? null : laminationFilmLeftoverRolls,
-                  rezkaBosmaWaste: rezkaBosmaWaste,
-                  rezkaLaminationWaste: rezkaLaminationWaste,
-                  rezkaEdgeWaste: rezkaEdgeWaste,
-                  totalWaste: isLaminatsiya ? null : totalWaste,
-                  finishedGoodsKg: finishedGoodsKg,
-                  finishedGoodsMeter: finishedGoodsMeter,
-                  bobinaKg: bobinaKg,
-                ),
-              ];
-        for (final batch in outputBatches) {
-          _testModeProgressBatchesByQr[batch.qrPayload] = batch;
-        }
-        states[orderId.trim()] =
-            control == AdminOrderControlState.freezeRequested
-                ? 'frozen'
-                : 'paused';
-        _testModeSyncScheduleReservationStatus(
-          orderId: orderId,
-          apparatusId: storageKey,
-          status: 'paused',
-        );
-        if (control == AdminOrderControlState.freezeRequested) {
-          _testModeOrderControls[orderId.trim()] =
-              AdminOrderControlState.frozen;
-        }
-        _testModeApparatusQueueStates[storageKey] = states;
-        final printJobs = _testModeProgressPrintJobs(
-          batches: outputBatches,
-          printer: printer,
-          printMode: printMode,
-          customerName: customerName,
-        );
-        return AdminApparatusQueueActionResult(
-          states: Map<String, String>.unmodifiable(states),
-          orderControl: control == AdminOrderControlState.freezeRequested
-              ? AdminOrderControlState.frozen
-              : null,
-          progressBatch: outputBatches.first,
-          progressBatches: List<AdminProgressBatch>.unmodifiable(outputBatches),
-          printJob: printJobs.isEmpty ? null : printJobs.first,
-          printJobs: List<UsbRpsPrintRequest>.unmodifiable(printJobs),
-        );
-      } else if (action == 'roll_complete') {
-        if (!isRezka || current != ApparatusQueueOrderState.inProgress) {
-          throw const MobileApiException(
-            code: 'queue_action_not_allowed',
-            message: 'Rulonni faqat faol Rezka orderida tugatish mumkin',
-          );
-        }
-        final frameCount = configuredRezkaKadrCount;
-        if (frameCount == null) {
-          throw const MobileApiException(
-            code: 'rezka_kadr_count_required',
-            message: 'Rezka uchun kadr soni sozlanmagan',
-          );
-        }
-        final rezkaFrameIssues = _testModeRezkaFrameIssues(
-          rezkaFrames: rezkaFrames,
-          frameCount: frameCount,
-          inputProgressBatchId: activeInputBatch?.batchId ?? '',
-        );
-        _testModeRezkaFrameIssuesByQueue[queueInputKey] = rezkaFrameIssues;
-        final outputBatches = _testModeRezkaProgressBatches(
-          apparatus: storageKey,
-          orderId: orderId.trim(),
-          action: 'roll_complete',
-          status: 'completed',
-          producedQty: producedQty ?? finishedGoodsMeter ?? 1,
-          uom: uom.trim().isEmpty ? 'm' : uom.trim(),
-          frameCount: frameCount,
-          inputBatch: activeInputBatch,
-          rezkaFrames: rezkaFrames,
-          diameter: diameter,
-          rezkaBosmaWaste: rezkaBosmaWaste,
-          rezkaLaminationWaste: rezkaLaminationWaste,
-          rezkaEdgeWaste: rezkaEdgeWaste,
-          totalWaste: totalWaste,
-          finishedGoodsKg: finishedGoodsKg ?? grossQty,
-          finishedGoodsMeter: finishedGoodsMeter ?? producedQty,
-          bobinaKg: bobinaKg,
-          rezkaFrameIssues: rezkaFrameIssues,
-        );
-        for (final batch in outputBatches) {
-          _testModeProgressBatchesByQr[batch.qrPayload] = batch;
-        }
-        if (activeInputBatch != null) {
-          final processedInput = _testModeMarkProgressInputProcessed(
-            batch: activeInputBatch,
-            apparatus: storageKey,
-            orderId: orderId,
-            rezkaFrameIssues: rezkaFrameIssues,
-          );
-          _testModeProgressBatchesByQr[processedInput.qrPayload] =
-              processedInput;
-        }
-        _testModeActiveProgressInputByQueue.remove(queueInputKey);
-        _testModeEnsureApparatusExecutionCapacity(
-          apparatusId: storageKey,
-          orderId: orderId,
-        );
-        _testModeSyncScheduleReservationStatus(
-          orderId: orderId,
-          apparatusId: storageKey,
-          status: 'active',
-        );
-        _testModeApparatusQueueStates[storageKey] = states;
-        final printJobs = _testModeProgressPrintJobs(
-          batches: outputBatches,
-          printer: printer,
-          printMode: printMode,
-          customerName: customerName,
-        );
-        return AdminApparatusQueueActionResult(
-          states: Map<String, String>.unmodifiable(states),
-          progressBatch: outputBatches.isEmpty ? null : outputBatches.first,
-          progressBatches: List<AdminProgressBatch>.unmodifiable(outputBatches),
-          printJob: printJobs.isEmpty ? null : printJobs.first,
-          printJobs: List<UsbRpsPrintRequest>.unmodifiable(printJobs),
-        );
-      } else if (action == 'resume') {
-        final requeued = _testModeRequeuedOrderIds.contains(orderId.trim());
-        if (current != ApparatusQueueOrderState.paused &&
-            current != ApparatusQueueOrderState.frozen &&
-            !(requeued && current == ApparatusQueueOrderState.pending)) {
-          throw const MobileApiException(
-            code: 'queue_action_not_allowed',
-            message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
-          );
-        }
-        AdminProgressBatch? resumed;
-        final resumedBatches = <AdminProgressBatch>[];
-        if (progressKey.isNotEmpty) {
-          final batch = _testModeProgressBatchForKey(progressKey);
-          if (batch == null ||
-              (batch.status != 'paused' && batch.status != 'roll_detached') ||
-              batch.orderId != orderId.trim() ||
-              batch.apparatus.trim() != storageKey) {
-            throw const MobileApiException(
-              code: 'progress_batch_not_resumable',
-              message: 'Bu progress QR davom ettirishga yaramaydi',
-            );
-          }
-          final siblings = _testModeProgressBatchesByQr.values
-              .where(
-                (candidate) =>
-                    candidate.orderId.trim() == orderId.trim() &&
-                    candidate.apparatus.trim() == storageKey &&
-                    (candidate.action.trim().toLowerCase() == 'pause' ||
-                        candidate.action.trim().toLowerCase() ==
-                            'detach_roll') &&
-                    (candidate.status.trim().toLowerCase() == 'paused' ||
-                        candidate.status.trim().toLowerCase() ==
-                            'roll_detached') &&
-                    candidate.sessionId.trim() == batch.sessionId.trim() &&
-                    candidate.parentBatchId.trim() ==
-                        batch.parentBatchId.trim(),
-              )
-              .toList(growable: false);
-          for (final sibling in siblings) {
-            final updated = sibling.copyWith(status: 'resumed');
-            _testModeProgressBatchesByQr[updated.qrPayload] = updated;
-            resumedBatches.add(updated);
-          }
-          resumed = resumedBatches.isEmpty
-              ? batch.copyWith(status: 'resumed')
-              : resumedBatches.first;
-          if (resumedBatches.isEmpty) {
-            _testModeProgressBatchesByQr[resumed.qrPayload] = resumed;
-            resumedBatches.add(resumed);
-          }
-        } else if (activeInputBatch != null &&
-            (activeInputBatch.payloadJson['worker_handoff'] == true ||
-                activeInputBatch.payloadJson['roll_removed_from_apparatus'] ==
-                    true)) {
-          resumed = activeInputBatch.copyWith(
-            wipStatus: 'in_use',
-            currentApparatus: storageKey,
-            currentLocation: storageKey,
-            usedBySessionId: 'test-session-${orderId.trim()}',
-            usedByApparatus: storageKey,
-            payloadJson: {
-              ...activeInputBatch.payloadJson,
-              'worker_handoff': false,
-              'roll_removed_from_apparatus': false,
-              'roll_claimed_after_handoff_at_unix':
-                  DateTime.now().millisecondsSinceEpoch ~/ 1000,
-            },
-          );
-          _testModeProgressBatchesByQr[resumed.qrPayload] = resumed;
-          _testModeActiveProgressInputByQueue[queueInputKey] =
-              resumed.qrPayload;
-        } else if (activeInputBatch != null) {
-          final pausedOutputs = _testModeProgressBatchesByQr.values
-              .where(
-                (batch) =>
-                    batch.orderId.trim() == orderId.trim() &&
-                    batch.apparatus.trim() == storageKey &&
-                    (batch.action.trim().toLowerCase() == 'pause' ||
-                        batch.action.trim().toLowerCase() == 'detach_roll') &&
-                    (batch.status.trim().toLowerCase() == 'paused' ||
-                        batch.status.trim().toLowerCase() == 'roll_detached') &&
-                    batch.parentBatchId.trim() ==
-                        activeInputBatch.batchId.trim(),
-              )
-              .toList(growable: false);
-          for (final batch in pausedOutputs) {
-            final updated = batch.copyWith(status: 'resumed');
-            _testModeProgressBatchesByQr[updated.qrPayload] = updated;
-            resumedBatches.add(updated);
-          }
-          if (resumedBatches.isNotEmpty) {
-            resumed = resumedBatches.first;
-          }
-        }
-        _testModeEnsureApparatusExecutionCapacity(
-          apparatusId: storageKey,
-          orderId: orderId,
-        );
-        states[orderId.trim()] = 'in_progress';
-        _testModeRequeuedOrderIds.remove(orderId.trim());
-        _testModeSyncScheduleReservationStatus(
-          orderId: orderId,
-          apparatusId: storageKey,
-          status: 'active',
-        );
-        _testModeApparatusQueueStates[storageKey] = states;
-        return AdminApparatusQueueActionResult(
-          states: Map<String, String>.unmodifiable(states),
-          progressBatch: resumed,
-          progressBatches: List<AdminProgressBatch>.unmodifiable(
-            resumedBatches,
-          ),
-        );
-      } else if (action == 'complete') {
-        if (current != ApparatusQueueOrderState.inProgress) {
-          throw const MobileApiException(
-            code: 'queue_action_not_allowed',
-            message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
-          );
-        }
-        final note = completionRequestNote.trim();
-        final hasReturnedPaintReport = returnedPaintItems.isNotEmpty ||
-            returnedPaintImageId.trim().isNotEmpty;
-        final hasCompleteMetrics =
-            (returnInkKg != null || hasReturnedPaintReport) &&
-                totalWaste != null &&
-                finishedGoodsKg != null &&
-                finishedGoodsMeter != null;
-        final hasLaminatsiyaCompleteMetrics = allowPartialStationCompletion
-            ? isPositive(finishedGoodsKg) && isPositive(finishedGoodsMeter)
-            : (laminationPrintLeftoverRolls != null ||
-                    laminationFilmLeftoverRolls != null) &&
-                isPositive(totalWaste) &&
-                isPositive(finishedGoodsKg) &&
-                isPositive(finishedGoodsMeter);
-        final zeroMetricCodes = <String>[
-          if (producedQty == 0) 'produced_qty',
-          if (grossQty == 0) 'gross_qty',
-          if (returnInkKg == 0) 'return_ink_kg',
-          if (laminationPrintLeftoverRolls == 0)
-            'lamination_print_leftover_rolls',
-          if (laminationFilmLeftoverRolls == 0)
-            'lamination_film_leftover_rolls',
-          if (rezkaBosmaWaste == 0) 'rezka_bosma_waste',
-          if (rezkaLaminationWaste == 0) 'rezka_lamination_waste',
-          if (rezkaEdgeWaste == 0) 'rezka_edge_waste',
-          if (totalWaste == 0) 'total_waste',
-          if (finishedGoodsKg == 0) 'finished_goods_kg',
-          if (finishedGoodsMeter == 0) 'finished_goods_meter',
-          if (bobinaKg == 0) 'bobina_kg',
-        ];
-        if (zeroMetricCodes.isNotEmpty && note.isEmpty) {
-          throw const MobileApiException(
-            code: 'zero_metric_explanation_required',
-            message: '0 qiymat kiritilganda sababini yozing',
-          );
-        }
-        if (isLaminatsiya && !hasLaminatsiyaCompleteMetrics && note.isEmpty) {
-          throw const MobileApiException(
-            code: 'laminatsiya_completion_metrics_required',
-            message: 'Laminatsiya uchun metraj va og‘irlikni kiriting',
-          );
-        }
-        final missingOutputWithReason = note.isNotEmpty &&
-            !hasCompleteMetrics &&
-            !hasLaminatsiyaCompleteMetrics &&
-            !hasRezkaQuantityMetrics &&
-            !hasExplicitRezkaFrameMetrics &&
-            grossQty == null;
-        if (zeroMetricCodes.isNotEmpty || missingOutputWithReason) {
-          final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-          final map = _testModeProductionMaps
-              .where((item) => item.map.id.trim() == orderId.trim())
-              .cast<ProductionMapSaved?>()
-              .firstWhere((item) => item != null, orElse: () => null);
-          _testModeCompletionRequests.insert(
-            0,
-            AdminCompletionRequestNotification(
-              eventId: 'test-completion-request-$now-${orderId.trim()}',
-              apparatus: storageKey,
-              orderId: orderId.trim(),
-              orderNumber: map?.map.orderNumber.trim() ?? '',
-              orderTitle: map?.map.title.trim() ?? '',
-              productCode: map?.map.productCode.trim() ?? '',
-              workerRole: AppSession.instance.profile?.role.name ?? '',
-              workerRef: AppSession.instance.profile?.ref.trim() ?? '',
-              workerDisplayName:
-                  AppSession.instance.profile?.displayName.trim() ?? '',
-              description: note,
-              zeroMetricCodes: zeroMetricCodes,
-              createdAtUnix: now,
-            ),
-          );
-          return AdminApparatusQueueActionResult(
-            states: Map<String, String>.unmodifiable(states),
-            completionRequest: _testModeCompletionRequests.first,
-          );
-        }
-        final rezkaFrameCount = isRezka
-            ? _testModeRezkaKadrCount(orderId: orderId, apparatus: apparatus)
-            : null;
-        final rezkaFrameIssues = isRezka && rezkaFrameCount != null
-            ? _testModeRezkaFrameIssues(
-                rezkaFrames: rezkaFrames,
-                frameCount: rezkaFrameCount,
-                inputProgressBatchId: activeInputBatch?.batchId ?? '',
-              )
-            : const <Map<String, dynamic>>[];
-        if (isRezka && rezkaFrameCount == null) {
-          throw const MobileApiException(
-            code: 'rezka_kadr_count_required',
-            message: 'Rezka uchun kadr soni sozlanmagan',
-          );
-        }
-        if (isRezka) {
-          _testModeRezkaFrameIssuesByQueue[queueInputKey] = rezkaFrameIssues;
-        }
-        final outputBatches = isRezka
-            ? _testModeRezkaProgressBatches(
-                apparatus: storageKey,
-                orderId: orderId.trim(),
-                action: 'complete',
-                status: 'completed',
-                producedQty: producedQty ?? finishedGoodsMeter ?? 1,
-                uom: uom.trim().isEmpty && finishedGoodsMeter != null
-                    ? 'm'
-                    : (uom.trim().isEmpty ? 'kg' : uom.trim()),
-                frameCount: rezkaFrameCount!,
-                inputBatch: activeInputBatch,
-                rezkaFrames: rezkaFrames,
-                diameter: diameter,
-                returnInkKg: returnInkKg,
-                laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
-                laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
-                rezkaBosmaWaste:
-                    allowPartialStationCompletion ? null : rezkaBosmaWaste,
-                rezkaLaminationWaste:
-                    allowPartialStationCompletion ? null : rezkaLaminationWaste,
-                rezkaEdgeWaste:
-                    allowPartialStationCompletion ? null : rezkaEdgeWaste,
-                totalWaste: allowPartialStationCompletion ? null : totalWaste,
-                finishedGoodsKg: finishedGoodsKg ?? grossQty,
-                finishedGoodsMeter: finishedGoodsMeter ?? producedQty,
-                bobinaKg: bobinaKg,
-                rezkaFrameIssues: rezkaFrameIssues,
-              )
-            : [
-                _testModeProgressBatch(
-                  apparatus: storageKey,
-                  orderId: orderId.trim(),
-                  action: 'complete',
-                  status: 'completed',
-                  producedQty: producedQty ?? finishedGoodsMeter ?? 1,
-                  uom: uom.trim().isEmpty && finishedGoodsMeter != null
-                      ? 'm'
-                      : (uom.trim().isEmpty ? 'kg' : uom.trim()),
-                  parentBatchId: activeInputBatch?.batchId ?? '',
-                  returnInkKg: returnInkKg,
-                  laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
-                  laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
-                  rezkaBosmaWaste: rezkaBosmaWaste,
-                  rezkaLaminationWaste: rezkaLaminationWaste,
-                  rezkaEdgeWaste: rezkaEdgeWaste,
-                  totalWaste: totalWaste,
-                  finishedGoodsKg: finishedGoodsKg,
-                  finishedGoodsMeter: finishedGoodsMeter,
-                  bobinaKg: bobinaKg,
-                ),
-              ];
-        for (final batch in outputBatches) {
-          _testModeProgressBatchesByQr[batch.qrPayload] = batch;
-        }
-        if (activeInputBatch != null) {
-          final processedInput = _testModeMarkProgressInputProcessed(
-            batch: activeInputBatch,
-            apparatus: storageKey,
-            orderId: orderId,
-            rezkaFrameIssues: rezkaFrameIssues,
-          );
-          _testModeProgressBatchesByQr[processedInput.qrPayload] =
-              processedInput;
-        }
-        _testModeActiveProgressInputByQueue.remove(queueInputKey);
-        final batch = outputBatches.isEmpty ? null : outputBatches.first;
-        states[orderId.trim()] =
-            hasUnprocessedPreviousWip ? 'pending' : 'completed';
-        _testModeApparatusQueueStates[storageKey] = states;
-        final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
-        final completedOrderId = orderId.trim();
-        final historyStatus = _testModeQueueHistoryStatus(
-          apparatus: storageKey,
-          orderId: completedOrderId,
-          fallbackStatus: 'completed',
-        );
-        if (actorRef.isNotEmpty &&
-            completedOrderId.isNotEmpty &&
-            historyStatus.isNotEmpty) {
-          _testModeRecordCompletedQueueOrder(
-            actorRef: actorRef,
-            apparatus: storageKey,
-            orderId: completedOrderId,
-            status: historyStatus,
-          );
-        }
-        if (returnedPaintItems.isNotEmpty ||
-            returnedPaintImageId.trim().isNotEmpty) {
-          final reportId =
-              'returned-paint-complete:$completedOrderId:$storageKey';
-          if (!_testModeReturnedPaintRequests.any(
-            (request) => request.id == reportId,
-          )) {
-            final map = _testModeProductionMaps
-                .where((item) => item.map.id.trim() == completedOrderId)
-                .cast<ProductionMapSaved?>()
-                .firstWhere((item) => item != null, orElse: () => null);
-            final profile = AppSession.instance.profile;
-            final operatorName = profile?.displayName.trim().isNotEmpty == true
-                ? profile!.displayName.trim()
-                : 'Operator';
-            final orderCode = map?.map.code.trim().isNotEmpty == true
-                ? map!.map.code.trim()
-                : map?.map.orderNumber.trim() ?? '';
-            final image =
-                _testModeReturnedPaintImages[returnedPaintImageId.trim()];
-            final waiting = returnedPaintItems.isEmpty && image != null;
-            _testModeReturnedPaintRequests.insert(
-              0,
-              ReturnedPaintRequest(
-                id: reportId,
-                orderId: completedOrderId,
-                orderCode: orderCode,
-                orderName: map?.map.title.trim() ?? '',
-                apparatus: storageKey,
-                senderRole: profile?.role ?? UserRole.aparatchi,
-                senderRef: profile?.ref.trim() ?? 'test-user',
-                senderDisplayName: operatorName,
-                items: returnedPaintItems,
-                status: waiting
-                    ? ReturnedPaintStatus.waitingForBoyoqchiInput
-                    : ReturnedPaintStatus.completed,
-                image: image,
-                calculation: waiting
-                    ? null
-                    : const ReturnedPaintCalculation(
-                        rasxotMixTotal: '0',
-                        astatkaMixTotal: '0',
-                        rasxotAlcohol: '0',
-                        astatkaAlcohol: '0',
-                        finalUsedAlcohol: '0',
-                        rasxotPurePaint: '0',
-                        astatkaPurePaint: '0',
-                        finalUsedPaint: '0',
-                      ),
-                message:
-                    '$operatorName orderni $completedOrderId apparatida muvaffaqiyatli yopdi. Rasxot bo‘yoq sarfi va Astatka qolgan bo‘yoq miqdorlari qayd etildi.',
-                createdAt: DateTime.now(),
-              ),
-            );
-          }
-        }
-        _testModeSyncScheduleReservationStatus(
-          orderId: completedOrderId,
-          apparatusId: storageKey,
-          status: 'completed',
-        );
-        final printJobs = _testModeProgressPrintJobs(
-          batches: outputBatches,
-          printer: printer,
-          printMode: printMode,
-          customerName: customerName,
-        );
-        return AdminApparatusQueueActionResult(
-          states: Map<String, String>.unmodifiable(states),
-          progressBatch: batch,
-          progressBatches: List<AdminProgressBatch>.unmodifiable(outputBatches),
-          printJob: printJobs.isEmpty ? null : printJobs.first,
-          printJobs: List<UsbRpsPrintRequest>.unmodifiable(printJobs),
-        );
-      } else {
-        throw const MobileApiException(
+        return context._runWorkerHandoff();
+      }
+      else if (isPauseOrDetach) {
+        return context._runPauseOrDetach();
+      }
+      else if (action == 'roll_complete') {
+        return context._runRollComplete();
+      }
+      else if (action == 'resume') {
+        return context._runResume();
+      }
+      else if (action == 'complete') {
+        return context._runComplete();
+      }
+      else {
+throw const MobileApiException(
           code: 'queue_action_not_allowed',
           message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
         );
       }
-      if (action == 'start') {
-        _testModeSyncScheduleReservationStatus(
-          orderId: orderId,
-          apparatusId: storageKey,
-          status: 'active',
-        );
-      }
-      _testModeApparatusQueueStates[storageKey] = states;
-      return AdminApparatusQueueActionResult(
-        states: Map<String, String>.unmodifiable(states),
-      );
-}
+  }
 }
