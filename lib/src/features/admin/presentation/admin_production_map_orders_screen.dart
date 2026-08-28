@@ -150,6 +150,7 @@ Future<void> showAdminProductionMapOrderReadOnlyDetail(
         queueStatesByApparatus: snapshot.queueStates,
       ),
       queueStatesByApparatus: snapshot.queueStates,
+      stageStatesByOrderId: snapshot.stageStates,
       queuePolicy: _queuePolicyForApparatus(
         apparatus,
         queuePoliciesByApparatus: snapshot.queuePolicies,
@@ -227,6 +228,7 @@ Future<bool> showProductionMapFreezePauseFlow(
         queueStatesByApparatus: snapshot.queueStates,
       ),
       queueStatesByApparatus: snapshot.queueStates,
+      stageStatesByOrderId: snapshot.stageStates,
       queueActionControl: queueActionControl,
       queuePolicy: _queuePolicyForApparatus(
         target,
@@ -309,6 +311,7 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, List<String>> _sequenceByApparatus = {};
   final Map<String, List<String>> _visibleOrderIdsByApparatus = {};
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
+  final Map<String, Map<String, String>> _stageStatesByOrderId = {};
   final Map<String, AdminApparatusQueuePolicy> _queuePoliciesByApparatus = {};
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       _queueActionControlsByApparatus = {};
@@ -494,6 +497,7 @@ class _AdminProductionMapOrdersScreenState
         orderKg: _orderKgByMapId[mapId] ?? order.map.orderKg,
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
         queueStatesByApparatus: _queueStatesByApparatus,
+        stageStatesByOrderId: _stageStatesByOrderId,
         initialOrderControls: _orderControlsByOrderId,
       ),
     );
@@ -536,6 +540,7 @@ class _AdminProductionMapOrdersScreenState
           queueStatesByApparatus: _queueStatesByApparatus,
         ),
         queueStatesByApparatus: _queueStatesByApparatus,
+        stageStatesByOrderId: _stageStatesByOrderId,
         queueActionControl: _queueActionControlForApparatus(
           apparatus: apparatus,
           orderId: mapId,

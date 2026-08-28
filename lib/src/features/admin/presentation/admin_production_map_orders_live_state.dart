@@ -121,6 +121,7 @@ extension _AdminProductionMapOrdersLiveState
         sequences: snapshot.sequences,
         visibleOrderIds: snapshot.visibleOrderIds,
         queueStates: snapshot.queueStates,
+        stageStates: snapshot.stageStates,
         queuePolicies: snapshot.queuePolicies,
         queueActionControls: snapshot.queueActionControls,
         orderControls: snapshot.orderControls,
@@ -227,6 +228,7 @@ extension _AdminProductionMapOrdersLiveState
         sequenceByApparatus: _sequenceByApparatus,
         visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
         queueStatesByApparatus: _queueStatesByApparatus,
+        stageStatesByOrderId: _stageStatesByOrderId,
         queuePoliciesByApparatus: _queuePoliciesByApparatus,
         queueActionControlsByApparatus: _queueActionControlsByApparatus,
         orderControlsByOrderId: _orderControlsByOrderId,
@@ -248,6 +250,7 @@ extension _AdminProductionMapOrdersLiveState
           sequences: queueSnapshot.sequences,
           visibleOrderIds: queueSnapshot.visibleOrderIds,
           queueStates: queueSnapshot.queueStates,
+          stageStates: queueSnapshot.stageStates,
           queuePolicies: queueSnapshot.queuePolicies,
           queueActionControls: queueSnapshot.queueActionControls,
           orderControls: queueSnapshot.orderControls,
@@ -289,6 +292,7 @@ extension _AdminProductionMapOrdersLiveState
         sequences: const {},
         visibleOrderIds: const {},
         queueStates: const {},
+        stageStates: const {},
         queuePolicies: const {},
         queueActionControls: const {},
         orderControls: const {},
@@ -307,6 +311,7 @@ extension _AdminProductionMapOrdersLiveState
     required Map<String, List<String>> sequences,
     required Map<String, List<String>> visibleOrderIds,
     required Map<String, Map<String, String>> queueStates,
+    required Map<String, Map<String, String>> stageStates,
     required Map<String, AdminApparatusQueuePolicy> queuePolicies,
     required Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
         queueActionControls,
@@ -325,6 +330,9 @@ extension _AdminProductionMapOrdersLiveState
     _queueStatesByApparatus
       ..clear()
       ..addAll(queueStates);
+    _stageStatesByOrderId
+      ..clear()
+      ..addAll(stageStates);
     _queuePoliciesByApparatus
       ..clear()
       ..addAll(queuePolicies);

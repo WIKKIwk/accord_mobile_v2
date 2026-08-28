@@ -23,7 +23,7 @@ List<ProductionMapChainStage> productionMapLinearWorkStages(
 ) {
   final byId = {for (final node in map.nodes) node.id: node};
   final stages = <ProductionMapChainStage>[];
-  final seenStageNodeIds = <String>{};
+  final seenStageOccurrences = <String>{};
   var seenApparatus = false;
   for (final nodeId in _reachableNodeIds(map)) {
     final node = byId[nodeId];
@@ -34,7 +34,8 @@ List<ProductionMapChainStage> productionMapLinearWorkStages(
         seenApparatus = true;
       }
       for (final stage in nodeStages) {
-        if (stage.stageId.isEmpty || !seenStageNodeIds.add(stage.nodeId)) {
+        if (stage.stageId.isEmpty ||
+            !seenStageOccurrences.add(stage.nodeId.trim())) {
           continue;
         }
         stages.add(stage);
@@ -165,6 +166,46 @@ bool productionMapNodeMatchesStation({
     return false;
   }
   return _stageIdentity(node) == stationId;
+}
+
+ApparatusQueueOrderState? productionMapNodeQueueState({
+  required ProductionMapNode node,
+  required String orderId,
+  required String currentStation,
+  required Map<String, String> currentQueueStates,
+  required Map<String, Map<String, String>> queueStatesByApparatus,
+  required Map<String, String> stageStates,
+}) {
+  if (node.kind != 'apparatus') {
+    return null;
+  }
+  final stageState = stageStates[node.id.trim()];
+  if (stageState != null && stageState.trim().isNotEmpty) {
+    return apparatusQueueOrderStateFromRaw(stageState);
+  }
+  final assignedId = node.alternativeAssignedApparatusId.trim();
+  final stationId = assignedId.isEmpty ? node.apparatusId.trim() : assignedId;
+  if (stationId.isEmpty) {
+    return null;
+  }
+  if (productionMapNodeMatchesStation(node: node, station: currentStation)) {
+    return apparatusQueueOrderStateFromRaw(currentQueueStates[orderId.trim()]);
+  }
+  return apparatusQueueOrderStateFromRaw(
+    queueStatesByApparatus[stationId]?[orderId.trim()],
+  );
+}
+
+bool productionMapNodeIsCurrentOccurrence({
+  required ProductionMapNode node,
+  required String currentStation,
+  required String currentStageNodeId,
+}) {
+  final stageNodeId = currentStageNodeId.trim();
+  if (stageNodeId.isNotEmpty) {
+    return node.id.trim() == stageNodeId;
+  }
+  return productionMapNodeMatchesStation(node: node, station: currentStation);
 }
 
 String productionMapStageDisplayTitle({

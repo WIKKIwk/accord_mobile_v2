@@ -149,6 +149,8 @@ class _ReadOnlyOrderDetailUiState {
   const _ReadOnlyOrderDetailUiState({
     required this.orderId,
     required this.station,
+    required this.stageNodeId,
+    required this.rezkaOutputKadrCounts,
     required this.materialAssignments,
     required this.intakeCandidateAssignments,
     required this.assignedMaterialAssignments,
@@ -178,6 +180,8 @@ class _ReadOnlyOrderDetailUiState {
 
   final String orderId;
   final String station;
+  final String stageNodeId;
+  final List<int> rezkaOutputKadrCounts;
 
   /// Backend-selected assignments that participate in the start policy.
   final List<AdminRawMaterialAssignment> materialAssignments;

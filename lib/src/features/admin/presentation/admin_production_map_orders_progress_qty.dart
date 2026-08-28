@@ -98,10 +98,12 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   required bool isRezka,
   ReturnedPaintDraft? returnedPaintDraft,
   bool fullCompletionReportRequired = false,
+  bool rezkaTotalWasteOnlyCompletionRequired = false,
   bool workerHandoff = false,
   bool removeRollFromApparatus = false,
   bool astatkaReport = false,
   bool freezeRequestSafeStop = false,
+  List<int> rezkaOutputKadrCounts = const [],
 }) async {
   final draft = returnedPaintDraft ??
       await ReturnedPaintDraftStore.instance.load(
@@ -124,10 +126,13 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       isRezka: isRezka,
       returnedPaintDraft: draft,
       fullCompletionReportRequired: fullCompletionReportRequired,
+      rezkaTotalWasteOnlyCompletionRequired:
+          rezkaTotalWasteOnlyCompletionRequired,
       workerHandoff: workerHandoff,
       removeRollFromApparatus: removeRollFromApparatus,
       astatkaReport: astatkaReport,
       freezeRequestSafeStop: freezeRequestSafeStop,
+      rezkaOutputKadrCounts: rezkaOutputKadrCounts,
     ),
   );
 }
@@ -139,10 +144,12 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   required ProductionMapSaved order,
   ReturnedPaintDraft? returnedPaintDraft,
   bool fullCompletionReportRequired = false,
+  bool rezkaTotalWasteOnlyCompletionRequired = false,
   bool workerHandoff = false,
   bool removeRollFromApparatus = false,
   bool astatkaReport = false,
   bool freezeRequestSafeStop = false,
+  List<int> rezkaOutputKadrCounts = const [],
 }) {
   final apparatusId = apparatus?.id ?? '';
   final operation = apparatus?.operation.trim() ?? '';
@@ -156,10 +163,13 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     isRezka: operation == 'cut',
     returnedPaintDraft: returnedPaintDraft,
     fullCompletionReportRequired: fullCompletionReportRequired,
+    rezkaTotalWasteOnlyCompletionRequired:
+        rezkaTotalWasteOnlyCompletionRequired,
     workerHandoff: workerHandoff,
     removeRollFromApparatus: removeRollFromApparatus,
     astatkaReport: astatkaReport,
     freezeRequestSafeStop: freezeRequestSafeStop,
+    rezkaOutputKadrCounts: rezkaOutputKadrCounts,
   );
 }
 
@@ -189,10 +199,12 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.isRezka,
     required this.returnedPaintDraft,
     required this.fullCompletionReportRequired,
+    required this.rezkaTotalWasteOnlyCompletionRequired,
     required this.workerHandoff,
     required this.removeRollFromApparatus,
     required this.astatkaReport,
     required this.freezeRequestSafeStop,
+    required this.rezkaOutputKadrCounts,
   });
 
   final String action;
@@ -203,10 +215,12 @@ class _ProgressQtyDialog extends StatefulWidget {
   final bool isRezka;
   final ReturnedPaintDraft returnedPaintDraft;
   final bool fullCompletionReportRequired;
+  final bool rezkaTotalWasteOnlyCompletionRequired;
   final bool workerHandoff;
   final bool removeRollFromApparatus;
   final bool astatkaReport;
   final bool freezeRequestSafeStop;
+  final List<int> rezkaOutputKadrCounts;
 
   @override
   State<_ProgressQtyDialog> createState() => _ProgressQtyDialogState();
@@ -239,8 +253,15 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
 
   bool get _isComplete => widget.action == 'complete';
 
+  bool get _requiresRezkaTotalWasteOnlyCompletion =>
+      _isComplete &&
+      widget.isRezka &&
+      widget.rezkaTotalWasteOnlyCompletionRequired;
+
   bool get _requiresFullCompletionReport =>
-      _isComplete && widget.fullCompletionReportRequired;
+      _isComplete &&
+      widget.fullCompletionReportRequired &&
+      !_requiresRezkaTotalWasteOnlyCompletion;
 
   bool get _isWorkerHandoff => widget.workerHandoff;
 
@@ -273,14 +294,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     });
   }
 
-  int get _rezkaFrameCount {
-    final node = _rezkaNodeForStation(
-      map: widget.order.map,
-      station: widget.apparatus,
-    );
-    final count = node?.rezkaKadrCount ?? 0;
-    return count > 0 ? count : 0;
-  }
+  int get _rezkaFrameCount => widget.rezkaOutputKadrCounts.length;
 
   bool get _isRezkaProgressLabelAction => const {
         'pause',
@@ -755,6 +769,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
             : hasMeter && hasKg && hasBobina && hasDiameter) &&
         (!_requiresFullCompletionReport ||
             hasRezkaWaste ||
+            allRezkaFramesIssue) &&
+        (!_requiresRezkaTotalWasteOnlyCompletion ||
+            hasWaste ||
             allRezkaFramesIssue);
     if (!widget.isBosma &&
         !widget.isLaminatsiya &&
@@ -872,8 +889,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         children: [
           Text(
             context.l10n.productionText(
-              'worker.progress.qty.rezka_frame',
-              values: {'index': index + 1},
+              'worker.progress.qty.rezka_output_roll',
+              values: {
+                'index': index + 1,
+                'frames': widget.rezkaOutputKadrCounts[index],
+              },
             ),
             style: theme.textTheme.titleSmall?.copyWith(
               color: scheme.primary,
@@ -1174,6 +1194,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                         ],
                         if (isRezka &&
                             (_requiresFullCompletionReport ||
+                                _requiresRezkaTotalWasteOnlyCompletion ||
                                 _isAstatkaReport)) ...[
                           _progressQtySectionLabel(
                             context,
@@ -1197,105 +1218,113 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             suffix: context.l10n.productionText(
                               'worker.progress.qty.unit.kg',
                             ),
-                            requiredField: _isAstatkaReport ? true : false,
+                            requiredField:
+                                (_requiresRezkaTotalWasteOnlyCompletion ||
+                                        _isAstatkaReport)
+                                    ? true
+                                    : false,
                             positive: !_isAstatkaReport,
                             allowZero: _isAstatkaReport,
                           ),
                           const SizedBox(height: 10),
-                          _qtyField(
-                            controller: _rezkaBosmaWasteController,
-                            label: context.l10n.productionText(
-                              'worker.daily.field.print_waste',
-                            ),
-                            error: context.l10n.productionText(
-                              'worker.daily.required_field',
-                              values: {
-                                'label': context.l10n.productionText(
-                                  'worker.daily.field.print_waste',
-                                ),
-                              },
-                            ),
-                            suffix: context.l10n.productionText(
-                              'worker.progress.qty.unit.kg',
-                            ),
-                            requiredField: _isAstatkaReport ? true : false,
-                            positive: !_isAstatkaReport,
-                            allowZero: _isAstatkaReport,
-                          ),
-                          const SizedBox(height: 10),
-                          _qtyField(
-                            controller: _rezkaLaminationWasteController,
-                            label: context.l10n.productionText(
-                              'worker.daily.field.lamination_waste',
-                            ),
-                            error: context.l10n.productionText(
-                              'worker.daily.required_field',
-                              values: {
-                                'label': context.l10n.productionText(
-                                  'worker.daily.field.lamination_waste',
-                                ),
-                              },
-                            ),
-                            suffix: context.l10n.productionText(
-                              'worker.progress.qty.unit.kg',
-                            ),
-                            requiredField: _isAstatkaReport ? true : false,
-                            positive: !_isAstatkaReport,
-                            allowZero: _isAstatkaReport,
-                          ),
-                          const SizedBox(height: 10),
-                          _qtyField(
-                            controller: _rezkaEdgeWasteController,
-                            label: context.l10n.productionText(
-                              'worker.daily.field.edge_waste',
-                            ),
-                            error: context.l10n.productionText(
-                              'worker.daily.required_field',
-                              values: {
-                                'label': context.l10n.productionText(
-                                  'worker.daily.field.edge_waste',
-                                ),
-                              },
-                            ),
-                            suffix: context.l10n.productionText(
-                              'worker.progress.qty.unit.kg',
-                            ),
-                            requiredField: _isAstatkaReport ? true : false,
-                            positive: !_isAstatkaReport,
-                            allowZero: _isAstatkaReport,
-                          ),
-                          const SizedBox(height: 10),
-                          if (!_isAstatkaReport)
-                            FormField<void>(
-                              validator: (_) {
-                                final hasWaste = [
-                                  _wasteController,
-                                  _rezkaBosmaWasteController,
-                                  _rezkaLaminationWasteController,
-                                  _rezkaEdgeWasteController,
-                                ].any(_hasPositiveQty);
-                                return hasWaste
-                                    ? null
-                                    : context.l10n.productionText(
-                                        'worker.progress.qty.waste_required',
-                                      );
-                              },
-                              builder: (field) {
-                                if (!field.hasError) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Text(
-                                    field.errorText!,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: scheme.error,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                          if (_requiresFullCompletionReport ||
+                              _isAstatkaReport) ...[
+                            _qtyField(
+                              controller: _rezkaBosmaWasteController,
+                              label: context.l10n.productionText(
+                                'worker.daily.field.print_waste',
+                              ),
+                              error: context.l10n.productionText(
+                                'worker.daily.required_field',
+                                values: {
+                                  'label': context.l10n.productionText(
+                                    'worker.daily.field.print_waste',
                                   ),
-                                );
-                              },
+                                },
+                              ),
+                              suffix: context.l10n.productionText(
+                                'worker.progress.qty.unit.kg',
+                              ),
+                              requiredField: _isAstatkaReport ? true : false,
+                              positive: !_isAstatkaReport,
+                              allowZero: _isAstatkaReport,
                             ),
+                            const SizedBox(height: 10),
+                            _qtyField(
+                              controller: _rezkaLaminationWasteController,
+                              label: context.l10n.productionText(
+                                'worker.daily.field.lamination_waste',
+                              ),
+                              error: context.l10n.productionText(
+                                'worker.daily.required_field',
+                                values: {
+                                  'label': context.l10n.productionText(
+                                    'worker.daily.field.lamination_waste',
+                                  ),
+                                },
+                              ),
+                              suffix: context.l10n.productionText(
+                                'worker.progress.qty.unit.kg',
+                              ),
+                              requiredField: _isAstatkaReport ? true : false,
+                              positive: !_isAstatkaReport,
+                              allowZero: _isAstatkaReport,
+                            ),
+                            const SizedBox(height: 10),
+                            _qtyField(
+                              controller: _rezkaEdgeWasteController,
+                              label: context.l10n.productionText(
+                                'worker.daily.field.edge_waste',
+                              ),
+                              error: context.l10n.productionText(
+                                'worker.daily.required_field',
+                                values: {
+                                  'label': context.l10n.productionText(
+                                    'worker.daily.field.edge_waste',
+                                  ),
+                                },
+                              ),
+                              suffix: context.l10n.productionText(
+                                'worker.progress.qty.unit.kg',
+                              ),
+                              requiredField: _isAstatkaReport ? true : false,
+                              positive: !_isAstatkaReport,
+                              allowZero: _isAstatkaReport,
+                            ),
+                            const SizedBox(height: 10),
+                            if (!_isAstatkaReport)
+                              FormField<void>(
+                                validator: (_) {
+                                  final hasWaste = [
+                                    _wasteController,
+                                    _rezkaBosmaWasteController,
+                                    _rezkaLaminationWasteController,
+                                    _rezkaEdgeWasteController,
+                                  ].any(_hasPositiveQty);
+                                  return hasWaste
+                                      ? null
+                                      : context.l10n.productionText(
+                                          'worker.progress.qty.waste_required',
+                                        );
+                                },
+                                builder: (field) {
+                                  if (!field.hasError) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      field.errorText!,
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
+                                        color: scheme.error,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                          ],
                         ],
                         if (showTotalWaste) ...[
                           _progressQtySectionLabel(
@@ -1332,7 +1361,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           _progressQtySectionLabel(
                             context,
                             context.l10n.productionText(
-                              'worker.progress.qty.rezka_frames',
+                              'worker.progress.qty.rezka_outputs',
                               values: {'count': _rezkaFrameCount},
                             ),
                           ),

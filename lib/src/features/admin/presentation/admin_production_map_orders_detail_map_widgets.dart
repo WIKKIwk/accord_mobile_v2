@@ -8,6 +8,8 @@ class _OrderMapProgressCard extends StatelessWidget {
     required this.currentStation,
     required this.queueStates,
     required this.queueStatesByApparatus,
+    required this.stageStates,
+    required this.currentStageNodeId,
     required this.expanded,
     required this.onToggleExpanded,
     required this.onTapApparatus,
@@ -19,6 +21,8 @@ class _OrderMapProgressCard extends StatelessWidget {
   final String currentStation;
   final Map<String, String> queueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, String> stageStates;
+  final String currentStageNodeId;
   final bool expanded;
   final VoidCallback onToggleExpanded;
   final ValueChanged<ProductionMapNode> onTapApparatus;
@@ -65,6 +69,7 @@ class _OrderMapProgressCard extends StatelessWidget {
                             currentStation: currentStation,
                             queueStates: queueStates,
                             queueStatesByApparatus: queueStatesByApparatus,
+                            stageStates: stageStates,
                           ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
@@ -121,10 +126,12 @@ class _OrderMapProgressCard extends StatelessWidget {
                                   queueStates: queueStates,
                                   queueStatesByApparatus:
                                       queueStatesByApparatus,
+                                  stageStates: stageStates,
                                 ),
-                                current: _orderMapNodeMatchesStation(
-                                  steps[index],
-                                  currentStation,
+                                current: productionMapNodeIsCurrentOccurrence(
+                                  node: steps[index],
+                                  currentStation: currentStation,
+                                  currentStageNodeId: currentStageNodeId,
                                 ),
                                 isDone: _orderMapStepIsDone(
                                   steps: steps,
@@ -134,6 +141,7 @@ class _OrderMapProgressCard extends StatelessWidget {
                                   queueStates: queueStates,
                                   queueStatesByApparatus:
                                       queueStatesByApparatus,
+                                  stageStates: stageStates,
                                 ),
                                 onTap: steps[index].kind == 'apparatus' &&
                                         _orderMapNodeStationId(steps[index])
@@ -161,19 +169,15 @@ ApparatusQueueOrderState? _orderMapNodeStatus(
   required String currentStation,
   required Map<String, String> queueStates,
   required Map<String, Map<String, String>> queueStatesByApparatus,
+  required Map<String, String> stageStates,
 }) {
-  if (node.kind != 'apparatus') {
-    return null;
-  }
-  final stationId = _orderMapNodeStationId(node);
-  if (stationId.isEmpty) {
-    return null;
-  }
-  if (_orderMapNodeMatchesStation(node, currentStation)) {
-    return apparatusQueueOrderStateFromRaw(queueStates[orderId]);
-  }
-  return apparatusQueueOrderStateFromRaw(
-    queueStatesByApparatus[stationId]?[orderId],
+  return productionMapNodeQueueState(
+    node: node,
+    orderId: orderId,
+    currentStation: currentStation,
+    currentQueueStates: queueStates,
+    queueStatesByApparatus: queueStatesByApparatus,
+    stageStates: stageStates,
   );
 }
 
@@ -200,6 +204,7 @@ bool _orderMapStepIsDone({
   required String currentStation,
   required Map<String, String> queueStates,
   required Map<String, Map<String, String>> queueStatesByApparatus,
+  required Map<String, String> stageStates,
 }) {
   if (_orderMapStepIsIntro(
     steps: steps,
@@ -213,6 +218,7 @@ bool _orderMapStepIsDone({
     currentStation: currentStation,
     queueStates: queueStates,
     queueStatesByApparatus: queueStatesByApparatus,
+    stageStates: stageStates,
   );
   return status == ApparatusQueueOrderState.completed;
 }
@@ -224,6 +230,7 @@ String _orderMapProgressSummary({
   required String currentStation,
   required Map<String, String> queueStates,
   required Map<String, Map<String, String>> queueStatesByApparatus,
+  required Map<String, String> stageStates,
 }) {
   var completed = 0;
   for (var index = 0; index < steps.length; index++) {
@@ -234,6 +241,7 @@ String _orderMapProgressSummary({
       currentStation: currentStation,
       queueStates: queueStates,
       queueStatesByApparatus: queueStatesByApparatus,
+      stageStates: stageStates,
     )) {
       completed++;
     }

@@ -151,6 +151,13 @@ void main() {
         assignedApparatus: [_printingId, _laminationId],
       ),
     );
+    final candidates = await MobileApi.instance.adminOpeningWipCandidates(
+      apparatus: _laminationId,
+      orderId: 'ORDER-1',
+    );
+    expect(candidates.map((batch) => batch.batchId), [
+      for (final batch in created.batches) batch.batchId,
+    ]);
     final lookedUp = await MobileApi.instance.adminLookupOpeningWip(
       apparatus: _laminationId,
       orderId: 'ORDER-1',

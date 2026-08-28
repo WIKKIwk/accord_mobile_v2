@@ -157,6 +157,41 @@ AdminProgressBatch? _matchingInputProgressBatch({
   return null;
 }
 
+AdminProgressBatch? _inputProgressBatchForScannedQr({
+  required List<AdminProgressBatch> batches,
+  required String qrPayload,
+}) {
+  final normalized = qrPayload.trim().toUpperCase();
+  if (normalized.isEmpty) return null;
+  for (final batch in batches) {
+    if (batch.qrPayload.trim().toUpperCase() == normalized &&
+        _progressBatchCanBeScanned(batch)) {
+      return batch;
+    }
+  }
+  return null;
+}
+
+AdminOpeningWipBatch? _matchingOpeningWipBatch({
+  required List<AdminOpeningWipBatch> batches,
+  String batchId = '',
+  String qrPayload = '',
+}) {
+  final normalizedBatchId = batchId.trim();
+  final normalizedQr = qrPayload.trim().toUpperCase();
+  for (final batch in batches) {
+    final sameBatch = normalizedBatchId.isNotEmpty &&
+        batch.batchId.trim() == normalizedBatchId;
+    final sameQr = normalizedQr.isNotEmpty &&
+        batch.qrPayload.trim().toUpperCase() == normalizedQr;
+    if ((sameBatch || sameQr) &&
+        batch.wipStatus.trim().toLowerCase() == 'waiting') {
+      return batch;
+    }
+  }
+  return null;
+}
+
 List<String> _queueActionMaterialBarcodes({
   required String action,
   required List<AdminRawMaterialAssignment> assignments,
@@ -530,6 +565,9 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   return _ReadOnlyOrderDetailUiState(
     orderId: orderId,
     station: station,
+    stageNodeId: queueActionControl?.stageNodeId.trim() ?? '',
+    rezkaOutputKadrCounts:
+        queueActionControl?.rezkaOutputKadrCounts ?? const <int>[],
     materialAssignments: stationMaterialAssignments,
     intakeCandidateAssignments: intakeCandidateAssignments,
     assignedMaterialAssignments: materialAssignments,
@@ -579,10 +617,24 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
 ProductionMapNode? _rezkaNodeForStation({
   required ProductionMapDefinition map,
   required String station,
+  String stageNodeId = '',
 }) {
   final trimmedStation = station.trim();
   if (trimmedStation.isEmpty) {
     return null;
+  }
+  final preferredNodeId = stageNodeId.trim();
+  if (preferredNodeId.isNotEmpty) {
+    for (final node in map.nodes) {
+      if (node.id.trim() == preferredNodeId &&
+          node.kind == 'apparatus' &&
+          productionMapNodeMatchesStation(
+            node: node,
+            station: trimmedStation,
+          )) {
+        return node;
+      }
+    }
   }
   for (final node in _linearProductionMapNodes(map)) {
     if (node.kind == 'apparatus' &&
@@ -599,11 +651,43 @@ ProductionMapNode? _rezkaNodeForStation({
 List<String> _rezkaWipSplitInstructionLines({
   required ProductionMapDefinition map,
   required String station,
+  required String stageNodeId,
+  required List<int> outputKadrCounts,
   required AppLocalizations l10n,
 }) {
-  final node = _rezkaNodeForStation(map: map, station: station);
+  final node = _rezkaNodeForStation(
+    map: map,
+    station: station,
+    stageNodeId: stageNodeId,
+  );
   if (node == null) {
     return const [];
+  }
+  final authoritativeOutputs =
+      outputKadrCounts.where((count) => count > 0).toList(growable: false);
+  final groups = authoritativeOutputs.isNotEmpty
+      ? authoritativeOutputs
+      : node.rezkaFrameGroups
+          .where((group) => group > 0)
+          .toList(growable: false);
+  if (groups.isNotEmpty) {
+    final totalFrames = groups.fold<int>(0, (sum, group) => sum + group);
+    return [
+      l10n.productionText(
+        'worker.split.summary',
+        values: {'count': groups.length},
+      ),
+      for (var index = 0; index < groups.length; index++)
+        l10n.productionText(
+          'worker.split.part',
+          values: {'index': index + 1, 'frames': groups[index]},
+        ),
+      if (totalFrames > 0)
+        l10n.productionText(
+          'worker.split.total',
+          values: {'frames': totalFrames},
+        ),
+    ];
   }
   final kadrCount = node.rezkaKadrCount;
   if (kadrCount != null && kadrCount > 0) {
@@ -625,27 +709,6 @@ List<String> _rezkaWipSplitInstructionLines({
       );
     }
     return lines;
-  }
-  final groups =
-      node.rezkaFrameGroups.where((group) => group > 0).toList(growable: false);
-  if (groups.isNotEmpty) {
-    final totalFrames = groups.fold<int>(0, (sum, group) => sum + group);
-    return [
-      l10n.productionText(
-        'worker.split.summary',
-        values: {'count': groups.length},
-      ),
-      for (var index = 0; index < groups.length; index++)
-        l10n.productionText(
-          'worker.split.part',
-          values: {'index': index + 1, 'frames': groups[index]},
-        ),
-      if (totalFrames > 0)
-        l10n.productionText(
-          'worker.split.total',
-          values: {'frames': totalFrames},
-        ),
-    ];
   }
   final lines = <String>[];
   final labelLength = node.rezkaLabelLength;

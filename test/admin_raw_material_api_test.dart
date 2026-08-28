@@ -1062,6 +1062,17 @@ void main() {
     expect(requirements.matchedScanCount, 2);
     expect(requirements.assignmentsSatisfied, isTrue);
     expect(requirements.scanSatisfied, isFalse);
+
+    final partial = requirements.withLocalScannedBarcodes(
+      const ['RM-01', 'RM-02'],
+    );
+    final complete = requirements.withLocalScannedBarcodes(
+      const ['RM-01', 'RM-02', 'RM-03'],
+    );
+    expect(partial.matchedScanCount, 2);
+    expect(partial.scanSatisfied, isFalse);
+    expect(complete.matchedScanCount, 3);
+    expect(complete.scanSatisfied, isTrue);
   });
 
   test('raw material start requirements use backend state context', () async {

@@ -68,24 +68,58 @@ void main() {
     expect(request, contains('prepared.startInputQrPayload'));
   });
 
-  test('Opening WIP worker scan uses the apparatus-scoped lookup', () {
+  test('Opening WIP worker scan uses the preloaded apparatus-scoped list', () {
     final source = File(
       'lib/src/features/admin/presentation/'
       'admin_production_map_orders_read_only_sheet.dart',
     ).readAsStringSync();
-    final lookupStart = source.indexOf('Future<bool> _acceptOpeningWipQr(');
+    final lookupStart = source.indexOf('bool _acceptOpeningWipQr(');
     final lookupEnd = source.indexOf(
-      'Future<bool> _acceptProgressBatch(',
+      'bool _acceptProgressBatch(',
       lookupStart,
     );
     expect(lookupStart, greaterThanOrEqualTo(0));
     expect(lookupEnd, greaterThan(lookupStart));
     final lookup = source.substring(lookupStart, lookupEnd);
 
-    expect(lookup, contains('adminLookupOpeningWip('));
-    expect(lookup, contains('apparatus: apparatus'));
-    expect(lookup, contains('orderId: orderId'));
-    expect(lookup, isNot(contains('adminOpeningWipRecords(')));
+    expect(lookup, contains('_availableOpeningWipBatches'));
+    expect(lookup, contains('_matchingOpeningWipBatch('));
+    expect(lookup, isNot(contains('MobileApi.instance')));
+
+    final preloadStart = source.indexOf(
+      'Future<void> _loadInputProgressBatches()',
+    );
+    final preloadEnd = source.indexOf(
+      'Future<List<AdminProgressBatch>> _fetchInputProgressBatches(',
+      preloadStart,
+    );
+    expect(preloadStart, greaterThanOrEqualTo(0));
+    expect(preloadEnd, greaterThan(preloadStart));
+    final preload = source.substring(preloadStart, preloadEnd);
+    expect(preload, contains('adminOpeningWipCandidates('));
+  });
+
+  test('worker start scanner validates preloaded QR data locally', () {
+    final source = File(
+      'lib/src/features/admin/presentation/'
+      'admin_production_map_orders_read_only_sheet.dart',
+    ).readAsStringSync();
+    final scanStart = source.indexOf('Future<void> _handleQuickScan(');
+    final scanEnd = source.indexOf(
+      'bool _quickScanErrorAllowsRetry(',
+      scanStart,
+    );
+    expect(scanStart, greaterThanOrEqualTo(0));
+    expect(scanEnd, greaterThan(scanStart));
+    final scan = source.substring(scanStart, scanEnd);
+
+    expect(scan, contains('_startAssignments'));
+    expect(scan, contains('_requiredQolips'));
+    expect(scan, contains('_availableInputProgressBatches'));
+    expect(scan, isNot(contains('adminProgressQrLookup(')));
+    expect(scan, isNot(contains('adminValidateProductionMapQolipDetails(')));
+    expect(scan, isNot(contains('adminLookupOpeningWip(')));
+    expect(scan, isNot(contains('_fetchMaterialAssignments(')));
   });
 
   test('worker QR switching uses backend controls instead of topology or WIP',

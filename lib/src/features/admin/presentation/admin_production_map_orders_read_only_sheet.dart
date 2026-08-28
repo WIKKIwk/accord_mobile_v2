@@ -29,6 +29,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.workerMode = false,
     this.initialQueueStates = const {},
     this.queueStatesByApparatus = const {},
+    this.stageStatesByOrderId = const {},
     this.queueActionControl,
     this.queuePolicy = ApparatusQueuePolicy.strictSequence,
     this.sequenceOrderIds = const [],
@@ -55,6 +56,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final bool workerMode;
   final Map<String, String> initialQueueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, Map<String, String>> stageStatesByOrderId;
   final AdminApparatusQueueOrderActionControl? queueActionControl;
   final ApparatusQueuePolicy queuePolicy;
   final List<String> sequenceOrderIds;
@@ -78,6 +80,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
 class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   final GlobalKey _noticeAnchorKey = GlobalKey();
   late Map<String, String> _queueStates;
+  late Map<String, String> _stageStates;
   AdminApparatusQueueOrderActionControl? _queueActionControl;
   late AdminOrderControlState _orderControlState;
   late Map<String, AdminOrderControlState> _orderControls;
@@ -86,6 +89,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   List<AdminRawMaterialAssignment> _intakeCandidateAssignments = const [];
   AdminRawMaterialStartRequirements? _materialStartRequirements;
   List<AdminProgressBatch> _availableInputProgressBatches = const [];
+  List<AdminOpeningWipBatch> _availableOpeningWipBatches = const [];
   final Set<String> _scannedMaterialBarcodes = {};
   final Map<String, String> _scannedQolipCodes = {};
   final Map<String, AdminProductionMapRequiredQolip> _requiredQolips = {};
@@ -137,6 +141,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   void initState() {
     super.initState();
     _queueStates = Map<String, String>.from(widget.initialQueueStates);
+    _stageStates = Map<String, String>.from(
+      widget.stageStatesByOrderId[widget.order.map.id.trim()] ?? const {},
+    );
     _queueActionControl = widget.queueActionControl;
     _orderControls =
         Map<String, AdminOrderControlState>.from(widget.initialOrderControls);
@@ -202,6 +209,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (!_actionInFlight) {
       _queueActionControl = widget.queueActionControl;
     }
+    _stageStates = Map<String, String>.from(
+      widget.stageStatesByOrderId[widget.order.map.id.trim()] ?? const {},
+    );
     if (oldWidget.order.map.id.trim() != widget.order.map.id.trim() ||
         oldStation != station) {
       _scannedMaterialBarcodes.clear();
@@ -219,6 +229,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _startInputProgressBatch = null;
       _startInputOpeningWipBatch = null;
       _availableInputProgressBatches = const [];
+      _availableOpeningWipBatches = const [];
       _inputProgressError = '';
       _inputProgressLoading = false;
       _returnedPaintDraft = null;
@@ -371,33 +382,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return mounted &&
         widget.order.map.id.trim() == orderId &&
         (widget.apparatus?.id.trim() ?? '') == apparatus;
-  }
-
-  bool _scannedMaterialBarcodesMatch(Set<String> expected) {
-    return expected.length == _scannedMaterialBarcodes.length &&
-        expected.every(_scannedMaterialBarcodes.contains);
-  }
-
-  void _applyMaterialAssignmentsSnapshotIfCurrent({
-    required _MaterialAssignmentsSnapshot snapshot,
-    required String orderId,
-    required String apparatus,
-    required Set<String> expectedScannedBarcodes,
-  }) {
-    if (!_materialContextIsCurrent(orderId, apparatus) ||
-        !_scannedMaterialBarcodesMatch(expectedScannedBarcodes)) {
-      return;
-    }
-    _applyMaterialAssignmentsSnapshot(snapshot);
-  }
-
-  List<AdminRawMaterialAssignment> _materialAssignmentsForScan(
-    _MaterialAssignmentsSnapshot snapshot,
-  ) {
-    if (snapshot.requirements == null) {
-      return _isTrainingOrder ? snapshot.assignments : const [];
-    }
-    return snapshot.startAssignments;
   }
 
   Future<bool> _loadMaterialAssignments({bool showLoading = true}) async {
@@ -610,10 +594,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         .timeout(_queueActionControlRefreshTimeout);
     final control = snapshot.queueActionControls[apparatus]?[orderId];
     final nextQueueStates = snapshot.queueStates[apparatus];
+    final nextStageStates = snapshot.stageStates[orderId];
     final nextOrderControl = snapshot.orderControlFor(orderId);
     if (mounted) {
       setState(() {
         _queueStates = Map<String, String>.from(nextQueueStates ?? const {});
+        _stageStates = Map<String, String>.from(nextStageStates ?? const {});
         _orderControls = Map<String, AdminOrderControlState>.from(
           snapshot.orderControls,
         );
@@ -953,29 +939,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       final station = widget.apparatus?.id.trim() ?? '';
       if (_queueActionControl?.interaction?.openingWipMode ==
           AdminQueuePreviousWipMode.scanRequired) {
-        await _acceptOpeningWipQr(
+        _acceptOpeningWipQr(
           orderId: orderId,
           apparatus: station,
           qrPayload: rawValue.trim(),
         );
         return;
       }
-      final scannedBeforeLoad = Set<String>.from(_scannedMaterialBarcodes);
-      final snapshot = await _fetchMaterialAssignments(
-        orderId: orderId,
-        apparatus: station,
-        materialBarcodes: scannedBeforeLoad.toList(growable: false),
-      );
-      if (!_materialContextIsCurrent(orderId, station)) {
-        return;
-      }
-      _applyMaterialAssignmentsSnapshotIfCurrent(
-        snapshot: snapshot,
-        orderId: orderId,
-        apparatus: station,
-        expectedScannedBarcodes: scannedBeforeLoad,
-      );
-      final assignments = _materialAssignmentsForScan(snapshot);
+      final assignments = _materialStartRequirements == null
+          ? (_isTrainingOrder
+              ? _materialAssignments
+              : const <AdminRawMaterialAssignment>[])
+          : _startAssignments;
       final material = _materialAssignmentForScannedBarcode(
         assignments: assignments,
         barcode: normalized,
@@ -983,26 +958,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (material != null) {
         final key = _materialBarcodeKey(material.barcode);
         final alreadyScanned = _scannedMaterialBarcodes.contains(key);
-        if (!alreadyScanned && mounted) {
-          setState(() => _scannedMaterialBarcodes.add(key));
-        }
-        final scannedAfterMatch = Set<String>.from(_scannedMaterialBarcodes);
-        final refreshedSnapshot = await _fetchMaterialAssignments(
-          orderId: orderId,
-          apparatus: station,
-          materialBarcodes: scannedAfterMatch.toList(growable: false),
-        );
-        if (!_materialContextIsCurrent(orderId, station)) return;
-        _applyMaterialAssignmentsSnapshotIfCurrent(
-          snapshot: refreshedSnapshot,
-          orderId: orderId,
-          apparatus: station,
-          expectedScannedBarcodes: scannedAfterMatch,
-        );
         if (mounted) {
-          final complete =
-              refreshedSnapshot.requirements?.scanSatisfied == true;
           setState(() {
+            if (!alreadyScanned) {
+              _scannedMaterialBarcodes.add(key);
+            }
+            _materialStartRequirements = _materialStartRequirements
+                ?.withLocalScannedBarcodes(_scannedMaterialBarcodes);
+            final complete = _materialStartRequirements?.scanSatisfied == true;
             _quickScanStatus = complete
                 ? context.l10n.productionText(
                     'worker.notice.materials_confirmed',
@@ -1021,22 +984,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
 
       Object? scanError;
-      var retryableScanFailure = false;
       if (_queueActionControl?.interaction?.qolipMode ==
           AdminQueueQolipMode.scanRequired) {
-        try {
-          final validation =
-              await MobileApi.instance.adminValidateProductionMapQolipDetails(
-            apparatus: station,
-            orderId: orderId,
-            qolipCode: normalized,
-          );
-          final validatedCode = validation.qolipCode;
+        final requiredQolip = _requiredQolips[normalized.toLowerCase()];
+        if (requiredQolip != null) {
+          final validatedCode = requiredQolip.qolipCode.trim();
           if (mounted) {
             final key = validatedCode.trim().toLowerCase();
             final alreadyScanned = _scannedQolipCodes.containsKey(key);
             setState(() {
-              _replaceRequiredQolips(validation.requiredQolips);
               _scannedQolipCodes[key] = validatedCode.trim();
               _quickScanStatus = alreadyScanned
                   ? context.l10n.productionText(
@@ -1056,36 +1012,31 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             });
           }
           return;
-        } catch (error) {
-          scanError = error;
-          retryableScanFailure = _quickScanErrorAllowsRetry(error);
-          // The same QR may be a progress QR on a later production stage.
         }
+        scanError = MobileApiException(
+          code: 'qolip_code_mismatch',
+          message: context.l10n.productionText('worker.error.machine_flow'),
+        );
+        // The same QR may be a progress QR on a later production stage.
       }
 
       final previousStage = _queueActionControl?.previousStage.trim();
       if (previousStage != null && previousStage.isNotEmpty) {
-        try {
-          final batch = await MobileApi.instance.adminProgressQrLookup(
-            normalized,
-          );
-          final accepted = await _acceptProgressBatch(batch, previousStage);
-          if (accepted) {
-            return;
-          }
+        final batch = _inputProgressBatchForScannedQr(
+          batches: _availableInputProgressBatches,
+          qrPayload: normalized,
+        );
+        if (batch != null && _acceptProgressBatch(batch)) {
           return;
-        } catch (error) {
-          scanError ??= error;
-          retryableScanFailure =
-              retryableScanFailure || _quickScanErrorAllowsRetry(error);
-          // Unknown QR values are reported below and scanning continues.
         }
+        scanError ??= MobileApiException(
+          code: 'progress_qr_not_found',
+          message: context.l10n.productionText(
+            'worker.error.previous_stage_qr',
+          ),
+        );
       }
 
-      if (retryableScanFailure ||
-          (scanError != null && _quickScanErrorAllowsRetry(scanError))) {
-        _seenQuickScanValues.remove(scanKey);
-      }
       if (mounted) {
         setState(() {
           _quickScanStatus = scanError == null
@@ -1119,17 +1070,27 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return error is TimeoutException || error is http.ClientException;
   }
 
-  Future<bool> _acceptOpeningWipQr({
+  bool _acceptOpeningWipQr({
     required String orderId,
     required String apparatus,
     required String qrPayload,
-  }) async {
-    final match = await MobileApi.instance.adminLookupOpeningWip(
-      apparatus: apparatus,
-      orderId: orderId,
+  }) {
+    final match = _matchingOpeningWipBatch(
+      batches: _availableOpeningWipBatches,
       qrPayload: qrPayload,
     );
     if (!_materialContextIsCurrent(orderId, apparatus)) {
+      return false;
+    }
+    if (match == null) {
+      setState(() {
+        _startInputOpeningWipBatch = null;
+        _inputProgressLoading = false;
+        _inputProgressError = '';
+        _quickScanStatus = context.l10n.productionText(
+          'worker.opening_wip.qr_mismatch',
+        );
+      });
       return false;
     }
     setState(() {
@@ -1144,21 +1105,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return true;
   }
 
-  Future<bool> _acceptProgressBatch(
+  bool _acceptProgressBatch(
     AdminProgressBatch batch,
-    String previousStage,
-  ) async {
-    final latest = await _fetchInputProgressBatches(previousStage);
+  ) {
     if (!mounted) {
       return false;
     }
     final match = _matchingInputProgressBatch(
-      batches: latest,
+      batches: _availableInputProgressBatches,
       batch: batch,
     );
     if (match == null || match.wipStatus.trim().toLowerCase() != 'waiting') {
       setState(() {
-        _availableInputProgressBatches = latest;
         _startInputProgressBatch = null;
         _inputProgressLoading = false;
         _inputProgressError = '';
@@ -1169,7 +1127,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       return false;
     }
     setState(() {
-      _availableInputProgressBatches = latest;
       _startInputProgressBatch = match;
       _inputProgressLoading = false;
       _inputProgressError = '';
@@ -1452,6 +1409,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _returnedPaintDraftScope = scope;
     }
     if (!mounted) return _ProgressActionOutcome.cancelled;
+    final rezkaOutputKadrCounts =
+        _queueActionControl?.rezkaOutputKadrCounts ?? const <int>[];
+    final requiresRezkaOutputs = widget.apparatus?.operation.trim() == 'cut' &&
+        !workerHandoff &&
+        !removeRollFromApparatus &&
+        const {'pause', 'detach_roll', 'roll_complete', 'complete'}
+            .contains(action.trim().toLowerCase());
+    if (requiresRezkaOutputs && rezkaOutputKadrCounts.isEmpty) {
+      _showSheetNotice(context.l10n.productionText('worker.error.sync'));
+      return _ProgressActionOutcome.failed;
+    }
     final input = await _showProgressQtyDialogForApparatus(
       context,
       action: action,
@@ -1460,9 +1428,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       returnedPaintDraft: _returnedPaintDraft,
       fullCompletionReportRequired:
           fullCompletionReportRequired ?? _completionNeedsFullReport(action),
+      rezkaTotalWasteOnlyCompletionRequired:
+          _queueActionControl?.completeRequiresRezkaTotalWasteOnly ?? false,
       workerHandoff: workerHandoff,
       removeRollFromApparatus: removeRollFromApparatus,
       freezeRequestSafeStop: freezeRequestSafeStop,
+      rezkaOutputKadrCounts: rezkaOutputKadrCounts,
     );
     if (!mounted || input == null) {
       return _ProgressActionOutcome.cancelled;
@@ -1674,12 +1645,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (station.isEmpty) {
       return;
     }
-    final previousStage = _queueActionControl?.previousStage.trim();
+    final interaction = _queueActionControl?.interaction;
+    final openingWipRequired =
+        interaction?.openingWipMode == AdminQueuePreviousWipMode.scanRequired;
+    final previousWipRequired =
+        interaction?.previousWipMode == AdminQueuePreviousWipMode.scanRequired;
+    final previousStage = _queueActionControl?.previousStage.trim() ?? '';
     if (!_queueActionContractSynchronized ||
-        _queueActionControl?.interaction?.previousWipMode !=
-            AdminQueuePreviousWipMode.scanRequired ||
-        previousStage == null ||
-        previousStage.isEmpty) {
+        (!openingWipRequired &&
+            (!previousWipRequired || previousStage.isEmpty))) {
       return;
     }
     setState(() {
@@ -1687,12 +1661,35 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _inputProgressError = '';
     });
     try {
+      if (openingWipRequired) {
+        final batches = await MobileApi.instance.adminOpeningWipCandidates(
+          apparatus: station,
+          orderId: widget.order.map.id.trim(),
+        );
+        if (!mounted) return;
+        setState(() {
+          _availableOpeningWipBatches = batches;
+          _availableInputProgressBatches = const [];
+          _inputProgressLoading = false;
+          _inputProgressError = '';
+          final currentBatch = _startInputOpeningWipBatch;
+          _startInputOpeningWipBatch = currentBatch == null
+              ? null
+              : _matchingOpeningWipBatch(
+                  batches: batches,
+                  batchId: currentBatch.batchId,
+                  qrPayload: currentBatch.qrPayload,
+                );
+        });
+        return;
+      }
       final batches = await _fetchInputProgressBatches(previousStage);
       if (!mounted) {
         return;
       }
       setState(() {
         _availableInputProgressBatches = batches;
+        _availableOpeningWipBatches = const [];
         _inputProgressLoading = false;
         _inputProgressError = '';
         final currentBatch = _startInputProgressBatch;
@@ -1710,6 +1707,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
       setState(() {
         _availableInputProgressBatches = const [];
+        _availableOpeningWipBatches = const [];
         _inputProgressLoading = false;
         _inputProgressError = context.l10n.productionText(
           'worker.wip.load_failed',
@@ -1812,8 +1810,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         !uiState.previousProgressReady &&
         !_inputProgressLoading &&
         _inputProgressError.isEmpty &&
-        (uiState.openingWipRequired ||
-            _availableInputProgressBatches.isNotEmpty);
+        (uiState.openingWipRequired
+            ? _availableOpeningWipBatches.isNotEmpty
+            : _availableInputProgressBatches.isNotEmpty);
     final materialIntakeScanActive =
         _materialIntakeMode && uiState.materialIntakeAllowed;
     final showQuickScanner = startMaterialScanPending ||
@@ -1843,6 +1842,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             : context.l10n.productionText('worker.action.pause'),
         queueStates: _queueStates,
         queueStatesByApparatus: widget.queueStatesByApparatus,
+        stageStates: _stageStates,
         materialsLoading: _materialsLoading,
         materialsError: _materialsError,
         materialStartReady: materialStartReady,

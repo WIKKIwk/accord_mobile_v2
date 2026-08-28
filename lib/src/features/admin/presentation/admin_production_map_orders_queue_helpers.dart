@@ -5,6 +5,7 @@ bool _queueSnapshotChanged({
   required Map<String, List<String>> sequenceByApparatus,
   required Map<String, List<String>> visibleOrderIdsByApparatus,
   required Map<String, Map<String, String>> queueStatesByApparatus,
+  required Map<String, Map<String, String>> stageStatesByOrderId,
   required Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus,
   required Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       queueActionControlsByApparatus,
@@ -17,6 +18,7 @@ bool _queueSnapshotChanged({
   if (sequenceByApparatus.length != snapshot.sequences.length ||
       visibleOrderIdsByApparatus.length != snapshot.visibleOrderIds.length ||
       queueStatesByApparatus.length != snapshot.queueStates.length ||
+      stageStatesByOrderId.length != snapshot.stageStates.length ||
       queuePoliciesByApparatus.length != snapshot.queuePolicies.length ||
       queueActionControlsByApparatus.length !=
           snapshot.queueActionControls.length ||
@@ -46,6 +48,12 @@ bool _queueSnapshotChanged({
   }
   for (final entry in snapshot.queueStates.entries) {
     final current = queueStatesByApparatus[entry.key];
+    if (current == null || !_stringMapsEqual(current, entry.value)) {
+      return true;
+    }
+  }
+  for (final entry in snapshot.stageStates.entries) {
+    final current = stageStatesByOrderId[entry.key];
     if (current == null || !_stringMapsEqual(current, entry.value)) {
       return true;
     }

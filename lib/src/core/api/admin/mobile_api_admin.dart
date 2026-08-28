@@ -1243,8 +1243,11 @@ class AdminApparatusQueueOrderActionControl {
     this.hasOnlyKnownActions = false,
     this.hasRequiredFields = true,
     this.previousStage = '',
+    this.stageNodeId = '',
     this.previousStageReady = false,
+    this.rezkaOutputKadrCounts = const [],
     this.completeRequiresFullReport = false,
+    this.completeRequiresRezkaTotalWasteOnly = false,
     this.freezeRequest,
   });
 
@@ -1254,8 +1257,11 @@ class AdminApparatusQueueOrderActionControl {
   final bool hasOnlyKnownActions;
   final bool hasRequiredFields;
   final String previousStage;
+  final String stageNodeId;
   final bool previousStageReady;
+  final List<int> rezkaOutputKadrCounts;
   final bool completeRequiresFullReport;
+  final bool completeRequiresRezkaTotalWasteOnly;
   final AdminProductionOrderFreezeDetails? freezeRequest;
 
   bool allows(String action) => allowedActions.contains(action.trim());
@@ -1399,8 +1405,17 @@ class AdminApparatusQueueOrderActionControl {
           json['previous_stage_ready'] is bool &&
           json['complete_requires_full_report'] is bool,
       previousStage: json['previous_stage']?.toString().trim() ?? '',
+      stageNodeId: json['stage_node_id']?.toString().trim() ?? '',
       previousStageReady: json['previous_stage_ready'] == true,
+      rezkaOutputKadrCounts: List<int>.unmodifiable(
+        (json['rezka_output_kadr_counts'] as List? ?? const [])
+            .whereType<num>()
+            .map((value) => value.toInt())
+            .where((value) => value > 0),
+      ),
       completeRequiresFullReport: json['complete_requires_full_report'] == true,
+      completeRequiresRezkaTotalWasteOnly:
+          json['complete_requires_rezka_total_waste_only'] == true,
       freezeRequest: json['freeze_request'] is Map
           ? AdminProductionOrderFreezeDetails.fromJson(
               (json['freeze_request'] as Map).cast<String, dynamic>(),
@@ -1635,6 +1650,7 @@ void _validateProductionMapQueueContract({
   required Map<String, List<String>> sequences,
   required Map<String, List<String>> visibleOrderIds,
   required Map<String, Map<String, String>> queueStates,
+  required Map<String, Map<String, String>> stageStates,
   required Map<String, AdminApparatusQueuePolicy> queuePolicies,
   required Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       queueActionControls,
@@ -1684,6 +1700,22 @@ void _validateProductionMapQueueContract({
       }
     }
   }
+  for (final orderEntry in stageStates.entries) {
+    if (orderEntry.key.trim().isEmpty) {
+      throw _productionMapQueueContractException(
+        'stage_states contains an invalid order key',
+      );
+    }
+    for (final stageEntry in orderEntry.value.entries) {
+      final state = stageEntry.value.trim().toLowerCase();
+      if (stageEntry.key.trim().isEmpty ||
+          !_knownApparatusQueueStates.contains(state)) {
+        throw _productionMapQueueContractException(
+          'stage_states contains an invalid stage state',
+        );
+      }
+    }
+  }
   for (final apparatusEntry in queueActionControls.entries) {
     if (!isCanonicalApparatusId(apparatusEntry.key.trim())) {
       throw _productionMapQueueContractException(
@@ -1718,6 +1750,7 @@ class AdminApparatusQueueSnapshot {
     required this.queuePolicies,
     required this.orderControls,
     this.queueActionControls = const {},
+    this.stageStates = const {},
     this.orderCustomers = const {},
     this.orderStatuses = const {},
     this.qolipOrderNotes = const {},
@@ -1727,6 +1760,7 @@ class AdminApparatusQueueSnapshot {
   final Map<String, List<String>> sequences;
   final Map<String, List<String>> visibleOrderIds;
   final Map<String, Map<String, String>> queueStates;
+  final Map<String, Map<String, String>> stageStates;
   final Map<String, AdminApparatusQueuePolicy> queuePolicies;
   final Map<String, AdminOrderControlState> orderControls;
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
@@ -1747,6 +1781,7 @@ class AdminApparatusQueueSnapshot {
       sequences: sequences,
       visibleOrderIds: visibleOrderIds,
       queueStates: queueStates,
+      stageStates: stageStates,
       queuePolicies: queuePolicies,
       queueActionControls: queueActionControls,
       frozenOrdersByApparatus: frozenOrdersByApparatus,
@@ -3282,6 +3317,27 @@ Map<String, String> _stringMapOfStrings(Object? raw) {
   };
 }
 
+Map<String, Map<String, String>> _parseProductionMapStageStates(Object? raw) {
+  if (raw is! Map) {
+    return const {};
+  }
+  final result = <String, Map<String, String>>{};
+  for (final orderEntry in raw.entries) {
+    final orderId = orderEntry.key.toString().trim();
+    final stages = orderEntry.value;
+    if (orderId.isEmpty || stages is! Map) {
+      continue;
+    }
+    result[orderId] = Map<String, String>.unmodifiable({
+      for (final stageEntry in stages.entries)
+        if (stageEntry.key.toString().trim().isNotEmpty)
+          stageEntry.key.toString().trim():
+              stageEntry.value.toString().trim().toLowerCase(),
+    });
+  }
+  return Map<String, Map<String, String>>.unmodifiable(result);
+}
+
 class AdminWorkerProfileDetail {
   const AdminWorkerProfileDetail({
     required this.worker,
@@ -4197,6 +4253,44 @@ class AdminRawMaterialStartRequirements {
 
   Set<String> get normalizedStagedBarcodes =>
       stagedBarcodes.map(_normalizeRawMaterialBarcode).toSet()..remove('');
+
+  AdminRawMaterialStartRequirements withLocalScannedBarcodes(
+    Iterable<String> barcodes,
+  ) {
+    final scannedBarcodes = barcodes
+        .map(_normalizeRawMaterialBarcode)
+        .where((barcode) => barcode.isNotEmpty)
+        .toSet();
+    final assigned = normalizedAssignedBarcodes;
+    final staged = normalizedStagedBarcodes;
+    final matchedCount = policy == AdminRawMaterialStartPolicy.stateAll
+        ? scannedBarcodes.intersection(staged).length
+        : _matchedRawMaterialRequirementCount(
+            requirementGroups: requirementGroups,
+            assignments: startAssignments,
+            barcodes: scannedBarcodes,
+          );
+    final locallySatisfied = assignments.isEmpty && !requiresMaterial ||
+        assignments.isNotEmpty &&
+            scannedBarcodes.isNotEmpty &&
+            assigned.containsAll(scannedBarcodes) &&
+            (policy == AdminRawMaterialStartPolicy.stateAll
+                ? setEquals(scannedBarcodes, staged)
+                : requiredScanCount > 0 && matchedCount == requiredScanCount);
+    return AdminRawMaterialStartRequirements(
+      policy: policy,
+      requiresMaterial: requiresMaterial,
+      requirementGroups: requirementGroups,
+      assignedBarcodes: assignedBarcodes,
+      stagedBarcodes: stagedBarcodes,
+      assignments: assignments,
+      startAssignments: startAssignments,
+      requiredScanCount: requiredScanCount,
+      matchedScanCount: matchedCount,
+      assignmentsSatisfied: assignmentsSatisfied,
+      scanSatisfied: locallySatisfied,
+    );
+  }
 }
 
 String _normalizeRawMaterialBarcode(String value) => value.trim().toUpperCase();
@@ -4254,7 +4348,7 @@ bool _testModeRawMaterialMatchesRule(
   return allowedGroups.contains(itemGroup);
 }
 
-int _testModeMatchedRawMaterialRequirementCount({
+int _matchedRawMaterialRequirementCount({
   required List<AdminRawMaterialRequirementGroup> requirementGroups,
   required List<AdminRawMaterialAssignment> assignments,
   required Set<String> barcodes,
@@ -4628,6 +4722,7 @@ class AdminProductionMapLiveSnapshot {
     required this.queueStates,
     required this.queuePolicies,
     this.queueActionControls = const {},
+    this.stageStates = const {},
     required this.completedOrders,
     required this.completionRequests,
     required this.completionRequestDecisions,
@@ -4641,6 +4736,7 @@ class AdminProductionMapLiveSnapshot {
   final Map<String, List<String>> sequences;
   final Map<String, List<String>> visibleOrderIds;
   final Map<String, Map<String, String>> queueStates;
+  final Map<String, Map<String, String>> stageStates;
   final Map<String, AdminApparatusQueuePolicy> queuePolicies;
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       queueActionControls;
@@ -4674,6 +4770,7 @@ class AdminProductionMapLiveSnapshot {
       queueStates: MobileApi.instance.parseApparatusQueueStateMap(
         json['queue_states'],
       ),
+      stageStates: _parseProductionMapStageStates(json['stage_states']),
       queuePolicies: MobileApi.instance.parseApparatusQueuePolicyMap(
         json['queue_policies'],
       ),
@@ -4717,6 +4814,7 @@ class AdminProductionMapLiveSnapshot {
       sequences: sequences,
       visibleOrderIds: visibleOrderIds,
       queueStates: queueStates,
+      stageStates: stageStates,
       queuePolicies: queuePolicies,
       queueActionControls: queueActionControls,
       frozenOrdersByApparatus: frozenOrdersByApparatus,
@@ -6679,6 +6777,7 @@ extension MobileApiAdmin on MobileApi {
           _testModeApparatusQueuePolicies,
         ),
         queueActionControls: _testModeQueueActionControls(),
+        stageStates: const {},
         orderControls: orderControls,
         orderCustomers: {
           for (final saved in _testModeProductionMaps)
@@ -6712,6 +6811,7 @@ extension MobileApiAdmin on MobileApi {
       sequences: parseApparatusSequenceMap(payload['sequences']),
       visibleOrderIds: visibleOrderIds,
       queueStates: parseApparatusQueueStateMap(payload['queue_states']),
+      stageStates: _parseProductionMapStageStates(payload['stage_states']),
       queuePolicies: parseApparatusQueuePolicyMap(payload['queue_policies']),
       queueActionControls: _parseAdminQueueActionControls(
         payload['queue_action_controls'],
@@ -7668,12 +7768,12 @@ extension MobileApiAdmin on MobileApi {
       final policyMatchedScanCount =
           policy == AdminRawMaterialStartPolicy.stateAll
               ? scannedBarcodes.intersection(stagedBarcodes).length
-              : _testModeMatchedRawMaterialRequirementCount(
+              : _matchedRawMaterialRequirementCount(
                   requirementGroups: requirementGroups,
                   assignments: assignments,
                   barcodes: scannedBarcodes,
                 );
-      final assignedMatchedCount = _testModeMatchedRawMaterialRequirementCount(
+      final assignedMatchedCount = _matchedRawMaterialRequirementCount(
         requirementGroups: requirementGroups,
         assignments: assignments,
         barcodes: assignedBarcodes,

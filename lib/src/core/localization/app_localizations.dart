@@ -4267,6 +4267,16 @@ class AppLocalizations {
       'en': 'Frame {index}',
       'ru': '{index}-й кадр',
     },
+    'worker.progress.qty.rezka_outputs': {
+      'uz': 'Chiqish rulonlari ({count} ta)',
+      'en': 'Output rolls ({count})',
+      'ru': 'Выходные рулоны ({count} шт.)',
+    },
+    'worker.progress.qty.rezka_output_roll': {
+      'uz': '{index}-rulon — {frames} kadrli',
+      'en': 'Roll {index} — {frames} frame(s)',
+      'ru': 'Рулон {index} — {frames} кадр(а)',
+    },
     'worker.progress.qty.returned_paint_and_waste': {
       'uz': 'Qaytim va chiqindi',
       'en': 'Returned ink and waste',

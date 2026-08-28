@@ -15,6 +15,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.pauseLabel,
     required this.queueStates,
     required this.queueStatesByApparatus,
+    required this.stageStates,
     required this.materialsLoading,
     required this.materialsError,
     required this.materialStartReady,
@@ -75,6 +76,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final String pauseLabel;
   final Map<String, String> queueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, String> stageStates;
   final bool materialsLoading;
   final String materialsError;
   final bool materialStartReady;
@@ -127,6 +129,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     final rezkaInstructionLines = _rezkaWipSplitInstructionLines(
       map: map,
       station: uiState.station,
+      stageNodeId: uiState.stageNodeId,
+      outputKadrCounts: uiState.rezkaOutputKadrCounts,
       l10n: context.l10n,
     );
     return DraggableScrollableSheet(
@@ -275,6 +279,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     currentStation: uiState.station,
                     queueStates: queueStates,
                     queueStatesByApparatus: queueStatesByApparatus,
+                    stageStates: stageStates,
+                    currentStageNodeId: uiState.stageNodeId,
                     expanded: mapExpanded,
                     onToggleExpanded: onToggleMapExpanded,
                     onTapApparatus: onTapMapApparatus,

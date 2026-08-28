@@ -203,6 +203,132 @@ void main() {
     );
   });
 
+  test('linear stages retain repeated physical apparatus occurrences', () {
+    const map = ProductionMapDefinition(
+      id: 'zakaz-repeated-rezka',
+      productCode: 'REZKA-REENTRY',
+      title: 'Repeated Rezka',
+      nodes: [
+        ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+        ProductionMapNode(
+          id: 'bosma',
+          kind: 'apparatus',
+          title: 'Flexo pechat',
+          apparatusId: _printId,
+        ),
+        ProductionMapNode(
+          id: 'rezka-before-lamination',
+          kind: 'apparatus',
+          title: 'Rezka',
+          apparatusId: _cutId,
+        ),
+        ProductionMapNode(
+          id: 'lamination',
+          kind: 'apparatus',
+          title: 'Laminatsiya 1',
+          apparatusId: _lamination1Id,
+        ),
+        ProductionMapNode(
+          id: 'rezka-final',
+          kind: 'apparatus',
+          title: 'Rezka',
+          apparatusId: _cutId,
+        ),
+        ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+      ],
+      edges: [
+        ProductionMapEdge(from: 'start', to: 'bosma'),
+        ProductionMapEdge(from: 'bosma', to: 'rezka-before-lamination'),
+        ProductionMapEdge(
+          from: 'rezka-before-lamination',
+          to: 'lamination',
+        ),
+        ProductionMapEdge(from: 'lamination', to: 'rezka-final'),
+        ProductionMapEdge(from: 'rezka-final', to: 'end'),
+      ],
+    );
+
+    final stages = productionMapLinearWorkStages(map);
+
+    expect(
+      stages.map((stage) => stage.nodeId),
+      const [
+        'bosma',
+        'rezka-before-lamination',
+        'lamination',
+        'rezka-final',
+      ],
+    );
+    expect(
+      stages.map((stage) => stage.stageId),
+      const [_printId, _cutId, _lamination1Id, _cutId],
+    );
+  });
+
+  test('stage states keep final Rezka pending after intermediate completion',
+      () {
+    const orderId = 'zakaz-repeated-rezka';
+    const intermediateRezka = ProductionMapNode(
+      id: 'rezka-before-lamination',
+      kind: 'apparatus',
+      title: 'Rezka',
+      apparatusId: _cutId,
+    );
+    const finalRezka = ProductionMapNode(
+      id: 'rezka-final',
+      kind: 'apparatus',
+      title: 'Rezka',
+      apparatusId: _cutId,
+    );
+    const contaminatedCanonicalStates = {
+      _cutId: {orderId: 'completed'},
+    };
+    const stageStates = {
+      'rezka-before-lamination': 'completed',
+      'lamination': 'pending',
+      'rezka-final': 'pending',
+    };
+
+    expect(
+      productionMapNodeQueueState(
+        node: intermediateRezka,
+        orderId: orderId,
+        currentStation: _lamination1Id,
+        currentQueueStates: const {orderId: 'pending'},
+        queueStatesByApparatus: contaminatedCanonicalStates,
+        stageStates: stageStates,
+      ),
+      ApparatusQueueOrderState.completed,
+    );
+    expect(
+      productionMapNodeQueueState(
+        node: finalRezka,
+        orderId: orderId,
+        currentStation: _lamination1Id,
+        currentQueueStates: const {orderId: 'pending'},
+        queueStatesByApparatus: contaminatedCanonicalStates,
+        stageStates: stageStates,
+      ),
+      ApparatusQueueOrderState.pending,
+    );
+    expect(
+      productionMapNodeIsCurrentOccurrence(
+        node: intermediateRezka,
+        currentStation: _cutId,
+        currentStageNodeId: 'rezka-final',
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapNodeIsCurrentOccurrence(
+        node: finalRezka,
+        currentStation: _cutId,
+        currentStageNodeId: 'rezka-final',
+      ),
+      isTrue,
+    );
+  });
+
   test('display rename does not change stage identity', () {
     final original = _canonicalMap();
     final renamed = original.copyWith(

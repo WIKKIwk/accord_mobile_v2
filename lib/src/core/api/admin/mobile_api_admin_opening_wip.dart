@@ -378,6 +378,49 @@ extension MobileApiAdminOpeningWip on MobileApi {
     );
   }
 
+  Future<List<AdminOpeningWipBatch>> adminOpeningWipCandidates({
+    required String apparatus,
+    required String orderId,
+  }) async {
+    final normalizedApparatus = apparatus.trim();
+    final normalizedOrderId = orderId.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      return List<AdminOpeningWipBatch>.unmodifiable([
+        for (final record in _testModeOpeningWipRecords)
+          if (record.intake.status.trim().toLowerCase() == 'confirmed' &&
+              record.intake.orderId.trim() == normalizedOrderId &&
+              _testModeOpeningWipCanScanAt(record, normalizedApparatus))
+            for (final batch in record.batches)
+              if (batch.orderId.trim() == normalizedOrderId &&
+                  batch.wipStatus.trim().toLowerCase() == 'waiting')
+                batch,
+      ]);
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/opening-wip/lookup',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'apparatus': normalizedApparatus,
+          'order_id': normalizedOrderId,
+          'qr_payload': '',
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'opening_wip_lookup');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return [
+      for (final item in payload['batches'] as List? ?? const [])
+        if (item is Map)
+          AdminOpeningWipBatch.fromJson(item.cast<String, dynamic>()),
+    ];
+  }
+
   Future<AdminOpeningWipPrintResult> adminPrintOpeningWip({
     required String batchId,
     String qrPayload = '',

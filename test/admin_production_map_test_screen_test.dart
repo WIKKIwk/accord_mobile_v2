@@ -6658,7 +6658,88 @@ void main() {
     expect(find.text('Metraj'), findsOneWidget);
   });
 
-  testWidgets('rezka worker progress dialogs use rezka metric fields', (
+  testWidgets('intermediate Rezka completion asks only total waste', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await AppSession.instance.setSession(
+      token: 'worker-rezka-intermediate-dialog-token',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Rezka operatori',
+        legalName: '',
+        ref: 'worker-rezka-intermediate-dialog',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [_rezkaId],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-rezka-intermediate-dialog',
+        title: 'Intermediate Rezka dialog order',
+        productCode: 'RZD-I',
+        apparatusId: _rezkaId,
+        product: 'intermediate rezka dialog mahsulot',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: _rezkaId,
+      orderIds: const ['zakaz-rezka-intermediate-dialog'],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: _rezkaId,
+      orderId: 'zakaz-rezka-intermediate-dialog',
+      action: 'start',
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _rezkaId,
+      orderId: 'zakaz-rezka-intermediate-dialog',
+      control: _inProgressQueueControl(
+        completeRequiresRezkaTotalWasteOnly: true,
+        stageNodeId: 'rezka-before-lamination',
+        rezkaOutputKadrCounts: const [1, 2],
+      ),
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Rezka'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('rezka-intermediate-dialog').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tugatish'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Chiqish rulonlari (2 ta)'), findsOneWidget);
+    expect(find.text('1-rulon — 1 kadrli'), findsOneWidget);
+    expect(find.text('2-rulon — 2 kadrli'), findsOneWidget);
+    expect(find.text('Chiqindilar'), findsOneWidget);
+    expect(find.text('Jami chiqindi'), findsOneWidget);
+    expect(find.text('Bosma chiqindisi'), findsNothing);
+    expect(find.text('Laminatsiya chiqindisi'), findsNothing);
+    expect(find.text('Chet chiqindisi'), findsNothing);
+  });
+
+  testWidgets('final Rezka completion uses full waste report', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
@@ -6696,7 +6777,11 @@ void main() {
     setMobileApiTestModeQueueActionControlFixture(
       apparatus: _rezkaId,
       orderId: 'zakaz-rezka-dialog',
-      control: _inProgressQueueControl(completeRequiresFullReport: true),
+      control: _inProgressQueueControl(
+        completeRequiresFullReport: true,
+        stageNodeId: 'apparatus',
+        rezkaOutputKadrCounts: const [1, 2],
+      ),
     );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -6727,7 +6812,10 @@ void main() {
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Diametr'), findsOneWidget);
+    expect(find.text('Chiqish rulonlari (2 ta)'), findsOneWidget);
+    expect(find.text('1-rulon — 1 kadrli'), findsOneWidget);
+    expect(find.text('2-rulon — 2 kadrli'), findsOneWidget);
+    expect(find.text('Diametr'), findsNWidgets(2));
     expect(find.text('Bosma chiqindisi'), findsOneWidget);
     expect(find.text('Laminatsiya chiqindisi'), findsOneWidget);
     expect(
@@ -6747,9 +6835,9 @@ void main() {
       find.text('Chet chiqindisi'),
       findsNothing,
     );
-    expect(find.text('Metraj'), findsOneWidget);
-    expect(find.text('Og‘irlik'), findsOneWidget);
-    expect(find.text('Diametr'), findsOneWidget);
+    expect(find.text('Metraj'), findsNWidgets(2));
+    expect(find.text('Og‘irlik'), findsNWidgets(2));
+    expect(find.text('Diametr'), findsNWidgets(2));
   });
 
   testWidgets('rezka worker detail explains WIP split from map', (
@@ -6826,18 +6914,18 @@ void main() {
 
     expect(find.text('Map bo‘yicha rezka'), findsOneWidget);
     expect(
-      find.textContaining('Rulon 4 ta alohida WIP ga bo‘linadi'),
+      find.textContaining('WIP 2 bo‘lakka bo‘linadi'),
       findsOneWidget,
     );
     expect(
-      find.textContaining('Har bir WIP uchun alohida QR chiqadi'),
+      find.textContaining('1-bo‘lak: 3 kadr'),
       findsOneWidget,
     );
     expect(
-      find.textContaining(
-          'Har bir WIP uchun alohida metraj, kg, babina va diametr kiriting'),
+      find.textContaining('2-bo‘lak: 1 kadr'),
       findsOneWidget,
     );
+    expect(find.textContaining('Jami: 4 kadr'), findsOneWidget);
   });
 
   testWidgets(
@@ -8604,6 +8692,9 @@ AdminApparatusQueueOrderActionControl _freshStartQueueControl({
 AdminApparatusQueueOrderActionControl _inProgressQueueControl({
   bool materialIntakeAllowed = false,
   bool completeRequiresFullReport = false,
+  bool completeRequiresRezkaTotalWasteOnly = false,
+  String stageNodeId = '',
+  List<int> rezkaOutputKadrCounts = const [],
 }) {
   return AdminApparatusQueueOrderActionControl(
     state: 'in_progress',
@@ -8615,6 +8706,9 @@ AdminApparatusQueueOrderActionControl _inProgressQueueControl({
     },
     hasOnlyKnownActions: true,
     completeRequiresFullReport: completeRequiresFullReport,
+    completeRequiresRezkaTotalWasteOnly: completeRequiresRezkaTotalWasteOnly,
+    stageNodeId: stageNodeId,
+    rezkaOutputKadrCounts: rezkaOutputKadrCounts,
     interaction: AdminQueueWorkerInteraction(
       mode: AdminQueueInteractionMode.inProgress,
       startMaterialsMode: AdminQueueStartMaterialsMode.hidden,

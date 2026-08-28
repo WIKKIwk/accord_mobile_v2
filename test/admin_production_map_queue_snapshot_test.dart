@@ -56,6 +56,13 @@ void main() {
         _laminationId: ['zakaz-visible-alt'],
       },
       'queue_states': const {},
+      'stage_states': const {
+        'zakaz-visible-alt': {
+          'rezka_before_lamination': 'completed',
+          'lamination_after': 'pending',
+          'rezka_final': 'pending',
+        },
+      },
       'queue_policies': const [],
       'queue_action_controls': const {
         _printId: {
@@ -127,6 +134,14 @@ void main() {
       ['zakaz-visible-alt'],
     );
     expect(snapshot.visibleOrderIds['apparatus:default:asset-008'], isNull);
+    expect(
+      snapshot.stageStates['zakaz-visible-alt'],
+      const {
+        'rezka_before_lamination': 'completed',
+        'lamination_after': 'pending',
+        'rezka_final': 'pending',
+      },
+    );
     expect(
       snapshot.orderControls['zakaz-visible-alt'],
       AdminOrderControlState.freezeRequested,
@@ -541,6 +556,32 @@ void main() {
       freshStart.interaction?.startMaterialsMode,
       AdminQueueStartMaterialsMode.scanRequired,
     );
+  });
+
+  test('Rezka action control keeps occurrence and dynamic output groups', () {
+    final control = AdminApparatusQueueOrderActionControl.fromJson({
+      'state': 'in_progress',
+      'allowed_actions': ['pause', 'complete'],
+      'interaction': {
+        'mode': 'in_progress',
+        'start_materials_mode': 'hidden',
+        'material_scan_required': false,
+        'assigned_materials_display_only': true,
+        'material_intake_allowed': false,
+        'previous_wip_mode': 'not_required',
+        'qolip_mode': 'not_required',
+      },
+      'previous_stage_ready': true,
+      'complete_requires_full_report': false,
+      'complete_requires_rezka_total_waste_only': true,
+      'stage_node_id': 'rezka-before-lamination',
+      'rezka_output_kadr_counts': [1, 2],
+    });
+
+    expect(control.contractValid, isTrue);
+    expect(control.stageNodeId, 'rezka-before-lamination');
+    expect(control.rezkaOutputKadrCounts, const [1, 2]);
+    expect(control.completeRequiresRezkaTotalWasteOnly, isTrue);
   });
 
   test('production map definition keeps server customer name', () {
