@@ -26,16 +26,22 @@ class _AdminOpeningWipScreenState extends State<AdminOpeningWipScreen> {
       MobileApi.instance.adminProductionMaps(),
       MobileApi.instance.adminApparatus(limit: 10000),
       MobileApi.instance.adminProductionMapQueueSnapshot(),
+      MobileApi.instance.adminFactoryLocations(),
+      MobileApi.instance.adminItemUoms(),
     ]);
     final orders = results[0] as List<ProductionMapSaved>;
     final apparatus = results[1] as List<AdminApparatus>;
     final snapshot = results[2] as AdminApparatusQueueSnapshot;
+    final locations = results[3] as List<AdminFactoryLocation>;
+    final uoms = results[4] as List<String>;
     return _OpeningWipPageData(
       orders: _openingWipEligibleOrders(
         orders: orders,
         queueStatesByApparatus: snapshot.queueStates,
       ),
       apparatus: apparatus,
+      locations: _openingWipLocationNames(locations),
+      uoms: _openingWipUoms(uoms),
     );
   }
 
@@ -68,6 +74,8 @@ class _AdminOpeningWipScreenState extends State<AdminOpeningWipScreen> {
             return _OpeningWipWizard(
               orders: data.orders,
               apparatusCatalog: data.apparatus,
+              locations: data.locations,
+              uoms: data.uoms,
               progressDriverUrlPicker: widget.progressDriverUrlPicker,
             );
           },
@@ -81,10 +89,44 @@ class _OpeningWipPageData {
   const _OpeningWipPageData({
     required this.orders,
     required this.apparatus,
+    required this.locations,
+    required this.uoms,
   });
 
   final List<ProductionMapSaved> orders;
   final List<AdminApparatus> apparatus;
+  final List<String> locations;
+  final List<String> uoms;
+}
+
+List<String> _openingWipLocationNames(
+  List<AdminFactoryLocation> locations,
+) {
+  final seen = <String>{};
+  final values = <String>[];
+  for (final location in locations) {
+    final name = location.name.trim();
+    final normalized = name.toLowerCase();
+    if (location.active && name.isNotEmpty && seen.add(normalized)) {
+      values.add(name);
+    }
+  }
+  values
+      .sort((left, right) => left.toLowerCase().compareTo(right.toLowerCase()));
+  return List<String>.unmodifiable(values);
+}
+
+List<String> _openingWipUoms(List<String> catalogUoms) {
+  final seen = <String>{};
+  final values = <String>[];
+  for (final raw in ['kg', ...catalogUoms]) {
+    final value = raw.trim();
+    final normalized = value.toLowerCase();
+    if (value.isNotEmpty && seen.add(normalized)) {
+      values.add(value);
+    }
+  }
+  return List<String>.unmodifiable(values);
 }
 
 List<ProductionMapSaved> _openingWipEligibleOrders({
@@ -128,11 +170,15 @@ class _OpeningWipWizard extends StatefulWidget {
   const _OpeningWipWizard({
     required this.orders,
     required this.apparatusCatalog,
+    required this.locations,
+    required this.uoms,
     this.progressDriverUrlPicker,
   });
 
   final List<ProductionMapSaved> orders;
   final List<AdminApparatus> apparatusCatalog;
+  final List<String> locations;
+  final List<String> uoms;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
 
   @override
@@ -142,13 +188,15 @@ class _OpeningWipWizard extends StatefulWidget {
 class _OpeningWipWizardState extends State<_OpeningWipWizard> {
   final _formKey = GlobalKey<FormState>();
   final _sourceOperationController = TextEditingController(text: 'Bosma');
-  final _locationController = TextEditingController();
   final _noteController = TextEditingController();
   final _rollCountController = TextEditingController(text: '1');
-  final _quantityController = TextEditingController();
-  final _uomController = TextEditingController(text: 'kg');
+  final List<TextEditingController> _rollQuantityControllers = [
+    TextEditingController(),
+  ];
   ProductionMapSaved? _selectedOrder;
   String _sourceApparatus = '';
+  String _currentLocation = '';
+  String _selectedUom = '';
   AdminOpeningWipQuantityBasis _quantityBasis =
       AdminOpeningWipQuantityBasis.unknown;
   _ProgressPrinterOption? _printer;
@@ -163,17 +211,39 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
   void initState() {
     super.initState();
     _selectedOrder = widget.orders.isEmpty ? null : widget.orders.first;
+    _currentLocation = widget.locations.isEmpty ? '' : widget.locations.first;
+    _selectedUom = widget.uoms.isEmpty ? '' : widget.uoms.first;
   }
 
   @override
   void dispose() {
     _sourceOperationController.dispose();
-    _locationController.dispose();
     _noteController.dispose();
     _rollCountController.dispose();
-    _quantityController.dispose();
-    _uomController.dispose();
+    for (final controller in _rollQuantityControllers) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  void _syncRollQuantityControllers(String rawCount) {
+    final count = int.tryParse(rawCount.trim());
+    if (count == null || count < 1 || count > 500) return;
+    setState(() {
+      while (_rollQuantityControllers.length < count) {
+        _rollQuantityControllers.add(TextEditingController());
+      }
+      while (_rollQuantityControllers.length > count) {
+        _rollQuantityControllers.removeLast().dispose();
+      }
+    });
+  }
+
+  double? _rollQuantity(int index) {
+    if (_quantityBasis == AdminOpeningWipQuantityBasis.unknown) return null;
+    return double.tryParse(
+      _rollQuantityControllers[index].text.trim().replaceAll(',', '.'),
+    );
   }
 
   Future<void> _pickPrinter() async {
@@ -192,21 +262,21 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
     required ProductionMapSaved order,
     required String entryApparatus,
     required int rollCount,
-    required double? quantity,
+    required List<double?> quantities,
   }) {
     final fingerprint = [
       order.map.id.trim(),
       entryApparatus,
       _sourceOperationController.text.trim().toLowerCase(),
       _sourceApparatus,
-      _locationController.text.trim(),
+      _currentLocation,
       _noteController.text.trim(),
       '$rollCount',
       _quantityBasis.apiValue,
-      '${quantity ?? ''}',
+      quantities.map((quantity) => '${quantity ?? ''}').join(','),
       _quantityBasis == AdminOpeningWipQuantityBasis.unknown
           ? ''
-          : _uomController.text.trim().toLowerCase(),
+          : _selectedUom.toLowerCase(),
     ].join('|');
     if (_idempotencyKey.isEmpty || _idempotencyFingerprint != fingerprint) {
       _idempotencyFingerprint = fingerprint;
@@ -241,37 +311,33 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
         final order = _selectedOrder!;
         final entryApparatus = _openingWipEntryApparatus(order)!;
         final rollCount = int.parse(_rollCountController.text.trim());
-        final quantity = _quantityBasis == AdminOpeningWipQuantityBasis.unknown
-            ? null
-            : double.parse(
-                _quantityController.text.trim().replaceAll(',', '.'),
-              );
-        final batchInput = AdminOpeningWipBatchInput(
-          quantityBasis: _quantityBasis,
-          quantity: quantity,
-          uom: _quantityBasis == AdminOpeningWipQuantityBasis.unknown
-              ? ''
-              : _uomController.text.trim(),
-        );
+        final quantities = [
+          for (var index = 0; index < rollCount; index++) _rollQuantity(index),
+        ];
         record = await MobileApi.instance.adminCreateOpeningWip(
           AdminOpeningWipCreateInput(
             idempotencyKey: _submissionIdempotencyKey(
               order: order,
               entryApparatus: entryApparatus,
               rollCount: rollCount,
-              quantity: quantity,
+              quantities: quantities,
             ),
             orderId: order.map.id,
             entryApparatus: entryApparatus,
             sourceOperation: _sourceOperationController.text,
             sourceApparatus: _sourceApparatus,
-            currentLocation: _locationController.text,
+            currentLocation: _currentLocation,
             note: _noteController.text,
-            batches: List<AdminOpeningWipBatchInput>.filled(
-              rollCount,
-              batchInput,
-              growable: false,
-            ),
+            batches: [
+              for (final quantity in quantities)
+                AdminOpeningWipBatchInput(
+                  quantityBasis: _quantityBasis,
+                  quantity: quantity,
+                  uom: _quantityBasis == AdminOpeningWipQuantityBasis.unknown
+                      ? ''
+                      : _selectedUom,
+                ),
+            ],
           ),
         );
         if (!mounted) return;
@@ -402,6 +468,7 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                   child: AbsorbPointer(
                     absorbing: created != null,
                     child: ListView(
+                      key: const ValueKey('opening-wip-fields'),
                       children: [
                         DropdownButtonFormField<ProductionMapSaved>(
                           key: const ValueKey('opening-wip-order'),
@@ -488,14 +555,35 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                           },
                         ),
                         const SizedBox(height: 12),
-                        TextFormField(
+                        DropdownButtonFormField<String>(
                           key: const ValueKey('opening-wip-location'),
-                          controller: _locationController,
+                          initialValue: _currentLocation.isEmpty
+                              ? null
+                              : _currentLocation,
                           decoration: InputDecoration(
                             labelText: context.l10n.adminText(
                               'production.opening_wip.current_location',
                             ),
                           ),
+                          isExpanded: true,
+                          items: [
+                            for (final location in widget.locations)
+                              DropdownMenuItem(
+                                value: location,
+                                child: Text(
+                                  location,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                          onChanged: widget.locations.isEmpty
+                              ? null
+                              : (value) {
+                                  setState(
+                                    () => _currentLocation = value ?? '',
+                                  );
+                                },
                           validator: _requiredText,
                         ),
                         const SizedBox(height: 12),
@@ -521,6 +609,7 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                               'production.opening_wip.roll_count',
                             ),
                           ),
+                          onChanged: _syncRollQuantityControllers,
                           validator: (value) {
                             final count = int.tryParse(value?.trim() ?? '');
                             return count == null || count < 1 || count > 500
@@ -532,6 +621,9 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                         ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<AdminOpeningWipQuantityBasis>(
+                          key: const ValueKey(
+                            'opening-wip-quantity-basis',
+                          ),
                           initialValue: _quantityBasis,
                           decoration: InputDecoration(
                             labelText: context.l10n.adminText(
@@ -559,50 +651,64 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                         if (_quantityBasis !=
                             AdminOpeningWipQuantityBasis.unknown) ...[
                           const SizedBox(height: 12),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: TextFormField(
-                                  controller: _quantityController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                                  decoration: InputDecoration(
-                                    labelText: context.l10n.adminText(
-                                      'production.opening_wip.quantity',
-                                    ),
-                                  ),
-                                  validator: (value) {
-                                    final quantity = double.tryParse(
-                                      (value ?? '').trim().replaceAll(',', '.'),
-                                    );
-                                    return quantity == null ||
-                                            !quantity.isFinite ||
-                                            quantity <= 0
-                                        ? context.l10n.adminText(
-                                            'production.opening_wip.invalid_quantity',
-                                          )
-                                        : null;
-                                  },
-                                ),
+                          DropdownButtonFormField<String>(
+                            key: const ValueKey('opening-wip-uom'),
+                            initialValue:
+                                _selectedUom.isEmpty ? null : _selectedUom,
+                            decoration: InputDecoration(
+                              labelText: context.l10n.adminText(
+                                'production.opening_wip.uom',
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _uomController,
-                                  decoration: InputDecoration(
-                                    labelText: context.l10n.adminText(
-                                      'production.opening_wip.uom',
-                                    ),
-                                  ),
-                                  validator: _requiredText,
+                            ),
+                            isExpanded: true,
+                            items: [
+                              for (final uom in widget.uoms)
+                                DropdownMenuItem(
+                                  value: uom,
+                                  child: Text(uom),
                                 ),
-                              ),
                             ],
+                            onChanged: widget.uoms.isEmpty
+                                ? null
+                                : (value) {
+                                    setState(() => _selectedUom = value ?? '');
+                                  },
+                            validator: _requiredText,
                           ),
+                          for (var index = 0;
+                              index < _rollQuantityControllers.length;
+                              index++) ...[
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              key: ValueKey(
+                                'opening-wip-roll-quantity-$index',
+                              ),
+                              controller: _rollQuantityControllers[index],
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                decimal: true,
+                              ),
+                              decoration: InputDecoration(
+                                labelText: context.l10n.adminText(
+                                  'production.opening_wip.roll_quantity',
+                                  values: {'index': '${index + 1}'},
+                                ),
+                                suffixText: _selectedUom,
+                              ),
+                              validator: (value) {
+                                final quantity = double.tryParse(
+                                  (value ?? '').trim().replaceAll(',', '.'),
+                                );
+                                return quantity == null ||
+                                        !quantity.isFinite ||
+                                        quantity <= 0
+                                    ? context.l10n.adminText(
+                                        'production.opening_wip.invalid_quantity',
+                                      )
+                                    : null;
+                              },
+                            ),
+                          ],
                         ],
                         const SizedBox(height: 16),
                         OutlinedButton.icon(

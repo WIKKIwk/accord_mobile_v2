@@ -38,9 +38,13 @@ void main() {
     await TestModeController.instance.setEnabled(false);
   });
 
-  testWidgets('admin creates one traceable QR per Opening WIP roll',
+  testWidgets('admin creates distinct measured batches from selectable fields',
       (tester) async {
     await MobileApi.instance.adminSaveProductionMap(_openingOrder());
+    await MobileApi.instance.adminCreateFactoryLocation(name: 'Bosma oldi');
+    await MobileApi.instance.adminCreateFactoryLocation(
+      name: 'Laminatsiya oldi',
+    );
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(430, 1100);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -66,17 +70,57 @@ void main() {
 
     expect(find.byKey(const ValueKey('opening-wip-order')), findsOneWidget);
 
-    await tester.enterText(
-      find.byKey(const ValueKey('opening-wip-location')),
-      'Laminatsiya oldi',
+    final locationPicker = find.byKey(
+      const ValueKey('opening-wip-location'),
     );
+    expect(
+      tester.widget(locationPicker),
+      isA<DropdownButtonFormField<String>>(),
+    );
+    await tester.tap(locationPicker);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Laminatsiya oldi').last);
+    await tester.pumpAndSettle();
+
     await tester.enterText(
       find.byKey(const ValueKey('opening-wip-roll-count')),
       '2',
     );
+    await tester.tap(
+      find.byKey(const ValueKey('opening-wip-quantity-basis')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('O‘lchangan').last);
+    await tester.pumpAndSettle();
+
+    final uomPicker = find.byKey(const ValueKey('opening-wip-uom'));
+    expect(
+      tester.widget(uomPicker),
+      isA<DropdownButtonFormField<String>>(),
+    );
+    expect(find.text('kg'), findsWidgets);
+    await tester.enterText(
+      find.byKey(const ValueKey('opening-wip-roll-quantity-0')),
+      '12.5',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('opening-wip-roll-quantity-1')),
+      '14',
+    );
     final printerButton =
         find.byKey(const ValueKey('opening-wip-pick-printer'));
-    await tester.ensureVisible(printerButton);
+    final openingWipScrollable = find.descendant(
+      of: find.byKey(const ValueKey('opening-wip-fields')),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable && widget.axisDirection == AxisDirection.down,
+      ),
+    );
+    await tester.scrollUntilVisible(
+      printerButton,
+      240,
+      scrollable: openingWipScrollable.first,
+    );
     await tester.tap(printerButton);
     await tester.pumpAndSettle();
     final submit = find.byKey(const ValueKey('opening-wip-submit'));
@@ -88,7 +132,16 @@ void main() {
       orderId: 'zakaz-opening-wip-1',
     );
     expect(records, hasLength(1));
+    expect(records.single.intake.currentLocation, 'Laminatsiya oldi');
     expect(records.single.batches, hasLength(2));
+    expect(
+      records.single.batches.map((batch) => batch.quantity).toList(),
+      [12.5, 14],
+    );
+    expect(
+      records.single.batches.map((batch) => batch.uom).toSet(),
+      {'kg'},
+    );
     expect(
       records.single.batches.map((batch) => batch.qrPayload).toSet(),
       hasLength(2),

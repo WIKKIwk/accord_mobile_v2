@@ -6697,6 +6697,11 @@ const Map<String, Map<String, String>> adminTranslations = {
     'en': 'Quantity per roll',
     'ru': 'Количество на рулон',
   },
+  'admin.production.opening_wip.roll_quantity': {
+    'uz': '{index}-rulon miqdori',
+    'en': 'Roll {index} quantity',
+    'ru': 'Количество рулона {index}',
+  },
   'admin.production.opening_wip.uom': {
     'uz': 'Birlik',
     'en': 'Unit',
