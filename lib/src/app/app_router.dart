@@ -174,6 +174,7 @@ class AppRoutes {
   static const String adminNotifications = '/admin-notifications';
   static const String adminProductionMapTest = '/admin-production-map-test';
   static const String adminProductionMapOrders = '/admin-production-map-orders';
+  static const String adminOpeningWip = '/admin-opening-wip';
   static const String supplySequence = '/supply-sequence';
   static const String adminProgressQrScan = '/admin-progress-qr-scan';
   static const String adminServerMonitor = '/admin-server-monitor';
@@ -248,6 +249,7 @@ class AppRouter {
     AppRoutes.adminNotifications,
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
+    AppRoutes.adminOpeningWip,
     AppRoutes.supplySequence,
     AppRoutes.adminProgressQrScan,
     AppRoutes.adminServerMonitor,
@@ -564,6 +566,8 @@ class AppRouter {
         );
       case AppRoutes.adminProductionMapOrders:
         return _buildRoute(settings, const AdminProductionMapOrdersScreen());
+      case AppRoutes.adminOpeningWip:
+        return _buildRoute(settings, const AdminOpeningWipScreen());
       case AppRoutes.supplySequence:
         return _buildRoute(
           settings,
@@ -959,6 +963,10 @@ class AppRouter {
     AppRoutes.adminNotifications: {'admin.access', 'production.map.manage'},
     AppRoutes.adminProductionMapTest: {'admin.access', 'production.map.manage'},
     AppRoutes.adminProductionMapOrders: {
+      'admin.access',
+      'production.map.manage',
+    },
+    AppRoutes.adminOpeningWip: {
       'admin.access',
       'production.map.manage',
     },

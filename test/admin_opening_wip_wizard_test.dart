@@ -57,21 +57,14 @@ void main() {
           GlobalWidgetsLocalizations.delegate,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: AdminProductionMapOrdersScreen(
+        home: AdminOpeningWipScreen(
           progressDriverUrlPicker: (_) async => 'http://printer.test',
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('production-opening-wip-launch')),
-      findsOneWidget,
-    );
-    await tester.tap(
-      find.byKey(const ValueKey('production-opening-wip-launch')),
-    );
-    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('opening-wip-order')), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const ValueKey('opening-wip-location')),
@@ -104,6 +97,34 @@ void main() {
       records.single.intake.historyStatus,
       'unavailable_before_cutover',
     );
+  });
+
+  testWidgets('work map does not render the Opening WIP intake',
+      (tester) async {
+    await MobileApi.instance.adminSaveProductionMap(_openingOrder());
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1100);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('opening-wip-order')), findsNothing);
+    expect(find.text('Opening WIP'), findsNothing);
   });
 }
 

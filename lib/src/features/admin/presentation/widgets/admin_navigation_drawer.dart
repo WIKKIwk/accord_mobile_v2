@@ -60,6 +60,12 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.adminProductionMapOrders,
     ),
     RoleNavigationDrawerDestination(
+      icon: Icons.qr_code_2_outlined,
+      selectedIcon: Icons.qr_code_2_rounded,
+      label: l10n.adminText('production.opening_wip.action'),
+      routeName: AppRoutes.adminOpeningWip,
+    ),
+    RoleNavigationDrawerDestination(
       icon: Icons.inventory_2_outlined,
       selectedIcon: Icons.inventory_2_rounded,
       label: l10n.adminSemiFinishedProductsNavTitle,

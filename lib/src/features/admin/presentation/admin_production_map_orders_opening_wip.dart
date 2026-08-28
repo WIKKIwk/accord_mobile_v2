@@ -1,82 +1,90 @@
 part of 'admin_production_map_orders_screen.dart';
 
-class _OpeningWipLaunchCard extends StatelessWidget {
-  const _OpeningWipLaunchCard({required this.onPressed});
+class AdminOpeningWipScreen extends StatefulWidget {
+  const AdminOpeningWipScreen({
+    super.key,
+    this.progressDriverUrlPicker,
+  });
 
-  final VoidCallback onPressed;
+  final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
+
+  @override
+  State<AdminOpeningWipScreen> createState() => _AdminOpeningWipScreenState();
+}
+
+class _AdminOpeningWipScreenState extends State<AdminOpeningWipScreen> {
+  late Future<_OpeningWipPageData> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<_OpeningWipPageData> _load() async {
+    final results = await Future.wait<Object>([
+      MobileApi.instance.adminProductionMaps(),
+      MobileApi.instance.adminApparatus(limit: 10000),
+      MobileApi.instance.adminProductionMapQueueSnapshot(),
+    ]);
+    final orders = results[0] as List<ProductionMapSaved>;
+    final apparatus = results[1] as List<AdminApparatus>;
+    final snapshot = results[2] as AdminApparatusQueueSnapshot;
+    return _OpeningWipPageData(
+      orders: _openingWipEligibleOrders(
+        orders: orders,
+        queueStatesByApparatus: snapshot.queueStates,
+      ),
+      apparatus: apparatus,
+    );
+  }
+
+  Future<void> _reload() async {
+    final nextFuture = _load();
+    setState(() => _future = nextFuture);
+    await nextFuture;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
-      color: scheme.tertiaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Icon(Icons.auto_awesome_rounded, color: scheme.onTertiaryContainer),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.l10n.adminText('production.opening_wip.action'),
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: scheme.onTertiaryContainer,
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    context.l10n.adminText(
-                      'production.opening_wip.description',
-                    ),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onTertiaryContainer,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton.tonalIcon(
-              key: const ValueKey('production-opening-wip-launch'),
-              onPressed: onPressed,
-              icon: const Icon(Icons.qr_code_2_rounded),
-              label: Text(
-                context.l10n.adminText('production.opening_wip.open'),
-              ),
-            ),
-          ],
+    return AdminShell(
+      title: context.l10n.adminText('production.opening_wip.title'),
+      selectedRouteName: AppRoutes.adminOpeningWip,
+      activeTab: AdminDockTab.home,
+      bottomDockFadeStrength: null,
+      child: ColoredBox(
+        color: AppTheme.shellStart(context),
+        child: FutureBuilder<_OpeningWipPageData>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done &&
+                !snapshot.hasData) {
+              return const Center(child: AppLoadingIndicator());
+            }
+            if (snapshot.hasError) {
+              return AppRetryState(onRetry: _reload);
+            }
+            final data = snapshot.data!;
+            return _OpeningWipWizard(
+              orders: data.orders,
+              apparatusCatalog: data.apparatus,
+              progressDriverUrlPicker: widget.progressDriverUrlPicker,
+            );
+          },
         ),
       ),
     );
   }
 }
 
-extension _OpeningWipOrdersState on _AdminProductionMapOrdersScreenState {
-  Future<void> _showOpeningWipWizard() async {
-    final eligibleOrders = _openingWipEligibleOrders(
-      orders: _orders,
-      queueStatesByApparatus: _queueStatesByApparatus,
-    );
-    final created = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (context) => _OpeningWipWizard(
-        orders: eligibleOrders,
-        apparatusCatalog: _apparatus,
-        progressDriverUrlPicker: widget.progressDriverUrlPicker,
-      ),
-    );
-    if (created == true && mounted) {
-      await _refreshLive();
-    }
-  }
+class _OpeningWipPageData {
+  const _OpeningWipPageData({
+    required this.orders,
+    required this.apparatus,
+  });
+
+  final List<ProductionMapSaved> orders;
+  final List<AdminApparatus> apparatus;
 }
 
 List<ProductionMapSaved> _openingWipEligibleOrders({
@@ -352,329 +360,301 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
     final created = _createdRecord;
     return PopScope(
       canPop: !_submitting,
-      child: FractionallySizedBox(
-        heightFactor: 0.94,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            0,
-            16,
-            16 + MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.auto_awesome_rounded, color: scheme.tertiary),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        context.l10n.adminText(
-                          'production.opening_wip.title',
-                        ),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          12,
+          16,
+          16 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  context.l10n.adminText(
+                    'production.opening_wip.cutover_notice',
+                  ),
+                  style: TextStyle(color: scheme.onSecondaryContainer),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (widget.orders.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      context.l10n.adminText(
+                        'production.opening_wip.no_eligible',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: AbsorbPointer(
+                    absorbing: created != null,
+                    child: ListView(
+                      children: [
+                        DropdownButtonFormField<ProductionMapSaved>(
+                          key: const ValueKey('opening-wip-order'),
+                          initialValue: order,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.adminText(
+                              'production.opening_wip.order',
                             ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: _submitting
-                          ? null
-                          : () => Navigator.of(context).pop(false),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: scheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(
-                    context.l10n.adminText(
-                      'production.opening_wip.cutover_notice',
-                    ),
-                    style: TextStyle(color: scheme.onSecondaryContainer),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (widget.orders.isEmpty)
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        context.l10n.adminText(
-                          'production.opening_wip.no_eligible',
+                          ),
+                          isExpanded: true,
+                          items: [
+                            for (final item in widget.orders)
+                              DropdownMenuItem(
+                                value: item,
+                                child: Text(
+                                  _orderLabel(item),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                          onChanged: (value) {
+                            setState(() => _selectedOrder = value);
+                          },
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  )
-                else
-                  Expanded(
-                    child: AbsorbPointer(
-                      absorbing: created != null,
-                      child: ListView(
-                        children: [
-                          DropdownButtonFormField<ProductionMapSaved>(
-                            key: const ValueKey('opening-wip-order'),
-                            initialValue: order,
-                            decoration: InputDecoration(
-                              labelText: context.l10n.adminText(
-                                'production.opening_wip.order',
+                        const SizedBox(height: 12),
+                        InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: context.l10n.adminText(
+                              'production.opening_wip.entry_apparatus',
+                            ),
+                          ),
+                          child: Text(
+                            entryApparatus == null
+                                ? '—'
+                                : _apparatusLabel(entryApparatus),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          key: const ValueKey('opening-wip-source-operation'),
+                          controller: _sourceOperationController,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.adminText(
+                              'production.opening_wip.source_operation',
+                            ),
+                          ),
+                          validator: _requiredText,
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          initialValue: _sourceApparatus,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.adminText(
+                              'production.opening_wip.source_apparatus',
+                            ),
+                          ),
+                          isExpanded: true,
+                          items: [
+                            DropdownMenuItem(
+                              value: '',
+                              child: Text(
+                                context.l10n.adminText(
+                                  'production.opening_wip.source_none',
+                                ),
                               ),
                             ),
-                            isExpanded: true,
-                            items: [
-                              for (final item in widget.orders)
+                            for (final item in widget.apparatusCatalog)
+                              if (item.id.trim().isNotEmpty)
                                 DropdownMenuItem(
-                                  value: item,
+                                  value: item.id.trim(),
                                   child: Text(
-                                    _orderLabel(item),
+                                    canonicalApparatusDisplayLabel(
+                                      item.id,
+                                      widget.apparatusCatalog,
+                                    ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                            ],
-                            onChanged: (value) {
-                              setState(() => _selectedOrder = value);
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          InputDecorator(
-                            decoration: InputDecoration(
-                              labelText: context.l10n.adminText(
-                                'production.opening_wip.entry_apparatus',
-                              ),
-                            ),
-                            child: Text(
-                              entryApparatus == null
-                                  ? '—'
-                                  : _apparatusLabel(entryApparatus),
+                          ],
+                          onChanged: (value) {
+                            setState(() => _sourceApparatus = value ?? '');
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          key: const ValueKey('opening-wip-location'),
+                          controller: _locationController,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.adminText(
+                              'production.opening_wip.current_location',
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            key: const ValueKey('opening-wip-source-operation'),
-                            controller: _sourceOperationController,
-                            decoration: InputDecoration(
-                              labelText: context.l10n.adminText(
-                                'production.opening_wip.source_operation',
-                              ),
+                          validator: _requiredText,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _noteController,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.adminText(
+                              'production.opening_wip.note',
                             ),
-                            validator: _requiredText,
                           ),
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            initialValue: _sourceApparatus,
-                            decoration: InputDecoration(
-                              labelText: context.l10n.adminText(
-                                'production.opening_wip.source_apparatus',
-                              ),
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          key: const ValueKey('opening-wip-roll-count'),
+                          controller: _rollCountController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
+                          decoration: InputDecoration(
+                            labelText: context.l10n.adminText(
+                              'production.opening_wip.roll_count',
                             ),
-                            isExpanded: true,
-                            items: [
+                          ),
+                          validator: (value) {
+                            final count = int.tryParse(value?.trim() ?? '');
+                            return count == null || count < 1 || count > 500
+                                ? context.l10n.adminText(
+                                    'production.opening_wip.invalid_roll_count',
+                                  )
+                                : null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<AdminOpeningWipQuantityBasis>(
+                          initialValue: _quantityBasis,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.adminText(
+                              'production.opening_wip.quantity_basis',
+                            ),
+                          ),
+                          items: [
+                            for (final basis
+                                in AdminOpeningWipQuantityBasis.values)
                               DropdownMenuItem(
-                                value: '',
+                                value: basis,
                                 child: Text(
                                   context.l10n.adminText(
-                                    'production.opening_wip.source_none',
+                                    'production.opening_wip.basis_${basis.apiValue}',
                                   ),
                                 ),
                               ),
-                              for (final item in widget.apparatusCatalog)
-                                if (item.id.trim().isNotEmpty)
-                                  DropdownMenuItem(
-                                    value: item.id.trim(),
-                                    child: Text(
-                                      canonicalApparatusDisplayLabel(
-                                        item.id,
-                                        widget.apparatusCatalog,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                            ],
-                            onChanged: (value) {
-                              setState(() => _sourceApparatus = value ?? '');
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            key: const ValueKey('opening-wip-location'),
-                            controller: _locationController,
-                            decoration: InputDecoration(
-                              labelText: context.l10n.adminText(
-                                'production.opening_wip.current_location',
-                              ),
-                            ),
-                            validator: _requiredText,
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _noteController,
-                            decoration: InputDecoration(
-                              labelText: context.l10n.adminText(
-                                'production.opening_wip.note',
-                              ),
-                            ),
-                            maxLines: 2,
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            key: const ValueKey('opening-wip-roll-count'),
-                            controller: _rollCountController,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly
-                            ],
-                            decoration: InputDecoration(
-                              labelText: context.l10n.adminText(
-                                'production.opening_wip.roll_count',
-                              ),
-                            ),
-                            validator: (value) {
-                              final count = int.tryParse(value?.trim() ?? '');
-                              return count == null || count < 1 || count > 500
-                                  ? context.l10n.adminText(
-                                      'production.opening_wip.invalid_roll_count',
-                                    )
-                                  : null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<AdminOpeningWipQuantityBasis>(
-                            initialValue: _quantityBasis,
-                            decoration: InputDecoration(
-                              labelText: context.l10n.adminText(
-                                'production.opening_wip.quantity_basis',
-                              ),
-                            ),
-                            items: [
-                              for (final basis
-                                  in AdminOpeningWipQuantityBasis.values)
-                                DropdownMenuItem(
-                                  value: basis,
-                                  child: Text(
-                                    context.l10n.adminText(
-                                      'production.opening_wip.basis_${basis.apiValue}',
-                                    ),
-                                  ),
-                                ),
-                            ],
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() => _quantityBasis = value);
-                              }
-                            },
-                          ),
-                          if (_quantityBasis !=
-                              AdminOpeningWipQuantityBasis.unknown) ...[
-                            const SizedBox(height: 12),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: TextFormField(
-                                    controller: _quantityController,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                    decoration: InputDecoration(
-                                      labelText: context.l10n.adminText(
-                                        'production.opening_wip.quantity',
-                                      ),
-                                    ),
-                                    validator: (value) {
-                                      final quantity = double.tryParse(
-                                        (value ?? '')
-                                            .trim()
-                                            .replaceAll(',', '.'),
-                                      );
-                                      return quantity == null ||
-                                              !quantity.isFinite ||
-                                              quantity <= 0
-                                          ? context.l10n.adminText(
-                                              'production.opening_wip.invalid_quantity',
-                                            )
-                                          : null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _uomController,
-                                    decoration: InputDecoration(
-                                      labelText: context.l10n.adminText(
-                                        'production.opening_wip.uom',
-                                      ),
-                                    ),
-                                    validator: _requiredText,
-                                  ),
-                                ),
-                              ],
-                            ),
                           ],
-                          const SizedBox(height: 16),
-                          OutlinedButton.icon(
-                            key: const ValueKey('opening-wip-pick-printer'),
-                            onPressed: _submitting ? null : _pickPrinter,
-                            icon: const Icon(Icons.print_outlined),
-                            label: Text(
-                              _printer?.printerLabel ??
-                                  context.l10n.adminText(
-                                    'production.opening_wip.select_printer',
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _quantityBasis = value);
+                            }
+                          },
+                        ),
+                        if (_quantityBasis !=
+                            AdminOpeningWipQuantityBasis.unknown) ...[
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: TextFormField(
+                                  controller: _quantityController,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                    decimal: true,
                                   ),
-                            ),
+                                  decoration: InputDecoration(
+                                    labelText: context.l10n.adminText(
+                                      'production.opening_wip.quantity',
+                                    ),
+                                  ),
+                                  validator: (value) {
+                                    final quantity = double.tryParse(
+                                      (value ?? '').trim().replaceAll(',', '.'),
+                                    );
+                                    return quantity == null ||
+                                            !quantity.isFinite ||
+                                            quantity <= 0
+                                        ? context.l10n.adminText(
+                                            'production.opening_wip.invalid_quantity',
+                                          )
+                                        : null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _uomController,
+                                  decoration: InputDecoration(
+                                    labelText: context.l10n.adminText(
+                                      'production.opening_wip.uom',
+                                    ),
+                                  ),
+                                  validator: _requiredText,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
-                      ),
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          key: const ValueKey('opening-wip-pick-printer'),
+                          onPressed: _submitting ? null : _pickPrinter,
+                          icon: const Icon(Icons.print_outlined),
+                          label: Text(
+                            _printer?.printerLabel ??
+                                context.l10n.adminText(
+                                  'production.opening_wip.select_printer',
+                                ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                if (_error.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    _error,
-                    key: const ValueKey('opening-wip-error'),
-                    style: TextStyle(color: scheme.error),
-                  ),
-                ],
-                if (widget.orders.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    key: const ValueKey('opening-wip-submit'),
-                    onPressed: _submitting ? null : _submit,
-                    icon: _submitting
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.print_rounded),
-                    label: Text(
-                      created == null
-                          ? context.l10n.adminText(
-                              'production.opening_wip.create_print',
-                            )
-                          : context.l10n.adminText(
-                              'production.opening_wip.retry_print',
-                              values: {
-                                'printed': _printedBatchIds.length,
-                                'total': created.batches.length,
-                              },
-                            ),
-                    ),
-                  ),
-                ],
+                ),
+              if (_error.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _error,
+                  key: const ValueKey('opening-wip-error'),
+                  style: TextStyle(color: scheme.error),
+                ),
               ],
-            ),
+              if (widget.orders.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  key: const ValueKey('opening-wip-submit'),
+                  onPressed: _submitting ? null : _submit,
+                  icon: _submitting
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.print_rounded),
+                  label: Text(
+                    created == null
+                        ? context.l10n.adminText(
+                            'production.opening_wip.create_print',
+                          )
+                        : context.l10n.adminText(
+                            'production.opening_wip.retry_print',
+                            values: {
+                              'printed': _printedBatchIds.length,
+                              'total': created.batches.length,
+                            },
+                          ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

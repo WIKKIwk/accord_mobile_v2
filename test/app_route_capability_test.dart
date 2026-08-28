@@ -82,6 +82,7 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.adminNotifications), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminQueuePolicies), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminWipBatches), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.adminOpeningWip), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminRoles), isFalse);
   });
 
@@ -155,6 +156,7 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.apparatusQueue), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.apparatusWorkInstructions), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminProductionMapOrders), isFalse);
+    expect(AppRouter.canOpenRoute(AppRoutes.adminOpeningWip), isFalse);
     expect(AppRouter.canOpenRoute(AppRoutes.adminProductionMapTest), isFalse);
   });
 

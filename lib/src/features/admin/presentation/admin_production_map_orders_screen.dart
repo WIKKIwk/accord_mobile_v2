@@ -22,6 +22,7 @@ import '../../../core/widgets/navigation/dock_system_bottom_inset.dart';
 import '../../../core/widgets/display/app_info_row.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
+import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../aparatchi/presentation/widgets/aparatchi_dock.dart';
 import '../../aparatchi/presentation/widgets/aparatchi_navigation_drawer.dart';
@@ -46,6 +47,7 @@ import 'raw_material_scan_dialog.dart';
 import 'admin_production_map_test_screen.dart'
     show ProductionMapOrderContext, ProductionMapTestArgs;
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_shell.dart';
 import 'widgets/admin_catalog_search_field.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
@@ -1500,7 +1502,6 @@ class _AdminProductionMapOrdersScreenState
                               workflowAuditLoading: _workflowAuditLoading,
                               onRefreshWorkflowAudit: () =>
                                   _refreshWorkflowAudit(force: true),
-                              onCreateOpeningWip: _showOpeningWipWizard,
                               onLongPressOrder: (order) {
                                 unawaited(
                                   widget.supplyViewerMode && isQolipchi

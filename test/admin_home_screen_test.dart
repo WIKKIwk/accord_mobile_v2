@@ -197,6 +197,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ish xaritasi'), findsOneWidget);
+    expect(find.text('Opening WIP'), findsOneWidget);
     expect(find.text('Yarim tayyor mahsulotlar'), findsOneWidget);
     expect(find.text('Aparatlar'), findsOneWidget);
     expect(find.text('USB printer test'), findsNothing);
