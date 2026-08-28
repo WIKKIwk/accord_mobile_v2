@@ -2932,9 +2932,11 @@ class AppLocalizations {
       'ru': 'Для этого заказа не осталось подходящих рулонов Opening WIP',
     },
     'worker.opening_wip.scanner_prompt': {
-      'uz': '{count} ta Opening WIP QR’dan birini tirqishga olib keling',
-      'en': 'Present one of {count} Opening WIP QR codes to the scanner',
-      'ru': 'Поднесите к сканеру один из QR Opening WIP: {count}',
+      'uz':
+          'QR ni skan qiling — tizim {count} ta rulondan qaysi biri ekanini aniqlaydi',
+      'en':
+          'Scan the QR code — the system will identify it among {count} rolls',
+      'ru': 'Отсканируйте QR — система определит рулон среди {count}',
     },
     'worker.opening_wip.confirmed': {
       'uz': 'Opening WIP ruloni tasdiqlandi',
@@ -2955,6 +2957,39 @@ class AppLocalizations {
       'uz': 'Miqdor noma’lum',
       'en': 'Quantity unknown',
       'ru': 'Количество неизвестно',
+    },
+    'worker.opening_wip.products': {
+      'uz': 'Opening WIP rulonlari',
+      'en': 'Opening WIP rolls',
+      'ru': 'Рулоны Opening WIP',
+    },
+    'worker.opening_wip.list_summary': {
+      'uz':
+          'QR skan qiling — tizim quyidagi {count} ta rulondan mosini avtomatik belgilaydi',
+      'en':
+          'Scan the QR code — the system will automatically mark the matching one of these {count} rolls',
+      'ru':
+          'Отсканируйте QR — система автоматически отметит соответствующий рулон из {count}',
+    },
+    'worker.opening_wip.metric.meter': {
+      'uz': 'Metraj: {value} m',
+      'en': 'Length: {value} m',
+      'ru': 'Метраж: {value} м',
+    },
+    'worker.opening_wip.metric.gross': {
+      'uz': 'Brutto: {value} kg',
+      'en': 'Gross: {value} kg',
+      'ru': 'Брутто: {value} кг',
+    },
+    'worker.opening_wip.metric.net': {
+      'uz': 'Netto: {value} kg',
+      'en': 'Net: {value} kg',
+      'ru': 'Нетто: {value} кг',
+    },
+    'worker.opening_wip.metric.diameter': {
+      'uz': 'Diametr: {value}',
+      'en': 'Diameter: {value}',
+      'ru': 'Диаметр: {value}',
     },
     'worker.progress.products': {
       'uz': 'Oldingi bosqichdan kelgan mahsulotlar',

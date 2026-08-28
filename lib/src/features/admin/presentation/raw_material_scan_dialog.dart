@@ -60,12 +60,14 @@ class ProductionQuickScannerPanel extends StatefulWidget {
     required this.statusText,
     this.busy = false,
     this.allowConcurrentDetections = false,
+    this.allowManualEntry = true,
   });
 
   final Future<void> Function(String rawValue) onCodeDetected;
   final String statusText;
   final bool busy;
   final bool allowConcurrentDetections;
+  final bool allowManualEntry;
 
   @override
   State<ProductionQuickScannerPanel> createState() =>
@@ -305,49 +307,50 @@ class _ProductionQuickScannerPanelState
                       );
                     },
                   ),
-                Positioned(
-                  right: 8,
-                  bottom: 8,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: scheme.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      key: const ValueKey(
-                        'production-quick-scanner-manual-toggle',
+                if (widget.allowManualEntry)
+                  Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: scheme.primary,
+                        shape: BoxShape.circle,
                       ),
-                      tooltip: _manualEntryVisible
-                          ? context.l10n.productionText(
-                              'worker.scanner.manual.hide',
-                            )
-                          : context.l10n.productionText(
-                              'worker.scanner.manual.show',
-                            ),
-                      onPressed: () {
-                        setState(() {
-                          _manualEntryVisible = !_manualEntryVisible;
-                        });
-                      },
-                      color: scheme.onPrimary,
-                      icon: AnimatedSwitcher(
-                        duration: AppMotion.fast,
-                        switchInCurve: AppMotion.standardDecelerate,
-                        switchOutCurve: AppMotion.standardAccelerate,
-                        child: Icon(
-                          _manualEntryVisible
-                              ? Icons.close_rounded
-                              : Icons.edit_rounded,
-                          key: ValueKey(
+                      child: IconButton(
+                        key: const ValueKey(
+                          'production-quick-scanner-manual-toggle',
+                        ),
+                        tooltip: _manualEntryVisible
+                            ? context.l10n.productionText(
+                                'worker.scanner.manual.hide',
+                              )
+                            : context.l10n.productionText(
+                                'worker.scanner.manual.show',
+                              ),
+                        onPressed: () {
+                          setState(() {
+                            _manualEntryVisible = !_manualEntryVisible;
+                          });
+                        },
+                        color: scheme.onPrimary,
+                        icon: AnimatedSwitcher(
+                          duration: AppMotion.fast,
+                          switchInCurve: AppMotion.standardDecelerate,
+                          switchOutCurve: AppMotion.standardAccelerate,
+                          child: Icon(
                             _manualEntryVisible
-                                ? 'manual-close'
-                                : 'manual-edit',
+                                ? Icons.close_rounded
+                                : Icons.edit_rounded,
+                            key: ValueKey(
+                              _manualEntryVisible
+                                  ? 'manual-close'
+                                  : 'manual-edit',
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -368,7 +371,7 @@ class _ProductionQuickScannerPanelState
                   child: child,
                 ),
               ),
-              child: _manualEntryVisible
+              child: widget.allowManualEntry && _manualEntryVisible
                   ? ColoredBox(
                       key: const ValueKey(
                           'production-quick-scanner-manual-visible'),

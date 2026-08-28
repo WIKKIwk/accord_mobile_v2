@@ -179,6 +179,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                                   busy: quickScanInFlight,
                                   allowConcurrentDetections:
                                       allowConcurrentQuickScanner,
+                                  allowManualEntry: !uiState.openingWipRequired,
                                   onCodeDetected: onQuickScan,
                                 ),
                                 const SizedBox(height: 10),

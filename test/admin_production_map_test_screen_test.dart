@@ -7546,24 +7546,35 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.text('3 ta Opening WIP QR’dan birini tirqishga olib keling'),
+        find.text(
+          'QR ni skan qiling — tizim 3 ta rulondan qaysi biri ekanini aniqlaydi',
+        ),
         findsOneWidget,
       );
+      expect(find.text('Opening WIP rulonlari'), findsOneWidget);
+      expect(find.text('Rulon 1'), findsOneWidget);
+      expect(find.text('Rulon 2'), findsOneWidget);
+      expect(find.text('Rulon 3'), findsOneWidget);
+      expect(find.textContaining('Metraj: 100 m'), findsOneWidget);
+      expect(find.textContaining('Brutto: 10 kg'), findsOneWidget);
+      expect(find.textContaining('Netto: 9 kg'), findsOneWidget);
+      expect(find.textContaining(openingWip.batches.first.qrPayload),
+          findsNothing);
       expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
+        findsNothing,
+      );
       var startButton = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Boshlash'),
       );
       expect(startButton.onPressed, isNull);
 
-      await tester.tap(
-        find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
-      );
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const ValueKey('production-quick-scanner-manual')),
-        'NOT-THIS-ORDER-OPENING-WIP',
-      );
-      await tester.tap(find.byTooltip('Qabul qilish'));
+      await tester
+          .widget<ProductionQuickScannerPanel>(
+            find.byType(ProductionQuickScannerPanel),
+          )
+          .onCodeDetected('NOT-THIS-ORDER-OPENING-WIP');
       await tester.pumpAndSettle();
 
       expect(
@@ -7577,15 +7588,15 @@ void main() {
       );
       expect(startButton.onPressed, isNull);
 
-      await tester.enterText(
-        find.byKey(const ValueKey('production-quick-scanner-manual')),
-        openingWip.batches.first.qrPayload,
-      );
-      await tester.tap(find.byTooltip('Qabul qilish'));
+      await tester
+          .widget<ProductionQuickScannerPanel>(
+            find.byType(ProductionQuickScannerPanel),
+          )
+          .onCodeDetected(openingWip.batches.first.qrPayload);
       await tester.pumpAndSettle();
 
       expect(find.text('Opening WIP ruloni tasdiqlandi'), findsWidgets);
-      expect(find.textContaining('Rulon 1'), findsOneWidget);
+      expect(find.textContaining('Rulon 1'), findsWidgets);
       expect(find.textContaining('100 m'), findsOneWidget);
       expect(find.byType(ProductionQuickScannerPanel), findsNothing);
       final armedStartButton = tester.widget<FilledButton>(
