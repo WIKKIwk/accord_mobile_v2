@@ -12,6 +12,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+part 'inventory_movements_test_helpers_part_01.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -889,7 +891,7 @@ void main() {
       tester
           .widget<FilledButton>(
             find.byKey(const ValueKey('raw-material-assign-order-button')),
-      )
+          )
           .onPressed,
       isNotNull,
     );
@@ -1448,15 +1450,4 @@ void main() {
     expect(find.text('Sinov transferi'), findsOneWidget);
     expect(find.text('Ko‘chirishni yakunlash'), findsNothing);
   });
-}
-
-AdminRawMaterialRule _testRawMaterialRule(AdminApparatus apparatus) {
-  return AdminRawMaterialRule(
-    apparatusId: apparatus.id,
-    sourceRevision: apparatus.sourceRevision,
-    sourceAasxSha256: '',
-    apparatus: apparatus.name,
-    requiresMaterial: false,
-    itemGroups: const [],
-  );
 }

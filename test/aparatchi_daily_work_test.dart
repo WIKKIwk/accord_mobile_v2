@@ -8,6 +8,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+part 'aparatchi_daily_work_test_helpers_part_01.dart';
+
 const _dailyWorkApparatusCatalog = <AdminApparatus>[
   AdminApparatus(
     id: 'apparatus:default:asset-005',
@@ -39,22 +41,6 @@ const _dailyWorkApparatusCatalog = <AdminApparatus>[
     sourceRevision: 1,
   ),
 ];
-
-AdminProgressBatch _batch({
-  required String batchId,
-  required String orderId,
-  String apparatus = 'apparatus:default:asset-007',
-  required DateTime startedAt,
-  DateTime? completedAt,
-}) {
-  return AdminProgressBatch.fromJson({
-    'batch_id': batchId,
-    'order_id': orderId,
-    'apparatus': apparatus,
-    'started_at_unix': startedAt.millisecondsSinceEpoch ~/ 1000,
-    'completed_at_unix': (completedAt?.millisecondsSinceEpoch ?? 0) ~/ 1000,
-  });
-}
 
 void main() {
   test('daily WIP history is date sorted and counts unique orders', () {

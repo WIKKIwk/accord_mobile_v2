@@ -10,6 +10,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+part 'admin_training_api_test_helpers_part_01.dart';
+
 const _laminationApparatusId = 'apparatus:default:asset-007';
 const _laminationApparatusName = 'Laminatsiya 1';
 const _secondLaminationApparatusId = 'apparatus:default:asset-008';
@@ -664,39 +666,4 @@ void main() {
     );
     expect(completed.states[orderId], 'completed');
   });
-}
-
-AdminApparatusQueueOrderActionControl _inProgressQueueControl({
-  required bool completeRequiresFullReport,
-}) {
-  return AdminApparatusQueueOrderActionControl(
-    state: 'in_progress',
-    allowedActions: const {'pause', 'complete'},
-    hasOnlyKnownActions: true,
-    completeRequiresFullReport: completeRequiresFullReport,
-    interaction: const AdminQueueWorkerInteraction(
-      mode: AdminQueueInteractionMode.inProgress,
-      startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
-      materialScanRequired: false,
-      assignedMaterialsDisplayOnly: false,
-      materialIntakeAllowed: true,
-      previousWipMode: AdminQueuePreviousWipMode.notRequired,
-      qolipMode: AdminQueueQolipMode.notRequired,
-    ),
-  );
-}
-
-String _productionProgressQr(String batchId) {
-  final stamp = BigInt.parse(batchId.split(':')[1]);
-  var hash = BigInt.parse('cbf29ce484222325', radix: 16);
-  final prime = BigInt.parse('100000001b3', radix: 16);
-  final mask = BigInt.parse('ffffffffffffffff', radix: 16);
-  for (final byte in utf8.encode(batchId.trim())) {
-    hash = hash ^ BigInt.from(byte);
-    hash = (hash * prime) & mask;
-  }
-  final checksum =
-      (hash & BigInt.from(0xffff)).toRadixString(16).padLeft(4, '0');
-  return '4001${(stamp & mask).toRadixString(16).padLeft(16, '0')}$checksum'
-      .toUpperCase();
 }

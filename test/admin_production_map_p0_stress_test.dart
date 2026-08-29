@@ -11,6 +11,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+part 'admin_production_map_p0_stress_test_helpers_part_01.dart';
+
 const _print7Id = 'apparatus:default:bosma_7';
 const _print8Id = 'apparatus:default:bosma_8';
 const _print7Name = '7 ta rangli bosma aparat';
@@ -637,104 +639,4 @@ void main() {
       expect(sequences[_print8Id], before);
     },
   );
-}
-
-ProductionMapDefinition _productionOrderMap({
-  required String id,
-  required String title,
-  required String productCode,
-  required String apparatus,
-  required String apparatusId,
-  required String product,
-  String orderNumber = '',
-  double? rollCount,
-  double? widthMm,
-}) {
-  return ProductionMapDefinition(
-    id: id,
-    productCode: productCode,
-    title: title,
-    orderNumber: orderNumber,
-    rollCount: rollCount,
-    widthMm: widthMm,
-    nodes: [
-      const ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
-      ProductionMapNode(
-        id: 'apparatus',
-        kind: 'apparatus',
-        title: apparatus,
-        apparatusId: apparatusId,
-      ),
-      ProductionMapNode(
-        id: 'end',
-        kind: 'end',
-        title: product,
-        itemCode: productCode,
-      ),
-    ],
-    edges: const [
-      ProductionMapEdge(from: 'start', to: 'apparatus'),
-      ProductionMapEdge(from: 'apparatus', to: 'end'),
-    ],
-  );
-}
-
-ProductionMapDefinition _alternativeProductionOrderMap({
-  required String id,
-  required String title,
-  required String productCode,
-  required String product,
-  required String orderNumber,
-  required double rollCount,
-  required double widthMm,
-  required String assignedTitle,
-  required String assignedId,
-  List<String> apparatusTitles = const [
-    _print7Name,
-    _print8Name,
-  ],
-  List<String> apparatusIds = const [_print7Id, _print8Id],
-}) {
-  assert(apparatusTitles.length == apparatusIds.length);
-  return ProductionMapDefinition(
-    id: id,
-    productCode: productCode,
-    title: title,
-    orderNumber: orderNumber,
-    rollCount: rollCount,
-    widthMm: widthMm,
-    nodes: [
-      const ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
-      for (var index = 0; index < apparatusTitles.length; index++)
-        ProductionMapNode(
-          id: 'apparatus-$index',
-          kind: 'apparatus',
-          title: apparatusTitles[index],
-          apparatusId: apparatusIds[index],
-          alternativeGroupId: 'alt-$id',
-          alternativeGroupLabel: 'pechat',
-          alternativeAssignedTitle: assignedTitle,
-          alternativeAssignedApparatusId: assignedId,
-        ),
-      ProductionMapNode(
-        id: 'end',
-        kind: 'end',
-        title: product,
-        itemCode: productCode,
-      ),
-    ],
-    edges: [
-      for (var index = 0; index < apparatusTitles.length; index++) ...[
-        ProductionMapEdge(from: 'start', to: 'apparatus-$index'),
-        ProductionMapEdge(from: 'apparatus-$index', to: 'end'),
-      ],
-    ],
-  );
-}
-
-Future<void> _usePhoneViewport(WidgetTester tester) async {
-  tester.view.devicePixelRatio = 1;
-  tester.view.physicalSize = const Size(430, 1200);
-  addTearDown(tester.view.resetPhysicalSize);
-  addTearDown(tester.view.resetDevicePixelRatio);
 }

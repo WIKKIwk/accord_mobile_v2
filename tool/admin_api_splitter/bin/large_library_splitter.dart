@@ -31,6 +31,11 @@ void main(List<String> args) {
   final apply = args.contains('--apply');
   final audit = args.contains('--audit');
   final repair = args.contains('--repair');
+  final repairTestEntrypoints = args.contains('--repair-test-entrypoints');
+  if (repairTestEntrypoints) {
+    _repairTestEntrypoints(root);
+    return;
+  }
   if (repair) {
     _repairGeneratedVisibility(root, includeTests: includeTests);
     _repairGeneratedDirectives(
@@ -1279,6 +1284,10 @@ _TargetPlan? _buildTarget({
 
   final topLevelFragments = <_Fragment>[];
   for (final declaration in unit.declarations) {
+    if (declaration is FunctionDeclaration &&
+        declaration.name.lexeme == 'main') {
+      continue;
+    }
     if (!_isMovableTopLevel(declaration) ||
         transformedDeclarations.contains(declaration)) {
       continue;
@@ -1661,6 +1670,111 @@ void _repairGeneratedVisibility(
   }
   stdout.writeln(
       'Repaired generated extension visibility in $changedFiles files.');
+}
+
+void _repairTestEntrypoints(Directory root) {
+  final testRoot = Directory('${root.path}/test');
+  if (!testRoot.existsSync()) return;
+  var repaired = 0;
+  final files = testRoot
+      .listSync(recursive: true, followLinks: false)
+      .whereType<File>()
+      .where((file) => file.path.endsWith('.dart'))
+      .toList()
+    ..sort((a, b) => a.path.compareTo(b.path));
+  for (final libraryFile in files) {
+    var librarySource = libraryFile.readAsStringSync();
+    final libraryParsed = parseString(
+      content: librarySource,
+      path: libraryFile.path,
+      throwIfDiagnostics: false,
+    );
+    if (libraryParsed.errors.isNotEmpty) {
+      throw StateError(
+        'Test library has syntax diagnostics: ${libraryFile.path}',
+      );
+    }
+    if (libraryParsed.unit.directives.whereType<PartOfDirective>().isNotEmpty) {
+      continue;
+    }
+    if (libraryParsed.unit.declarations.whereType<FunctionDeclaration>().any(
+          (declaration) => declaration.name.lexeme == 'main',
+        )) {
+      continue;
+    }
+    final parts = libraryParsed.unit.directives.whereType<PartDirective>();
+    for (final directive in parts) {
+      final uri = directive.uri.stringValue;
+      if (uri == null) continue;
+      final partFile = _canonicalFile(
+        libraryFile.parent.path + '/' + _normalPath(uri),
+      );
+      if (!partFile.existsSync()) continue;
+      var partSource = partFile.readAsStringSync();
+      if (!partSource.contains(_marker)) continue;
+      final partParsed = parseString(
+        content: partSource,
+        path: partFile.path,
+        throwIfDiagnostics: false,
+      );
+      if (partParsed.errors.isNotEmpty) {
+        throw StateError(
+          'Generated test part has syntax diagnostics: ${partFile.path}',
+        );
+      }
+      final mains = partParsed.unit.declarations
+          .whereType<FunctionDeclaration>()
+          .where((declaration) => declaration.name.lexeme == 'main')
+          .toList();
+      if (mains.isEmpty) continue;
+      if (mains.length != 1) {
+        throw StateError(
+          'Generated test part has multiple main functions: ${partFile.path}',
+        );
+      }
+      final main = mains.single;
+      final helperName =
+          '_largeLibrarySplitter_${_safeIdentifier(_withoutExtension(libraryFile.path))}_main';
+      final parameters = main.functionExpression.parameters;
+      final forwardingArguments =
+          parameters == null ? '' : _forwardingArguments(parameters);
+      if (forwardingArguments == null) {
+        throw StateError(
+          'Unable to forward generated test main parameters: ${partFile.path}',
+        );
+      }
+      final returnType = main.returnType?.toSource().trim() ?? 'void';
+      partSource = _applyEdits(
+        partSource,
+        [_Edit(main.name.offset, main.name.end, helperName)],
+      );
+      final parameterSource = parameters?.toSource() ?? '()';
+      final wrapper =
+          '\n$returnType main$parameterSource => $helperName($forwardingArguments);\n';
+      librarySource = '${librarySource.trimRight()}$wrapper';
+      final updatedPart = parseString(
+        content: partSource,
+        path: partFile.path,
+        throwIfDiagnostics: false,
+      );
+      final updatedLibrary = parseString(
+        content: librarySource,
+        path: libraryFile.path,
+        throwIfDiagnostics: false,
+      );
+      if (updatedPart.errors.isNotEmpty || updatedLibrary.errors.isNotEmpty) {
+        throw StateError(
+          'Test entrypoint repair produced syntax diagnostics for '
+          '${libraryFile.path}.',
+        );
+      }
+      partFile.writeAsStringSync(partSource);
+      libraryFile.writeAsStringSync(librarySource);
+      repaired++;
+      break;
+    }
+  }
+  stdout.writeln('Repaired test entrypoints in $repaired libraries.');
 }
 
 void _applyPlan(_SplitPlan plan) {

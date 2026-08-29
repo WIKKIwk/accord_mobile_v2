@@ -10,6 +10,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+part 'admin_warehouses_screen_test_helpers_part_01.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -819,39 +821,3 @@ void main() {
 
 const _warehouseFilterKey = ValueKey('admin-warehouse-filter-chip');
 const _primaryNavigationButtonKey = ValueKey('app-primary-navigation-button');
-
-Future<void> _openWarehouseFilter(WidgetTester tester) async {
-  await tester.tap(find.byKey(_warehouseFilterKey));
-  await tester.pumpAndSettle();
-}
-
-Future<void> _pumpWarehousesScreen(WidgetTester tester) async {
-  await tester.binding.setSurfaceSize(const Size(800, 1200));
-  addTearDown(() => tester.binding.setSurfaceSize(null));
-  await tester.pumpWidget(
-    MaterialApp(
-      theme: ThemeData(useMaterial3: true),
-      locale: const Locale('uz'),
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ],
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: const AdminWarehousesScreen(),
-    ),
-  );
-  for (var i = 0; i < 20; i++) {
-    await tester.pump(const Duration(milliseconds: 100));
-    if (find.byKey(_warehouseFilterKey).evaluate().isNotEmpty) {
-      return;
-    }
-  }
-}
-
-Future<void> _selectWarehouse(WidgetTester tester, String warehouse) async {
-  await _openWarehouseFilter(tester);
-  await tester.tap(find.text(warehouse));
-  await tester.pumpAndSettle();
-}
