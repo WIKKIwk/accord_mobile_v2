@@ -4,6 +4,7 @@ part of 'admin_production_map_test_screen.dart';
 extension __AdminProductionMapTestGraphStateAstPart03
     on _AdminProductionMapTestScreenState {
   Future<ProductionMapNode?> _showRezkaEditSheet(ProductionMapNode node) {
+    final savedFrameCount = _productionMapRezkaFrameCount(node);
     return showModalBottomSheet<ProductionMapNode>(
       context: context,
       isDismissible: true,
@@ -13,7 +14,9 @@ extension __AdminProductionMapTestGraphStateAstPart03
       barrierColor: Colors.black.withValues(alpha: 0.32),
       builder: (context) => _RezkaNodeEditSheet(
         node: node,
-        frameCount: _productionMapOrderFrameCount(widget.orderContext),
+        frameCount: savedFrameCount > 0
+            ? savedFrameCount
+            : _productionMapOrderFrameCount(widget.orderContext),
       ),
     );
   }

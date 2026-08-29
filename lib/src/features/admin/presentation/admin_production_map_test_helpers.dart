@@ -232,13 +232,21 @@ bool _productionMapLaminatsiyaMatchesCurrentMap(
     return true;
   }
   final widthMm = orderContext?.widthMm;
-  final frameCount = _productionMapOrderFrameCount(orderContext);
-  if (widthMm == null || widthMm <= 0 || frameCount <= 0) {
+  if (widthMm == null || widthMm <= 0) {
     return false;
   }
   for (final node in nodes) {
-    if (!_isRezkaProductionNode(node, apparatusCatalog) ||
-        node.rezkaFrameGroups.isEmpty) {
+    if (!_isRezkaProductionNode(node, apparatusCatalog)) {
+      continue;
+    }
+    final frameCount = _productionMapRezkaFrameCount(node);
+    if (frameCount <= 0) {
+      continue;
+    }
+    if (node.rezkaFrameGroups.isEmpty) {
+      if (_productionMapWidthFitsLaminatsiya(widthMm / frameCount)) {
+        return true;
+      }
       continue;
     }
     final totalFrames = node.rezkaFrameGroups.fold<int>(
@@ -257,6 +265,11 @@ bool _productionMapLaminatsiyaMatchesCurrentMap(
     }
   }
   return false;
+}
+
+int _productionMapRezkaFrameCount(ProductionMapNode node) {
+  final frameCount = node.rezkaKadrCount ?? 0;
+  return frameCount > 0 ? frameCount : 0;
 }
 
 int _productionMapOrderFrameCount(ProductionMapOrderContext? orderContext) {

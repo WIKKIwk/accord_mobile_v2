@@ -97,6 +97,260 @@ void _registeradmin_production_map_test_screen_testCases03() {
     },
   );
 
+  testWidgets(
+    'existing rezka count enables laminatsiya without calculator context',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapTestScreen(
+            orderContext: ProductionMapOrderContext(
+              orderName: 'Existing split order',
+              productName: 'existing split product',
+              itemCode: 'ITEM-SPLIT-3',
+              widthMm: 1070,
+            ),
+            savedMap: ProductionMapDefinition(
+              id: 'zakaz-existing-split',
+              productCode: 'ITEM-SPLIT-3',
+              title: 'Existing split order',
+              nodes: [
+                ProductionMapNode(
+                  id: 'start',
+                  kind: 'start',
+                  title: 'Start',
+                  x: 420,
+                  y: 32,
+                ),
+                ProductionMapNode(
+                  id: 'rezka',
+                  kind: 'apparatus',
+                  title: 'Rezka',
+                  apparatusId: _rezkaId,
+                  rezkaKadrCount: 3,
+                  x: 420,
+                  y: 164,
+                ),
+                ProductionMapNode(
+                  id: 'end',
+                  kind: 'end',
+                  title: 'End',
+                  x: 420,
+                  y: 296,
+                ),
+              ],
+              edges: [
+                ProductionMapEdge(from: 'start', to: 'rezka'),
+                ProductionMapEdge(from: 'rezka', to: 'end'),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.bySemanticsLabel('Element qo‘shish'));
+      await tester.pumpAndSettle();
+      await tester
+          .tap(find.byKey(const ValueKey('admin-fab-menu-Laminatsiya')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Laminatsiya 1'), findsOneWidget);
+      expect(find.text('Laminatsiya 2'), findsOneWidget);
+      expect(
+        find.text(
+          'Laminatsiya apparatga buyurtma kattalik qiladi, iltimos uni bo‘laklab oling',
+        ),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'existing rezka count opens kadr editor without calculator context',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapTestScreen(
+            orderContext: ProductionMapOrderContext(
+              orderName: 'Existing split order',
+              productName: 'existing split product',
+              itemCode: 'ITEM-SPLIT-3',
+              widthMm: 1070,
+            ),
+            savedMap: ProductionMapDefinition(
+              id: 'zakaz-existing-split',
+              productCode: 'ITEM-SPLIT-3',
+              title: 'Existing split order',
+              nodes: [
+                ProductionMapNode(
+                  id: 'start',
+                  kind: 'start',
+                  title: 'Start',
+                  x: 420,
+                  y: 32,
+                ),
+                ProductionMapNode(
+                  id: 'rezka',
+                  kind: 'apparatus',
+                  title: 'Rezka',
+                  apparatusId: _rezkaId,
+                  rezkaKadrCount: 3,
+                  x: 420,
+                  y: 164,
+                ),
+                ProductionMapNode(
+                  id: 'end',
+                  kind: 'end',
+                  title: 'End',
+                  x: 420,
+                  y: 296,
+                ),
+              ],
+              edges: [
+                ProductionMapEdge(from: 'start', to: 'rezka'),
+                ProductionMapEdge(from: 'rezka', to: 'end'),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Rezka'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Kadr bo‘yicha'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Kadr 1'), findsOneWidget);
+      expect(find.text('Kadr 3'), findsOneWidget);
+      expect(find.text('Kadr soni topilmadi'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'editing existing rezka count updates and persists laminatsiya eligibility',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapTestScreen(
+            orderContext: ProductionMapOrderContext(
+              orderCode: '4444',
+              orderName: 'Edited split order',
+              productName: 'edited split product',
+              itemCode: 'ITEM-EDIT-SPLIT',
+              widthMm: 2200,
+            ),
+            savedMap: ProductionMapDefinition(
+              id: 'zakaz-edited-split',
+              productCode: 'ITEM-EDIT-SPLIT',
+              title: 'Edited split order',
+              code: '4444',
+              orderNumber: '4444',
+              widthMm: 2200,
+              nodes: [
+                ProductionMapNode(
+                  id: 'start',
+                  kind: 'start',
+                  title: 'Start',
+                  x: 420,
+                  y: 32,
+                ),
+                ProductionMapNode(
+                  id: 'rezka',
+                  kind: 'apparatus',
+                  title: 'Rezka',
+                  apparatusId: _rezkaId,
+                  rezkaKadrCount: 2,
+                  x: 420,
+                  y: 164,
+                ),
+                ProductionMapNode(
+                  id: 'end',
+                  kind: 'end',
+                  title: 'End',
+                  x: 420,
+                  y: 296,
+                ),
+              ],
+              edges: [
+                ProductionMapEdge(from: 'start', to: 'rezka'),
+                ProductionMapEdge(from: 'rezka', to: 'end'),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Rezka'));
+      await tester.pumpAndSettle();
+      final kadrCountField = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Kadr soni',
+      );
+      await tester.enterText(kadrCountField, '3');
+      await tester.tap(find.text('Saqlash'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.bySemanticsLabel('Element qo‘shish'));
+      await tester.pumpAndSettle();
+      await tester
+          .tap(find.byKey(const ValueKey('admin-fab-menu-Laminatsiya')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Laminatsiya 1'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('production-map-save')));
+      await tester.pumpAndSettle();
+
+      final saved = await MobileApi.instance.adminProductionMap(
+        'zakaz-edited-split',
+      );
+      expect(
+        saved.map.nodes.firstWhere((node) => node.id == 'rezka').rezkaKadrCount,
+        3,
+      );
+      expect(
+        saved.map.nodes.any((node) => node.apparatusId == _lamination1Id),
+        isTrue,
+      );
+      await tester.pump(const Duration(seconds: 5));
+    },
+  );
+
   testWidgets('production map order flow offers flexo bosma for flex orders', (
     tester,
   ) async {
