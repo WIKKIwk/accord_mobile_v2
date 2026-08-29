@@ -224,7 +224,7 @@ class _AdminCreateHubOverlayState extends State<_AdminCreateHubOverlay>
       ),
       _AdminHubActionCandidate(
         key: const ValueKey('admin-hub-calculate-order-create'),
-        title: l10n.adminCreateOrderTitle,
+        title: l10n.adminOpenOrderTitle,
         icon: Icons.add_task_outlined,
         routeName: AppRoutes.adminCalculate,
       ),

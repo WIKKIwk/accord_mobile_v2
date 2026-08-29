@@ -215,6 +215,9 @@ extension AppLocalizationsAstPartResplit2_03 on AppLocalizations {
   String get adminCreateOrderTitle =>
       _t('Buyurtma yaratish', 'Create order', 'Создать заказ');
 
+  String get adminOpenOrderTitle =>
+      _t('Buyurtma ochish', 'Open order', 'Открыть заказ');
+
   String get adminCreateItemGroupSubtitle => _t(
         'Parent-child mahsulot guruhlarini yaratish',
         'Create parent-child item groups',

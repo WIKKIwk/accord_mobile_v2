@@ -46,7 +46,8 @@ void main() {
 
     expect(find.text('Mahsulot qo‘shish'), findsOneWidget);
     expect(find.text('QR skanerlash'), findsOneWidget);
-    expect(find.text('Buyurtma yaratish'), findsOneWidget);
+    expect(find.text('Buyurtma ochish'), findsOneWidget);
+    expect(find.text('Buyurtma yaratish'), findsNothing);
     expect(find.text('Item qo‘shish'), findsNothing);
     expect(find.text('QR scan'), findsNothing);
     expect(find.text('Zakaz yaratish'), findsNothing);
