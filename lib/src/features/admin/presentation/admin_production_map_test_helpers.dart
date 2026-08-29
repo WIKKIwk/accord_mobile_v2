@@ -178,7 +178,20 @@ bool productionMapApparatusMatchesOrder(
   }
   final context = orderContext;
   if (context != null && _productionMapOrderIsFlexoProduct(context)) {
-    return apparatus.technology == 'flexographic';
+    return apparatus.technology == 'flexographic' &&
+        productionMapApparatusProfileCanHandleOrder(
+          apparatus: apparatus,
+          rollCount: context.rollCount,
+          widthMm: context.widthMm,
+        );
+  }
+  if (apparatus.isFlexo) {
+    return context == null ||
+        productionMapApparatusProfileCanHandleOrder(
+          apparatus: apparatus,
+          rollCount: context.rollCount,
+          widthMm: context.widthMm,
+        );
   }
   final apparatusColorCount = apparatus.colorStations;
   if (apparatusColorCount == null) {

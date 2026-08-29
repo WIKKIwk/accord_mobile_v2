@@ -80,6 +80,30 @@ bool productionMapPechatCanHandleOrder({
   };
 }
 
+bool productionMapApparatusProfileCanHandleOrder({
+  required AdminApparatus apparatus,
+  required double? rollCount,
+  required double? widthMm,
+}) {
+  final maximumRollCount = apparatus.colorStations;
+  if (apparatus.isFlexo &&
+      rollCount != null &&
+      rollCount > 0 &&
+      maximumRollCount != null &&
+      rollCount > maximumRollCount) {
+    return false;
+  }
+  if (widthMm == null || widthMm <= 0) {
+    return true;
+  }
+  final minimumWidth = apparatus.minWebWidthMm;
+  if (minimumWidth != null && widthMm < minimumWidth) {
+    return false;
+  }
+  final maximumWidth = apparatus.maxWebWidthMm;
+  return maximumWidth == null || widthMm <= maximumWidth;
+}
+
 String productionMapPechatApparatusLabel(int colorCount) {
   return '$colorCount ta rangli bosma';
 }
@@ -270,6 +294,14 @@ bool productionMapCanMoveOrderToApparatus({
           fromApparatusId: fromId,
           toApparatusId: toId,
         );
+  }
+
+  if (toApparatus.isFlexo) {
+    return productionMapApparatusProfileCanHandleOrder(
+      apparatus: toApparatus,
+      rollCount: rollCount,
+      widthMm: widthMm,
+    );
   }
 
   final targetColorCount = toApparatus.colorStations;

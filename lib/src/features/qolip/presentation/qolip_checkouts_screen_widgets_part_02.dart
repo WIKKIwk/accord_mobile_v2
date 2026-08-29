@@ -8,7 +8,10 @@ class _QolipDebtRow extends StatelessWidget {
     required this.index,
     required this.expanded,
     required this.returning,
+    required this.selectionMode,
+    required this.selected,
     required this.onExpandedChanged,
+    required this.onLongPress,
     required this.onReturn,
   });
 
@@ -17,7 +20,10 @@ class _QolipDebtRow extends StatelessWidget {
   final int index;
   final bool expanded;
   final bool returning;
+  final bool selectionMode;
+  final bool selected;
   final ValueChanged<bool> onExpandedChanged;
+  final VoidCallback onLongPress;
   final VoidCallback onReturn;
 
   @override
@@ -26,38 +32,25 @@ class _QolipDebtRow extends StatelessWidget {
     final scheme = theme.colorScheme;
     final l10n = context.l10n;
     final checkout = debt.checkout;
-    final note = debt.orderNote;
-    final location = checkout == null
-        ? ''
-        : checkout.locationLabel.isNotEmpty
-            ? checkout.locationLabel
-            : checkout.block;
-    final subtitle = note != null
-        ? <String>[
-            l10n.qolipText('checkouts.draft'),
-            l10n.qolipText(
-              'checkouts.order',
-              values: {'id': note.orderId},
-            ),
-            l10n.qolipCount(debt.quantity),
-            _formatIssuedAt(note.updatedAt),
-          ].where((value) => value.trim().isNotEmpty).join(' • ')
-        : <String>[
-            checkout!.issuedToName.trim().isEmpty
-                ? l10n.qolipText('checkouts.unknown_worker')
-                : checkout.issuedToName.trim(),
-            location,
-            checkout.qolipCode,
-            '${checkout.size}',
-            _formatIssuedAt(checkout.issuedAt),
-          ].where((value) => value.trim().isNotEmpty).join(' • ');
+    final location = checkout.locationLabel.isNotEmpty
+        ? checkout.locationLabel
+        : checkout.block;
+    final subtitle = <String>[
+      checkout.issuedToName.trim().isEmpty
+          ? l10n.qolipText('checkouts.unknown_worker')
+          : checkout.issuedToName.trim(),
+      location,
+      checkout.qolipCode,
+      '${checkout.size}',
+      _formatIssuedAt(checkout.issuedAt),
+    ].where((value) => value.trim().isNotEmpty).join(' • ');
     final radius = M3SegmentedListGeometry.borderRadius(
       slot,
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
     );
 
     return Material(
-      color: note != null ? scheme.tertiaryContainer : scheme.surface,
+      color: selected ? scheme.secondaryContainer : scheme.surface,
       elevation: 2,
       shadowColor: scheme.shadow.withValues(alpha: 0.16),
       surfaceTintColor: Colors.transparent,
@@ -68,13 +61,14 @@ class _QolipDebtRow extends StatelessWidget {
         children: [
           InkWell(
             onTap: () => onExpandedChanged(!expanded),
+            onLongPress: onLongPress,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: expanded ? 0 : 48),
                 child: Row(
                   children: [
-                    _QolipDebtIndexBadge(index: index),
+                    _QolipDebtIndexBadge(index: index, selected: selected),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
@@ -114,16 +108,17 @@ class _QolipDebtRow extends StatelessWidget {
                         color: scheme.onSurface,
                       ),
                     ),
-                    AnimatedRotation(
-                      turns: expanded ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 180),
-                      curve: Curves.easeOutCubic,
-                      child: Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 22,
-                        color: scheme.onSurfaceVariant,
+                    if (!selectionMode)
+                      AnimatedRotation(
+                        turns: expanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 22,
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -148,9 +143,10 @@ class _QolipDebtRow extends StatelessWidget {
 }
 
 class _QolipDebtIndexBadge extends StatelessWidget {
-  const _QolipDebtIndexBadge({required this.index});
+  const _QolipDebtIndexBadge({required this.index, required this.selected});
 
   final int index;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +160,7 @@ class _QolipDebtIndexBadge extends StatelessWidget {
         ),
         child: Center(
           child: Text(
-            '${index + 1}',
+            selected ? '✓' : '${index + 1}',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: scheme.onSecondaryContainer,
                   fontWeight: FontWeight.w800,
@@ -193,85 +189,51 @@ class _QolipDebtDetail extends StatelessWidget {
     final scheme = theme.colorScheme;
     final l10n = context.l10n;
     final checkout = debt.checkout;
-    final note = debt.orderNote;
-    final location = checkout == null
-        ? ''
-        : checkout.locationLabel.isNotEmpty
-            ? checkout.locationLabel
-            : checkout.block;
-    final detailLines = note != null
-        ? <Widget>[
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.debt_type'),
-              value: l10n.qolipText('checkouts.order_draft'),
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.order_label'),
-              value: note.orderId,
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.product'),
-              value: note.itemName,
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.item_code'),
-              value: note.itemCode,
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.mold_codes'),
-              value: note.qolipCodes.join(', '),
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.quantity'),
-              value: l10n.qolipCount(note.qolipCodes.length),
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.issued_at'),
-              value: _formatIssuedAt(note.updatedAt),
-            ),
-          ]
-        : <Widget>[
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.issued_to'),
-              value: checkout!.issuedToName,
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.product'),
-              value: checkout.itemName,
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.item_code'),
-              value: checkout.itemCode,
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.mold_code'),
-              value: checkout.qolipCode,
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.size'),
-              value: '${checkout.size}',
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.quantity'),
-              value: l10n.qolipCount(checkout.quantity),
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.block'),
-              value: checkout.block,
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.cell'),
-              value: location,
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.warehouse'),
-              value: checkout.warehouse,
-            ),
-            _QolipDebtDetailLine(
-              label: l10n.qolipText('checkouts.issued_at'),
-              value: _formatIssuedAt(checkout.issuedAt),
-            ),
-          ];
+    final location = checkout.locationLabel.isNotEmpty
+        ? checkout.locationLabel
+        : checkout.block;
+    final detailLines = <Widget>[
+      _QolipDebtDetailLine(
+        label: l10n.qolipText('checkouts.issued_to'),
+        value: checkout.issuedToName,
+      ),
+      _QolipDebtDetailLine(
+        label: l10n.qolipText('checkouts.product'),
+        value: checkout.itemName,
+      ),
+      _QolipDebtDetailLine(
+        label: l10n.qolipText('checkouts.item_code'),
+        value: checkout.itemCode,
+      ),
+      _QolipDebtDetailLine(
+        label: l10n.qolipText('checkouts.mold_code'),
+        value: checkout.qolipCode,
+      ),
+      _QolipDebtDetailLine(
+        label: l10n.qolipText('checkouts.size'),
+        value: '${checkout.size}',
+      ),
+      _QolipDebtDetailLine(
+        label: l10n.qolipText('checkouts.quantity'),
+        value: l10n.qolipCount(checkout.quantity),
+      ),
+      _QolipDebtDetailLine(
+        label: l10n.qolipText('checkouts.block'),
+        value: checkout.block,
+      ),
+      _QolipDebtDetailLine(
+        label: l10n.qolipText('checkouts.cell'),
+        value: location,
+      ),
+      _QolipDebtDetailLine(
+        label: l10n.qolipText('checkouts.warehouse'),
+        value: checkout.warehouse,
+      ),
+      _QolipDebtDetailLine(
+        label: l10n.qolipText('checkouts.issued_at'),
+        value: _formatIssuedAt(checkout.issuedAt),
+      ),
+    ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(58, 4, 10, 12),
       child: Column(
@@ -290,14 +252,12 @@ class _QolipDebtDetail extends StatelessWidget {
                     )
                   : const Icon(Icons.keyboard_return_rounded, size: 18),
               label: Text(
-                note != null
-                    ? l10n.qolipText('action.return_molds')
-                    : l10n.qolipText('action.return'),
+                l10n.qolipText('action.return'),
               ),
             ),
           ),
           Text(
-            '${note != null ? l10n.qolipText('checkouts.order_id') : l10n.qolipText('checkouts.checkout_id')}: ${debt.id.replaceFirst('order-note:', '')}',
+            '${l10n.qolipText('checkouts.checkout_id')}: ${debt.id}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelSmall?.copyWith(

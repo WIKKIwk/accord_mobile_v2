@@ -126,6 +126,7 @@ extension MobileApiAdminItemsAstPart04 on MobileApi {
         workUnitId: existing?.workUnitId ?? 'work-unit:test:$opaque',
         operation: operation,
         technology: technology,
+        minWebWidthMm: existing?.minWebWidthMm,
         maxWebWidthMm: existing?.maxWebWidthMm,
         virtualTasks: existing?.virtualTasks ?? 'disabled',
         capabilityCompatibleReroute:
@@ -219,6 +220,8 @@ extension MobileApiAdminItemsAstPart04 on MobileApi {
               'operation': operation,
               'technology': technology,
               'color_station_count': colorStations,
+              if (current.minWebWidthMm != null)
+                'min_web_width_mm': current.minWebWidthMm,
               if (current.maxWebWidthMm != null)
                 'max_web_width_mm': current.maxWebWidthMm,
               'virtual_tasks': current.virtualTasks,

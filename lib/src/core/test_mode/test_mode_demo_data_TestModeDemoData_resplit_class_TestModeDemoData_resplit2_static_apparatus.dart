@@ -48,6 +48,9 @@ const _test_mode_demo_data_TestModeDemoData_resplit_class_TestModeDemoData_appar
     operation: 'print',
     technology: 'flexographic',
     capabilities: ['print'],
+    colorStations: 8,
+    minWebWidthMm: 400,
+    maxWebWidthMm: 800,
   ),
   AdminApparatus(
     id: 'apparatus:default:asset-007',

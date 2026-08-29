@@ -117,7 +117,7 @@ void _registeradmin_production_map_test_screen_testCases08() {
     expect(find.text('Ketma-ketlik'), findsOneWidget);
   });
 
-  testWidgets('qolipchi sequence long press keeps a returned qolip note',
+  testWidgets('qolipchi sequence long press shows actual qolip availability',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
     const apparatus = _godexId;
@@ -189,81 +189,24 @@ void _registeradmin_production_map_test_screen_testCases08() {
     final orderFinder = find.textContaining('Qolip sequence order');
     expect(
       find.text(
-        'Bir marta bosing — ma’lumot. Uzoq bosing — qolip qaydini ochish.',
+        'Bir marta bosing — ma’lumot. Uzoq bosing — order qoliplarini ochish.',
       ),
       findsOneWidget,
     );
     await tester.longPress(orderFinder);
     await tester.pumpAndSettle();
-    expect(find.text('Order qoliplarini qayd qilish'), findsOneWidget);
-    expect(find.text('Hammasini berish'), findsOneWidget);
-
-    await tester.tap(find.byType(CheckboxListTile).first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Tanlangan qoliplarni berdim'));
-    await tester.pumpAndSettle();
-    final given = await MobileApi.instance
-        .adminProductionMapQolipOrderNoteDetails(orderId: orderId);
-    expect(given.note?.isGiven, isTrue);
-    expect(given.note?.qolipCodes, ['QOLIP-SEQUENCE-1']);
-
-    await tester.longPress(orderFinder);
-    await tester.pumpAndSettle();
-    expect(find.text('Qoliplarni qaytarib oldim'), findsOneWidget);
-    final givenTiles = tester
-        .widgetList<CheckboxListTile>(find.byType(CheckboxListTile))
-        .toList(growable: false);
-    expect(givenTiles, hasLength(2));
-    expect(givenTiles[0].value, isTrue);
-    expect(givenTiles[0].onChanged, isNull);
-    expect(givenTiles[1].value, isFalse);
-    expect(givenTiles[1].onChanged, isNotNull);
-    expect(
-      tester
-          .widget<OutlinedButton>(
-            find.widgetWithText(OutlinedButton, 'Hammasini berish'),
-          )
-          .onPressed,
-      isNotNull,
-    );
-    await tester.tap(find.byType(CheckboxListTile).at(1));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Tanlangan qoliplarni berdim'));
-    await tester.pumpAndSettle();
-    final givenAll = await MobileApi.instance
-        .adminProductionMapQolipOrderNoteDetails(orderId: orderId);
-    expect(givenAll.note?.qolipCodes, [
-      'QOLIP-SEQUENCE-1',
-      'QOLIP-SEQUENCE-2',
-    ]);
-
-    await tester.longPress(orderFinder);
-    await tester.pumpAndSettle();
-    final allGivenTiles = tester
-        .widgetList<CheckboxListTile>(find.byType(CheckboxListTile))
-        .toList(growable: false);
-    expect(allGivenTiles.every((tile) => tile.onChanged == null), isTrue);
-    expect(
-      tester
-          .widget<FilledButton>(
-            find.widgetWithText(FilledButton, 'Yangi qolip tanlang'),
-          )
-          .onPressed,
-      isNull,
-    );
+    expect(find.text('Order qoliplari'), findsOneWidget);
+    expect(find.text('QOLIP-SEQUENCE-1'), findsOneWidget);
+    expect(find.text('QOLIP-SEQUENCE-2'), findsOneWidget);
+    expect(find.text('Bo‘sh'), findsNWidgets(2));
+    expect(find.byType(CheckboxListTile), findsNothing);
+    expect(find.text('Hammasini berish'), findsNothing);
+    expect(find.text('Tanlangan qoliplarni berdim'), findsNothing);
+    expect(find.text('Qoliplarni qaytarib oldim'), findsNothing);
     expect(find.text('Qolip qo‘shish'), findsOneWidget);
-    await tester.tap(find.text('Qoliplarni qaytarib oldim'));
-    await tester.pumpAndSettle();
-    final returned = await MobileApi.instance
-        .adminProductionMapQolipOrderNoteDetails(orderId: orderId);
-    expect(returned.note?.isReturned, isTrue);
-    expect(returned.note?.qolipCodes, [
-      'QOLIP-SEQUENCE-1',
-      'QOLIP-SEQUENCE-2',
-    ]);
   });
 
-  testWidgets('qolipchi can add a qolip from an empty order note sheet',
+  testWidgets('qolipchi can add a qolip from an empty order qolip sheet',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
     const apparatus = _godexId;
@@ -336,11 +279,16 @@ void _registeradmin_production_map_test_screen_testCases08() {
 
     expect(find.text('INLINE-Q-1'), findsOneWidget);
     expect(find.text('Qolip qo‘shish'), findsOneWidget);
-    final details = await MobileApi.instance
-        .adminProductionMapQolipOrderNoteDetails(orderId: orderId);
+    final products = await MobileApi.instance.qolipProducts(
+      query: 'DEMO-HOTLUNCH',
+      withQolipOnly: true,
+      limit: 200,
+    );
     expect(
-      details.requiredQolips.map((item) => item.qolipCode),
-      ['INLINE-Q-1'],
+      products
+          .where((item) => item.code == 'DEMO-HOTLUNCH')
+          .map((item) => item.qolipCode),
+      contains('INLINE-Q-1'),
     );
   });
 }

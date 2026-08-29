@@ -27,45 +27,40 @@ const _app_localizations_declarations__productionTranslations_resplitPart12 = {
     'en': 'The mold could not be returned',
     'ru': 'Не удалось вернуть форму',
   },
-  'qolip.checkouts.draft_returned': {
-    'uz': '{item} qoliplari qaytarildi',
-    'en': 'Molds for {item} were returned',
-    'ru': 'Формы для {item} возвращены',
+  'qolip.checkouts.return_to_mold': {
+    'uz': '{qolip} uchun yacheyka tanlang',
+    'en': 'Select a cell for {qolip}',
+    'ru': 'Выберите ячейку для {qolip}',
   },
-  'qolip.checkouts.draft_return_failed': {
-    'uz': 'Qolip qaydi qaytarilmadi',
-    'en': 'The mold checkout record could not be returned',
-    'ru': 'Не удалось вернуть запись о выдаче формы',
+  'qolip.checkouts.selection_cancel': {
+    'uz': 'Tanlashni bekor qilish',
+    'en': 'Cancel selection',
+    'ru': 'Отменить выбор',
   },
-  'qolip.checkouts.draft': {
-    'uz': 'Draft',
-    'en': 'Draft',
-    'ru': 'Черновик',
+  'qolip.checkouts.selection_summary': {
+    'uz': '{count} ta tanlandi',
+    'en': '{count} selected',
+    'ru': 'Выбрано: {count}',
   },
-  'qolip.checkouts.order': {
-    'uz': 'Order: {id}',
-    'en': 'Order: {id}',
-    'ru': 'Заказ: {id}',
+  'qolip.checkouts.selection_return': {
+    'uz': 'Tanlanganlarni qaytarish',
+    'en': 'Return selected',
+    'ru': 'Вернуть выбранные',
+  },
+  'qolip.checkouts.selection_returned': {
+    'uz': '{count} ta qolip qaytdi',
+    'en': '{count} molds were returned',
+    'ru': 'Возвращено форм: {count}',
+  },
+  'qolip.checkouts.selection_returned_partial': {
+    'uz': '{success} ta qaytdi, {failed} ta qaytmadi',
+    'en': '{success} returned, {failed} failed',
+    'ru': 'Возвращено: {success}, не вернулось: {failed}',
   },
   'qolip.checkouts.unknown_worker': {
     'uz': 'Noma’lum qolipchi',
     'en': 'Unknown worker',
     'ru': 'Неизвестный работник',
-  },
-  'qolip.checkouts.debt_type': {
-    'uz': 'Qarz turi',
-    'en': 'Checkout type',
-    'ru': 'Тип выдачи',
-  },
-  'qolip.checkouts.order_draft': {
-    'uz': 'Order drafti',
-    'en': 'Order draft',
-    'ru': 'Черновик заказа',
-  },
-  'qolip.checkouts.order_label': {
-    'uz': 'Order',
-    'en': 'Order',
-    'ru': 'Заказ',
   },
   'qolip.checkouts.product': {
     'uz': 'Mahsulot',
@@ -76,11 +71,6 @@ const _app_localizations_declarations__productionTranslations_resplitPart12 = {
     'uz': 'Item kodi',
     'en': 'Item code',
     'ru': 'Код позиции',
-  },
-  'qolip.checkouts.mold_codes': {
-    'uz': 'Qolip kodlari',
-    'en': 'Mold codes',
-    'ru': 'Коды форм',
   },
   'qolip.checkouts.quantity': {
     'uz': 'Soni',
@@ -121,11 +111,6 @@ const _app_localizations_declarations__productionTranslations_resplitPart12 = {
     'uz': 'Ombor',
     'en': 'Warehouse',
     'ru': 'Склад',
-  },
-  'qolip.checkouts.order_id': {
-    'uz': 'Order ID',
-    'en': 'Order ID',
-    'ru': 'ID заказа',
   },
   'qolip.checkouts.checkout_id': {
     'uz': 'Checkout ID',

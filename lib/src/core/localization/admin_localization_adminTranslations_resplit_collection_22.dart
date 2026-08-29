@@ -2,58 +2,10 @@
 part of 'admin_localization.dart';
 
 const _admin_localization_adminTranslations_resplitPart22 = {
-  'admin.production.qolip_already_issued': {
-    'uz': 'Allaqachon berilgan',
-    'en': 'Already issued',
-    'ru': 'Уже выдана',
-  },
-  'admin.production.qolip_reserved_other': {
-    'uz': 'Boshqa order uchun band qilingan',
-    'en': 'Reserved for another order',
-    'ru': 'Зарезервирована для другого заказа',
-  },
   'admin.production.qolip_color': {
     'uz': 'Rang: {value}',
     'en': 'Color: {value}',
     'ru': 'Цвет: {value}',
-  },
-  'admin.production.qolip_select_new': {
-    'uz': 'Yangi qolip tanlang',
-    'en': 'Select a new mold',
-    'ru': 'Выберите новую форму',
-  },
-  'admin.production.qolip_issued': {
-    'uz': 'Tanlangan qoliplarni berdim',
-    'en': 'I issued the selected molds',
-    'ru': 'Выдать выбранные формы',
-  },
-  'admin.production.qolip_issue_all': {
-    'uz': 'Hammasini berish',
-    'en': 'Issue all',
-    'ru': 'Выдать все',
-  },
-  'admin.production.qolip_returned': {
-    'uz': 'Qoliplarni qaytarib oldim',
-    'en': 'I received the molds back',
-    'ru': 'Формы возвращены',
-  },
-  'admin.production.qolip_given_banner': {
-    'uz': 'Siz bu order qoliplarini berdim deb qayd qilgansiz.',
-    'en': 'You recorded that you issued the molds for this order.',
-    'ru': 'Вы отметили, что выдали формы для этого заказа.',
-  },
-  'admin.production.qolip_returned_banner': {
-    'uz': 'Siz bu order qoliplarini qaytarib olgansiz.',
-    'en': 'You recorded that the molds for this order were returned.',
-    'ru': 'Вы отметили, что формы для этого заказа возвращены.',
-  },
-  'admin.production.qolip_returned_note': {
-    'uz':
-        'Qoliplar qaytarib olingan. Bu qayd o‘chirilmaydi; yana berganingizda yashil holatga qaytadi.',
-    'en':
-        'The molds were returned. This record is kept; it will become active again when you issue them again.',
-    'ru':
-        'Формы возвращены. Запись не удаляется и снова станет активной при повторной выдаче.',
   },
   'admin.production.assignment.qr_prompt': {
     'uz': 'Mos homashyo QR kodini tirqishga olib keling',

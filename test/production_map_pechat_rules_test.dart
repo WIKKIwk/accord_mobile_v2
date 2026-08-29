@@ -8,6 +8,9 @@ const _flexoApparatus = AdminApparatus(
   name: 'Flexo pechat',
   operation: 'print',
   technology: 'flexographic',
+  colorStations: 8,
+  minWebWidthMm: 400,
+  maxWebWidthMm: 800,
 );
 const _colorPrintApparatus = AdminApparatus(
   id: 'apparatus:test:color-print-7',
@@ -24,6 +27,39 @@ void main() {
     expect(_colorPrintApparatus.operation, 'print');
     expect(_colorPrintApparatus.technology, 'rotogravure');
     expect(_colorPrintApparatus.colorStations, 7);
+  });
+
+  test('Flexo profile accepts 400-800mm and at most 8 rolls', () {
+    expect(
+      productionMapApparatusProfileCanHandleOrder(
+        apparatus: _flexoApparatus,
+        rollCount: 1,
+        widthMm: 400,
+      ),
+      isTrue,
+    );
+    expect(
+      productionMapApparatusProfileCanHandleOrder(
+        apparatus: _flexoApparatus,
+        rollCount: 8,
+        widthMm: 800,
+      ),
+      isTrue,
+    );
+    for (final invalid in const [
+      (rollCount: 8.0, widthMm: 399.0),
+      (rollCount: 8.0, widthMm: 801.0),
+      (rollCount: 9.0, widthMm: 650.0),
+    ]) {
+      expect(
+        productionMapApparatusProfileCanHandleOrder(
+          apparatus: _flexoApparatus,
+          rollCount: invalid.rollCount,
+          widthMm: invalid.widthMm,
+        ),
+        isFalse,
+      );
+    }
   });
 
   test('flexo order is detected from its apparatus node', () {

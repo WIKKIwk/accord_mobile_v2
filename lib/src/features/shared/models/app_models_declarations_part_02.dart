@@ -26,6 +26,7 @@ class AdminApparatus {
     this.workUnitId = '',
     this.operation = '',
     this.technology = '',
+    this.minWebWidthMm,
     this.maxWebWidthMm,
     this.virtualTasks = 'disabled',
     this.capabilityCompatibleReroute = false,
@@ -57,6 +58,7 @@ class AdminApparatus {
   final String workUnitId;
   final String operation;
   final String technology;
+  final int? minWebWidthMm;
   final int? maxWebWidthMm;
   final String virtualTasks;
   final bool capabilityCompatibleReroute;
@@ -88,6 +90,7 @@ class AdminApparatus {
     String? workUnitId,
     String? operation,
     String? technology,
+    int? minWebWidthMm,
     int? maxWebWidthMm,
     String? virtualTasks,
     bool? capabilityCompatibleReroute,
@@ -119,6 +122,7 @@ class AdminApparatus {
       workUnitId: workUnitId ?? this.workUnitId,
       operation: operation ?? this.operation,
       technology: technology ?? this.technology,
+      minWebWidthMm: minWebWidthMm ?? this.minWebWidthMm,
       maxWebWidthMm: maxWebWidthMm ?? this.maxWebWidthMm,
       virtualTasks: virtualTasks ?? this.virtualTasks,
       capabilityCompatibleReroute:
@@ -231,6 +235,7 @@ class AdminApparatus {
       workUnitId: hierarchyMap['work_unit_id']?.toString().trim() ?? '',
       operation: operation,
       technology: technology,
+      minWebWidthMm: (executionMap['min_web_width_mm'] as num?)?.toInt(),
       maxWebWidthMm: (executionMap['max_web_width_mm'] as num?)?.toInt(),
       virtualTasks:
           executionMap['virtual_tasks']?.toString().trim() ?? 'disabled',
@@ -270,6 +275,7 @@ class AdminApparatus {
         'operation': operation,
         'technology': technology,
         'color_station_count': colorStations,
+        if (minWebWidthMm != null) 'min_web_width_mm': minWebWidthMm,
         if (maxWebWidthMm != null) 'max_web_width_mm': maxWebWidthMm,
         'virtual_tasks': virtualTasks,
         'capability_compatible_reroute': capabilityCompatibleReroute,

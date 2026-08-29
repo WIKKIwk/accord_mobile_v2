@@ -87,6 +87,14 @@ void _registeradmin_production_map_test_screen_testCases05() {
   test(
     'production map pechat filter blocks color pechat for flex products',
     () {
+      const flexo = AdminApparatus(
+        name: 'Flexo pechat',
+        operation: 'print',
+        technology: 'flexographic',
+        colorStations: 8,
+        minWebWidthMm: 400,
+        maxWebWidthMm: 800,
+      );
       for (final marker in const [
         'fleksa',
         'fleska',
@@ -128,11 +136,7 @@ void _registeradmin_production_map_test_screen_testCases05() {
         );
         expect(
           productionMapApparatusMatchesOrder(
-            const AdminApparatus(
-              name: 'Flexo pechat',
-              operation: 'print',
-              technology: 'flexographic',
-            ),
+            flexo,
             context,
           ),
           isTrue,
@@ -148,6 +152,31 @@ void _registeradmin_production_map_test_screen_testCases05() {
           ),
           isTrue,
         );
+      }
+      for (final context in const [
+        ProductionMapOrderContext(
+          orderName: 'Flexo narrow',
+          productName: 'flexo product',
+          itemCode: 'ITEM-FLEX-NARROW',
+          rollCount: 8,
+          widthMm: 399,
+        ),
+        ProductionMapOrderContext(
+          orderName: 'Flexo wide',
+          productName: 'flexo product',
+          itemCode: 'ITEM-FLEX-WIDE',
+          rollCount: 8,
+          widthMm: 801,
+        ),
+        ProductionMapOrderContext(
+          orderName: 'Flexo rolls',
+          productName: 'flexo product',
+          itemCode: 'ITEM-FLEX-ROLLS',
+          rollCount: 9,
+          widthMm: 650,
+        ),
+      ]) {
+        expect(productionMapApparatusMatchesOrder(flexo, context), isFalse);
       }
     },
   );

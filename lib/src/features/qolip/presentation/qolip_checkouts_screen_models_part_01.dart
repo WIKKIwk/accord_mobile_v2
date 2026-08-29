@@ -2,33 +2,34 @@
 part of 'qolip_checkouts_screen.dart';
 
 class _QolipDebtEntry {
-  const _QolipDebtEntry.checkout(this.checkout) : orderNote = null;
+  const _QolipDebtEntry(this.checkout);
 
-  const _QolipDebtEntry.draft(this.orderNote) : checkout = null;
+  final QolipCheckoutEntry checkout;
 
-  final QolipCheckoutEntry? checkout;
-  final AdminQolipOrderNote? orderNote;
-
-  bool get isDraft => orderNote != null;
-
-  String get id => checkout?.id ?? 'order-note:${orderNote!.orderId}';
+  String get id => checkout.id;
 
   String get title {
-    final itemName = checkout?.itemName ?? orderNote!.itemName;
+    final itemName = checkout.itemName;
     if (itemName.trim().isNotEmpty) {
       return itemName.trim();
     }
-    return checkout?.itemCode ?? orderNote!.itemCode;
+    return checkout.itemCode;
   }
 
-  String get itemCode => checkout?.itemCode ?? orderNote!.itemCode;
+  String get itemCode => checkout.itemCode;
 
-  int get quantity => checkout?.quantity ?? orderNote!.qolipCodes.length;
+  int get quantity => checkout.quantity;
 
-  String get issuedAt => checkout?.issuedAt ?? orderNote!.updatedAt;
+  String get issuedAt => checkout.issuedAt;
 
-  List<String> get qolipCodes =>
-      checkout == null ? orderNote!.qolipCodes : <String>[checkout!.qolipCode];
+  List<String> get qolipCodes => <String>[checkout.qolipCode];
+}
+
+class _QolipReturnTarget {
+  const _QolipReturnTarget({required this.checkout, required this.cellLabel});
+
+  final QolipCheckoutEntry checkout;
+  final String cellLabel;
 }
 
 class QolipCheckoutsScreen extends StatefulWidget {
@@ -43,6 +44,9 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
   final Set<String> _returning = {};
+  final Set<String> _selectedDebtIds = {};
+  List<_QolipDebtEntry> _loadedDebts = const [];
+  bool _bulkReturning = false;
   String _query = '';
 
   @override
@@ -59,21 +63,18 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
   }
 
   Future<List<_QolipDebtEntry>> _loadDebts() async {
-    final checkoutsFuture = MobileApi.instance.qolipCheckouts(
+    final checkouts = await MobileApi.instance.qolipCheckouts(
       status: 'open',
       limit: 200,
     );
-    // Sequence cards receive the current principal's order notes as part of
-    // the queue snapshot. Reuse that same source here so the debt book cannot
-    // disagree with the status already shown on the sequence page.
-    final snapshotFuture = MobileApi.instance.adminProductionMapQueueSnapshot();
-    final checkouts = await checkoutsFuture;
-    final snapshot = await snapshotFuture;
-    return [
-      for (final checkout in checkouts) _QolipDebtEntry.checkout(checkout),
-      for (final note in snapshot.qolipOrderNotes.values)
-        if (note.isGiven) _QolipDebtEntry.draft(note),
+    final debts = [
+      for (final checkout in checkouts) _QolipDebtEntry(checkout),
     ];
+    _loadedDebts = debts;
+    _selectedDebtIds.retainWhere(
+      (id) => debts.any((debt) => debt.id == id),
+    );
+    return debts;
   }
 
   Future<void> _reload() async {
@@ -95,27 +96,13 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
     if (_returning.contains(checkout.id)) {
       return;
     }
-    final cellLabel = await showQolipCellPickerSheet(
-      context,
-      title: context.l10n.qolipText('checkouts.return_to'),
-    );
-    if (!mounted || cellLabel == null) {
-      return;
-    }
-    final normalizedCell = normalizeQolipCellLabel(cellLabel);
-    final columnNumber = normalizedCell == null
-        ? null
-        : int.tryParse(normalizedCell.substring(1));
-    if (normalizedCell == null || columnNumber == null) {
+    final target = await _resolveReturnTarget(checkout);
+    if (!mounted || target == null) {
       return;
     }
     setState(() => _returning.add(checkout.id));
     try {
-      await MobileApi.instance.qolipReturnCheckout(
-        checkout.id,
-        rowLetter: normalizedCell.substring(0, 1),
-        columnNumber: columnNumber,
-      );
+      await _returnToTarget(target);
       if (!mounted) {
         return;
       }
@@ -126,7 +113,7 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
               'checkouts.returned',
               values: {
                 'item': checkout.itemName,
-                'cell': normalizedCell,
+                'cell': target.cellLabel,
               },
             ),
           ),
@@ -155,60 +142,176 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
     }
   }
 
-  Future<void> _returnDraft(_QolipDebtEntry debt) async {
-    final note = debt.orderNote;
-    if (note == null || _returning.contains(debt.id)) {
-      return;
-    }
-    setState(() => _returning.add(debt.id));
-    try {
-      await MobileApi.instance.adminSaveProductionMapQolipOrderNote(
-        orderId: note.orderId,
-        status: 'returned',
-      );
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            context.l10n.qolipText(
-              'checkouts.draft_returned',
-              values: {'item': debt.title},
-            ),
-          ),
-        ),
-      );
-      await _reload();
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error is MobileApiException
-                ? error.message
-                : context.l10n.qolipText('checkouts.draft_return_failed'),
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _returning.remove(debt.id));
-      }
-    }
+  Future<void> _returnDebt(_QolipDebtEntry debt) async {
+    await _returnCheckout(debt.checkout);
   }
 
-  Future<void> _returnDebt(_QolipDebtEntry debt) async {
-    if (debt.isDraft) {
-      await _returnDraft(debt);
+  String? _knownReturnCell(QolipCheckoutEntry checkout) {
+    final row = checkout.rowLetter.trim();
+    final column = checkout.columnNumber;
+    if (row.isNotEmpty && column != null) {
+      final cell = normalizeQolipCellLabel('$row$column');
+      if (cell != null) {
+        return cell;
+      }
+    }
+    return normalizeQolipCellLabel(checkout.locationLabel);
+  }
+
+  Future<_QolipReturnTarget?> _resolveReturnTarget(
+    QolipCheckoutEntry checkout,
+  ) async {
+    var cellLabel = _knownReturnCell(checkout);
+    if (cellLabel == null) {
+      cellLabel = await showQolipCellPickerSheet(
+        context,
+        title: context.l10n.qolipText(
+          'checkouts.return_to_mold',
+          values: {'qolip': checkout.qolipCode},
+        ),
+      );
+    }
+    if (!mounted || cellLabel == null) {
+      return null;
+    }
+    final normalized = normalizeQolipCellLabel(cellLabel);
+    if (normalized == null) {
+      return null;
+    }
+    return _QolipReturnTarget(checkout: checkout, cellLabel: normalized);
+  }
+
+  Future<void> _returnToTarget(_QolipReturnTarget target) async {
+    final columnNumber = int.parse(target.cellLabel.substring(1));
+    await MobileApi.instance.qolipReturnCheckout(
+      target.checkout.id,
+      rowLetter: target.cellLabel.substring(0, 1),
+      columnNumber: columnNumber,
+    );
+  }
+
+  void _toggleDebtSelection(_QolipDebtEntry debt) {
+    if (_bulkReturning || _returning.contains(debt.id)) {
       return;
     }
-    final checkout = debt.checkout;
-    if (checkout != null) {
-      await _returnCheckout(checkout);
+    setState(() {
+      if (!_selectedDebtIds.add(debt.id)) {
+        _selectedDebtIds.remove(debt.id);
+      }
+    });
+  }
+
+  void _cancelSelection() {
+    if (_bulkReturning) {
+      return;
     }
+    setState(() => _selectedDebtIds.clear());
+  }
+
+  Future<void> _returnSelectedDebts() async {
+    if (_bulkReturning || _selectedDebtIds.isEmpty) {
+      return;
+    }
+    final selected = [
+      for (final debt in _loadedDebts)
+        if (_selectedDebtIds.contains(debt.id)) debt.checkout,
+    ];
+    if (selected.isEmpty) {
+      _cancelSelection();
+      return;
+    }
+
+    final targets = <_QolipReturnTarget>[];
+    for (final checkout in selected) {
+      final target = await _resolveReturnTarget(checkout);
+      if (!mounted || target == null) {
+        return;
+      }
+      targets.add(target);
+    }
+
+    setState(() {
+      _bulkReturning = true;
+      _returning.addAll(selected.map((checkout) => checkout.id));
+    });
+    final failedIds = <String>{};
+    var successCount = 0;
+    for (final target in targets) {
+      try {
+        await _returnToTarget(target);
+        successCount += 1;
+      } catch (_) {
+        failedIds.add(target.checkout.id);
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _bulkReturning = false;
+      _returning.removeAll(selected.map((checkout) => checkout.id));
+      _selectedDebtIds
+        ..clear()
+        ..addAll(failedIds);
+    });
+    await _reload();
+    if (!mounted) {
+      return;
+    }
+    final failedCount = failedIds.length;
+    final message = failedCount == 0
+        ? context.l10n.qolipText(
+            'checkouts.selection_returned',
+            values: {'count': successCount},
+          )
+        : context.l10n.qolipText(
+            'checkouts.selection_returned_partial',
+            values: {
+              'success': successCount,
+              'failed': failedCount,
+            },
+          );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Widget _selectionTitle(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    return Row(
+      children: [
+        IconButton(
+          onPressed: _bulkReturning ? null : _cancelSelection,
+          icon: const Icon(Icons.close_rounded),
+          tooltip: l10n.qolipText('checkouts.selection_cancel'),
+        ),
+        Expanded(
+          child: Text(
+            l10n.qolipText(
+              'checkouts.selection_summary',
+              values: {'count': _selectedDebtIds.length},
+            ),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ),
+        IconButton.filled(
+          key: const ValueKey('qolip-checkouts-return-selection'),
+          onPressed:
+              _bulkReturning ? null : () => unawaited(_returnSelectedDebts()),
+          style: IconButton.styleFrom(foregroundColor: scheme.onPrimary),
+          icon: _bulkReturning
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.keyboard_return_rounded),
+          tooltip: l10n.qolipText('checkouts.selection_return'),
+        ),
+      ],
+    );
   }
 
   @override
@@ -221,24 +324,28 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
       automaticallyImplyNativeLeading: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       profileActionListenable: _searchFocusNode,
-      showProfileActionResolver: () => !_searchFocusNode.hasFocus,
-      titleWidget: AdminCatalogSearchField(
-        controller: _searchController,
-        focusNode: _searchFocusNode,
-        hintText: l10n.qolipText('checkouts.search'),
-        onChanged: (value) {
-          setState(() => _query = value.trim());
-        },
-        onClear: () {
-          _searchController.clear();
-          setState(() => _query = '');
-        },
-        onBackWithContext: (context) =>
-            AppShellDrawerScope.maybeOf(context)?.openDrawer(),
-        leadingIcon: Icons.menu_rounded,
-        leadingTooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
-        searchCloseKey: const ValueKey('qolip-checkouts-search-close'),
-      ),
+      showProfileActionResolver: () =>
+          _selectedDebtIds.isEmpty && !_searchFocusNode.hasFocus,
+      titleWidget: _selectedDebtIds.isNotEmpty
+          ? _selectionTitle(context)
+          : AdminCatalogSearchField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              hintText: l10n.qolipText('checkouts.search'),
+              onChanged: (value) {
+                setState(() => _query = value.trim());
+              },
+              onClear: () {
+                _searchController.clear();
+                setState(() => _query = '');
+              },
+              onBackWithContext: (context) =>
+                  AppShellDrawerScope.maybeOf(context)?.openDrawer(),
+              leadingIcon: Icons.menu_rounded,
+              leadingTooltip:
+                  MaterialLocalizations.of(context).openAppDrawerTooltip,
+              searchCloseKey: const ValueKey('qolip-checkouts-search-close'),
+            ),
       drawer: QolipNavigationDrawer(
         selectedIndex: 3,
         onNavigate: _openDrawerRoute,
@@ -281,9 +388,11 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
             child: _QolipDebtList(
               debts: visible,
               returning: _returning,
+              selectedIds: _selectedDebtIds,
               onReturn: (debt) {
                 unawaited(_returnDebt(debt));
               },
+              onToggleSelection: _toggleDebtSelection,
             ),
           );
         },
@@ -300,17 +409,7 @@ List<_QolipDebtEntry> _filterDebts(
     return debts;
   }
   return debts.where((debt) {
-    final checkout = debt.checkout;
-    if (checkout != null) {
-      return qolipCheckoutSearchMatches(query, checkout);
-    }
-    final note = debt.orderNote!;
-    return qolipSearchMatches(query, [
-      note.orderId,
-      note.itemCode,
-      note.itemName,
-      ...note.qolipCodes,
-    ]);
+    return qolipCheckoutSearchMatches(query, debt.checkout);
   }).toList(growable: false);
 }
 
@@ -318,12 +417,16 @@ class _QolipDebtList extends StatefulWidget {
   const _QolipDebtList({
     required this.debts,
     required this.returning,
+    required this.selectedIds,
     required this.onReturn,
+    required this.onToggleSelection,
   });
 
   final List<_QolipDebtEntry> debts;
   final Set<String> returning;
+  final Set<String> selectedIds;
   final ValueChanged<_QolipDebtEntry> onReturn;
+  final ValueChanged<_QolipDebtEntry> onToggleSelection;
 
   @override
   State<_QolipDebtList> createState() => _QolipDebtListState();
@@ -335,6 +438,7 @@ class _QolipDebtListState extends State<_QolipDebtList> {
   @override
   Widget build(BuildContext context) {
     final debts = widget.debts;
+    final selectionMode = widget.selectedIds.isNotEmpty;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
@@ -354,12 +458,22 @@ class _QolipDebtListState extends State<_QolipDebtList> {
                 ),
                 debt: debts[index],
                 index: index,
-                expanded: _expandedDebtId == debts[index].id,
+                expanded: !selectionMode && _expandedDebtId == debts[index].id,
                 returning: widget.returning.contains(debts[index].id),
+                selectionMode: selectionMode,
+                selected: widget.selectedIds.contains(debts[index].id),
                 onExpandedChanged: (expanded) {
+                  if (selectionMode) {
+                    widget.onToggleSelection(debts[index]);
+                    return;
+                  }
                   setState(() {
                     _expandedDebtId = expanded ? debts[index].id : null;
                   });
+                },
+                onLongPress: () {
+                  _expandedDebtId = null;
+                  widget.onToggleSelection(debts[index]);
                 },
                 onReturn: () => widget.onReturn(debts[index]),
               ),

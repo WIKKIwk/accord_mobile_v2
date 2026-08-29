@@ -284,17 +284,16 @@ const _admin_localization_adminTranslations_resplitPart21 = {
     'ru': 'Склад: {value}',
   },
   'admin.production.qolip_title': {
-    'uz': 'Order qoliplarini qayd qilish',
-    'en': 'Record molds for the order',
-    'ru': 'Зафиксировать формы для заказа',
+    'uz': 'Order qoliplari',
+    'en': 'Order molds',
+    'ru': 'Формы заказа',
   },
   'admin.production.qolip_description': {
-    'uz':
-        'Bu qayd orderga qolip biriktirmaydi, lekin berilgan qoliplar qaytarilguncha boshqa order uchun band bo‘ladi.',
+    'uz': 'Qolip ishlatilayotgan bo‘lsa band, ish tugasa avtomatik qaytadi.',
     'en':
-        'This record does not attach molds to the order, but issued molds remain reserved for other orders until returned.',
+        'A mold is busy while in use and returns automatically when the work is completed.',
     'ru':
-        'Эта запись не прикрепляет формы к заказу, но выданные формы остаются занятыми для других заказов до возврата.',
+        'Форма занята, пока используется, и автоматически возвращается после завершения работы.',
   },
   'admin.production.qolip_load_failed': {
     'uz': 'Qoliplar yuklanmadi',
@@ -331,17 +330,14 @@ const _admin_localization_adminTranslations_resplitPart21 = {
     'en': 'Add mold',
     'ru': 'Добавить форму',
   },
-  'admin.production.qolip_reserved': {
-    'uz':
-        'Ba’zi qoliplar boshqa order uchun band qilingan. Ular qaytarilgandan keyin berish mumkin.',
-    'en':
-        'Some molds are reserved for another order. They can be issued after they are returned.',
-    'ru':
-        'Некоторые формы заняты другим заказом. Их можно выдать после возврата.',
+  'admin.production.qolip_in_use': {
+    'uz': 'Ishlatilmoqda',
+    'en': 'In use',
+    'ru': 'Используется',
   },
-  'admin.production.qolip_select': {
-    'uz': 'Qoliplarni tanlang',
-    'en': 'Select molds',
-    'ru': 'Выберите формы',
+  'admin.production.qolip_available': {
+    'uz': 'Bo‘sh',
+    'en': 'Available',
+    'ru': 'Свободна',
   },
 };

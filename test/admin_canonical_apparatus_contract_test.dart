@@ -30,6 +30,8 @@ void main() {
       'operation': 'print',
       'technology': 'flexographic',
       'color_station_count': 8,
+      'min_web_width_mm': 400,
+      'max_web_width_mm': 800,
       'virtual_tasks': 'disabled',
       'capability_compatible_reroute': true,
     },
@@ -50,6 +52,9 @@ void main() {
     expect(apparatus.sourceRevision, 7);
     expect(apparatus.operation, 'print');
     expect(apparatus.technology, 'flexographic');
+    expect(apparatus.colorStations, 8);
+    expect(apparatus.minWebWidthMm, 400);
+    expect(apparatus.maxWebWidthMm, 800);
     expect(apparatus.family, 'pechat');
     expect(apparatus.kind, 'flexo');
     expect(apparatus.isPechat, isTrue);
@@ -70,6 +75,8 @@ void main() {
 
     expect(apparatus.id, 'apparatus:default:asset-005');
     expect(apparatus.sourceRevision, 7);
+    expect(apparatus.toJson()['execution_profile'],
+        containsPair('min_web_width_mm', 400));
   });
 
   test('legacy display-only apparatus cannot synthesize an identity', () {

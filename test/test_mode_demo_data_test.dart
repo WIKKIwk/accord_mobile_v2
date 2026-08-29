@@ -110,6 +110,9 @@ void main() {
     expect(flexo.kind, 'flexo');
     expect(flexo.isPechat, isTrue);
     expect(flexo.isFlexo, isTrue);
+    expect(flexo.colorStations, 8);
+    expect(flexo.minWebWidthMm, 400);
+    expect(flexo.maxWebWidthMm, 800);
     expect(sevenColor.kind, 'color_pechat');
     expect(sevenColor.colorStations, 7);
   });

@@ -50,6 +50,8 @@ List<AdminApparatus> _testModeApparatusCatalog() {
       workUnitId: 'work-unit:test:$stableTestKey',
       operation: operation.isEmpty ? 'package' : operation,
       technology: technology.isEmpty ? 'bag_making' : technology,
+      minWebWidthMm: apparatus.minWebWidthMm,
+      maxWebWidthMm: apparatus.maxWebWidthMm,
       capabilityCompatibleReroute: true,
       trainingQueueEnabled: apparatus.trainingEnabled,
       trainingMaterialTrackingEnabled: apparatus.trainingEnabled,

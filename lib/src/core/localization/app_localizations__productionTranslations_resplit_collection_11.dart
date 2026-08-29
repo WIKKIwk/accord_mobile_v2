@@ -57,11 +57,6 @@ const _app_localizations_declarations__productionTranslations_resplitPart11 = {
     'en': 'Return',
     'ru': 'Вернуть',
   },
-  'qolip.action.return_molds': {
-    'uz': 'Qoliplarni qaytarib oldim',
-    'en': 'Return molds',
-    'ru': 'Вернуть формы',
-  },
   'qolip.action.issue': {
     'uz': 'Berish',
     'en': 'Issue',
