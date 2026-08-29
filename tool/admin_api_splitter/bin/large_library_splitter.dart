@@ -496,6 +496,18 @@ class _MethodExtractionPlan {
   final String source;
 }
 
+class _TestMainCasesSplitPlan {
+  const _TestMainCasesSplitPlan({
+    required this.edits,
+    required this.generated,
+    required this.movedSnippets,
+  });
+
+  final List<_Edit> edits;
+  final List<_GeneratedFile> generated;
+  final List<String> movedSnippets;
+}
+
 String _declarationSlug(CompilationUnitMember declaration) {
   return _safeIdentifier(
     switch (declaration) {
@@ -801,6 +813,137 @@ _CollectionSplitPlan? _buildCollectionSplit({
     edit: _Edit(initializer.offset, initializer.end, replacement),
     generated: generated,
     movedSnippets: generated.map((item) => item.source).toList(),
+  );
+}
+
+bool _isTestRegistrationStatement(Statement statement) {
+  if (statement is! ExpressionStatement) return false;
+  final expression = statement.expression;
+  if (expression is! MethodInvocation || expression.target != null) {
+    return false;
+  }
+  final name = expression.methodName.name;
+  return name == 'test' || name == 'testWidgets' || name == 'group';
+}
+
+Set<String> _mainLocalNames(BlockFunctionBody body) {
+  final names = <String>{};
+  for (final statement in body.block.statements) {
+    if (statement is VariableDeclarationStatement) {
+      names.addAll(
+        statement.variables.variables.map((variable) => variable.name.lexeme),
+      );
+    }
+    if (statement is FunctionDeclarationStatement) {
+      names.add(statement.functionDeclaration.name.lexeme);
+    }
+  }
+  return names;
+}
+
+bool _containsIdentifierName(String source, String name) {
+  return RegExp(r'\b' + RegExp.escape(name) + r'\b').hasMatch(source);
+}
+
+_TestMainCasesSplitPlan? _buildTestMainCasesSplit({
+  required String source,
+  required File sourceFile,
+  required File libraryFile,
+  required CompilationUnit unit,
+  required int maximumPartLines,
+  required String splitSuffix,
+}) {
+  final main = unit.declarations
+      .whereType<FunctionDeclaration>()
+      .where((declaration) => declaration.name.lexeme == 'main')
+      .singleOrNull;
+  if (main == null) return null;
+  final body = main.functionExpression.body;
+  if (body is! BlockFunctionBody) return null;
+  if (_lineCount(source.substring(main.offset, main.end)) <= maximumPartLines) {
+    return null;
+  }
+
+  final localNames = _mainLocalNames(body);
+  final runs = <List<Statement>>[];
+  var currentRun = <Statement>[];
+  void closeRun() {
+    if (currentRun.isEmpty) return;
+    runs.add(currentRun);
+    currentRun = <Statement>[];
+  }
+
+  for (final statement in body.block.statements) {
+    final statementSource = source.substring(statement.offset, statement.end);
+    final movable = _isTestRegistrationStatement(statement) &&
+        !localNames
+            .any((name) => _containsIdentifierName(statementSource, name));
+    if (movable) {
+      currentRun.add(statement);
+    } else {
+      closeRun();
+    }
+  }
+  closeRun();
+  if (runs.isEmpty) return null;
+
+  final edits = <_Edit>[];
+  final generated = <_GeneratedFile>[];
+  final movedSnippets = <String>[];
+  var partIndex = 0;
+  final chunkLimit =
+      maximumPartLines > 100 ? maximumPartLines - 8 : maximumPartLines;
+  for (final run in runs) {
+    for (var offset = 0; offset < run.length;) {
+      final chunk = <Statement>[];
+      var chunkLines = 0;
+      while (offset < run.length) {
+        final statement = run[offset];
+        final statementLines = _lineCount(
+          source.substring(statement.offset, statement.end),
+        );
+        if (chunk.isNotEmpty && chunkLines + statementLines > chunkLimit) {
+          break;
+        }
+        chunk.add(statement);
+        chunkLines += statementLines;
+        offset++;
+      }
+      partIndex++;
+      final helperName =
+          '_register${_safeIdentifier(_withoutExtension(sourceFile.path))}Cases${partIndex.toString().padLeft(2, '0')}';
+      final snippets = chunk
+          .map((statement) => source.substring(statement.offset, statement.end))
+          .toList();
+      final file = File(
+        '${sourceFile.parent.path}/${_withoutExtension(sourceFile.path)}_'
+        'cases${splitSuffix}_part_${partIndex.toString().padLeft(2, '0')}.dart',
+      );
+      final bodySource = 'void $helperName() {\n'
+          '${snippets.join('\n\n')}\n}';
+      generated.add(
+        _GeneratedFile(
+          file: file,
+          source: _withPartOf(file, libraryFile, bodySource),
+        ),
+      );
+      movedSnippets.addAll(snippets);
+      for (var index = 0; index < chunk.length; index++) {
+        final statement = chunk[index];
+        edits.add(
+          _Edit(
+            statement.offset,
+            statement.end,
+            index == 0 ? '$helperName();' : '',
+          ),
+        );
+      }
+    }
+  }
+  return _TestMainCasesSplitPlan(
+    edits: edits,
+    generated: generated,
+    movedSnippets: movedSnippets,
   );
 }
 
@@ -1250,6 +1393,22 @@ _TargetPlan? _buildTarget({
           source: _withPartOf(file, libraryFile, body),
         ),
       );
+    }
+  }
+
+  if (_relativeToRoot(root, sourceFile).startsWith('test/')) {
+    final testMainCases = _buildTestMainCasesSplit(
+      source: source,
+      sourceFile: sourceFile,
+      libraryFile: libraryFile,
+      unit: unit,
+      maximumPartLines: maximumPartLines,
+      splitSuffix: splitSuffix,
+    );
+    if (testMainCases != null) {
+      edits.addAll(testMainCases.edits);
+      generated.addAll(testMainCases.generated);
+      movedSnippets.addAll(testMainCases.movedSnippets);
     }
   }
 

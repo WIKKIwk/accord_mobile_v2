@@ -13,23 +13,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 part 'inventory_movements_test_helpers_part_01.dart';
+part 'inventory_movements_test_cases_resplit_part_01.dart';
+part 'inventory_movements_test_cases_resplit_part_02.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('inventory state rejects display-name apparatus identity', () {
-    expect(
-      () => InventoryLocation.fromJson(const {
-        'id': 'inventory_location:state:legacy',
-        'kind': 'state',
-        'name': 'Legacy state',
-        'apparatus': [
-          {'id': 'Flexo pechat', 'name': 'Flexo pechat'},
-        ],
-      }),
-      throwsFormatException,
-    );
-  });
+  _registerinventory_movements_testCases01();
 
   const source = InventoryLocation(
     id: 'inventory_location:warehouse:a',
@@ -1350,56 +1340,7 @@ void main() {
     );
   });
 
-  testWidgets('warehouse filter is available on all movement tabs', (
-    tester,
-  ) async {
-    AppSession.instance.profile = const SessionProfile(
-      role: UserRole.materialTaminotchi,
-      displayName: 'Materialchi',
-      legalName: '',
-      ref: 'material-1',
-      phone: '',
-      avatarUrl: '',
-      capabilities: ['inventory.movement.manage'],
-      assignedWarehouses: ['Material ombor', 'Qolip ombor'],
-    );
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        locale: Locale('uz'),
-        localizationsDelegates: [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: InventoryMovementsScreen(),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final filterKey = const ValueKey('inventory-warehouse-filter-chip');
-    expect(find.byKey(filterKey), findsOneWidget);
-
-    await tester.tap(find.text('Kiruvchi'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(filterKey), findsOneWidget);
-
-    await tester.tap(find.text('Chiquvchi'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(filterKey), findsOneWidget);
-
-    await tester.tap(find.byKey(filterKey).first);
-    await tester.pumpAndSettle();
-    expect(find.text('Qolip ombor'), findsWidgets);
-
-    await tester.tap(
-      find.byKey(const ValueKey('inventory-warehouse-option-warehouse:b')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Ombor: Qolip ombor'), findsOneWidget);
-  });
+  _registerinventory_movements_testCases02();
 
   testWidgets('transfer tabs show compact rows and open details on tap', (
     tester,
