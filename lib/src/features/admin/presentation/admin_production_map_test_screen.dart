@@ -33,6 +33,11 @@ part 'admin_production_map_test_canvas_actions.dart';
 part 'admin_production_map_test_canvas.dart';
 part 'admin_production_map_test_definition_state.dart';
 part 'admin_production_map_test_graph_state.dart';
+part 'admin_production_map_test_canvas__ProductionMapCanvasState_methods_01.dart';
+part 'admin_production_map_test_canvas_helpers_part_01.dart';
+part 'admin_production_map_test_graph_state__AdminProductionMapTestGraphState_methods_01.dart';
+part 'admin_production_map_test_graph_state__AdminProductionMapTestGraphState_methods_02.dart';
+part 'admin_production_map_test_graph_state__AdminProductionMapTestGraphState_methods_03.dart';
 
 const _productionMapDockHeight = 60.0;
 

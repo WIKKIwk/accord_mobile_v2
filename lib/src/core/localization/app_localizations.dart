@@ -2,6 +2,10 @@ import 'package:flutter/widgets.dart';
 
 import 'admin_localization.dart';
 
+part 'app_localizations_AppLocalizations_methods_01.dart';
+part 'app_localizations_AppLocalizations_methods_02.dart';
+part 'app_localizations_declarations_part_01.dart';
+
 class AppLocalizations {
   AppLocalizations(this.locale);
 
@@ -23,12 +27,6 @@ class AppLocalizations {
 
   bool get isUzbek => locale.languageCode == 'uz';
   bool get isRussian => locale.languageCode == 'ru';
-
-  String _t(String uz, String en, String ru) {
-    if (isUzbek) return uz;
-    if (isRussian) return ru;
-    return en;
-  }
 
   String get appTitle => _t('Accord Mobile', 'Accord Mobile', 'Accord Mobile');
   String get welcomeToAccord => _t(
@@ -63,11 +61,7 @@ class AppLocalizations {
   String get accountAdd =>
       _t('Profil qo‘shish', 'Add profile', 'Добавить профиль');
   String get accountCurrent => _t('Joriy', 'Current', 'Текущий');
-  String accountPinPrompt(String name) => _t(
-        '$name uchun PIN kiriting',
-        'Enter the PIN for $name',
-        'Введите PIN для $name',
-      );
+
   String get accountSwitchFailed => _t(
         'Profilga o‘tib bo‘lmadi',
         'Could not switch profile',
@@ -339,16 +333,7 @@ class AppLocalizations {
         'Update required',
         'Требуется обновление',
       );
-  String appUpdateAvailableBody(String version) => _t(
-        'Accord Mobile $version versiyasiga yangilanishi mumkin.',
-        'Accord Mobile can be updated to version $version.',
-        'Accord Mobile можно обновить до версии $version.',
-      );
-  String appUpdateRequiredBody(String version) => _t(
-        'Ishni davom ettirish uchun $version versiyasini o‘rnating.',
-        'Install version $version to continue.',
-        'Установите версию $version, чтобы продолжить.',
-      );
+
   String get appUpdateReleaseNotes =>
       _t('Nimalar yangilandi', 'What changed', 'Что изменилось');
   String get appUpdateAction => _t('Yangilash', 'Update', 'Обновить');
@@ -389,11 +374,7 @@ class AppLocalizations {
         'Open Installer again',
         'Открыть установщик снова',
       );
-  String appUpdateDownloadProgress(double downloadedMb, double totalMb) => _t(
-        '${downloadedMb.toStringAsFixed(1)} / ${totalMb.toStringAsFixed(1)} MB',
-        '${downloadedMb.toStringAsFixed(1)} / ${totalMb.toStringAsFixed(1)} MB',
-        '${downloadedMb.toStringAsFixed(1)} / ${totalMb.toStringAsFixed(1)} МБ',
-      );
+
   String get appUpdateBackgroundHint => _t(
         'Boshqa oynaga o‘tsangiz ham yuklash davom etadi.',
         'The download continues if you switch to another screen.',
@@ -433,11 +414,7 @@ class AppLocalizations {
         'AI could not infer a search query from the image.',
         'AI не смог подобрать поисковый запрос по изображению.',
       );
-  String aiSearchFailed(String error) => _t(
-        'AI qidiruv bajarilmadi: $error',
-        'AI search failed: $error',
-        'AI-поиск не выполнен: $error',
-      );
+
   String get createHubTitle => _t('Qayd', 'Create', 'Создать');
   String get unannouncedTitle =>
       _t('Aytilmagan mahsulot', 'Unannounced item', 'Незаявленный товар');
@@ -600,11 +577,7 @@ class AppLocalizations {
         'Failed to save the PDF as a photo.',
         'Не удалось сохранить PDF как фото.',
       );
-  String archivePdfSavedAt(String location) => _t(
-        'PDF saqlandi: $location',
-        'PDF saved: $location',
-        'PDF сохранён: $location',
-      );
+
   String get archivePdfSavedToFiles => _t(
         'PDF Files ga saqlandi.',
         'PDF saved to Files.',
@@ -625,13 +598,7 @@ class AppLocalizations {
         'Failed to download PDF. Try again.',
         'Не удалось загрузить PDF. Попробуйте снова.',
       );
-  String archiveRecordCountLabel(int count) =>
-      _t('$count ta yozuv', '$count records', '$count записей');
-  String archiveTotalByUomLabel(String uom, double qty) => _t(
-        '${qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2)} $uom',
-        '${qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2)} $uom',
-        '${qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2)} $uom',
-      );
+
   String get recentTitle =>
       _t('So‘nggi harakatlar', 'Recent', 'Недавние действия');
   String get recentSubtitle => _t(
@@ -694,8 +661,7 @@ class AppLocalizations {
   String get acceptedFromQtyPrefix => _t('Qabul', 'Accepted', 'Принято');
   String get createFlowBack =>
       _t('Qaydga qaytish', 'Back to create', 'Назад к созданию');
-  String backToFlow(String flowName) =>
-      _t('$flowName ga qaytish', 'Back to $flowName', 'Назад к $flowName');
+
   String get pendingListBack => _t(
         'Pending listga qaytish',
         'Back to pending list',
@@ -728,84 +694,10 @@ class AppLocalizations {
   String get dateLabel => _t('Sana', 'Date', 'Дата');
   String get detailsStateTitle => _t('Holat', 'State', 'Состояние');
 
-  String statusWithName(String name, String status) => '$status • $name';
-  String recordsLoadFailedWith(Object error) => serverDisconnectedRetry;
-  String statusListLoadFailedWith(Object error) => serverDisconnectedRetry;
-  String notificationsLoadFailedWith(Object error) => serverDisconnectedRetry;
-  String recentLoadFailedWith(Object error) => serverDisconnectedRetry;
-  String sentQtyStatus(num qty, String uom, String statusWord) =>
-      '${qty.toStringAsFixed(0)} $uom $statusWord';
-  String receiptCountLabel(int count) =>
-      isUzbek ? '$count ta receipt' : '$count receipts';
-  String recordCountLabel(int count) =>
-      isUzbek ? '$count ta hujjat' : '$count records';
-  String customerFlowMetric(num qty, String uom) =>
-      '${qty.toStringAsFixed(0)} $uom $sentToCustomer';
-  String supplierFlowMetric(num qty, String uom) =>
-      '${qty.toStringAsFixed(0)} $uom $receivedFromSupplier';
-  String acceptedQtyLabel(num qty, String uom) =>
-      '$acceptedFromQtyPrefix: ${qty.toStringAsFixed(0)} $uom';
-  String batchDraftCountLabel(int count) => _t(
-        'Ro‘yxatda $count ta mahsulot',
-        '$count items in the list',
-        'В списке $count товаров',
-      );
-  String batchCustomerCountLabel(int count) =>
-      _t('$count ta haridor', '$count customers', '$count покупателей');
-  String batchCreatedCountLabel(int count) => _t(
-        '$count ta jo‘natma yaratildi',
-        '$count shipments created',
-        'Создано $count отправок',
-      );
-  String batchFailedCountLabel(int count) => _t(
-        '$count ta jo‘natma xato bo‘ldi',
-        '$count shipments failed',
-        '$count отправок завершились ошибкой',
-      );
-  String batchSentLine(int count) => _t(
-        '$count ta jo‘natma yuborildi',
-        '$count shipments sent',
-        'Отправлено $count отправок',
-      );
-  String customerShipmentPendingNote() => isUzbek
-      ? 'Bu jo‘natma omborchi tomonidan haridorga yuborilgan. Qaytarish yoki tasdiqlash haridor tomonidan qilinadi.'
-      : isRussian
-          ? 'Эта отправка была сделана кладовщиком для покупателя. Возврат или подтверждение должен выполнить покупатель.'
-          : 'This shipment was sent by Werka to the customer. Any rejection or approval must be done by the customer.';
-  String sentToCustomerLine(num qty, String uom) => _t(
-        '${qty.toStringAsFixed(2)} $uom haridorga jo‘natildi',
-        '${qty.toStringAsFixed(2)} $uom sent to customer',
-        '${qty.toStringAsFixed(2)} $uom отправлено покупателю',
-      );
-  String createdLine(num qty, String uom) => _t(
-        '${qty.toStringAsFixed(2)} $uom qayd qilindi',
-        '${qty.toStringAsFixed(2)} $uom recorded',
-        '${qty.toStringAsFixed(2)} $uom зафиксировано',
-      );
-  String receivedLine(num qty, String uom) => _t(
-        '${qty.toStringAsFixed(2)} $uom qabul qilindi',
-        '${qty.toStringAsFixed(2)} $uom received',
-        '${qty.toStringAsFixed(2)} $uom принято',
-      );
-  String customerIssueFailed(Object error) => _t(
-        'Server uzilgan. Qayta urining.',
-        'Server disconnected. Try again.',
-        'Сервер отключен. Повторите попытку.',
-      );
   String get insufficientStockMessage => _t(
         'Omborda yetarli mahsulot yo‘q.',
         'There is not enough stock in the warehouse.',
         'На складе недостаточно товара.',
-      );
-  String unannouncedSuppliersFailed(Object error) => _t(
-        'Server uzilgan. Qayta urining.',
-        'Server disconnected. Try again.',
-        'Сервер отключен. Повторите попытку.',
-      );
-  String customersLoadFailed(Object error) => _t(
-        'Server uzilgan. Qayta urining.',
-        'Server disconnected. Try again.',
-        'Сервер отключен. Повторите попытку.',
       );
 
   String get werkaRoleName => _t('Omborchi', 'Wmanager', 'Кладовщик');
@@ -1043,11 +935,7 @@ class AppLocalizations {
       );
   String get adminBlockedUsersControlTitle =>
       _t('Blok nazorati', 'Block control', 'Контроль блокировок');
-  String adminBlockedUsersCountLabel(int count) => _t(
-        'Bloklangan foydalanuvchilar: $count ta',
-        'Blocked users: $count',
-        'Заблокированные пользователи: $count',
-      );
+
   String get adminUsersTitle => _t('Foydalanuvchilar', 'Users', 'Пользователи');
   String get adminWorkersNavTitle => _t('Ishchilar', 'Workers', 'Сотрудники');
   String get adminProductsTitle => _t('Mahsulotlar', 'Products', 'Товары');
@@ -1076,218 +964,6 @@ class AppLocalizations {
       _t('Role biriktirildi', 'Role assigned', 'Роль назначена');
   String get adminRoleAssignFailed =>
       _t('Role biriktirilmadi', 'Role was not assigned', 'Роль не назначена');
-  String adminRoleForPrincipal(String name) =>
-      _t('$name uchun role', 'Role for $name', 'Роль для $name');
-  String adminRoleKindLabel(bool system) =>
-      system ? adminSystemRoleKind : adminCustomRoleKind;
-  String roleLabelForCode(String code) {
-    switch (code) {
-      case 'admin':
-        return adminRoleName;
-      case 'werka':
-        return werkaRoleName;
-      case 'customer':
-        return customerRoleName;
-      case 'supplier':
-        return supplierRoleName;
-      default:
-        return code;
-    }
-  }
-
-  String systemRoleLabel(String id, String fallback) {
-    switch (id.trim().toLowerCase()) {
-      case 'admin':
-        return adminRoleName;
-      case 'werka':
-        return werkaRoleName;
-      case 'customer':
-        return customerRoleName;
-      case 'supplier':
-        return supplierRoleName;
-      default:
-        return fallback;
-    }
-  }
-
-  String adminCapabilityLabel(String code, String fallback) {
-    switch (code) {
-      case 'admin.access':
-        return _t('Admin panel', 'Admin panel', 'Панель администратора');
-      case 'role.capability.read':
-        return _t(
-          'Role huquqlarini ko‘rish',
-          'Role capability catalog read',
-          'Просмотр каталога прав ролей',
-        );
-      case 'role.capability.manage':
-        return _t(
-          'Role huquqlarini boshqarish',
-          'Role capability manage',
-          'Управление правами ролей',
-        );
-      case 'admin.settings.read':
-        return _t(
-          'Admin sozlamalarini ko‘rish',
-          'Admin settings read',
-          'Просмотр настроек администратора',
-        );
-      case 'admin.settings.manage':
-        return _t(
-          'Admin sozlamalarini boshqarish',
-          'Admin settings manage',
-          'Управление настройками администратора',
-        );
-      case 'werka.access':
-        return _t(
-          'Omborchi oynasi',
-          'Werka workspace',
-          'Рабочее место кладовщика',
-        );
-      case 'supplier.access':
-        return _t(
-          'Ta\'minotchi oynasi',
-          'Supplier workspace',
-          'Рабочее место поставщика',
-        );
-      case 'customer.access':
-        return _t(
-          'Haridor oynasi',
-          'Customer workspace',
-          'Рабочее место покупателя',
-        );
-      case 'push.token.manage':
-        return _t(
-          'Push token boshqarish',
-          'Push token manage',
-          'Управление push-токенами',
-        );
-      case 'supplier.avatar.manage':
-        return _t(
-          'Ta\'minotchi avatarini boshqarish',
-          'Supplier avatar manage',
-          'Управление аватаром поставщика',
-        );
-      case 'catalog.item.read':
-        return _t(
-          'Katalog mahsulotlarini ko‘rish',
-          'Catalog item read',
-          'Просмотр товаров каталога',
-        );
-      case 'catalog.item.create':
-        return _t(
-          'Katalog mahsulot yaratish',
-          'Catalog item create',
-          'Создание товара каталога',
-        );
-      case 'catalog.item_group.read':
-        return _t(
-          'Mahsulot guruhlarini ko‘rish',
-          'Catalog item group read',
-          'Просмотр групп товаров',
-        );
-      case 'catalog.item_group.manage':
-        return _t(
-          'Mahsulot guruhlarini boshqarish',
-          'Catalog item group manage',
-          'Управление группами товаров',
-        );
-      case 'catalog.item.bulk_move':
-        return _t(
-          'Mahsulotlarni guruhlar orasida ko‘chirish',
-          'Catalog item bulk move',
-          'Массовый перенос товаров между группами',
-        );
-      case 'party.supplier.read':
-        return _t(
-          'Ta\'minotchilar ro‘yxatini ko‘rish',
-          'Supplier directory read',
-          'Просмотр справочника поставщиков',
-        );
-      case 'party.supplier.manage':
-        return _t(
-          'Ta\'minotchilarni boshqarish',
-          'Supplier directory manage',
-          'Управление поставщиками',
-        );
-      case 'party.supplier.item.assign':
-        return _t(
-          'Ta\'minotchiga mahsulot biriktirish',
-          'Supplier item assign',
-          'Назначение товаров поставщику',
-        );
-      case 'party.supplier.code.manage':
-        return _t(
-          'Ta\'minotchi kodini boshqarish',
-          'Supplier code manage',
-          'Управление кодом поставщика',
-        );
-      case 'party.customer.read':
-        return _t(
-          'Haridorlar ro‘yxatini ko‘rish',
-          'Customer directory read',
-          'Просмотр справочника покупателей',
-        );
-      case 'party.customer.manage':
-        return _t(
-          'Haridorlarni boshqarish',
-          'Customer directory manage',
-          'Управление покупателями',
-        );
-      case 'party.customer.item.assign':
-        return _t(
-          'Haridorga mahsulot biriktirish',
-          'Customer item assign',
-          'Назначение товаров покупателю',
-        );
-      case 'party.customer.code.manage':
-        return _t(
-          'Haridor kodini boshqarish',
-          'Customer code manage',
-          'Управление кодом покупателя',
-        );
-      case 'admin.activity.read':
-        return _t(
-          'Admin harakatlarini ko‘rish',
-          'Admin activity read',
-          'Просмотр активности администратора',
-        );
-      case 'werka.code.manage':
-        return _t(
-          'Omborchi kodini boshqarish',
-          'Werka code manage',
-          'Управление кодом кладовщика',
-        );
-      case 'production.map.manage':
-        return _t(
-          'Production map boshqarish',
-          'Production map manage',
-          'Управление картой производства',
-        );
-      case 'gscale.catalog.read':
-        return _t(
-          'GScale katalogini ko‘rish',
-          'GScale catalog read',
-          'Просмотр каталога GScale',
-        );
-      case 'gscale.print':
-        return _t('GScale chop etish', 'GScale print', 'Печать GScale');
-      case 'rps.batch.manage':
-        return _t(
-          'RPS batch boshqarish',
-          'RPS batch manage',
-          'Управление batch RPS',
-        );
-      case 'rezka.split.manage':
-        return _t(
-          'Rezka bo‘lishni boshqarish',
-          'Rezka split manage',
-          'Управление резкой',
-        );
-      default:
-        return fallback;
-    }
-  }
 
   String get adminNoActivity =>
       _t('Hali harakat yo‘q.', 'No activity yet.', 'Активности пока нет.');
@@ -1419,11 +1095,7 @@ class AppLocalizations {
         'Are you sure you want to confirm?',
         'Вы уверены, что хотите подтвердить?',
       );
-  String responseSendFailed(Object error) => _t(
-        'Javob yuborilmadi: $error',
-        'Response was not sent: $error',
-        'Ответ не был отправлен: $error',
-      );
+
   String get approveAction => _t('Tasdiqlayman', 'Approve', 'Подтверждаю');
   String get rejectAction => _t('Rad etaman', 'Reject', 'Отклоняю');
   String get sending => _t('Yuborilmoqda...', 'Sending...', 'Отправка...');
@@ -6239,185 +5911,4 @@ class AppLocalizations {
       'ru': 'Сессия завершена. Войдите снова',
     },
   };
-
-  String productionText(
-    String key, {
-    Map<String, Object?> values = const <String, Object?>{},
-  }) {
-    final translations = _productionTranslations[key];
-    var value =
-        translations?[locale.languageCode] ?? translations?['en'] ?? key;
-    for (final entry in values.entries) {
-      value = value.replaceAll('{${entry.key}}', '${entry.value ?? ''}');
-    }
-    return value;
-  }
-
-  String adminText(
-    String key, {
-    Map<String, Object?> values = const <String, Object?>{},
-  }) {
-    final translations = adminTranslations['admin.$key'];
-    var value =
-        translations?[locale.languageCode] ?? translations?['en'] ?? key;
-    for (final entry in values.entries) {
-      value = value.replaceAll('{${entry.key}}', '${entry.value ?? ''}');
-    }
-    return value;
-  }
-
-  String productionCount(int count, {String kind = 'items'}) {
-    if (isUzbek) {
-      return '$count ta';
-    }
-    if (isRussian) {
-      return switch (kind) {
-        'molds' => '$count форм',
-        'materials' => '$count материалов',
-        _ => '$count шт.',
-      };
-    }
-    final noun = switch (kind) {
-      'molds' => count == 1 ? 'mold' : 'molds',
-      'materials' => count == 1 ? 'material' : 'materials',
-      _ => count == 1 ? 'item' : 'items',
-    };
-    return '$count $noun';
-  }
-
-  String qolipText(
-    String key, {
-    Map<String, Object?> values = const <String, Object?>{},
-  }) {
-    return productionText('qolip.$key', values: values);
-  }
-
-  String qolipCount(int count) {
-    if (isUzbek) {
-      return '$count ta qolip';
-    }
-    return productionCount(count, kind: 'molds');
-  }
-
-  String qolipQuantityShort(int count) {
-    if (isUzbek) {
-      return '$count ta';
-    }
-    return qolipCount(count);
-  }
-
-  String qolipColorName(String raw) {
-    final normalized = raw.trim().toUpperCase();
-    final key = switch (normalized) {
-      '#E53935' || 'QIZIL' => 'qolip.color.red',
-      '#FB8C00' || 'TO‘Q SARIQ' || 'TO\'Q SARIQ' => 'qolip.color.orange',
-      '#FDD835' || 'SARIQ' => 'qolip.color.yellow',
-      '#43A047' || 'YASHIL' => 'qolip.color.green',
-      '#00ACC1' || 'MOVIY' => 'qolip.color.cyan',
-      '#1E88E5' || 'KO‘K' || 'KO\'K' => 'qolip.color.blue',
-      '#3949AB' || 'TO‘Q KO‘K' || 'TO\'Q KO\'K' => 'qolip.color.indigo',
-      '#8E24AA' || 'BINAFSHA' => 'qolip.color.purple',
-      '#D81B60' || 'PUSHTI' => 'qolip.color.pink',
-      '#6D4C41' || 'JIGARRANG' => 'qolip.color.brown',
-      '#D4A72C' || 'TILLA' => 'qolip.color.gold',
-      '#757575' || 'KULRANG' => 'qolip.color.gray',
-      '#B7BCC2' || 'MATLAK' => 'qolip.color.silver',
-      '#212121' || 'QORA' => 'qolip.color.black',
-      '#FFFFFF' || 'OQ' => 'qolip.color.white',
-      _ => '',
-    };
-    return key.isEmpty ? raw : productionText(key);
-  }
-
-  String qolipErrorText(String code, {String fallback = ''}) {
-    final key = switch (code.trim().toLowerCase()) {
-      'insufficient_stock' => 'qolip.error.insufficient_stock',
-      'location_not_found' => 'qolip.error.location_not_found',
-      'location_invalid' => 'qolip.error.location_invalid',
-      'checkout_not_found' => 'qolip.error.checkout_not_found',
-      'checkout_not_returnable' => 'qolip.error.checkout_not_returnable',
-      'qolip_checkout_required' => 'qolip.error.checkout_required',
-      'qolip_checkout_assigned_to_another_worker' =>
-        'qolip.error.assigned_to_another',
-      'worker_required' => 'qolip.error.worker_required',
-      'worker_not_found' => 'qolip.error.worker_not_found',
-      'quantity_required' => 'qolip.error.quantity_required',
-      'location_identity_mismatch' => 'qolip.error.location_identity_mismatch',
-      'qolip_in_use' => 'qolip.error.in_use',
-      'qolip_code_conflict' => 'qolip.error.code_conflict',
-      'panton_limit_exceeded' => 'qolip.error.panton_limit',
-      'block_in_use' => 'qolip.error.block_in_use',
-      'block_exists' => 'qolip.error.block_exists',
-      'block_not_found' => 'qolip.error.block_not_found',
-      'forbidden' => 'qolip.error.forbidden',
-      'unauthorized' => 'qolip.error.unauthorized',
-      _ when code.contains('insufficient_stock') =>
-        'qolip.error.insufficient_stock',
-      _ when code.contains('location_not_found') =>
-        'qolip.error.location_not_found',
-      _ => '',
-    };
-    return key.isEmpty ? fallback : productionText(key);
-  }
-
-  String productionErrorMessage(
-    String code, {
-    String fallback = '',
-  }) {
-    final key = switch (code.trim().toLowerCase()) {
-      'qolip_scan_incomplete' => 'worker.error.scan_molds',
-      'raw_material_rule_missing' => 'worker.error.rule_failed',
-      'raw_material_rule_load_failed' => 'worker.error.rule_failed',
-      'raw_materials_missing' => 'worker.error.no_materials',
-      'raw_material_groups_incomplete' =>
-        'worker.error.incomplete_material_groups',
-      'raw_materials_not_at_apparatus' =>
-        'worker.error.material_not_at_machine',
-      'raw_material_scan_incomplete' => 'worker.error.scan_all_materials',
-      'raw_material_group_scan_incomplete' =>
-        'worker.error.scan_required_materials',
-      'previous_stage_qr_required' => 'worker.error.scan_previous',
-      'progress_qr_reprint' => 'worker.daily.reprint_failed',
-      'progress_batch_correction_reason_required' =>
-        'worker.daily.correction.required',
-      'progress_batch_correction_locked' => 'worker.daily.correction_failed',
-      'progress_batch_correction_conflict' => 'worker.daily.correction_failed',
-      'progress_batch_correction_unchanged' => 'worker.daily.correction_failed',
-      'progress_batch_correction_failed' => 'worker.daily.correction_failed',
-      'paddons_list' => 'worker.paddon.load_failed',
-      'paddon_not_found' => 'worker.paddon.not_found',
-      'paddon_create' => 'worker.paddon.create_failed',
-      'paddon_item_add' => 'worker.paddon.add_failed',
-      'paddon_items_add' => 'worker.paddon.add_failed',
-      'paddon_item_remove' => 'worker.paddon.remove_failed',
-      'paddon_items_remove' => 'worker.paddon.remove_failed',
-      'paddon_qr_print' => 'worker.paddon.print_failed',
-      _ => '',
-    };
-    if (key.isEmpty) return fallback;
-    return productionText(key);
-  }
-}
-
-class _AppLocalizationsDelegate
-    extends LocalizationsDelegate<AppLocalizations> {
-  const _AppLocalizationsDelegate();
-
-  @override
-  bool isSupported(Locale locale) => AppLocalizations.supportedLocales.any(
-        (item) => item.languageCode == locale.languageCode,
-      );
-
-  @override
-  Future<AppLocalizations> load(Locale locale) async {
-    return AppLocalizations(locale);
-  }
-
-  @override
-  bool shouldReload(covariant LocalizationsDelegate<AppLocalizations> old) =>
-      false;
-}
-
-extension AppLocalizationsX on BuildContext {
-  AppLocalizations get l10n => AppLocalizations.of(this);
 }

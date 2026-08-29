@@ -1,5 +1,6 @@
 import 'platform_account_secret_store.dart';
 import 'saved_account_store.dart';
+export 'saved_account_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SavedAccountRuntime {

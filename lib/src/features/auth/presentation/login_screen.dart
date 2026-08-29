@@ -17,30 +17,8 @@ import 'welcome_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-bool loginCodeUsesNumericKeyboard(String code) {
-  final trimmed = code.trim();
-  if (trimmed.length < 2) {
-    return true;
-  }
-
-  return const {'40', '50', '80'}.contains(trimmed.substring(0, 2));
-}
-
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({
-    super.key,
-    this.onBack,
-    this.useSharedBackground = false,
-    this.addAccountMode = false,
-  });
-
-  final VoidCallback? onBack;
-  final bool useSharedBackground;
-  final bool addAccountMode;
-
-  @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
+part 'login_screen__LoginScreenState_methods_01.dart';
+part 'login_screen_helpers_part_01.dart';
 
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController phoneController = TextEditingController();
@@ -71,71 +49,6 @@ class _LoginScreenState extends State<LoginScreen> {
     codeController.addListener(_handleInputChanged);
   }
 
-  void _handleInputChanged() {
-    if (!mounted) {
-      return;
-    }
-    setState(() {});
-  }
-
-  void _handleBackSwipePointerDown(PointerDownEvent event) {
-    if (widget.onBack == null) {
-      return;
-    }
-    _backSwipePointer ??= event.pointer;
-    _backSwipeStartGlobal ??= event.position;
-    _trackingBackSwipe = false;
-    _backSwipeTriggered = false;
-  }
-
-  void _handleBackSwipePointerMove(PointerMoveEvent event) {
-    if (widget.onBack == null || _backSwipePointer != event.pointer) {
-      return;
-    }
-
-    final Offset start = _backSwipeStartGlobal ?? event.position;
-    final Offset delta = event.position - start;
-
-    if (!_trackingBackSwipe) {
-      if (delta.dx <= 10) {
-        return;
-      }
-      if (delta.dx > (delta.dy.abs() * 1.15)) {
-        _trackingBackSwipe = true;
-      } else {
-        return;
-      }
-    }
-
-    final double nextOffset = delta.dx.clamp(0.0, 220.0);
-    if (nextOffset != _backSwipeOffset) {
-      setState(() {
-        _backSwipeOffset = nextOffset;
-      });
-    }
-
-    if (!_backSwipeTriggered && _backSwipeOffset >= 72) {
-      _backSwipeTriggered = true;
-      widget.onBack?.call();
-    }
-  }
-
-  void _handleBackSwipePointerEnd([int? pointer]) {
-    if (pointer != null && _backSwipePointer != pointer) {
-      return;
-    }
-    _backSwipePointer = null;
-    _backSwipeStartGlobal = null;
-    final bool shouldResetOffset = !_backSwipeTriggered;
-    _trackingBackSwipe = false;
-    _backSwipeTriggered = false;
-    if (shouldResetOffset) {
-      setState(() {
-        _backSwipeOffset = 0;
-      });
-    }
-  }
-
   @override
   void dispose() {
     phoneController.removeListener(_handleInputChanged);
@@ -145,134 +58,6 @@ class _LoginScreenState extends State<LoginScreen> {
     phoneFocusNode.dispose();
     codeFocusNode.dispose();
     super.dispose();
-  }
-
-  Future<void> submitLogin(BuildContext context) async {
-    if (loading) {
-      return;
-    }
-    final l10n = AppLocalizations.of(context);
-    final String phone = phoneController.text.trim();
-    final String code = codeController.text.trim();
-
-    if (phone.isEmpty || code.isEmpty) {
-      setState(() => errorText = l10n.loginRequiredFields);
-      return;
-    }
-    setState(() {
-      errorText = null;
-      loading = true;
-    });
-
-    try {
-      final bool testModeEnabled =
-          await TestModeController.instance.isEnabled();
-      if (testModeEnabled && !widget.addAccountMode) {
-        await AppSession.instance.setSession(
-          token: 'test-mode-token',
-          profile: SessionProfile(
-            role: UserRole.admin,
-            displayName: 'Test Admin',
-            legalName: 'Test Admin',
-            ref: 'test-admin',
-            phone: phone,
-            avatarUrl: '',
-          ),
-        );
-      } else {
-        if (widget.addAccountMode) {
-          final authenticated = await MobileApi.instance.authenticateAccount(
-            phone: phone,
-            code: code,
-          );
-          await createRuntimeAccountSwitchController().addAndSwitch(
-            baseUrl: MobileApi.baseUrl,
-            profile: authenticated.profile,
-            token: authenticated.token,
-            phone: phone,
-            code: code,
-            werkaHomeBootstrap: authenticated.werkaHome,
-          );
-        } else {
-          await MobileApi.instance.login(phone: phone, code: code);
-          PushMessagingService.instance.syncCurrentToken();
-        }
-      }
-      if (!context.mounted) {
-        return;
-      }
-      SecurityController.instance.unlockAfterLogin();
-      _openPostLoginRoute(
-        context,
-        AppPreview.initialRouteOverride ?? AppSession.instance.homeRoute,
-      );
-    } catch (error) {
-      if (!context.mounted) {
-        return;
-      }
-      setState(() {
-        errorText = l10n.loginFailed;
-        loading = false;
-      });
-      final text = '$error';
-      if (text.contains('SocketException') ||
-          text.contains('ClientException') ||
-          text.contains('Failed host lookup') ||
-          text.contains('Connection refused') ||
-          text.contains('timed out')) {
-        showNetworkRequiredDialog(context, message: l10n.connectInternetPrompt);
-      }
-    }
-  }
-
-  void _openPostLoginRoute(BuildContext context, String routeName) {
-    final PageRoute<dynamic> targetRoute =
-        AppRouter.onGenerateRoute(RouteSettings(name: routeName))
-            as PageRoute<dynamic>;
-
-    Navigator.of(context).pushAndRemoveUntil(
-      PageRouteBuilder<dynamic>(
-        settings: targetRoute.settings,
-        transitionDuration: const Duration(milliseconds: 420),
-        reverseTransitionDuration: const Duration(milliseconds: 260),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return targetRoute.buildPage(context, animation, secondaryAnimation);
-        },
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final Animation<double> fade = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-            reverseCurve: Curves.easeInCubic,
-          );
-          final Animation<Offset> lift = Tween<Offset>(
-            begin: const Offset(0, 0.035),
-            end: Offset.zero,
-          ).animate(
-            CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeInCubic,
-            ),
-          );
-          final Animation<double> scale =
-              Tween<double>(begin: 0.992, end: 1).animate(
-            CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeInCubic,
-            ),
-          );
-          return FadeTransition(
-            opacity: fade,
-            child: SlideTransition(
-              position: lift,
-              child: ScaleTransition(scale: scale, child: child),
-            ),
-          );
-        },
-      ),
-      (route) => false,
-    );
   }
 
   @override
@@ -561,40 +346,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       },
-    );
-  }
-}
-
-class _LoginErrorBanner extends StatelessWidget {
-  const _LoginErrorBanner({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: scheme.errorContainer,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline_rounded, color: scheme.onErrorContainer),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onErrorContainer,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

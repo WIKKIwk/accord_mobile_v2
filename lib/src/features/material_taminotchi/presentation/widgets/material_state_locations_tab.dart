@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import '../../../../core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import '../../../../core/formatters/quantity_formatters.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/feedback/m3_confirm_dialog.dart';
