@@ -46,19 +46,25 @@ extension __SequenceRawMaterialAssignmentSheetStateAstPart02
       candidateMinimumAcceptedRollWidthMm,
       _selectedCanonicalApparatus,
     );
-    final emptyMinimumAcceptedRollWidthMm =
-        candidateMinimumAcceptedRollWidthMm ??
-            _sequenceMinimumAcceptedRollWidthMmForOrder(
-              widget.order,
-              _selectedCanonicalApparatus,
-            );
+    final orderMinimumAcceptedRollWidthMm =
+        _sequenceMinimumAcceptedRollWidthMmForOrder(
+      widget.order,
+      _selectedCanonicalApparatus,
+    );
+    final minimumAcceptedRollWidthMm =
+        candidateMinimumAcceptedRollWidthMm ?? orderMinimumAcceptedRollWidthMm;
+    final maximumAcceptedRollWidthMm = candidateMaximumAcceptedRollWidthMm ??
+        _sequenceMaximumAcceptedRollWidthMm(
+          minimumAcceptedRollWidthMm,
+          _selectedCanonicalApparatus,
+        );
     if (_candidates.isNotEmpty) {
       children.add(
         _SequenceAssignmentIntro(
           candidateCount: _candidates.length,
           assignedCount: _assignments.length,
-          minimumAcceptedRollWidthMm: candidateMinimumAcceptedRollWidthMm,
-          maximumAcceptedRollWidthMm: candidateMaximumAcceptedRollWidthMm,
+          minimumAcceptedRollWidthMm: minimumAcceptedRollWidthMm,
+          maximumAcceptedRollWidthMm: maximumAcceptedRollWidthMm,
         ),
       );
       children.add(const SizedBox(height: 10));
@@ -95,14 +101,8 @@ extension __SequenceRawMaterialAssignmentSheetStateAstPart02
           message: _assignments.isEmpty
               ? context.l10n.adminText('production.assignment.no_stock')
               : context.l10n.adminText('production.assignment.refresh_hint'),
-          minimumAcceptedRollWidthMm:
-              _assignments.isEmpty ? emptyMinimumAcceptedRollWidthMm : null,
-          maximumAcceptedRollWidthMm: _assignments.isEmpty
-              ? _sequenceMaximumAcceptedRollWidthMm(
-                  emptyMinimumAcceptedRollWidthMm,
-                  _selectedCanonicalApparatus,
-                )
-              : null,
+          minimumAcceptedRollWidthMm: minimumAcceptedRollWidthMm,
+          maximumAcceptedRollWidthMm: maximumAcceptedRollWidthMm,
           action: TextButton(
             onPressed: _loading ? null : () => _load(),
             child: Text(context.l10n.adminText('action.retry')),

@@ -144,17 +144,14 @@ extension __AdminProductionMapOrdersScreenStateAstPart02
     );
   }
 
-  Future<void> _showQolipOrderNote(ProductionMapSaved order) async {
-    final changed = await showModalBottomSheet<bool>(
+  Future<void> _showQolipsForOrder(ProductionMapSaved order) async {
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (context) => _SequenceQolipOrderNoteSheet(order: order),
+      builder: (context) => _SequenceQolipSheet(order: order),
     );
-    if (changed == true && mounted) {
-      unawaited(_refreshLive());
-    }
   }
 
   Future<void> _openOrderProductionMapEditor(

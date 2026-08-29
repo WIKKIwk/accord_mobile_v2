@@ -11,6 +11,7 @@ class _SequenceRawMaterialAssignmentSheetState
   bool _actionSucceeded = false;
   String _lastQrScanValue = '';
   DateTime? _lastQrScanAt;
+  int _qrDiagnosticRequestId = 0;
   final Set<String> _selectedCandidateBarcodes = <String>{};
   late final List<String> _apparatusOptions;
   String _selectedApparatus = '';

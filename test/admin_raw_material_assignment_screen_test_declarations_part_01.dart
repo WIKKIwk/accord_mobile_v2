@@ -8,6 +8,8 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
     this.orderNodes = const [],
     this.lookupAssignmentStatus = '',
     this.lookupConsumedQty = 0,
+    this.diagnosticCompatible = true,
+    this.diagnosticReason = 'compatible',
   });
 
   final List<String> seenRequests;
@@ -15,6 +17,8 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
   final List<Map<String, Object?>> orderNodes;
   final String lookupAssignmentStatus;
   final double lookupConsumedQty;
+  final bool diagnosticCompatible;
+  final String diagnosticReason;
   bool _deleted = false;
 
   @override
@@ -135,6 +139,28 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
             'apparatus_options': ['apparatus:default:asset-005'],
           },
         ];
+      case 'GET /v1/mobile/admin/raw-material-assignments/diagnostics?barcode=30AA&order_id=zakaz-1':
+      case 'GET /v1/mobile/admin/raw-material-assignments/diagnostics?barcode=30AA&order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-005':
+      case 'GET /v1/mobile/admin/raw-material-assignments/diagnostics?barcode=30AA&order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-007':
+        body = {
+          'barcode': '30AA',
+          'compatible': diagnosticCompatible,
+          'reason': diagnosticReason,
+          'item_code': 'INK-BLACK',
+          'item_name': 'Black ink',
+          'item_group': 'Kraska',
+          'warehouse': 'Kalidor',
+          'stock_status': 'available',
+          'reserved_order_id': '',
+          'apparatus_options': ['apparatus:default:asset-005'],
+          'order_id': 'zakaz-1',
+          'order_title': 'Zakaz 1',
+          'apparatus': 'apparatus:default:asset-005',
+          'order_width_mm': 985,
+          'roll_width_mm': 980,
+          'minimum_width_mm': 985,
+          'maximum_width_mm': 1005,
+        };
       case 'GET /v1/mobile/admin/raw-material-assignments/lookup?barcode=30AA':
         body = {
           'barcode': '30AA',

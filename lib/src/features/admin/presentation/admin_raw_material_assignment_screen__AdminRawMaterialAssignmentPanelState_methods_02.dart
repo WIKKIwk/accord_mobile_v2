@@ -244,6 +244,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
         if (scanned?.assignment != null &&
             _assignmentKey(scanned!.assignment!) == key) {
           _scannedMaterial = _rawMaterialLookupWithoutAssignment(scanned);
+          _scannedDiagnostic = null;
         }
       });
       showAdminTopNotice(
@@ -285,6 +286,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
           selectedOrderLabel: _selectedOrderLabel(data.orders),
           scannedBarcode: _scannedBarcode,
           scannedMaterial: _scannedMaterial,
+          scannedDiagnostic: _scannedDiagnostic,
           scanLookupError: _scanLookupError,
           scanLookupLoading: _scanLookupLoading,
           saving: _saving,

@@ -119,22 +119,28 @@ List<ProductionMapChainStage> productionMapOpeningWipSourceStages({
   required ProductionMapDefinition map,
   required Map<String, String> stageStates,
 }) {
+  final workStages = productionMapLinearWorkStages(map)
+      .where((stage) => stage.apparatusId?.trim().isNotEmpty == true)
+      .toList(growable: false);
+  final orderCompleted = workStages.isNotEmpty &&
+      workStages.every(
+        (stage) =>
+            apparatusQueueOrderStateFromRaw(
+              stageStates[stage.nodeId.trim()],
+            ) ==
+            ApparatusQueueOrderState.completed,
+      );
+  if (orderCompleted) return const [];
+
   final result = <ProductionMapChainStage>[];
-  for (final stage in productionMapLinearWorkStages(map)) {
+  for (final stage in workStages) {
     if (stage.apparatusId?.trim().isEmpty != false) continue;
     final targets = productionMapNextWorkStagesForNode(
       map: map,
       stageNodeId: stage.nodeId,
     );
     if (targets.isEmpty) continue;
-    final targetAlreadyCompleted = targets.any(
-      (target) =>
-          apparatusQueueOrderStateFromRaw(
-            stageStates[target.nodeId.trim()],
-          ) ==
-          ApparatusQueueOrderState.completed,
-    );
-    if (!targetAlreadyCompleted) result.add(stage);
+    result.add(stage);
   }
   return List<ProductionMapChainStage>.unmodifiable(result);
 }

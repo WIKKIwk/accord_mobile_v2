@@ -58,77 +58,78 @@ extension __OrderStartUnifiedCardAstPart01 on _OrderStartUnifiedCard {
         : product.isEmpty
             ? customer
             : '$customer • $product';
-
     return _orderDetailSurfaceCard(
       context: context,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+          if (!workerMode) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.receipt_long_rounded,
+                    color: scheme.onPrimaryContainer,
+                  ),
                 ),
-                child: Icon(
-                  Icons.receipt_long_rounded,
-                  color: scheme.onPrimaryContainer,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 94,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            context.l10n.productionText('worker.order.code'),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 94,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              context.l10n.productionText('worker.order.code'),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            orderCode.trim().isEmpty ? '-' : orderCode.trim(),
-                            maxLines: 1,
+                            const SizedBox(height: 2),
+                            Text(
+                              orderCode.trim().isEmpty ? '-' : orderCode.trim(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 18),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: Text(
+                            orderProductLabel.isEmpty ? '-' : orderProductLabel,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleLarge?.copyWith(
+                            style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 14),
-                        child: Text(
-                          orderProductLabel.isEmpty ? '-' : orderProductLabel,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          Divider(
-              height: 28, color: scheme.outlineVariant.withValues(alpha: 0.5)),
+              ],
+            ),
+            Divider(
+                height: 28, color: scheme.outlineVariant.withValues(alpha: 0.5)),
+          ],
           if (orderControlBlocked) ...[
             Container(
               padding: const EdgeInsets.all(12),
@@ -447,9 +448,17 @@ extension __OrderStartUnifiedCardAstPart01 on _OrderStartUnifiedCard {
                         context.l10n.productionText('worker.action.start'),
                       ),
                       style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(52),
+                        minimumSize: Size.fromHeight(workerMode ? 58 : 52),
+                        padding: workerMode
+                            ? const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 16,
+                              )
+                            : null,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(
+                            workerMode ? 18 : 14,
+                          ),
                         ),
                       ),
                     )

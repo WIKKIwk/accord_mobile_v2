@@ -202,6 +202,7 @@ class _AssignmentEditor extends StatelessWidget {
     required this.selectedOrderLabel,
     required this.scannedBarcode,
     required this.scannedMaterial,
+    required this.scannedDiagnostic,
     required this.scanLookupError,
     required this.scanLookupLoading,
     required this.saving,
@@ -216,6 +217,7 @@ class _AssignmentEditor extends StatelessWidget {
   final String selectedOrderLabel;
   final String scannedBarcode;
   final AdminRawMaterialLookup? scannedMaterial;
+  final AdminRawMaterialAssignmentDiagnostic? scannedDiagnostic;
   final String scanLookupError;
   final bool scanLookupLoading;
   final bool saving;
@@ -248,6 +250,7 @@ class _AssignmentEditor extends StatelessWidget {
             _ScannedRawMaterialCard(
               barcode: scannedBarcode,
               detail: scannedMaterial,
+              diagnostic: scannedDiagnostic,
               loading: scanLookupLoading,
               error: scanLookupError,
               unlinking: unlinking,
@@ -256,8 +259,15 @@ class _AssignmentEditor extends StatelessWidget {
           ],
           const SizedBox(height: 10),
           FilledButton.icon(
-            onPressed:
-                saving || scannedMaterial?.assignment != null ? null : onSave,
+            onPressed: saving ||
+                    scanLookupLoading ||
+                    selectedOrderLabel.trim().isEmpty ||
+                    scannedMaterial == null ||
+                    scanLookupError.trim().isNotEmpty ||
+                    scannedMaterial?.assignment != null ||
+                    scannedDiagnostic?.compatible == false
+                ? null
+                : onSave,
             icon: saving
                 ? const SizedBox(
                     width: 18,

@@ -111,6 +111,10 @@ class _SequenceAssignmentMessage extends StatelessWidget {
                   ),
                 ],
               ),
+              if (minimumRequirement != null) ...[
+                const SizedBox(height: 14),
+                minimumRequirement,
+              ],
               if (action != null) ...[
                 const SizedBox(height: 12),
                 Align(
@@ -239,6 +243,98 @@ double? _sequenceMaximumAcceptedRollWidthMm(
     return minimumAcceptedRollWidthMm + 30;
   }
   return null;
+}
+
+String _sequenceRawMaterialDiagnosticMessage(
+  BuildContext context,
+  AdminRawMaterialAssignmentDiagnostic diagnostic,
+) {
+  final l10n = context.l10n;
+  if (diagnostic.compatible) {
+    return l10n.adminText(
+      'production.assignment.diagnostic_compatible_refresh',
+    );
+  }
+  final reason = diagnostic.reason.trim().toLowerCase();
+  final actual = diagnostic.rollWidthMm;
+  final minimum = diagnostic.minimumWidthMm ?? diagnostic.orderWidthMm;
+  final maximum = diagnostic.maximumWidthMm;
+  if (reason == 'raw_material_roll_size_mismatch' &&
+      actual != null &&
+      minimum != null &&
+      actual.isFinite &&
+      minimum.isFinite &&
+      actual < minimum) {
+    return l10n.adminText(
+      'production.assignment.diagnostic_roll_too_narrow',
+      values: {
+        'actual': _sequenceMillimeters(actual),
+        'min': _sequenceMillimeters(minimum),
+      },
+    );
+  }
+  if (reason == 'raw_material_roll_size_mismatch' &&
+      actual != null &&
+      minimum != null &&
+      maximum != null &&
+      actual.isFinite &&
+      minimum.isFinite &&
+      maximum.isFinite) {
+    return l10n.adminText(
+      'production.assignment.diagnostic_roll_too_wide',
+      values: {
+        'actual': _sequenceMillimeters(actual),
+        'min': _sequenceMillimeters(minimum),
+        'max': _sequenceMillimeters(maximum),
+      },
+    );
+  }
+  switch (reason) {
+    case 'raw_material_roll_size_missing':
+      return l10n.adminText(
+        'production.assignment.diagnostic_roll_size_missing',
+      );
+    case 'raw_material_stock_unavailable':
+      return l10n.adminText(
+        'production.assignment.diagnostic_stock_unavailable',
+      );
+    case 'raw_material_already_assigned':
+      if (diagnostic.orderTitle.trim().isNotEmpty) {
+        return l10n.adminText(
+          'production.assignment.diagnostic_already_assigned_named',
+          values: {'order': diagnostic.orderTitle.trim()},
+        );
+      }
+      return l10n.adminText(
+        'production.assignment.diagnostic_already_assigned',
+      );
+    case 'raw_material_already_assigned_to_order':
+      return l10n.adminText(
+        'production.assignment.diagnostic_already_assigned_to_order',
+      );
+    case 'raw_material_order_not_active':
+    case 'no_compatible_active_order':
+      return l10n.adminText(
+        'production.assignment.diagnostic_order_not_active',
+      );
+    case 'raw_material_group_not_allowed':
+      return l10n.adminText(
+        'production.assignment.diagnostic_group_not_allowed',
+      );
+    case 'apparatus_not_assigned':
+      return l10n.adminText(
+        'production.assignment.apparatus_access_message',
+      );
+    default:
+      return l10n.adminText(
+        'production.assignment.diagnostic_generic',
+        values: {
+          'reason': diagnostic.reason.trim().isEmpty
+              ? l10n.adminText('production.assignment.qr_not_found')
+              : diagnostic.reason,
+        },
+      );
+  }
 }
 
 String _sequenceOrderLabel(ProductionMapSaved order) {

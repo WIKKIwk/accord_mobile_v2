@@ -326,7 +326,6 @@ extension MobileApiAdminTrainingWorkspaceAstPart02 on MobileApi {
       );
       _testModeOrderStartedAtUnix.remove(normalized);
       _testModeOrderControls.remove(normalized);
-      _testModeQolipOrderNotes.remove(normalized);
       for (final sequence in _testModeApparatusSequences.values) {
         sequence.removeWhere((id) => id.trim() == normalized);
       }

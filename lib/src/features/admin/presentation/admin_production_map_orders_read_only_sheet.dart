@@ -275,6 +275,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         noticeAnchorKey: _noticeAnchorKey,
         onClose: () => Navigator.of(context).pop(),
         map: map,
+        workerMode: widget.workerMode,
         apparatusCatalog: widget.apparatusCatalog,
         baseMetraj: widget.baseMetraj,
         orderKg: widget.orderKg,

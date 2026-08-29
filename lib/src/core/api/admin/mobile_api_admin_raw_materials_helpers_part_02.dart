@@ -196,6 +196,72 @@ class AdminRawMaterialAssignmentCandidate {
   }
 }
 
+class AdminRawMaterialAssignmentDiagnostic {
+  const AdminRawMaterialAssignmentDiagnostic({
+    required this.barcode,
+    required this.compatible,
+    required this.reason,
+    required this.itemCode,
+    required this.itemName,
+    required this.itemGroup,
+    required this.warehouse,
+    required this.stockStatus,
+    required this.reservedOrderId,
+    required this.apparatusOptions,
+    this.orderId = '',
+    this.orderTitle = '',
+    this.apparatus = '',
+    this.orderWidthMm,
+    this.rollWidthMm,
+    this.minimumWidthMm,
+    this.maximumWidthMm,
+  });
+
+  final String barcode;
+  final bool compatible;
+  final String reason;
+  final String itemCode;
+  final String itemName;
+  final String itemGroup;
+  final String warehouse;
+  final String stockStatus;
+  final String reservedOrderId;
+  final List<String> apparatusOptions;
+  final String orderId;
+  final String orderTitle;
+  final String apparatus;
+  final double? orderWidthMm;
+  final double? rollWidthMm;
+  final double? minimumWidthMm;
+  final double? maximumWidthMm;
+
+  factory AdminRawMaterialAssignmentDiagnostic.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return AdminRawMaterialAssignmentDiagnostic(
+      barcode: json['barcode']?.toString() ?? '',
+      compatible: json['compatible'] == true,
+      reason: json['reason']?.toString().trim() ?? '',
+      itemCode: json['item_code']?.toString() ?? '',
+      itemName: json['item_name']?.toString() ?? '',
+      itemGroup: json['item_group']?.toString() ?? '',
+      warehouse: json['warehouse']?.toString() ?? '',
+      stockStatus: json['stock_status']?.toString() ?? '',
+      reservedOrderId: json['reserved_order_id']?.toString() ?? '',
+      apparatusOptions: _requireCanonicalApparatusIdList(
+        json['apparatus_options'],
+      ),
+      orderId: json['order_id']?.toString() ?? '',
+      orderTitle: json['order_title']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      orderWidthMm: (json['order_width_mm'] as num?)?.toDouble(),
+      rollWidthMm: (json['roll_width_mm'] as num?)?.toDouble(),
+      minimumWidthMm: (json['minimum_width_mm'] as num?)?.toDouble(),
+      maximumWidthMm: (json['maximum_width_mm'] as num?)?.toDouble(),
+    );
+  }
+}
+
 class AdminRawMaterialAssignmentOrderCandidate {
   const AdminRawMaterialAssignmentOrderCandidate({
     required this.order,

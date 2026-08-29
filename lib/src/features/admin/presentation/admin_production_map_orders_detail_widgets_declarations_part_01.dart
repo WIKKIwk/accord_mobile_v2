@@ -6,6 +6,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.noticeAnchorKey,
     required this.onClose,
     required this.map,
+    required this.workerMode,
     required this.apparatusCatalog,
     required this.baseMetraj,
     required this.orderKg,
@@ -68,6 +69,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final GlobalKey noticeAnchorKey;
   final VoidCallback onClose;
   final ProductionMapDefinition map;
+  final bool workerMode;
   final List<AdminApparatus> apparatusCatalog;
   final double? baseMetraj;
   final double? orderKg;
@@ -201,6 +203,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       l10n: context.l10n,
                     ),
                     customerName: customerName,
+                    workerMode: workerMode,
                     contractSynchronized: uiState.contractSynchronized,
                     showContractWarning: showContractWarning,
                     blockingReasonCode: uiState.blockingReasonCode,
@@ -294,12 +297,62 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
               ),
               Positioned(
                 top: 4,
+                left: workerMode ? 18 : null,
                 right: 4,
-                child: IconButton.filledTonal(
-                  key: const ValueKey('production-order-detail-close'),
-                  tooltip: context.l10n.productionText('worker.action.close'),
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close_rounded),
+                child: workerMode
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 2),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    context.l10n
+                                        .productionText('worker.order.code'),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: scheme.onSurfaceVariant,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                  Text(
+                                    _openedOrderDisplayCode(map).trim().isEmpty
+                                        ? '-'
+                                        : _openedOrderDisplayCode(map).trim(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          IconButton.filledTonal(
+                            key: const ValueKey(
+                              'production-order-detail-close',
+                            ),
+                            tooltip: context.l10n
+                                .productionText('worker.action.close'),
+                            onPressed: onClose,
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      )
+                    : IconButton.filledTonal(
+                        key: const ValueKey('production-order-detail-close'),
+                        tooltip: context.l10n
+                            .productionText('worker.action.close'),
+                        onPressed: onClose,
+                        icon: const Icon(Icons.close_rounded),
+                      ),
                 ),
               ),
             ],

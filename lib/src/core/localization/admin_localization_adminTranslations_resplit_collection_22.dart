@@ -95,6 +95,73 @@ const _admin_localization_adminTranslations_resplitPart22 = {
     'en': 'This material is not compatible with the selected equipment',
     'ru': 'Это сырье несовместимо с выбранным оборудованием',
   },
+  'admin.production.assignment.diagnostic_roll_too_narrow': {
+    'uz': 'Mos emas: rulon eni {actual}; talab qilinadigan minimum {min}.',
+    'en':
+        'Not compatible: roll width is {actual}; the minimum required is {min}.',
+    'ru': 'Несовместимо: ширина рулона {actual}; требуемый минимум — {min}.',
+  },
+  'admin.production.assignment.diagnostic_roll_too_wide': {
+    'uz': 'Mos emas: rulon eni {actual}; ruxsat etilgan oraliq {min}–{max}.',
+    'en':
+        'Not compatible: roll width is {actual}; the accepted range is {min}–{max}.',
+    'ru':
+        'Несовместимо: ширина рулона {actual}; допустимый диапазон — {min}–{max}.',
+  },
+  'admin.production.assignment.diagnostic_roll_size_missing': {
+    'uz': 'Mos emas: rulon eni ma’lumoti topilmadi.',
+    'en': 'Not compatible: the roll width is missing.',
+    'ru': 'Несовместимо: ширина рулона не указана.',
+  },
+  'admin.production.assignment.diagnostic_stock_unavailable': {
+    'uz':
+        'Mos emas: homashyo omborda mavjud emas yoki boshqa order uchun band.',
+    'en':
+        'Not compatible: the material is unavailable or reserved for another order.',
+    'ru':
+        'Несовместимо: сырье недоступно или зарезервировано за другим заказом.',
+  },
+  'admin.production.assignment.diagnostic_already_assigned': {
+    'uz': 'Bu homashyo allaqachon boshqa orderga ulangan.',
+    'en': 'This material is already linked to another order.',
+    'ru': 'Это сырье уже привязано к другому заказу.',
+  },
+  'admin.production.assignment.diagnostic_already_assigned_named': {
+    'uz': 'Bu homashyo allaqachon “{order}” orderiga ulangan.',
+    'en': 'This material is already linked to the “{order}” order.',
+    'ru': 'Это сырье уже привязано к заказу «{order}».',
+  },
+  'admin.production.assignment.diagnostic_already_assigned_to_order': {
+    'uz': 'Bu homashyo allaqachon shu orderga ulangan.',
+    'en': 'This material is already linked to this order.',
+    'ru': 'Это сырье уже привязано к этому заказу.',
+  },
+  'admin.production.assignment.diagnostic_order_not_active': {
+    'uz': 'Bu homashyoni ulash uchun faol order topilmadi.',
+    'en': 'No active order is available for this material.',
+    'ru': 'Для этого сырья нет активного заказа.',
+  },
+  'admin.production.assignment.diagnostic_group_not_allowed': {
+    'uz': 'Bu homashyo tanlangan order yoki aparat qoidalariga mos emas.',
+    'en': 'This material does not match the selected order or equipment rules.',
+    'ru':
+        'Это сырье не соответствует правилам выбранного заказа или оборудования.',
+  },
+  'admin.production.assignment.diagnostic_compatible_refresh': {
+    'uz': 'Bu QR mos. Ro‘yxat eskirgan — Yangilash tugmasini bosing.',
+    'en': 'This QR is compatible. The list is stale; tap Refresh.',
+    'ru': 'Этот QR подходит. Список устарел — нажмите «Обновить».',
+  },
+  'admin.production.assignment.diagnostic_failed': {
+    'uz': 'Homashyo mosligini tekshirib bo‘lmadi. Qayta urinib ko‘ring.',
+    'en': 'Material compatibility could not be checked. Try again.',
+    'ru': 'Не удалось проверить совместимость сырья. Повторите попытку.',
+  },
+  'admin.production.assignment.diagnostic_generic': {
+    'uz': 'Mos emas: sabab — {reason}.',
+    'en': 'Not compatible: {reason}.',
+    'ru': 'Несовместимо: {reason}.',
+  },
   'admin.production.assignment.already_selected': {
     'uz': 'Bu homashyo allaqachon tanlangan ({count} ta)',
     'en': 'This material is already selected ({count})',

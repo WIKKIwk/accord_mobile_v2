@@ -45,7 +45,6 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, AdminOrderControlState> _orderControlsByOrderId = {};
   final Map<String, AdminProductionOrderStatusDetail> _orderStatusesByOrderId =
       {};
-  final Map<String, AdminQolipOrderNote> _qolipOrderNotesByOrderId = {};
   List<AdminCompletedQueueOrder> _completedWorkerOrders = const [];
   List<AdminCompletionRequestNotification> _completionRequests = const [];
   final Set<String> _shownCompletionDecisionIds = {};
@@ -323,10 +322,8 @@ class _AdminProductionMapOrdersScreenState
                               visibleOrderIdsByApparatus:
                                   _visibleOrderIdsByApparatus,
                               orderStatusesByOrderId: _orderStatusesByOrderId,
-                              qolipOrderNotesByOrderId:
-                                  _qolipOrderNotesByOrderId,
                               sequenceInteractionHint: isQolipchi
-                                  ? 'Bir marta bosing — ma’lumot. Uzoq bosing — qolip qaydini ochish.'
+                                  ? 'Bir marta bosing — ma’lumot. Uzoq bosing — order qoliplarini ochish.'
                                   : null,
                               orderControlsByOrderId: _orderControlsByOrderId,
                               workflowAudit: _workflowAudit,
@@ -337,7 +334,7 @@ class _AdminProductionMapOrdersScreenState
                               onLongPressOrder: (order) {
                                 unawaited(
                                   widget.supplyViewerMode && isQolipchi
-                                      ? _showQolipOrderNote(order)
+                                      ? _showQolipsForOrder(order)
                                       : widget.supplyViewerMode &&
                                               isMaterialTaminotchi
                                           ? _showSupplyRawMaterialAssignment(

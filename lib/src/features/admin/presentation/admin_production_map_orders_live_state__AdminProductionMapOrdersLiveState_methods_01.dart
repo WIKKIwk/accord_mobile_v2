@@ -235,7 +235,6 @@ extension __AdminProductionMapOrdersLiveStateAstPart01
         orderControlsByOrderId: _orderControlsByOrderId,
         orderCustomersByOrderId: _customerByMapId,
         orderStatusesByOrderId: _orderStatusesByOrderId,
-        qolipOrderNotesByOrderId: _qolipOrderNotesByOrderId,
         frozenOrdersByApparatus: _frozenOrdersByApparatus,
       )) {
         if (_queueSnapshotContractError) {
@@ -257,7 +256,6 @@ extension __AdminProductionMapOrdersLiveStateAstPart01
           orderControls: queueSnapshot.orderControls,
           orderCustomers: queueSnapshot.orderCustomers,
           orderStatuses: queueSnapshot.orderStatuses,
-          qolipOrderNotes: queueSnapshot.qolipOrderNotes,
           frozenOrdersByApparatus: queueSnapshot.frozenOrdersByApparatus,
         );
         if (_queueSnapshotContractError) {
@@ -299,7 +297,6 @@ extension __AdminProductionMapOrdersLiveStateAstPart01
         orderControls: const {},
         orderCustomers: const {},
         orderStatuses: const {},
-        qolipOrderNotes: const {},
         frozenOrdersByApparatus: const {},
       );
       _queueSnapshotContractError = true;
@@ -320,7 +317,6 @@ extension __AdminProductionMapOrdersLiveStateAstPart01
     required Map<String, String> orderCustomers,
     required Map<String, AdminProductionOrderStatusDetail> orderStatuses,
     required Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus,
-    Map<String, AdminQolipOrderNote>? qolipOrderNotes,
   }) {
     _sequenceByApparatus
       ..clear()
@@ -350,11 +346,6 @@ extension __AdminProductionMapOrdersLiveStateAstPart01
     _orderStatusesByOrderId
       ..clear()
       ..addAll(orderStatuses);
-    if (qolipOrderNotes != null) {
-      _qolipOrderNotesByOrderId
-        ..clear()
-        ..addAll(qolipOrderNotes);
-    }
   }
 
   Future<void> _refreshWorkerCompletedOrders() async {

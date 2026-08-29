@@ -13,7 +13,6 @@ class _SequenceModulePage extends StatefulWidget {
     required this.queueStates,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
-    required this.qolipOrderNotesByOrderId,
     this.interactionHint,
     required this.onSelectApparatus,
     required this.onReorder,
@@ -31,7 +30,6 @@ class _SequenceModulePage extends StatefulWidget {
   final Map<String, String> queueStates;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
-  final Map<String, AdminQolipOrderNote> qolipOrderNotesByOrderId;
   final String? interactionHint;
   final ValueChanged<AdminApparatus> onSelectApparatus;
   final ReorderCallback onReorder;
@@ -93,10 +91,6 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
           apparatusState: apparatusQueueOrderStateFromRaw(
             widget.queueStates[order.map.id.trim()],
           ),
-        ),
-        backgroundColor: _qolipOrderCardBackgroundColor(
-          context,
-          widget.qolipOrderNotesByOrderId[order.map.id.trim()],
         ),
         onTap: widget.onInfoOrder == null
             ? null

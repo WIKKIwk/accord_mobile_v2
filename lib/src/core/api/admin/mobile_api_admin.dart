@@ -74,8 +74,6 @@ final Map<String, AdminRawMaterialRule> _testModeRawMaterialRules = {};
 
 final List<AdminRawMaterialAssignment> _testModeRawMaterialAssignments = [];
 
-final Map<String, AdminQolipOrderNote> _testModeQolipOrderNotes = {};
-
 final List<AdminWorker> _testModeWorkers = [];
 
 final List<AdminWorkerGroup> _testModeWorkerGroups = [];
@@ -145,7 +143,6 @@ void resetMobileApiTestModeData() {
   _testModeRezkaAstatkaReports.clear();
   _testModeRawMaterialRules.clear();
   _testModeRawMaterialAssignments.clear();
-  _testModeQolipOrderNotes.clear();
   resetMobileApiCalculateTestModeData();
   resetMobileApiQolipTestModeData();
   resetMobileApiInventoryMovementTestData();

@@ -98,7 +98,6 @@ class _AdminModulesBody extends StatelessWidget {
     required this.queueStatesByApparatus,
     required this.visibleOrderIdsByApparatus,
     required this.orderStatusesByOrderId,
-    required this.qolipOrderNotesByOrderId,
     this.sequenceInteractionHint,
     required this.orderControlsByOrderId,
     required this.workflowAudit,
@@ -164,7 +163,6 @@ class _AdminModulesBody extends StatelessWidget {
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
-  final Map<String, AdminQolipOrderNote> qolipOrderNotesByOrderId;
   final String? sequenceInteractionHint;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final AdminProductionWorkflowAuditReport? workflowAudit;
@@ -245,7 +243,6 @@ class _AdminModulesBody extends StatelessWidget {
                               queueStatesByApparatus: queueStatesByApparatus,
                             ),
                       orderStatusesByOrderId: orderStatusesByOrderId,
-                      qolipOrderNotesByOrderId: qolipOrderNotesByOrderId,
                       interactionHint: sequenceInteractionHint,
                       orderControlsByOrderId: orderControlsByOrderId,
                       onInfoOrder: onInfoSequenceOrder == null

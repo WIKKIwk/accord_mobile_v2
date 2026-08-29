@@ -228,6 +228,7 @@ class _ScannedRawMaterialCard extends StatelessWidget {
   const _ScannedRawMaterialCard({
     required this.barcode,
     required this.detail,
+    required this.diagnostic,
     required this.loading,
     required this.error,
     required this.unlinking,
@@ -236,6 +237,7 @@ class _ScannedRawMaterialCard extends StatelessWidget {
 
   final String barcode;
   final AdminRawMaterialLookup? detail;
+  final AdminRawMaterialAssignmentDiagnostic? diagnostic;
   final bool loading;
   final String error;
   final bool unlinking;
@@ -314,6 +316,10 @@ class _ScannedRawMaterialCard extends StatelessWidget {
                 label: context.l10n.adminText('raw_material.item_code'),
                 value: detail.itemCode,
               ),
+              if (diagnostic != null && !diagnostic!.compatible) ...[
+                const SizedBox(height: 10),
+                _ScannedRawMaterialDiagnosticBanner(diagnostic: diagnostic!),
+              ],
               const Divider(height: 22),
               _ScannedRawMaterialAssignmentSection(
                 detail: detail,
@@ -336,6 +342,133 @@ class _ScannedRawMaterialCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ScannedRawMaterialDiagnosticBanner extends StatelessWidget {
+  const _ScannedRawMaterialDiagnosticBanner({required this.diagnostic});
+
+  final AdminRawMaterialAssignmentDiagnostic diagnostic;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      key: const ValueKey('scanned-raw-material-diagnostic'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.error_outline_rounded, color: scheme.onErrorContainer),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _rawMaterialDiagnosticMessage(context, diagnostic),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: scheme.onErrorContainer,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _rawMaterialDiagnosticMessage(
+  BuildContext context,
+  AdminRawMaterialAssignmentDiagnostic diagnostic,
+) {
+  final l10n = context.l10n;
+  final reason = diagnostic.reason.trim().toLowerCase();
+  final actual = diagnostic.rollWidthMm;
+  final minimum = diagnostic.minimumWidthMm ?? diagnostic.orderWidthMm;
+  final maximum = diagnostic.maximumWidthMm;
+  if (reason == 'raw_material_roll_size_mismatch' &&
+      actual != null &&
+      minimum != null &&
+      actual.isFinite &&
+      minimum.isFinite &&
+      actual < minimum) {
+    return l10n.adminText(
+      'production.assignment.diagnostic_roll_too_narrow',
+      values: {
+        'actual': _rawMaterialDiagnosticMillimeters(actual),
+        'min': _rawMaterialDiagnosticMillimeters(minimum),
+      },
+    );
+  }
+  if (reason == 'raw_material_roll_size_mismatch' &&
+      actual != null &&
+      minimum != null &&
+      maximum != null &&
+      actual.isFinite &&
+      minimum.isFinite &&
+      maximum.isFinite) {
+    return l10n.adminText(
+      'production.assignment.diagnostic_roll_too_wide',
+      values: {
+        'actual': _rawMaterialDiagnosticMillimeters(actual),
+        'min': _rawMaterialDiagnosticMillimeters(minimum),
+        'max': _rawMaterialDiagnosticMillimeters(maximum),
+      },
+    );
+  }
+  switch (reason) {
+    case 'raw_material_roll_size_missing':
+      return l10n.adminText(
+        'production.assignment.diagnostic_roll_size_missing',
+      );
+    case 'raw_material_stock_unavailable':
+      return l10n.adminText(
+        'production.assignment.diagnostic_stock_unavailable',
+      );
+    case 'raw_material_already_assigned':
+      if (diagnostic.orderTitle.trim().isNotEmpty) {
+        return l10n.adminText(
+          'production.assignment.diagnostic_already_assigned_named',
+          values: {'order': diagnostic.orderTitle.trim()},
+        );
+      }
+      return l10n.adminText(
+        'production.assignment.diagnostic_already_assigned',
+      );
+    case 'raw_material_already_assigned_to_order':
+      return l10n.adminText(
+        'production.assignment.diagnostic_already_assigned_to_order',
+      );
+    case 'raw_material_order_not_active':
+    case 'no_compatible_active_order':
+      return l10n.adminText(
+        'production.assignment.diagnostic_order_not_active',
+      );
+    case 'raw_material_group_not_allowed':
+      return l10n.adminText(
+        'production.assignment.diagnostic_group_not_allowed',
+      );
+    case 'apparatus_not_assigned':
+      return l10n.adminText(
+        'production.assignment.apparatus_access_message',
+      );
+    default:
+      return l10n.adminText(
+        'production.assignment.diagnostic_generic',
+        values: {
+          'reason': diagnostic.reason.trim().isEmpty
+              ? l10n.adminText('production.assignment.qr_not_found')
+              : diagnostic.reason,
+        },
+      );
+  }
+}
+
+String _rawMaterialDiagnosticMillimeters(double value) {
+  return '${formatQuantity(value, decimalPlaces: 1, trimTrailingZeros: true)} mm';
 }
 
 class _ScannedRawMaterialAssignmentSection extends StatelessWidget {

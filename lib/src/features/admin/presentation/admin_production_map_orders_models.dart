@@ -351,20 +351,3 @@ Color? _orderCardBackgroundColor(
     theme.colorScheme.surfaceContainerLowest,
   );
 }
-
-Color? _qolipOrderCardBackgroundColor(
-  BuildContext context,
-  AdminQolipOrderNote? note,
-) {
-  if (note == null || (!note.isGiven && !note.isReturned)) {
-    return null;
-  }
-  final theme = Theme.of(context);
-  final accent =
-      note.isGiven ? const Color(0xFF2E7D32) : const Color(0xFFF9A825);
-  final opacity = theme.brightness == Brightness.dark ? 0.30 : 0.16;
-  return Color.alphaBlend(
-    accent.withValues(alpha: opacity),
-    theme.colorScheme.surfaceContainerLowest,
-  );
-}

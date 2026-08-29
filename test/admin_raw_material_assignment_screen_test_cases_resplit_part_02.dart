@@ -60,6 +60,54 @@ void _registeradmin_raw_material_assignment_screen_testCases02() {
     }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
   });
 
+  testWidgets('assignment screen explains rejected roll and blocks save', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    final client = _RawMaterialAssignmentHttpClient(
+      seenRequests,
+      diagnosticCompatible: false,
+      diagnosticReason: 'raw_material_roll_size_mismatch',
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.kalmar),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminRawMaterialAssignmentScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('QR orqali'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('QR skanerlash'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '30AA');
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Mos emas: rulon eni 980 mm; talab qilinadigan minimum 985 mm.',
+        ),
+        findsOneWidget,
+      );
+      final assignButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Ulash'),
+      );
+      expect(assignButton.onPressed, isNull);
+    }, createHttpClient: (_) => client);
+  });
+
   testWidgets('scanned assignment shows its order and can be safely unlinked', (
     tester,
   ) async {

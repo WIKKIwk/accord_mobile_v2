@@ -1149,6 +1149,35 @@ void main() {
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
 
+  test('raw material diagnostics expose the rejected roll dimensions',
+      () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+
+    await HttpOverrides.runZoned(() async {
+      final diagnostic =
+          await MobileApi.instance.adminRawMaterialAssignmentDiagnostics(
+        barcode: 'RM-UNDER',
+        orderId: 'zakaz-1',
+        apparatus: 'apparatus:default:asset-005',
+      );
+
+      expect(
+        seenRequests,
+        contains(
+          'GET /v1/mobile/admin/raw-material-assignments/diagnostics?'
+          'barcode=RM-UNDER&order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-005',
+        ),
+      );
+      expect(diagnostic.compatible, isFalse);
+      expect(diagnostic.reason, 'raw_material_roll_size_mismatch');
+      expect(diagnostic.orderWidthMm, 985);
+      expect(diagnostic.rollWidthMm, 980);
+      expect(diagnostic.minimumWidthMm, 985);
+      expect(diagnostic.maximumWidthMm, 1005);
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
   test('requirement group validation status comes from backend', () {
     const requirements = AdminRawMaterialStartRequirements(
       policy: AdminRawMaterialStartPolicy.requirementGroups,
@@ -1737,7 +1766,7 @@ void main() {
           isA<MobileApiException>().having(
             (error) => error.message,
             'message',
-            'Bu rulon bu buyurtma uchun mos emas',
+            'Mos emas: rulon eni 980 mm; talab qilinadigan minimum 985 mm.',
           ),
         ),
       );
@@ -1745,6 +1774,48 @@ void main() {
         createHttpClient: (_) => _RawMaterialApiHttpClient(
               seenRequests,
               assignmentErrorCode: 'raw_material_roll_size_mismatch',
+              assignmentErrorOrderWidthMm: 985,
+              assignmentErrorRollWidthMm: 980,
+              assignmentErrorMinimumWidthMm: 985,
+              assignmentErrorMaximumWidthMm: 1005,
+            ));
+  });
+
+  test('raw material assignment explains oversized rulon range', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await expectLater(
+        MobileApi.instance.adminAssignRawMaterialToOrder(
+          orderId: 'zakaz-1',
+          barcode: 'RM-ROLL',
+        ),
+        throwsA(
+          isA<MobileApiException>().having(
+            (error) => error.message,
+            'message',
+            'Mos emas: rulon eni 1020 mm; ruxsat etilgan oraliq 985 mm–1005 mm.',
+          ),
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              assignmentErrorCode: 'raw_material_roll_size_mismatch',
+              assignmentErrorOrderWidthMm: 985,
+              assignmentErrorRollWidthMm: 1020,
+              assignmentErrorMinimumWidthMm: 985,
+              assignmentErrorMaximumWidthMm: 1005,
             ));
   });
 
@@ -1792,6 +1863,10 @@ class _RawMaterialApiHttpClient implements HttpClient {
     this.assignmentErrorCode = '',
     this.assignmentErrorOrderTitle = '',
     this.assignmentErrorApparatusOptions = const [],
+    this.assignmentErrorOrderWidthMm,
+    this.assignmentErrorRollWidthMm,
+    this.assignmentErrorMinimumWidthMm,
+    this.assignmentErrorMaximumWidthMm,
     this.unlinkErrorCode = '',
     this.unlinkErrorOrderTitle = '',
     this.unlinkErrorRawMaterialStatus = '',
@@ -1809,6 +1884,10 @@ class _RawMaterialApiHttpClient implements HttpClient {
   final String assignmentErrorCode;
   final String assignmentErrorOrderTitle;
   final List<String> assignmentErrorApparatusOptions;
+  final double? assignmentErrorOrderWidthMm;
+  final double? assignmentErrorRollWidthMm;
+  final double? assignmentErrorMinimumWidthMm;
+  final double? assignmentErrorMaximumWidthMm;
   final String unlinkErrorCode;
   final String unlinkErrorOrderTitle;
   final String unlinkErrorRawMaterialStatus;
@@ -2369,6 +2448,26 @@ class _RawMaterialApiHttpClient implements HttpClient {
             'match_type': 'closest_width',
           },
         ];
+      case 'GET /v1/mobile/admin/raw-material-assignments/diagnostics?barcode=RM-UNDER&order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-005':
+        body = const {
+          'barcode': 'RM-UNDER',
+          'compatible': false,
+          'reason': 'raw_material_roll_size_mismatch',
+          'item_code': 'ROLL-980',
+          'item_name': 'CPP 980/35',
+          'item_group': 'Rulon',
+          'warehouse': 'Kalidor',
+          'stock_status': 'available',
+          'reserved_order_id': '',
+          'apparatus_options': ['apparatus:default:asset-005'],
+          'order_id': 'zakaz-1',
+          'order_title': 'Zakaz 1',
+          'apparatus': 'apparatus:default:asset-005',
+          'order_width_mm': 985,
+          'roll_width_mm': 980,
+          'minimum_width_mm': 985,
+          'maximum_width_mm': 1005,
+        };
       case 'GET /v1/mobile/admin/raw-material-intake-candidates?order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-005':
         body = const [
           {
@@ -2389,6 +2488,14 @@ class _RawMaterialApiHttpClient implements HttpClient {
               'order_title': assignmentErrorOrderTitle,
             if (assignmentErrorApparatusOptions.isNotEmpty)
               'apparatus_options': assignmentErrorApparatusOptions,
+            if (assignmentErrorOrderWidthMm != null)
+              'order_width_mm': assignmentErrorOrderWidthMm,
+            if (assignmentErrorRollWidthMm != null)
+              'roll_width_mm': assignmentErrorRollWidthMm,
+            if (assignmentErrorMinimumWidthMm != null)
+              'minimum_width_mm': assignmentErrorMinimumWidthMm,
+            if (assignmentErrorMaximumWidthMm != null)
+              'maximum_width_mm': assignmentErrorMaximumWidthMm,
           };
           return _FakeHttpClientRequest(
             response: _FakeHttpClientResponse(

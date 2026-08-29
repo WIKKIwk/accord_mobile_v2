@@ -192,6 +192,7 @@ extension __SequenceRawMaterialAssignmentSheetStateAstPart01
       return;
     }
     setState(() {
+      ++_qrDiagnosticRequestId;
       _qrScannerVisible = !_qrScannerVisible;
       if (_qrScannerVisible) {
         _qrScannerStatus = context.l10n.adminText(
@@ -220,6 +221,7 @@ extension __SequenceRawMaterialAssignmentSheetStateAstPart01
     }
     _lastQrScanValue = key;
     _lastQrScanAt = now;
+    final diagnosticRequestId = ++_qrDiagnosticRequestId;
 
     AdminRawMaterialAssignmentCandidate? matchedCandidate;
     for (final candidate in _candidates) {
@@ -232,11 +234,44 @@ extension __SequenceRawMaterialAssignmentSheetStateAstPart01
       return;
     }
     if (matchedCandidate == null) {
-      setState(
-        () => _qrScannerStatus = context.l10n.adminText(
-          'production.assignment.qr_not_found',
-        ),
-      );
+      final diagnosticOrderId = widget.order.map.id.trim();
+      final diagnosticApparatus = _selectedApparatus.trim();
+      try {
+        final diagnostic =
+            await MobileApi.instance.adminRawMaterialAssignmentDiagnostics(
+          barcode: normalized,
+          orderId: diagnosticOrderId,
+          apparatus: diagnosticApparatus,
+        );
+        if (!mounted ||
+            diagnosticRequestId != _qrDiagnosticRequestId ||
+            _lastQrScanValue != key ||
+            widget.order.map.id.trim() != diagnosticOrderId ||
+            _selectedApparatus.trim() != diagnosticApparatus) {
+          return;
+        }
+        setState(
+          () => _qrScannerStatus = _sequenceRawMaterialDiagnosticMessage(
+            context,
+            diagnostic,
+          ),
+        );
+      } catch (error) {
+        if (!mounted ||
+            diagnosticRequestId != _qrDiagnosticRequestId ||
+            _lastQrScanValue != key ||
+            widget.order.map.id.trim() != diagnosticOrderId ||
+            _selectedApparatus.trim() != diagnosticApparatus) {
+          return;
+        }
+        setState(
+          () => _qrScannerStatus = error is MobileApiException
+              ? error.message
+              : context.l10n.adminText(
+                  'production.assignment.diagnostic_failed',
+                ),
+        );
+      }
       return;
     }
     final apparatus = _selectedApparatus.trim();
@@ -285,6 +320,7 @@ extension __SequenceRawMaterialAssignmentSheetStateAstPart01
       return;
     }
     setState(() {
+      ++_qrDiagnosticRequestId;
       _selectedApparatus = normalized;
       _apparatusFilterExpanded = false;
       _selectedCandidateBarcodes.clear();

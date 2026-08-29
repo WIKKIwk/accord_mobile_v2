@@ -78,7 +78,7 @@ part 'admin_production_map_orders_opened_widgets.dart';
 part 'admin_production_map_orders_completion_widgets.dart';
 part 'admin_production_map_orders_sequence_widgets.dart';
 part 'admin_production_map_orders_sequence_assignment_sheet.dart';
-part 'admin_production_map_orders_sequence_qolip_note_sheet.dart';
+part 'admin_production_map_orders_sequence_qolip_sheet.dart';
 part 'admin_production_map_orders_move_module.dart';
 part 'admin_production_map_orders_progress_printer.dart';
 part 'admin_production_map_orders_progress_qty.dart';

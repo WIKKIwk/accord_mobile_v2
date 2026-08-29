@@ -148,11 +148,13 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
     setState(() {
       _selectedApparatus = normalized;
       _apparatusFilterExpanded = false;
+      _scannedDiagnostic = null;
       _manualCandidatesOrderId = '';
       _manualCandidatesApparatus = '';
       _manualCandidates = const [];
       _manualCandidatesError = null;
     });
+    unawaited(_refreshScannedDiagnostic());
     unawaited(_loadManualCandidates(force: true));
   }
 
@@ -229,11 +231,13 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
     setState(() {
       _selectedOrderId = picked.map.id.trim();
       _syncApparatusFilter(orders);
+      _scannedDiagnostic = null;
       _manualCandidatesOrderId = '';
       _manualCandidatesApparatus = '';
       _manualCandidates = const [];
       _manualCandidatesError = null;
     });
+    unawaited(_refreshScannedDiagnostic());
     if (_tabController.index == 1) {
       await _loadManualCandidates(force: true);
     }
@@ -252,9 +256,12 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
     if (normalized.isEmpty) {
       return;
     }
+    final requestId = ++_scanLookupRequestId;
+    ++_scanDiagnosticRequestId;
     setState(() {
       _scannedBarcode = normalized;
       _scannedMaterial = null;
+      _scannedDiagnostic = null;
       _scanLookupError = '';
       _scanLookupLoading = true;
     });
@@ -262,26 +269,128 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
       final detail = await MobileApi.instance.adminRawMaterialLookup(
         barcode: normalized,
       );
-      if (!mounted) {
+      if (!mounted ||
+          requestId != _scanLookupRequestId ||
+          rawMaterialBarcodeFromQr(_scannedBarcode) != normalized) {
         return;
       }
+      AdminRawMaterialAssignmentDiagnostic? diagnostic;
+      String diagnosticError = '';
+      var diagnosticFailed = false;
+      final diagnosticOrderId = _selectedOrderId.trim();
+      final diagnosticApparatus = _selectedApparatus.trim();
+      final diagnosticRequestId = ++_scanDiagnosticRequestId;
+      if (detail.assignment == null && diagnosticOrderId.isNotEmpty) {
+        try {
+          diagnostic =
+              await MobileApi.instance.adminRawMaterialAssignmentDiagnostics(
+            barcode: normalized,
+            orderId: diagnosticOrderId,
+            apparatus: diagnosticApparatus,
+          );
+        } on MobileApiException catch (error) {
+          diagnosticError = error.message;
+        } catch (_) {
+          diagnostic = null;
+          diagnosticFailed = true;
+        }
+      }
+      if (!mounted ||
+          requestId != _scanLookupRequestId ||
+          rawMaterialBarcodeFromQr(_scannedBarcode) != normalized) {
+        return;
+      }
+      final diagnosticIsCurrent =
+          diagnosticRequestId == _scanDiagnosticRequestId &&
+              diagnosticOrderId == _selectedOrderId.trim() &&
+              diagnosticApparatus == _selectedApparatus.trim();
       setState(() {
         _scannedMaterial = detail;
-        _scanLookupError = '';
+        if (diagnosticIsCurrent) {
+          _scannedDiagnostic = diagnostic;
+          _scanLookupError = diagnosticFailed
+              ? context.l10n.adminText(
+                  'production.assignment.diagnostic_failed',
+                )
+              : diagnosticError;
+        }
       });
+      if (!diagnosticIsCurrent && detail.assignment == null) {
+        unawaited(_refreshScannedDiagnostic());
+      }
     } catch (error) {
-      if (!mounted) {
+      if (!mounted ||
+          requestId != _scanLookupRequestId ||
+          rawMaterialBarcodeFromQr(_scannedBarcode) != normalized) {
         return;
       }
       setState(() {
         _scanLookupError = error is MobileApiException
             ? error.message
             : context.l10n.adminText('raw_material.not_found');
+        _scannedDiagnostic = null;
       });
     } finally {
-      if (mounted) {
+      if (mounted && requestId == _scanLookupRequestId) {
         setState(() => _scanLookupLoading = false);
       }
+    }
+  }
+
+  Future<void> _refreshScannedDiagnostic() async {
+    final requestId = ++_scanDiagnosticRequestId;
+    final barcode = rawMaterialBarcodeFromQr(_scannedBarcode);
+    final orderId = _selectedOrderId.trim();
+    final apparatus = _selectedApparatus.trim();
+    if (barcode.isEmpty ||
+        orderId.isEmpty ||
+        _scannedMaterial?.assignment != null) {
+      return;
+    }
+    try {
+      final diagnostic =
+          await MobileApi.instance.adminRawMaterialAssignmentDiagnostics(
+        barcode: barcode,
+        orderId: orderId,
+        apparatus: apparatus,
+      );
+      if (!mounted ||
+          requestId != _scanDiagnosticRequestId ||
+          barcode != rawMaterialBarcodeFromQr(_scannedBarcode) ||
+          orderId != _selectedOrderId.trim() ||
+          apparatus != _selectedApparatus.trim()) {
+        return;
+      }
+      setState(() {
+        _scannedDiagnostic = diagnostic;
+        _scanLookupError = '';
+      });
+    } on MobileApiException catch (error) {
+      if (!mounted ||
+          requestId != _scanDiagnosticRequestId ||
+          barcode != rawMaterialBarcodeFromQr(_scannedBarcode) ||
+          orderId != _selectedOrderId.trim() ||
+          apparatus != _selectedApparatus.trim()) {
+        return;
+      }
+      setState(() {
+        _scannedDiagnostic = null;
+        _scanLookupError = error.message;
+      });
+    } catch (_) {
+      if (!mounted ||
+          requestId != _scanDiagnosticRequestId ||
+          barcode != rawMaterialBarcodeFromQr(_scannedBarcode) ||
+          orderId != _selectedOrderId.trim() ||
+          apparatus != _selectedApparatus.trim()) {
+        return;
+      }
+      setState(() {
+        _scannedDiagnostic = null;
+        _scanLookupError = context.l10n.adminText(
+          'production.assignment.diagnostic_failed',
+        );
+      });
     }
   }
 
@@ -307,6 +416,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
       setState(() {
         _scannedBarcode = '';
         _scannedMaterial = null;
+        _scannedDiagnostic = null;
         _scanLookupError = '';
         _assignments = [
           saved,

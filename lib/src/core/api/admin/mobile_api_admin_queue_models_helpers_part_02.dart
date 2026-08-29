@@ -59,7 +59,6 @@ class AdminApparatusQueueSnapshot {
     this.stageStates = const {},
     this.orderCustomers = const {},
     this.orderStatuses = const {},
-    this.qolipOrderNotes = const {},
     this.frozenOrdersByApparatus = const {},
   });
 
@@ -73,7 +72,6 @@ class AdminApparatusQueueSnapshot {
       queueActionControls;
   final Map<String, String> orderCustomers;
   final Map<String, AdminProductionOrderStatusDetail> orderStatuses;
-  final Map<String, AdminQolipOrderNote> qolipOrderNotes;
   final Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus;
 
   AdminOrderControlState orderControlFor(String orderId) {

@@ -174,6 +174,67 @@ extension MobileApiAdminRawMaterialsAstPart02 on MobileApi {
         .toList();
   }
 
+  Future<AdminRawMaterialAssignmentDiagnostic>
+      adminRawMaterialAssignmentDiagnostics({
+    required String barcode,
+    String orderId = '',
+    String apparatus = '',
+  }) async {
+    final normalizedBarcode = barcode.trim();
+    final normalizedOrderId = orderId.trim();
+    final normalizedApparatus = _requireCanonicalApparatusId(
+      apparatus,
+      allowEmpty: true,
+    );
+    if (normalizedBarcode.isEmpty) {
+      throw const MobileApiException(
+        code: 'raw_material_invalid_input',
+        message: 'Homashyo QR noto‘g‘ri',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      return AdminRawMaterialAssignmentDiagnostic(
+        barcode: normalizedBarcode,
+        compatible: false,
+        reason: 'no_compatible_active_order',
+        itemCode: '',
+        itemName: '',
+        itemGroup: '',
+        warehouse: '',
+        stockStatus: '',
+        reservedOrderId: '',
+        apparatusOptions:
+            normalizedApparatus.isEmpty ? const [] : [normalizedApparatus],
+        orderId: normalizedOrderId,
+        apparatus: normalizedApparatus,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/raw-material-assignments/diagnostics',
+        ).replace(
+          queryParameters: {
+            'barcode': normalizedBarcode,
+            if (normalizedOrderId.isNotEmpty) 'order_id': normalizedOrderId,
+            if (normalizedApparatus.isNotEmpty)
+              'apparatus': normalizedApparatus,
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'raw_material_assignment_diagnostics',
+      );
+    }
+    return AdminRawMaterialAssignmentDiagnostic.fromJson(
+      await decodeJsonMapPayload(response.body),
+    );
+  }
+
   Future<List<AdminRawMaterialAssignment>> adminRawMaterialIntakeCandidates({
     required String orderId,
     required String apparatus,

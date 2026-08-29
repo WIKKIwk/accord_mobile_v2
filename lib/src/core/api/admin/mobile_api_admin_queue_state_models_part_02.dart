@@ -41,9 +41,6 @@ extension MobileApiAdminQueueState on MobileApi {
               saved.map.id.trim(): saved.map.customerName.trim(),
         },
         orderStatuses: const {},
-        qolipOrderNotes: Map<String, AdminQolipOrderNote>.unmodifiable(
-          _testModeQolipOrderNotes,
-        ),
         frozenOrdersByApparatus: _testModeFrozenOrdersByApparatus(),
       );
       snapshot.validateContract();
@@ -75,7 +72,6 @@ extension MobileApiAdminQueueState on MobileApi {
       orderControls: orderControls,
       orderCustomers: _stringMapOfStrings(payload['order_customers']),
       orderStatuses: _parseAdminOrderStatuses(payload['order_statuses']),
-      qolipOrderNotes: _parseAdminQolipOrderNotes(payload['qolip_order_notes']),
       frozenOrdersByApparatus: _parseAdminFrozenOrdersByApparatus(
         payload['frozen_orders_by_apparatus'],
       ),

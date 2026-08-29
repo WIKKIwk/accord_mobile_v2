@@ -7,6 +7,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.orderCode,
     required this.productTitle,
     required this.customerName,
+    required this.workerMode,
     required this.contractSynchronized,
     required this.showContractWarning,
     required this.blockingReasonCode,
@@ -76,6 +77,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final String orderCode;
   final String productTitle;
   final String? customerName;
+  final bool workerMode;
   final bool contractSynchronized;
   final bool showContractWarning;
   final String blockingReasonCode;

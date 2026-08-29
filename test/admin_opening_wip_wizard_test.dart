@@ -475,8 +475,7 @@ void main() {
     );
   });
 
-  testWidgets(
-      'completed target hides its prior source and keeps the next source',
+  testWidgets('completed target keeps every non-final source available',
       (tester) async {
     const orderId = 'zakaz-opening-wip-stage-advance';
     await MobileApi.instance.adminSaveProductionMap(
@@ -520,13 +519,14 @@ void main() {
     );
     expect(
       tester.state<FormFieldState<String>>(sourceField).value,
-      'lamination',
+      'print',
     );
-    expect(find.text('Laminatsiya 1'), findsOneWidget);
+    expect(find.text('7 ta rangli bosma aparat'), findsOneWidget);
     await tester
         .tap(find.byKey(const ValueKey('opening-wip-source-apparatus')));
     await tester.pumpAndSettle();
-    expect(find.text('7 ta rangli bosma aparat'), findsNothing);
+    expect(find.text('7 ta rangli bosma aparat'), findsWidgets);
+    expect(find.text('Laminatsiya 1'), findsOneWidget);
     expect(find.text('Rezka'), findsNothing);
   });
 

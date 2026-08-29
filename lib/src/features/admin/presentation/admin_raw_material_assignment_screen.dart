@@ -50,8 +50,11 @@ class _AdminRawMaterialAssignmentPanelState
   String _selectedOrderId = '';
   String _scannedBarcode = '';
   AdminRawMaterialLookup? _scannedMaterial;
+  AdminRawMaterialAssignmentDiagnostic? _scannedDiagnostic;
   String _scanLookupError = '';
   bool _scanLookupLoading = false;
+  int _scanLookupRequestId = 0;
+  int _scanDiagnosticRequestId = 0;
   bool _saving = false;
   String? _expandedAssignmentKey;
   String _unlinkingAssignmentKey = '';

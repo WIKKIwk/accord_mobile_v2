@@ -82,7 +82,7 @@ ProductionMapDefinition _openingWipCutoverMap() {
 }
 
 void main() {
-  test('Opening WIP source advances exactly after its target completes', () {
+  test('Opening WIP keeps completed apparatus sources until order closes', () {
     final map = _openingWipCutoverMap();
 
     expect(
@@ -101,7 +101,7 @@ void main() {
           'rezka': 'pending',
         },
       ).map((stage) => stage.nodeId),
-      const ['lamination'],
+      const ['print', 'lamination'],
     );
     expect(
       productionMapOpeningWipSourceStages(

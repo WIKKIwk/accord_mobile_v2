@@ -10,6 +10,10 @@ MobileApiException _adminProductionMapException(
   var details = const <String>[];
   var assignedOrderTitle = '';
   var rawMaterialStatus = '';
+  double? orderWidthMm;
+  double? rollWidthMm;
+  double? minimumWidthMm;
+  double? maximumWidthMm;
   try {
     final payload = jsonDecode(response.body);
     if (payload is Map && payload['error'] is String) {
@@ -36,6 +40,12 @@ MobileApiException _adminProductionMapException(
       assignedOrderTitle = payload['order_title']?.toString().trim() ?? '';
       rawMaterialStatus =
           payload['raw_material_status']?.toString().trim() ?? '';
+      orderWidthMm = _rawMaterialDiagnosticNumber(payload['order_width_mm']);
+      rollWidthMm = _rawMaterialDiagnosticNumber(payload['roll_width_mm']);
+      minimumWidthMm =
+          _rawMaterialDiagnosticNumber(payload['minimum_width_mm']);
+      maximumWidthMm =
+          _rawMaterialDiagnosticNumber(payload['maximum_width_mm']);
     }
   } catch (_) {}
   return MobileApiException(
@@ -136,12 +146,6 @@ MobileApiException _adminProductionMapException(
       'qolip_code_not_found' => 'Qolip QR topilmadi',
       'qolip_code_mismatch' => 'Bu qolip ushbu zakaz mahsulotiga mos emas',
       'qolip_code_required' => 'Kamida bitta qolipni tanlang',
-      'qolip_order_note_not_found' =>
-        'Bu order uchun berilgan qolip qaydi topilmadi',
-      'qolip_order_note_status_invalid' => 'Qolip qaydi holati noto‘g‘ri',
-      'qolip_order_note_in_use' => 'Bu qolip boshqa order uchun band qilingan',
-      'qolip_order_note_load_failed' => 'Qolip qaydi yuklanmadi',
-      'qolip_order_note_save_failed' => 'Qolip qaydi saqlanmadi',
       'qolip_already_in_use' => 'Bu qolip boshqa aparatda ishlatilmoqda',
       'qolip_location_not_found' => 'Bu qolip hozir ombor yachaykasida emas',
       'insufficient_stock' => 'Bu qolip omborda qolmagan',
@@ -163,11 +167,17 @@ MobileApiException _adminProductionMapException(
       'raw_material_group_ambiguous' =>
         'Bu homashyoni qaysi aparatga ulashni tanlang',
       'raw_material_roll_size_missing' => 'Rulon razmeri topilmadi',
-      'raw_material_roll_size_mismatch' =>
-        'Bu rulon bu buyurtma uchun mos emas',
+      'raw_material_roll_size_mismatch' => _rawMaterialRollSizeMismatchMessage(
+          orderWidthMm,
+          rollWidthMm,
+          minimumWidthMm,
+          maximumWidthMm,
+        ),
       'raw_material_invalid_input' => 'Homashyo QR noto‘g‘ri',
       'item group is not assigned to material taminotchi' =>
         'Bu homashyo sizga biriktirilgan guruhlarga kirmaydi',
+      'warehouse is not assigned to material taminotchi' =>
+        'Bu ombor sizga biriktirilmagan',
       'progress_input_invalid' => 'Chiqarilgan miqdorni kiriting',
       'progress_qr_required' => 'Oldingi bosqich QR sini scan qiling',
       'training_input_batch_required' =>
@@ -288,6 +298,42 @@ MobileApiException _adminProductionMapException(
     },
     statusCode: response.statusCode,
   );
+}
+
+double? _rawMaterialDiagnosticNumber(Object? value) {
+  if (value is num && value.isFinite) {
+    return value.toDouble();
+  }
+  return double.tryParse(value?.toString().trim() ?? '');
+}
+
+String _rawMaterialRollSizeMismatchMessage(
+  double? orderWidthMm,
+  double? rollWidthMm,
+  double? minimumWidthMm,
+  double? maximumWidthMm,
+) {
+  final minimum = minimumWidthMm ?? orderWidthMm;
+  if (minimum == null || rollWidthMm == null) {
+    return 'Bu rulon bu buyurtma uchun mos emas';
+  }
+  final roll = _rawMaterialMillimeters(rollWidthMm);
+  final min = _rawMaterialMillimeters(minimum);
+  if (rollWidthMm < minimum) {
+    return 'Mos emas: rulon eni $roll; talab qilinadigan minimum $min.';
+  }
+  if (maximumWidthMm != null) {
+    final max = _rawMaterialMillimeters(maximumWidthMm);
+    return 'Mos emas: rulon eni $roll; ruxsat etilgan oraliq $min–$max.';
+  }
+  return 'Rulon eni $roll, buyurtma talabi $min. Bu rulon mos emas';
+}
+
+String _rawMaterialMillimeters(double value) {
+  final rounded = value.roundToDouble();
+  final text =
+      value == rounded ? rounded.toStringAsFixed(0) : value.toStringAsFixed(1);
+  return '$text mm';
 }
 
 String _rawMaterialAlreadyAssignedMessage(String orderTitle) {
