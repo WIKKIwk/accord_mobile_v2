@@ -2,6 +2,7 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _OrderMapProgressCard extends StatelessWidget {
   const _OrderMapProgressCard({
+    required this.workerMode,
     required this.steps,
     required this.apparatusCatalog,
     required this.orderId,
@@ -15,6 +16,7 @@ class _OrderMapProgressCard extends StatelessWidget {
     required this.onTapApparatus,
   });
 
+  final bool workerMode;
   final List<ProductionMapNode> steps;
   final List<AdminApparatus> apparatusCatalog;
   final String orderId;
@@ -31,6 +33,72 @@ class _OrderMapProgressCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final mapContent = AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: expanded
+          ? Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    children: [
+                      for (var index = 0;
+                          index < steps.length;
+                          index++) ...[
+                        _SequenceStepTile(
+                          node: steps[index],
+                          operation: _canonicalNodeOperation(
+                            steps[index],
+                            apparatusCatalog,
+                          ),
+                          index: index,
+                          isLast: index == steps.length - 1,
+                          status: _orderMapNodeStatus(
+                            steps[index],
+                            orderId: orderId,
+                            currentStation: currentStation,
+                            queueStates: queueStates,
+                            queueStatesByApparatus: queueStatesByApparatus,
+                            stageStates: stageStates,
+                          ),
+                          current: productionMapNodeIsCurrentOccurrence(
+                            node: steps[index],
+                            currentStation: currentStation,
+                            currentStageNodeId: currentStageNodeId,
+                          ),
+                          isDone: _orderMapStepIsDone(
+                            steps: steps,
+                            index: index,
+                            orderId: orderId,
+                            currentStation: currentStation,
+                            queueStates: queueStates,
+                            queueStatesByApparatus: queueStatesByApparatus,
+                            stageStates: stageStates,
+                          ),
+                          onTap: steps[index].kind == 'apparatus' &&
+                                  _orderMapNodeStationId(steps[index])
+                                      .isNotEmpty
+                              ? () => onTapApparatus(steps[index])
+                              : null,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            )
+          : const SizedBox.shrink(),
+    );
+    if (workerMode) {
+      return mapContent;
+    }
     return _orderDetailSurfaceCard(
       context: context,
       padding: EdgeInsets.zero,
@@ -92,71 +160,7 @@ class _OrderMapProgressCard extends StatelessWidget {
               ),
             ),
           ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: expanded
-                ? Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Column(
-                          children: [
-                            for (var index = 0;
-                                index < steps.length;
-                                index++) ...[
-                              _SequenceStepTile(
-                                node: steps[index],
-                                operation: _canonicalNodeOperation(
-                                  steps[index],
-                                  apparatusCatalog,
-                                ),
-                                index: index,
-                                isLast: index == steps.length - 1,
-                                status: _orderMapNodeStatus(
-                                  steps[index],
-                                  orderId: orderId,
-                                  currentStation: currentStation,
-                                  queueStates: queueStates,
-                                  queueStatesByApparatus:
-                                      queueStatesByApparatus,
-                                  stageStates: stageStates,
-                                ),
-                                current: productionMapNodeIsCurrentOccurrence(
-                                  node: steps[index],
-                                  currentStation: currentStation,
-                                  currentStageNodeId: currentStageNodeId,
-                                ),
-                                isDone: _orderMapStepIsDone(
-                                  steps: steps,
-                                  index: index,
-                                  orderId: orderId,
-                                  currentStation: currentStation,
-                                  queueStates: queueStates,
-                                  queueStatesByApparatus:
-                                      queueStatesByApparatus,
-                                  stageStates: stageStates,
-                                ),
-                                onTap: steps[index].kind == 'apparatus' &&
-                                        _orderMapNodeStationId(steps[index])
-                                            .isNotEmpty
-                                    ? () => onTapApparatus(steps[index])
-                                    : null,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
+          mapContent,
         ],
       ),
     );

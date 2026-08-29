@@ -337,12 +337,24 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         },
         mapExpanded: _mapExpanded,
         onToggleMapExpanded: () {
-          setState(() => _mapExpanded = !_mapExpanded);
+          setState(() {
+            final nextExpanded = !_mapExpanded;
+            _mapExpanded = nextExpanded;
+            if (widget.workerMode) {
+              _summaryExpanded = nextExpanded;
+            }
+          });
         },
         onTapMapApparatus: _showMapApparatusWipHistory,
         summaryExpanded: _summaryExpanded,
         onToggleSummaryExpanded: () {
-          setState(() => _summaryExpanded = !_summaryExpanded);
+          setState(() {
+            final nextExpanded = !_summaryExpanded;
+            _summaryExpanded = nextExpanded;
+            if (widget.workerMode) {
+              _mapExpanded = nextExpanded;
+            }
+          });
         },
         onMaterialIntake: _toggleMaterialIntakeMode,
         onStart: () => unawaited(_runQueueAction('start')),

@@ -302,6 +302,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart04 = {
     'en': 'Expected order metrics',
     'ru': 'Ожидаемые показатели заказа',
   },
+  'worker.summary.expected.result_title': {
+    'uz': 'Kutilayotgan natija',
+    'en': 'Expected result',
+    'ru': 'Ожидаемый результат',
+  },
   'worker.summary.expected.subtitle': {
     'uz': 'Buyurtma bo‘yicha taxminiy ma’lumotlar',
     'en': 'Estimated order information',

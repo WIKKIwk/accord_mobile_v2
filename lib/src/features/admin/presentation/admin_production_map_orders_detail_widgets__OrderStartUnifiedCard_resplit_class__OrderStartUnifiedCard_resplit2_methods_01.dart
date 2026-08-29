@@ -455,9 +455,15 @@ extension __OrderStartUnifiedCardAstPart01 on _OrderStartUnifiedCard {
                                 vertical: 16,
                               )
                             : null,
+                        textStyle: workerMode
+                            ? theme.textTheme.titleMedium?.copyWith(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                              )
+                            : null,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(
-                            workerMode ? 18 : 14,
+                            workerMode ? 28 : 14,
                           ),
                         ),
                       ),
@@ -485,9 +491,19 @@ extension __OrderStartUnifiedCardAstPart01 on _OrderStartUnifiedCard {
                                 child: OutlinedButton(
                                   onPressed: actionInFlight ? null : onPause,
                                   style: OutlinedButton.styleFrom(
-                                    minimumSize: const Size.fromHeight(48),
+                                    minimumSize: Size.fromHeight(
+                                      workerMode ? 58 : 48,
+                                    ),
+                                    padding: workerMode
+                                        ? const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 16,
+                                          )
+                                        : null,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
+                                      borderRadius: BorderRadius.circular(
+                                        workerMode ? 28 : 14,
+                                      ),
                                     ),
                                   ),
                                   child: Text(pauseLabel),
@@ -500,9 +516,19 @@ extension __OrderStartUnifiedCardAstPart01 on _OrderStartUnifiedCard {
                                 child: FilledButton(
                                   onPressed: actionInFlight ? null : onComplete,
                                   style: FilledButton.styleFrom(
-                                    minimumSize: const Size.fromHeight(48),
+                                    minimumSize: Size.fromHeight(
+                                      workerMode ? 58 : 48,
+                                    ),
+                                    padding: workerMode
+                                        ? const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 16,
+                                          )
+                                        : null,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
+                                      borderRadius: BorderRadius.circular(
+                                        workerMode ? 28 : 14,
+                                      ),
                                     ),
                                   ),
                                   child: Text(

@@ -151,8 +151,62 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
             children: [
               ListView(
                 controller: controller,
-                padding: const EdgeInsets.fromLTRB(4, 56, 4, 24),
+                padding: EdgeInsets.fromLTRB(
+                  4,
+                  workerMode ? 4 : 56,
+                  4,
+                  24,
+                ),
                 children: [
+                  if (workerMode)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 14, bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 2),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${context.l10n.productionText('worker.qr.report.order_number')}:',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: scheme.onSurfaceVariant,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                  Text(
+                                    _openedOrderDisplayCode(map).trim().isEmpty
+                                        ? '-'
+                                        : _openedOrderDisplayCode(map).trim(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(fontWeight: FontWeight.w900),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          IconButton.filledTonal(
+                            key: const ValueKey(
+                              'production-order-detail-close',
+                            ),
+                            tooltip: context.l10n
+                                .productionText('worker.action.close'),
+                            onPressed: onClose,
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                    ),
                   AnimatedSize(
                     key:
                         const ValueKey('production-order-quick-scanner-motion'),
@@ -274,13 +328,15 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   const SizedBox(height: 10),
                   _OrderSummaryCard(
                     map: map,
+                    workerMode: workerMode,
                     baseMetraj: baseMetraj,
                     orderKg: orderKg,
                     expanded: summaryExpanded,
                     onToggleExpanded: onToggleSummaryExpanded,
                   ),
-                  const SizedBox(height: 10),
+                  if (!workerMode || summaryExpanded) const SizedBox(height: 10),
                   _OrderMapProgressCard(
+                    workerMode: workerMode,
                     steps: steps,
                     apparatusCatalog: apparatusCatalog,
                     orderId: uiState.orderId,
@@ -289,71 +345,24 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     queueStatesByApparatus: queueStatesByApparatus,
                     stageStates: stageStates,
                     currentStageNodeId: uiState.stageNodeId,
-                    expanded: mapExpanded,
+                    expanded: workerMode ? summaryExpanded : mapExpanded,
                     onToggleExpanded: onToggleMapExpanded,
                     onTapApparatus: onTapMapApparatus,
                   ),
                 ],
               ),
-              Positioned(
-                top: 4,
-                left: workerMode ? 18 : null,
-                right: 4,
-                child: workerMode
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 2),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    context.l10n
-                                        .productionText('worker.order.code'),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: scheme.onSurfaceVariant,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                  ),
-                                  Text(
-                                    _openedOrderDisplayCode(map).trim().isEmpty
-                                        ? '-'
-                                        : _openedOrderDisplayCode(map).trim(),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w800),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          IconButton.filledTonal(
-                            key: const ValueKey(
-                              'production-order-detail-close',
-                            ),
-                            tooltip: context.l10n
-                                .productionText('worker.action.close'),
-                            onPressed: onClose,
-                            icon: const Icon(Icons.close_rounded),
-                          ),
-                        ],
-                      )
-                    : IconButton.filledTonal(
-                        key: const ValueKey('production-order-detail-close'),
-                        tooltip: context.l10n
-                            .productionText('worker.action.close'),
-                        onPressed: onClose,
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-              ),
+              if (!workerMode)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: IconButton.filledTonal(
+                    key: const ValueKey('production-order-detail-close'),
+                    tooltip:
+                        context.l10n.productionText('worker.action.close'),
+                    onPressed: onClose,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ),
             ],
           ),
         );

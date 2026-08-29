@@ -4,6 +4,7 @@ part of 'admin_production_map_orders_screen.dart';
 class _OrderSummaryCard extends StatelessWidget {
   const _OrderSummaryCard({
     required this.map,
+    required this.workerMode,
     this.baseMetraj,
     this.orderKg,
     required this.expanded,
@@ -11,6 +12,7 @@ class _OrderSummaryCard extends StatelessWidget {
   });
 
   final ProductionMapDefinition map;
+  final bool workerMode;
   final double? baseMetraj;
   final double? orderKg;
   final bool expanded;
@@ -95,7 +97,9 @@ class _OrderSummaryCard extends StatelessWidget {
                       children: [
                         Text(
                           context.l10n.productionText(
-                            'worker.summary.expected.title',
+                            workerMode
+                                ? 'worker.summary.expected.result_title'
+                                : 'worker.summary.expected.title',
                           ),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
