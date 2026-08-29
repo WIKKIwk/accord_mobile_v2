@@ -355,6 +355,11 @@ class _StaticReferenceVisitor extends RecursiveAstVisitor<void> {
       super.visitSimpleIdentifier(node);
       return;
     }
+    final parent = node.parent;
+    if (parent is Label && identical(parent.label, node)) {
+      super.visitSimpleIdentifier(node);
+      return;
+    }
     final previous = node.token.previous?.lexeme;
     if (previous == '.' || previous == '?.' || previous == r'$') {
       super.visitSimpleIdentifier(node);
@@ -803,6 +808,7 @@ _CollectionSplitPlan? _buildStaticFieldHoist({
   required String classSlug,
   required String splitSuffix,
   required Set<String> staticNames,
+  String? typeSource,
 }) {
   final initializer = variable.initializer;
   if (!isConst || initializer == null) return null;
@@ -810,8 +816,7 @@ _CollectionSplitPlan? _buildStaticFieldHoist({
       source.substring(initializer.offset, initializer.end).trim();
   final otherStaticNames = staticNames.difference({variable.name.lexeme});
   for (final name in otherStaticNames) {
-    if (RegExp('\\b${RegExp.escape(name)}\\b')
-        .hasMatch(initializerSource)) {
+    if (RegExp('\\b${RegExp.escape(name)}\\b').hasMatch(initializerSource)) {
       return null;
     }
   }
@@ -824,7 +829,8 @@ _CollectionSplitPlan? _buildStaticFieldHoist({
     '${sourceFile.parent.path}/${_withoutExtension(sourceFile.path)}_'
     '${classSlug}${splitSuffix}_static_${_safeIdentifier(variable.name.lexeme)}.dart',
   );
-  final body = 'const $symbol = $initializerSource;';
+  final typedPrefix = typeSource == null ? '' : '$typeSource ';
+  final body = 'const $typedPrefix$symbol = $initializerSource;';
   return _CollectionSplitPlan(
     edit: _Edit(initializer.offset, initializer.end, symbol),
     generated: [
@@ -1057,6 +1063,7 @@ _TargetPlan? _buildTarget({
           classSlug: classSlug,
           splitSuffix: splitSuffix,
           staticNames: staticNames,
+          typeSource: variables.type?.toSource(),
         );
         if (hoist == null) continue;
         classFieldEdits.add(hoist.edit);
@@ -1228,6 +1235,7 @@ _TargetPlan? _buildTarget({
         '${partIndex.toString().padLeft(2, '0')}.dart',
       );
       final extensionName = '${_extensionName(classSlug, declaration)}'
+          '${splitSuffix.isEmpty ? '' : '${splitSuffix}_'}'
           '${partIndex.toString().padLeft(2, '0')}';
       final body = '${_extensionHeader(source, declaration, extensionName)}\n'
           '${chunk.join('\n\n')}\n}';

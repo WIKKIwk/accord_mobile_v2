@@ -9,357 +9,76 @@ part of 'godex_rps_renderer.dart';
 class GodexRpsRenderer {
   const GodexRpsRenderer._();
 
-  static const _legacyGraphicNames = _GodexGraphicNames(
-    text: 'TEXTLBL',
-    qr: 'QRLBL',
-  );
+  static const _legacyGraphicNames =
+      _godex_rps_renderer_GodexRpsRenderer_resplit_class_GodexRpsRenderer__legacyGraphicNames_resplit2Value;
   static int _androidGraphicSequence = 0;
 
-  static QrCodeMatrix qrMatrix(String payload) {
-    final normalized = _uppercaseClean(payload);
-    if (normalized.isEmpty) {
-      throw StateError('qr payload is empty');
-    }
-    final qr = _QrCode.encodeText(normalized);
-    return QrCodeMatrix._(
-      qr.size,
-      List<bool>.generate(
-        qr.size * qr.size,
-        (index) => qr.getModule(index % qr.size, index ~/ qr.size),
-        growable: false,
-      ),
-    );
-  }
+  static QrCodeMatrix qrMatrix(String payload) =>
+      _GodexRpsRenderer_qrMatrix_resplit2AstPart(payload);
 
-  static Uint8List render(UsbRpsPrintRequest request) {
-    return _renderJob(
-      request,
-      graphicNames: _legacyGraphicNames,
-      deleteExistingGraphics: true,
-      includeFinalStatus: true,
-    ).bytes;
-  }
+  static Uint8List render(UsbRpsPrintRequest request) =>
+      _GodexRpsRenderer_render_resplit2AstPart(request);
 
   static GodexRpsPrintJob renderAndroid(
     UsbRpsPrintRequest request, {
     String? graphicToken,
-  }) {
-    return _renderJob(
-      request,
-      graphicNames: _androidGraphicNames(graphicToken),
-      deleteExistingGraphics: false,
-      includeFinalStatus: true,
-    );
-  }
+  }) =>
+      _GodexRpsRenderer_renderAndroid_resplit2AstPart(request,
+          graphicToken: graphicToken);
 
   static GodexRpsPrintJob _renderJob(
     UsbRpsPrintRequest request, {
     required _GodexGraphicNames graphicNames,
     required bool deleteExistingGraphics,
     required bool includeFinalStatus,
-  }) {
-    if (request.isQolipCellLabel) {
-      return _renderQolipCell(
-        request,
-        graphicNames: graphicNames,
-        deleteExistingGraphics: deleteExistingGraphics,
-        includeFinalStatus: includeFinalStatus,
-      );
-    }
-    if (request.isQolipCodeLabel ||
-        request.isPaddonCodeLabel ||
-        request.isMaterialProductLabel) {
-      return _renderQolipCode(
-        request,
-        graphicNames: graphicNames,
-        deleteExistingGraphics: deleteExistingGraphics,
-        includeFinalStatus: includeFinalStatus,
-      );
-    }
-    final content = _PackLabelContent(
-      companyName: _uppercaseClean('Accord'),
-      productName: _uppercaseClean(
-        request.itemName.trim().isEmpty ? request.epc : request.itemName,
-      ),
-      kgText: _normalizeKgValue(request.netQty.toStringAsFixed(3)),
-      bruttoText: _normalizeKgValue(request.grossQty.toStringAsFixed(3)),
-      epc: _uppercaseClean(request.epc),
-      qrPayload: _uppercaseClean(request.epc),
-    );
-    final textGraphic = _renderPackEpcGraphic(content);
-    final qrGraphic = _renderQrGraphic(content.qrPayload, 144);
-    final out = BytesBuilder(copy: false);
-
-    void send(String command) {
-      out.add(_ascii(command.replaceFirst(RegExp(r'[\r\n]+$'), '')));
-      out.addByte(13);
-      out.addByte(10);
-    }
-
-    send('^XSET,BUZZER,0');
-    if (deleteExistingGraphics) {
-      send('~MDELG,${graphicNames.text}');
-    }
-    send('~EB,${graphicNames.text},${textGraphic.length}');
-    out.add(textGraphic);
-    if (deleteExistingGraphics) {
-      send('~MDELG,${graphicNames.qr}');
-    }
-    send('~EB,${graphicNames.qr},${qrGraphic.length}');
-    out.add(qrGraphic);
-    final commands = request.isProgressLabel
-        ? _buildProgressCommands(
-            content,
-            graphicNames: graphicNames,
-            grossQty: request.grossQty,
-            progressQty: request.effectiveProgressQty,
-            progressUnit: request.progressUnit.trim().isEmpty
-                ? request.unit
-                : request.progressUnit,
-          )
-        : _buildPackCommands(content, graphicNames: graphicNames);
-    for (final command in commands) {
-      send(command);
-    }
-    if (includeFinalStatus) {
-      send('~S,STATUS');
-    }
-    return GodexRpsPrintJob(
-      bytes: out.takeBytes(),
-      graphicNames: graphicNames.values,
-      labelCount: 1,
-    );
-  }
+  }) =>
+      _GodexRpsRenderer__renderJob_resplit2AstPart(request,
+          graphicNames: graphicNames,
+          deleteExistingGraphics: deleteExistingGraphics,
+          includeFinalStatus: includeFinalStatus);
 
   static GodexRpsPrintJob _renderQolipCell(
     UsbRpsPrintRequest request, {
     required _GodexGraphicNames graphicNames,
     required bool deleteExistingGraphics,
     required bool includeFinalStatus,
-  }) {
-    final cellName = _uppercaseClean(
-      request.itemName.trim().isEmpty ? request.itemCode : request.itemName,
-    );
-    final payload = _uppercaseClean(request.epc);
-    if (payload.isEmpty) {
-      throw StateError('qr payload is empty');
-    }
-    final textGraphic = _renderCellNameGraphic(cellName);
-    final qrGraphic = _renderQrGraphic(payload, 288);
-    final out = BytesBuilder(copy: false);
-
-    void send(String command) {
-      out.add(_ascii(command.replaceFirst(RegExp(r'[\r\n]+$'), '')));
-      out.addByte(13);
-      out.addByte(10);
-    }
-
-    send('^XSET,BUZZER,0');
-    if (deleteExistingGraphics) {
-      send('~MDELG,${graphicNames.text}');
-    }
-    send('~EB,${graphicNames.text},${textGraphic.length}');
-    out.add(textGraphic);
-    if (deleteExistingGraphics) {
-      send('~MDELG,${graphicNames.qr}');
-    }
-    send('~EB,${graphicNames.qr},${qrGraphic.length}');
-    out.add(qrGraphic);
-    send('~S,ESG');
-    send('^AD');
-    send('^XSET,UNICODE,1');
-    send('^XSET,IMMEDIATE,1');
-    send('^XSET,ACTIVERESPONSE,1');
-    send('^XSET,CODEPAGE,16');
-    send('^Q50,3');
-    send('^W50');
-    send('^H10');
-    send('^P1');
-    send('^L');
-    send('Y0,0,${graphicNames.text}');
-    send('Y56,96,${graphicNames.qr}');
-    send('E');
-    if (includeFinalStatus) {
-      send('~S,STATUS');
-    }
-    return GodexRpsPrintJob(
-      bytes: out.takeBytes(),
-      graphicNames: graphicNames.values,
-      labelCount: 1,
-    );
-  }
+  }) =>
+      _GodexRpsRenderer__renderQolipCell_resplit2AstPart(request,
+          graphicNames: graphicNames,
+          deleteExistingGraphics: deleteExistingGraphics,
+          includeFinalStatus: includeFinalStatus);
 
   static GodexRpsPrintJob _renderQolipCode(
     UsbRpsPrintRequest request, {
     required _GodexGraphicNames graphicNames,
     required bool deleteExistingGraphics,
     required bool includeFinalStatus,
-  }) {
-    final name = _uppercaseClean(
-      request.isMaterialProductLabel
-          ? request.materialProductLabelTitle
-          : request.itemName.trim().isEmpty
-              ? request.itemCode
-              : request.itemName,
-    );
-    final payload = _uppercaseClean(request.epc);
-    if (payload.isEmpty) {
-      throw StateError('qr payload is empty');
-    }
-    final footer = _uppercaseClean(request.largeQrLabelFooter(payload));
-    final textGraphic = _renderQolipCodeTextGraphic(name, footer);
-    final qrGraphic = _renderQrGraphic(payload, 288);
-    final out = BytesBuilder(copy: false);
+  }) =>
+      _GodexRpsRenderer__renderQolipCode_resplit2AstPart(request,
+          graphicNames: graphicNames,
+          deleteExistingGraphics: deleteExistingGraphics,
+          includeFinalStatus: includeFinalStatus);
 
-    void send(String command) {
-      out.add(_ascii(command.replaceFirst(RegExp(r'[\r\n]+$'), '')));
-      out.addByte(13);
-      out.addByte(10);
-    }
+  static Uint8List _renderCellNameGraphic(String cellName) =>
+      _GodexRpsRenderer__renderCellNameGraphic_resplit2AstPart(cellName);
 
-    send('^XSET,BUZZER,0');
-    if (deleteExistingGraphics) {
-      send('~MDELG,${graphicNames.text}');
-    }
-    send('~EB,${graphicNames.text},${textGraphic.length}');
-    out.add(textGraphic);
-    if (deleteExistingGraphics) {
-      send('~MDELG,${graphicNames.qr}');
-    }
-    send('~EB,${graphicNames.qr},${qrGraphic.length}');
-    out.add(qrGraphic);
-    send('~S,ESG');
-    send('^AD');
-    send('^XSET,UNICODE,1');
-    send('^XSET,IMMEDIATE,1');
-    send('^XSET,ACTIVERESPONSE,1');
-    send('^XSET,CODEPAGE,16');
-    send('^Q50,3');
-    send('^W50');
-    send('^H10');
-    send('^P1');
-    send('^L');
-    send('Y0,0,${graphicNames.text}');
-    send('Y56,56,${graphicNames.qr}');
-    send('E');
-    if (includeFinalStatus) {
-      send('~S,STATUS');
-    }
-    return GodexRpsPrintJob(
-      bytes: out.takeBytes(),
-      graphicNames: graphicNames.values,
-      labelCount: 1,
-    );
-  }
+  static Uint8List _renderQolipCodeTextGraphic(String name, String code) =>
+      _GodexRpsRenderer__renderQolipCodeTextGraphic_resplit2AstPart(name, code);
 
-  static Uint8List _renderCellNameGraphic(String cellName) {
-    const scale = 8;
-    const width = 400;
-    const height = 96;
-    final bitmap = _MonoBitmap.filled(width, height, light: true);
-    final textWidth = cellName.length * 6 * scale;
-    var cursor = ((width - textWidth) ~/ 2).clamp(0, width - 1);
-    for (final character in cellName.split('')) {
-      _drawChar(bitmap, cursor, 16, scale, character);
-      cursor += 6 * scale;
-    }
-    return _encodeMonoBmp(bitmap.cropInk());
-  }
-
-  static Uint8List _renderQolipCodeTextGraphic(String name, String code) {
-    const width = 400;
-    const height = 400;
-    final bitmap = _MonoBitmap.filled(width, height, light: true);
-
-    void drawCentered(String text, int y, {required int scale}) {
-      final textWidth = text.length * 6 * scale;
-      var cursor = ((width - textWidth) ~/ 2).clamp(0, width - 1);
-      for (final character in text.split('')) {
-        _drawChar(bitmap, cursor, y, scale, character);
-        cursor += 6 * scale;
-      }
-    }
-
-    final nameLines = _wrapTextForEzpl(name, width, 1, 18, 22).take(2);
-    var lineIndex = 0;
-    for (final line in nameLines) {
-      drawCentered(line, lineIndex * 28, scale: 3);
-      lineIndex++;
-    }
-    drawCentered(code, 352, scale: code.length > 33 ? 1 : 2);
-    return _encodeMonoBmp(bitmap.cropInk());
-  }
-
-  static Uint8List renderRepeated(UsbRpsPrintRequest request) {
-    final label = render(request);
-    final output = BytesBuilder(copy: false);
-    final count = request.printCount > 0 ? request.printCount : 1;
-    for (var i = 0; i < count; i++) {
-      output.add(label);
-    }
-    return output.takeBytes();
-  }
+  static Uint8List renderRepeated(UsbRpsPrintRequest request) =>
+      _GodexRpsRenderer_renderRepeated_resplit2AstPart(request);
 
   static GodexRpsPrintJob renderAndroidRepeated(
     UsbRpsPrintRequest request,
-  ) {
-    final output = BytesBuilder(copy: false);
-    final graphicNames = <String>[];
-    final count = request.printCount > 0 ? request.printCount : 1;
-    for (var index = 0; index < count; index++) {
-      final names = _androidGraphicNames(null);
-      final rendered = _renderJob(
-        request,
-        graphicNames: names,
-        deleteExistingGraphics: false,
-        includeFinalStatus: index == count - 1,
-      );
-      output.add(rendered.bytes);
-      graphicNames.addAll(rendered.graphicNames);
-    }
-    return GodexRpsPrintJob(
-      bytes: output.takeBytes(),
-      graphicNames: List.unmodifiable(graphicNames),
-      labelCount: count,
-    );
-  }
+  ) =>
+      _GodexRpsRenderer_renderAndroidRepeated_resplit2AstPart(request);
 
   static List<String> _buildPackCommands(
     _PackLabelContent content, {
     required _GodexGraphicNames graphicNames,
-  }) {
-    final commands = <String>[
-      '~S,ESG',
-      '^AD',
-      '^XSET,UNICODE,1',
-      '^XSET,IMMEDIATE,1',
-      '^XSET,ACTIVERESPONSE,1',
-      '^XSET,CODEPAGE,16',
-      '^Q50,3',
-      '^W50',
-      '^H10',
-      '^P1',
-      '^L',
-      'Y0,0,${graphicNames.text}',
-      'AB,16,72,1,1,0,0,COMPANY: ${content.companyName}',
-    ];
-    final lines = _wrapTextForEzpl(
-      'MAHSULOT NOMI: ${content.productName}',
-      184,
-      1,
-      8,
-      8,
-    ).take(4).toList();
-    for (var i = 0; i < lines.length; i++) {
-      commands.add('AB,16,${112 + i * 40},1,1,0,0,${lines[i]}');
-    }
-    commands.add('AB,16,264,1,1,0,0,NETTO: ${content.kgText} KG');
-    commands.add('AB,16,304,1,1,0,0,BRUTTO: ${content.bruttoText} KG');
-    commands.add('BA,0,24,1,2,42,0,0,${content.epc}');
-    commands.add('Y224,224,${graphicNames.qr}');
-    commands.add('E');
-    return commands;
-  }
+  }) =>
+      _GodexRpsRenderer__buildPackCommands_resplit2AstPart(content,
+          graphicNames: graphicNames);
 
   static List<String> _buildProgressCommands(
     _PackLabelContent content, {
@@ -367,165 +86,35 @@ class GodexRpsRenderer {
     required double grossQty,
     required double progressQty,
     required String progressUnit,
-  }) {
-    final commands = <String>[
-      '~S,ESG',
-      '^AD',
-      '^XSET,UNICODE,1',
-      '^XSET,IMMEDIATE,1',
-      '^XSET,ACTIVERESPONSE,1',
-      '^XSET,CODEPAGE,16',
-      '^Q50,3',
-      '^W50',
-      '^H10',
-      '^P1',
-      '^L',
-      'Y0,0,${graphicNames.text}',
-      'AB,16,72,1,1,0,0,COMPANY: ${content.companyName}',
-    ];
-    final lines = _wrapTextForEzpl(
-      'MAHSULOT NOMI: ${content.productName}',
-      184,
-      1,
-      8,
-      8,
-    ).take(4).toList();
-    for (var i = 0; i < lines.length; i++) {
-      commands.add('AB,16,${112 + i * 40},1,1,0,0,${lines[i]}');
-    }
-    final unit = _uppercaseClean(progressUnit);
-    final qty = _normalizeKgValue(progressQty.toString());
-    final qtyText = unit.isEmpty ? qty : '$qty $unit';
-    commands.add(
-      'AB,16,264,1,1,0,0,KG: ${_normalizeKgValue(grossQty.toString())}',
-    );
-    commands.add('AB,16,304,1,1,0,0,METRAJ: $qtyText');
-    commands.add('BA,0,24,1,2,42,0,0,${content.epc}');
-    commands.add('Y224,224,${graphicNames.qr}');
-    commands.add('E');
-    return commands;
-  }
+  }) =>
+      _GodexRpsRenderer__buildProgressCommands_resplit2AstPart(content,
+          graphicNames: graphicNames,
+          grossQty: grossQty,
+          progressQty: progressQty,
+          progressUnit: progressUnit);
 
-  static _GodexGraphicNames _androidGraphicNames(String? graphicToken) {
-    final rawToken = graphicToken ?? _nextAndroidGraphicToken();
-    var token = rawToken.toUpperCase().replaceAll(RegExp('[^A-Z0-9]'), '');
-    if (token.isEmpty) {
-      token = '0';
-    }
-    if (token.length > 18) {
-      token = token.substring(token.length - 18);
-    }
-    return _GodexGraphicNames(text: 'T$token', qr: 'Q$token');
-  }
+  static _GodexGraphicNames _androidGraphicNames(String? graphicToken) =>
+      _GodexRpsRenderer__androidGraphicNames_resplit2AstPart(graphicToken);
 
-  static String _nextAndroidGraphicToken() {
-    _androidGraphicSequence = (_androidGraphicSequence + 1) & 0xFFFFF;
-    final micros = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
-    final sequence = _androidGraphicSequence.toRadixString(36).padLeft(4, '0');
-    return '$micros$sequence';
-  }
+  static String _nextAndroidGraphicToken() =>
+      _GodexRpsRenderer__nextAndroidGraphicToken_resplit2AstPart();
 
-  static Uint8List _renderPackEpcGraphic(_PackLabelContent content) {
-    final canvas = _MonoBitmap.filled(400, 400, light: true);
-    _drawText(canvas, 16, 0, 2, 'EPC: ${content.epc}');
-    return _encodeMonoBmp(canvas.cropInk());
-  }
+  static Uint8List _renderPackEpcGraphic(_PackLabelContent content) =>
+      _GodexRpsRenderer__renderPackEpcGraphic_resplit2AstPart(content);
 
-  static Uint8List _renderQrGraphic(String payload, int qrBoxDots) {
-    if (payload.isEmpty) throw StateError('qr payload is empty');
-    final qr = _QrCode.encodeText(payload);
-    const quietZone = 4;
-    final moduleCount = qr.size + quietZone * 2;
-    final moduleDots = math.max(qrBoxDots ~/ moduleCount, 1);
-    final drawn = moduleCount * moduleDots;
-    final offset = math.max(qrBoxDots - drawn, 0) ~/ 2;
-    final bitmap = _MonoBitmap.filled(qrBoxDots, qrBoxDots, light: true);
-    for (var y = 0; y < qr.size; y++) {
-      for (var x = 0; x < qr.size; x++) {
-        if (!qr.getModule(x, y)) continue;
-        final startX = offset + (x + quietZone) * moduleDots;
-        final startY = offset + (y + quietZone) * moduleDots;
-        for (var dy = 0; dy < moduleDots; dy++) {
-          for (var dx = 0; dx < moduleDots; dx++) {
-            bitmap.setLight(startX + dx, startY + dy, false);
-          }
-        }
-      }
-    }
-    return _encodeMonoBmp(bitmap);
-  }
+  static Uint8List _renderQrGraphic(String payload, int qrBoxDots) =>
+      _GodexRpsRenderer__renderQrGraphic_resplit2AstPart(payload, qrBoxDots);
 
   static void _drawText(
-      _MonoBitmap canvas, int x, int y, int scale, String text) {
-    var cursor = x;
-    for (final ch in text.split('')) {
-      _drawChar(canvas, cursor, y, scale, ch.toUpperCase());
-      cursor += 6 * scale;
-    }
-  }
+          _MonoBitmap canvas, int x, int y, int scale, String text) =>
+      _GodexRpsRenderer__drawText_resplit2AstPart(canvas, x, y, scale, text);
 
   static void _drawChar(
-      _MonoBitmap canvas, int x, int y, int scale, String ch) {
-    if (ch == ' ') return;
-    final glyph = _glyphRows[ch] ?? const [31, 17, 21, 21, 21, 17, 31];
-    for (var rowIndex = 0; rowIndex < glyph.length; rowIndex++) {
-      for (var col = 0; col < 5; col++) {
-        if ((glyph[rowIndex] & (0x10 >> col)) == 0) continue;
-        for (var dy = 0; dy < scale; dy++) {
-          for (var dx = 0; dx < scale; dx++) {
-            canvas.setLight(
-                x + col * scale + dx, y + rowIndex * scale + dy, false);
-          }
-        }
-      }
-    }
-  }
+          _MonoBitmap canvas, int x, int y, int scale, String ch) =>
+      _GodexRpsRenderer__drawChar_resplit2AstPart(canvas, x, y, scale, ch);
 
-  static Uint8List _encodeMonoBmp(_MonoBitmap src) {
-    final rowBytes = ((src.width + 31) ~/ 32) * 4;
-    final pixelBytes = rowBytes * src.height;
-    const headerBytes = 14 + 40 + 8;
-    final out = BytesBuilder(copy: false);
-    void u16(int value) {
-      out.addByte(value & 0xff);
-      out.addByte((value >> 8) & 0xff);
-    }
-
-    void u32(int value) {
-      out.addByte(value & 0xff);
-      out.addByte((value >> 8) & 0xff);
-      out.addByte((value >> 16) & 0xff);
-      out.addByte((value >> 24) & 0xff);
-    }
-
-    out.add(const [0x42, 0x4d]);
-    u32(headerBytes + pixelBytes);
-    u16(0);
-    u16(0);
-    u32(headerBytes);
-    u32(40);
-    u32(src.width);
-    u32(src.height);
-    u16(1);
-    u16(1);
-    u32(0);
-    u32(pixelBytes);
-    u32(0);
-    u32(0);
-    u32(2);
-    u32(2);
-    out.add(const [0, 0, 0, 0, 0xff, 0xff, 0xff, 0]);
-    for (var y = src.height - 1; y >= 0; y--) {
-      final row = Uint8List(rowBytes);
-      for (var x = 0; x < src.width; x++) {
-        if (src.isLight(x, y)) {
-          row[x ~/ 8] |= 0x80 >> (x % 8);
-        }
-      }
-      out.add(row);
-    }
-    return out.takeBytes();
-  }
+  static Uint8List _encodeMonoBmp(_MonoBitmap src) =>
+      _GodexRpsRenderer__encodeMonoBmp_resplit2AstPart(src);
 
   static List<String> _wrapTextForEzpl(
     String text,
@@ -533,77 +122,24 @@ class GodexRpsRenderer {
     int xMul,
     int pitchDots,
     int minChars,
-  ) {
-    final cleanText = _sanitizeLabelText(text);
-    if (cleanText.isEmpty) return const [''];
-    final charWidth = math.max(pitchDots * math.max(xMul, 1), 1);
-    final widthChars = math.max(minChars, math.max(widthDots ~/ charWidth, 0));
-    final lines =
-        _wrapWordsByCharCount(cleanText, widthChars, breakLong: false);
-    return lines.any((line) => line.length > widthChars)
-        ? _wrapWordsByCharCount(cleanText, widthChars, breakLong: true)
-        : lines;
-  }
+  ) =>
+      _GodexRpsRenderer__wrapTextForEzpl_resplit2AstPart(
+          text, widthDots, xMul, pitchDots, minChars);
 
   static List<String> _wrapWordsByCharCount(String text, int width,
-      {required bool breakLong}) {
-    final lines = <String>[];
-    var current = '';
-    for (final word
-        in text.split(RegExp(r'\s+')).where((word) => word.isNotEmpty)) {
-      final candidate = current.isEmpty ? word : '$current $word';
-      if (candidate.length <= width) {
-        current = candidate;
-        continue;
-      }
-      if (current.isNotEmpty) lines.add(current);
-      if (!breakLong || word.length <= width) {
-        current = word;
-        continue;
-      }
-      var rest = word;
-      while (rest.length > width) {
-        lines.add(rest.substring(0, width));
-        rest = rest.substring(width);
-      }
-      current = rest;
-    }
-    if (current.isNotEmpty) lines.add(current);
-    return lines.isEmpty ? [text] : lines;
-  }
+          {required bool breakLong}) =>
+      _GodexRpsRenderer__wrapWordsByCharCount_resplit2AstPart(text, width,
+          breakLong: breakLong);
 
   static String _uppercaseClean(String value) =>
-      _sanitizeLabelText(value).toUpperCase();
+      _GodexRpsRenderer__uppercaseClean_resplit2AstPart(value);
 
-  static String _sanitizeLabelText(String value) {
-    return value
-        .replaceAll(RegExp(r'[\r\n\^~]'), ' ')
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .join(' ');
-  }
+  static String _sanitizeLabelText(String value) =>
+      _GodexRpsRenderer__sanitizeLabelText_resplit2AstPart(value);
 
-  static String _normalizeKgValue(String text) {
-    var value = _sanitizeLabelText(text);
-    final lowered = value.toLowerCase();
-    if (lowered.startsWith('kg:')) value = value.substring(3).trim();
-    if (value.toLowerCase().endsWith('kg')) {
-      value = value.substring(0, value.length - 2).trim();
-    }
-    final parsed = double.tryParse(value.replaceAll(',', '.'));
-    if (parsed == null || !parsed.isFinite) return value;
-    var formatted = (parsed * 10).round().toString();
-    formatted = (int.parse(formatted) / 10).toStringAsFixed(1);
-    while (formatted.contains('.') && formatted.endsWith('0')) {
-      formatted = formatted.substring(0, formatted.length - 1);
-    }
-    if (formatted.endsWith('.')) {
-      formatted = formatted.substring(0, formatted.length - 1);
-    }
-    return formatted;
-  }
+  static String _normalizeKgValue(String text) =>
+      _GodexRpsRenderer__normalizeKgValue_resplit2AstPart(text);
 
   static Uint8List _ascii(String value) =>
-      Uint8List.fromList(value.codeUnits.map((unit) => unit & 0xff).toList());
+      _GodexRpsRenderer__ascii_resplit2AstPart(value);
 }

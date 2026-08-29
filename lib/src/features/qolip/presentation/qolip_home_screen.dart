@@ -46,3 +46,7 @@ part 'qolip_home_screen_helpers_part_05.dart';
 part 'qolip_home_screen__QolipBlockGrid_resplit_class.dart';
 part 'qolip_home_screen_models_resplit_part_01.dart';
 part 'qolip_home_screen_models_resplit_part_02.dart';
+part 'qolip_home_screen__QolipBlockGrid_resplit_class__QolipBlockGrid_resplit2_static__letters.dart';
+part 'qolip_home_screen__QolipBlockGrid_resplit_class__QolipBlockGrid_resplit2_static__gridRowCount.dart';
+part 'qolip_home_screen__QolipBlockGrid_resplit_class__QolipBlockGrid_resplit2_methods_01.dart';
+part 'qolip_home_screen__QolipBlockGrid_resplit_class__QolipBlockGrid_resplit2_static_methods_01.dart';

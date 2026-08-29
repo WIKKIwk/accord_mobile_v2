@@ -52,6 +52,9 @@ part 'gscale_mobile_app_declarations_part_09.dart';
 part 'gscale_mobile_app_helpers_part_10.dart';
 part 'gscale_mobile_app_helpers_part_11.dart';
 part 'gscale_mobile_app__OperatorDashboardPageState_resplit_class.dart';
+part 'gscale_mobile_app__OperatorDashboardPageState_resplit_class__OperatorDashboardPageState_resplit2_methods_01.dart';
+part 'gscale_mobile_app__OperatorDashboardPageState_resplit_class__OperatorDashboardPageState_resplit2_methods_02.dart';
+part 'gscale_mobile_app__OperatorDashboardPageState_resplit_class__OperatorDashboardPageState_resplit2_methods_03.dart';
 
 const _defaultApiPort = 39117;
 const _discoveryPort = 18081;

@@ -110,3 +110,7 @@ import 'package:flutter/material.dart';
 
 part 'app_router_declarations_part_01.dart';
 part 'app_router_AppRouter_resplit_class.dart';
+part 'app_router_AppRouter_resplit_class_AppRouter_resplit2_static_staticDockRoutes.dart';
+part 'app_router_AppRouter_resplit_class_AppRouter_resplit2_static__routeCapabilities.dart';
+part 'app_router_AppRouter_resplit_class_AppRouter_resplit2_static_methods_01.dart';
+part 'app_router_AppRouter_resplit_class_AppRouter_resplit2_static_methods_02.dart';

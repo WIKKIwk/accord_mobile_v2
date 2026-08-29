@@ -333,9 +333,12 @@ extension MobileApiAdminRawMaterialsAstPart02 on MobileApi {
             message: 'Bu homashyo allaqachon shu zakazga ulangan',
           );
         }
-        throw const MobileApiException(
+        final existingOrder = _testModeOrderById(item.orderId);
+        throw MobileApiException(
           code: 'raw_material_already_assigned',
-          message: 'Bu homashyo boshqa zakaz uchun band qilingan',
+          message: _rawMaterialAlreadyAssignedMessage(
+            existingOrder?.map.title ?? item.orderId,
+          ),
         );
       }
       _testModeRawMaterialAssignments.removeWhere(

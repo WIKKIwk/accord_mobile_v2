@@ -8,6 +8,9 @@ part 'godex_rps_renderer_declarations_part_01.dart';
 part 'godex_rps_renderer_declarations_part_02.dart';
 part 'godex_rps_renderer_declarations_part_03.dart';
 part 'godex_rps_renderer_GodexRpsRenderer_resplit_class.dart';
+part 'godex_rps_renderer_GodexRpsRenderer_resplit_class_GodexRpsRenderer_resplit2_static__legacyGraphicNames.dart';
+part 'godex_rps_renderer_GodexRpsRenderer_resplit_class_GodexRpsRenderer_resplit2_static_methods_01.dart';
+part 'godex_rps_renderer_GodexRpsRenderer_resplit_class_GodexRpsRenderer_resplit2_static_methods_02.dart';
 
 const Map<String, List<int>> _glyphRows = {
   'A': [14, 17, 17, 31, 17, 17, 17],

@@ -8,6 +8,7 @@ MobileApiException _adminProductionMapException(
   String code = fallbackCode;
   var apparatusOptions = const <String>[];
   var details = const <String>[];
+  var assignedOrderTitle = '';
   try {
     final payload = jsonDecode(response.body);
     if (payload is Map && payload['error'] is String) {
@@ -29,6 +30,9 @@ MobileApiException _adminProductionMapException(
               blocker['message']?.toString().trim().isNotEmpty == true)
             blocker['message'].toString().trim(),
       ];
+    }
+    if (payload is Map) {
+      assignedOrderTitle = payload['order_title']?.toString().trim() ?? '';
     }
   } catch (_) {}
   return MobileApiException(
@@ -144,8 +148,9 @@ MobileApiException _adminProductionMapException(
       'raw_material_assignment_not_found' => 'Homashyo biriktirilmagan',
       'raw_material_assignment_locked' =>
         'Bu homashyo allaqachon ishga tushgan yoki ishlatilgan, uzib bo‘lmaydi',
-      'raw_material_already_assigned' =>
-        'Bu homashyo boshqa zakaz uchun band qilingan',
+      'raw_material_already_assigned' => _rawMaterialAlreadyAssignedMessage(
+          assignedOrderTitle,
+        ),
       'raw_material_already_assigned_to_order' =>
         'Bu homashyo allaqachon shu zakazga ulangan',
       'raw_material_group_not_allowed' =>
@@ -278,6 +283,13 @@ MobileApiException _adminProductionMapException(
     },
     statusCode: response.statusCode,
   );
+}
+
+String _rawMaterialAlreadyAssignedMessage(String orderTitle) {
+  final title = orderTitle.trim();
+  return title.isEmpty
+      ? 'Bu homashyo boshqa zakaz uchun band qilingan'
+      : 'Bu homashyo “$title” buyurtmasi uchun band qilingan';
 }
 
 String _adminProductionMapUnknownErrorMessage({
