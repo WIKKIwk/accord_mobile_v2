@@ -97,7 +97,6 @@ class _AdminModulesBody extends StatelessWidget {
     required this.customerNameByMapId,
     required this.queueStatesByApparatus,
     required this.visibleOrderIdsByApparatus,
-    required this.frozenOrdersByApparatus,
     required this.orderStatusesByOrderId,
     required this.qolipOrderNotesByOrderId,
     this.sequenceInteractionHint,
@@ -164,7 +163,6 @@ class _AdminModulesBody extends StatelessWidget {
   final Map<String, String> customerNameByMapId;
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
-  final Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminQolipOrderNote> qolipOrderNotesByOrderId;
   final String? sequenceInteractionHint;
@@ -245,13 +243,6 @@ class _AdminModulesBody extends StatelessWidget {
                           : _queueStatesForApparatus(
                               selectedApparatus!,
                               queueStatesByApparatus: queueStatesByApparatus,
-                            ),
-                      frozenOrders: selectedApparatus == null
-                          ? const []
-                          : _productionMapFrozenOrdersForApparatus(
-                              apparatus: selectedApparatus!,
-                              frozenOrdersByApparatus: frozenOrdersByApparatus,
-                              query: searchQuery,
                             ),
                       orderStatusesByOrderId: orderStatusesByOrderId,
                       qolipOrderNotesByOrderId: qolipOrderNotesByOrderId,

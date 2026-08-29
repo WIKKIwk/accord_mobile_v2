@@ -81,7 +81,6 @@ extension __AdminProductionMapOrdersScreenStateAstPart03
       visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
       sequenceByApparatus: _sequenceByApparatus,
       queueStatesByApparatus: _queueStatesByApparatus,
-      orderControlsByOrderId: _orderControlsByOrderId,
       workerMode: widget.workerMode,
       query: _searchQuery,
     );

@@ -166,6 +166,183 @@ void _registeradmin_production_map_test_screen_testCases17() {
     );
   });
 
+  testWidgets('frozen orders stay in the common worker sequence rows',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = _godexId;
+    const orderId = 'zakaz-common-frozen-worker-row';
+    await AppSession.instance.setSession(
+      token: 'common-frozen-worker-token',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Aparatchi',
+        legalName: '',
+        ref: 'common-frozen-worker',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read'],
+        assignedApparatus: [apparatus],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Common frozen worker row',
+        productCode: 'CFSR',
+        apparatusId: apparatus,
+        product: 'common frozen worker row product',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'freeze',
+      freezeWithIssue: true,
+      issueNote: 'Common row issue',
+    );
+    await _usePhoneViewport(tester);
+    final theme = ThemeData(useMaterial3: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('worker-order-$orderId')),
+      findsOneWidget,
+    );
+    final workerRow = find.byKey(const ValueKey('worker-order-$orderId'));
+    expect(
+      tester
+          .widget<Material>(
+            find.descendant(of: workerRow, matching: find.byType(Material))
+                .first,
+          )
+          .color,
+      Color.alphaBlend(
+        const Color(0xFFC62828).withValues(alpha: 0.16),
+        theme.colorScheme.surfaceContainerLowest,
+      ),
+    );
+    expect(find.text('Frozen — $orderId'), findsNothing);
+  });
+
+  testWidgets('frozen orders stay in the common admin sequence rows',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = _godexId;
+    const orderId = 'zakaz-common-frozen-admin-row';
+    await AppSession.instance.setSession(
+      token: 'common-frozen-admin-token',
+      profile: const SessionProfile(
+        role: UserRole.admin,
+        displayName: 'Admin',
+        legalName: '',
+        ref: 'common-frozen-admin',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['admin.access'],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Common frozen admin row',
+        productCode: 'CFAR',
+        apparatusId: apparatus,
+        product: 'common frozen admin row product',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'freeze',
+      freezeWithIssue: true,
+      issueNote: 'Common admin row issue',
+    );
+    await _usePhoneViewport(tester);
+    final theme = ThemeData(useMaterial3: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ketma-ketlik'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.text('Aparat: ${_fixtureApparatusName(apparatus)}'),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        ValueKey('admin-filter-option-${_fixtureApparatusName(apparatus)}'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('sequence-$apparatus-$orderId')),
+      findsOneWidget,
+    );
+    final adminRow = find.byKey(
+      const ValueKey('sequence-$apparatus-$orderId'),
+    );
+    expect(
+      tester
+          .widget<Material>(
+            find.descendant(of: adminRow, matching: find.byType(Material))
+                .first,
+          )
+          .color,
+      Color.alphaBlend(
+        const Color(0xFFC62828).withValues(alpha: 0.16),
+        theme.colorScheme.surfaceContainerLowest,
+      ),
+    );
+    expect(find.text('Frozen — $orderId'), findsNothing);
+  });
+
   testWidgets('opened order cards color active laminatsiya stages', (
     tester,
   ) async {

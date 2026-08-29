@@ -10,7 +10,6 @@ class _WorkerWatchBody extends StatelessWidget {
     required this.sequenceByApparatus,
     required this.visibleOrderIdsByApparatus,
     required this.queueStatesByApparatus,
-    required this.frozenOrdersByApparatus,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
     required this.searchQuery,
@@ -28,7 +27,6 @@ class _WorkerWatchBody extends StatelessWidget {
   final Map<String, List<String>> sequenceByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
   final Map<String, Map<String, String>> queueStatesByApparatus;
-  final Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final String searchQuery;
@@ -58,7 +56,6 @@ class _WorkerWatchBody extends StatelessWidget {
       visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
       sequenceByApparatus: sequenceByApparatus,
       queueStatesByApparatus: queueStatesByApparatus,
-      orderControlsByOrderId: orderControlsByOrderId,
       workerMode: true,
       query: searchQuery,
     );
@@ -122,11 +119,6 @@ class _WorkerWatchBody extends StatelessWidget {
                       tab.apparatus!,
                       queueStatesByApparatus: queueStatesByApparatus,
                     ),
-                    frozenOrders: _productionMapFrozenOrdersForApparatus(
-                      apparatus: tab.apparatus!,
-                      frozenOrdersByApparatus: frozenOrdersByApparatus,
-                      query: searchQuery,
-                    ),
                     orderStatusesByOrderId: orderStatusesByOrderId,
                     orderControlsByOrderId: orderControlsByOrderId,
                     onTapOrder: (order) => onTapWatchOrder(
@@ -155,7 +147,6 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
     required this.bottomPadding,
     required this.isAssigned,
     required this.queueStates,
-    required this.frozenOrders,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
     required this.onTapOrder,
@@ -167,7 +158,6 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
   final double bottomPadding;
   final bool isAssigned;
   final Map<String, String> queueStates;
-  final List<AdminFrozenQueueOrder> frozenOrders;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final ValueChanged<ProductionMapSaved> onTapOrder;
@@ -198,7 +188,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                 ),
               ),
             ),
-          if (orders.isEmpty && frozenOrders.isEmpty)
+          if (orders.isEmpty)
             _EmptyOpenedOrders(
               message: context.l10n.productionText(
                 'worker.queue.empty.orders',
@@ -239,10 +229,6 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                   ),
               ],
             ),
-          if (frozenOrders.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            _FrozenQueueOrdersSection(orders: frozenOrders),
-          ],
         ],
       ),
     );

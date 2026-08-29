@@ -254,7 +254,6 @@ class _AdminProductionMapOrdersScreenState
                               visibleOrderIdsByApparatus:
                                   _visibleOrderIdsByApparatus,
                               queueStatesByApparatus: _queueStatesByApparatus,
-                              frozenOrdersByApparatus: _frozenOrdersByApparatus,
                               orderStatusesByOrderId: _orderStatusesByOrderId,
                               orderControlsByOrderId: _orderControlsByOrderId,
                               searchQuery: _searchQuery,
@@ -323,7 +322,6 @@ class _AdminProductionMapOrdersScreenState
                               queueStatesByApparatus: _queueStatesByApparatus,
                               visibleOrderIdsByApparatus:
                                   _visibleOrderIdsByApparatus,
-                              frozenOrdersByApparatus: _frozenOrdersByApparatus,
                               orderStatusesByOrderId: _orderStatusesByOrderId,
                               qolipOrderNotesByOrderId:
                                   _qolipOrderNotesByOrderId,

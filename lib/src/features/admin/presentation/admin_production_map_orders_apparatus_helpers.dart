@@ -105,7 +105,6 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
   required Map<String, List<String>> visibleOrderIdsByApparatus,
   required Map<String, List<String>> sequenceByApparatus,
   required Map<String, Map<String, String>> queueStatesByApparatus,
-  required Map<String, AdminOrderControlState> orderControlsByOrderId,
   required bool workerMode,
   required String query,
 }) {
@@ -118,29 +117,23 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
     apparatus,
     queueStatesByApparatus: queueStatesByApparatus,
   );
-  final activeOrders = visibleOrders.where(
+  final queueOrders = visibleOrders.where(
     (order) {
       final orderId = order.map.id.trim();
       final state = apparatusQueueOrderStateFromRaw(states[orderId]);
-      final orderControl = adminProductionMapOrderControlFor(
-        orderControlsByOrderId,
-        orderId,
-      );
-      return state != ApparatusQueueOrderState.completed &&
-          state != ApparatusQueueOrderState.frozen &&
-          orderControl != AdminOrderControlState.frozen;
+      return state != ApparatusQueueOrderState.completed;
     },
   ).toList(growable: false);
   final sequence = _sequenceOrderIdsForApparatus(
     apparatus,
     sequenceByApparatus: sequenceByApparatus,
   );
-  final activeOrderIds = activeOrders.map((order) => order.map.id).toList();
+  final queueOrderIds = queueOrders.map((order) => order.map.id).toList();
   final ordered = _applyApparatusOrderSequence(
-    orders: activeOrders,
+    orders: queueOrders,
     sequence: effectiveQueueSequence(
       sequence: sequence,
-      visibleOrderIds: activeOrderIds,
+      visibleOrderIds: queueOrderIds,
     ),
   );
   if (!workerMode) {
@@ -162,25 +155,4 @@ List<ProductionMapSaved> _applyApparatusOrderSequence({
       if (byId.containsKey(id)) byId.remove(id)!,
     ...byId.values,
   ];
-}
-
-List<AdminFrozenQueueOrder> _productionMapFrozenOrdersForApparatus({
-  required AdminApparatus apparatus,
-  required Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus,
-  required String query,
-}) {
-  final matching = frozenOrdersByApparatus[apparatus.id.trim()] ??
-      const <AdminFrozenQueueOrder>[];
-  final normalizedQuery = query.trim().toLowerCase();
-  if (normalizedQuery.isEmpty) {
-    return matching;
-  }
-  return matching
-      .where(
-        (frozen) =>
-            frozen.orderId.toLowerCase().contains(normalizedQuery) ||
-            frozen.issueNote.toLowerCase().contains(normalizedQuery) ||
-            frozen.apparatus.toLowerCase().contains(normalizedQuery),
-      )
-      .toList(growable: false);
 }

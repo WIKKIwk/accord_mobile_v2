@@ -11,7 +11,6 @@ class _SequenceModulePage extends StatefulWidget {
     required this.readOnly,
     required this.customerNameByMapId,
     required this.queueStates,
-    required this.frozenOrders,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
     required this.qolipOrderNotesByOrderId,
@@ -30,7 +29,6 @@ class _SequenceModulePage extends StatefulWidget {
   final bool readOnly;
   final Map<String, String> customerNameByMapId;
   final Map<String, String> queueStates;
-  final List<AdminFrozenQueueOrder> frozenOrders;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final Map<String, AdminQolipOrderNote> qolipOrderNotesByOrderId;
@@ -61,7 +59,6 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
   Widget build(BuildContext context) {
     final selected = widget.apparatus;
     final orders = widget.orders;
-    final frozenOrders = widget.frozenOrders;
     final notifications = widget.completionRequests;
     final notificationSection = notifications.isEmpty
         ? const SizedBox.shrink()
@@ -189,16 +186,6 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                 },
               ),
             ),
-            if (frozenOrders.isNotEmpty)
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  _openedOrderPanelCardGap,
-                  12,
-                  _openedOrderPanelCardGap,
-                  widget.bottomPadding,
-                ),
-                child: _FrozenQueueOrdersSection(orders: frozenOrders),
-              ),
           ],
         ),
       );
@@ -242,7 +229,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                 'worker.queue.empty.select_apparatus',
               ),
             )
-          else if (orders.isEmpty && frozenOrders.isEmpty)
+          else if (orders.isEmpty)
             _EmptyOpenedOrders(
               message: context.l10n.productionText(
                 'worker.queue.empty.for_apparatus',
@@ -266,10 +253,6 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                   ),
               ],
             ),
-          if (frozenOrders.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            _FrozenQueueOrdersSection(orders: frozenOrders),
-          ],
         ],
       ),
     );
@@ -373,45 +356,6 @@ class _SequenceHeaderSelectors extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 10),
-      ],
-    );
-  }
-}
-
-class _FrozenQueueOrdersSection extends StatelessWidget {
-  const _FrozenQueueOrdersSection({required this.orders});
-
-  final List<AdminFrozenQueueOrder> orders;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-          child: Row(
-            children: [
-              Icon(Icons.lock_clock_rounded, size: 18, color: scheme.error),
-              const SizedBox(width: 8),
-              Text(
-                context.l10n.productionText('worker.queue.status.frozen'),
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: scheme.error,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
-        M3SegmentSpacedColumn(
-          padding: EdgeInsets.zero,
-          children: [
-            for (final frozen in orders) _FrozenQueueOrderCard(frozen: frozen),
-          ],
-        ),
       ],
     );
   }
