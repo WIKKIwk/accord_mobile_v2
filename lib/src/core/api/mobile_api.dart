@@ -143,6 +143,7 @@ part 'gscale/mobile_api_gscale_models_part_02.dart';
 part 'gscale/mobile_api_gscale_declarations_part_01.dart';
 part 'werka/mobile_api_werka_MobileApiWerka_methods_02.dart';
 part 'werka/mobile_api_werka_MobileApiWerka_methods_01.dart';
+part 'admin/mobile_api_admin_queue_action_result_test_mode_MobileApiAdminQueueActionResultTestMode_resplit_class.dart';
 
 class MobileApiException implements Exception {
   const MobileApiException({

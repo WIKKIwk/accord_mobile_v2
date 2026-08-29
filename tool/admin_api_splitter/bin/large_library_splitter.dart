@@ -22,6 +22,12 @@ void main(List<String> args) {
           _defaultMaximumPartLines;
   final scope = _argument(args, '--scope');
   final includeTests = args.contains('--include-tests');
+  final resplit = args.contains('--resplit');
+  final generatedOnly = args.contains('--generated-only');
+  if (generatedOnly && !resplit) {
+    throw ArgumentError('--generated-only requires --resplit');
+  }
+  final splitSuffix = generatedOnly ? '_resplit2' : (resplit ? '_resplit' : '');
   final apply = args.contains('--apply');
   final audit = args.contains('--audit');
   final repair = args.contains('--repair');
@@ -47,6 +53,9 @@ void main(List<String> args) {
     minimumLines: minimumLines,
     maximumPartLines: maximumPartLines,
     includeTests: includeTests,
+    resplit: resplit,
+    generatedOnly: generatedOnly,
+    splitSuffix: splitSuffix,
     scope: scope,
   );
 
@@ -225,9 +234,12 @@ bool _hasOverrideAnnotation(MethodDeclaration method) {
   );
 }
 
-bool _isMovableMethod(MethodDeclaration method) {
+bool _isMovableMethod(
+  MethodDeclaration method, {
+  bool allowAccessors = false,
+}) {
   if (method.isStatic || method.externalKeyword != null) return false;
-  if (method.isGetter || method.isSetter) return false;
+  if (!allowAccessors && (method.isGetter || method.isSetter)) return false;
   if (method.body is EmptyFunctionBody) return false;
   if (_hasOverrideAnnotation(method)) return false;
   const lifecycleNames = <String>{
@@ -409,23 +421,6 @@ String _extensionHeader(
   }
 }
 
-String _applyRemovals(
-  String source,
-  int sourceOffset,
-  List<_Range> ranges,
-) {
-  var output = source;
-  final sorted = ranges.toList()..sort((a, b) => b.start.compareTo(a.start));
-  for (final range in sorted) {
-    output = output.replaceRange(
-      range.start - sourceOffset,
-      range.end - sourceOffset,
-      '',
-    );
-  }
-  return output;
-}
-
 String _withPartOf(File generatedFile, File libraryFile, String body) {
   return '$_marker\npart of \'${_partOfUri(generatedFile, libraryFile)}\';\n\n$body\n';
 }
@@ -469,6 +464,38 @@ class _TargetPlan {
   final List<String> movedSnippets;
 }
 
+class _CollectionSplitPlan {
+  const _CollectionSplitPlan({
+    required this.edit,
+    required this.generated,
+    required this.movedSnippets,
+  });
+
+  final _Edit edit;
+  final List<_GeneratedFile> generated;
+  final List<String> movedSnippets;
+}
+
+class _MethodExtractionPlan {
+  const _MethodExtractionPlan({
+    required this.edit,
+    required this.source,
+  });
+
+  final _Edit edit;
+  final String source;
+}
+
+String _declarationSlug(CompilationUnitMember declaration) {
+  return _safeIdentifier(
+    switch (declaration) {
+      ClassDeclaration item => item.namePart.typeName.lexeme,
+      ExtensionDeclaration item => item.name?.lexeme ?? 'extension',
+      _ => 'extension',
+    },
+  );
+}
+
 class _SplitPlan {
   _SplitPlan({
     required this.root,
@@ -491,6 +518,9 @@ class _SplitPlan {
     required int minimumLines,
     required int maximumPartLines,
     required bool includeTests,
+    required bool resplit,
+    required bool generatedOnly,
+    required String splitSuffix,
     String? scope,
   }) {
     if (maximumPartLines < 80) {
@@ -524,8 +554,10 @@ class _SplitPlan {
         continue;
       }
       final source = file.readAsStringSync();
+      final isGenerated = source.contains(_marker);
+      if (generatedOnly != isGenerated) continue;
       if (_lineCount(source) <= minimumLines) continue;
-      if (source.contains(_marker)) continue;
+      if (isGenerated && !generatedOnly) continue;
       if (dirty.contains(relativePath)) {
         skipped.add('$relativePath (dirty checkout)');
         continue;
@@ -552,7 +584,7 @@ class _SplitPlan {
         skipped.add('$relativePath (missing parent library)');
         continue;
       }
-      if (_libraryHasGeneratedParts(libraryFile)) {
+      if (!resplit && _libraryHasGeneratedParts(libraryFile)) {
         skipped.add('$relativePath (library already split)');
         continue;
       }
@@ -568,6 +600,8 @@ class _SplitPlan {
         source: source,
         unit: parsed.unit,
         maximumPartLines: maximumPartLines,
+        resplit: resplit,
+        splitSuffix: splitSuffix,
       );
       if (target == null) {
         skipped.add('$relativePath (no verified AST boundary)');
@@ -675,6 +709,238 @@ bool _libraryHasGeneratedParts(File libraryFile) {
   return false;
 }
 
+_CollectionSplitPlan? _buildCollectionSplit({
+  required String source,
+  required VariableDeclaration variable,
+  required bool isConst,
+  required bool isFinal,
+  required File sourceFile,
+  required File libraryFile,
+  required String namePrefix,
+  required String variableName,
+  required int maximumPartLines,
+  required String splitSuffix,
+}) {
+  final initializer = variable.initializer;
+  final isList = initializer is ListLiteral;
+  final isSetOrMap = initializer is SetOrMapLiteral;
+  if (!isList && !isSetOrMap) return null;
+  if (!isConst && !isFinal) return null;
+
+  final elements = <AstNode>[
+    if (initializer is ListLiteral) ...initializer.elements,
+    if (initializer is SetOrMapLiteral) ...initializer.elements,
+  ];
+  if (elements.length < 2 || initializer == null) return null;
+  final initializerLines = _lineCount(
+    source.substring(initializer.offset, initializer.end),
+  );
+  if (initializerLines <= maximumPartLines) return null;
+
+  final chunkLimit =
+      maximumPartLines > 100 ? maximumPartLines - 6 : maximumPartLines;
+  final chunks = <List<String>>[];
+  var current = <String>[];
+  var currentLines = 0;
+  for (final element in elements) {
+    var elementSource = source.substring(element.offset, element.end).trim();
+    if (elementSource.endsWith(',')) {
+      elementSource = elementSource.substring(0, elementSource.length - 1);
+    }
+    final elementLines = _lineCount(elementSource) + 1;
+    if (current.isNotEmpty && currentLines + elementLines > chunkLimit) {
+      chunks.add(current);
+      current = <String>[];
+      currentLines = 0;
+    }
+    current.add(elementSource);
+    currentLines += elementLines;
+  }
+  if (current.isNotEmpty) chunks.add(current);
+  if (chunks.length < 2) return null;
+
+  final slug = _safeIdentifier(variableName);
+  final symbols = <String>[];
+  final generated = <_GeneratedFile>[];
+  final keyword = isConst ? 'const' : 'final';
+  for (var index = 0; index < chunks.length; index++) {
+    final partNumber = (index + 1).toString().padLeft(2, '0');
+    final symbol = _safeIdentifier(
+      '_${namePrefix}_${slug}${splitSuffix}Part$partNumber',
+    );
+    symbols.add(symbol);
+    final file = File(
+      '${sourceFile.parent.path}/${_withoutExtension(sourceFile.path)}_'
+      '${slug}${splitSuffix}_collection_$partNumber.dart',
+    );
+    final opening = isList ? '[' : '{';
+    final closing = isList ? ']' : '}';
+    final body = '$keyword $symbol = $opening\n'
+        '${chunks[index].map((item) => '$item,').join('\n')}\n$closing;';
+    generated.add(
+      _GeneratedFile(
+        file: file,
+        source: _withPartOf(file, libraryFile, body),
+      ),
+    );
+  }
+
+  final spread = symbols.map((symbol) => '...$symbol').join(', ');
+  final replacement = isList ? '[$spread]' : '{$spread}';
+  return _CollectionSplitPlan(
+    edit: _Edit(initializer.offset, initializer.end, replacement),
+    generated: generated,
+    movedSnippets: generated.map((item) => item.source).toList(),
+  );
+}
+
+_CollectionSplitPlan? _buildStaticFieldHoist({
+  required String source,
+  required VariableDeclaration variable,
+  required bool isConst,
+  required File sourceFile,
+  required File libraryFile,
+  required String classSlug,
+  required String splitSuffix,
+  required Set<String> staticNames,
+}) {
+  final initializer = variable.initializer;
+  if (!isConst || initializer == null) return null;
+  final initializerSource =
+      source.substring(initializer.offset, initializer.end).trim();
+  final otherStaticNames = staticNames.difference({variable.name.lexeme});
+  for (final name in otherStaticNames) {
+    if (RegExp('\\b${RegExp.escape(name)}\\b')
+        .hasMatch(initializerSource)) {
+      return null;
+    }
+  }
+
+  final symbol = _safeIdentifier(
+    '_${_withoutExtension(sourceFile.path)}_${classSlug}_'
+    '${variable.name.lexeme}${splitSuffix}Value',
+  );
+  final file = File(
+    '${sourceFile.parent.path}/${_withoutExtension(sourceFile.path)}_'
+    '${classSlug}${splitSuffix}_static_${_safeIdentifier(variable.name.lexeme)}.dart',
+  );
+  final body = 'const $symbol = $initializerSource;';
+  return _CollectionSplitPlan(
+    edit: _Edit(initializer.offset, initializer.end, symbol),
+    generated: [
+      _GeneratedFile(
+        file: file,
+        source: _withPartOf(file, libraryFile, body),
+      ),
+    ],
+    movedSnippets: [body],
+  );
+}
+
+_MethodExtractionPlan? _buildStaticMethodExtraction({
+  required String source,
+  required MethodDeclaration method,
+  required CompilationUnitMember declaration,
+  required String classSlug,
+  required String splitSuffix,
+}) {
+  if (method.isGetter || method.isSetter || method.isOperator) return null;
+  if (method.externalKeyword != null || method.body is EmptyFunctionBody) {
+    return null;
+  }
+  final parameters = method.parameters;
+  if (parameters == null) return null;
+  final arguments = _forwardingArguments(parameters);
+  if (arguments == null) return null;
+  final modifier = method.modifierKeyword;
+  if (modifier == null) return null;
+  final methodStart = method.offset;
+  final helperName = _safeIdentifier(
+    '_${classSlug}_${method.name.lexeme}${splitSuffix}AstPart',
+  );
+  var helperSource = source.substring(methodStart, method.end);
+  helperSource = _applyEdits(helperSource, [
+    _Edit(
+      modifier.offset - methodStart,
+      modifier.end - methodStart,
+      '',
+    ),
+    _Edit(
+      method.name.offset - methodStart,
+      method.name.end - methodStart,
+      helperName,
+    ),
+  ]);
+  helperSource = _qualifyStaticReferences(helperSource, declaration);
+
+  final methodPrefix =
+      source.substring(methodStart, method.body.offset).trimRight();
+  final typeArguments = method.typeParameters == null
+      ? ''
+      : '<${method.typeParameters!.typeParameters.map((item) => item.name.lexeme).join(', ')}>';
+  final wrapper = '$methodPrefix => $helperName$typeArguments($arguments);';
+  final replacement =
+      source.substring(_annotatedStart(method), methodStart) + wrapper;
+  return _MethodExtractionPlan(
+    edit: _Edit(_annotatedStart(method), method.end, replacement),
+    source: helperSource,
+  );
+}
+
+_MethodExtractionPlan? _buildBuildMethodExtraction({
+  required String source,
+  required MethodDeclaration method,
+  required CompilationUnitMember declaration,
+  required String classSlug,
+  required String splitSuffix,
+}) {
+  if (method.name.lexeme != 'build' ||
+      method.isStatic ||
+      method.isGetter ||
+      method.isSetter ||
+      method.isOperator ||
+      method.externalKeyword != null ||
+      method.body is EmptyFunctionBody ||
+      RegExp(r'\bsuper\b').hasMatch(method.toSource())) {
+    return null;
+  }
+  final parameters = method.parameters;
+  if (parameters == null) return null;
+  final arguments = _forwardingArguments(parameters);
+  if (arguments == null) return null;
+  final methodStart = method.offset;
+  final helperName = _safeIdentifier(
+    '_${classSlug}${splitSuffix}BuildAstPart',
+  );
+  var helperSource = source.substring(methodStart, method.end);
+  helperSource = _applyEdits(helperSource, [
+    _Edit(
+      method.name.offset - methodStart,
+      method.name.end - methodStart,
+      helperName,
+    ),
+  ]);
+  helperSource = _qualifyStaticReferences(helperSource, declaration);
+  final methodPrefix =
+      source.substring(methodStart, method.body.offset).trimRight();
+  final replacement = source.substring(_annotatedStart(method), methodStart) +
+      '$methodPrefix => $helperName($arguments);';
+  return _MethodExtractionPlan(
+    edit: _Edit(_annotatedStart(method), method.end, replacement),
+    source: helperSource,
+  );
+}
+
+String? _forwardingArguments(FormalParameterList parameters) {
+  final arguments = <String>[];
+  for (final parameter in parameters.parameters) {
+    final name = parameter.name?.lexeme;
+    if (name == null) return null;
+    arguments.add(parameter.isNamed ? '$name: $name' : name);
+  }
+  return arguments.join(', ');
+}
+
 _TargetPlan? _buildTarget({
   required Directory root,
   required File sourceFile,
@@ -682,12 +948,40 @@ _TargetPlan? _buildTarget({
   required String source,
   required CompilationUnit unit,
   required int maximumPartLines,
+  required bool resplit,
+  required String splitSuffix,
 }) {
   final edits = <_Edit>[];
   final generated = <_GeneratedFile>[];
   final movedSnippets = <String>[];
   final transformedDeclarations = <CompilationUnitMember>{};
+  final staticMethodsByClass = <String, List<String>>{};
   var partIndex = 0;
+
+  for (final declaration in unit.declarations) {
+    if (declaration is! TopLevelVariableDeclaration ||
+        declaration.variables.variables.length != 1) {
+      continue;
+    }
+    final variables = declaration.variables;
+    final variable = variables.variables.single;
+    final collection = _buildCollectionSplit(
+      source: source,
+      variable: variable,
+      isConst: variables.isConst,
+      isFinal: variables.isFinal,
+      sourceFile: sourceFile,
+      libraryFile: libraryFile,
+      namePrefix: _safeIdentifier(_withoutExtension(sourceFile.path)),
+      variableName: variable.name.lexeme,
+      maximumPartLines: maximumPartLines,
+      splitSuffix: splitSuffix,
+    );
+    if (collection == null) continue;
+    edits.add(collection.edit);
+    generated.addAll(collection.generated);
+    movedSnippets.addAll(collection.movedSnippets);
+  }
 
   for (final declaration in unit.declarations) {
     if (declaration is! ClassDeclaration &&
@@ -704,17 +998,139 @@ _TargetPlan? _buildTarget({
     if (declarationLines <= maximumPartLines && !extensionHasAccessor) {
       continue;
     }
+    final classSlug = _declarationSlug(declaration);
+    final classFieldEdits = <_Edit>[];
+    final staticMethodEdits = <_Edit>[];
+    for (final member in _classMembers(declaration)) {
+      if (member is! FieldDeclaration || !member.isStatic) continue;
+      if (member.fields.variables.length != 1) continue;
+      final variables = member.fields;
+      final variable = variables.variables.single;
+      final collection = _buildCollectionSplit(
+        source: source,
+        variable: variable,
+        isConst: variables.isConst,
+        isFinal: variables.isFinal,
+        sourceFile: sourceFile,
+        libraryFile: libraryFile,
+        namePrefix: _safeIdentifier(
+          '${_withoutExtension(sourceFile.path)}_${_categoryFor(declaration)}',
+        ),
+        variableName: variable.name.lexeme,
+        maximumPartLines: maximumPartLines,
+        splitSuffix: splitSuffix,
+      );
+      if (collection == null) continue;
+      classFieldEdits.add(collection.edit);
+      generated.addAll(collection.generated);
+      movedSnippets.addAll(collection.movedSnippets);
+      if (!resplit) continue;
+    }
+    if (resplit) {
+      final staticNames = _staticMemberNames(declaration);
+      for (final member in _classMembers(declaration)) {
+        if (member is! FieldDeclaration || !member.isStatic) continue;
+        if (member.fields.variables.length != 1) continue;
+        final variables = member.fields;
+        final variable = variables.variables.single;
+        final collection = _buildCollectionSplit(
+          source: source,
+          variable: variable,
+          isConst: variables.isConst,
+          isFinal: variables.isFinal,
+          sourceFile: sourceFile,
+          libraryFile: libraryFile,
+          namePrefix: _safeIdentifier(
+            '${_withoutExtension(sourceFile.path)}_${_categoryFor(declaration)}',
+          ),
+          variableName: variable.name.lexeme,
+          maximumPartLines: maximumPartLines,
+          splitSuffix: splitSuffix,
+        );
+        if (collection != null) continue;
+        final hoist = _buildStaticFieldHoist(
+          source: source,
+          variable: variable,
+          isConst: variables.isConst,
+          sourceFile: sourceFile,
+          libraryFile: libraryFile,
+          classSlug: classSlug,
+          splitSuffix: splitSuffix,
+          staticNames: staticNames,
+        );
+        if (hoist == null) continue;
+        classFieldEdits.add(hoist.edit);
+        generated.addAll(hoist.generated);
+        movedSnippets.addAll(hoist.movedSnippets);
+      }
+    }
     final movableMethods = _classMembers(declaration)
         .whereType<MethodDeclaration>()
         .where(
           (method) =>
-              _isMovableMethod(method) &&
-              _lineCount(
-                      source.substring(_annotatedStart(method), method.end)) <=
-                  maximumPartLines,
+              _isMovableMethod(method, allowAccessors: resplit) &&
+              (resplit ||
+                  _lineCount(source.substring(
+                          _annotatedStart(method), method.end)) <=
+                      maximumPartLines),
         )
         .toList();
-    if (movableMethods.isEmpty) continue;
+    final buildMethodPlan = resplit && declarationLines > maximumPartLines
+        ? _classMembers(declaration)
+            .whereType<MethodDeclaration>()
+            .map(
+              (method) => _buildBuildMethodExtraction(
+                source: source,
+                method: method,
+                declaration: declaration,
+                classSlug: classSlug,
+                splitSuffix: splitSuffix,
+              ),
+            )
+            .whereType<_MethodExtractionPlan>()
+            .firstOrNull
+        : null;
+    if (resplit && declarationLines > maximumPartLines) {
+      for (final method
+          in _classMembers(declaration).whereType<MethodDeclaration>()) {
+        if (!method.isStatic) continue;
+        final extraction = _buildStaticMethodExtraction(
+          source: source,
+          method: method,
+          declaration: declaration,
+          classSlug: classSlug,
+          splitSuffix: splitSuffix,
+        );
+        if (extraction == null) continue;
+        staticMethodEdits.add(extraction.edit);
+        staticMethodsByClass
+            .putIfAbsent(classSlug, () => <String>[])
+            .add(extraction.source);
+        movedSnippets.add(extraction.source);
+      }
+    }
+    if (movableMethods.isEmpty &&
+        classFieldEdits.isEmpty &&
+        staticMethodEdits.isEmpty &&
+        buildMethodPlan == null) {
+      if (declarationLines <= maximumPartLines) continue;
+      final declarationStart = _annotatedStart(declaration);
+      final classSource = source.substring(declarationStart, declaration.end);
+      transformedDeclarations.add(declaration);
+      final classFile = File(
+        '${sourceFile.parent.path}/${_withoutExtension(sourceFile.path)}_'
+        '$classSlug${splitSuffix}_class.dart',
+      );
+      generated.add(
+        _GeneratedFile(
+          file: classFile,
+          source: _withPartOf(classFile, libraryFile, classSource),
+        ),
+      );
+      edits.add(_Edit(declarationStart, declaration.end, ''));
+      movedSnippets.add(classSource);
+      continue;
+    }
 
     final ranges = <_Range>[];
     final methods = <String>[];
@@ -729,21 +1145,70 @@ _TargetPlan? _buildTarget({
       methods.add(generatedMethodSource);
       movedSnippets.add(generatedMethodSource);
     }
-    final updatedDeclaration = _applyRemovals(
-      source.substring(declaration.offset, declaration.end),
+    if (buildMethodPlan != null) {
+      methods.add(buildMethodPlan.source);
+      movedSnippets.add(buildMethodPlan.source);
+    }
+    final declarationBody = source.substring(
       declaration.offset,
-      ranges,
+      declaration.end,
     );
-    edits.add(_Edit(declaration.offset, declaration.end, updatedDeclaration));
+    final localEdits = <_Edit>[
+      ...classFieldEdits.map(
+        (edit) => _Edit(
+          edit.start - declaration.offset,
+          edit.end - declaration.offset,
+          edit.replacement,
+        ),
+      ),
+      ...ranges.map(
+        (range) => _Edit(
+          range.start - declaration.offset,
+          range.end - declaration.offset,
+          '',
+        ),
+      ),
+      ...staticMethodEdits.map(
+        (edit) => _Edit(
+          edit.start - declaration.offset,
+          edit.end - declaration.offset,
+          edit.replacement,
+        ),
+      ),
+      if (buildMethodPlan != null)
+        _Edit(
+          buildMethodPlan.edit.start - declaration.offset,
+          buildMethodPlan.edit.end - declaration.offset,
+          buildMethodPlan.edit.replacement,
+        ),
+    ];
+    final updatedBody = _applyEdits(declarationBody, localEdits);
+    final annotationPrefix = source.substring(
+      _annotatedStart(declaration),
+      declaration.offset,
+    );
+    final updatedDeclaration = '$annotationPrefix$updatedBody';
+    final declarationStart = _annotatedStart(declaration);
+    final shouldMoveWholeDeclaration =
+        _lineCount(updatedDeclaration) > maximumPartLines;
+    if (shouldMoveWholeDeclaration) {
+      final classFile = File(
+        '${sourceFile.parent.path}/${_withoutExtension(sourceFile.path)}_'
+        '$classSlug${splitSuffix}_class.dart',
+      );
+      generated.add(
+        _GeneratedFile(
+          file: classFile,
+          source: _withPartOf(classFile, libraryFile, updatedDeclaration),
+        ),
+      );
+      edits.add(_Edit(declarationStart, declaration.end, ''));
+      movedSnippets.add(updatedDeclaration);
+    } else {
+      edits.add(_Edit(declarationStart, declaration.end, updatedDeclaration));
+    }
     transformedDeclarations.add(declaration);
 
-    final classSlug = _safeIdentifier(
-      switch (declaration) {
-        ClassDeclaration item => item.namePart.typeName.lexeme,
-        ExtensionDeclaration item => item.name?.lexeme ?? 'extension',
-        _ => 'extension',
-      },
-    );
     for (var offset = 0; offset < methods.length;) {
       final chunk = <String>[];
       var chunkLines = 0;
@@ -759,7 +1224,8 @@ _TargetPlan? _buildTarget({
       partIndex++;
       final file = File(
         '${sourceFile.parent.path}/${_withoutExtension(sourceFile.path)}_'
-        '${classSlug}_methods_${partIndex.toString().padLeft(2, '0')}.dart',
+        '$classSlug${splitSuffix}_methods_'
+        '${partIndex.toString().padLeft(2, '0')}.dart',
       );
       final extensionName = '${_extensionName(classSlug, declaration)}'
           '${partIndex.toString().padLeft(2, '0')}';
@@ -769,6 +1235,35 @@ _TargetPlan? _buildTarget({
         _GeneratedFile(
           file: file,
           source: _withPartOf(file, libraryFile, body),
+        ),
+      );
+    }
+  }
+
+  var staticPartIndex = 0;
+  for (final entry in staticMethodsByClass.entries) {
+    for (var offset = 0; offset < entry.value.length;) {
+      final chunk = <String>[];
+      var chunkLines = 0;
+      while (offset < entry.value.length) {
+        final methodLines = _lineCount(entry.value[offset]);
+        if (chunk.isNotEmpty && chunkLines + methodLines > maximumPartLines) {
+          break;
+        }
+        chunk.add(entry.value[offset]);
+        chunkLines += methodLines;
+        offset++;
+      }
+      staticPartIndex++;
+      final file = File(
+        '${sourceFile.parent.path}/${_withoutExtension(sourceFile.path)}_'
+        '${entry.key}${splitSuffix}_static_methods_'
+        '${staticPartIndex.toString().padLeft(2, '0')}.dart',
+      );
+      generated.add(
+        _GeneratedFile(
+          file: file,
+          source: _withPartOf(file, libraryFile, chunk.join('\n\n')),
         ),
       );
     }
@@ -814,7 +1309,8 @@ _TargetPlan? _buildTarget({
     fragmentIndex++;
     final file = File(
       '${sourceFile.parent.path}/${_withoutExtension(sourceFile.path)}_'
-      '${first.category}_part_${fragmentIndex.toString().padLeft(2, '0')}.dart',
+      '${first.category}${splitSuffix}_part_'
+      '${fragmentIndex.toString().padLeft(2, '0')}.dart',
     );
     final body = chunk.map((fragment) => fragment.source).join('\n\n');
     generated.add(
