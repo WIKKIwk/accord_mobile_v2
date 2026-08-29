@@ -54,7 +54,6 @@ extension __OpeningWipWizardStateAstPart01 on _OpeningWipWizardState {
       order.map.id.trim(),
       sourceApparatus,
       sourceStageNodeId,
-      _noteController.text.trim(),
       '$rollCount',
       _quantityBasis.apiValue,
       _rollControllers.map((roll) => roll.fingerprint).join(';'),
@@ -120,7 +119,6 @@ extension __OpeningWipWizardStateAstPart01 on _OpeningWipWizardState {
             orderId: order.map.id,
             sourceApparatus: sourceApparatus,
             sourceStageNodeId: selectedSource.nodeId,
-            note: _noteController.text,
             batches: batches,
           ),
         );
@@ -144,8 +142,6 @@ extension __OpeningWipWizardStateAstPart01 on _OpeningWipWizardState {
         if (!mounted) return;
         setState(() => _printedBatchIds.add(batch.batchId));
       }
-      if (!mounted) return;
-      DefaultTabController.of(context).animateTo(1);
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -186,6 +182,29 @@ extension __OpeningWipWizardStateAstPart01 on _OpeningWipWizardState {
         : null;
   }
 
+  InputDecoration _openingWipInputDecoration({
+    required String labelText,
+    String? suffixText,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    OutlineInputBorder border(Color color, {double width = 1}) {
+      return OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: color, width: width),
+      );
+    }
+
+    return InputDecoration(
+      labelText: labelText,
+      suffixText: suffixText,
+      border: border(scheme.outline),
+      enabledBorder: border(scheme.outline),
+      focusedBorder: border(scheme.primary, width: 1.6),
+      errorBorder: border(scheme.error, width: 1.2),
+      focusedErrorBorder: border(scheme.error, width: 1.4),
+    );
+  }
+
   Widget _metricField({
     required Key key,
     required TextEditingController controller,
@@ -199,7 +218,7 @@ extension __OpeningWipWizardStateAstPart01 on _OpeningWipWizardState {
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
       ],
-      decoration: InputDecoration(
+      decoration: _openingWipInputDecoration(
         labelText: context.l10n.adminText(labelKey),
         suffixText: unit,
       ),

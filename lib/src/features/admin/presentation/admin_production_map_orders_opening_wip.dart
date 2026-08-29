@@ -5,7 +5,6 @@ const int _openingWipListFetchLimit = 500;
 class _OpeningWipWizardState extends State<_OpeningWipWizard> {
   final _formKey = GlobalKey<FormState>();
   final _sourceFieldKey = GlobalKey<FormFieldState<String>>();
-  final _noteController = TextEditingController();
   final _rollCountController = TextEditingController(text: '1');
   final List<_OpeningWipRollControllers> _rollControllers = [
     _OpeningWipRollControllers(),
@@ -32,7 +31,6 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
 
   @override
   void dispose() {
-    _noteController.dispose();
     _rollCountController.dispose();
     for (final controller in _rollControllers) {
       controller.dispose();
@@ -112,7 +110,7 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                                   DropdownButtonFormField<ProductionMapSaved>(
                                 key: const ValueKey('opening-wip-order'),
                                 initialValue: order,
-                                decoration: InputDecoration(
+                                decoration: _openingWipInputDecoration(
                                   labelText: context.l10n.adminText(
                                     'production.opening_wip.order',
                                   ),
@@ -141,7 +139,7 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                                 initialValue: _sourceStageNodeId.isEmpty
                                     ? null
                                     : _sourceStageNodeId,
-                                decoration: InputDecoration(
+                                decoration: _openingWipInputDecoration(
                                   labelText: context.l10n.adminText(
                                     'production.opening_wip.source_apparatus',
                                   ),
@@ -185,23 +183,13 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
-                              controller: _noteController,
-                              decoration: InputDecoration(
-                                labelText: context.l10n.adminText(
-                                  'production.opening_wip.note',
-                                ),
-                              ),
-                              maxLines: 2,
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
                               key: const ValueKey('opening-wip-roll-count'),
                               controller: _rollCountController,
                               keyboardType: TextInputType.number,
                               inputFormatters: [
                                 FilteringTextInputFormatter.digitsOnly
                               ],
-                              decoration: InputDecoration(
+                              decoration: _openingWipInputDecoration(
                                 labelText: context.l10n.adminText(
                                   'production.opening_wip.roll_count',
                                 ),
@@ -223,7 +211,7 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                                 'opening-wip-quantity-basis',
                               ),
                               initialValue: _quantityBasis,
-                              decoration: InputDecoration(
+                              decoration: _openingWipInputDecoration(
                                 labelText: context.l10n.adminText(
                                   'production.opening_wip.quantity_basis',
                                 ),

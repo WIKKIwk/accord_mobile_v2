@@ -76,6 +76,17 @@ void main() {
       findsNothing,
     );
     expect(find.byKey(const ValueKey('opening-wip-order')), findsOneWidget);
+    expect(find.text('Izoh (ixtiyoriy)'), findsNothing);
+    final orderDecoration = tester
+        .widget<DropdownButtonFormField<ProductionMapSaved>>(
+          find.byKey(const ValueKey('opening-wip-order')),
+        )
+        .decoration;
+    expect(orderDecoration.border, isA<OutlineInputBorder>());
+    expect(
+      (orderDecoration.border! as OutlineInputBorder).borderRadius,
+      BorderRadius.circular(8),
+    );
     expect(
       find.byKey(const ValueKey('opening-wip-source-operation')),
       findsNothing,
@@ -111,6 +122,16 @@ void main() {
     }
     final meterField = find.byKey(
       const ValueKey('opening-wip-roll-meter-0'),
+    );
+    final meterDecoration = tester
+        .widget<TextField>(
+          find.descendant(of: meterField, matching: find.byType(TextField)),
+        )
+        .decoration!;
+    expect(meterDecoration.border, isA<OutlineInputBorder>());
+    expect(
+      (meterDecoration.border! as OutlineInputBorder).borderRadius,
+      BorderRadius.circular(8),
     );
     await tester.enterText(meterField, 'df12,5m');
     expect(
@@ -265,8 +286,7 @@ void main() {
     );
   });
 
-  testWidgets('successful print stays on Opening WIP and opens WIP list',
-      (tester) async {
+  testWidgets('successful print stays on the Opening WIP tab', (tester) async {
     await MobileApi.instance.adminSaveProductionMap(
       _openingOrder(id: 'zakaz-opening-wip-stay-page'),
     );
@@ -317,8 +337,12 @@ void main() {
     expect(find.text('HOME_MARKER'), findsNothing);
     expect(find.byType(AdminOpeningWipScreen), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('opening-wip-apparatus-filter-chip')),
+      find.byKey(const ValueKey('opening-wip-fields')),
       findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('opening-wip-apparatus-filter-chip')),
+      findsNothing,
     );
   });
 
