@@ -16,6 +16,8 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../admin/models/production_map_models.dart';
+import '../../admin/presentation/raw_material_scan_dialog.dart';
+import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import '../../admin/presentation/widgets/admin_summary_card.dart';
@@ -29,6 +31,7 @@ import '../../material_taminotchi/presentation/widgets/raw_material_order_assign
 import '../../shared/models/app_models.dart';
 import '../../shared/models/inventory_movement_models.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 part 'inventory_movements_screen__InventoryMovementsScreenState_methods_01.dart';
 part 'inventory_movements_screen__InventoryMovementsScreenState_methods_02.dart';
@@ -60,13 +63,18 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
   final Set<String> _enteringAssetKeys = {};
   final Set<String> _enteringTransferIds = {};
   int _selectedStateAssetCount = 0;
+  bool _inventoryFabOpen = false;
+  bool _qrLookupOpen = false;
+  String _qrLookupStatus = 'QR kodni ramkaga keltiring';
+  List<InventoryAsset> _qrScannedAssets = const [];
+  final Set<String> _qrLookupBusyCodes = {};
   final GlobalKey<MaterialStateLocationsTabState> _materialStateLocationsKey =
       GlobalKey<MaterialStateLocationsTabState>();
 
   @override
   void initState() {
     super.initState();
-    _loadAll();
+    unawaited(_restoreWarehouseFilterAndLoad());
   }
 
   @override
@@ -259,18 +267,47 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
               )
             : null,
         contentPadding: EdgeInsets.zero,
-        child: Column(
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            TabBar(tabs: tabs),
-            Expanded(
-              child: _loading
-                  ? const Center(child: AppLoadingIndicator())
-                  : _error.isNotEmpty
-                      ? _InventoryErrorState(
-                          message: _error,
-                          onRetry: _loadAll,
-                        )
-                      : TabBarView(children: tabViews),
+            Column(
+              children: [
+                TabBar(tabs: tabs),
+                Expanded(
+                  child: _loading
+                      ? const Center(child: AppLoadingIndicator())
+                      : _error.isNotEmpty
+                          ? _InventoryErrorState(
+                              message: _error,
+                              onRetry: _loadAll,
+                            )
+                          : _qrLookupOpen
+                              ? _buildQrLookupPanel()
+                              : TabBarView(children: tabViews),
+                ),
+              ],
+            ),
+            PositionedDirectional(
+              end: 16,
+              bottom: 16,
+              child: AdminFabActionMenu(
+                key: const ValueKey('inventory-movements-fab'),
+                open: _inventoryFabOpen,
+                actions: [
+                  AdminFabMenuAction(
+                    title: 'QR orqali izlash',
+                    icon: Icons.qr_code_scanner_rounded,
+                    onTap: _openQrLookup,
+                  ),
+                ],
+                onToggle: () {
+                  setState(() => _inventoryFabOpen = !_inventoryFabOpen);
+                },
+                closedLabel: 'Amallar',
+                openLabel: 'Yopish',
+                closedIcon: Icons.add_rounded,
+                openIcon: Icons.close_rounded,
+              ),
             ),
           ],
         ),

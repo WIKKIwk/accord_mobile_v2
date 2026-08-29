@@ -148,7 +148,7 @@ void _registeradmin_raw_material_assignment_screen_testCases01() {
       );
       expect(find.text('Ulangan'), findsOneWidget);
       expect(find.byIcon(Icons.link_rounded), findsWidgets);
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 6));
     }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
   });
 

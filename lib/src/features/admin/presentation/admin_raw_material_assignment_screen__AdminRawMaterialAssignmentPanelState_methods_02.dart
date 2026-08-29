@@ -200,10 +200,20 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
     if (_saving || _unlinkingAssignmentKey.isNotEmpty) {
       return;
     }
+    final scanned = _scannedMaterial;
+    final scannedOrderTitle = scanned?.assignment != null &&
+            _assignmentKey(scanned!.assignment!) == key
+        ? _scannedRawMaterialOrderTitle(scanned, assignment)
+        : '';
     final confirmed = await showM3ConfirmDialog(
       context: context,
       title: context.l10n.adminText('raw_material.unlink_title'),
-      message: context.l10n.adminText('raw_material.unlink_message'),
+      message: scannedOrderTitle.isEmpty
+          ? context.l10n.adminText('raw_material.unlink_message')
+          : context.l10n.adminText(
+              'raw_material.unlink_message_order',
+              values: {'order': scannedOrderTitle},
+            ),
       cancelLabel: context.l10n.adminText('action.cancel'),
       confirmLabel: context.l10n.adminText('raw_material.unassign'),
       destructive: true,
@@ -229,6 +239,11 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
         ];
         if (_expandedAssignmentKey == key) {
           _expandedAssignmentKey = null;
+        }
+        final scanned = _scannedMaterial;
+        if (scanned?.assignment != null &&
+            _assignmentKey(scanned!.assignment!) == key) {
+          _scannedMaterial = _rawMaterialLookupWithoutAssignment(scanned);
         }
       });
       showAdminTopNotice(
@@ -256,6 +271,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
   }
 
   Widget _buildQrTab(_RawMaterialAssignmentData data) {
+    final scannedAssignment = _scannedMaterial?.assignment;
     return ListView(
       padding: EdgeInsets.fromLTRB(
         _rawMaterialAssignmentPanelGap,
@@ -272,9 +288,17 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
           scanLookupError: _scanLookupError,
           scanLookupLoading: _scanLookupLoading,
           saving: _saving,
+          unlinking: scannedAssignment != null &&
+              _unlinkingAssignmentKey == _assignmentKey(scannedAssignment),
           onPickOrder: () => _openOrderPicker(data.orders),
           onScan: _scan,
           onSave: _save,
+          onUnlink: () {
+            final assignment = _scannedMaterial?.assignment;
+            if (assignment != null) {
+              unawaited(_unlink(assignment));
+            }
+          },
         ),
         if (_assignments.isEmpty) ...[
           const SizedBox(height: 10),

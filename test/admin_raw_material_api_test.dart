@@ -1562,7 +1562,7 @@ void main() {
           isA<MobileApiException>().having(
             (error) => error.message,
             'message',
-            'Bu homashyo boshqa zakaz uchun band qilingan',
+            'Bu homashyo “Tashoq” buyurtmasi uchun band qilingan',
           ),
         ),
       );
@@ -1570,6 +1570,7 @@ void main() {
         createHttpClient: (_) => _RawMaterialApiHttpClient(
               seenRequests,
               assignmentErrorCode: 'raw_material_already_assigned',
+              assignmentErrorOrderTitle: 'Tashoq',
             ));
   });
 
@@ -1639,7 +1640,8 @@ void main() {
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
 
-  test('raw material assignment unlink explains locked stock', () async {
+  test('raw material assignment unlink explains in-use stock and order',
+      () async {
     final seenRequests = <String>[];
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
@@ -1662,7 +1664,7 @@ void main() {
           isA<MobileApiException>().having(
             (error) => error.message,
             'message',
-            'Bu homashyo allaqachon ishga tushgan yoki ishlatilgan, uzib bo‘lmaydi',
+            'Bu homashyo “Tashoq” buyurtmasida hozir ishlatilmoqda. Ulanishni uzib bo‘lmaydi',
           ),
         ),
       );
@@ -1670,6 +1672,45 @@ void main() {
         createHttpClient: (_) => _RawMaterialApiHttpClient(
               seenRequests,
               unlinkErrorCode: 'raw_material_assignment_locked',
+              unlinkErrorOrderTitle: 'Tashoq',
+              unlinkErrorRawMaterialStatus: 'in_use',
+            ));
+  });
+
+  test('raw material assignment unlink explains consumed stock and order',
+      () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await expectLater(
+        MobileApi.instance.adminUnlinkRawMaterialAssignment(
+          orderId: 'zakaz-1',
+          barcode: 'RM-001',
+        ),
+        throwsA(
+          isA<MobileApiException>().having(
+            (error) => error.message,
+            'message',
+            'Bu homashyo “Tashoq” buyurtmasida ishlatilgan. Ulanishni uzib bo‘lmaydi',
+          ),
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              unlinkErrorCode: 'raw_material_assignment_locked',
+              unlinkErrorOrderTitle: 'Tashoq',
+              unlinkErrorRawMaterialStatus: 'consumed',
             ));
   });
 
@@ -1749,8 +1790,11 @@ class _RawMaterialApiHttpClient implements HttpClient {
     this.qolipValidationErrorCode = '',
     this.qolipValidationQolipCode = 'QOLIP-1212',
     this.assignmentErrorCode = '',
+    this.assignmentErrorOrderTitle = '',
     this.assignmentErrorApparatusOptions = const [],
     this.unlinkErrorCode = '',
+    this.unlinkErrorOrderTitle = '',
+    this.unlinkErrorRawMaterialStatus = '',
     this.queueActionProgress = false,
     this.queueActionCompleteMetrics = false,
     this.queueActionLaminatsiyaMetrics = false,
@@ -1763,8 +1807,11 @@ class _RawMaterialApiHttpClient implements HttpClient {
   final String qolipValidationErrorCode;
   final String qolipValidationQolipCode;
   final String assignmentErrorCode;
+  final String assignmentErrorOrderTitle;
   final List<String> assignmentErrorApparatusOptions;
   final String unlinkErrorCode;
+  final String unlinkErrorOrderTitle;
+  final String unlinkErrorRawMaterialStatus;
   final bool queueActionProgress;
   final bool queueActionCompleteMetrics;
   final bool queueActionLaminatsiyaMetrics;
@@ -2338,6 +2385,8 @@ class _RawMaterialApiHttpClient implements HttpClient {
         if (assignmentErrorCode.isNotEmpty) {
           body = {
             'error': assignmentErrorCode,
+            if (assignmentErrorOrderTitle.isNotEmpty)
+              'order_title': assignmentErrorOrderTitle,
             if (assignmentErrorApparatusOptions.isNotEmpty)
               'apparatus_options': assignmentErrorApparatusOptions,
           };
@@ -2438,7 +2487,13 @@ class _RawMaterialApiHttpClient implements HttpClient {
         };
       case 'DELETE /v1/mobile/admin/raw-material-assignments':
         if (unlinkErrorCode.isNotEmpty) {
-          body = {'error': unlinkErrorCode};
+          body = {
+            'error': unlinkErrorCode,
+            if (unlinkErrorOrderTitle.isNotEmpty)
+              'order_title': unlinkErrorOrderTitle,
+            if (unlinkErrorRawMaterialStatus.isNotEmpty)
+              'raw_material_status': unlinkErrorRawMaterialStatus,
+          };
           return _FakeHttpClientRequest(
             response: _FakeHttpClientResponse(
               body: jsonEncode(body),

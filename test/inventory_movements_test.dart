@@ -3,6 +3,7 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_summary_card.dart';
 import 'package:accord_mobile_v2/src/features/inventory/presentation/inventory_movements_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -1340,7 +1341,14 @@ void main() {
     );
   });
 
-  _registerinventory_movements_testCases02();
+  _registerinventory_movements_testCases02(
+    source: source,
+    destination: destination,
+    factoryState: factoryState,
+    asset: asset,
+    otherWarehouseAsset: otherWarehouseAsset,
+    transfer: transfer,
+  );
 
   testWidgets('transfer tabs show compact rows and open details on tap', (
     tester,

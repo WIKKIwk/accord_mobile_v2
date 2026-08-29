@@ -62,7 +62,7 @@ void showAdminTopNotice(
     messenger.hideCurrentMaterialBanner,
   );
   _currentAdminTopNotice = handle;
-  handle.autoCloseAfter(const Duration(seconds: 7));
+  handle.autoCloseAfter(const Duration(seconds: 5));
 }
 
 void dismissAdminTopNotice() {
@@ -112,7 +112,7 @@ bool _showAnchoredAdminTopNotice(
   overlay.insert(entry);
   final handle = _AdminTopNoticeHandle(entry.remove);
   _currentAdminTopNotice = handle;
-  handle.autoCloseAfter(const Duration(seconds: 7));
+  handle.autoCloseAfter(const Duration(seconds: 5));
   return true;
 }
 

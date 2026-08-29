@@ -9,6 +9,7 @@ MobileApiException _adminProductionMapException(
   var apparatusOptions = const <String>[];
   var details = const <String>[];
   var assignedOrderTitle = '';
+  var rawMaterialStatus = '';
   try {
     final payload = jsonDecode(response.body);
     if (payload is Map && payload['error'] is String) {
@@ -33,6 +34,8 @@ MobileApiException _adminProductionMapException(
     }
     if (payload is Map) {
       assignedOrderTitle = payload['order_title']?.toString().trim() ?? '';
+      rawMaterialStatus =
+          payload['raw_material_status']?.toString().trim() ?? '';
     }
   } catch (_) {}
   return MobileApiException(
@@ -146,8 +149,10 @@ MobileApiException _adminProductionMapException(
         'Qolip joylashuvi o‘zgargan, qayta skanerlang',
       'raw_material_rule_not_found' => 'Bu homashyo uchun aparat qoidasi yo‘q',
       'raw_material_assignment_not_found' => 'Homashyo biriktirilmagan',
-      'raw_material_assignment_locked' =>
-        'Bu homashyo allaqachon ishga tushgan yoki ishlatilgan, uzib bo‘lmaydi',
+      'raw_material_assignment_locked' => _rawMaterialAssignmentLockedMessage(
+          assignedOrderTitle,
+          rawMaterialStatus,
+        ),
       'raw_material_already_assigned' => _rawMaterialAlreadyAssignedMessage(
           assignedOrderTitle,
         ),
@@ -290,6 +295,25 @@ String _rawMaterialAlreadyAssignedMessage(String orderTitle) {
   return title.isEmpty
       ? 'Bu homashyo boshqa zakaz uchun band qilingan'
       : 'Bu homashyo “$title” buyurtmasi uchun band qilingan';
+}
+
+String _rawMaterialAssignmentLockedMessage(
+  String orderTitle,
+  String rawMaterialStatus,
+) {
+  final title = orderTitle.trim();
+  final orderLocation =
+      title.isEmpty ? 'bu buyurtmada' : '“$title” buyurtmasida';
+  return switch (rawMaterialStatus.trim().toLowerCase()) {
+    'in_use' =>
+      'Bu homashyo $orderLocation hozir ishlatilmoqda. Ulanishni uzib bo‘lmaydi',
+    'consumed' =>
+      'Bu homashyo $orderLocation ishlatilgan. Ulanishni uzib bo‘lmaydi',
+    _ when title.isNotEmpty =>
+      'Bu homashyo “$title” buyurtmasi uchun band. Ulanishni uzib bo‘lmaydi',
+    _ =>
+      'Bu homashyo allaqachon ishga tushgan yoki ishlatilgan, uzib bo‘lmaydi',
+  };
 }
 
 String _adminProductionMapUnknownErrorMessage({

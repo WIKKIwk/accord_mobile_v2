@@ -128,6 +128,20 @@ extension MobileApiAdminRawMaterialsAstPart03 on MobileApi {
           message: 'Homashyo biriktirilmagan',
         );
       }
+      final assignment = _testModeRawMaterialAssignments[index];
+      final status = assignment.consumedQty > 0
+          ? 'consumed'
+          : assignment.stockStatus.trim().toLowerCase();
+      if (status.isNotEmpty && status != 'available') {
+        final order = _testModeOrderById(assignment.orderId);
+        throw MobileApiException(
+          code: 'raw_material_assignment_locked',
+          message: _rawMaterialAssignmentLockedMessage(
+            order?.map.title ?? assignment.orderId,
+            status,
+          ),
+        );
+      }
       return _testModeRawMaterialAssignments.removeAt(index);
     }
     final response = await _sendAuthorized(

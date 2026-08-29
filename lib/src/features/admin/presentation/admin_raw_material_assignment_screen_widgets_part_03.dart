@@ -230,12 +230,16 @@ class _ScannedRawMaterialCard extends StatelessWidget {
     required this.detail,
     required this.loading,
     required this.error,
+    required this.unlinking,
+    required this.onUnlink,
   });
 
   final String barcode;
   final AdminRawMaterialLookup? detail;
   final bool loading;
   final String error;
+  final bool unlinking;
+  final VoidCallback onUnlink;
 
   @override
   Widget build(BuildContext context) {
@@ -310,6 +314,12 @@ class _ScannedRawMaterialCard extends StatelessWidget {
                 label: context.l10n.adminText('raw_material.item_code'),
                 value: detail.itemCode,
               ),
+              const Divider(height: 22),
+              _ScannedRawMaterialAssignmentSection(
+                detail: detail,
+                unlinking: unlinking,
+                onUnlink: onUnlink,
+              ),
             ],
             if (error.trim().isNotEmpty) ...[
               const SizedBox(height: 6),
@@ -326,6 +336,249 @@ class _ScannedRawMaterialCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ScannedRawMaterialAssignmentSection extends StatelessWidget {
+  const _ScannedRawMaterialAssignmentSection({
+    required this.detail,
+    required this.unlinking,
+    required this.onUnlink,
+  });
+
+  final AdminRawMaterialLookup detail;
+  final bool unlinking;
+  final VoidCallback onUnlink;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final assignment = detail.assignment;
+    if (assignment == null) {
+      return Row(
+        children: [
+          Icon(Icons.link_off_rounded, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              context.l10n.adminText('raw_material.unassigned_order'),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final canUnlink = _scannedRawMaterialCanBeUnlinked(detail, assignment);
+    final lockMessage = canUnlink
+        ? ''
+        : _scannedRawMaterialLockMessage(context, detail, assignment);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          key: const ValueKey('scanned-raw-material-current-order'),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.link_rounded, color: scheme.onSecondaryContainer),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.adminText('raw_material.current_order'),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: scheme.onSecondaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _scannedRawMaterialOrderLabel(detail, assignment),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: scheme.onSecondaryContainer,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (_scannedRawMaterialStatus(detail, assignment)
+                        .isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        _assignmentStockStatusLabel(
+                          _scannedRawMaterialStatus(detail, assignment),
+                          context.l10n,
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSecondaryContainer,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (lockMessage.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Container(
+            key: const ValueKey('scanned-raw-material-unlink-blocked'),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: scheme.errorContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.lock_rounded, color: scheme.onErrorContainer),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    lockMessage,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onErrorContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          key: ValueKey(
+            canUnlink
+                ? 'scanned-raw-material-unlink'
+                : 'scanned-raw-material-unlink-locked',
+          ),
+          onPressed: canUnlink && !unlinking ? onUnlink : null,
+          style: OutlinedButton.styleFrom(foregroundColor: scheme.error),
+          icon: unlinking
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(canUnlink ? Icons.link_off_rounded : Icons.lock_rounded),
+          label: Text(
+            context.l10n.adminText(
+              canUnlink
+                  ? 'raw_material.unassign_from_order'
+                  : 'raw_material.unassign_unavailable',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+AdminRawMaterialLookup _rawMaterialLookupWithoutAssignment(
+  AdminRawMaterialLookup detail,
+) {
+  return AdminRawMaterialLookup(
+    barcode: detail.barcode,
+    warehouse: detail.warehouse,
+    itemCode: detail.itemCode,
+    itemName: detail.itemName,
+    itemGroup: detail.itemGroup,
+    qty: detail.qty,
+    uom: detail.uom,
+    status: 'available',
+    reservedOrderId: '',
+    sourceReceiptId: detail.sourceReceiptId,
+  );
+}
+
+String _scannedRawMaterialStatus(
+  AdminRawMaterialLookup detail,
+  AdminRawMaterialAssignment assignment,
+) {
+  if (assignment.consumedQty > 0) {
+    return 'consumed';
+  }
+  final assignmentStatus = assignment.stockStatus.trim().toLowerCase();
+  if (assignmentStatus.isNotEmpty) {
+    return assignmentStatus;
+  }
+  return detail.status.trim().toLowerCase();
+}
+
+bool _scannedRawMaterialCanBeUnlinked(
+  AdminRawMaterialLookup detail,
+  AdminRawMaterialAssignment assignment,
+) {
+  final status = _scannedRawMaterialStatus(detail, assignment);
+  return status.isEmpty || status == 'available';
+}
+
+String _scannedRawMaterialOrderTitle(
+  AdminRawMaterialLookup detail,
+  AdminRawMaterialAssignment assignment,
+) {
+  final order = detail.order;
+  if (order == null) {
+    return assignment.orderId.trim();
+  }
+  if (order.title.trim().isNotEmpty) {
+    return order.title.trim();
+  }
+  if (order.code.trim().isNotEmpty) {
+    return order.code.trim();
+  }
+  if (order.orderNumber.trim().isNotEmpty) {
+    return order.orderNumber.trim();
+  }
+  return order.id.trim().isNotEmpty
+      ? order.id.trim()
+      : assignment.orderId.trim();
+}
+
+String _scannedRawMaterialOrderLabel(
+  AdminRawMaterialLookup detail,
+  AdminRawMaterialAssignment assignment,
+) {
+  final order = detail.order;
+  if (order == null) {
+    return assignment.orderId.trim();
+  }
+  final code = order.code.trim().isNotEmpty
+      ? order.code.trim()
+      : order.orderNumber.trim().isNotEmpty
+          ? order.orderNumber.trim()
+          : order.id.trim();
+  final title = order.title.trim();
+  if (title.isEmpty || code.isEmpty || code == title) {
+    return title.isNotEmpty ? title : code;
+  }
+  return '$code · $title';
+}
+
+String _scannedRawMaterialLockMessage(
+  BuildContext context,
+  AdminRawMaterialLookup detail,
+  AdminRawMaterialAssignment assignment,
+) {
+  final key = switch (_scannedRawMaterialStatus(detail, assignment)) {
+    'in_use' => 'raw_material.unlink_blocked_in_use',
+    'consumed' => 'raw_material.unlink_blocked_consumed',
+    _ => 'raw_material.unlink_blocked_generic',
+  };
+  return context.l10n.adminText(
+    key,
+    values: {'order': _scannedRawMaterialOrderTitle(detail, assignment)},
+  );
 }
 
 class _MaterialInfoRow extends StatelessWidget {
@@ -407,6 +660,7 @@ String _assignmentAssignee(AdminRawMaterialAssignment assignment) {
 String _assignmentStockStatusLabel(String raw, AppLocalizations l10n) {
   return switch (raw.trim().toLowerCase()) {
     'available' => l10n.adminText('raw_material.status_available'),
+    'in_use' => l10n.adminText('raw_material.status_in_use'),
     'reserved' => l10n.adminText('label.reserved'),
     'consumed' => l10n.adminText('raw_material.status_consumed'),
     '' => '',

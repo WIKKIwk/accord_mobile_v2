@@ -6,11 +6,15 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
     this.seenRequests, {
     this.initialAssignments = const [],
     this.orderNodes = const [],
+    this.lookupAssignmentStatus = '',
+    this.lookupConsumedQty = 0,
   });
 
   final List<String> seenRequests;
   final List<Map<String, Object?>> initialAssignments;
   final List<Map<String, Object?>> orderNodes;
+  final String lookupAssignmentStatus;
+  final double lookupConsumedQty;
   bool _deleted = false;
 
   @override
@@ -132,7 +136,7 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
           },
         ];
       case 'GET /v1/mobile/admin/raw-material-assignments/lookup?barcode=30AA':
-        body = const {
+        body = {
           'barcode': '30AA',
           'warehouse': 'Kalidor',
           'item_code': 'INK-BLACK',
@@ -140,6 +144,35 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
           'item_group': 'Kraska',
           'qty': 12,
           'uom': 'Kg',
+          if (lookupAssignmentStatus.isNotEmpty) ...{
+            'status': lookupAssignmentStatus,
+            'reserved_order_id': 'zakaz-1',
+            'assignment': {
+              'order_id': 'zakaz-1',
+              'apparatus': 'apparatus:default:asset-005',
+              'barcode': '30AA',
+              'item_code': 'INK-BLACK',
+              'item_name': 'Black ink',
+              'item_group': 'Kraska',
+              'assigned_by_ref': 'admin',
+              'assigned_by_display_name': 'Admin',
+              'assigned_at': '2026-06-18T08:00:00Z',
+              'stock_status': lookupAssignmentStatus,
+              'reserved_order_id': 'zakaz-1',
+              'stock_warehouse': 'Kalidor',
+              'stock_qty': 12,
+              'stock_uom': 'Kg',
+              'consumed_qty': lookupConsumedQty,
+            },
+            'order': {
+              'id': 'zakaz-1',
+              'product_code': 'PR-1',
+              'title': 'Zakaz 1',
+              'code': 'Z-1',
+              'nodes': const [],
+              'edges': const [],
+            },
+          },
         };
       case 'POST /v1/mobile/admin/raw-material-assignments':
         body = const {

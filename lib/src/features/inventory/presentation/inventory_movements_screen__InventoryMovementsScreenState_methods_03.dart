@@ -182,6 +182,100 @@ extension __InventoryMovementsScreenStateAstPart03
     );
   }
 
+  Widget _buildQrLookupPanel() {
+    final bottomPadding =
+        MediaQuery.viewPaddingOf(context).bottom + (_materialScoped ? 116 : 28);
+    return CustomScrollView(
+      key: const ValueKey('inventory-qr-lookup-panel'),
+      physics: const TopRefreshScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.qr_code_scanner_rounded),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'QR orqali izlash',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+                if (_qrScannedAssets.isNotEmpty)
+                  Text(
+                    '${_qrScannedAssets.length} ta',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                IconButton(
+                  key: const ValueKey('inventory-qr-search-close'),
+                  tooltip: 'QR izlashni yopish',
+                  onPressed: _closeQrLookup,
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: ProductionQuickScannerPanel(
+              key: const ValueKey('inventory-qr-search-scanner'),
+              onCodeDetected: _handleQrLookupCode,
+              statusText: _qrLookupStatus,
+              allowManualEntry: true,
+            ),
+          ),
+        ),
+        if (_qrScannedAssets.isEmpty)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: _InventoryEmptyState(
+              icon: Icons.qr_code_scanner_rounded,
+              message: 'QR skaner qilingan mahsulotlar shu yerda chiqadi',
+            ),
+          )
+        else
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(4, 8, 4, bottomPadding),
+            sliver: SliverList.builder(
+              itemCount: _qrScannedAssets.length,
+              itemBuilder: (context, index) {
+                final asset = _qrScannedAssets[index];
+                final selectionKey = _selectionKey(asset);
+                final orderAssignment = _rawMaterialOrderAssignments[
+                    rawMaterialAssetBarcode(asset)];
+                return Padding(
+                  padding: EdgeInsets.only(
+                    top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
+                  ),
+                  child: _InventoryAssetListRow(
+                    key: ValueKey(
+                        'inventory-qr-search-result-${asset.assetRef}'),
+                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                      index,
+                      _qrScannedAssets.length,
+                    ),
+                    asset: asset,
+                    orderAssignment: orderAssignment,
+                    busy: _busyKeys.any((item) => item.contains(selectionKey)),
+                    selected: false,
+                    onTap: () => _showAssetDetails(asset),
+                    onLongPress: null,
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
   List<InventoryLocation> _visibleWarehouseLocations() {
     if (_isAdmin) {
       return _warehouseLocations;
@@ -244,6 +338,7 @@ extension __InventoryMovementsScreenStateAstPart03
         incoming: false,
       );
     });
+    unawaited(_saveWarehouseFilter(selected));
     unawaited(_loadAssets());
   }
 

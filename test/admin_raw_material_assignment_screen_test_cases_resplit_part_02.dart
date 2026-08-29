@@ -56,9 +56,175 @@ void _registeradmin_raw_material_assignment_screen_testCases02() {
       expect(find.text('Pechat'), findsOneWidget);
       expect(find.text('Ombor'), findsOneWidget);
       expect(find.text('Kalidor'), findsOneWidget);
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 6));
     }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
   });
+
+  testWidgets('scanned assignment shows its order and can be safely unlinked', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    final client = _RawMaterialAssignmentHttpClient(
+      seenRequests,
+      lookupAssignmentStatus: 'available',
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.kalmar),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminRawMaterialAssignmentScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('QR orqali'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('QR skanerlash'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '30AA');
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('scanned-raw-material-current-order')),
+        findsOneWidget,
+      );
+      expect(find.text('Ulangan zakaz'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey('scanned-raw-material-current-order'),
+          ),
+          matching: find.text('Z-1 · Zakaz 1'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Mavjud'), findsOneWidget);
+
+      final unlinkButton =
+          find.byKey(const ValueKey('scanned-raw-material-unlink'));
+      expect(unlinkButton, findsOneWidget);
+      await tester.scrollUntilVisible(
+        unlinkButton,
+        240,
+        scrollable: find
+            .ancestor(of: unlinkButton, matching: find.byType(Scrollable))
+            .first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(unlinkButton);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Bu homashyoni “Zakaz 1” buyurtmasidan uzasizmi?'),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('manual-assignment-confirm-unlink')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        seenRequests,
+        contains(
+          'BODY DELETE /v1/mobile/admin/raw-material-assignments '
+          '{"order_id":"zakaz-1","barcode":"30AA"}',
+        ),
+      );
+      expect(
+        find.byKey(const ValueKey('scanned-raw-material-current-order')),
+        findsNothing,
+      );
+      expect(
+        find.text('Bu homashyo hali hech qaysi zakazga ulanmagan'),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 6));
+    }, createHttpClient: (_) => client);
+  });
+
+  for (final lockedCase in const <(String, String)>[
+    (
+      'in_use',
+      'Bu homashyo “Zakaz 1” buyurtmasida hozir ishlatilmoqda. Ulanishni uzib bo‘lmaydi.',
+    ),
+    (
+      'consumed',
+      'Bu homashyo “Zakaz 1” buyurtmasida ishlatilgan. Ulanishni uzib bo‘lmaydi.',
+    ),
+  ]) {
+    testWidgets(
+      'scanned ${lockedCase.$1} assignment cannot be unlinked',
+      (tester) async {
+        final seenRequests = <String>[];
+        final client = _RawMaterialAssignmentHttpClient(
+          seenRequests,
+          lookupAssignmentStatus: lockedCase.$1,
+        );
+
+        await HttpOverrides.runZoned(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light(AppThemeVariant.kalmar),
+              locale: const Locale('uz'),
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+              ],
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: const AdminRawMaterialAssignmentScreen(),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.text('QR orqali'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('QR skanerlash'));
+          await tester.pumpAndSettle();
+          await tester.enterText(find.byType(TextField), '30AA');
+          await tester.tap(find.text('OK'));
+          await tester.pumpAndSettle();
+
+          expect(
+            find.descendant(
+              of: find.byKey(
+                const ValueKey('scanned-raw-material-current-order'),
+              ),
+              matching: find.text('Z-1 · Zakaz 1'),
+            ),
+            findsOneWidget,
+          );
+          expect(find.text(lockedCase.$2), findsOneWidget);
+          final lockedButton = find.byKey(
+            const ValueKey('scanned-raw-material-unlink-locked'),
+          );
+          expect(lockedButton, findsOneWidget);
+          expect(
+            tester.widget<OutlinedButton>(lockedButton).onPressed,
+            isNull,
+          );
+          expect(
+            seenRequests.where(
+              (request) => request.startsWith(
+                'BODY DELETE /v1/mobile/admin/raw-material-assignments',
+              ),
+            ),
+            isEmpty,
+          );
+        }, createHttpClient: (_) => client);
+      },
+    );
+  }
 
   testWidgets('assignment screen unlinks expanded raw material assignment', (
     tester,
@@ -136,7 +302,7 @@ void _registeradmin_raw_material_assignment_screen_testCases02() {
       );
       expect(find.text('Bu zakazga hali homashyo ulanmagan'), findsOneWidget);
       expect(assignmentRow, findsNothing);
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 6));
     }, createHttpClient: (_) => client);
   });
 

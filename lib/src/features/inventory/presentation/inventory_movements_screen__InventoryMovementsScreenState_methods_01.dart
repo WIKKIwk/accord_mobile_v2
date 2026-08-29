@@ -3,6 +3,116 @@ part of 'inventory_movements_screen.dart';
 
 extension __InventoryMovementsScreenStateAstPart01
     on _InventoryMovementsScreenState {
+  String get _warehouseFilterPreferenceKey {
+    final profileRef = AppSession.instance.profile?.ref.trim() ?? '';
+    return 'inventory_movements.selected_warehouse.${profileRef.isEmpty ? 'default' : profileRef}';
+  }
+
+  Future<void> _restoreWarehouseFilterAndLoad() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      _selectedWarehouseId =
+          preferences.getString(_warehouseFilterPreferenceKey)?.trim() ?? '';
+    } catch (_) {
+      _selectedWarehouseId = '';
+    }
+    await _loadAll();
+  }
+
+  Future<void> _saveWarehouseFilter(String warehouseId) async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(
+        _warehouseFilterPreferenceKey,
+        warehouseId.trim(),
+      );
+    } catch (_) {
+      // The active filter remains usable even if local persistence fails.
+    }
+  }
+
+  void _openQrLookup() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _inventoryFabOpen = false;
+      _qrLookupOpen = true;
+      _qrLookupStatus = 'QR kodni ramkaga keltiring';
+    });
+  }
+
+  void _closeQrLookup() {
+    if (!mounted) {
+      return;
+    }
+    setState(() => _qrLookupOpen = false);
+  }
+
+  bool _qrAssetMatchesBarcode(InventoryAsset asset, String barcode) {
+    final normalized = barcode.trim().toLowerCase();
+    return [asset.identifier, asset.assetRef, asset.itemCode].any(
+      (value) => value.trim().toLowerCase() == normalized,
+    );
+  }
+
+  Future<void> _handleQrLookupCode(String rawValue) async {
+    final barcode = rawMaterialBarcodeFromQr(rawValue).trim();
+    final lookupKey = barcode.toLowerCase();
+    if (barcode.isEmpty || !_qrLookupBusyCodes.add(lookupKey)) {
+      return;
+    }
+    if (mounted) {
+      setState(() => _qrLookupStatus = 'QR bazadan tekshirilmoqda...');
+    }
+    try {
+      final assets = await MobileApi.instance.inventoryAssets(
+        query: barcode,
+        limit: 100,
+      );
+      final exactMatches = assets
+          .where((asset) => _qrAssetMatchesBarcode(asset, barcode))
+          .toList(growable: false);
+      final matches = exactMatches.isNotEmpty
+          ? exactMatches
+          : assets.length == 1
+              ? assets
+              : const <InventoryAsset>[];
+      if (matches.isEmpty) {
+        throw const MobileApiException(
+          code: 'inventory_qr_asset_not_found',
+          message: 'Bu QR bo‘yicha mahsulot topilmadi',
+        );
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        final next = List<InventoryAsset>.of(_qrScannedAssets);
+        for (final asset in matches) {
+          final index = next.indexWhere(
+            (item) => _selectionKey(item) == _selectionKey(asset),
+          );
+          if (index >= 0) {
+            next[index] = asset;
+          } else {
+            next.insert(0, asset);
+          }
+        }
+        _qrScannedAssets = List<InventoryAsset>.unmodifiable(next);
+        _qrLookupStatus = '${matches.length} ta mahsulot topildi';
+      });
+    } catch (error) {
+      if (mounted) {
+        final message = _message(error);
+        setState(() => _qrLookupStatus = message);
+        _showMessage(message);
+      }
+    } finally {
+      _qrLookupBusyCodes.remove(lookupKey);
+    }
+  }
+
   String _selectionKey(InventoryAsset asset) =>
       '${asset.kind.apiValue}:${asset.assetRef.toLowerCase()}';
 
@@ -23,17 +133,19 @@ extension __InventoryMovementsScreenStateAstPart01
       final warehouses = locations
           .where((location) => location.isWarehouse && location.active)
           .toList(growable: false);
+      final assigned = _assignedWarehouseNames;
+      final visibleWarehouses = _isAdmin
+          ? warehouses
+          : warehouses
+              .where(
+                (item) => assigned.contains(item.name.trim().toLowerCase()),
+              )
+              .toList(growable: false);
       var selected = _selectedWarehouseId;
-      if (!warehouses.any((item) => item.warehouseId == selected)) {
-        final assigned = _assignedWarehouseNames;
-        final preferred = warehouses.where(
-          (item) => assigned.contains(item.name.trim().toLowerCase()),
-        );
-        selected = preferred.isNotEmpty
-            ? preferred.first.warehouseId
-            : (_isAdmin && warehouses.isNotEmpty
-                ? warehouses.first.warehouseId
-                : '');
+      if (!visibleWarehouses.any((item) => item.warehouseId == selected)) {
+        selected = visibleWarehouses.isEmpty
+            ? ''
+            : visibleWarehouses.first.warehouseId;
       }
       final results = await Future.wait<Object>([
         MobileApi.instance.inventoryTransfers(direction: 'incoming'),

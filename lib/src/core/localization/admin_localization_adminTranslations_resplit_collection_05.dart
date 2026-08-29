@@ -92,6 +92,11 @@ const _admin_localization_adminTranslations_resplitPart05 = {
     'en': 'Unassign this raw material from the order?',
     'ru': 'Отменить назначение этого сырья на заказ?',
   },
+  'admin.raw_material.unlink_message_order': {
+    'uz': 'Bu homashyoni “{order}” buyurtmasidan uzasizmi?',
+    'en': 'Unassign this raw material from “{order}”?',
+    'ru': 'Отвязать это сырьё от заказа «{order}»?',
+  },
   'admin.raw_material.unlinked': {
     'uz': 'Homashyo zakazdan uzildi',
     'en': 'Raw material unassigned from the order',
@@ -245,6 +250,40 @@ const _admin_localization_adminTranslations_resplitPart05 = {
     'en': 'Cannot unassign',
     'ru': 'Нельзя отвязать',
   },
+  'admin.raw_material.current_order': {
+    'uz': 'Ulangan zakaz',
+    'en': 'Assigned order',
+    'ru': 'Назначенный заказ',
+  },
+  'admin.raw_material.unassigned_order': {
+    'uz': 'Bu homashyo hali hech qaysi zakazga ulanmagan',
+    'en': 'This raw material is not assigned to an order yet',
+    'ru': 'Это сырьё ещё не назначено на заказ',
+  },
+  'admin.raw_material.unassign_from_order': {
+    'uz': 'Orderdan uzish',
+    'en': 'Unassign from order',
+    'ru': 'Отвязать от заказа',
+  },
+  'admin.raw_material.unlink_blocked_in_use': {
+    'uz':
+        'Bu homashyo “{order}” buyurtmasida hozir ishlatilmoqda. Ulanishni uzib bo‘lmaydi.',
+    'en':
+        'This raw material is currently in use for “{order}”. It cannot be unassigned.',
+    'ru':
+        'Это сырьё сейчас используется в заказе «{order}». Отвязать его нельзя.',
+  },
+  'admin.raw_material.unlink_blocked_consumed': {
+    'uz':
+        'Bu homashyo “{order}” buyurtmasida ishlatilgan. Ulanishni uzib bo‘lmaydi.',
+    'en': 'This raw material was used for “{order}”. It cannot be unassigned.',
+    'ru': 'Это сырьё уже использовано в заказе «{order}». Отвязать его нельзя.',
+  },
+  'admin.raw_material.unlink_blocked_generic': {
+    'uz': 'Bu homashyo “{order}” buyurtmasida band. Ulanishni uzib bo‘lmaydi.',
+    'en': 'This raw material is locked for “{order}”. It cannot be unassigned.',
+    'ru': 'Это сырьё заблокировано для заказа «{order}». Отвязать его нельзя.',
+  },
   'admin.raw_material.status_available': {
     'uz': 'Mavjud',
     'en': 'Available',
@@ -254,6 +293,11 @@ const _admin_localization_adminTranslations_resplitPart05 = {
     'uz': 'Ishlatilgan',
     'en': 'Consumed',
     'ru': 'Использовано',
+  },
+  'admin.raw_material.status_in_use': {
+    'uz': 'Ishlatilmoqda',
+    'en': 'In use',
+    'ru': 'Используется',
   },
   'admin.raw_material.order_fallback': {
     'uz': 'Zakaz',

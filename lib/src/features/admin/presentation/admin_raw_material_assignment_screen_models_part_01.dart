@@ -205,9 +205,11 @@ class _AssignmentEditor extends StatelessWidget {
     required this.scanLookupError,
     required this.scanLookupLoading,
     required this.saving,
+    required this.unlinking,
     required this.onPickOrder,
     required this.onScan,
     required this.onSave,
+    required this.onUnlink,
   });
 
   final List<ProductionMapSaved> orders;
@@ -217,9 +219,11 @@ class _AssignmentEditor extends StatelessWidget {
   final String scanLookupError;
   final bool scanLookupLoading;
   final bool saving;
+  final bool unlinking;
   final VoidCallback onPickOrder;
   final VoidCallback onScan;
   final VoidCallback onSave;
+  final VoidCallback onUnlink;
 
   @override
   Widget build(BuildContext context) {
@@ -230,7 +234,7 @@ class _AssignmentEditor extends StatelessWidget {
           _AssignmentOrderPicker(
             orders: orders,
             selectedOrderLabel: selectedOrderLabel,
-            disabled: saving,
+            disabled: saving || scannedMaterial?.assignment != null,
             onPickOrder: onPickOrder,
           ),
           const SizedBox(height: 10),
@@ -246,11 +250,14 @@ class _AssignmentEditor extends StatelessWidget {
               detail: scannedMaterial,
               loading: scanLookupLoading,
               error: scanLookupError,
+              unlinking: unlinking,
+              onUnlink: onUnlink,
             ),
           ],
           const SizedBox(height: 10),
           FilledButton.icon(
-            onPressed: saving ? null : onSave,
+            onPressed:
+                saving || scannedMaterial?.assignment != null ? null : onSave,
             icon: saving
                 ? const SizedBox(
                     width: 18,
