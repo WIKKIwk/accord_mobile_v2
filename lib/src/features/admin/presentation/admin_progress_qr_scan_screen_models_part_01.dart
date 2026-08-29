@@ -15,6 +15,7 @@ enum _QrScanStatus {
   reportReady,
   paddonReady,
   materialReady,
+  openingWipReady,
   error,
 }
 
@@ -399,4 +400,204 @@ class _RawMaterialReportView extends StatelessWidget {
       ],
     );
   }
+}
+
+class _OpeningWipQrReportView extends StatelessWidget {
+  const _OpeningWipQrReportView({
+    required this.report,
+    required this.apparatusNamesById,
+    required this.onScanAgain,
+  });
+
+  final AdminOpeningWipRecord report;
+  final Map<String, String> apparatusNamesById;
+  final VoidCallback onScanAgain;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final batch = report.batches.first;
+    final intake = report.intake;
+    final itemName = batch.labelItemName.trim().isNotEmpty
+        ? batch.labelItemName.trim()
+        : batch.labelItemCode.trim().isNotEmpty
+            ? batch.labelItemCode.trim()
+            : batch.batchId.trim();
+    final sourceApparatus = intake.sourceApparatus.trim().isNotEmpty
+        ? intake.sourceApparatus
+        : intake.entryApparatus;
+    final currentLocation = intake.currentLocation.trim().isNotEmpty
+        ? intake.currentLocation
+        : intake.resumeApparatus;
+    final quantity = _openingWipQrQuantityText(batch);
+    final status = _openingWipQrStatusLabel(context, batch.wipStatus);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+      children: [
+        Card.filled(
+          color: scheme.secondaryContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.qr_code_2_rounded,
+                      color: scheme.onSecondaryContainer,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        context.l10n.adminText(
+                          'production.opening_wip.details_title',
+                        ),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: scheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  itemName,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  [
+                    if (batch.orderId.trim().isNotEmpty)
+                      '${context.l10n.adminText('production.opening_wip.order')}: ${batch.orderId}',
+                    status,
+                  ].where((item) => item.trim().isNotEmpty).join(' • '),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _InfoSection(
+          title: context.l10n.productionText('worker.opening_wip.products'),
+          children: [
+            _InfoRow(
+              label: context.l10n.productionText('worker.qr.report.epc'),
+              value: batch.qrPayload,
+            ),
+            _InfoRow(
+              label: context.l10n.adminText('production.opening_wip.batch_id'),
+              value: batch.batchId,
+            ),
+            _InfoRow(
+              label: context.l10n.adminText('production.opening_wip.order'),
+              value: batch.orderId,
+            ),
+            _InfoRow(
+              label: context.l10n.adminText(
+                'production.opening_wip.source_operation',
+              ),
+              value: intake.sourceOperation,
+            ),
+            _InfoRow(
+              label: context.l10n.adminText(
+                'production.opening_wip.source_apparatus',
+              ),
+              value: _canonicalApparatusLabel(
+                sourceApparatus,
+                apparatusNamesById,
+              ),
+            ),
+            _InfoRow(
+              label: context.l10n.adminText('wip.current_location'),
+              value: _canonicalApparatusLabel(
+                currentLocation,
+                apparatusNamesById,
+              ),
+            ),
+            _InfoRow(
+              label: context.l10n.adminText('production.opening_wip.quantity'),
+              value: quantity,
+            ),
+            _InfoRow(
+              label: context.l10n.adminText(
+                'production.opening_wip.quantity_basis',
+              ),
+              value: context.l10n.adminText(
+                'production.opening_wip.basis_${batch.quantityBasis.apiValue}',
+              ),
+            ),
+            _InfoRow(
+              label: context.l10n.adminText('wip.product_status'),
+              value: status,
+            ),
+            _InfoRow(
+              label: context.l10n.productionText('worker.qr.report.actor_name'),
+              value: intake.actorDisplayName,
+            ),
+            if (batch.createdAtUnix > 0)
+              _InfoRow(
+                label: context.l10n.adminText('wip.created_at'),
+                value: formatUnixSecondsLocalDateTime(batch.createdAtUnix),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: onScanAgain,
+          icon: const Icon(Icons.qr_code_scanner_rounded),
+          label: Text(
+            context.l10n.productionText('worker.scanner.scan_again'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _openingWipQrQuantityText(AdminOpeningWipBatch batch) {
+  final values = <String>[];
+  if (batch.finishedGoodsMeter != null) {
+    values.add(
+      formatQuantityWithUnit(
+        batch.finishedGoodsMeter!,
+        'm',
+        trimTrailingZeros: true,
+      ),
+    );
+  }
+  if (batch.finishedGoodsKg != null) {
+    values.add(
+      formatQuantityWithUnit(
+        batch.finishedGoodsKg!,
+        'kg',
+        trimTrailingZeros: true,
+      ),
+    );
+  }
+  if (values.isEmpty && batch.quantity != null) {
+    values.add(
+      formatQuantityWithUnit(
+        batch.quantity!,
+        batch.uom,
+        trimTrailingZeros: true,
+      ),
+    );
+  }
+  return values.join(' • ');
+}
+
+String _openingWipQrStatusLabel(BuildContext context, String status) {
+  final normalized = status.trim().toLowerCase();
+  final key = switch (normalized) {
+    'waiting' => 'wip.status.waiting',
+    'in_use' => 'wip.status.in_use',
+    'processed' => 'wip.status.processed',
+    _ => 'wip.unspecified',
+  };
+  return context.l10n.adminText(key);
 }

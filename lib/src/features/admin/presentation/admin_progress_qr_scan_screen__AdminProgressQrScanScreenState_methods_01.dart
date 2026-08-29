@@ -36,6 +36,9 @@ extension __AdminProgressQrScanScreenStateAstPart01
       _QrScanStatus.materialReady => l10n.productionText(
           'worker.scanner.material_ready',
         ),
+      _QrScanStatus.openingWipReady => l10n.productionText(
+          'worker.opening_wip.confirmed',
+        ),
       _QrScanStatus.error => _errorText(l10n),
     };
   }
@@ -84,7 +87,8 @@ extension __AdminProgressQrScanScreenStateAstPart01
     if (_processing ||
         _report != null ||
         _paddonReport != null ||
-        _rawMaterialReport != null) {
+        _rawMaterialReport != null ||
+        _openingWipReport != null) {
       return;
     }
     final qrPayload = _extractQrPayload(_firstBarcodeValue(capture));
@@ -158,6 +162,23 @@ extension __AdminProgressQrScanScreenStateAstPart01
           return;
         } catch (_) {
           // This five-digit QR may still belong to another flow.
+        }
+      }
+      if (_shouldTryOpeningWipLookup(error)) {
+        try {
+          final openingWipReport =
+              await MobileApi.instance.adminOpeningWipQrReport(normalized);
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _openingWipReport = openingWipReport;
+            _processing = false;
+            _scanStatus = _QrScanStatus.openingWipReady;
+          });
+          return;
+        } catch (_) {
+          // Show the original QR error below or try the raw material flow.
         }
       }
       if (_shouldTryRawMaterialLookup(error)) {
@@ -237,6 +258,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
       _report = null;
       _paddonReport = null;
       _rawMaterialReport = null;
+      _openingWipReport = null;
       _scanErrorCode = null;
       _scanStatus = _QrScanStatus.prompt;
     });
@@ -310,6 +332,14 @@ extension __AdminProgressQrScanScreenStateAstPart01
   }
 
   bool _shouldTryRawMaterialLookup(Object error) {
+    if (error is! MobileApiException) {
+      return false;
+    }
+    return error.code == 'progress_batch_not_found' ||
+        error.code == 'progress_batch_not_accepted';
+  }
+
+  bool _shouldTryOpeningWipLookup(Object error) {
     if (error is! MobileApiException) {
       return false;
     }

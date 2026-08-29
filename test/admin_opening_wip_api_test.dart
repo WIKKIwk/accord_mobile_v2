@@ -138,6 +138,13 @@ void main() {
     expect(replayed.intake.intakeId, created.intake.intakeId);
     expect(records, hasLength(1));
 
+    final qrReport = await MobileApi.instance.adminOpeningWipQrReport(
+      created.batches.first.qrPayload,
+    );
+    expect(qrReport.intake.intakeId, created.intake.intakeId);
+    expect(qrReport.batches, hasLength(1));
+    expect(qrReport.batches.single.batchId, created.batches.first.batchId);
+
     await AppSession.instance.setSession(
       token: 'opening-wip-worker-token',
       profile: const SessionProfile(

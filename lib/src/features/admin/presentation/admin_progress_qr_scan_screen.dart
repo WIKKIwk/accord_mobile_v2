@@ -35,6 +35,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
   AdminProgressQrReport? _report;
   AdminPaddonSnapshot? _paddonReport;
   AdminRawMaterialLookup? _rawMaterialReport;
+  AdminOpeningWipRecord? _openingWipReport;
   List<AdminApparatus> _apparatusCatalog = const [];
   bool _sharing = false;
 
@@ -80,9 +81,11 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
     final report = _report;
     final paddonReport = _paddonReport;
     final rawMaterialReport = _rawMaterialReport;
+    final openingWipReport = _openingWipReport;
     final scannerMode = report == null &&
         paddonReport == null &&
         rawMaterialReport == null &&
+        openingWipReport == null &&
         _scannerSupported;
     final backgroundColor =
         scannerMode ? Colors.black : scheme.surfaceContainerLow;
@@ -123,23 +126,30 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
                         onShare: _shareCurrentReport,
                         sharing: _sharing,
                       )
-                    : scannerMode
-                        ? _ScannerView(
-                            session: _scannerSession,
-                            statusText: _statusText(context.l10n),
-                            processing: _processing,
-                            errorText: _scanStatus == _QrScanStatus.error ||
-                                    _scanStatus == _QrScanStatus.cameraFailed
-                                ? _statusText(context.l10n)
-                                : null,
-                            onDetect: _handleDetect,
-                            onRetry: _startScanner,
-                            onManualEntry: _showManualQrDialog,
+                    : openingWipReport != null
+                        ? _OpeningWipQrReportView(
+                            report: openingWipReport,
+                            apparatusNamesById: _apparatusNamesById,
+                            onScanAgain: _scanAgain,
                           )
-                        : _UnsupportedScannerView(
-                            onBack: Navigator.of(context).pop,
-                            onManualEntry: _showManualQrDialog,
-                          ),
+                        : scannerMode
+                            ? _ScannerView(
+                                session: _scannerSession,
+                                statusText: _statusText(context.l10n),
+                                processing: _processing,
+                                errorText: _scanStatus == _QrScanStatus.error ||
+                                        _scanStatus ==
+                                            _QrScanStatus.cameraFailed
+                                    ? _statusText(context.l10n)
+                                    : null,
+                                onDetect: _handleDetect,
+                                onRetry: _startScanner,
+                                onManualEntry: _showManualQrDialog,
+                              )
+                            : _UnsupportedScannerView(
+                                onBack: Navigator.of(context).pop,
+                                onManualEntry: _showManualQrDialog,
+                              ),
       ),
     );
   }

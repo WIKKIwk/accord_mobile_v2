@@ -76,6 +76,67 @@ extension MobileApiAdminOpeningWip on MobileApi {
     ];
   }
 
+  Future<AdminOpeningWipRecord> adminOpeningWipQrReport(
+    String qrPayload,
+  ) async {
+    final normalizedQrPayload = qrPayload.trim();
+    if (normalizedQrPayload.isEmpty) {
+      throw const MobileApiException(
+        code: 'opening_wip_qr_not_found',
+        message: 'Opening WIP QR topilmadi',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      for (final record in _testModeOpeningWipRecords) {
+        if (record.intake.status.trim().toLowerCase() != 'confirmed') {
+          continue;
+        }
+        for (final batch in record.batches) {
+          if (batch.wipStatus.trim().toLowerCase() == 'void' ||
+              batch.qrPayload.trim().toLowerCase() !=
+                  normalizedQrPayload.toLowerCase()) {
+            continue;
+          }
+          return AdminOpeningWipRecord(
+            intake: record.intake,
+            batches: [batch],
+          );
+        }
+      }
+      throw const MobileApiException(
+        code: 'opening_wip_qr_not_found',
+        message: 'Opening WIP QR topilmadi',
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/opening-wip/qr/report',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'qr_payload': normalizedQrPayload}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'opening_wip_qr_not_found',
+      );
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final rawRecord = payload['record'];
+    if (rawRecord is! Map) {
+      throw const MobileApiException(
+        code: 'opening_wip_qr_not_found',
+        message: 'Opening WIP QR topilmadi',
+      );
+    }
+    return AdminOpeningWipRecord.fromJson(
+      rawRecord.cast<String, dynamic>(),
+    );
+  }
+
   Future<void> adminDeleteOpeningWipBatch({
     required String batchId,
   }) async {
