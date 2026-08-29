@@ -353,7 +353,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                         onPressed: onClose,
                         icon: const Icon(Icons.close_rounded),
                       ),
-                ),
               ),
             ],
           ),
