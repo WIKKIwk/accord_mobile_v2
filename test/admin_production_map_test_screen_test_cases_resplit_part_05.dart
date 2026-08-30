@@ -85,7 +85,7 @@ void _registeradmin_production_map_test_screen_testCases05() {
   );
 
   test(
-    'production map pechat filter blocks color pechat for flex products',
+    'production map filter treats flexo with the same pechat formula',
     () {
       const flexo = AdminApparatus(
         name: 'Flexo pechat',
@@ -120,7 +120,7 @@ void _registeradmin_production_map_test_screen_testCases05() {
             ),
             context,
           ),
-          isFalse,
+          isTrue,
         );
         expect(
           productionMapApparatusMatchesOrder(
@@ -132,7 +132,7 @@ void _registeradmin_production_map_test_screen_testCases05() {
             ),
             context,
           ),
-          isFalse,
+          isTrue,
         );
         expect(
           productionMapApparatusMatchesOrder(
@@ -153,6 +153,50 @@ void _registeradmin_production_map_test_screen_testCases05() {
           isTrue,
         );
       }
+      final calculatedWidthContext = ProductionMapOrderContext(
+        orderName: 'Apachi paket',
+        productName: 'Apachi paket',
+        itemCode: 'ITEM-APACHI',
+        rollCount: 2,
+        widthMm: 815,
+        templateDraft: CalculateOrderTemplate(
+          id: 'template-apachi',
+          code: 'APACHI',
+          name: 'Apachi paket',
+          savedAt: DateTime.fromMillisecondsSinceEpoch(0),
+          orderNumber: '',
+          customerRef: '',
+          customer: '',
+          itemCode: 'ITEM-APACHI',
+          product: 'Apachi paket',
+          status: '',
+          materialDisplay: '',
+          color: '',
+          imageId: '',
+          imageName: '',
+          imageMime: '',
+          imageSizeBytes: 0,
+          imageUrl: '',
+          frameProductSizeMm: 800,
+          frameCount: 1,
+          edgeAllowanceMm: 15,
+          widthMm: 815,
+          wastePercent: 5,
+          rollCount: 2,
+          firstLayerMaterial: 'pe oq',
+          firstLayerMicron: '70',
+          secondLayerMaterial: '',
+          secondLayerMicron: '',
+          thirdLayerMaterial: '',
+          thirdLayerMicron: '',
+          note: '',
+          kg: 2000,
+        ),
+      );
+      expect(
+        productionMapApparatusMatchesOrder(flexo, calculatedWidthContext),
+        isTrue,
+      );
       for (final context in const [
         ProductionMapOrderContext(
           orderName: 'Flexo narrow',

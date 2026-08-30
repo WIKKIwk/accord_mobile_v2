@@ -62,7 +62,7 @@ void main() {
     }
   });
 
-  test('flexo order is detected from its apparatus node', () {
+  test('flexo order moves to compatible pechat with the same formula', () {
     const map = ProductionMapDefinition(
       id: 'zakaz-1119',
       productCode: 'ABCD Family',
@@ -91,11 +91,12 @@ void main() {
         rollCount: map.rollCount,
         widthMm: map.widthMm,
       ),
-      isFalse,
+      isTrue,
     );
   });
 
-  test('color pechat order cannot move into flexo', () {
+  test('color pechat order moves into compatible flexo with the same formula',
+      () {
     const map = ProductionMapDefinition(
       id: 'zakaz-0002',
       productCode: 'Imperator salyami',
@@ -128,7 +129,7 @@ void main() {
         rollCount: map.rollCount,
         widthMm: map.widthMm,
       ),
-      isFalse,
+      isTrue,
     );
   });
 

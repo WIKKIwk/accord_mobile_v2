@@ -177,27 +177,18 @@ bool productionMapApparatusMatchesOrder(
     return true;
   }
   final context = orderContext;
-  if (context != null && _productionMapOrderIsFlexoProduct(context)) {
-    return apparatus.technology == 'flexographic' &&
-        productionMapApparatusProfileCanHandleOrder(
-          apparatus: apparatus,
-          rollCount: context.rollCount,
-          widthMm: context.widthMm,
-        );
+  if (context == null) {
+    return true;
   }
-  if (apparatus.isFlexo) {
-    return context == null ||
-        productionMapApparatusProfileCanHandleOrder(
-          apparatus: apparatus,
-          rollCount: context.rollCount,
-          widthMm: context.widthMm,
-        );
+  if (!productionMapApparatusProfileCanHandleOrder(
+    apparatus: apparatus,
+    rollCount: context.rollCount,
+    widthMm: _productionMapOrderProfileWidth(context),
+  )) {
+    return false;
   }
   final apparatusColorCount = apparatus.colorStations;
   if (apparatusColorCount == null) {
-    return true;
-  }
-  if (context == null) {
     return true;
   }
   final recommended = productionMapRecommendedPechatColorCount(
@@ -214,19 +205,16 @@ bool productionMapApparatusMatchesOrder(
   );
 }
 
-bool _productionMapOrderIsFlexoProduct(ProductionMapOrderContext context) {
-  final haystack = [
-    context.orderName,
-    context.productName,
-    context.itemCode,
-  ].join(' ').toLowerCase();
-  return const [
-    'fleksa',
-    'fleska',
-    'flex',
-    'flexe',
-    'flexo',
-  ].any(haystack.contains);
+double? _productionMapOrderProfileWidth(ProductionMapOrderContext context) {
+  final template = context.templateDraft;
+  if (template != null &&
+      template.frameProductSizeMm.isFinite &&
+      template.frameProductSizeMm > 0 &&
+      template.frameCount.isFinite &&
+      template.frameCount > 0) {
+    return template.frameProductSizeMm * template.frameCount;
+  }
+  return context.widthMm;
 }
 
 bool _productionMapLaminatsiyaMatchesOrder(

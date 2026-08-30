@@ -86,8 +86,7 @@ bool productionMapApparatusProfileCanHandleOrder({
   required double? widthMm,
 }) {
   final maximumRollCount = apparatus.colorStations;
-  if (apparatus.isFlexo &&
-      rollCount != null &&
+  if (rollCount != null &&
       rollCount > 0 &&
       maximumRollCount != null &&
       rollCount > maximumRollCount) {
@@ -273,14 +272,15 @@ bool productionMapCanMoveOrderToApparatus({
       fromOperation != toOperation) {
     return false;
   }
-  final fromTechnology = fromApparatus.technology.trim();
-  final toTechnology = toApparatus.technology.trim();
-  if (fromTechnology.isEmpty ||
-      toTechnology.isEmpty ||
-      fromTechnology != toTechnology) {
-    return false;
+  if (fromOperation != 'print') {
+    final fromTechnology = fromApparatus.technology.trim();
+    final toTechnology = toApparatus.technology.trim();
+    if (fromTechnology.isEmpty ||
+        toTechnology.isEmpty ||
+        fromTechnology != toTechnology) {
+      return false;
+    }
   }
-
   if (sourceNodes.any(
     (node) => node.alternativeGroupId.trim().isNotEmpty,
   )) {
@@ -294,14 +294,6 @@ bool productionMapCanMoveOrderToApparatus({
           fromApparatusId: fromId,
           toApparatusId: toId,
         );
-  }
-
-  if (toApparatus.isFlexo) {
-    return productionMapApparatusProfileCanHandleOrder(
-      apparatus: toApparatus,
-      rollCount: rollCount,
-      widthMm: widthMm,
-    );
   }
 
   final targetColorCount = toApparatus.colorStations;
