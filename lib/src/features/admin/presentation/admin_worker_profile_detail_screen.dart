@@ -434,6 +434,7 @@ String _actionLabel(AppLocalizations l10n, String action) {
     'start' => l10n.adminText('detail.action_start'),
     'pause' => l10n.adminText('detail.action_pause'),
     'detach_roll' => l10n.adminText('detail.action_detach_roll'),
+    'merge' => l10n.productionText('worker.action.merge'),
     'resume' => l10n.adminText('detail.action_resume'),
     'roll_complete' => l10n.adminText('detail.action_roll_complete'),
     'complete' => l10n.adminText('detail.action_complete'),

@@ -57,6 +57,56 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
     'en': 'Checking QR code...',
     'ru': 'Проверка QR-кода...',
   },
+  'worker.scanner.merge_prompt': {
+    'uz': 'Ulanadigan keyingi WIP rulon QR sini scan qiling',
+    'en': 'Scan the next WIP roll to merge',
+    'ru': 'Отсканируйте следующий рулон WIP для соединения',
+  },
+  'worker.notice.merge_complete': {
+    'uz': 'WIP rulon ulandi. Ishni davom ettiring',
+    'en': 'The WIP roll was merged. Continue working.',
+    'ru': 'Рулон WIP соединен. Продолжайте работу.',
+  },
+  'worker.merge_state.current': {
+    'uz': 'Joriy WIP: {batch}',
+    'en': 'Current WIP: {batch}',
+    'ru': 'Текущий WIP: {batch}',
+  },
+  'worker.merge_state.title': {
+    'uz': 'Merge holati',
+    'en': 'Merge status',
+    'ru': 'Состояние соединения',
+  },
+  'worker.merge_state.lineage': {
+    'uz': 'WIP ketma-ketligi: {lineage}',
+    'en': 'WIP sequence: {lineage}',
+    'ru': 'Последовательность WIP: {lineage}',
+  },
+  'worker.merge_state.partial_rolls': {
+    'uz': 'Davom etayotgan bolacha: {rolls} ta · manba: {sources} ta WIP',
+    'en': 'Active partial rolls: {rolls} · sources: {sources} WIPs',
+    'ru': 'Активные остаточные рулоны: {rolls} · источники: {sources} WIP',
+  },
+  'worker.error.merge_input_required': {
+    'uz': 'Ulanadigan keyingi WIP QR sini scan qiling',
+    'en': 'Scan the next WIP to merge',
+    'ru': 'Отсканируйте следующий WIP для соединения',
+  },
+  'worker.error.merge_input_same': {
+    'uz': 'Bu WIP hozir ishlatilmoqda. Boshqa WIPni scan qiling',
+    'en': 'This WIP is already in use. Scan another WIP.',
+    'ru': 'Этот WIP уже используется. Отсканируйте другой WIP.',
+  },
+  'worker.error.merge_input_already_used': {
+    'uz': 'Bu WIP avval ishlatib bo‘lingan',
+    'en': 'This WIP has already been consumed',
+    'ru': 'Этот WIP уже был использован',
+  },
+  'worker.error.merge_input_not_accepted': {
+    'uz': 'Bu WIP ushbu Rezka ishiga mos emas',
+    'en': 'This WIP does not match this cutting job',
+    'ru': 'Этот WIP не подходит для этой резки',
+  },
   'worker.notice.material_confirmed_item': {
     'uz': '{item} tasdiqlandi',
     'en': '{item} confirmed',

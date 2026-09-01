@@ -11,6 +11,18 @@ void main() {
     expect(uzbek.productionText('worker.action.start'), 'Boshlash');
     expect(english.productionText('worker.action.start'), 'Start');
     expect(russian.productionText('worker.action.start'), 'Начать');
+    expect(uzbek.productionText('worker.action.merge'), 'Merge');
+    expect(
+      uzbek.productionText(
+        'worker.merge_state.current',
+        values: const {'batch': 'wip-b'},
+      ),
+      'Joriy WIP: wip-b',
+    );
+    expect(
+      uzbek.productionErrorMessage('merge_input_same'),
+      'Bu WIP hozir ishlatilmoqda. Boshqa WIPni scan qiling',
+    );
     expect(
       english.productionText('worker.action.complete'),
       'Complete job',

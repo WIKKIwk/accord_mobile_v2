@@ -50,6 +50,10 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
       'raw_material_group_scan_incomplete' =>
         'worker.error.scan_required_materials',
       'previous_stage_qr_required' => 'worker.error.scan_previous',
+      'merge_input_required' => 'worker.error.merge_input_required',
+      'merge_input_same' => 'worker.error.merge_input_same',
+      'merge_input_already_used' => 'worker.error.merge_input_already_used',
+      'merge_input_not_accepted' => 'worker.error.merge_input_not_accepted',
       'progress_qr_reprint' => 'worker.daily.reprint_failed',
       'progress_batch_correction_reason_required' =>
         'worker.daily.correction.required',

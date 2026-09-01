@@ -183,6 +183,7 @@ extension __ReadOnlyOrderDetailSheetStateAstPart04
     }
     setState(() {
       _materialIntakeMode = true;
+      _mergeScanMode = false;
       _intakeCandidatesExpanded = true;
       _quickScanStatus = context.l10n.productionText(
         'worker.scanner.additional_material_prompt',

@@ -432,6 +432,255 @@ void main() {
             ));
   });
 
+  test('worker merge sends scanned WIP QR without output metrics', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Rezkachi',
+      legalName: '',
+      ref: 'rezka-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: 'apparatus:default:asset-005',
+        orderId: 'zakaz-1',
+        action: 'merge',
+        qrPayload: 'GSP:PROGRESS-WIP-B',
+      );
+
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/production-maps/queue-action '
+          '{"apparatus":"apparatus:default:asset-005","order_id":"zakaz-1",'
+          '"action":"merge","qr_payload":"GSP:PROGRESS-WIP-B"}',
+        ),
+      );
+      expect(seenRequests.join('\n'), isNot(contains('diameter')));
+      expect(seenRequests.join('\n'), isNot(contains('produced_qty')));
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              queueActionProgress: true,
+            ));
+  });
+
+  test('test mode Rezka merge advances WIP lineage without ending work',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Rezkachi',
+      legalName: '',
+      ref: 'rezka-test-mode',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+    const orderId = 'zakaz-test-mode-rezka-merge';
+    const laminatsiya = 'apparatus:default:asset-007';
+    const rezka = 'apparatus:default:asset-010';
+    await MobileApi.instance.adminSaveProductionMap(
+      const ProductionMapDefinition(
+        id: orderId,
+        productCode: 'MERGE-TM-1',
+        title: 'Test Mode Rezka Merge',
+        code: 'MERGE-TM-1',
+        nodes: [
+          ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+          ProductionMapNode(
+            id: 'laminatsiya',
+            kind: 'apparatus',
+            title: 'Laminatsiya 1',
+            apparatusId: laminatsiya,
+          ),
+          ProductionMapNode(
+            id: 'rezka',
+            kind: 'apparatus',
+            title: 'Rezka',
+            apparatusId: rezka,
+            rezkaKadrCount: 1,
+            rezkaLabelLength: 100,
+          ),
+          ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+        ],
+        edges: [
+          ProductionMapEdge(from: 'start', to: 'laminatsiya'),
+          ProductionMapEdge(from: 'laminatsiya', to: 'rezka'),
+          ProductionMapEdge(from: 'rezka', to: 'end'),
+        ],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: laminatsiya,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: rezka,
+      orderIds: const [orderId],
+    );
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: laminatsiya,
+      orderId: orderId,
+      action: 'start',
+    );
+    final firstInput =
+        (await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: laminatsiya,
+      orderId: orderId,
+      action: 'pause',
+      producedQty: 120,
+      uom: 'm',
+    ))
+            .progressBatch!;
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: laminatsiya,
+      orderId: orderId,
+      action: 'resume',
+    );
+    final secondInput =
+        (await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: laminatsiya,
+      orderId: orderId,
+      action: 'pause',
+      producedQty: 80,
+      uom: 'm',
+    ))
+            .progressBatch!;
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: rezka,
+      orderId: orderId,
+      action: 'start',
+      qrPayload: firstInput.qrPayload,
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: rezka,
+      orderId: orderId,
+      control: AdminApparatusQueueOrderActionControl(
+        state: 'in_progress',
+        allowedActions: const {'pause', 'merge', 'complete'},
+        hasOnlyKnownActions: true,
+        previousStage: laminatsiya,
+        stageNodeId: 'rezka',
+        previousStageReady: true,
+        rezkaOutputKadrCounts: const [1],
+        rezkaInputLineage: [
+          AdminRezkaInputLink(
+            inputBatchId: firstInput.batchId,
+            sequenceNo: 1,
+            status: 'in_use',
+          ),
+        ],
+        rezkaActivePartialRolls: [
+          AdminRezkaActivePartialRoll(
+            slotIndex: 1,
+            generation: 1,
+            sourceInputBatchIds: [firstInput.batchId],
+          ),
+        ],
+        interaction: const AdminQueueWorkerInteraction(
+          mode: AdminQueueInteractionMode.inProgress,
+          startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+          materialScanRequired: false,
+          assignedMaterialsDisplayOnly: true,
+          materialIntakeAllowed: false,
+          previousWipMode: AdminQueuePreviousWipMode.notRequired,
+          qolipMode: AdminQueueQolipMode.notRequired,
+        ),
+      ),
+    );
+
+    await expectLater(
+      MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: rezka,
+        orderId: orderId,
+        action: 'merge',
+      ),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'merge_input_required',
+        ),
+      ),
+    );
+    await expectLater(
+      MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: rezka,
+        orderId: orderId,
+        action: 'merge',
+        qrPayload: secondInput.qrPayload,
+        diameter: 25,
+      ),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'progress_input_invalid',
+        ),
+      ),
+    );
+
+    final merged = await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: rezka,
+      orderId: orderId,
+      action: 'merge',
+      qrPayload: secondInput.qrPayload,
+    );
+    expect(merged.states[orderId], 'in_progress');
+    final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+    final mergeControl = snapshot.queueActionControls[rezka]![orderId]!;
+    expect(
+      mergeControl.rezkaInputLineage
+          .map((link) => '${link.inputBatchId}:${link.status}'),
+      [
+        '${firstInput.batchId}:processed',
+        '${secondInput.batchId}:in_use',
+      ],
+    );
+    expect(
+      mergeControl.rezkaActivePartialRolls.single.sourceInputBatchIds,
+      [firstInput.batchId, secondInput.batchId],
+    );
+    final wipBatches = await MobileApi.instance.adminWipBatches(
+      status: 'all',
+      orderId: orderId,
+    );
+    expect(
+      wipBatches
+          .singleWhere((batch) => batch.batchId == firstInput.batchId)
+          .wipStatus,
+      'processed',
+    );
+    expect(
+      wipBatches
+          .singleWhere((batch) => batch.batchId == secondInput.batchId)
+          .wipStatus,
+      'in_use',
+    );
+    await expectLater(
+      MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: rezka,
+        orderId: orderId,
+        action: 'merge',
+        qrPayload: firstInput.qrPayload,
+      ),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'merge_input_already_used',
+        ),
+      ),
+    );
+  });
+
   test('progress qr report reads server aggregated order flow', () async {
     final seenRequests = <String>[];
     AppSession.instance.token = 'token';

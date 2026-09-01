@@ -34,6 +34,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.onToggleIntakeCandidatesExpanded,
     required this.showPause,
     required this.pauseLabel,
+    required this.showMerge,
     required this.showRollComplete,
     required this.showComplete,
     required this.showResume,
@@ -61,9 +62,11 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.qolipsExpanded,
     required this.onToggleQolipsExpanded,
     required this.rezkaInstructionLines,
+    required this.rezkaMergeStateLines,
     required this.onMaterialIntake,
     required this.onStart,
     required this.onPause,
+    required this.onMerge,
     required this.onRollComplete,
     required this.onComplete,
     required this.onResume,
@@ -104,6 +107,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final VoidCallback onToggleIntakeCandidatesExpanded;
   final bool showPause;
   final String pauseLabel;
+  final bool showMerge;
   final bool showRollComplete;
   final bool showComplete;
   final bool showResume;
@@ -131,9 +135,11 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool qolipsExpanded;
   final VoidCallback onToggleQolipsExpanded;
   final List<String> rezkaInstructionLines;
+  final List<String> rezkaMergeStateLines;
   final VoidCallback onMaterialIntake;
   final VoidCallback onStart;
   final VoidCallback onPause;
+  final VoidCallback onMerge;
   final VoidCallback onRollComplete;
   final VoidCallback onComplete;
   final VoidCallback onResume;

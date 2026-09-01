@@ -165,6 +165,7 @@ extension MobileApiAdminQueueActionResultTestModeAstPart01 on MobileApi {
       (frame) => (frame['issue_note']?.toString().trim() ?? '').isNotEmpty,
     );
     if (hasRezkaFrameIssues &&
+        action != 'merge' &&
         action != 'roll_complete' &&
         action != 'complete') {
       throw const MobileApiException(
@@ -189,7 +190,9 @@ extension MobileApiAdminQueueActionResultTestModeAstPart01 on MobileApi {
                   ) &&
                   isPositive(frameMetric(frame, 'diameter'))),
         );
-    if (rezkaFrames.isNotEmpty && (!isRezka || !isRezkaProgressAction)) {
+    if (rezkaFrames.isNotEmpty &&
+        action != 'merge' &&
+        (!isRezka || !isRezkaProgressAction)) {
       throw const MobileApiException(
         code: 'rezka_frames_only_on_rezka_progress',
         message: 'Kadr qiymatlari faqat Rezka progress amalida yuboriladi',
@@ -381,8 +384,18 @@ extension MobileApiAdminQueueActionResultTestModeAstPart01 on MobileApi {
     if (activeInputBatch != null &&
         (activeInputBatch.orderId.trim() != orderId.trim() ||
             activeInputBatch.wipStatus.trim().toLowerCase() == 'processed')) {
-      throw const MobileApiException(
-        code: 'progress_batch_not_accepted',
+      if (action == 'merge' &&
+          activeInputBatch.orderId.trim() == orderId.trim() &&
+          activeInputBatch.wipStatus.trim().toLowerCase() == 'processed') {
+        throw const MobileApiException(
+          code: 'merge_input_already_used',
+          message: 'Bu WIP oldin ishlatilgan',
+        );
+      }
+      throw MobileApiException(
+        code: action == 'merge'
+            ? 'merge_input_not_accepted'
+            : 'progress_batch_not_accepted',
         message: 'Bu WIP ushbu Rezka orderi uchun yaroqsiz',
       );
     }
@@ -397,15 +410,17 @@ extension MobileApiAdminQueueActionResultTestModeAstPart01 on MobileApi {
               ? input!.usedByApparatus.trim()
               : input?.currentApparatus.trim() ?? '';
       if (input == null) {
-        throw const MobileApiException(
-          code: 'progress_batch_not_accepted',
+        throw MobileApiException(
+          code: action == 'merge'
+              ? 'merge_input_not_accepted'
+              : 'progress_batch_not_accepted',
           message: 'Bu QR oldingi bosqich mahsulotiga mos emas',
         );
       }
       final sessionInputIsDifferent = sessionInputBatch != null &&
           sessionInputBatch.wipStatus.trim().toLowerCase() == 'in_use' &&
           sessionInputBatch.batchId.trim() != input.batchId.trim();
-      if (sessionInputIsDifferent) {
+      if (sessionInputIsDifferent && action != 'merge') {
         throw const MobileApiException(
           code: 'progress_batch_not_accepted',
           message: 'Avval joriy Rezka rulonini tugating',
@@ -416,8 +431,10 @@ extension MobileApiAdminQueueActionResultTestModeAstPart01 on MobileApi {
       if (!inputWipIsUsable ||
           input.apparatus.trim() != previousStage ||
           (inputNextApparatus.isNotEmpty && inputNextApparatus != storageKey)) {
-        throw const MobileApiException(
-          code: 'progress_batch_not_accepted',
+        throw MobileApiException(
+          code: action == 'merge'
+              ? 'merge_input_not_accepted'
+              : 'progress_batch_not_accepted',
           message: 'Bu QR oldingi bosqich mahsulotiga mos emas',
         );
       }
@@ -513,6 +530,8 @@ extension MobileApiAdminQueueActionResultTestModeAstPart01 on MobileApi {
       return context._runWorkerHandoff();
     } else if (isPauseOrDetach) {
       return context._runPauseOrDetach();
+    } else if (action == 'merge') {
+      return context._runMerge();
     } else if (action == 'roll_complete') {
       return context._runRollComplete();
     } else if (action == 'resume') {

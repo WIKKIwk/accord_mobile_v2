@@ -384,7 +384,7 @@ void _registeradmin_production_map_queue_snapshot_testCases02() {
   test('Rezka action control keeps occurrence and dynamic output groups', () {
     final control = AdminApparatusQueueOrderActionControl.fromJson({
       'state': 'in_progress',
-      'allowed_actions': ['pause', 'complete'],
+      'allowed_actions': ['pause', 'merge', 'complete'],
       'interaction': {
         'mode': 'in_progress',
         'start_materials_mode': 'hidden',
@@ -399,11 +399,110 @@ void _registeradmin_production_map_queue_snapshot_testCases02() {
       'complete_requires_rezka_total_waste_only': true,
       'stage_node_id': 'rezka-before-lamination',
       'rezka_output_kadr_counts': [1, 2],
+      'rezka_input_lineage': [
+        {
+          'input_batch_id': 'wip-a',
+          'source_kind': 'progress_batch',
+          'sequence_no': 1,
+          'status': 'processed',
+        },
+        {
+          'input_batch_id': 'wip-b',
+          'source_kind': 'progress_batch',
+          'sequence_no': 2,
+          'status': 'in_use',
+        },
+      ],
+      'rezka_active_partial_rolls': [
+        {
+          'slot_index': 1,
+          'generation': 1,
+          'contained_kadr_count': 1,
+          'status': 'active',
+          'source_input_batch_ids': ['wip-a', 'wip-b'],
+        },
+      ],
     });
 
     expect(control.contractValid, isTrue);
+    expect(control.allows('merge'), isTrue);
     expect(control.stageNodeId, 'rezka-before-lamination');
     expect(control.rezkaOutputKadrCounts, const [1, 2]);
+    expect(
+      control.rezkaInputLineage.map((link) => link.inputBatchId),
+      const ['wip-a', 'wip-b'],
+    );
+    expect(
+        control.rezkaInputLineage
+            .singleWhere((link) => link.inUse)
+            .inputBatchId,
+        'wip-b');
+    expect(
+      control.rezkaActivePartialRolls.single.sourceInputBatchIds,
+      const ['wip-a', 'wip-b'],
+    );
     expect(control.completeRequiresRezkaTotalWasteOnly, isTrue);
+  });
+
+  test('Rezka merge contract rejects malformed or disconnected lineage', () {
+    AdminApparatusQueueOrderActionControl parse({
+      Object sequenceNo = 2,
+      Object slotIndex = 1,
+      List<String> rollSources = const ['wip-a', 'wip-b'],
+      bool emptyLineage = false,
+      bool omitLineage = false,
+    }) {
+      return AdminApparatusQueueOrderActionControl.fromJson({
+        'state': 'in_progress',
+        'allowed_actions': ['pause', 'merge', 'complete'],
+        'interaction': {
+          'mode': 'in_progress',
+          'start_materials_mode': 'hidden',
+          'material_scan_required': false,
+          'assigned_materials_display_only': true,
+          'material_intake_allowed': false,
+          'previous_wip_mode': 'not_required',
+          'qolip_mode': 'not_required',
+        },
+        'previous_stage_ready': true,
+        'complete_requires_full_report': false,
+        'rezka_output_kadr_counts': [1],
+        if (!omitLineage)
+          'rezka_input_lineage': emptyLineage
+              ? const []
+              : [
+                  {
+                    'input_batch_id': 'wip-a',
+                    'source_kind': 'progress_batch',
+                    'sequence_no': 1,
+                    'status': 'processed',
+                  },
+                  {
+                    'input_batch_id': 'wip-b',
+                    'source_kind': 'progress_batch',
+                    'sequence_no': sequenceNo,
+                    'status': 'in_use',
+                  },
+                ],
+        if (!omitLineage)
+          'rezka_active_partial_rolls': emptyLineage
+              ? const []
+              : [
+                  {
+                    'slot_index': slotIndex,
+                    'generation': 1,
+                    'contained_kadr_count': 1,
+                    'status': 'active',
+                    'source_input_batch_ids': rollSources,
+                  },
+                ],
+      });
+    }
+
+    expect(parse(sequenceNo: 2.5).contractValid, isFalse);
+    expect(parse(slotIndex: 1.5).contractValid, isFalse);
+    expect(parse(rollSources: const ['wip-a']).contractValid, isFalse);
+    expect(parse(emptyLineage: true).contractValid, isFalse);
+    expect(parse(omitLineage: true).contractValid, isTrue);
   });
 }

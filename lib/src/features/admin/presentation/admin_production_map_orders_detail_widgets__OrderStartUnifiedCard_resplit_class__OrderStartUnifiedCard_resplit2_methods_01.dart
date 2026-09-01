@@ -23,6 +23,7 @@ extension __OrderStartUnifiedCardAstPart01 on _OrderStartUnifiedCard {
         orderControlState != AdminOrderControlState.active;
     final hasActions = showStart ||
         showPause ||
+        showMerge ||
         showRollComplete ||
         showComplete ||
         showResume ||
@@ -128,7 +129,8 @@ extension __OrderStartUnifiedCardAstPart01 on _OrderStartUnifiedCard {
               ],
             ),
             Divider(
-                height: 28, color: scheme.outlineVariant.withValues(alpha: 0.5)),
+                height: 28,
+                color: scheme.outlineVariant.withValues(alpha: 0.5)),
           ],
           if (orderControlBlocked) ...[
             Container(
@@ -429,6 +431,10 @@ extension __OrderStartUnifiedCardAstPart01 on _OrderStartUnifiedCard {
               _RezkaWipSplitInstruction(lines: rezkaInstructionLines),
               const SizedBox(height: 10),
             ],
+            if (rezkaMergeStateLines.isNotEmpty) ...[
+              _RezkaMergeStateCard(lines: rezkaMergeStateLines),
+              const SizedBox(height: 10),
+            ],
             AnimatedSize(
               key: const ValueKey('production-order-start-action-motion'),
               duration: AppMotion.medium,
@@ -544,6 +550,40 @@ extension __OrderStartUnifiedCardAstPart01 on _OrderStartUnifiedCard {
                     )
                   : const SizedBox(
                       key: ValueKey('production-order-pause-complete-hidden'),
+                    ),
+            ),
+            AnimatedSize(
+              key: const ValueKey('production-order-merge-motion'),
+              duration: AppMotion.medium,
+              curve: AppMotion.standardDecelerate,
+              alignment: Alignment.topCenter,
+              child: showMerge
+                  ? Column(
+                      key: const ValueKey(
+                        'production-order-merge-visible',
+                      ),
+                      children: [
+                        const SizedBox(height: 10),
+                        FilledButton.tonalIcon(
+                          key: const ValueKey('production-order-merge-action'),
+                          onPressed: actionInFlight ? null : onMerge,
+                          icon: const Icon(Icons.link_rounded),
+                          label: Text(
+                            context.l10n.productionText(
+                              'worker.action.merge',
+                            ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : const SizedBox(
+                      key: ValueKey('production-order-merge-hidden'),
                     ),
             ),
             AnimatedSize(

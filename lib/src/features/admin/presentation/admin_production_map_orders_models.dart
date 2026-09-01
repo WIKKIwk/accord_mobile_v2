@@ -151,6 +151,8 @@ class _ReadOnlyOrderDetailUiState {
     required this.station,
     required this.stageNodeId,
     required this.rezkaOutputKadrCounts,
+    required this.rezkaInputLineage,
+    required this.rezkaActivePartialRolls,
     required this.materialAssignments,
     required this.intakeCandidateAssignments,
     required this.assignedMaterialAssignments,
@@ -168,6 +170,7 @@ class _ReadOnlyOrderDetailUiState {
     required this.previousProgressReady,
     required this.showStart,
     required this.showPause,
+    required this.showMerge,
     required this.showRollComplete,
     required this.showComplete,
     required this.showResume,
@@ -182,6 +185,8 @@ class _ReadOnlyOrderDetailUiState {
   final String station;
   final String stageNodeId;
   final List<int> rezkaOutputKadrCounts;
+  final List<AdminRezkaInputLink> rezkaInputLineage;
+  final List<AdminRezkaActivePartialRoll> rezkaActivePartialRolls;
 
   /// Backend-selected assignments that participate in the start policy.
   final List<AdminRawMaterialAssignment> materialAssignments;
@@ -205,6 +210,7 @@ class _ReadOnlyOrderDetailUiState {
   final bool previousProgressReady;
   final bool showStart;
   final bool showPause;
+  final bool showMerge;
   final bool showRollComplete;
   final bool showComplete;
   final bool showResume;

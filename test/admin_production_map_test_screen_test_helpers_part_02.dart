@@ -152,16 +152,20 @@ AdminApparatusQueueOrderActionControl _freshStartQueueControl({
 
 AdminApparatusQueueOrderActionControl _inProgressQueueControl({
   bool materialIntakeAllowed = false,
+  bool allowMerge = false,
   bool completeRequiresFullReport = false,
   bool completeRequiresRezkaTotalWasteOnly = false,
   String stageNodeId = '',
   List<int> rezkaOutputKadrCounts = const [],
+  List<AdminRezkaInputLink> rezkaInputLineage = const [],
+  List<AdminRezkaActivePartialRoll> rezkaActivePartialRolls = const [],
 }) {
   return AdminApparatusQueueOrderActionControl(
     state: 'in_progress',
-    allowedActions: const {
+    allowedActions: {
       'pause',
       'detach_roll',
+      if (allowMerge) 'merge',
       'complete',
       'freeze',
     },
@@ -170,6 +174,8 @@ AdminApparatusQueueOrderActionControl _inProgressQueueControl({
     completeRequiresRezkaTotalWasteOnly: completeRequiresRezkaTotalWasteOnly,
     stageNodeId: stageNodeId,
     rezkaOutputKadrCounts: rezkaOutputKadrCounts,
+    rezkaInputLineage: rezkaInputLineage,
+    rezkaActivePartialRolls: rezkaActivePartialRolls,
     interaction: AdminQueueWorkerInteraction(
       mode: AdminQueueInteractionMode.inProgress,
       startMaterialsMode: AdminQueueStartMaterialsMode.hidden,

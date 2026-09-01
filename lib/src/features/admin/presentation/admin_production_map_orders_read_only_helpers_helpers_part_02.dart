@@ -127,6 +127,9 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   final showPause = contractSynchronized &&
       canManageQueue &&
       queueActionControl.allows('pause');
+  final showMerge = contractSynchronized &&
+      canManageQueue &&
+      queueActionControl.allows('merge');
   final showRollComplete = contractSynchronized &&
       canManageQueue &&
       queueActionControl.allows('roll_complete');
@@ -142,6 +145,10 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     stageNodeId: queueActionControl?.stageNodeId.trim() ?? '',
     rezkaOutputKadrCounts:
         queueActionControl?.rezkaOutputKadrCounts ?? const <int>[],
+    rezkaInputLineage:
+        queueActionControl?.rezkaInputLineage ?? const <AdminRezkaInputLink>[],
+    rezkaActivePartialRolls: queueActionControl?.rezkaActivePartialRolls ??
+        const <AdminRezkaActivePartialRoll>[],
     materialAssignments: stationMaterialAssignments,
     intakeCandidateAssignments: intakeCandidateAssignments,
     assignedMaterialAssignments: materialAssignments,
@@ -164,6 +171,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     previousProgressReady: !previousProgressRequired || acceptedPreviousWip,
     showStart: showStart,
     showPause: showPause,
+    showMerge: showMerge,
     showRollComplete: showRollComplete,
     showComplete: showComplete,
     showResume: showResume,
@@ -295,4 +303,48 @@ List<String> _rezkaWipSplitInstructionLines({
     );
   }
   return lines;
+}
+
+List<String> _rezkaMergeStateLines({
+  required List<AdminRezkaInputLink> inputLineage,
+  required List<AdminRezkaActivePartialRoll> activePartialRolls,
+  required AppLocalizations l10n,
+}) {
+  if (inputLineage.isEmpty && activePartialRolls.isEmpty) {
+    return const [];
+  }
+  final lineage = inputLineage.toList(growable: false)
+    ..sort((left, right) => left.sequenceNo.compareTo(right.sequenceNo));
+  var currentBatch = '';
+  for (final link in lineage) {
+    if (link.inUse) {
+      currentBatch = link.inputBatchId;
+      break;
+    }
+  }
+  final sourceBatchIds = <String>{
+    for (final roll in activePartialRolls) ...roll.sourceInputBatchIds,
+  };
+  return [
+    if (currentBatch.isNotEmpty)
+      l10n.productionText(
+        'worker.merge_state.current',
+        values: {'batch': currentBatch},
+      ),
+    if (lineage.isNotEmpty)
+      l10n.productionText(
+        'worker.merge_state.lineage',
+        values: {
+          'lineage': lineage.map((link) => link.inputBatchId).join(' → '),
+        },
+      ),
+    if (activePartialRolls.isNotEmpty)
+      l10n.productionText(
+        'worker.merge_state.partial_rolls',
+        values: {
+          'rolls': activePartialRolls.length,
+          'sources': sourceBatchIds.length,
+        },
+      ),
+  ];
 }

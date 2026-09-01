@@ -57,6 +57,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onMaterialIntake,
     required this.onStart,
     required this.onPause,
+    required this.onMerge,
     required this.onRollComplete,
     required this.onComplete,
     required this.onResume,
@@ -120,6 +121,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onMaterialIntake;
   final VoidCallback onStart;
   final VoidCallback onPause;
+  final VoidCallback onMerge;
   final VoidCallback onRollComplete;
   final VoidCallback onComplete;
   final VoidCallback onResume;
@@ -136,6 +138,11 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
       station: uiState.station,
       stageNodeId: uiState.stageNodeId,
       outputKadrCounts: uiState.rezkaOutputKadrCounts,
+      l10n: context.l10n,
+    );
+    final rezkaMergeStateLines = _rezkaMergeStateLines(
+      inputLineage: uiState.rezkaInputLineage,
+      activePartialRolls: uiState.rezkaActivePartialRolls,
       l10n: context.l10n,
     );
     return DraggableScrollableSheet(
@@ -286,6 +293,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                         onToggleIntakeCandidatesExpanded,
                     showPause: uiState.showPause,
                     pauseLabel: pauseLabel,
+                    showMerge: uiState.showMerge,
                     showRollComplete: uiState.showRollComplete,
                     showComplete: uiState.showComplete,
                     showResume: uiState.showResume,
@@ -314,9 +322,11 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     qolipsExpanded: qolipsExpanded,
                     onToggleQolipsExpanded: onToggleQolipsExpanded,
                     rezkaInstructionLines: rezkaInstructionLines,
+                    rezkaMergeStateLines: rezkaMergeStateLines,
                     onMaterialIntake: onMaterialIntake,
                     onStart: onStart,
                     onPause: onPause,
+                    onMerge: onMerge,
                     onRollComplete: onRollComplete,
                     onComplete: onComplete,
                     onResume: onResume,
@@ -334,7 +344,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     expanded: summaryExpanded,
                     onToggleExpanded: onToggleSummaryExpanded,
                   ),
-                  if (!workerMode || summaryExpanded) const SizedBox(height: 10),
+                  if (!workerMode || summaryExpanded)
+                    const SizedBox(height: 10),
                   _OrderMapProgressCard(
                     workerMode: workerMode,
                     steps: steps,
@@ -357,8 +368,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   right: 4,
                   child: IconButton.filledTonal(
                     key: const ValueKey('production-order-detail-close'),
-                    tooltip:
-                        context.l10n.productionText('worker.action.close'),
+                    tooltip: context.l10n.productionText('worker.action.close'),
                     onPressed: onClose,
                     icon: const Icon(Icons.close_rounded),
                   ),

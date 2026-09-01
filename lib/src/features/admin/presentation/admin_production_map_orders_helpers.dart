@@ -139,6 +139,7 @@ String _closedLogActionLabel(String action) {
     'pause' => 'Pauza qildi',
     'freeze' => 'Muzlatdi',
     'detach_roll' => 'Rulonni yechdi',
+    'merge' => 'WIP rulonni uladi',
     'resume' => 'Davom ettirdi',
     'roll_complete' => 'Rulonni tugatdi',
     'complete' => 'Tugatdi',

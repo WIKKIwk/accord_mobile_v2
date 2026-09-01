@@ -143,6 +143,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'en': 'Pause',
     'ru': 'Пауза',
   },
+  'worker.action.merge': {
+    'uz': 'Merge',
+    'en': 'Merge',
+    'ru': 'Соединить',
+  },
   'worker.action.detach_roll': {
     'uz': 'Rulonni yechish',
     'en': 'Remove roll',

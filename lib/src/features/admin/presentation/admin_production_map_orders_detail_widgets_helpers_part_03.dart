@@ -386,3 +386,63 @@ class _RezkaWipSplitInstruction extends StatelessWidget {
     );
   }
 }
+
+class _RezkaMergeStateCard extends StatelessWidget {
+  const _RezkaMergeStateCard({required this.lines});
+
+  final List<String> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return DecoratedBox(
+      key: const ValueKey('production-order-rezka-merge-state'),
+      decoration: BoxDecoration(
+        color: scheme.tertiaryContainer.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.7),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.link_rounded,
+                  size: 20,
+                  color: scheme.onTertiaryContainer,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.l10n.productionText('worker.merge_state.title'),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: scheme.onTertiaryContainer,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (var index = 0; index < lines.length; index++) ...[
+              if (index > 0) const SizedBox(height: 4),
+              Text(
+                lines[index],
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onTertiaryContainer,
+                  fontWeight: index == 0 ? FontWeight.w700 : FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}

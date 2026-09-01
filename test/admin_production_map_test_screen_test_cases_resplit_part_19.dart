@@ -207,9 +207,29 @@ void _registeradmin_production_map_test_screen_testCases19() {
       apparatus: _rezkaId,
       orderId: 'zakaz-rezka-dialog',
       control: _inProgressQueueControl(
+        allowMerge: true,
         completeRequiresFullReport: true,
         stageNodeId: 'apparatus',
         rezkaOutputKadrCounts: const [1, 2],
+        rezkaInputLineage: const [
+          AdminRezkaInputLink(
+            inputBatchId: 'wip-a',
+            sequenceNo: 1,
+            status: 'processed',
+          ),
+          AdminRezkaInputLink(
+            inputBatchId: 'wip-b',
+            sequenceNo: 2,
+            status: 'in_use',
+          ),
+        ],
+        rezkaActivePartialRolls: const [
+          AdminRezkaActivePartialRoll(
+            slotIndex: 1,
+            generation: 1,
+            sourceInputBatchIds: ['wip-a', 'wip-b'],
+          ),
+        ],
       ),
     );
     await _usePhoneViewport(tester);
@@ -237,6 +257,30 @@ void _registeradmin_production_map_test_screen_testCases19() {
     await tester.tap(find.textContaining('rezka-dialog').first);
     await tester.pumpAndSettle();
     expect(find.text('Rulonni tugatish'), findsNothing);
+    expect(find.text('Merge'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('production-order-rezka-merge-state')),
+      findsOneWidget,
+    );
+    expect(find.text('Joriy WIP: wip-b'), findsOneWidget);
+    expect(find.text('WIP ketma-ketligi: wip-a → wip-b'), findsOneWidget);
+
+    await tester.tap(find.text('Merge'));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('production-order-quick-scanner-visible')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<ProductionQuickScannerPanel>(
+            find.byType(ProductionQuickScannerPanel),
+          )
+          .allowConcurrentDetections,
+      isFalse,
+    );
+    await tester.tap(find.text('Merge'));
+    await tester.pump();
 
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();

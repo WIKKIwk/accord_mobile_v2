@@ -50,6 +50,7 @@ part 'admin/mobile_api_admin_queue_action_result_test_mode_context.dart';
 part 'admin/mobile_api_admin_queue_action_result_test_mode_start.dart';
 part 'admin/mobile_api_admin_queue_action_result_test_mode_worker_handoff.dart';
 part 'admin/mobile_api_admin_queue_action_result_test_mode_pause.dart';
+part 'admin/mobile_api_admin_queue_action_result_test_mode_merge.dart';
 part 'admin/mobile_api_admin_queue_action_result_test_mode_roll_complete.dart';
 part 'admin/mobile_api_admin_queue_action_result_test_mode_resume.dart';
 part 'admin/mobile_api_admin_queue_action_result_test_mode_complete.dart';

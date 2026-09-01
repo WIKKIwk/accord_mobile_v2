@@ -32,6 +32,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   bool _actionInFlight = false;
   bool _lastQueueActionPrintFailed = false;
   bool _materialIntakeMode = false;
+  bool _mergeScanMode = false;
   bool _materialsLoading = true;
   String _materialsError = '';
   bool _inputProgressLoading = false;
@@ -150,6 +151,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _intakeCandidatesExpanded = false;
       _qolipsExpanded = false;
       _materialIntakeMode = false;
+      _mergeScanMode = false;
       _seenQuickScanValues.clear();
       _startInputProgressBatch = null;
       _startInputOpeningWipBatch = null;
@@ -265,10 +267,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             : _availableInputProgressBatches.isNotEmpty);
     final materialIntakeScanActive =
         _materialIntakeMode && uiState.materialIntakeAllowed;
+    final mergeScanActive = _mergeScanMode && uiState.showMerge;
     final showQuickScanner = startMaterialScanPending ||
         qolipScanPending ||
         inputWipScanPending ||
-        materialIntakeScanActive;
+        materialIntakeScanActive ||
+        mergeScanActive;
     return PopScope(
       canPop: false,
       child: _ReadOnlyOrderDetailContent(
@@ -316,7 +320,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         quickScanStatus: _quickScanStatus,
         quickScanInFlight: _quickScanInFlight,
         showQuickScanner: showQuickScanner,
-        allowConcurrentQuickScanner: widget.workerMode,
+        allowConcurrentQuickScanner: widget.workerMode && !mergeScanActive,
         onQuickScan: _handleQuickScan,
         requiresQolipScan: requiresQolipScan,
         qolipScanned: qolipScanAllowsStart,
@@ -359,6 +363,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         onMaterialIntake: _toggleMaterialIntakeMode,
         onStart: () => unawaited(_runQueueAction('start')),
         onPause: () => unawaited(_runProgressAction('pause')),
+        onMerge: _toggleMergeScanMode,
         onRollComplete: () => unawaited(_runProgressAction('roll_complete')),
         onComplete: () => unawaited(_runProgressAction('complete')),
         onResume: () => unawaited(_runQueueAction('resume')),
