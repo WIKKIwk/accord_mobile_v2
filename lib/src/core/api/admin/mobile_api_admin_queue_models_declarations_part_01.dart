@@ -103,11 +103,13 @@ class AdminRezkaActivePartialRoll {
   const AdminRezkaActivePartialRoll({
     required this.slotIndex,
     required this.generation,
+    required this.containedKadrCount,
     required this.sourceInputBatchIds,
   });
 
   final int slotIndex;
   final int generation;
+  final int containedKadrCount;
   final List<String> sourceInputBatchIds;
 
   static AdminRezkaActivePartialRoll? tryFromJson(Object? raw) {
@@ -134,6 +136,7 @@ class AdminRezkaActivePartialRoll {
     return AdminRezkaActivePartialRoll(
       slotIndex: slotIndex,
       generation: generation,
+      containedKadrCount: containedKadrCount,
       sourceInputBatchIds: List<String>.unmodifiable(sources),
     );
   }

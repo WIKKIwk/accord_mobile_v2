@@ -4,6 +4,7 @@ import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/widgets/m3_picker_sheet.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -78,8 +79,11 @@ void main() {
     expect(find.byKey(const ValueKey('opening-wip-order')), findsOneWidget);
     expect(find.text('Izoh (ixtiyoriy)'), findsNothing);
     final orderDecoration = tester
-        .widget<DropdownButtonFormField<ProductionMapSaved>>(
-          find.byKey(const ValueKey('opening-wip-order')),
+        .widget<InputDecorator>(
+          find.descendant(
+            of: find.byKey(const ValueKey('opening-wip-order')),
+            matching: find.byType(InputDecorator),
+          ),
         )
         .decoration;
     expect(orderDecoration.border, isA<OutlineInputBorder>());
@@ -91,6 +95,27 @@ void main() {
       find.byKey(const ValueKey('opening-wip-source-operation')),
       findsNothing,
     );
+
+    await tester.tap(find.byKey(const ValueKey('opening-wip-order')));
+    await tester.pumpAndSettle();
+    expect(find.text('Zakaz tanlang'), findsOneWidget);
+    final orderPicker = find.byType(M3AsyncPickerSheet<ProductionMapSaved>);
+    expect(
+      find.descendant(
+        of: orderPicker,
+        matching: find.text('OWIP-0001 • Opening WIP mahsulot'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find
+          .descendant(
+            of: orderPicker,
+            matching: find.text('OWIP-0001 • Opening WIP mahsulot'),
+          )
+          .last,
+    );
+    await tester.pumpAndSettle();
 
     final sourcePicker = find.byKey(
       const ValueKey('opening-wip-source-apparatus'),
@@ -225,6 +250,88 @@ void main() {
       records.single.intake.historyStatus,
       'unavailable_before_cutover',
     );
+  });
+
+  testWidgets('Opening WIP order picker searches and selects orders',
+      (tester) async {
+    await MobileApi.instance.adminSaveProductionMap(
+      _printingOpeningOrder(
+        id: 'zakaz-opening-wip-picker-a',
+        orderNumber: 'OWIP-PICKER-A',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _printingOpeningOrder(
+        id: 'zakaz-opening-wip-picker-b',
+        orderNumber: 'OWIP-PICKER-B',
+      ),
+    );
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1100);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminOpeningWipScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('opening-wip-order')));
+    await tester.pumpAndSettle();
+    final orderPicker = find.byType(M3AsyncPickerSheet<ProductionMapSaved>);
+    expect(
+      find.descendant(
+        of: orderPicker,
+        matching: find.text('OWIP-PICKER-A • Opening WIP switch'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: orderPicker,
+        matching: find.text('OWIP-PICKER-B • Opening WIP switch'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.enterText(find.byType(SearchBar), 'OWIP-PICKER-B');
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: orderPicker,
+        matching: find.text('OWIP-PICKER-A • Opening WIP switch'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: orderPicker,
+        matching: find.text('OWIP-PICKER-B • Opening WIP switch'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find
+          .descendant(
+            of: orderPicker,
+            matching: find.text('OWIP-PICKER-B • Opening WIP switch'),
+          )
+          .last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('OWIP-PICKER-B • Opening WIP switch'), findsOneWidget);
   });
 
   testWidgets('QR action opens the shared three-device printer sheet',
@@ -398,14 +505,9 @@ void main() {
     expect(selectedSourceNode(), 'lamination');
 
     final orderField = find.byKey(const ValueKey('opening-wip-order'));
-    final selectedOrder =
-        tester.state<FormFieldState<ProductionMapSaved>>(orderField).value!;
-    final nextOrderLabel = selectedOrder.map.orderNumber == 'OWIP-SWITCH-A'
-        ? 'OWIP-SWITCH-B • Opening WIP switch'
-        : 'OWIP-SWITCH-A • Opening WIP switch';
     await tester.tap(orderField);
     await tester.pumpAndSettle();
-    await tester.tap(find.text(nextOrderLabel).last);
+    await tester.tap(find.text('OWIP-SWITCH-B • Opening WIP switch').last);
     await tester.pumpAndSettle();
 
     expect(selectedSourceNode(), 'print');

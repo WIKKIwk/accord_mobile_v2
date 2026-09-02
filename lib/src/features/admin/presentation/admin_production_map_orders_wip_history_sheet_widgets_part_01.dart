@@ -110,6 +110,8 @@ class _WorkerWipHistorySheet extends StatefulWidget {
     required this.order,
     required this.apparatus,
     required this.apparatusCatalog,
+    this.allowWipQrReprint = true,
+    this.progressDriverUrlPicker,
     this.sourceApparatusId = '',
     this.apparatusTitle = '',
   });
@@ -117,6 +119,8 @@ class _WorkerWipHistorySheet extends StatefulWidget {
   final ProductionMapSaved order;
   final AdminApparatus? apparatus;
   final List<AdminApparatus> apparatusCatalog;
+  final bool allowWipQrReprint;
+  final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final String sourceApparatusId;
   final String apparatusTitle;
 
@@ -183,6 +187,145 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
 
   void _retry() {
     setState(() => _future = _load());
+  }
+
+  Future<void> _showWipDetails(AdminProgressBatch batch) async {
+    final payload = batch.qrPayload.trim();
+    if (payload.isEmpty) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(
+            context.l10n.productionText('worker.daily.wip_qr_missing'),
+          ),
+          content: Text(
+            context.l10n.productionText('worker.daily.wip_qr_missing.body'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(context.l10n.productionText('worker.action.close')),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => RpsQrReprintSheet(
+        title: sheetContext.l10n.productionText('worker.wip.history.title'),
+        payload: payload,
+        itemName: _workerWipFirstNotEmpty([
+          batch.labelItemName,
+          batch.labelItemCode,
+          sheetContext.l10n.productionText('worker.daily.wip'),
+        ]),
+        previewKey: ValueKey('worker-wip-history-preview-${batch.batchId}'),
+        reprintButtonKey: ValueKey(
+          'worker-wip-history-reprint-${batch.batchId}',
+        ),
+        details: _workerWipReprintDetails(
+          batch,
+          sheetContext.l10n,
+          widget.apparatusCatalog,
+        ),
+        onReprint: () => _reprintWip(batch),
+        errorMessage: (error) => error is MobileApiException
+            ? error.message
+            : error.toString().replaceFirst('Bad state: ', ''),
+        successMessage: sheetContext.l10n.productionText(
+          'worker.daily.wip_qr.reprinted',
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _reprintWip(AdminProgressBatch batch) async {
+    final printer = await _pickProgressPrinter(
+      context,
+      widget.progressDriverUrlPicker,
+    );
+    if (!mounted || printer == null) {
+      throw const RpsQrReprintCancelled();
+    }
+
+    final isOpeningWip = batch.payloadJson['input_wip_source_kind']
+            ?.toString()
+            .trim()
+            .toLowerCase() ==
+        'opening_wip';
+    if (isOpeningWip) {
+      final prepared = await MobileApi.instance.adminPrintOpeningWip(
+        batchId: batch.batchId,
+        qrPayload: batch.qrPayload,
+        driverUrl: printer.driverUrl,
+        printer: printer.printer,
+        printMode: printer.printMode,
+        printCount: 1,
+        printTransport: printer.transport,
+      );
+      if (!prepared.ok) {
+        final status = prepared.printStatus.trim();
+        throw StateError(
+          status.isEmpty ? 'Opening WIP QR kodini chop etib bo‘lmadi' : status,
+        );
+      }
+      await _printLocalWipLabel(
+        printJob: prepared.printJob,
+        printer: printer,
+        missingJobMessage: 'Opening WIP print ma’lumoti kelmadi',
+      );
+      return null;
+    }
+
+    final prepared = await MobileApi.instance.adminProgressQrReprint(
+      qrPayload: batch.qrPayload,
+      progressBatchId: batch.batchId,
+      driverUrl: printer.driverUrl,
+      printer: printer.printer,
+      printMode: printer.printMode,
+      printCount: 1,
+      printTransport: printer.transport,
+    );
+    if (!prepared.ok) {
+      final status = prepared.printStatus.trim();
+      throw StateError(
+        status.isEmpty ? 'WIP QR kodini chop etib bo‘lmadi' : status,
+      );
+    }
+    await _printLocalWipLabel(
+      printJob: prepared.printJob,
+      printer: printer,
+      missingJobMessage: 'WIP QR uchun local print ma’lumoti kelmadi',
+    );
+    return null;
+  }
+
+  Future<void> _printLocalWipLabel({
+    required UsbRpsPrintRequest? printJob,
+    required _ProgressPrinterOption printer,
+    required String missingJobMessage,
+  }) async {
+    if (!printer.transport.isLocal) return;
+    if (printJob == null) {
+      throw StateError(missingJobMessage);
+    }
+    final result = await PrintService.printRps(
+      printJob,
+      printerProfile: printer.offlinePrinter,
+      bluetoothPrinter: printer.bluetoothPrinter,
+      transport: printer.transport,
+    );
+    if (!result.ok) {
+      final status = result.printerStatus.trim();
+      throw StateError(
+        status.isEmpty ? 'Printer WIP QR kodini chop etmadi' : status,
+      );
+    }
   }
 
   @override
@@ -252,6 +395,9 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                     return _WorkerWipHistoryList(
                       batches: batches,
                       apparatusCatalog: widget.apparatusCatalog,
+                      onLongPress: widget.allowWipQrReprint
+                          ? (batch) => unawaited(_showWipDetails(batch))
+                          : null,
                     );
                   },
                 ),
@@ -287,6 +433,96 @@ List<AdminProgressBatch> _mergeWorkerWipBatches(
     return byTime != 0 ? byTime : right.batchId.compareTo(left.batchId);
   });
   return merged;
+}
+
+List<RpsQrDetail> _workerWipReprintDetails(
+  AdminProgressBatch batch,
+  AppLocalizations l10n,
+  List<AdminApparatus> apparatusCatalog,
+) {
+  final current = canonicalApparatusDisplayLabel(
+    _workerWipFirstNotEmpty([
+      batch.currentLocation,
+      batch.currentApparatus,
+      batch.apparatus,
+    ]),
+    apparatusCatalog,
+  );
+  final worker = _workerWipFirstNotEmpty([
+    batch.workerDisplayName,
+    batch.executorName,
+    batch.workerRef,
+  ]);
+  final next = canonicalApparatusDisplayLabel(
+    batch.nextApparatus,
+    apparatusCatalog,
+  );
+  final action = _workerWipActionLabel(batch.action, l10n);
+  return [
+    if (batch.orderId.trim().isNotEmpty)
+      RpsQrDetail(
+        l10n.productionText('worker.daily.order'),
+        batch.orderId.trim(),
+      ),
+    if (batch.batchId.trim().isNotEmpty)
+      RpsQrDetail(
+        l10n.productionText('worker.wip.info.id'),
+        batch.batchId.trim(),
+      ),
+    RpsQrDetail(
+      l10n.productionText('worker.wip.info.quantity'),
+      formatQuantityWithUnit(
+        batch.producedQty,
+        batch.uom,
+        trimTrailingZeros: true,
+      ),
+    ),
+    RpsQrDetail(
+      l10n.productionText('worker.daily.status'),
+      _workerWipStatusLabel(batch, l10n),
+    ),
+    if (batch.startedAtUnix > 0)
+      RpsQrDetail(
+        l10n.productionText('worker.wip.info.started'),
+        formatUnixSecondsLocalDateTime(batch.startedAtUnix),
+      ),
+    if (batch.completedAtUnix > 0)
+      RpsQrDetail(
+        l10n.productionText('worker.wip.info.finished'),
+        formatUnixSecondsLocalDateTime(batch.completedAtUnix),
+      ),
+    RpsQrDetail(
+      l10n.productionText('worker.wip.info.source'),
+      canonicalApparatusDisplayLabel(
+        _workerWipValue(batch.apparatus),
+        apparatusCatalog,
+      ),
+    ),
+    if (action.isNotEmpty)
+      RpsQrDetail(
+        l10n.productionText('worker.wip.info.action'),
+        action,
+      ),
+    RpsQrDetail(
+      l10n.productionText('worker.wip.info.location'),
+      current,
+    ),
+    if (next.trim().isNotEmpty)
+      RpsQrDetail(
+        l10n.productionText('worker.wip.info.next_machine'),
+        next,
+      ),
+    if (worker.trim().isNotEmpty)
+      RpsQrDetail(
+        l10n.productionText('worker.wip.info.worker'),
+        worker,
+      ),
+    if (batch.description.trim().isNotEmpty)
+      RpsQrDetail(
+        l10n.productionText('worker.wip.info.note'),
+        batch.description.trim(),
+      ),
+  ];
 }
 
 List<AdminProgressBatch> _openingWipBatchesProducedByApparatus(
@@ -370,10 +606,12 @@ class _WorkerWipHistoryList extends StatelessWidget {
   const _WorkerWipHistoryList({
     required this.batches,
     required this.apparatusCatalog,
+    required this.onLongPress,
   });
 
   final List<AdminProgressBatch> batches;
   final List<AdminApparatus> apparatusCatalog;
+  final void Function(AdminProgressBatch batch)? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -406,6 +644,9 @@ class _WorkerWipHistoryList extends StatelessWidget {
               batch: batches[index],
               index: index,
               apparatusCatalog: apparatusCatalog,
+              onLongPress: onLongPress == null
+                  ? null
+                  : () => onLongPress!(batches[index]),
             ),
           ),
       ],

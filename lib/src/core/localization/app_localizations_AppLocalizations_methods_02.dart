@@ -54,6 +54,9 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
       'merge_input_same' => 'worker.error.merge_input_same',
       'merge_input_already_used' => 'worker.error.merge_input_already_used',
       'merge_input_not_accepted' => 'worker.error.merge_input_not_accepted',
+      'merge_input_frame_count_mismatch' =>
+        'worker.error.merge_input_frame_count_mismatch',
+      'rezka_frame_count_mismatch' => 'worker.error.rezka_frame_count_mismatch',
       'progress_qr_reprint' => 'worker.daily.reprint_failed',
       'progress_batch_correction_reason_required' =>
         'worker.daily.correction.required',

@@ -227,6 +227,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
           AdminRezkaActivePartialRoll(
             slotIndex: 1,
             generation: 1,
+            containedKadrCount: 1,
             sourceInputBatchIds: ['wip-a', 'wip-b'],
           ),
         ],

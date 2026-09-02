@@ -36,6 +36,7 @@ import '../../qolip/presentation/qolip_home_screen.dart'
     show showQolipProductSpecSheet;
 import '../../qolip/presentation/widgets/qolip_dock.dart';
 import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
+import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../logic/apparatus_queue_state.dart';
 import '../logic/canonical_apparatus_display.dart';
 import '../logic/production_map_edit_policy.dart';

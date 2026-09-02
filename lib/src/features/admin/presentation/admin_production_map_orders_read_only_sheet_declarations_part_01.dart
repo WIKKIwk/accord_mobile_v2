@@ -34,6 +34,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.visibleOrderIds = const [],
     this.onQueueAction,
     this.progressDriverUrlPicker,
+    this.allowWipQrReprint = true,
     this.initialOrderControls = const {},
     this.initialOrderSwitchBatch,
     this.initialPauseRequestId = '',
@@ -61,6 +62,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final List<String> visibleOrderIds;
   final _ReadOnlyQueueActionCallback? onQueueAction;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
+  final bool allowWipQrReprint;
   final Map<String, AdminOrderControlState> initialOrderControls;
   final AdminProgressBatch? initialOrderSwitchBatch;
   final String initialPauseRequestId;

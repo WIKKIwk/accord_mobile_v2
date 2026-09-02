@@ -228,6 +228,8 @@ void main() {
           'Laminatsiyani tugatish uchun barcha majburiy qiymatlarni kiriting',
       'laminatsiya_rubber_too_large':
           'Rezina razmeri 1050 mm dan katta bo‘lsa laminatsiya mumkin emas',
+      'rezka_frame_count_mismatch':
+          'Tugatish yuborilmadi: kiritilgan kadrlar soni Rezka rulonlari soniga mos emas. Oynani yangilang va qayta kiriting',
       'raw_material_stock_unavailable':
           'Bu homashyo omborda mavjud emas yoki boshqa zakaz uchun band',
       'insufficient_stock': 'Bu qolip omborda qolmagan',
@@ -290,6 +292,51 @@ void main() {
         createHttpClient: (_) => _RawMaterialApiHttpClient(
               <String>[],
               queueActionErrorCode: 'backend_timeout',
+            ));
+  });
+
+  test('queue action keeps Rezka merge frame mismatch details', () async {
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Aparatchi',
+      legalName: '',
+      ref: 'ap-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await expectLater(
+        MobileApi.instance.adminApparatusQueueAction(
+          apparatus: 'apparatus:default:asset-010',
+          orderId: 'zakaz-1',
+          action: 'merge',
+          qrPayload: 'GSP:WIP-2',
+        ),
+        throwsA(
+          isA<MobileApiException>()
+              .having(
+                (error) => error.code,
+                'code',
+                'merge_input_frame_count_mismatch',
+              )
+              .having((error) => error.activeKadrCount, 'active kadr', 2)
+              .having((error) => error.scannedKadrCount, 'scanned kadr', 1)
+              .having(
+                (error) => error.message,
+                'message',
+                'Merge qilinmadi: joriy Rezka 2 kadr, scan qilingan WIP 1 kadr. Bir xil kadrli WIPni scan qiling',
+              ),
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              <String>[],
+              queueActionErrorCode: 'merge_input_frame_count_mismatch',
+              queueActionActiveKadrCount: 2,
+              queueActionScannedKadrCount: 1,
             ));
   });
 
@@ -581,6 +628,7 @@ void main() {
           AdminRezkaActivePartialRoll(
             slotIndex: 1,
             generation: 1,
+            containedKadrCount: 1,
             sourceInputBatchIds: [firstInput.batchId],
           ),
         ],
@@ -2107,6 +2155,8 @@ class _RawMaterialApiHttpClient implements HttpClient {
   _RawMaterialApiHttpClient(
     this.seenRequests, {
     this.queueActionErrorCode = '',
+    this.queueActionActiveKadrCount,
+    this.queueActionScannedKadrCount,
     this.qolipValidationErrorCode = '',
     this.qolipValidationQolipCode = 'QOLIP-1212',
     this.assignmentErrorCode = '',
@@ -2128,6 +2178,8 @@ class _RawMaterialApiHttpClient implements HttpClient {
 
   final List<String> seenRequests;
   final String queueActionErrorCode;
+  final int? queueActionActiveKadrCount;
+  final int? queueActionScannedKadrCount;
   final String qolipValidationErrorCode;
   final String qolipValidationQolipCode;
   final String assignmentErrorCode;
@@ -2199,7 +2251,13 @@ class _RawMaterialApiHttpClient implements HttpClient {
         };
       case 'POST /v1/mobile/admin/production-maps/queue-action':
         if (queueActionErrorCode.isNotEmpty) {
-          body = {'error': queueActionErrorCode};
+          body = {
+            'error': queueActionErrorCode,
+            if (queueActionActiveKadrCount != null)
+              'active_kadr_count': queueActionActiveKadrCount,
+            if (queueActionScannedKadrCount != null)
+              'scanned_kadr_count': queueActionScannedKadrCount,
+          };
           return _FakeHttpClientRequest(
             response: _FakeHttpClientResponse(
               body: jsonEncode(body),

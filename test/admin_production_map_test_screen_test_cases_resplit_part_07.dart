@@ -180,7 +180,9 @@ void _registeradmin_production_map_test_screen_testCases07() {
             GlobalWidgetsLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
-          home: const AdminProductionMapOrdersScreen(),
+          home: AdminProductionMapOrdersScreen(
+            progressDriverUrlPicker: (_) async => 'http://printer.test',
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -218,6 +220,24 @@ void _registeradmin_production_map_test_screen_testCases07() {
         scrollable: wipHistoryScrollable,
       );
       expect(find.text('22 m'), findsOneWidget);
+
+      await tester.longPress(find.text('22 m'));
+      await tester.pumpAndSettle();
+      expect(find.text('Qayta chop etish'), findsOneWidget);
+      expect(find.text('WIP ID'), findsWidgets);
+      await tester.tap(find.text('Qayta chop etish'));
+      await tester.pumpAndSettle();
+      expect(find.text('WIP QR qayta chop etildi'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Yopish').last);
+      await tester.pumpAndSettle();
+      await tester.drag(wipHistoryScrollable, const Offset(0, 500));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.text('12 m'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Qayta chop etish'));
+      await tester.pumpAndSettle();
+      expect(find.text('WIP QR qayta chop etildi'), findsOneWidget);
     },
   );
 

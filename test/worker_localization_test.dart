@@ -24,6 +24,21 @@ void main() {
       'Bu WIP hozir ishlatilmoqda. Boshqa WIPni scan qiling',
     );
     expect(
+      uzbek.productionErrorMessage('merge_input_frame_count_mismatch'),
+      'Merge qilinmadi: scan qilingan WIPning kadr soni joriy Rezka bilan bir xil emas. Bir xil kadrli WIPni scan qiling',
+    );
+    expect(
+      uzbek.productionText(
+        'worker.error.merge_input_frame_count_mismatch_detail',
+        values: const {'active': 2, 'scanned': 1},
+      ),
+      'Merge qilinmadi: joriy Rezka 2 kadr, scan qilingan WIP 1 kadr. Bir xil kadrli WIPni scan qiling',
+    );
+    expect(
+      uzbek.productionErrorMessage('rezka_frame_count_mismatch'),
+      'Tugatish yuborilmadi: kiritilgan kadrlar soni Rezka rulonlari soniga mos emas. Oynani yangilang va qayta kiriting',
+    );
+    expect(
       english.productionText('worker.action.complete'),
       'Complete job',
     );

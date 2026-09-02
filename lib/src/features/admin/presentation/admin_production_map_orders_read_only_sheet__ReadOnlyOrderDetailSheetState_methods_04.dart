@@ -375,6 +375,8 @@ extension __ReadOnlyOrderDetailSheetStateAstPart04
           order: widget.order,
           apparatus: apparatus,
           apparatusCatalog: widget.apparatusCatalog,
+          allowWipQrReprint: widget.allowWipQrReprint && !widget.workerMode,
+          progressDriverUrlPicker: widget.progressDriverUrlPicker,
           sourceApparatusId: apparatusId,
           apparatusTitle: node.title,
         ),

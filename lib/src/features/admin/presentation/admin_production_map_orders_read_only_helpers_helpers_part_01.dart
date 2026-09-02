@@ -407,6 +407,18 @@ String _readOnlyQueueActionErrorText(
   if (error is TimeoutException || error is http.ClientException) {
     return l10n.productionText('worker.error.network_timeout');
   }
+  if (error is MobileApiException &&
+      error.code == 'merge_input_frame_count_mismatch' &&
+      error.activeKadrCount != null &&
+      error.scannedKadrCount != null) {
+    return l10n.productionText(
+      'worker.error.merge_input_frame_count_mismatch_detail',
+      values: {
+        'active': error.activeKadrCount,
+        'scanned': error.scannedKadrCount,
+      },
+    );
+  }
   return error is MobileApiException
       ? l10n.productionErrorMessage(
           error.code,

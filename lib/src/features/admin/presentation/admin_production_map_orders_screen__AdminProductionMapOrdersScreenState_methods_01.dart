@@ -114,6 +114,8 @@ extension __AdminProductionMapOrdersScreenStateAstPart01
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
         queueStatesByApparatus: _queueStatesByApparatus,
         stageStatesByOrderId: _stageStatesByOrderId,
+        allowWipQrReprint: !widget.supplyViewerMode,
+        progressDriverUrlPicker: widget.progressDriverUrlPicker,
         initialOrderControls: _orderControlsByOrderId,
       ),
     );

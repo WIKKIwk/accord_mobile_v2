@@ -441,6 +441,7 @@ void _registeradmin_production_map_queue_snapshot_testCases02() {
       control.rezkaActivePartialRolls.single.sourceInputBatchIds,
       const ['wip-a', 'wip-b'],
     );
+    expect(control.rezkaActivePartialRolls.single.containedKadrCount, 1);
     expect(control.completeRequiresRezkaTotalWasteOnly, isTrue);
   });
 

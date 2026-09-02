@@ -110,11 +110,13 @@ class _WorkerWipHistoryCard extends StatelessWidget {
     required this.batch,
     required this.index,
     required this.apparatusCatalog,
+    this.onLongPress,
   });
 
   final AdminProgressBatch batch;
   final int index;
   final List<AdminApparatus> apparatusCatalog;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -148,111 +150,115 @@ class _WorkerWipHistoryCard extends StatelessWidget {
 
     return Card.filled(
       color: scheme.surfaceContainerHighest,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 15),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: scheme.secondaryContainer,
-                  foregroundColor: scheme.onSecondaryContainer,
-                  child: Text('${index + 1}'),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    product,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+      child: InkWell(
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 15),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: scheme.secondaryContainer,
+                    foregroundColor: scheme.onSecondaryContainer,
+                    child: Text('${index + 1}'),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      product,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: _WorkerWipStatusChip(
+                      label: statusLabel,
+                      kind: kind,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _WorkerWipInfoRow(
+                label: context.l10n.productionText('worker.wip.info.quantity'),
+                value: formatQuantityWithUnit(
+                  batch.producedQty,
+                  batch.uom,
+                  trimTrailingZeros: true,
                 ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: _WorkerWipStatusChip(
-                    label: statusLabel,
-                    kind: kind,
+              ),
+              if (batch.startedAtUnix > 0)
+                _WorkerWipInfoRow(
+                  label: context.l10n.productionText('worker.wip.info.started'),
+                  value: formatUnixSecondsLocalDateTime(batch.startedAtUnix),
+                ),
+              if (batch.completedAtUnix > 0)
+                _WorkerWipInfoRow(
+                  label:
+                      context.l10n.productionText('worker.wip.info.finished'),
+                  value: formatUnixSecondsLocalDateTime(batch.completedAtUnix),
+                ),
+              _WorkerWipInfoRow(
+                label: context.l10n.productionText('worker.wip.info.source'),
+                value: canonicalApparatusDisplayLabel(
+                  _workerWipValue(batch.apparatus),
+                  apparatusCatalog,
+                ),
+              ),
+              if (action.isNotEmpty)
+                _WorkerWipInfoRow(
+                  label: context.l10n.productionText('worker.wip.info.action'),
+                  value: action,
+                ),
+              _WorkerWipInfoRow(
+                label: context.l10n.productionText('worker.wip.info.location'),
+                value: current,
+              ),
+              _WorkerWipInfoRow(
+                label: context.l10n.productionText(
+                  'worker.wip.info.next_machine',
+                ),
+                value: _workerWipValue(next),
+              ),
+              _WorkerWipInfoRow(
+                label: context.l10n.productionText('worker.wip.info.worker'),
+                value: worker,
+              ),
+              if (batch.batchId.trim().isNotEmpty)
+                _WorkerWipInfoRow(
+                  label: context.l10n.productionText('worker.wip.info.id'),
+                  value: batch.batchId,
+                ),
+              if (batch.qrPayload.trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '${context.l10n.productionText('worker.wip.info.qr')} ${batch.qrPayload.trim()}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 10),
-            _WorkerWipInfoRow(
-              label: context.l10n.productionText('worker.wip.info.quantity'),
-              value: formatQuantityWithUnit(
-                batch.producedQty,
-                batch.uom,
-                trimTrailingZeros: true,
-              ),
-            ),
-            if (batch.startedAtUnix > 0)
-              _WorkerWipInfoRow(
-                label: context.l10n.productionText('worker.wip.info.started'),
-                value: formatUnixSecondsLocalDateTime(batch.startedAtUnix),
-              ),
-            if (batch.completedAtUnix > 0)
-              _WorkerWipInfoRow(
-                label: context.l10n.productionText('worker.wip.info.finished'),
-                value: formatUnixSecondsLocalDateTime(batch.completedAtUnix),
-              ),
-            _WorkerWipInfoRow(
-              label: context.l10n.productionText('worker.wip.info.source'),
-              value: canonicalApparatusDisplayLabel(
-                _workerWipValue(batch.apparatus),
-                apparatusCatalog,
-              ),
-            ),
-            if (action.isNotEmpty)
-              _WorkerWipInfoRow(
-                label: context.l10n.productionText('worker.wip.info.action'),
-                value: action,
-              ),
-            _WorkerWipInfoRow(
-              label: context.l10n.productionText('worker.wip.info.location'),
-              value: current,
-            ),
-            _WorkerWipInfoRow(
-              label: context.l10n.productionText(
-                'worker.wip.info.next_machine',
-              ),
-              value: _workerWipValue(next),
-            ),
-            _WorkerWipInfoRow(
-              label: context.l10n.productionText('worker.wip.info.worker'),
-              value: worker,
-            ),
-            if (batch.batchId.trim().isNotEmpty)
-              _WorkerWipInfoRow(
-                label: context.l10n.productionText('worker.wip.info.id'),
-                value: batch.batchId,
-              ),
-            if (batch.qrPayload.trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                '${context.l10n.productionText('worker.wip.info.qr')} ${batch.qrPayload.trim()}',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
+              if (batch.description.trim().isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  '${context.l10n.productionText('worker.wip.info.note')}: ${batch.description.trim()}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
+              ],
             ],
-            if (batch.description.trim().isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                '${context.l10n.productionText('worker.wip.info.note')}: ${batch.description.trim()}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );

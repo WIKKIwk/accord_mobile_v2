@@ -106,28 +106,33 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                           children: [
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
-                              child:
-                                  DropdownButtonFormField<ProductionMapSaved>(
+                              child: InkWell(
                                 key: const ValueKey('opening-wip-order'),
-                                initialValue: order,
-                                decoration: _openingWipInputDecoration(
-                                  labelText: context.l10n.adminText(
-                                    'production.opening_wip.order',
+                                onTap: _openOrderPicker,
+                                borderRadius: BorderRadius.circular(12),
+                                child: InputDecorator(
+                                  decoration: _openingWipInputDecoration(
+                                    labelText: context.l10n.adminText(
+                                      'production.opening_wip.order',
+                                    ),
+                                  ).copyWith(
+                                    suffixIcon: const Icon(
+                                      Icons.arrow_drop_down_rounded,
+                                    ),
+                                  ),
+                                  isEmpty: order == null,
+                                  child: Text(
+                                    order == null
+                                        ? context.l10n.adminText(
+                                            'production.opening_wip.order',
+                                          )
+                                        : _orderLabel(order),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        Theme.of(context).textTheme.bodyLarge,
                                   ),
                                 ),
-                                isExpanded: true,
-                                items: [
-                                  for (final item in widget.orders)
-                                    DropdownMenuItem(
-                                      value: item,
-                                      child: Text(
-                                        _orderLabel(item),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                ],
-                                onChanged: _selectOrder,
                               ),
                             ),
                             const SizedBox(height: 12),

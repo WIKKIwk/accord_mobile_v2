@@ -107,6 +107,30 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
     'en': 'This WIP does not match this cutting job',
     'ru': 'Этот WIP не подходит для этой резки',
   },
+  'worker.error.merge_input_frame_count_mismatch': {
+    'uz':
+        'Merge qilinmadi: scan qilingan WIPning kadr soni joriy Rezka bilan bir xil emas. Bir xil kadrli WIPni scan qiling',
+    'en':
+        'Merge failed: the scanned WIP has a different frame count. Scan a WIP with the same frame count.',
+    'ru':
+        'Merge не выполнен: количество кадров в отсканированном WIP отличается. Отсканируйте WIP с таким же количеством кадров.',
+  },
+  'worker.error.merge_input_frame_count_mismatch_detail': {
+    'uz':
+        'Merge qilinmadi: joriy Rezka {active} kadr, scan qilingan WIP {scanned} kadr. Bir xil kadrli WIPni scan qiling',
+    'en':
+        'Merge failed: the active cutting run has {active} frames, but the scanned WIP has {scanned}. Scan a WIP with the same frame count.',
+    'ru':
+        'Merge не выполнен: в текущей резке {active} кадров, а в отсканированном WIP — {scanned}. Отсканируйте WIP с таким же количеством кадров.',
+  },
+  'worker.error.rezka_frame_count_mismatch': {
+    'uz':
+        'Tugatish yuborilmadi: kiritilgan kadrlar soni Rezka rulonlari soniga mos emas. Oynani yangilang va qayta kiriting',
+    'en':
+        'Completion was not submitted: the entered frame count does not match the active cutting rolls. Refresh and enter each frame again.',
+    'ru':
+        'Завершение не отправлено: количество введённых кадров не совпадает с активными рулонами резки. Обновите экран и введите каждый кадр заново.',
+  },
   'worker.notice.material_confirmed_item': {
     'uz': '{item} tasdiqlandi',
     'en': '{item} confirmed',

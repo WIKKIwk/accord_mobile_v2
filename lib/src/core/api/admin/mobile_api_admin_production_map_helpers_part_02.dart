@@ -14,6 +14,8 @@ MobileApiException _adminProductionMapException(
   double? rollWidthMm;
   double? minimumWidthMm;
   double? maximumWidthMm;
+  int? activeKadrCount;
+  int? scannedKadrCount;
   try {
     final payload = jsonDecode(response.body);
     if (payload is Map && payload['error'] is String) {
@@ -46,12 +48,16 @@ MobileApiException _adminProductionMapException(
           _rawMaterialDiagnosticNumber(payload['minimum_width_mm']);
       maximumWidthMm =
           _rawMaterialDiagnosticNumber(payload['maximum_width_mm']);
+      activeKadrCount = (payload['active_kadr_count'] as num?)?.toInt();
+      scannedKadrCount = (payload['scanned_kadr_count'] as num?)?.toInt();
     }
   } catch (_) {}
   return MobileApiException(
     code: code,
     apparatusOptions: apparatusOptions,
     details: details,
+    activeKadrCount: activeKadrCount,
+    scannedKadrCount: scannedKadrCount,
     message: switch (code.trim().toLowerCase()) {
       'duplicate_order_number' => 'Bu raqam boshqa zakazga berilgan',
       'order_number_immutable' => 'Zakaz raqamini o‘zgartirish mumkin emas',
@@ -82,6 +88,12 @@ MobileApiException _adminProductionMapException(
         'Avariya ko‘chirish javobi noto‘g‘ri',
       'queue_action_not_allowed' =>
         'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
+      'merge_input_frame_count_mismatch' => activeKadrCount != null &&
+              scannedKadrCount != null
+          ? 'Merge qilinmadi: joriy Rezka $activeKadrCount kadr, scan qilingan WIP $scannedKadrCount kadr. Bir xil kadrli WIPni scan qiling'
+          : 'Merge qilinmadi: scan qilingan WIPning kadr soni joriy Rezka bilan bir xil emas',
+      'rezka_frame_count_mismatch' =>
+        'Tugatish yuborilmadi: kiritilgan kadrlar soni Rezka rulonlari soniga mos emas. Oynani yangilang va qayta kiriting',
       'order_not_started' => 'Boshlanmagan buyurtmani muzlatib bo‘lmaydi',
       'order_already_completed' => 'Tugallangan buyurtmani muzlatib bo‘lmaydi',
       'order_freeze_requested' =>

@@ -2,6 +2,43 @@
 part of 'admin_production_map_orders_screen.dart';
 
 extension __OpeningWipWizardStateAstPart01 on _OpeningWipWizardState {
+  Future<void> _openOrderPicker() async {
+    if (_submitting || widget.orders.isEmpty) {
+      return;
+    }
+    final picked = await showModalBottomSheet<ProductionMapSaved>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3AsyncPickerSheet<ProductionMapSaved>(
+          title: context.l10n.adminText('raw_material.order_select'),
+          hintText: context.l10n.adminText('raw_material.order_search'),
+          pageSize: 50,
+          loadPage: (query, offset, limit) async {
+            final filtered = _filterOrdersBySearch(widget.orders, query: query);
+            return filtered.skip(offset).take(limit).toList(growable: false);
+          },
+          itemTitle: _orderLabel,
+          itemSubtitle: (item) => item.map.id.trim(),
+          itemKey: (item) => item.map.id,
+          itemSelected: (item) =>
+              item.map.id.trim() == _selectedOrder?.map.id.trim(),
+          onSelected: (item) => Navigator.of(context).pop(item),
+        );
+      },
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    _selectOrder(picked);
+  }
+
   void _syncRollControllers(String rawCount) {
     final count = int.tryParse(rawCount.trim());
     if (count == null || count < 1 || count > 500) return;

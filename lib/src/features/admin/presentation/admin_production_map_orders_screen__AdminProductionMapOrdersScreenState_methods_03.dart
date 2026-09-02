@@ -40,6 +40,7 @@ extension __AdminProductionMapOrdersScreenStateAstPart03
         order: entry.order,
         apparatus: entry.apparatus,
         apparatusCatalog: _apparatus,
+        allowWipQrReprint: false,
       ),
     );
   }

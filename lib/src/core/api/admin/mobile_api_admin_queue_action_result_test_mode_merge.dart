@@ -106,6 +106,8 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
     _advanceTestModeMergeControl(
       currentInputBatchId: currentInput.batchId,
       nextInputBatchId: nextInput.batchId,
+      nextInputContainedKadrCount:
+          _positiveJsonInt(nextInput.payloadJson['contained_kadr_count']),
     );
     final processedInput = _testModeMarkProgressInputProcessed(
       batch: currentInput,
@@ -136,6 +138,7 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
   void _advanceTestModeMergeControl({
     required String currentInputBatchId,
     required String nextInputBatchId,
+    required int? nextInputContainedKadrCount,
   }) {
     final normalizedOrderId = orderId.trim();
     final normalizedCurrentInputBatchId = currentInputBatchId.trim();
@@ -201,6 +204,23 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
         message: 'Merge rulon manbalari joriy WIP bilan mos emas',
       );
     }
+    final activeKadrCount = fixture.rezkaActivePartialRolls.isEmpty
+        ? fixture.rezkaOutputKadrCounts
+            .fold<int>(0, (sum, count) => sum + count)
+        : fixture.rezkaActivePartialRolls.fold<int>(
+            0,
+            (sum, roll) => sum + roll.containedKadrCount,
+          );
+    if (nextInputContainedKadrCount != null &&
+        nextInputContainedKadrCount != activeKadrCount) {
+      throw MobileApiException(
+        code: 'merge_input_frame_count_mismatch',
+        message:
+            'Merge qilinmadi: joriy Rezka $activeKadrCount kadr, scan qilingan WIP $nextInputContainedKadrCount kadr',
+        activeKadrCount: activeKadrCount,
+        scannedKadrCount: nextInputContainedKadrCount,
+      );
+    }
 
     final lineage = fixture.rezkaInputLineage.isEmpty
         ? <AdminRezkaInputLink>[
@@ -243,6 +263,7 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
               AdminRezkaActivePartialRoll(
                 slotIndex: index + 1,
                 generation: 1,
+                containedKadrCount: fixture.rezkaOutputKadrCounts[index],
                 sourceInputBatchIds: [
                   normalizedCurrentInputBatchId,
                   normalizedNextInputBatchId,
@@ -254,6 +275,7 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
               AdminRezkaActivePartialRoll(
                 slotIndex: roll.slotIndex,
                 generation: roll.generation,
+                containedKadrCount: roll.containedKadrCount,
                 sourceInputBatchIds: [
                   ...roll.sourceInputBatchIds,
                   if (!roll.sourceInputBatchIds
