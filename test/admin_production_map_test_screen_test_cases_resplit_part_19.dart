@@ -40,7 +40,17 @@ void _registeradmin_production_map_test_screen_testCases19() {
     setMobileApiTestModeQueueActionControlFixture(
       apparatus: _lamination1Id,
       orderId: 'zakaz-laminatsiya-dialog',
-      control: _inProgressQueueControl(completeRequiresFullReport: true),
+      control: _inProgressQueueControl(
+        allowMerge: true,
+        completeRequiresFullReport: true,
+        rezkaInputLineage: const [
+          AdminRezkaInputLink(
+            inputBatchId: 'laminatsiya-wip-a',
+            sequenceNo: 1,
+            status: 'in_use',
+          ),
+        ],
+      ),
     );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -66,6 +76,11 @@ void _registeradmin_production_map_test_screen_testCases19() {
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('laminatsiya-dialog').first);
     await tester.pumpAndSettle();
+    expect(find.text('Merge'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('production-order-rezka-merge-state')),
+      findsNothing,
+    );
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
 
@@ -126,9 +141,25 @@ void _registeradmin_production_map_test_screen_testCases19() {
       apparatus: _rezkaId,
       orderId: 'zakaz-rezka-intermediate-dialog',
       control: _inProgressQueueControl(
+        allowMerge: true,
         completeRequiresRezkaTotalWasteOnly: true,
         stageNodeId: 'rezka-before-lamination',
         rezkaOutputKadrCounts: const [1, 2],
+        rezkaInputLineage: const [
+          AdminRezkaInputLink(
+            inputBatchId: 'rezka-wip-a',
+            sequenceNo: 1,
+            status: 'in_use',
+          ),
+        ],
+        rezkaActivePartialRolls: const [
+          AdminRezkaActivePartialRoll(
+            slotIndex: 1,
+            generation: 1,
+            containedKadrCount: 1,
+            sourceInputBatchIds: ['rezka-wip-a'],
+          ),
+        ],
       ),
     );
     await _usePhoneViewport(tester);
@@ -155,6 +186,11 @@ void _registeradmin_production_map_test_screen_testCases19() {
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('rezka-intermediate-dialog').first);
     await tester.pumpAndSettle();
+    expect(find.text('Merge'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('production-order-rezka-merge-state')),
+      findsNothing,
+    );
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
 

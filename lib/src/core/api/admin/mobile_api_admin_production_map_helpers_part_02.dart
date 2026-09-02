@@ -90,8 +90,8 @@ MobileApiException _adminProductionMapException(
         'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
       'merge_input_frame_count_mismatch' => activeKadrCount != null &&
               scannedKadrCount != null
-          ? 'Merge qilinmadi: joriy Rezka $activeKadrCount kadr, scan qilingan WIP $scannedKadrCount kadr. Bir xil kadrli WIPni scan qiling'
-          : 'Merge qilinmadi: scan qilingan WIPning kadr soni joriy Rezka bilan bir xil emas',
+          ? 'Merge qilinmadi: joriy rulon $activeKadrCount kadr, scan qilingan WIP $scannedKadrCount kadr. Bir xil kadrli WIPni scan qiling'
+          : 'Merge qilinmadi: scan qilingan WIPning kadr soni joriy rulon bilan bir xil emas',
       'rezka_frame_count_mismatch' =>
         'Tugatish yuborilmadi: kiritilgan kadrlar soni Rezka rulonlari soniga mos emas. Oynani yangilang va qayta kiriting',
       'order_not_started' => 'Boshlanmagan buyurtmani muzlatib bo‘lmaydi',

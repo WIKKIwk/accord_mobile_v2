@@ -396,7 +396,7 @@ extension MobileApiAdminQueueActionResultTestModeAstPart01 on MobileApi {
         code: action == 'merge'
             ? 'merge_input_not_accepted'
             : 'progress_batch_not_accepted',
-        message: 'Bu WIP ushbu Rezka orderi uchun yaroqsiz',
+        message: 'Bu WIP ushbu order va bosqich uchun yaroqsiz',
       );
     }
     final explicitProgressInput =
@@ -423,7 +423,7 @@ extension MobileApiAdminQueueActionResultTestModeAstPart01 on MobileApi {
       if (sessionInputIsDifferent && action != 'merge') {
         throw const MobileApiException(
           code: 'progress_batch_not_accepted',
-          message: 'Avval joriy Rezka rulonini tugating',
+          message: 'Avval joriy rulonni tugating',
         );
       }
       final inputWipIsUsable = inputWipStatus == 'waiting' ||

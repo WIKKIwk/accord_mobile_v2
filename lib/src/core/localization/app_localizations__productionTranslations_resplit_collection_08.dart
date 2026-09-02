@@ -103,13 +103,13 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
     'ru': 'Этот WIP уже был использован',
   },
   'worker.error.merge_input_not_accepted': {
-    'uz': 'Bu WIP ushbu Rezka ishiga mos emas',
-    'en': 'This WIP does not match this cutting job',
-    'ru': 'Этот WIP не подходит для этой резки',
+    'uz': 'Bu WIP ushbu order va ishlab chiqarish bosqichiga mos emas',
+    'en': 'This WIP does not match this order and production stage',
+    'ru': 'Этот WIP не подходит для данного заказа и этапа производства',
   },
   'worker.error.merge_input_frame_count_mismatch': {
     'uz':
-        'Merge qilinmadi: scan qilingan WIPning kadr soni joriy Rezka bilan bir xil emas. Bir xil kadrli WIPni scan qiling',
+        'Merge qilinmadi: scan qilingan WIPning kadr soni joriy rulon bilan bir xil emas. Bir xil kadrli WIPni scan qiling',
     'en':
         'Merge failed: the scanned WIP has a different frame count. Scan a WIP with the same frame count.',
     'ru':
@@ -117,11 +117,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
   },
   'worker.error.merge_input_frame_count_mismatch_detail': {
     'uz':
-        'Merge qilinmadi: joriy Rezka {active} kadr, scan qilingan WIP {scanned} kadr. Bir xil kadrli WIPni scan qiling',
+        'Merge qilinmadi: joriy rulon {active} kadr, scan qilingan WIP {scanned} kadr. Bir xil kadrli WIPni scan qiling',
     'en':
-        'Merge failed: the active cutting run has {active} frames, but the scanned WIP has {scanned}. Scan a WIP with the same frame count.',
+        'Merge failed: the active roll has {active} frames, but the scanned WIP has {scanned}. Scan a WIP with the same frame count.',
     'ru':
-        'Merge не выполнен: в текущей резке {active} кадров, а в отсканированном WIP — {scanned}. Отсканируйте WIP с таким же количеством кадров.',
+        'Merge не выполнен: в текущем рулоне {active} кадров, а в отсканированном WIP — {scanned}. Отсканируйте WIP с таким же количеством кадров.',
   },
   'worker.error.rezka_frame_count_mismatch': {
     'uz':

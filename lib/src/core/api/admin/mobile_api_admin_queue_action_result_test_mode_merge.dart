@@ -2,10 +2,11 @@ part of '../mobile_api.dart';
 
 extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
   Future<AdminApparatusQueueActionResult> _runMerge() async {
-    if (!isRezka || current != ApparatusQueueOrderState.inProgress) {
+    if ((!isRezka && !isLaminatsiya) ||
+        current != ApparatusQueueOrderState.inProgress) {
       throw const MobileApiException(
         code: 'queue_action_not_allowed',
-        message: 'Merge faqat faol Rezka orderida mumkin',
+        message: 'Merge faqat faol Rezka yoki Laminatsiya orderida mumkin',
       );
     }
     if (qrPayload.trim().isEmpty) {
@@ -41,7 +42,7 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
     if (!hasPreviousStage || currentInput == null || nextInput == null) {
       throw const MobileApiException(
         code: 'merge_input_not_accepted',
-        message: 'Bu WIP ushbu Rezka bosqichiga mos emas',
+        message: 'Bu WIP ushbu bosqich va orderga mos emas',
       );
     }
     final currentInputStatus = currentInput.wipStatus.trim().toLowerCase();
@@ -73,7 +74,7 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
             currentInput.nextApparatus.trim() != storageKey)) {
       throw const MobileApiException(
         code: 'merge_input_not_accepted',
-        message: 'Joriy Rezka WIP holati mos emas',
+        message: 'Joriy rulon WIP holati mos emas',
       );
     }
     if (currentInput.batchId.trim() == nextInput.batchId.trim()) {
@@ -95,7 +96,7 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
             nextInput.nextApparatus.trim() != storageKey)) {
       throw const MobileApiException(
         code: 'merge_input_not_accepted',
-        message: 'Bu WIP ushbu Rezka bosqichiga mos emas',
+        message: 'Bu WIP ushbu bosqich va orderga mos emas',
       );
     }
 
@@ -104,8 +105,11 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
       orderId: orderId,
     );
     _advanceTestModeMergeControl(
+      isRezkaMerge: isRezka,
       currentInputBatchId: currentInput.batchId,
       nextInputBatchId: nextInput.batchId,
+      currentInputContainedKadrCount:
+          _positiveJsonInt(currentInput.payloadJson['contained_kadr_count']),
       nextInputContainedKadrCount:
           _positiveJsonInt(nextInput.payloadJson['contained_kadr_count']),
     );
@@ -136,8 +140,10 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
   }
 
   void _advanceTestModeMergeControl({
+    required bool isRezkaMerge,
     required String currentInputBatchId,
     required String nextInputBatchId,
+    required int? currentInputContainedKadrCount,
     required int? nextInputContainedKadrCount,
   }) {
     final normalizedOrderId = orderId.trim();
@@ -183,40 +189,53 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
         message: 'Bu WIP oldin ishlatilgan',
       );
     }
-    final activeRollSlots = <int>{};
-    final activeRollsAreValid = fixture.rezkaActivePartialRolls.every((roll) {
-      final sourceIds = <String>{};
-      return roll.slotIndex > 0 &&
-          roll.generation > 0 &&
-          activeRollSlots.add(roll.slotIndex) &&
-          roll.sourceInputBatchIds.isNotEmpty &&
-          roll.sourceInputBatchIds.every(
-            (sourceId) =>
-                sourceId.trim().isNotEmpty &&
-                sourceIds.add(sourceId.trim()) &&
-                lineageBatchIds.contains(sourceId.trim()),
-          ) &&
-          sourceIds.contains(normalizedCurrentInputBatchId);
-    });
-    if (!activeRollsAreValid) {
-      throw const MobileApiException(
-        code: 'merge_input_not_accepted',
-        message: 'Merge rulon manbalari joriy WIP bilan mos emas',
-      );
+    int? activeKadrCount;
+    if (isRezkaMerge) {
+      final activeRollSlots = <int>{};
+      final activeRollsAreValid = fixture.rezkaActivePartialRolls.every((roll) {
+        final sourceIds = <String>{};
+        return roll.slotIndex > 0 &&
+            roll.generation > 0 &&
+            activeRollSlots.add(roll.slotIndex) &&
+            roll.sourceInputBatchIds.isNotEmpty &&
+            roll.sourceInputBatchIds.every(
+              (sourceId) =>
+                  sourceId.trim().isNotEmpty &&
+                  sourceIds.add(sourceId.trim()) &&
+                  lineageBatchIds.contains(sourceId.trim()),
+            ) &&
+            sourceIds.contains(normalizedCurrentInputBatchId);
+      });
+      if (!activeRollsAreValid) {
+        throw const MobileApiException(
+          code: 'merge_input_not_accepted',
+          message: 'Merge rulon manbalari joriy WIP bilan mos emas',
+        );
+      }
+      activeKadrCount = fixture.rezkaActivePartialRolls.isEmpty
+          ? fixture.rezkaOutputKadrCounts
+              .fold<int>(0, (sum, count) => sum + count)
+          : fixture.rezkaActivePartialRolls.fold<int>(
+              0,
+              (sum, roll) => sum + roll.containedKadrCount,
+            );
+    } else {
+      if ((currentInputContainedKadrCount == null) !=
+          (nextInputContainedKadrCount == null)) {
+        throw const MobileApiException(
+          code: 'merge_input_not_accepted',
+          message: 'Rulonlarning kadr ma’lumoti to‘liq emas',
+        );
+      }
+      activeKadrCount = currentInputContainedKadrCount;
     }
-    final activeKadrCount = fixture.rezkaActivePartialRolls.isEmpty
-        ? fixture.rezkaOutputKadrCounts
-            .fold<int>(0, (sum, count) => sum + count)
-        : fixture.rezkaActivePartialRolls.fold<int>(
-            0,
-            (sum, roll) => sum + roll.containedKadrCount,
-          );
     if (nextInputContainedKadrCount != null &&
+        activeKadrCount != null &&
         nextInputContainedKadrCount != activeKadrCount) {
       throw MobileApiException(
         code: 'merge_input_frame_count_mismatch',
         message:
-            'Merge qilinmadi: joriy Rezka $activeKadrCount kadr, scan qilingan WIP $nextInputContainedKadrCount kadr',
+            'Merge qilinmadi: joriy rulon $activeKadrCount kadr, scan qilingan WIP $nextInputContainedKadrCount kadr',
         activeKadrCount: activeKadrCount,
         scannedKadrCount: nextInputContainedKadrCount,
       );
@@ -255,35 +274,37 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
       ),
     );
 
-    final activeRolls = fixture.rezkaActivePartialRolls.isEmpty
-        ? [
-            for (var index = 0;
-                index < fixture.rezkaOutputKadrCounts.length;
-                index += 1)
-              AdminRezkaActivePartialRoll(
-                slotIndex: index + 1,
-                generation: 1,
-                containedKadrCount: fixture.rezkaOutputKadrCounts[index],
-                sourceInputBatchIds: [
-                  normalizedCurrentInputBatchId,
-                  normalizedNextInputBatchId,
-                ],
-              ),
-          ]
-        : [
-            for (final roll in fixture.rezkaActivePartialRolls)
-              AdminRezkaActivePartialRoll(
-                slotIndex: roll.slotIndex,
-                generation: roll.generation,
-                containedKadrCount: roll.containedKadrCount,
-                sourceInputBatchIds: [
-                  ...roll.sourceInputBatchIds,
-                  if (!roll.sourceInputBatchIds
-                      .contains(normalizedNextInputBatchId))
-                    normalizedNextInputBatchId,
-                ],
-              ),
-          ];
+    final activeRolls = !isRezkaMerge
+        ? <AdminRezkaActivePartialRoll>[]
+        : fixture.rezkaActivePartialRolls.isEmpty
+            ? [
+                for (var index = 0;
+                    index < fixture.rezkaOutputKadrCounts.length;
+                    index += 1)
+                  AdminRezkaActivePartialRoll(
+                    slotIndex: index + 1,
+                    generation: 1,
+                    containedKadrCount: fixture.rezkaOutputKadrCounts[index],
+                    sourceInputBatchIds: [
+                      normalizedCurrentInputBatchId,
+                      normalizedNextInputBatchId,
+                    ],
+                  ),
+              ]
+            : [
+                for (final roll in fixture.rezkaActivePartialRolls)
+                  AdminRezkaActivePartialRoll(
+                    slotIndex: roll.slotIndex,
+                    generation: roll.generation,
+                    containedKadrCount: roll.containedKadrCount,
+                    sourceInputBatchIds: [
+                      ...roll.sourceInputBatchIds,
+                      if (!roll.sourceInputBatchIds
+                          .contains(normalizedNextInputBatchId))
+                        normalizedNextInputBatchId,
+                    ],
+                  ),
+              ];
     _testModeQueueActionControlFixtures[storageKey]![normalizedOrderId] =
         AdminApparatusQueueOrderActionControl(
       state: fixture.state,

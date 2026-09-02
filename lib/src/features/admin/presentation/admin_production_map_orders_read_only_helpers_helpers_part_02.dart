@@ -310,7 +310,9 @@ List<String> _rezkaMergeStateLines({
   required List<AdminRezkaActivePartialRoll> activePartialRolls,
   required AppLocalizations l10n,
 }) {
-  if (inputLineage.isEmpty && activePartialRolls.isEmpty) {
+  // A single input is only the WIP selected by Start. Merge state becomes
+  // real only after an explicit successful Merge adds another source.
+  if (inputLineage.length < 2) {
     return const [];
   }
   final lineage = inputLineage.toList(growable: false)

@@ -327,7 +327,7 @@ void main() {
               .having(
                 (error) => error.message,
                 'message',
-                'Merge qilinmadi: joriy Rezka 2 kadr, scan qilingan WIP 1 kadr. Bir xil kadrli WIPni scan qiling',
+                'Merge qilinmadi: joriy rulon 2 kadr, scan qilingan WIP 1 kadr. Bir xil kadrli WIPni scan qiling',
               ),
         ),
       );
@@ -624,14 +624,7 @@ void main() {
             status: 'in_use',
           ),
         ],
-        rezkaActivePartialRolls: [
-          AdminRezkaActivePartialRoll(
-            slotIndex: 1,
-            generation: 1,
-            containedKadrCount: 1,
-            sourceInputBatchIds: [firstInput.batchId],
-          ),
-        ],
+        rezkaActivePartialRolls: const [],
         interaction: const AdminQueueWorkerInteraction(
           mode: AdminQueueInteractionMode.inProgress,
           startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
@@ -726,6 +719,162 @@ void main() {
           'merge_input_already_used',
         ),
       ),
+    );
+  });
+
+  test('test mode Laminatsiya merge advances only same-order roll lineage',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Laminator',
+      legalName: '',
+      ref: 'laminatsiya-merge-test-mode',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+    const orderId = 'zakaz-test-mode-laminatsiya-merge';
+    const sourceLaminatsiya = 'apparatus:default:asset-007';
+    const targetLaminatsiya = 'apparatus:default:asset-008';
+    await MobileApi.instance.adminSaveProductionMap(
+      const ProductionMapDefinition(
+        id: orderId,
+        productCode: 'LAM-MERGE-TM-1',
+        title: 'Test Mode Laminatsiya Merge',
+        code: 'LAM-MERGE-TM-1',
+        nodes: [
+          ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+          ProductionMapNode(
+            id: 'source-laminatsiya',
+            kind: 'apparatus',
+            title: 'Laminatsiya 1',
+            apparatusId: sourceLaminatsiya,
+          ),
+          ProductionMapNode(
+            id: 'target-laminatsiya',
+            kind: 'apparatus',
+            title: 'Laminatsiya 2',
+            apparatusId: targetLaminatsiya,
+          ),
+          ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+        ],
+        edges: [
+          ProductionMapEdge(from: 'start', to: 'source-laminatsiya'),
+          ProductionMapEdge(
+            from: 'source-laminatsiya',
+            to: 'target-laminatsiya',
+          ),
+          ProductionMapEdge(from: 'target-laminatsiya', to: 'end'),
+        ],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: sourceLaminatsiya,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: targetLaminatsiya,
+      orderIds: const [orderId],
+    );
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: sourceLaminatsiya,
+      orderId: orderId,
+      action: 'start',
+    );
+    final firstInput =
+        (await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: sourceLaminatsiya,
+      orderId: orderId,
+      action: 'pause',
+      finishedGoodsMeter: 100,
+      finishedGoodsKg: 10,
+    ))
+            .progressBatch!;
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: sourceLaminatsiya,
+      orderId: orderId,
+      action: 'resume',
+    );
+    final secondInput =
+        (await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: sourceLaminatsiya,
+      orderId: orderId,
+      action: 'pause',
+      finishedGoodsMeter: 80,
+      finishedGoodsKg: 8,
+    ))
+            .progressBatch!;
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: targetLaminatsiya,
+      orderId: orderId,
+      action: 'start',
+      qrPayload: firstInput.qrPayload,
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: targetLaminatsiya,
+      orderId: orderId,
+      control: AdminApparatusQueueOrderActionControl(
+        state: 'in_progress',
+        allowedActions: const {'pause', 'merge', 'complete'},
+        hasOnlyKnownActions: true,
+        previousStage: sourceLaminatsiya,
+        stageNodeId: 'target-laminatsiya',
+        previousStageReady: true,
+        rezkaInputLineage: [
+          AdminRezkaInputLink(
+            inputBatchId: firstInput.batchId,
+            sequenceNo: 1,
+            status: 'in_use',
+          ),
+        ],
+        interaction: const AdminQueueWorkerInteraction(
+          mode: AdminQueueInteractionMode.inProgress,
+          startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+          materialScanRequired: false,
+          assignedMaterialsDisplayOnly: true,
+          materialIntakeAllowed: false,
+          previousWipMode: AdminQueuePreviousWipMode.notRequired,
+          qolipMode: AdminQueueQolipMode.notRequired,
+        ),
+      ),
+    );
+
+    final merged = await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: targetLaminatsiya,
+      orderId: orderId,
+      action: 'merge',
+      qrPayload: secondInput.qrPayload,
+    );
+    expect(merged.states[orderId], 'in_progress');
+    final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+    final mergeControl =
+        snapshot.queueActionControls[targetLaminatsiya]![orderId]!;
+    expect(
+      mergeControl.rezkaInputLineage
+          .map((link) => '${link.inputBatchId}:${link.status}'),
+      [
+        '${firstInput.batchId}:processed',
+        '${secondInput.batchId}:in_use',
+      ],
+    );
+    expect(mergeControl.rezkaActivePartialRolls, isEmpty);
+    final wipBatches = await MobileApi.instance.adminWipBatches(
+      status: 'all',
+      orderId: orderId,
+    );
+    expect(
+      wipBatches
+          .singleWhere((batch) => batch.batchId == firstInput.batchId)
+          .wipStatus,
+      'processed',
+    );
+    expect(
+      wipBatches
+          .singleWhere((batch) => batch.batchId == secondInput.batchId)
+          .wipStatus,
+      'in_use',
     );
   });
 
