@@ -44,6 +44,7 @@ import '../logic/production_map_chain.dart';
 import '../logic/production_map_pechat_rules.dart';
 import '../models/production_map_models.dart';
 import '../state/calculate_order_store.dart';
+import '../state/admin_sequence_apparatus_store.dart';
 import '../../shared/models/app_models.dart';
 import 'raw_material_scan_dialog.dart';
 import 'admin_production_map_test_screen.dart'

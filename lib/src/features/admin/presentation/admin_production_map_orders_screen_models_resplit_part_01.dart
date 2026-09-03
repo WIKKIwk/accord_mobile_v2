@@ -27,6 +27,7 @@ class _AdminProductionMapOrdersScreenState
   String _searchQuery = '';
   _OpenedOrderModule _module = _OpenedOrderModule.orders;
   AdminApparatus? _selectedApparatus;
+  bool _userChangedSequenceApparatus = false;
   AdminApparatus? _moveTopApparatus;
   AdminApparatus? _moveBottomApparatus;
   final Set<String> _selectedMoveOrderIds = {};
@@ -78,6 +79,7 @@ class _AdminProductionMapOrdersScreenState
       WidgetsBinding.instance.addObserver(this);
       unawaited(_startWorkerLive());
     } else {
+      unawaited(_restoreSavedSequenceApparatusPreference());
       unawaited(_startAdminLive());
     }
   }
@@ -285,6 +287,11 @@ class _AdminProductionMapOrdersScreenState
                               moveOrdersForApparatus: _moveOrdersForApparatus,
                               canMoveTo: _canMoveOrderToApparatus,
                               onSelectSequenceApparatus: (apparatus) {
+                                _userChangedSequenceApparatus = true;
+                                unawaited(
+                                  AdminSequenceApparatusStore.instance
+                                      .saveApparatus(apparatus),
+                                );
                                 setState(() => _selectedApparatus = apparatus);
                               },
                               onReorder: (oldIndex, newIndex) {

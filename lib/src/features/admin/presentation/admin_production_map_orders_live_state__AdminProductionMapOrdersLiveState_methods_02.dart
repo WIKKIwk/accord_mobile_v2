@@ -151,13 +151,66 @@ extension __AdminProductionMapOrdersLiveStateAstPart02
       _orders = orders;
       _apparatus = apparatus;
       if (!widget.workerMode) {
-        _selectedApparatus ??= apparatus.isEmpty ? null : apparatus.first;
+        _syncSelectedSequenceApparatus(apparatus);
         _syncMoveApparatusDefaults(apparatus);
       }
       if (initial) {
         _loading = false;
       }
     });
+  }
+
+  Future<void> _restoreSavedSequenceApparatusPreference() async {
+    await AdminSequenceApparatusStore.instance.loadSavedApparatusId();
+    if (!mounted || widget.workerMode || _userChangedSequenceApparatus) {
+      return;
+    }
+    if (_apparatus.isNotEmpty) {
+      _updateScreenState(() {
+        _syncSelectedSequenceApparatus(_apparatus, forceRemembered: true);
+      });
+    }
+  }
+
+  void _syncSelectedSequenceApparatus(
+    List<AdminApparatus> apparatus, {
+    bool forceRemembered = false,
+  }) {
+    if (apparatus.isEmpty) {
+      _selectedApparatus = null;
+      return;
+    }
+
+    final current = _selectedApparatus;
+    final currentInList = current == null
+        ? null
+        : AdminSequenceApparatusStore.instance.resolveApparatus(
+            apparatus,
+            id: current.id,
+            name: current.name,
+          );
+
+    final remembered = AdminSequenceApparatusStore.instance.resolveApparatus(
+      apparatus,
+    );
+
+    if (_userChangedSequenceApparatus && currentInList != null) {
+      _selectedApparatus = currentInList;
+      return;
+    }
+
+    if (forceRemembered && remembered != null) {
+      _selectedApparatus = remembered;
+      return;
+    }
+
+    if (currentInList != null) {
+      _selectedApparatus = currentInList;
+    } else if (remembered != null) {
+      _selectedApparatus = remembered;
+    } else {
+      _selectedApparatus = apparatus.first;
+    }
   }
 
   void _applyInitialProductionMapLoadError() {
