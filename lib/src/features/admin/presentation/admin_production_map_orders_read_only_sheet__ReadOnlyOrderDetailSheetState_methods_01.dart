@@ -19,9 +19,11 @@ extension __ReadOnlyOrderDetailSheetStateAstPart01
 
   /// Loads the calculate-page photo for the sheet header. Missing photos are
   /// normal (old orders): the API returns null on 404 and the header hides.
+  /// The server resolves the photo through the map first and the template
+  /// archive as fallback, so the sheet always attempts the lookup.
   Future<void> _loadOrderImage() async {
     final map = widget.order.map;
-    if (map.id.trim().isEmpty || map.imageId.trim().isEmpty) return;
+    if (map.id.trim().isEmpty) return;
     setState(() => _orderImageLoading = true);
     try {
       final bytes =
