@@ -44,6 +44,8 @@ extension __AdminSuppliersScreenStateAstPart02 on _AdminSuppliersScreenState {
   }
 
   void _selectKind(AdminUserKind kind) {
+    _userManuallySelectedRole = true;
+    unawaited(AdminUsersRoleStore.instance.saveRole(kind));
     if (_selectedKind == kind) {
       setState(() => _roleMenuOpen = false);
       return;
@@ -64,6 +66,16 @@ extension __AdminSuppliersScreenStateAstPart02 on _AdminSuppliersScreenState {
       _loadError = null;
     });
     unawaited(_bootstrap(forceRefresh: true));
+  }
+
+  Future<void> _restoreSavedRolePreference() async {
+    final savedRole = await AdminUsersRoleStore.instance.loadSavedRole();
+    if (!mounted || _userManuallySelectedRole || savedRole == null) {
+      return;
+    }
+    if (_selectedKind != savedRole) {
+      _selectKind(savedRole);
+    }
   }
 
   List<AdminUserListEntry> _workerEntries(AdminUserKind kind) {

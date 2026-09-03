@@ -342,7 +342,8 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
         _hasMore = cache.hasMore;
         _offset = cache.offset;
         _searchQuery = cache.query;
-        _selectedKind = cache.selectedKind;
+        _selectedKind =
+            cache.selectedKind ?? AdminUsersRoleStore.instance.cachedRole;
         _searchController.text = cache.query;
         _initialLoading = false;
         _loadingMore = false;

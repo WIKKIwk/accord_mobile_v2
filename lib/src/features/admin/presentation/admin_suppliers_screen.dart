@@ -13,6 +13,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
+import '../state/admin_users_role_store.dart';
 import 'widgets/admin_catalog_search_field.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
@@ -67,11 +68,15 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   int _listAnimationGeneration = 0;
   bool _animateNextListUpdate = false;
 
+  bool _userManuallySelectedRole = false;
+
   @override
   void initState() {
     super.initState();
+    _selectedKind = AdminUsersRoleStore.instance.cachedRole;
     _usersChanged.addListener(_handleUsersChanged);
     _bootstrap();
+    unawaited(_restoreSavedRolePreference());
   }
 
   @override
