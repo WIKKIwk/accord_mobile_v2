@@ -46,6 +46,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   ReturnedPaintDraft? _returnedPaintDraft;
   String _returnedPaintDraftScope = '';
   String _unlinkingMaterialBarcode = '';
+  List<int>? _orderImageBytes;
+  bool _orderImageLoading = false;
 
   bool get _quickScanInFlight => _quickScanActiveCount > 0;
 
@@ -167,7 +169,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _intakeCandidateAssignments = const [];
       _materialsError = '';
       _materialsLoading = true;
+      _orderImageBytes = null;
+      _orderImageLoading = false;
       unawaited(_loadInteractionContractAndSections());
+      unawaited(_loadOrderImage());
+    unawaited(_loadOrderImage());
     }
     if (_actionInFlight) {
       return;
@@ -279,6 +285,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         noticeAnchorKey: _noticeAnchorKey,
         onClose: () => Navigator.of(context).pop(),
         map: map,
+        orderImageBytes: _orderImageBytes,
+        orderImageLoading: _orderImageLoading,
         workerMode: widget.workerMode,
         apparatusCatalog: widget.apparatusCatalog,
         baseMetraj: widget.baseMetraj,

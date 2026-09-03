@@ -17,8 +17,28 @@ extension __ReadOnlyOrderDetailSheetStateAstPart01
     return context.l10n.productionText('worker.scanner.prompt');
   }
 
-  Future<void> _loadInteractionContractAndSections() async {
-    if (!_queueActionContractSynchronized) {
+  /// Loads the calculate-page photo for the sheet header. Missing photos are
+  /// normal (old orders): the API returns null on 404 and the header hides.
+  Future<void> _loadOrderImage() async {
+    final map = widget.order.map;
+    if (map.id.trim().isEmpty || map.imageId.trim().isEmpty) return;
+    setState(() => _orderImageLoading = true);
+    try {
+      final bytes =
+          await MobileApi.instance.adminProductionMapOrderImage(map.id);
+      if (!mounted) return;
+      setState(() {
+        _orderImageBytes = bytes;
+        _orderImageLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      debugPrint('Order image load failed: $error');
+      setState(() => _orderImageLoading = false);
+    }
+  }
+
+  Future<void> _loadInteractionContractAndSections() async {    if (!_queueActionContractSynchronized) {
       try {
         final refreshed = await _loadCurrentQueueActionControl();
         if (!mounted) return;

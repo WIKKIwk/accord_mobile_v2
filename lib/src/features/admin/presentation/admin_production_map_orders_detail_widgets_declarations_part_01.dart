@@ -6,6 +6,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.noticeAnchorKey,
     required this.onClose,
     required this.map,
+    required this.orderImageBytes,
+    required this.orderImageLoading,
     required this.workerMode,
     required this.apparatusCatalog,
     required this.baseMetraj,
@@ -70,6 +72,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final GlobalKey noticeAnchorKey;
   final VoidCallback onClose;
   final ProductionMapDefinition map;
+  final List<int>? orderImageBytes;
+  final bool orderImageLoading;
   final bool workerMode;
   final List<AdminApparatus> apparatusCatalog;
   final double? baseMetraj;
@@ -165,6 +169,30 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   24,
                 ),
                 children: [
+                  if (orderImageLoading || orderImageBytes != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: orderImageLoading || orderImageBytes == null
+                            ? const SizedBox(
+                                height: 180,
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              )
+                            : Image.memory(
+                                Uint8List.fromList(orderImageBytes!),
+                                key: const ValueKey(
+                                  'production-order-detail-photo',
+                                ),
+                                height: 220,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                gaplessPlayback: true,
+                              ),
+                      ),
+                    ),
                   if (workerMode)
                     Padding(
                       padding: const EdgeInsets.only(left: 14, bottom: 10),

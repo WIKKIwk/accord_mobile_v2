@@ -313,3 +313,31 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
     );
   }
 }
+
+extension MobileApiAdminProductionMapOrderImage on MobileApi {
+  /// Downloads the calculate-page photo linked to [orderId].
+  ///
+  /// Returns `null` when the order has no photo (fast server-side 404) so
+  /// the detail sheet simply hides the image instead of failing.
+  Future<List<int>?> adminProductionMapOrderImage(String orderId) async {
+    final normalizedOrderId = orderId.trim();
+    if (normalizedOrderId.isEmpty) return null;
+    if (await TestModeController.instance.isEnabled()) return null;
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/order-image/view?order_id=${Uri.encodeQueryComponent(normalizedOrderId)}',
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode == 404) return null;
+    if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+      throw _adminProductionMapException(
+        response,
+        'production_map_order_image',
+      );
+    }
+    return response.bodyBytes;
+  }
+}

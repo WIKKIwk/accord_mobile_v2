@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' show cos, sin;
+import 'dart:typed_data';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';

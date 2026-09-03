@@ -9,6 +9,7 @@ class ProductionMapDefinition {
     this.code = '',
     this.orderNumber = '',
     this.customerName = '',
+    this.imageId = '',
     this.rollCount,
     this.widthMm,
     this.orderKg,
@@ -23,6 +24,7 @@ class ProductionMapDefinition {
   final String code;
   final String orderNumber;
   final String customerName;
+  final String imageId;
   final double? rollCount;
   final double? widthMm;
   final double? orderKg;
@@ -38,6 +40,7 @@ class ProductionMapDefinition {
       code: json['code'] as String? ?? '',
       orderNumber: json['order_number'] as String? ?? '',
       customerName: json['customer_name'] as String? ?? '',
+      imageId: json['image_id'] as String? ?? '',
       rollCount: (json['roll_count'] as num?)?.toDouble(),
       widthMm: (json['width_mm'] as num?)?.toDouble(),
       orderKg: (json['order_kg'] as num?)?.toDouble(),
@@ -63,6 +66,7 @@ class ProductionMapDefinition {
       if (code.trim().isNotEmpty) 'code': code.trim(),
       if (orderNumber.trim().isNotEmpty) 'order_number': orderNumber.trim(),
       if (customerName.trim().isNotEmpty) 'customer_name': customerName.trim(),
+      if (imageId.trim().isNotEmpty) 'image_id': imageId.trim(),
       if (rollCount != null) 'roll_count': rollCount,
       if (widthMm != null) 'width_mm': widthMm,
       if (orderKg != null) 'order_kg': orderKg,
@@ -79,6 +83,7 @@ class ProductionMapDefinition {
     String? code,
     String? orderNumber,
     String? customerName,
+    String? imageId,
     double? rollCount,
     double? widthMm,
     double? orderKg,
@@ -93,6 +98,7 @@ class ProductionMapDefinition {
       code: code ?? this.code,
       orderNumber: orderNumber ?? this.orderNumber,
       customerName: customerName ?? this.customerName,
+      imageId: imageId ?? this.imageId,
       rollCount: rollCount ?? this.rollCount,
       widthMm: widthMm ?? this.widthMm,
       orderKg: orderKg ?? this.orderKg,
