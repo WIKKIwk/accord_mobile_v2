@@ -60,6 +60,8 @@ class AdminApparatusQueueSnapshot {
     this.orderCustomers = const {},
     this.orderStatuses = const {},
     this.frozenOrdersByApparatus = const {},
+    this.maps = const [],
+    this.revision,
   });
 
   final Map<String, List<String>> sequences;
@@ -73,6 +75,14 @@ class AdminApparatusQueueSnapshot {
   final Map<String, String> orderCustomers;
   final Map<String, AdminProductionOrderStatusDetail> orderStatuses;
   final Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus;
+
+  /// Canonical order maps bundled with the sequence snapshot (new backend).
+  /// Empty on legacy backends — callers must use the legacy
+  /// `adminProductionMaps()` fallback once, without showing partial UI.
+  final List<ProductionMapSaved> maps;
+
+  /// Monotonic snapshot revision (`rev`). Null on legacy backends.
+  final int? revision;
 
   AdminOrderControlState orderControlFor(String orderId) {
     // The backend serializes only non-active order-control overrides. Missing

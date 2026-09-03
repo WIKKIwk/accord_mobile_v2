@@ -52,7 +52,12 @@ class _OpenedOrderList extends StatelessWidget {
             orders.length,
           ),
           order: order,
-          customerName: customerNameByMapId[orderId] ?? '',
+          // Canonical customer authority: snapshot first, map fallback
+          // immediately so the first frame already shows the final subtitle.
+          customerName: resolveCanonicalOrderCustomer(
+            map: order.map,
+            customersByMapId: customerNameByMapId,
+          ),
           watermarks: _orderWatermarks(
             order: order,
             tone: tone,

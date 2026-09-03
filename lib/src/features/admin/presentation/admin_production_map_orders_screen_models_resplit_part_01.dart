@@ -24,6 +24,8 @@ class _AdminProductionMapOrdersScreenState
   int _queueSnapshotGeneration = 0;
   StreamSubscription<AdminProductionMapLiveSnapshot>? _liveStreamSubscription;
   Timer? _queueSnapshotPollTimer;
+  int? _lastAppliedSnapshotRevision;
+  int _liveReconnectAttempt = 0;
   String _searchQuery = '';
   _OpenedOrderModule _module = _OpenedOrderModule.orders;
   AdminApparatus? _selectedApparatus;

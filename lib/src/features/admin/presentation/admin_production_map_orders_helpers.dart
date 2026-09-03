@@ -52,7 +52,11 @@ String _openedOrderSubtitle(
   AppLocalizations? l10n,
 }) {
   final productTitle = _openedOrderProductTitle(map);
-  final customer = customerName.trim();
+  // Canonical customer authority: snapshot lookup first, map fallback
+  // immediately. Never start empty and fill later (flicker).
+  final lookupCustomer = customerName.trim();
+  final customer =
+      lookupCustomer.isNotEmpty ? lookupCustomer : map.customerName.trim();
   final apparatusCount =
       map.nodes.where((node) => node.kind == 'apparatus').length;
   final secondaryLabel = customer.isNotEmpty

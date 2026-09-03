@@ -154,3 +154,60 @@ bool _shouldRefreshWorkerOnlyData(bool workerMode) {
 bool _shouldRefreshAdminOnlyData(bool workerMode) {
   return !workerMode;
 }
+
+/// Canonical snapshot apply decision for the revision guard.
+///
+/// - null incoming revision (legacy backend) => [applyLegacy] so the caller
+///   falls back to content comparison instead of crashing.
+/// - incoming < last => stale, ignore.
+/// - incoming == last => duplicate, do not rewrite `_orders`.
+/// - incoming > last (or no last yet) => apply once.
+enum CanonicalSnapshotDecision {
+  apply,
+  ignoreStale,
+  ignoreDuplicate,
+  applyLegacy
+}
+
+// Private alias kept for existing call sites inside the screen library.
+typedef _CanonicalSnapshotDecision = CanonicalSnapshotDecision;
+
+CanonicalSnapshotDecision canonicalSnapshotDecision({
+  required int? incomingRevision,
+  required int? lastAppliedRevision,
+}) {
+  if (incomingRevision == null) return CanonicalSnapshotDecision.applyLegacy;
+  if (lastAppliedRevision == null) return CanonicalSnapshotDecision.apply;
+  if (incomingRevision < lastAppliedRevision) {
+    return CanonicalSnapshotDecision.ignoreStale;
+  }
+  if (incomingRevision == lastAppliedRevision) {
+    return CanonicalSnapshotDecision.ignoreDuplicate;
+  }
+  return CanonicalSnapshotDecision.apply;
+}
+
+/// Customer/subtitle authority: snapshot first, map fallback immediately.
+///
+/// Never returns empty when the map itself carries a customer name, so the
+/// first frame already shows the final subtitle (no flicker).
+String resolveCanonicalOrderCustomer({
+  required ProductionMapDefinition map,
+  required Map<String, String> customersByMapId,
+}) {
+  final snapshotCustomer = customersByMapId[map.id.trim()]?.trim() ?? '';
+  if (snapshotCustomer.isNotEmpty) return snapshotCustomer;
+  return map.customerName.trim();
+}
+
+/// Bounded exponential backoff for live-stream reconnects:
+/// 1s -> 2s -> 4s -> 8s -> ... capped at 30s. Deterministic (no jitter) so
+/// tests stay stable.
+Duration productionMapLiveReconnectDelay(int attempt) {
+  final normalized = attempt < 0 ? 0 : attempt;
+  var seconds = 1 << (normalized > 5 ? 5 : normalized);
+  if (seconds > 30) seconds = 30;
+  // 1,2,4,8,16,32->30,30,...
+  if (normalized >= 5) seconds = 30;
+  return Duration(seconds: seconds);
+}

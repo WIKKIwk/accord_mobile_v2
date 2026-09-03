@@ -97,12 +97,17 @@ extension __AdminProductionMapOrdersLiveStateAstPart02
   }
 
   Future<void> _refreshMapsAndApparatus({bool initial = false}) async {
-    if (!initial && _mapsRefreshInFlight) {
+    // Legacy path kept for compatibility. Initial loads must use
+    // [_refreshCanonicalInitial] (parallel snapshot + apparatus, single
+    // atomic apply) to avoid title/subtitle flicker.
+    if (initial) {
+      await _refreshCanonicalInitial();
       return;
     }
-    if (!initial) {
-      _mapsRefreshInFlight = true;
+    if (_mapsRefreshInFlight) {
+      return;
     }
+    _mapsRefreshInFlight = true;
     try {
       final loaded = await _loadProductionMapOrdersAndApparatus();
       if (!mounted) {
@@ -110,34 +115,135 @@ extension __AdminProductionMapOrdersLiveStateAstPart02
       }
       final orders = loaded.orders;
       final apparatus = loaded.apparatus;
-      if (!initial &&
-          !_productionMapOrdersOrApparatusChanged(
-            currentOrders: _orders,
-            nextOrders: orders,
-            currentApparatus: _apparatus,
-            nextApparatus: apparatus,
-          )) {
+      if (!_productionMapOrdersOrApparatusChanged(
+        currentOrders: _orders,
+        nextOrders: orders,
+        currentApparatus: _apparatus,
+        nextApparatus: apparatus,
+      )) {
         return;
       }
       if (widget.workerMode &&
-          (initial ||
-              _workerWatchTabCount(apparatus) != _tabController.length)) {
+          _workerWatchTabCount(apparatus) != _tabController.length) {
         _recreateWorkerTabController(apparatus);
       }
       _applyLoadedProductionMapOrdersAndApparatus(
         orders: orders,
         apparatus: apparatus,
-        initial: initial,
+        initial: false,
       );
       if (!widget.supplyViewerMode) {
         unawaited(_refreshOrderBaseMetraj(orders));
       }
     } catch (_) {
-      if (mounted && initial) {
-        _applyInitialProductionMapLoadError();
-      }
+      // Background refreshes keep the last good state on screen.
     } finally {
       _mapsRefreshInFlight = false;
+    }
+  }
+
+  /// Canonical cold-load: parallel snapshot + apparatus, one atomic apply.
+  ///
+  /// First non-loading frame already carries the final title/subtitle.
+  /// Legacy backends without `maps` fall back to a single
+  /// `adminProductionMaps()` fetch, still applied in one transaction.
+  Future<void> _refreshCanonicalInitial() async {
+    try {
+      final results = await Future.wait<Object>([
+        _loadQueueSnapshot(),
+        _loadProductionMapApparatus(),
+      ]);
+      final queueSnapshot = results[0] as AdminApparatusQueueSnapshot;
+      final apparatus = results[1] as List<AdminApparatus>;
+      List<ProductionMapSaved> orders;
+      if (queueSnapshot.maps.isNotEmpty) {
+        orders = _productionMapZakazOrders(queueSnapshot.maps);
+      } else {
+        final legacyMaps = await MobileApi.instance.adminProductionMaps();
+        if (!mounted) return;
+        orders = _productionMapZakazOrders(legacyMaps);
+      }
+      if (!mounted) {
+        return;
+      }
+      // If a live snapshot already applied a newer revision, do not let an
+      // older REST response overwrite it.
+      final decision = canonicalSnapshotDecision(
+        incomingRevision: queueSnapshot.revision,
+        lastAppliedRevision: _lastAppliedSnapshotRevision,
+      );
+      if ((decision == _CanonicalSnapshotDecision.ignoreStale ||
+              decision == _CanonicalSnapshotDecision.ignoreDuplicate) &&
+          _orders.isNotEmpty) {
+        return;
+      }
+      if (queueSnapshot.revision != null) {
+        _lastAppliedSnapshotRevision = queueSnapshot.revision;
+      }
+      _liveReconnectAttempt = 0;
+      if (widget.workerMode &&
+          _workerWatchTabCount(apparatus) != _tabController.length) {
+        _recreateWorkerTabController(apparatus);
+      }
+      _updateScreenState(() {
+        _loadError = null;
+        _orders = orders;
+        _apparatus = apparatus;
+        _replaceQueueSnapshotMaps(
+          sequences: queueSnapshot.sequences,
+          visibleOrderIds: queueSnapshot.visibleOrderIds,
+          queueStates: queueSnapshot.queueStates,
+          stageStates: queueSnapshot.stageStates,
+          queuePolicies: queueSnapshot.queuePolicies,
+          queueActionControls: queueSnapshot.queueActionControls,
+          orderControls: queueSnapshot.orderControls,
+          orderCustomers: queueSnapshot.orderCustomers,
+          orderStatuses: queueSnapshot.orderStatuses,
+          frozenOrdersByApparatus: queueSnapshot.frozenOrdersByApparatus,
+        );
+        if (!widget.workerMode) {
+          _syncSelectedSequenceApparatus(apparatus);
+          _syncMoveApparatusDefaults(apparatus);
+        }
+        _loading = false;
+        _loadError = null;
+        if (_queueSnapshotContractError) {
+          _queueSnapshotContractError = false;
+          _queueSnapshotErrorMessage = null;
+        }
+      });
+      if (!widget.supplyViewerMode) {
+        unawaited(_refreshOrderBaseMetraj(orders));
+      }
+    } catch (_) {
+      if (mounted) {
+        _applyInitialProductionMapLoadError();
+      }
+    }
+  }
+
+  /// Background apparatus refresh without touching `_orders`.
+  /// Orders arrive only via the revisioned queue/live snapshot authority.
+  Future<void> _refreshApparatusCatalog() async {
+    try {
+      final apparatus = await _loadProductionMapApparatus();
+      if (!mounted) return;
+      if (_apparatusListsHaveSameCanonicalRevisions(_apparatus, apparatus)) {
+        return;
+      }
+      if (widget.workerMode &&
+          _workerWatchTabCount(apparatus) != _tabController.length) {
+        _recreateWorkerTabController(apparatus);
+      }
+      _updateScreenState(() {
+        _apparatus = apparatus;
+        if (!widget.workerMode) {
+          _syncSelectedSequenceApparatus(apparatus);
+          _syncMoveApparatusDefaults(apparatus);
+        }
+      });
+    } catch (_) {
+      // Keep last good catalog on failure.
     }
   }
 
@@ -234,13 +340,13 @@ extension __AdminProductionMapOrdersLiveStateAstPart02
     if (!mounted) {
       return;
     }
+    // Canonical customer authority is snapshot.orderCustomers with
+    // map.customerName fallback. Template-derived customers must never
+    // rewrite the card subtitle (would cause a delayed label flicker), so
+    // only metraj/kg are applied here.
     _updateScreenState(() {
       _baseMetrajByMapId = metrics.baseMetrajByMapId;
       _orderKgByMapId = metrics.orderKgByMapId;
-      _customerByMapId = {
-        ...metrics.customerByMapId,
-        ..._customerByMapId,
-      };
     });
   }
 

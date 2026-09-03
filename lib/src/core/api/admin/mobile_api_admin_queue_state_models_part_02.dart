@@ -42,6 +42,11 @@ extension MobileApiAdminQueueState on MobileApi {
         },
         orderStatuses: const {},
         frozenOrdersByApparatus: _testModeFrozenOrdersByApparatus(),
+        // Test mode carries the canonical maps so the cold-load path can be
+        // exercised without a backend. Revision stays null (legacy) — the UI
+        // still applies maps atomically but skips the revision guard.
+        maps: List<ProductionMapSaved>.unmodifiable(_testModeProductionMaps),
+        revision: null,
       );
       snapshot.validateContract();
       return snapshot;
@@ -75,6 +80,11 @@ extension MobileApiAdminQueueState on MobileApi {
       frozenOrdersByApparatus: _parseAdminFrozenOrdersByApparatus(
         payload['frozen_orders_by_apparatus'],
       ),
+      // New backend bundles `maps` + `rev`; old backend omits them.
+      // Missing maps => empty list triggers the one-shot legacy fallback.
+      // Missing rev => null triggers the fail-safe legacy apply path.
+      maps: parseProductionMapSnapshotMaps(payload['maps']),
+      revision: parseProductionMapSnapshotRevisionFromJson(payload),
     );
     snapshot.validateContract();
     return snapshot;

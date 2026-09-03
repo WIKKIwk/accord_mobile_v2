@@ -60,16 +60,22 @@ extension __AdminProductionMapOrdersLiveStateAstPart01
           return;
         }
         final wasLoading = _loading;
-        // A transient live-stream disconnect does not invalidate the last
-        // successfully loaded queue snapshot. The REST refresh below is the
-        // fallback authority and will surface a warning only if that snapshot
-        // request also fails or violates its contract.
-        await _refreshLive(initial: wasLoading);
+        // Keep the last good state on screen. Fall back to the canonical
+        // REST snapshot (revision-guarded) instead of clearing the list.
+        if (wasLoading) {
+          await _refreshLive(initial: true);
+        } else {
+          await _refreshQueueSnapshot();
+        }
       }
       if (!mounted || generation != _liveStreamGeneration) {
         return;
       }
-      await Future.delayed(const Duration(seconds: 1));
+      // Bounded exponential backoff: 1s -> 2s -> 4s -> 8s -> max 30s.
+      // Reset to 1s on the next successful snapshot (see listener below).
+      final delay = productionMapLiveReconnectDelay(_liveReconnectAttempt);
+      _liveReconnectAttempt++;
+      await Future.delayed(delay);
     }
   }
 
@@ -82,6 +88,8 @@ extension __AdminProductionMapOrdersLiveStateAstPart01
         if (!mounted || generation != _liveStreamGeneration) {
           return;
         }
+        // A fresh snapshot means the stream is healthy: reset backoff.
+        _liveReconnectAttempt = 0;
         _applyWorkerLiveSnapshot(snapshot);
       },
       onError: (error, _) {
@@ -113,8 +121,96 @@ extension __AdminProductionMapOrdersLiveStateAstPart01
     });
   }
 
+  // Kept for admin/worker call sites: delegates to the shared canonical
+  // apply so both modes use one revisioned authority.
   void _applyWorkerLiveSnapshot(AdminProductionMapLiveSnapshot snapshot) {
+    _applyCanonicalLiveSnapshot(snapshot);
+  }
+
+  void _applyCanonicalLiveSnapshot(AdminProductionMapLiveSnapshot snapshot) {
+    final decision = canonicalSnapshotDecision(
+      incomingRevision: snapshot.revision,
+      lastAppliedRevision: _lastAppliedSnapshotRevision,
+    );
+    if (decision == _CanonicalSnapshotDecision.ignoreStale ||
+        decision == _CanonicalSnapshotDecision.ignoreDuplicate) {
+      if (_queueSnapshotContractError) {
+        _updateScreenState(() {
+          _queueSnapshotContractError = false;
+          _queueSnapshotErrorMessage = null;
+          _loadError = null;
+        });
+      }
+      return;
+    }
+    if (decision == _CanonicalSnapshotDecision.applyLegacy) {
+      // Legacy live payload without `rev`: only rebuild when content
+      // actually changed to avoid duplicate rebuilds.
+      final nextOrders = _productionMapZakazOrders(snapshot.maps);
+      if (_ordersRevision(nextOrders) == _ordersRevision(_orders) &&
+          !_queueSnapshotChanged(
+            snapshot: AdminApparatusQueueSnapshot(
+              sequences: snapshot.sequences,
+              visibleOrderIds: snapshot.visibleOrderIds,
+              queueStates: snapshot.queueStates,
+              stageStates: snapshot.stageStates,
+              queuePolicies: snapshot.queuePolicies,
+              queueActionControls: snapshot.queueActionControls,
+              orderControls: snapshot.orderControls,
+              orderCustomers: snapshot.orderCustomers,
+              orderStatuses: snapshot.orderStatuses,
+              frozenOrdersByApparatus: snapshot.frozenOrdersByApparatus,
+            ),
+            sequenceByApparatus: _sequenceByApparatus,
+            visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
+            queueStatesByApparatus: _queueStatesByApparatus,
+            stageStatesByOrderId: _stageStatesByOrderId,
+            queuePoliciesByApparatus: _queuePoliciesByApparatus,
+            queueActionControlsByApparatus: _queueActionControlsByApparatus,
+            orderControlsByOrderId: _orderControlsByOrderId,
+            orderCustomersByOrderId: _customerByMapId,
+            orderStatusesByOrderId: _orderStatusesByOrderId,
+            frozenOrdersByApparatus: _frozenOrdersByApparatus,
+          )) {
+        return;
+      }
+      _queueSnapshotGeneration++;
+      final orders = nextOrders;
+      _updateScreenState(() {
+        _orders = orders;
+        _replaceQueueSnapshotMaps(
+          sequences: snapshot.sequences,
+          visibleOrderIds: snapshot.visibleOrderIds,
+          queueStates: snapshot.queueStates,
+          stageStates: snapshot.stageStates,
+          queuePolicies: snapshot.queuePolicies,
+          queueActionControls: snapshot.queueActionControls,
+          orderControls: snapshot.orderControls,
+          orderCustomers: snapshot.orderCustomers,
+          orderStatuses: snapshot.orderStatuses,
+          frozenOrdersByApparatus: snapshot.frozenOrdersByApparatus,
+        );
+        _completedWorkerOrders = snapshot.completedOrders;
+        _workerCompletedHistoryError = false;
+        _workerCompletedHistoryErrorMessage = null;
+        _completionRequests = snapshot.completionRequests;
+        _completionRequestsErrorMessage = null;
+        _loading = false;
+        if (_queueSnapshotContractError) {
+          _queueSnapshotContractError = false;
+          _queueSnapshotErrorMessage = null;
+          _loadError = null;
+        }
+      });
+      _showNewRejectedCompletionDecisionNotices(
+        snapshot.completionRequestDecisions,
+      );
+      return;
+    }
+    // Revisioned path: a new `rev` applies exactly once, atomically.
     _queueSnapshotGeneration++;
+    _lastAppliedSnapshotRevision = snapshot.revision;
+    _liveReconnectAttempt = 0;
     final orders = _productionMapZakazOrders(snapshot.maps);
     _updateScreenState(() {
       _orders = orders;
@@ -175,8 +271,23 @@ extension __AdminProductionMapOrdersLiveStateAstPart01
   }
 
   Future<void> _refreshWorkerLiveBatch({required bool initial}) async {
-    await _refreshMapsAndApparatus(initial: initial);
-    await _refreshQueueSnapshot();
+    if (initial) {
+      // Canonical cold load: one atomic snapshot+apparatus apply, no partial UI.
+      await _refreshCanonicalInitial();
+      await _refreshWorkerCompletedOrders();
+      await _refreshWorkerCompletionRequestDecisions();
+      return;
+    }
+    // Background refresh: orders only via the revisioned snapshot authority
+    // (avoids REST/live race). Apparatus catalog refreshes separately.
+    // Legacy backends without `rev` still need the old maps endpoint.
+    await Future.wait([
+      _refreshQueueSnapshot(),
+      _refreshApparatusCatalog(),
+    ]);
+    if (_lastAppliedSnapshotRevision == null) {
+      await _refreshMapsAndApparatus();
+    }
     await _refreshWorkerCompletedOrders();
     await _refreshWorkerCompletionRequestDecisions();
   }
@@ -184,19 +295,20 @@ extension __AdminProductionMapOrdersLiveStateAstPart01
   Future<void> _refreshAdminLiveBatch({required bool initial}) async {
     if (widget.supplyViewerMode) {
       if (initial) {
-        await _refreshMapsAndApparatus(initial: true);
-        await _refreshQueueSnapshot();
+        await _refreshCanonicalInitial();
         return;
       }
       await Future.wait([
-        _refreshMapsAndApparatus(),
         _refreshQueueSnapshot(),
+        _refreshApparatusCatalog(),
       ]);
+      if (_lastAppliedSnapshotRevision == null) {
+        await _refreshMapsAndApparatus();
+      }
       return;
     }
     if (initial) {
-      await _refreshMapsAndApparatus(initial: initial);
-      await _refreshQueueSnapshot();
+      await _refreshCanonicalInitial();
       await Future.wait([
         _refreshCompletionRequests(),
         _refreshClosedOrders(),
@@ -205,11 +317,14 @@ extension __AdminProductionMapOrdersLiveStateAstPart01
       return;
     }
     await Future.wait([
-      _refreshMapsAndApparatus(initial: initial),
       _refreshQueueSnapshot(),
+      _refreshApparatusCatalog(),
       _refreshCompletionRequests(),
       _refreshClosedOrders(),
     ]);
+    if (_lastAppliedSnapshotRevision == null) {
+      await _refreshMapsAndApparatus();
+    }
   }
 
   Future<void> _refreshQueueSnapshot() async {
@@ -224,6 +339,54 @@ extension __AdminProductionMapOrdersLiveStateAstPart01
       if (!mounted || requestGeneration != _queueSnapshotGeneration) {
         return;
       }
+      // Revision guard: stale/duplicate REST snapshots must not rewrite UI.
+      final decision = canonicalSnapshotDecision(
+        incomingRevision: queueSnapshot.revision,
+        lastAppliedRevision: _lastAppliedSnapshotRevision,
+      );
+      if (decision == _CanonicalSnapshotDecision.ignoreStale ||
+          decision == _CanonicalSnapshotDecision.ignoreDuplicate) {
+        // Successful fetch still clears a previous transient warning.
+        if (_queueSnapshotContractError) {
+          _updateScreenState(() {
+            _queueSnapshotContractError = false;
+            _queueSnapshotErrorMessage = null;
+          });
+        }
+        return;
+      }
+      if (decision == _CanonicalSnapshotDecision.apply) {
+        // New canonical revision: apply atomically, including orders when
+        // the snapshot bundles maps (new backend).
+        _lastAppliedSnapshotRevision = queueSnapshot.revision;
+        _liveReconnectAttempt = 0;
+        final hasMaps = queueSnapshot.maps.isNotEmpty;
+        final nextOrders =
+            hasMaps ? _productionMapZakazOrders(queueSnapshot.maps) : null;
+        _updateScreenState(() {
+          if (nextOrders != null) {
+            _orders = nextOrders;
+          }
+          _replaceQueueSnapshotMaps(
+            sequences: queueSnapshot.sequences,
+            visibleOrderIds: queueSnapshot.visibleOrderIds,
+            queueStates: queueSnapshot.queueStates,
+            stageStates: queueSnapshot.stageStates,
+            queuePolicies: queueSnapshot.queuePolicies,
+            queueActionControls: queueSnapshot.queueActionControls,
+            orderControls: queueSnapshot.orderControls,
+            orderCustomers: queueSnapshot.orderCustomers,
+            orderStatuses: queueSnapshot.orderStatuses,
+            frozenOrdersByApparatus: queueSnapshot.frozenOrdersByApparatus,
+          );
+          if (_queueSnapshotContractError) {
+            _queueSnapshotContractError = false;
+            _queueSnapshotErrorMessage = null;
+          }
+        });
+        return;
+      }
+      // Legacy (no rev): fall back to content comparison to avoid rebuilds.
       if (!_queueSnapshotChanged(
         snapshot: queueSnapshot,
         sequenceByApparatus: _sequenceByApparatus,
@@ -286,19 +449,9 @@ extension __AdminProductionMapOrdersLiveStateAstPart01
     if (!mounted) {
       return;
     }
+    // Keep the last good state on screen (no list wipe, no loading spinner).
+    // Only surface the warning; a newer canonical snapshot will recover.
     _updateScreenState(() {
-      _replaceQueueSnapshotMaps(
-        sequences: const {},
-        visibleOrderIds: const {},
-        queueStates: const {},
-        stageStates: const {},
-        queuePolicies: const {},
-        queueActionControls: const {},
-        orderControls: const {},
-        orderCustomers: const {},
-        orderStatuses: const {},
-        frozenOrdersByApparatus: const {},
-      );
       _queueSnapshotContractError = true;
       _queueSnapshotErrorMessage ??= message;
       _loading = false;

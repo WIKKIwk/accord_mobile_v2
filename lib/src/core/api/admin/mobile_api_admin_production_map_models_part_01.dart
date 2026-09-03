@@ -123,6 +123,7 @@ class AdminProductionMapLiveSnapshot {
     this.orderCustomers = const {},
     this.orderStatuses = const {},
     this.frozenOrdersByApparatus = const {},
+    this.revision,
   });
 
   final List<ProductionMapSaved> maps;
@@ -142,6 +143,10 @@ class AdminProductionMapLiveSnapshot {
   final Map<String, AdminProductionOrderStatusDetail> orderStatuses;
   final Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus;
 
+  /// Monotonic snapshot revision from the backend `rev` field.
+  /// Null when an old backend does not send it (fail-safe legacy path).
+  final int? revision;
+
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
     final visibleOrderIds = _parseRequiredProductionMapVisibleOrderIds(json);
     _requireProductionMapSnapshotShape(json, includesMaps: true);
@@ -151,11 +156,7 @@ class AdminProductionMapLiveSnapshot {
     final completionRequestDecisionsRaw = json['completion_request_decisions'];
     final orderControls = _parseAdminOrderControls(json['order_controls']);
     final snapshot = AdminProductionMapLiveSnapshot(
-      maps: [
-        if (mapsRaw is List)
-          for (final item in mapsRaw)
-            ProductionMapSaved.fromJson(item as Map<String, dynamic>),
-      ],
+      maps: parseProductionMapSnapshotMaps(mapsRaw),
       sequences: MobileApi.instance.parseApparatusSequenceMap(
         json['sequences'],
       ),
@@ -197,6 +198,7 @@ class AdminProductionMapLiveSnapshot {
       frozenOrdersByApparatus: _parseAdminFrozenOrdersByApparatus(
         json['frozen_orders_by_apparatus'],
       ),
+      revision: parseProductionMapSnapshotRevisionFromJson(json),
     );
     snapshot.validateContract();
     return snapshot;

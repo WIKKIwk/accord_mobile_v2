@@ -272,6 +272,45 @@ const _knownApparatusQueueStates = {
   'completed',
 };
 
+/// Parses the canonical snapshot `rev` without crashing on old backends.
+///
+/// Returns null when the field is missing (legacy backend) so callers can
+/// use a fail-safe legacy path. Numeric strings are accepted for robustness.
+int? parseProductionMapSnapshotRevision(Object? raw) {
+  if (raw is num) return raw.toInt();
+  if (raw is String) return int.tryParse(raw.trim());
+  return null;
+}
+
+int? parseProductionMapSnapshotRevisionFromJson(Map<String, dynamic> json) {
+  if (json.containsKey('rev')) {
+    final parsed = parseProductionMapSnapshotRevision(json['rev']);
+    if (parsed != null) return parsed;
+  }
+  if (json.containsKey('revision')) {
+    return parseProductionMapSnapshotRevision(json['revision']);
+  }
+  return null;
+}
+
+List<ProductionMapSaved> parseProductionMapSnapshotMaps(Object? raw) {
+  if (raw is! List) return const [];
+  final result = <ProductionMapSaved>[];
+  for (final item in raw) {
+    if (item is Map) {
+      try {
+        result.add(
+          ProductionMapSaved.fromJson(item.cast<String, dynamic>()),
+        );
+      } catch (_) {
+        // Skip a single corrupt map instead of failing the whole snapshot.
+        continue;
+      }
+    }
+  }
+  return List<ProductionMapSaved>.unmodifiable(result);
+}
+
 Map<String, AdminProductionOrderStatusDetail> _parseAdminOrderStatuses(
   Object? raw,
 ) {
