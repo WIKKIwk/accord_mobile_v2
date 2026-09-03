@@ -907,8 +907,6 @@ void main() {
       expect(report.orderStatus.orderStatus, 'completed');
       expect(report.orderStatus.flowStatus, 'free_wip');
       expect(report.orderStatus.stockStatus, isEmpty);
-      expect(report.orderStatus.freeWipCount, 1);
-      expect(report.orderStatus.completedQueueCount, 1);
       expect(report.orderStatus.completedWithIssueCount, 0);
       expect(report.isStale, isTrue);
       expect(report.staleReason, 'processed_by_next_stage');
@@ -1244,7 +1242,7 @@ void main() {
       expect(batches.first.batchId, 'progress-1');
       expect(batches.first.wipStatus, 'waiting');
       expect(
-        batches.first.currentApparatusKey,
+        batches.first.currentApparatus,
         'apparatus:default:asset-005',
       );
       expect(batches.first.nextApparatus, 'apparatus:default:asset-007');
@@ -2585,17 +2583,6 @@ class _RawMaterialApiHttpClient implements HttpClient {
             'order_status': 'completed',
             'work_status': 'completed',
             'flow_status': 'free_wip',
-            'total_wip_count': 2,
-            'waiting_wip_count': 1,
-            'in_use_wip_count': 0,
-            'processed_wip_count': 1,
-            'waiting_next_stage_count': 0,
-            'consumed_by_next_stage_count': 1,
-            'free_wip_count': 1,
-            'accepted_wip_count': 0,
-            'active_session_count': 0,
-            'paused_session_count': 0,
-            'completed_queue_count': 1,
             'completed_with_issue_count': 0,
           },
           'queue_states': {

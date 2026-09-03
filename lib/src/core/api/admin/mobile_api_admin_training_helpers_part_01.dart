@@ -236,7 +236,6 @@ AdminProgressBatch? _testModeTrainingInputProgressBatch({
     wipStatus: wipStatus,
     statusDetail: statusDetail,
     currentApparatus: inputApparatus,
-    currentApparatusKey: inputApparatus,
     currentLocation: 'Training input chiqim',
     nextApparatus: targetStation,
     finishedGoodsKg: producedQty,

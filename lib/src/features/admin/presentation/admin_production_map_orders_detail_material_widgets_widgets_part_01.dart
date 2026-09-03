@@ -93,7 +93,6 @@ AdminProgressBatch _openingWipAsProgressBatch(
       flowStatus: flowStatus,
     ),
     currentApparatus: sourceApparatus,
-    currentApparatusKey: sourceApparatus,
     nextApparatus: nextApparatus,
     usedBySessionId: batch.usedBySessionId,
     usedByApparatus: batch.usedByApparatus,

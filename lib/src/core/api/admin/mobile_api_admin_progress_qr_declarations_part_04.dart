@@ -152,7 +152,6 @@ extension MobileApiAdminProgressQr on MobileApi {
         wipStatus: current.wipStatus,
         statusDetail: current.statusDetail,
         currentApparatus: current.currentApparatus,
-        currentApparatusKey: current.currentApparatusKey,
         currentLocation: current.currentLocation,
         nextApparatus: current.nextApparatus,
         parentBatchId: current.parentBatchId,

@@ -164,7 +164,6 @@ class AdminProgressBatch {
     this.wipStatus = '',
     this.statusDetail = const AdminProgressBatchStatusDetail(),
     this.currentApparatus = '',
-    this.currentApparatusKey = '',
     this.currentLocation = '',
     this.nextApparatus = '',
     this.parentBatchId = '',
@@ -208,7 +207,6 @@ class AdminProgressBatch {
   final String wipStatus;
   final AdminProgressBatchStatusDetail statusDetail;
   final String currentApparatus;
-  final String currentApparatusKey;
   final String currentLocation;
   final String nextApparatus;
   final String parentBatchId;
@@ -225,18 +223,21 @@ class AdminProgressBatch {
       json['current_apparatus']?.toString() ?? '',
       allowEmpty: true,
     );
-    final currentApparatusKey = _requireCanonicalApparatusId(
+    final legacyCurrentApparatusKey = _requireCanonicalApparatusId(
       json['current_apparatus_key']?.toString() ?? '',
       allowEmpty: true,
     );
     if (currentApparatus.isNotEmpty &&
-        currentApparatusKey.isNotEmpty &&
-        currentApparatus != currentApparatusKey) {
+        legacyCurrentApparatusKey.isNotEmpty &&
+        currentApparatus != legacyCurrentApparatusKey) {
       throw const MobileApiException(
         code: 'apparatus_id_mismatch',
         message: 'Progress aparat identity mos emas',
       );
     }
+    final authoritativeCurrentApparatus = currentApparatus.isNotEmpty
+        ? currentApparatus
+        : legacyCurrentApparatusKey;
     return AdminProgressBatch(
       batchId: json['batch_id']?.toString() ?? '',
       revision: (json['revision'] as num?)?.toInt() ?? 1,
@@ -274,8 +275,7 @@ class AdminProgressBatch {
       workerDisplayName: json['worker_display_name']?.toString() ?? '',
       wipStatus: json['wip_status']?.toString() ?? '',
       statusDetail: AdminProgressBatchStatusDetail.fromJsonOrBatchJson(json),
-      currentApparatus: currentApparatus,
-      currentApparatusKey: currentApparatusKey,
+      currentApparatus: authoritativeCurrentApparatus,
       currentLocation: json['current_location']?.toString() ?? '',
       nextApparatus: _requireCanonicalApparatusId(
         json['next_apparatus']?.toString() ?? '',
@@ -343,7 +343,6 @@ class AdminProgressBatch {
       wipStatus: wipStatus ?? this.wipStatus,
       statusDetail: statusDetail,
       currentApparatus: currentApparatus ?? this.currentApparatus,
-      currentApparatusKey: currentApparatusKey,
       currentLocation: currentLocation ?? this.currentLocation,
       nextApparatus: nextApparatus ?? this.nextApparatus,
       parentBatchId: parentBatchId,

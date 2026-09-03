@@ -100,7 +100,6 @@ void _registeradmin_production_map_queue_snapshot_testCases01() {
         'zakaz-visible-alt': {
           'lifecycle_status': 'in_progress',
           'order_status': 'in_progress',
-          'active_session_count': 1,
         },
         'zakaz-issue': {
           'order_status': 'completed_with_issue',

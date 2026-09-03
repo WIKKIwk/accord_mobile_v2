@@ -35,8 +35,6 @@ void main() {
         'order_status': 'in_progress',
         'work_status': 'in_progress',
         'flow_status': 'in_progress',
-        'total_wip_count': 2,
-        'active_session_count': 1,
       },
       'queue_states': {
         'apparatus:default:asset-010': {'order-1': 'in_progress'},

@@ -293,6 +293,24 @@ void main() {
     );
   });
 
+  test('progress projection parses new canonical current_apparatus response', () {
+    final batch = AdminProgressBatch.fromJson(const {
+      'batch_id': 'batch-1',
+      'apparatus': 'apparatus:default:asset-010',
+      'current_apparatus': 'apparatus:default:asset-010',
+    });
+    expect(batch.currentApparatus, 'apparatus:default:asset-010');
+  });
+
+  test('progress projection parses legacy current_apparatus_key wire response', () {
+    final batch = AdminProgressBatch.fromJson(const {
+      'batch_id': 'batch-1',
+      'apparatus': 'apparatus:default:asset-010',
+      'current_apparatus_key': 'apparatus:default:asset-010',
+    });
+    expect(batch.currentApparatus, 'apparatus:default:asset-010');
+  });
+
   test('worker group projection requires canonical apparatus id', () {
     expect(
       () => AdminWorkerGroup.fromJson(const {
