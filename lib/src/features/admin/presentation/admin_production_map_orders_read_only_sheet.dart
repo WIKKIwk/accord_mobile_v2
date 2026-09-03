@@ -81,6 +81,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       widget.order.map.id.trim(),
     );
     unawaited(_loadInteractionContractAndSections());
+    unawaited(_loadOrderImage());
     if (widget.startPauseOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_runInitialPauseFlow());
@@ -173,7 +174,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _orderImageLoading = false;
       unawaited(_loadInteractionContractAndSections());
       unawaited(_loadOrderImage());
-    unawaited(_loadOrderImage());
     }
     if (_actionInFlight) {
       return;
