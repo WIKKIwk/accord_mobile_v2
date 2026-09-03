@@ -183,6 +183,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'en': 'View map',
     'ru': 'Открыть карту',
   },
+  'worker.action.view_order_image': {
+    'uz': 'Buyurtma rasmini ko‘rish',
+    'en': 'View order image',
+    'ru': 'Посмотреть изображение заказа',
+  },
   'worker.action.back_to_order': {
     'uz': 'Orderga qaytish',
     'en': 'Back to order',
@@ -247,6 +252,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'uz': 'Qayta urinish',
     'en': 'Retry',
     'ru': 'Повторить',
+  },
+  'worker.error.order_image_unavailable': {
+    'uz': 'Buyurtma rasmi mavjud emas yoki yuklanmadi.',
+    'en': 'The order image is unavailable or could not be loaded.',
+    'ru': 'Изображение заказа недоступно или не загрузилось.',
   },
   'worker.scanner.prompt': {
     'uz': 'Qolip yoki homashyo QR kodini tirqishga olib keling',

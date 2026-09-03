@@ -17,10 +17,10 @@ extension __ReadOnlyOrderDetailSheetStateAstPart01
     return context.l10n.productionText('worker.scanner.prompt');
   }
 
-  /// Loads the calculate-page photo for the sheet header. Missing photos are
-  /// normal (old orders): the API returns null on 404 and the header hides.
-  /// The server resolves the photo through the map first and the template
-  /// archive as fallback, so the sheet always attempts the lookup.
+  /// Loads the calculate-page photo for the sheet thumbnail. Missing photos
+  /// are normal (old orders): the API returns null on 404 and the thumbnail
+  /// falls back to the receipt icon. The server resolves the photo through the
+  /// map first and the template archive as fallback.
   Future<void> _loadOrderImage() async {
     final map = widget.order.map;
     if (map.id.trim().isEmpty) return;
@@ -38,6 +38,29 @@ extension __ReadOnlyOrderDetailSheetStateAstPart01
       debugPrint('Order image load failed: $error');
       setState(() => _orderImageLoading = false);
     }
+  }
+
+  void _handleOrderImageTap() {
+    unawaited(_openOrderImage());
+  }
+
+  Future<void> _openOrderImage() async {
+    if (_orderImageLoading) return;
+    final cachedImage = _orderImageBytes;
+    if (cachedImage != null && cachedImage.isNotEmpty) {
+      _showProductionMapOrderImageDialog(context, cachedImage);
+      return;
+    }
+    await _loadOrderImage();
+    if (!mounted) return;
+    final loadedImage = _orderImageBytes;
+    if (loadedImage == null || loadedImage.isEmpty) {
+      _showSheetNotice(
+        context.l10n.productionText('worker.error.order_image_unavailable'),
+      );
+      return;
+    }
+    _showProductionMapOrderImageDialog(context, loadedImage);
   }
 
   Future<void> _loadInteractionContractAndSections() async {    if (!_queueActionContractSynchronized) {

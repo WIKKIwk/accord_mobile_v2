@@ -13,6 +13,9 @@ class ProfileAvatarPreview extends StatelessWidget {
     this.avatarImage,
     this.semanticLabel = 'Profil rasmini kattalashtirish',
     this.heroTag = profileAvatarPreviewHeroTag,
+    this.previewOnLongPress = false,
+    this.previewFit = BoxFit.cover,
+    this.previewMaxScale = 3,
   });
 
   final String displayName;
@@ -20,6 +23,9 @@ class ProfileAvatarPreview extends StatelessWidget {
   final ImageProvider? avatarImage;
   final String semanticLabel;
   final Object heroTag;
+  final bool previewOnLongPress;
+  final BoxFit previewFit;
+  final double previewMaxScale;
 
   @override
   Widget build(BuildContext context) {
@@ -28,12 +34,26 @@ class ProfileAvatarPreview extends StatelessWidget {
       label: semanticLabel,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => showProfileAvatarPreview(
-          context,
-          displayName: displayName,
-          avatarImage: avatarImage,
-          heroTag: heroTag,
-        ),
+        onTap: previewOnLongPress
+            ? null
+            : () => showProfileAvatarPreview(
+                  context,
+                  displayName: displayName,
+                  avatarImage: avatarImage,
+                  heroTag: heroTag,
+                  previewFit: previewFit,
+                  previewMaxScale: previewMaxScale,
+                ),
+        onLongPress: previewOnLongPress
+            ? () => showProfileAvatarPreview(
+                  context,
+                  displayName: displayName,
+                  avatarImage: avatarImage,
+                  heroTag: heroTag,
+                  previewFit: previewFit,
+                  previewMaxScale: previewMaxScale,
+                )
+            : null,
         child: Hero(
           tag: heroTag,
           createRectTween: (begin, end) =>
@@ -51,6 +71,8 @@ Future<void> showProfileAvatarPreview(
   required String displayName,
   required ImageProvider? avatarImage,
   Object heroTag = profileAvatarPreviewHeroTag,
+  BoxFit previewFit = BoxFit.cover,
+  double previewMaxScale = 3,
 }) {
   return Navigator.of(context).push(
     PageRouteBuilder<void>(
@@ -65,6 +87,8 @@ Future<void> showProfileAvatarPreview(
           displayName: displayName,
           avatarImage: avatarImage,
           heroTag: heroTag,
+          previewFit: previewFit,
+          previewMaxScale: previewMaxScale,
         );
       },
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -113,11 +137,15 @@ class _ProfileAvatarPreviewOverlay extends StatelessWidget {
     required this.displayName,
     required this.avatarImage,
     required this.heroTag,
+    required this.previewFit,
+    required this.previewMaxScale,
   });
 
   final String displayName;
   final ImageProvider? avatarImage;
   final Object heroTag;
+  final BoxFit previewFit;
+  final double previewMaxScale;
 
   @override
   Widget build(BuildContext context) {
@@ -139,7 +167,8 @@ class _ProfileAvatarPreviewOverlay extends StatelessWidget {
             Center(
               child: InteractiveViewer(
                 minScale: 1,
-                maxScale: 3,
+                maxScale: previewMaxScale,
+                boundaryMargin: const EdgeInsets.all(80),
                 child: Hero(
                   tag: heroTag,
                   createRectTween: (begin, end) =>
@@ -150,6 +179,7 @@ class _ProfileAvatarPreviewOverlay extends StatelessWidget {
                     avatarImage: avatarImage,
                     width: previewWidth,
                     height: previewHeight,
+                    fit: previewFit,
                   ),
                 ),
               ),
@@ -176,12 +206,14 @@ class _LargeProfileAvatarPreview extends StatelessWidget {
     required this.avatarImage,
     required this.width,
     required this.height,
+    required this.fit,
   });
 
   final String displayName;
   final ImageProvider? avatarImage;
   final double width;
   final double height;
+  final BoxFit fit;
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +240,7 @@ class _LargeProfileAvatarPreview extends StatelessWidget {
         image: image,
         height: height,
         width: width,
-        fit: BoxFit.cover,
+        fit: fit,
         placeholder: fallback,
         errorBuilder: (context, error) => fallback,
       ),

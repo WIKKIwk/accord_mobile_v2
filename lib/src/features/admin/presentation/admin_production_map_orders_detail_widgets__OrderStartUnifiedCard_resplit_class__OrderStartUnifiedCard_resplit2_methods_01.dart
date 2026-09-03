@@ -67,17 +67,11 @@ extension __OrderStartUnifiedCardAstPart01 on _OrderStartUnifiedCard {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.receipt_long_rounded,
-                    color: scheme.onPrimaryContainer,
-                  ),
+                _productionMapOrderImageThumbnail(
+                  context: context,
+                  imageBytes: orderImageBytes,
+                  loading: orderImageLoading,
+                  onTap: onViewOrderImage,
                 ),
                 const SizedBox(width: 14),
                 Expanded(

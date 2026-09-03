@@ -5,6 +5,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   const _OrderStartUnifiedCard({
     required this.apparatusCatalog,
     required this.orderCode,
+    required this.orderImageBytes,
+    required this.orderImageLoading,
+    required this.onViewOrderImage,
     required this.productTitle,
     required this.customerName,
     required this.workerMode,
@@ -78,6 +81,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
 
   final List<AdminApparatus> apparatusCatalog;
   final String orderCode;
+  final List<int>? orderImageBytes;
+  final bool orderImageLoading;
+  final VoidCallback onViewOrderImage;
   final String productTitle;
   final String? customerName;
   final bool workerMode;

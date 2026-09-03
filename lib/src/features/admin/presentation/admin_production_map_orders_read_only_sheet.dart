@@ -287,6 +287,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         map: map,
         orderImageBytes: _orderImageBytes,
         orderImageLoading: _orderImageLoading,
+        onViewOrderImage: _handleOrderImageTap,
         workerMode: widget.workerMode,
         apparatusCatalog: widget.apparatusCatalog,
         baseMetraj: widget.baseMetraj,

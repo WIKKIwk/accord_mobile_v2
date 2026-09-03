@@ -2,11 +2,14 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/session/state/app_session.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/display/image_fade.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../state/calculate_order_store.dart';
+import '../../shared/presentation/widgets/profile_avatar_preview.dart';
 import 'widgets/admin_catalog_search_field.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
@@ -236,6 +239,52 @@ class _OrderRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
+  Widget _leading(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final fallback = DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        Icons.calculate_outlined,
+        size: 16,
+        color: scheme.onSecondaryContainer,
+      ),
+    );
+    final imageUrl = template.imageUrl.trim();
+    if (imageUrl.isEmpty) {
+      return fallback;
+    }
+    final token = AppSession.instance.token?.trim() ?? '';
+    final image = NetworkImage(
+      MobileApi.instance.calculateOrderImageUrl(imageUrl),
+      headers: token.isEmpty ? null : {'Authorization': 'Bearer $token'},
+    );
+    return ProfileAvatarPreview(
+      displayName: _orderTitle(context.l10n, template),
+      avatarImage: image,
+      semanticLabel: context.l10n.productionText(
+        'worker.action.view_order_image',
+      ),
+      heroTag: 'quick-order-image-${template.id}',
+      previewOnLongPress: true,
+      previewFit: BoxFit.contain,
+      previewMaxScale: 8,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: ImageFade(
+          image: image,
+          width: 30,
+          height: 30,
+          fit: BoxFit.cover,
+          placeholder: fallback,
+          errorBuilder: (_, __) => fallback,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -257,20 +306,7 @@ class _OrderRow extends StatelessWidget {
       value: '',
       showChevron: true,
       onTap: onTap,
-      leading: SizedBox.square(
-        dimension: 30,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: scheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.calculate_outlined,
-            size: 16,
-            color: scheme.onSecondaryContainer,
-          ),
-        ),
-      ),
+      leading: SizedBox.square(dimension: 30, child: _leading(context)),
       title: _orderTitle(context.l10n, template),
       subtitle: subtitle,
       titleMaxLines: 1,

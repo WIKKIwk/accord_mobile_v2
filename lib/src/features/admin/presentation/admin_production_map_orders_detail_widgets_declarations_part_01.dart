@@ -8,6 +8,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.map,
     required this.orderImageBytes,
     required this.orderImageLoading,
+    required this.onViewOrderImage,
     required this.workerMode,
     required this.apparatusCatalog,
     required this.baseMetraj,
@@ -74,6 +75,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final ProductionMapDefinition map;
   final List<int>? orderImageBytes;
   final bool orderImageLoading;
+  final VoidCallback onViewOrderImage;
   final bool workerMode;
   final List<AdminApparatus> apparatusCatalog;
   final double? baseMetraj;
@@ -169,36 +171,19 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   24,
                 ),
                 children: [
-                  if (orderImageLoading || orderImageBytes != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: orderImageLoading || orderImageBytes == null
-                            ? const SizedBox(
-                                height: 180,
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              )
-                            : Image.memory(
-                                Uint8List.fromList(orderImageBytes!),
-                                key: const ValueKey(
-                                  'production-order-detail-photo',
-                                ),
-                                height: 220,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                gaplessPlayback: true,
-                              ),
-                      ),
-                    ),
                   if (workerMode)
                     Padding(
                       padding: const EdgeInsets.only(left: 14, bottom: 10),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
+                          _productionMapOrderImageThumbnail(
+                            context: context,
+                            imageBytes: orderImageBytes,
+                            loading: orderImageLoading,
+                            onTap: onViewOrderImage,
+                          ),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Padding(
                               padding: const EdgeInsets.only(left: 2),
@@ -287,6 +272,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   _OrderStartUnifiedCard(
                     apparatusCatalog: apparatusCatalog,
                     orderCode: _openedOrderDisplayCode(map),
+                    orderImageBytes: orderImageBytes,
+                    orderImageLoading: orderImageLoading,
+                    onViewOrderImage: onViewOrderImage,
                     productTitle: _openedOrderPrimaryTitle(
                       map,
                       l10n: context.l10n,
@@ -407,4 +395,95 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
       },
     );
   }
+}
+
+Widget _productionMapOrderImageThumbnail({
+  required BuildContext context,
+  required List<int>? imageBytes,
+  required bool loading,
+  required VoidCallback onTap,
+}) {
+  final scheme = Theme.of(context).colorScheme;
+  final hasImage = imageBytes != null && imageBytes.isNotEmpty;
+  final placeholder = Container(
+    width: 44,
+    height: 44,
+    decoration: BoxDecoration(
+      color: scheme.primaryContainer,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Icon(
+      Icons.receipt_long_rounded,
+      color: scheme.onPrimaryContainer,
+    ),
+  );
+  final child = hasImage
+      ? ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: ImageFade(
+            image: MemoryImage(Uint8List.fromList(imageBytes!)),
+            key: const ValueKey('production-order-detail-photo'),
+            width: 44,
+            height: 44,
+            fit: BoxFit.cover,
+            placeholder: placeholder,
+            errorBuilder: (_, __) => Icon(
+              Icons.broken_image_outlined,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        )
+      : placeholder;
+  return InkWell(
+    key: const ValueKey('production-order-detail-photo-thumbnail'),
+    borderRadius: BorderRadius.circular(12),
+    onTap: loading ? null : onTap,
+    child: SizedBox(width: 44, height: 44, child: child),
+  );
+}
+
+void _showProductionMapOrderImageDialog(
+  BuildContext context,
+  List<int> imageBytes,
+) {
+  final image = Uint8List.fromList(imageBytes);
+  showDialog<void>(
+    context: context,
+    builder: (context) {
+      final scheme = Theme.of(context).colorScheme;
+      return Dialog.fullscreen(
+        backgroundColor: scheme.surfaceContainerLowest,
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 4,
+                  child: Center(
+                    child: Image.memory(
+                      image,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Icon(
+                        Icons.broken_image_outlined,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: IconButton.filledTonal(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }

@@ -6,6 +6,7 @@ import 'package:accord_mobile_v2/src/features/admin/models/production_map_models
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_calculate_orders_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/calculate_order_store.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/shared/presentation/widgets/profile_avatar_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -68,6 +69,35 @@ void main() {
     expect(find.text('Saqlangan shablonlar hozircha yo‘q'), findsOneWidget);
     expect(find.text('Saqlangan zakaz yo‘q'), findsNothing);
   });
+
+  testWidgets('quick order image opens profile preview on long press', (
+    tester,
+  ) async {
+    await MobileApi.instance.adminSaveProductionMap(
+      _map(id: 'quick-image-map', code: '1002', orderNumber: '1002'),
+    );
+    await MobileApi.instance.upsertCalculateOrderTemplate(
+      _template(
+        code: 'Z-IMAGE',
+        name: 'Image quick',
+        sourceMapId: 'quick-image-map',
+        imageUrl: '/v1/mobile/calculate/orders/image/view?id=image-1',
+      ),
+    );
+
+    await _pumpScreen(tester);
+
+    final imagePreview = find.byType(ProfileAvatarPreview);
+    expect(imagePreview, findsOneWidget);
+    await tester.longPress(imagePreview);
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+    final viewer = tester.widget<InteractiveViewer>(
+      find.byType(InteractiveViewer),
+    );
+    expect(viewer.maxScale, 8);
+  });
 }
 
 Future<void> _pumpScreen(WidgetTester tester) async {
@@ -97,6 +127,7 @@ CalculateOrderTemplate _template({
   required String code,
   required String name,
   String sourceMapId = '',
+  String imageUrl = '',
 }) {
   return CalculateOrderTemplate(
     id: code,
@@ -115,7 +146,7 @@ CalculateOrderTemplate _template({
     imageName: '',
     imageMime: '',
     imageSizeBytes: 0,
-    imageUrl: '',
+    imageUrl: imageUrl,
     frameProductSizeMm: 615,
     frameCount: 1,
     widthMm: 630,
