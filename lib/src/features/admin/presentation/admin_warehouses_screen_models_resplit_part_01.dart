@@ -27,12 +27,16 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
 
   bool get _adminScoped => AppSession.instance.profile?.role == UserRole.admin;
 
+  bool _userManuallySelectedWarehouse = false;
+
   @override
   void initState() {
     super.initState();
+    _selectedWarehouse = AdminWarehouseFilterStore.instance.cachedWarehouse;
     _pageTabController = TabController(length: 2, vsync: this);
     _future = _load();
     _connectWarehouseLive();
+    unawaited(_restoreSavedWarehousePreference());
   }
 
   @override

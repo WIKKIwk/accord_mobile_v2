@@ -52,7 +52,7 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
     final summaries = await summariesFuture;
     final allowedWarehouses = await allowedWarehousesFuture;
     final qolipAssignments = await qolipAssignmentsFuture;
-    return _WarehouseSummaryData(
+    final data = _WarehouseSummaryData(
       qolipWarehouseNames: _uniqueWarehouseNames(
         qolipAssignments
             .where(
@@ -73,6 +73,8 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
           )
           .toList(growable: false),
     );
+    _syncSelectedWarehouseAfterSummaryLoaded(data);
+    return data;
   }
 
   Future<_WarehouseInventorySection?> _loadDetail(String warehouse) async {
@@ -161,6 +163,8 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
   }
 
   Future<void> _handleWarehouseDeleted() async {
+    AdminWarehouseFilterStore.instance.clearCache();
+    unawaited(AdminWarehouseFilterStore.instance.saveWarehouse(''));
     setState(() {
       _selectedWarehouse = null;
       _detailFuture = null;
@@ -250,11 +254,60 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
 
   void _openWarehouseDetailByName(String warehouse) {
     final normalized = warehouse.trim();
+    _userManuallySelectedWarehouse = true;
+    unawaited(AdminWarehouseFilterStore.instance.saveWarehouse(normalized));
     setState(() {
       _selectedWarehouse = normalized;
       _warehouseFilterExpanded = false;
       _detailFuture = _loadDetail(normalized);
     });
+  }
+
+  void _syncSelectedWarehouseAfterSummaryLoaded(_WarehouseSummaryData data) {
+    if (!mounted || _disposed) return;
+    final available = data.sections.map((s) => s.warehouse);
+    final currentOrCached = _selectedWarehouse ??
+        AdminWarehouseFilterStore.instance.cachedWarehouse;
+    final target = AdminWarehouseFilterStore.instance.resolveWarehouse(
+      available,
+      preferred: currentOrCached,
+    );
+    if (target != null) {
+      if (_selectedWarehouse != target || _detailFuture == null) {
+        _selectedWarehouse = target;
+        _detailFuture = _loadDetail(target);
+      }
+    } else if (_userManuallySelectedWarehouse) {
+      _selectedWarehouse = null;
+      _detailFuture = null;
+    }
+  }
+
+  Future<void> _restoreSavedWarehousePreference() async {
+    final saved =
+        await AdminWarehouseFilterStore.instance.loadSavedWarehouse();
+    if (!mounted ||
+        _disposed ||
+        _userManuallySelectedWarehouse ||
+        saved == null ||
+        saved.isEmpty) {
+      return;
+    }
+    final data = await _future;
+    if (!mounted || _disposed || _userManuallySelectedWarehouse) {
+      return;
+    }
+    final available = data.sections.map((s) => s.warehouse);
+    final target = AdminWarehouseFilterStore.instance.resolveWarehouse(
+      available,
+      preferred: saved,
+    );
+    if (target != null && target != _selectedWarehouse) {
+      setState(() {
+        _selectedWarehouse = target;
+        _detailFuture = _loadDetail(target);
+      });
+    }
   }
 
   void _goBackFromSearch() {

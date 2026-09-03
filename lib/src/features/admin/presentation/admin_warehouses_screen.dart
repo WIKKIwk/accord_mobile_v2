@@ -21,6 +21,7 @@ import '../../shared/models/app_models.dart';
 import '../../shared/models/inventory_movement_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../logic/canonical_apparatus_display.dart';
+import '../state/admin_warehouse_filter_store.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_catalog_search_field.dart';
