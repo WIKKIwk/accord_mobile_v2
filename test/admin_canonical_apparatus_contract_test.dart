@@ -293,7 +293,8 @@ void main() {
     );
   });
 
-  test('progress projection parses new canonical current_apparatus response', () {
+  test('progress projection parses new canonical current_apparatus response',
+      () {
     final batch = AdminProgressBatch.fromJson(const {
       'batch_id': 'batch-1',
       'apparatus': 'apparatus:default:asset-010',
@@ -302,7 +303,8 @@ void main() {
     expect(batch.currentApparatus, 'apparatus:default:asset-010');
   });
 
-  test('progress projection parses legacy current_apparatus_key wire response', () {
+  test('progress projection parses legacy current_apparatus_key wire response',
+      () {
     final batch = AdminProgressBatch.fromJson(const {
       'batch_id': 'batch-1',
       'apparatus': 'apparatus:default:asset-010',
