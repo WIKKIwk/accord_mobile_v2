@@ -24,7 +24,6 @@ extension __OrderStartUnifiedCardAstPart01 on _OrderStartUnifiedCard {
     final hasActions = showStart ||
         showPause ||
         showMerge ||
-        showRollComplete ||
         showComplete ||
         showResume ||
         showWaitingForPrevious ||
@@ -584,39 +583,6 @@ extension __OrderStartUnifiedCardAstPart01 on _OrderStartUnifiedCard {
                     )
                   : const SizedBox(
                       key: ValueKey('production-order-merge-hidden'),
-                    ),
-            ),
-            AnimatedSize(
-              key: const ValueKey('production-order-roll-complete-motion'),
-              duration: AppMotion.medium,
-              curve: AppMotion.standardDecelerate,
-              alignment: Alignment.topCenter,
-              child: showRollComplete
-                  ? Column(
-                      key: const ValueKey(
-                        'production-order-roll-complete-visible',
-                      ),
-                      children: [
-                        const SizedBox(height: 10),
-                        FilledButton.icon(
-                          onPressed: actionInFlight ? null : onRollComplete,
-                          icon: const Icon(Icons.call_made_rounded),
-                          label: Text(
-                            context.l10n.productionText(
-                              'worker.action.roll_complete',
-                            ),
-                          ),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(48),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : const SizedBox(
-                      key: ValueKey('production-order-roll-complete-hidden'),
                     ),
             ),
             AnimatedSize(

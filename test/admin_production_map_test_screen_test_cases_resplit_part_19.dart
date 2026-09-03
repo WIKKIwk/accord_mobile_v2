@@ -244,6 +244,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
       orderId: 'zakaz-rezka-dialog',
       control: _inProgressQueueControl(
         allowMerge: true,
+        allowRollComplete: true,
         completeRequiresFullReport: true,
         stageNodeId: 'apparatus',
         rezkaOutputKadrCounts: const [1, 2],

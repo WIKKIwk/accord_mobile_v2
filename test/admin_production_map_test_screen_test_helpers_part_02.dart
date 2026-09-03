@@ -153,6 +153,7 @@ AdminApparatusQueueOrderActionControl _freshStartQueueControl({
 AdminApparatusQueueOrderActionControl _inProgressQueueControl({
   bool materialIntakeAllowed = false,
   bool allowMerge = false,
+  bool allowRollComplete = false,
   bool completeRequiresFullReport = false,
   bool completeRequiresRezkaTotalWasteOnly = false,
   String stageNodeId = '',
@@ -166,6 +167,7 @@ AdminApparatusQueueOrderActionControl _inProgressQueueControl({
       'pause',
       'detach_roll',
       if (allowMerge) 'merge',
+      if (allowRollComplete) 'roll_complete',
       'complete',
       'freeze',
     },
