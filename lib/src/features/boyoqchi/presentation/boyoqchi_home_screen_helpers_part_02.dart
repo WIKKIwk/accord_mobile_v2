@@ -54,6 +54,15 @@ String _displayOrDash(String value) {
   return trimmed.isEmpty ? '—' : trimmed;
 }
 
+/// Worker-facing: never show `apparatus:...`, `worker:...` technical IDs.
+/// Catalog miss → '—', operator picks by human name elsewhere.
+String _hideTechnicalId(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return '—';
+  if (trimmed.contains(':')) return '—';
+  return trimmed;
+}
+
 class _BoyoqchiMessage extends StatelessWidget {
   const _BoyoqchiMessage({
     required this.icon,

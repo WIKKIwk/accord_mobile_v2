@@ -26,7 +26,7 @@ class _BoyoqchiHomeScreenState extends State<BoyoqchiHomeScreen> {
       if (!mounted) return;
       setState(() => _apparatusCatalog = apparatus);
     } catch (_) {
-      // The exact ApparatusId remains visible if display projection fails.
+      // Catalog miss → human '—'; raw ApparatusId never shown to workers.
     }
   }
 
@@ -209,7 +209,7 @@ class _ReturnedPaintRequestCard extends StatelessWidget {
                 ),
                 _ReturnedPaintMetadataRow(
                   label: 'Location',
-                  value: _displayOrDash(apparatusLabel),
+                  value: _hideTechnicalId(apparatusLabel),
                 ),
               ],
             ),

@@ -442,7 +442,8 @@ String _operator(ReturnedPaintRequest request) {
   final displayName = request.senderDisplayName.trim();
   if (displayName.isNotEmpty) return displayName;
   final senderRef = request.senderRef.trim();
-  return senderRef.isEmpty ? '—' : senderRef;
+  if (senderRef.isEmpty || senderRef.contains(':')) return '—';
+  return senderRef;
 }
 
 String _amount(String rawValue) {
