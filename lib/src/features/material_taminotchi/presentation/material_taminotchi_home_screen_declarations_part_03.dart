@@ -99,27 +99,49 @@ List<({String label, String value})> _materialHistoryDetails(
   add('Zakaz', event.orderId);
   add(
     'Apparat',
-    canonicalApparatusDisplayLabel(event.apparatus, apparatusCatalog),
+    _materialFriendlyApparatus(event.apparatus, apparatusCatalog),
   );
 
-  final actor = [
-    event.actorDisplayName.trim(),
-    event.actorRef.trim(),
-  ].where((value) => value.isNotEmpty).join(' • ');
-  add('Bajargan', actor);
+  final actorName = event.actorDisplayName.trim();
+  add(
+    'Bajargan',
+    actorName.isNotEmpty && !actorName.contains(':')
+        ? actorName
+        : _materialFriendlyRef(event.actorRef),
+  );
   add('Rol', _materialHistoryRoleLabel(event.actorRole));
-  final owner = [
-    event.ownerDisplayName.trim(),
-    event.ownerRef.trim(),
-  ].where((value) => value.isNotEmpty).join(' • ');
-  add('Egasi', owner);
+  final ownerName = event.ownerDisplayName.trim();
+  add(
+    'Egasi',
+    ownerName.isNotEmpty && !ownerName.contains(':')
+        ? ownerName
+        : _materialFriendlyRef(event.ownerRef),
+  );
   add('Egasi roli', _materialHistoryRoleLabel(event.ownerRole));
   add('Manba', _materialHistorySourceLabel(event.sourceType));
   add('Receipt raqami', event.sourceId);
-  add('Event ID', event.eventId);
   add('Vaqt', _materialHistoryDateTime(event.occurredAtUnix));
   add('Yozilgan vaqt', _materialHistoryDateTime(event.recordedAtUnix));
   return details;
+}
+
+/// Worker-facing apparatus: catalog name, else '—'. Raw `apparatus:...` never shown.
+String _materialFriendlyApparatus(
+  String apparatusId,
+  List<AdminApparatus> catalog,
+) {
+  final trimmed = apparatusId.trim();
+  if (trimmed.isEmpty) return '';
+  final label = canonicalApparatusDisplayLabel(trimmed, catalog).trim();
+  if (label.isEmpty || label.contains(':')) return '';
+  return label;
+}
+
+/// Worker-facing person ref: phone/short code ok, `worker:...`/`role:...` hidden.
+String _materialFriendlyRef(String ref) {
+  final trimmed = ref.trim();
+  if (trimmed.isEmpty || trimmed.contains(':')) return '';
+  return trimmed;
 }
 
 String _materialHistoryEventTypeLabel(String type) {
@@ -210,8 +232,8 @@ String _materialHistorySubtitle(
   final parts = <String>[
     if (event.warehouse.trim().isNotEmpty) event.warehouse.trim(),
     if (event.orderId.trim().isNotEmpty) 'Zakaz ${event.orderId.trim()}',
-    if (event.apparatus.trim().isNotEmpty)
-      canonicalApparatusDisplayLabel(event.apparatus, apparatusCatalog),
+    if (_materialFriendlyApparatus(event.apparatus, apparatusCatalog).isNotEmpty)
+      _materialFriendlyApparatus(event.apparatus, apparatusCatalog),
     if (event.barcode.trim().isNotEmpty) event.barcode.trim(),
   ];
   return parts.join(' • ');
