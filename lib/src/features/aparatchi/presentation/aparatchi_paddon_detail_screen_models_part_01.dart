@@ -155,9 +155,29 @@ class _PaddonWipCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final orderId = batch.orderId.trim().isEmpty ? '—' : batch.orderId.trim();
-    final epc = batch.qrPayload.trim().isEmpty
-        ? (batch.batchId.trim().isEmpty ? '—' : batch.batchId.trim())
-        : batch.qrPayload.trim();
+    final qr = batch.qrPayload.trim();
+    final epc = qr.isNotEmpty
+        ? qr
+        : (batch.batchId.trim().isEmpty
+              ? '—'
+              : (batch.batchId.trim().length <= 24
+                    ? batch.batchId.trim()
+                    : '…${batch.batchId.trim().substring(batch.batchId.trim().length - 12)}'));
+    final lengthM = batch.finishedGoodsMeter;
+    final hasLength =
+        lengthM != null && lengthM.isFinite && lengthM > 0 ||
+        (batch.uom.trim().toLowerCase() == 'm' &&
+            batch.producedQty.isFinite &&
+            batch.producedQty > 0);
+    final lengthText = !hasLength
+        ? ''
+        : formatQuantityWithUnit(
+            lengthM != null && lengthM.isFinite && lengthM > 0
+                ? lengthM
+                : batch.producedQty,
+            'm',
+            trimTrailingZeros: true,
+          );
     return M3SegmentFilledSurface(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
@@ -189,7 +209,7 @@ class _PaddonWipCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'EPC: $epc',
+                      lengthText.isEmpty ? 'EPC: $epc' : 'EPC: $epc • $lengthText',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(

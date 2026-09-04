@@ -175,7 +175,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Order: order-001'), findsOneWidget);
-    expect(find.text('EPC: 40011234567890ABCDEF'), findsOneWidget);
+    expect(
+      find.text('EPC: 40011234567890ABCDEF • 1 m'),
+      findsOneWidget,
+    );
     expect(find.text('1 metr rulon'), findsNothing);
     expect(find.text('Paddon ichidagi WIP lar'), findsOneWidget);
     expect(find.text('Bo‘sh rulon'), findsNothing);
@@ -188,7 +191,10 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Order: order-002'), findsOneWidget);
-    expect(find.text('EPC: 40019876543210FEDCBA'), findsOneWidget);
+    expect(
+      find.text('EPC: 40019876543210FEDCBA • 2 m'),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey('paddon-available-wip-card-free-wip-001')),
       findsOneWidget,
