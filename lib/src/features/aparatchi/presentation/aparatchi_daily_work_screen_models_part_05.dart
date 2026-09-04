@@ -170,7 +170,7 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                           ),
                         ),
                         Text(
-                          '${_batch.orderId} • ${_batch.batchId}',
+                          '${_dailyWorkProductTitle(_batch, 0)} • ${_dailyWorkDisplayCode(_batch)}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(

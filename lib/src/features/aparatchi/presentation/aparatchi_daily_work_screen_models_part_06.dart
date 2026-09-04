@@ -251,6 +251,76 @@ String _dailyWorkDateLabel(DateTime value) {
       '${value.month.toString().padLeft(2, '0')}. ${value.year}';
 }
 
+String _dailyWorkIdSuffix(String value) {
+  final trimmed = value.trim().toLowerCase();
+  if (trimmed.isEmpty) return '';
+  final parts = trimmed.split(RegExp(r'[:/_-]+'));
+  for (var i = parts.length - 1; i >= 0; i--) {
+    if (parts[i].isNotEmpty) return parts[i];
+  }
+  return '';
+}
+
+/// Worker-facing WIP code: real QR/EPC payload first, never a raw
+/// 80-char internal id. Falls back to a short tail of batchId.
+String _dailyWorkDisplayCode(AdminProgressBatch batch) {
+  final qr = batch.qrPayload.trim();
+  if (qr.isNotEmpty) return qr;
+  final id = batch.batchId.trim();
+  if (id.isEmpty) return '—';
+  if (id.length <= 24) return id;
+  return '…${id.substring(id.length - 12)}';
+}
+
+String _dailyWorkQrOrDash(AdminProgressBatch batch) {
+  final qr = batch.qrPayload.trim();
+  if (qr.isNotEmpty) return qr;
+  return _dailyWorkDisplayCode(batch);
+}
+
+/// Length in meters: finished-goods meter first, then produced qty when uom is m.
+double? _dailyWorkLengthM(AdminProgressBatch batch) {
+  if (batch.finishedGoodsMeter != null &&
+      batch.finishedGoodsMeter!.isFinite &&
+      batch.finishedGoodsMeter! > 0) {
+    return batch.finishedGoodsMeter;
+  }
+  if (batch.uom.trim().toLowerCase() == 'm' &&
+      batch.producedQty.isFinite &&
+      batch.producedQty > 0) {
+    return batch.producedQty;
+  }
+  return null;
+}
+
+/// Backend `label_item_name` has legacy form
+/// `"<Mahsulot> yarim tayyor mahsulot, apparat: <raw-id>, <holat>"`.
+/// Workers must never see the raw `apparatus:...` id — keep only product part.
+String _dailyWorkProductTitle(AdminProgressBatch batch, [int index = 0]) {
+  final candidates = <String>[
+    batch.labelItemName.trim(),
+    batch.labelItemCode.trim(),
+  ];
+  for (final raw in candidates) {
+    if (raw.isEmpty) continue;
+    var title = raw;
+    final apparatIdx = title.toLowerCase().indexOf(', apparat:');
+    if (apparatIdx > 0) {
+      title = title.substring(0, apparatIdx).trim();
+    } else {
+      final bareIdx = title.toLowerCase().indexOf('apparat:');
+      if (bareIdx > 0 && title.substring(0, bareIdx).trim().isNotEmpty) {
+        title = title.substring(0, bareIdx).trim().replaceAll(
+              RegExp(r'[,;:-]\s*$'),
+              '',
+            );
+      }
+    }
+    if (title.isNotEmpty) return title;
+  }
+  return index > 0 ? 'WIP $index' : 'WIP';
+}
+
 String _dailyWorkReprintError(Object error, AppLocalizations l10n) {
   if (error is MobileApiException) {
     return l10n.productionErrorMessage(

@@ -269,7 +269,10 @@ void main() {
 
     await tester.tap(card);
     await tester.pumpAndSettle();
-    expect(find.text('WIP ID'), findsOneWidget);
+    expect(find.text('WIP ID'), findsNothing);
+    expect(find.text('QR:'), findsWidgets);
+    expect(find.text('Metraj'), findsOneWidget);
+    expect(find.text('GESTURE-QR'), findsWidgets);
     expect(find.text('Boshlangan'), findsOneWidget);
 
     await tester.longPress(card);

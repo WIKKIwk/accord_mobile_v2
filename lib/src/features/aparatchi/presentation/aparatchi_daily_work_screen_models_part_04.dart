@@ -8,11 +8,7 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final itemName = _dailyWorkFirstNotEmpty([
-      widget.batch.labelItemName,
-      widget.batch.labelItemCode,
-      'WIP ${widget.index + 1}',
-    ]);
+    final itemName = _dailyWorkProductTitle(widget.batch, widget.index + 1);
     final current = _dailyWorkFirstNotEmpty([
       widget.batch.currentLocation,
       widget.batch.currentApparatus,
@@ -85,23 +81,13 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
                                 icon: const Icon(Icons.edit_rounded),
                               ),
                             ),
-                          if (widget.batch.batchId.trim().isNotEmpty)
-                            _DailyWorkInfoRow(
-                              label: context.l10n.productionText(
-                                'worker.wip.info.id',
-                              ),
-                              value: widget.batch.batchId.trim(),
-                            ),
                           _DailyWorkInfoRow(
                             label: context.l10n.productionText(
-                              'worker.wip.info.quantity',
+                              'worker.wip.info.qr',
                             ),
-                            value: formatQuantityWithUnit(
-                              widget.batch.producedQty,
-                              widget.batch.uom,
-                              trimTrailingZeros: true,
-                            ),
+                            value: _dailyWorkQrOrDash(widget.batch),
                           ),
+                          _DailyWorkMetricsGrid(batch: widget.batch),
                           if (widget.batch.startedAtUnix > 0)
                             _DailyWorkInfoRow(
                               label: context.l10n.productionText(
@@ -120,19 +106,31 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
                                 widget.batch.completedAtUnix,
                               ),
                             ),
-                          _DailyWorkInfoRow(
-                            label: context.l10n.productionText(
-                              'worker.detail.kind.machine',
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _DailyWorkCompactValue(
+                                    label: context.l10n.productionText(
+                                      'worker.wip.info.source',
+                                    ),
+                                    value: widget.apparatusLabel(
+                                      widget.batch.apparatus,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _DailyWorkCompactValue(
+                                    label: context.l10n.productionText(
+                                      'worker.wip.info.location',
+                                    ),
+                                    value: widget.apparatusLabel(current),
+                                  ),
+                                ),
+                              ],
                             ),
-                            value: widget.apparatusLabel(
-                              widget.batch.apparatus,
-                            ),
-                          ),
-                          _DailyWorkInfoRow(
-                            label: context.l10n.productionText(
-                              'worker.wip.info.location',
-                            ),
-                            value: widget.apparatusLabel(current),
                           ),
                           if (widget.batch.nextApparatus.trim().isNotEmpty)
                             _DailyWorkInfoRow(
@@ -182,26 +180,96 @@ class _DailyWorkCompactDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lengthM = _dailyWorkLengthM(batch);
+    final lengthText = lengthM == null
+        ? formatQuantityWithUnit(
+            batch.producedQty,
+            batch.uom,
+            trimTrailingZeros: true,
+          )
+        : formatQuantityWithUnit(lengthM, 'm', trimTrailingZeros: true);
     return Row(
       children: [
         Expanded(
           child: _DailyWorkCompactValue(
-            label: 'WIP',
-            value: _dailyWorkValue(batch.batchId),
+            label: context.l10n.productionText('worker.wip.info.qr'),
+            value: _dailyWorkDisplayCode(batch),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _DailyWorkCompactValue(
-            label: context.l10n.productionText('worker.wip.info.quantity'),
-            value: formatQuantityWithUnit(
-              batch.producedQty,
-              batch.uom,
-              trimTrailingZeros: true,
-            ),
+            label: context.l10n.productionText('worker.daily.field.length'),
+            value: lengthText,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DailyWorkMetricsGrid extends StatelessWidget {
+  const _DailyWorkMetricsGrid({required this.batch});
+
+  final AdminProgressBatch batch;
+
+  @override
+  Widget build(BuildContext context) {
+    final lengthM = _dailyWorkLengthM(batch);
+    final lengthText = lengthM == null
+        ? formatQuantityWithUnit(
+            batch.producedQty,
+            batch.uom,
+            trimTrailingZeros: true,
+          )
+        : formatQuantityWithUnit(lengthM, 'm', trimTrailingZeros: true);
+    final cells = <_DailyWorkCompactValue>[
+      _DailyWorkCompactValue(
+        label: context.l10n.productionText('worker.daily.field.length'),
+        value: lengthText,
+      ),
+      if (batch.finishedGoodsKg != null)
+        _DailyWorkCompactValue(
+          label: context.l10n.productionText('worker.daily.field.weight'),
+          value: formatQuantityWithUnit(
+            batch.finishedGoodsKg!,
+            'kg',
+            trimTrailingZeros: true,
+          ),
+        ),
+      if (batch.bobinaKg != null)
+        _DailyWorkCompactValue(
+          label: context.l10n.productionText('worker.daily.field.roll'),
+          value: formatQuantityWithUnit(
+            batch.bobinaKg!,
+            'kg',
+            trimTrailingZeros: true,
+          ),
+        ),
+      if (batch.diameter != null)
+        _DailyWorkCompactValue(
+          label: context.l10n.productionText('worker.daily.field.diameter'),
+          value: formatQuantityWithUnit(
+            batch.diameter!,
+            'mm',
+            trimTrailingZeros: true,
+          ),
+        ),
+    ];
+    if (cells.isEmpty) return const SizedBox.shrink();
+    // Kalta raqamlar (12 m, 12 kg, 12 mm) bitta qatorda 4 tadan sig'adi.
+    // 4 alohida InfoRow (~90px) o'rniga 1 grid qator (~40px).
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < cells.length; i++) ...[
+            if (i > 0) const SizedBox(width: 10),
+            Expanded(child: cells[i]),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -221,6 +289,8 @@ class _DailyWorkCompactValue extends StatelessWidget {
       children: [
         Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: theme.textTheme.labelSmall?.copyWith(
             color: scheme.onSurfaceVariant,
           ),

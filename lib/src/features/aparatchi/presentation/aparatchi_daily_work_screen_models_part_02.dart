@@ -29,8 +29,35 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
   }
 
   AdminApparatus? _canonicalApparatus(String apparatusId) {
+    final normalized = apparatusId.trim();
+    if (normalized.isEmpty) return null;
     for (final apparatus in _apparatus) {
-      if (apparatus.id.trim() == apparatusId.trim()) return apparatus;
+      if (apparatus.id.trim() == normalized) return apparatus;
+      if (apparatus.physicalAssetId.trim().isNotEmpty &&
+          apparatus.physicalAssetId.trim() == normalized) {
+        return apparatus;
+      }
+      if (apparatus.workUnitId.trim().isNotEmpty &&
+          apparatus.workUnitId.trim() == normalized) {
+        return apparatus;
+      }
+    }
+    // Legacy IDs like `apparatus:default:asset:010` vs
+    // `apparatus:default:asset-010` — match by trailing token.
+    final suffix = _dailyWorkIdSuffix(normalized);
+    if (suffix.isNotEmpty) {
+      for (final apparatus in _apparatus) {
+        if (apparatus.name.trim().isEmpty) continue;
+        if (_dailyWorkIdSuffix(apparatus.id) == suffix) return apparatus;
+        if (apparatus.physicalAssetId.trim().isNotEmpty &&
+            _dailyWorkIdSuffix(apparatus.physicalAssetId) == suffix) {
+          return apparatus;
+        }
+        if (apparatus.workUnitId.trim().isNotEmpty &&
+            _dailyWorkIdSuffix(apparatus.workUnitId) == suffix) {
+          return apparatus;
+        }
+      }
     }
     return null;
   }
@@ -39,8 +66,30 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
       _canonicalApparatus(apparatusId)?.name.trim() ?? '';
 
   String _apparatusOrLocationName(String value) {
-    final canonicalName = _apparatusName(value);
-    return canonicalName.isEmpty ? _dailyWorkValue(value) : canonicalName;
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '—';
+    final canonicalName = _apparatusName(trimmed);
+    if (canonicalName.isNotEmpty) return canonicalName;
+    // Never leak technical IDs like `apparatus:default:asset:010`
+    // to workers — fall back to their own apparatus name.
+    if (trimmed.contains(':')) {
+      try {
+        final assigned =
+            AppSession.instance.profile?.assignedApparatus ??
+            const <String>[];
+        for (final id in assigned) {
+          final name = _apparatusName(id);
+          if (name.isNotEmpty) return name;
+        }
+        for (final apparatus in _apparatus) {
+          if (apparatus.name.trim().isNotEmpty) {
+            return apparatus.name.trim();
+          }
+        }
+      } catch (_) {}
+      return '—';
+    }
+    return trimmed;
   }
 
   Future<List<AdminProgressBatch>> _loadHistory() {
@@ -104,60 +153,11 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
       builder: (sheetContext) => RpsQrReprintSheet(
         title: context.l10n.productionText('worker.daily.wip_qr'),
         payload: payload,
-        itemName: _dailyWorkFirstNotEmpty([
-          batch.labelItemName,
-          batch.labelItemCode,
-          'WIP',
-        ]),
+        itemName: _dailyWorkProductTitle(batch, 0),
         previewKey: ValueKey('daily-work-wip-preview-${batch.batchId}'),
         reprintButtonKey: ValueKey('daily-work-wip-reprint-${batch.batchId}'),
         editButtonKey: ValueKey('daily-work-wip-sheet-edit-${batch.batchId}'),
-        details: [
-          if (batch.orderId.trim().isNotEmpty)
-            RpsQrDetail(
-              context.l10n.productionText('worker.daily.order'),
-              batch.orderId.trim(),
-            ),
-          if (batch.batchId.trim().isNotEmpty)
-            RpsQrDetail(
-              context.l10n.productionText('worker.wip.info.id'),
-              batch.batchId.trim(),
-            ),
-          RpsQrDetail(
-            context.l10n.productionText('worker.wip.info.quantity'),
-            formatQuantityWithUnit(
-              batch.producedQty,
-              batch.uom,
-              trimTrailingZeros: true,
-            ),
-          ),
-          RpsQrDetail(
-            context.l10n.productionText('worker.daily.status'),
-            _dailyWorkStatusLabel(context, batch),
-          ),
-          if (batch.startedAtUnix > 0)
-            RpsQrDetail(
-              context.l10n.productionText('worker.wip.info.started'),
-              formatUnixSecondsLocalDateTime(batch.startedAtUnix),
-            ),
-          if (batch.completedAtUnix > 0)
-            RpsQrDetail(
-              context.l10n.productionText('worker.wip.info.finished'),
-              formatUnixSecondsLocalDateTime(batch.completedAtUnix),
-            ),
-          if (batch.apparatus.trim().isNotEmpty)
-            RpsQrDetail(
-              context.l10n.productionText('worker.detail.kind.machine'),
-              _apparatusName(batch.apparatus).isEmpty
-                  ? context.l10n.productionText('worker.daily.apparatus.worker')
-                  : _apparatusName(batch.apparatus),
-            ),
-          if (batch.currentLocation.trim().isNotEmpty)
-            RpsQrDetail(
-              context.l10n.productionText('worker.wip.info.location'),
-              _apparatusOrLocationName(batch.currentLocation),
-            ),
-        ],
+        details: _dailyWorkSheetDetails(context, batch),
         onReprint: () => _reprintWip(batch),
         onEdit: _canCorrectWip(batch) && !_isCorrecting(batch)
             ? () async {
@@ -174,6 +174,124 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
         ),
       ),
     );
+  }
+
+  /// Bottom sheet details — har bir metrika alohida aniq qator.
+  /// Card'dan farqli: sheet'da vertikal joy muammo emas, aniqlik muhim.
+  /// Shared `RpsQrReprintSheet` widget o'zgarmaydi.
+  List<RpsQrDetail> _dailyWorkSheetDetails(
+    BuildContext context,
+    AdminProgressBatch batch,
+  ) {
+    final l10n = context.l10n;
+    final details = <RpsQrDetail>[];
+    if (batch.orderId.trim().isNotEmpty) {
+      details.add(
+        RpsQrDetail(
+          l10n.productionText('worker.daily.order'),
+          batch.orderId.trim(),
+        ),
+      );
+    }
+    details.add(
+      RpsQrDetail(
+        l10n.productionText('worker.wip.info.qr'),
+        _dailyWorkQrOrDash(batch),
+      ),
+    );
+    final lengthM = _dailyWorkLengthM(batch);
+    details.add(
+      RpsQrDetail(
+        l10n.productionText('worker.daily.field.length'),
+        lengthM == null
+            ? formatQuantityWithUnit(
+                batch.producedQty,
+                batch.uom,
+                trimTrailingZeros: true,
+              )
+            : formatQuantityWithUnit(lengthM, 'm', trimTrailingZeros: true),
+      ),
+    );
+    if (batch.finishedGoodsKg != null) {
+      details.add(
+        RpsQrDetail(
+          l10n.productionText('worker.daily.field.weight'),
+          formatQuantityWithUnit(
+            batch.finishedGoodsKg!,
+            'kg',
+            trimTrailingZeros: true,
+          ),
+        ),
+      );
+    }
+    if (batch.bobinaKg != null) {
+      details.add(
+        RpsQrDetail(
+          l10n.productionText('worker.daily.field.roll'),
+          formatQuantityWithUnit(
+            batch.bobinaKg!,
+            'kg',
+            trimTrailingZeros: true,
+          ),
+        ),
+      );
+    }
+    if (batch.diameter != null) {
+      details.add(
+        RpsQrDetail(
+          l10n.productionText('worker.daily.field.diameter'),
+          formatQuantityWithUnit(
+            batch.diameter!,
+            'mm',
+            trimTrailingZeros: true,
+          ),
+        ),
+      );
+    }
+    details.add(
+      RpsQrDetail(
+        l10n.productionText('worker.daily.status'),
+        _dailyWorkStatusLabel(context, batch),
+      ),
+    );
+    if (batch.startedAtUnix > 0) {
+      details.add(
+        RpsQrDetail(
+          l10n.productionText('worker.wip.info.started'),
+          formatUnixSecondsLocalDateTime(batch.startedAtUnix),
+        ),
+      );
+    }
+    if (batch.completedAtUnix > 0) {
+      details.add(
+        RpsQrDetail(
+          l10n.productionText('worker.wip.info.finished'),
+          formatUnixSecondsLocalDateTime(batch.completedAtUnix),
+        ),
+      );
+    }
+    final hasSource = batch.apparatus.trim().isNotEmpty;
+    final hasCurrent = batch.currentLocation.trim().isNotEmpty;
+    final source = hasSource ? _apparatusOrLocationName(batch.apparatus) : '';
+    final current =
+        hasCurrent ? _apparatusOrLocationName(batch.currentLocation) : '';
+    if (source.isNotEmpty) {
+      details.add(
+        RpsQrDetail(
+          l10n.productionText('worker.wip.info.source'),
+          source,
+        ),
+      );
+    }
+    if (current.isNotEmpty) {
+      details.add(
+        RpsQrDetail(
+          l10n.productionText('worker.wip.info.location'),
+          current,
+        ),
+      );
+    }
+    return details;
   }
 
   bool _isCorrecting(AdminProgressBatch batch) =>
