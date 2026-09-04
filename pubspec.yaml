@@ -2,7 +2,7 @@ name: accord_mobile_v2
 description: Android-first operational app for supplier and warehouse workflows.
 publish_to: none
 
-version: 1.0.5+34
+version: 1.0.8+37
 
 environment:
   sdk: ">=3.5.0 <4.0.0"

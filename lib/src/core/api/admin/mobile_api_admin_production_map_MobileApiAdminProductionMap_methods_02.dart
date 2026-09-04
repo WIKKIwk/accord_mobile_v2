@@ -317,8 +317,10 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
 extension MobileApiAdminProductionMapOrderImage on MobileApi {
   /// Downloads the calculate-page photo linked to [orderId].
   ///
-  /// Returns `null` when the order has no photo (fast server-side 404) so
-  /// the detail sheet simply hides the image instead of failing.
+  /// Returns `null` when the order has no photo (server-side JSON 404) so
+  /// the detail sheet simply hides the image instead of failing. An *empty*
+  /// 404 body means the route itself is missing (old server binary) and
+  /// throws so the sheet can surface it instead of hiding silently.
   Future<List<int>?> adminProductionMapOrderImage(String orderId) async {
     final normalizedOrderId = orderId.trim();
     if (normalizedOrderId.isEmpty) return null;
@@ -331,7 +333,15 @@ extension MobileApiAdminProductionMapOrderImage on MobileApi {
         headers: _headers(requireToken()),
       ),
     );
-    if (response.statusCode == 404) return null;
+    if (response.statusCode == 404) {
+      if (response.bodyBytes.isEmpty) {
+        throw const MobileApiException(
+          code: 'production_map_order_image_route_missing',
+          message: 'Rasm xizmati topilmadi — server yangilanmagan',
+        );
+      }
+      return null;
+    }
     if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
       throw _adminProductionMapException(
         response,

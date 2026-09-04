@@ -32,23 +32,27 @@ class AppUpdateService {
     Uri? baseUri,
     Duration downloadPollInterval = const Duration(milliseconds: 750),
     Duration automaticRetryDelay = const Duration(seconds: 2),
+    Duration downloadStallTimeout = const Duration(seconds: 12),
   })  : _client = client ?? http.Client(),
         _platform = platform ?? const NativeAppUpdatePlatform(),
         _baseUriOverride = baseUri,
         _downloadPollInterval = downloadPollInterval,
-        _automaticRetryDelay = automaticRetryDelay;
+        _automaticRetryDelay = automaticRetryDelay,
+        _downloadStallTimeout = downloadStallTimeout;
 
   static final AppUpdateService instance = AppUpdateService();
   static const int _maximumManifestBytes = 128 * 1024;
   static const int _maximumApkBytes = 512 * 1024 * 1024;
-  static const int _maximumAutomaticRetries = 2;
+  static const int _maximumAutomaticRetries = 4;
   static const Duration _manifestReadTimeout = Duration(seconds: 15);
+  static const Duration _maximumRetryDelay = Duration(seconds: 30);
 
   final http.Client _client;
   final AppUpdatePlatform _platform;
   final Uri? _baseUriOverride;
   final Duration _downloadPollInterval;
   final Duration _automaticRetryDelay;
+  final Duration _downloadStallTimeout;
 
   Uri get _baseUri => _baseUriOverride ?? Uri.parse(MobileApi.baseUrl);
 
@@ -213,6 +217,7 @@ class AppUpdateService {
   }) async {
     var snapshot = await _platform.startOrAttachDownload(manifest: manifest);
     var retries = 0;
+    var lastProgressAt = DateTime.now();
     while (true) {
       if (cancellation?.isCancelled == true) {
         await _cancelDownload(manifest);
@@ -235,9 +240,14 @@ class AppUpdateService {
                   snapshot.retryable)) {
             retries += 1;
             await _platform.cancelDownload(manifest: manifest);
-            await _waitForRetry(cancellation, manifest);
+            await _waitForRetry(
+              cancellation,
+              manifest,
+              attempt: retries,
+            );
             snapshot =
                 await _platform.startOrAttachDownload(manifest: manifest);
+            lastProgressAt = DateTime.now();
             continue;
           }
           throw _downloadFailure(snapshot);
@@ -245,7 +255,42 @@ class AppUpdateService {
         case AppUpdateDownloadStatus.running:
         case AppUpdateDownloadStatus.paused:
           await _waitForPoll(cancellation, manifest);
-          snapshot = await _platform.queryDownload(manifest: manifest);
+          final nextSnapshot =
+              await _platform.queryDownload(manifest: manifest);
+          final nextReceived =
+              nextSnapshot.receivedBytes.clamp(0, manifest.sizeBytes);
+          final madeProgress =
+              nextSnapshot.status != snapshot.status || nextReceived > received;
+          if (madeProgress) {
+            lastProgressAt = DateTime.now();
+            snapshot = nextSnapshot;
+            continue;
+          }
+          final stalled = _downloadStallTimeout <= Duration.zero ||
+              DateTime.now().difference(lastProgressAt) >=
+                  _downloadStallTimeout;
+          if (stalled && retries < _maximumAutomaticRetries) {
+            retries += 1;
+            await _platform.cancelDownload(manifest: manifest);
+            await _waitForRetry(
+              cancellation,
+              manifest,
+              attempt: retries,
+            );
+            snapshot =
+                await _platform.startOrAttachDownload(manifest: manifest);
+            lastProgressAt = DateTime.now();
+            continue;
+          }
+          if (stalled) {
+            await _platform.cancelDownload(manifest: manifest);
+            throw const AppUpdateException(
+              code: 'apk_download_stalled',
+              message:
+                  'Internet aloqasi sekin yoki uzilganligi sabab APK yuklanmadi',
+            );
+          }
+          snapshot = nextSnapshot;
       }
     }
   }
@@ -283,12 +328,27 @@ class AppUpdateService {
 
   Future<void> _waitForRetry(
     AppUpdateCancellation? cancellation,
-    AppUpdateManifest manifest,
-  ) async {
-    await _waitOrCancel(_automaticRetryDelay, cancellation);
+    AppUpdateManifest manifest, {
+    required int attempt,
+  }) async {
+    await _waitOrCancel(_retryDelay(attempt), cancellation);
     if (cancellation?.isCancelled == true) {
       await _cancelDownload(manifest);
     }
+  }
+
+  Duration _retryDelay(int attempt) {
+    if (_automaticRetryDelay <= Duration.zero) {
+      return Duration.zero;
+    }
+    var multiplier = 1;
+    for (var index = 1; index < attempt && index < 4; index += 1) {
+      multiplier *= 2;
+    }
+    final delayMicros = _automaticRetryDelay.inMicroseconds * multiplier;
+    return delayMicros >= _maximumRetryDelay.inMicroseconds
+        ? _maximumRetryDelay
+        : Duration(microseconds: delayMicros);
   }
 
   Future<void> _waitOrCancel(

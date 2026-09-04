@@ -218,6 +218,38 @@ void main() {
     expect(platform.installCalls, 0);
   });
 
+  test('automatically recovers a stalled paused system download', () async {
+    final apkBytes = utf8.encode('recovered-download');
+    final checksum = sha256.convert(apkBytes).toString();
+    final downloadDirectory =
+        await Directory.systemTemp.createTemp('accord-update-test-');
+    final platform = _FakeUpdatePlatform(
+      apkBytes: apkBytes,
+      downloadDirectory: downloadDirectory,
+      initialStatus: AppUpdateDownloadStatus.paused,
+    );
+    addTearDown(() async {
+      if (await downloadDirectory.exists()) {
+        await downloadDirectory.delete(recursive: true);
+      }
+    });
+    final service = AppUpdateService(
+      platform: platform,
+      downloadPollInterval: Duration.zero,
+      automaticRetryDelay: Duration.zero,
+      downloadStallTimeout: Duration.zero,
+    );
+
+    final result = await service.downloadAndInstall(
+      _updateResult(checksum: checksum, sizeBytes: apkBytes.length),
+    );
+
+    expect(result, AppInstallLaunchResult.installerLaunched);
+    expect(platform.cancelCalls, 1);
+    expect(platform.downloadStarts, 2);
+    expect(platform.installCalls, 1);
+  });
+
   test('automatically restarts a retryable system download failure', () async {
     final apkBytes = utf8.encode('retried-download');
     final checksum = sha256.convert(apkBytes).toString();
