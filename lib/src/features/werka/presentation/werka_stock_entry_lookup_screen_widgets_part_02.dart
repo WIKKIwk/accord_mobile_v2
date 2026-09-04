@@ -230,7 +230,10 @@ class _LookupSummary extends StatelessWidget {
             if (showRaw) ...[
               const SizedBox(height: 8),
               SelectableText(
-                rawValue,
+                rawValue.trim().length <= 48
+                    ? rawValue.trim()
+                    : '…${rawValue.trim().substring(rawValue.trim().length - 48)}',
+                maxLines: 2,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                   height: 1.25,

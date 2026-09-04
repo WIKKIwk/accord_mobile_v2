@@ -96,11 +96,6 @@ class _ArchiveBatchQrPanel extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                AppInfoRow(
-                  label: 'Session',
-                  value: payload.sessionID,
-                  labelWidth: 96,
-                ),
                 if (payload.batchTime.trim().isNotEmpty)
                   AppInfoRow(
                     label: 'Sana',

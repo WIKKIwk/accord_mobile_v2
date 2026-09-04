@@ -291,7 +291,9 @@ class _WerkaArchiveBatchQrLookupScreenState
 
     return AppShell(
       title: 'Batch QR',
-      subtitle: payload.sessionID,
+      subtitle: payload.itemName.trim().isNotEmpty
+          ? payload.itemName.trim()
+          : 'Batch tafsiloti',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,

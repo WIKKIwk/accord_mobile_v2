@@ -369,7 +369,13 @@ class _LoadingView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  SelectableText(rawValue, style: theme.textTheme.bodyMedium),
+                  SelectableText(
+                    rawValue.trim().length <= 48
+                        ? rawValue.trim()
+                        : '…${rawValue.trim().substring(rawValue.trim().length - 48)}',
+                    maxLines: 2,
+                    style: theme.textTheme.bodyMedium,
+                  ),
                 ],
                 const SizedBox(height: 18),
                 const LinearProgressIndicator(minHeight: 3),
