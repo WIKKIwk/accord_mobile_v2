@@ -168,4 +168,7 @@ test('factory map unifies apparatus arrows with corresponding apparatus objects'
 test('factory map selection helper unites attached arrow bounds with apparatus bounds', () => {
   assert.match(rendererSource, /attachedMesh\.geometry\.computeBoundingBox/);
   assert.match(rendererSource, /instanceBox\.union\(attachedBox\)/);
+  assert.match(rendererSource, /attachedBox\.applyMatrix4\(attachedMesh\.matrixWorld\)/);
+  assert.match(rendererSource, /objectId:\s*canonicalId/);
 });
+

@@ -273,6 +273,10 @@ class ModelViewerState extends State<ModelViewer> {
               'Content-Type',
               'application/javascript;charset=UTF-8',
             )
+            ..headers.add(
+              'Cache-Control',
+              'no-store, no-cache, must-revalidate',
+            )
             ..headers.add('Content-Length', code.lengthInBytes.toString())
             ..add(code);
           await response.close();

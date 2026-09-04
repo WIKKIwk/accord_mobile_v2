@@ -178,35 +178,29 @@ function registerSelectableObjects(root, parser) {
       object.userData.factoryMapObjectSelectionBaseId = selectionBaseId;
       object.userData.factoryMapRawBaseId = rawBaseId;
       selectableInstancedMeshesById.set(rawBaseId, object);
-      if (!selectableInstancedMeshesById.has(selectionBaseId)) {
+      if (rawBaseId === selectionBaseId) {
         selectableInstancedMeshesById.set(selectionBaseId, object);
+        registerSelectableTarget(selectionBaseId, object);
       }
       // Keep old node-level IDs resolvable for existing placements. New taps
       // use the instance-specific ID below.
       registerSelectableTarget(rawBaseId, object);
-      registerSelectableTarget(selectionBaseId, object);
       return;
     }
     object.userData.factoryMapObjectId = selectionBaseId;
     object.userData.factoryMapRawBaseId = rawBaseId;
+    if (rawBaseId === selectionBaseId) {
+      registerSelectableTarget(selectionBaseId, object);
+    }
     registerSelectableTarget(rawBaseId, object);
-    registerSelectableTarget(selectionBaseId, object);
   });
 }
 
 function selectableTargetForId(objectId) {
-  const directTarget = selectableObjectsById.get(objectId);
+  const canonicalId = canonicalApparatusObjectId(objectId);
+  const directTarget = selectableObjectsById.get(canonicalId);
   if (directTarget) {
     return directTarget;
-  }
-
-  const canonicalId = canonicalApparatusObjectId(objectId);
-  if (canonicalId !== objectId) {
-    const canonicalTarget = selectableObjectsById.get(canonicalId);
-    if (canonicalTarget) {
-      selectableObjectsById.set(objectId, canonicalTarget);
-      return canonicalTarget;
-    }
   }
 
   const match = /^(.*):instance:(\d+)$/.exec(canonicalId);
@@ -228,7 +222,9 @@ function selectableTargetForId(objectId) {
     instanceId: Number.isInteger(instanceId) ? instanceId : null,
   };
   selectableObjectsById.set(canonicalId, target);
-  selectableObjectsById.set(objectId, target);
+  if (objectId !== canonicalId) {
+    selectableObjectsById.set(objectId, target);
+  }
   return target;
 }
 
@@ -242,6 +238,8 @@ function selectionHelperFor(target) {
   const instanceMatrix = new THREE.Matrix4();
   target.object.getMatrixAt(target.instanceId, instanceMatrix);
   instanceBox.applyMatrix4(instanceMatrix);
+  target.object.updateWorldMatrix(true, false);
+  instanceBox.applyMatrix4(target.object.matrixWorld);
 
   const baseId =
     target.object.userData?.factoryMapRawBaseId ||
@@ -261,18 +259,19 @@ function selectionHelperFor(target) {
         const attachedMatrix = new THREE.Matrix4();
         attachedMesh.getMatrixAt(target.instanceId, attachedMatrix);
         attachedBox.applyMatrix4(attachedMatrix);
+        attachedMesh.updateWorldMatrix(true, false);
+        attachedBox.applyMatrix4(attachedMesh.matrixWorld);
         instanceBox.union(attachedBox);
       }
     }
   }
 
-  target.object.updateWorldMatrix(true, false);
-  instanceBox.applyMatrix4(target.object.matrixWorld);
   return new THREE.Box3Helper(instanceBox, FACTORY_PALETTE.selected);
 }
 
 function selectObject(objectId, emitMessage = true) {
-  const target = selectableTargetForId(objectId);
+  const canonicalId = canonicalApparatusObjectId(objectId);
+  const target = selectableTargetForId(canonicalId);
   if (!target) {
     return;
   }
@@ -289,8 +288,8 @@ function selectObject(objectId, emitMessage = true) {
   if (emitMessage) {
     postFactoryMapMessage({
       type: 'object_tap',
-      objectId,
-      label: `3D obyekt · ${objectId}`,
+      objectId: canonicalId,
+      label: `3D obyekt · ${canonicalId}`,
     });
   }
 }
