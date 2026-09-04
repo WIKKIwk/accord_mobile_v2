@@ -336,6 +336,27 @@ const _admin_localization_adminTranslations_resplitPart20 = {
     'ru':
         'Начальный WIP сохранён, но печать остановилась ({printed}/{total}). Повторите оставшиеся метки.',
   },
+  'admin.production.opening_wip.duplicate_title': {
+    'uz': 'Shu qiymatlar bilan yangi WIP yaratilsinmi?',
+    'en': 'Create a new WIP with the same values?',
+    'ru': 'Создать новый WIP с теми же значениями?',
+  },
+  'admin.production.opening_wip.duplicate_body': {
+    'uz':
+        'Yangi QR beriladi (eski EPC qayta chop etilmaydi). Davom etilsinmi?',
+    'en': 'A new QR will be issued (old EPC will not be reprinted). Continue?',
+    'ru': 'Будет выдан новый QR (старый EPC не печатается повторно). Продолжить?',
+  },
+  'admin.production.opening_wip.duplicate_yes': {
+    'uz': 'Ha, yaratish',
+    'en': 'Yes, create',
+    'ru': 'Да, создать',
+  },
+  'admin.production.opening_wip.duplicate_no': {
+    'uz': 'Yo‘q',
+    'en': 'No',
+    'ru': 'Нет',
+  },
   'admin.production.search_empty': {
     'uz': 'Buyurtma topilmadi',
     'en': 'No orders found',

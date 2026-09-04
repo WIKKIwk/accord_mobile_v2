@@ -68,6 +68,10 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
     final availableSourceStages = _availableSourceStages;
     final requiresDiameter = _requiresDiameter;
     final created = _createdRecord;
+    final needsRetry =
+        created != null && _printedBatchIds.length < created.batches.length;
+    final allPrinted =
+        created != null && _printedBatchIds.length >= created.batches.length;
     return PopScope(
       canPop: !_submitting,
       child: Padding(
@@ -100,7 +104,7 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                     padding: const EdgeInsets.only(bottom: 96),
                     children: [
                       AbsorbPointer(
-                        absorbing: created != null,
+                        absorbing: _submitting || needsRetry,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -337,7 +341,7 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
                                 )
                               : const Icon(Icons.print_rounded),
                           label: Text(
-                            created == null
+                            created == null || allPrinted
                                 ? context.l10n.adminText(
                                     'production.opening_wip.create_print',
                                   )

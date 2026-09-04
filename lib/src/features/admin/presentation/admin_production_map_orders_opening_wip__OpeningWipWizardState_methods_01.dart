@@ -81,13 +81,13 @@ extension __OpeningWipWizardStateAstPart01 on _OpeningWipWizardState {
     );
   }
 
-  String _submissionIdempotencyKey({
+  String _currentFingerprint({
     required ProductionMapSaved order,
     required String sourceApparatus,
     required String sourceStageNodeId,
     required int rollCount,
   }) {
-    final fingerprint = [
+    return [
       order.map.id.trim(),
       sourceApparatus,
       sourceStageNodeId,
@@ -95,7 +95,24 @@ extension __OpeningWipWizardStateAstPart01 on _OpeningWipWizardState {
       _quantityBasis.apiValue,
       _rollControllers.map((roll) => roll.fingerprint).join(';'),
     ].join('|');
-    if (_idempotencyKey.isEmpty || _idempotencyFingerprint != fingerprint) {
+  }
+
+  String _submissionIdempotencyKey({
+    required ProductionMapSaved order,
+    required String sourceApparatus,
+    required String sourceStageNodeId,
+    required int rollCount,
+    bool forceNew = false,
+  }) {
+    final fingerprint = _currentFingerprint(
+      order: order,
+      sourceApparatus: sourceApparatus,
+      sourceStageNodeId: sourceStageNodeId,
+      rollCount: rollCount,
+    );
+    if (forceNew ||
+        _idempotencyKey.isEmpty ||
+        _idempotencyFingerprint != fingerprint) {
       _idempotencyFingerprint = fingerprint;
       final stamp = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
       _idempotencyKey = 'mobile:opening-wip:$stamp';
@@ -103,10 +120,52 @@ extension __OpeningWipWizardStateAstPart01 on _OpeningWipWizardState {
     return _idempotencyKey;
   }
 
+  Future<bool> _confirmDuplicateOpeningWip() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const ValueKey('opening-wip-duplicate-confirm'),
+        title: Text(
+          dialogContext.l10n.adminText(
+            'production.opening_wip.duplicate_title',
+          ),
+        ),
+        content: Text(
+          dialogContext.l10n.adminText(
+            'production.opening_wip.duplicate_body',
+          ),
+        ),
+        actions: [
+          TextButton(
+            key: const ValueKey('opening-wip-duplicate-no'),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              dialogContext.l10n.adminText(
+                'production.opening_wip.duplicate_no',
+              ),
+            ),
+          ),
+          FilledButton(
+            key: const ValueKey('opening-wip-duplicate-yes'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              dialogContext.l10n.adminText(
+                'production.opening_wip.duplicate_yes',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
   Future<void> _submit() async {
     if (_submitting) return;
     final created = _createdRecord;
-    if (created == null && !(_formKey.currentState?.validate() ?? false)) {
+    final needsRetry =
+        created != null && _printedBatchIds.length < created.batches.length;
+    if (!needsRetry && !(_formKey.currentState?.validate() ?? false)) {
       return;
     }
     final sourceStageNodeId = _sourceFieldKey.currentState?.value?.trim() ?? '';
@@ -117,13 +176,32 @@ extension __OpeningWipWizardStateAstPart01 on _OpeningWipWizardState {
         break;
       }
     }
-    if (created == null && sourceStage == null) {
+    if (!needsRetry && sourceStage == null) {
       setState(() {
         _error = context.l10n.adminText(
           'production.opening_wip.location_missing',
         );
       });
       return;
+    }
+    var forceNewKey = false;
+    if (!needsRetry && created != null) {
+      final order = _selectedOrder;
+      final selectedSource = sourceStage;
+      final rollCount = int.tryParse(_rollCountController.text.trim());
+      if (order != null && selectedSource != null && rollCount != null) {
+        final fingerprint = _currentFingerprint(
+          order: order,
+          sourceApparatus: selectedSource.apparatusId!.trim(),
+          sourceStageNodeId: selectedSource.nodeId,
+          rollCount: rollCount,
+        );
+        if (fingerprint == _idempotencyFingerprint) {
+          final confirmed = await _confirmDuplicateOpeningWip();
+          if (!mounted || !confirmed) return;
+          forceNewKey = true;
+        }
+      }
     }
     final printer = await _pickProgressPrinter(
       context,
@@ -135,7 +213,7 @@ extension __OpeningWipWizardStateAstPart01 on _OpeningWipWizardState {
       _error = '';
     });
     try {
-      var record = created;
+      var record = needsRetry ? created : null;
       if (record == null) {
         final order = _selectedOrder!;
         final selectedSource = sourceStage!;
@@ -152,6 +230,7 @@ extension __OpeningWipWizardStateAstPart01 on _OpeningWipWizardState {
               sourceApparatus: sourceApparatus,
               sourceStageNodeId: selectedSource.nodeId,
               rollCount: rollCount,
+              forceNew: forceNewKey,
             ),
             orderId: order.map.id,
             sourceApparatus: sourceApparatus,
@@ -169,7 +248,10 @@ extension __OpeningWipWizardStateAstPart01 on _OpeningWipWizardState {
                 'Tanlangan chiqish apparati serverda saqlanmadi. QR chop etilmadi.',
           );
         }
-        setState(() => _createdRecord = record);
+        setState(() {
+          _createdRecord = record;
+          _printedBatchIds.clear();
+        });
         widget.onCreated?.call();
       }
 
