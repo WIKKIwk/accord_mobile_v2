@@ -27,6 +27,7 @@ const FACTORY_PALETTE = Object.freeze({
   slab: 0xc4ced6,
   apparatus: 0x65798f,
   apparatusAccent: 0x8a9caf,
+  apparatusMarker: 0xf0e9b6,
   selected: 0x4f6fb5,
   healthy: 0x5faf7a,
   warning: 0xd6a34a,
@@ -112,14 +113,111 @@ function selectableObjectFor(mesh, parser, fallbackIndex) {
 }
 
 const APPARATUS_ATTACHMENT_MAP = Object.freeze({
-  'node:32': 'node:39',
   'node:33': 'node:39',
-  'node:34': 'node:39',
 });
 
 const APPARATUS_ATTACHED_BASES_MAP = Object.freeze({
-  'node:39': ['node:32', 'node:33', 'node:34'],
+  'node:39': ['node:33'],
 });
+
+// Flat rooftop arrows inlaid into many different apparatus roofs across the
+// whole map (verified node:5: arrow silhouette, ~8 distinct roof positions on
+// bodies node:1/3/6/7/18). One arrow mesh cannot map to one body, so taps
+// fall through to the first non-arrow object behind them (the roof below).
+// Unlike APPARATUS_ATTACHMENT_MAP above (one billboard bound to one body),
+// pass-through needs no per-instance table and stays correct for every roof.
+const ARROW_PASS_THROUGH_BASE_IDS = Object.freeze(['node:5']);
+
+function isPassThroughArrowBaseId(baseId) {
+  return ARROW_PASS_THROUGH_BASE_IDS.indexOf(baseId) !== -1;
+}
+
+// Hidden covers: verified covers whose removal reveals the apparatus
+// beneath (node:32 canopy hides exactly one body, the node:39 room;
+// node:40 7m compound walls + node:44/45 6m enclosure walls hide the whole
+// SE cell interior; node:9/17 central canopies hide machines 19/21 and wall
+// segments beneath them; floating billboard node:33 and text labels
+// node:90/91 hover over the room hiding it from low angles; floating image
+// boards node:60/61 hover side by side over the central machines).
+// Hidden objects are never raycast targets and never highlight: taps land
+// on the revealed bodies below.
+// The GLB asset on disk is untouched; this is runtime-only and reversible.
+const HIDDEN_ROOF_BASE_IDS = Object.freeze([
+  'node:9',
+  'node:17',
+  'node:32',
+  'node:33',
+  'node:40',
+  'node:44',
+  'node:45',
+  'node:60',
+  'node:61',
+  'node:90',
+  'node:91',
+]);
+
+// Instance-level hidden cover (DB-verified 2026-09-04): the thick black
+// second-floor cube tapped as node:30:instance:9 (5.5x2x5.5m, y 3.02-5.02,
+// x 30.95-36.45, z 35.62-41.12, material None so sides render black).
+// It sits directly on node:18/20/21 bodies below. Eight duplicated
+// instances share the same transform (9/23/37/51/65/79/93/107) — all eight
+// are collapsed, the other 104 node:30 instances across the map stay.
+// Whole-node hiding is NOT used here: object.visible=false on an
+// InstancedMesh would remove all 112 instances.
+const HIDDEN_ROOF_INSTANCE_IDS = Object.freeze([
+  'node:30:instance:9',
+  'node:30:instance:23',
+  'node:30:instance:37',
+  'node:30:instance:51',
+  'node:30:instance:65',
+  'node:30:instance:79',
+  'node:30:instance:93',
+  'node:30:instance:107',
+]);
+
+function isHiddenRoofBaseId(baseId) {
+  return HIDDEN_ROOF_BASE_IDS.indexOf(baseId) !== -1;
+}
+
+function isHiddenRoofInstanceId(objectId) {
+  return HIDDEN_ROOF_INSTANCE_IDS.indexOf(objectId) !== -1;
+}
+
+function collapseHiddenRoofInstances(object, baseId) {
+  if (!object.isInstancedMesh) {
+    return;
+  }
+  // Bounds-safe: zero-scale IN PLACE, keeping the original translation.
+  // Moving instances to (0,-1000,0) would pollute Box3.setFromObject
+  // (InstancedMesh.computeBoundingBox unions every instance matrix),
+  // dragging bounds.min.y to -1000 — the floor slab and the initial camera
+  // are both derived from those bounds, so the floor color and the framing
+  // would break. A zero-scaled instance contributes only its center point,
+  // already inside the scene bounds.
+  const originalMatrix = new THREE.Matrix4();
+  const zeroScale = new THREE.Vector3(0, 0, 0);
+  let collapsed = false;
+  for (const hiddenId of HIDDEN_ROOF_INSTANCE_IDS) {
+    const match = /^(.*):instance:(\d+)$/.exec(hiddenId);
+    if (!match || match[1] !== baseId) {
+      continue;
+    }
+    const instanceId = Number(match[2]);
+    if (
+      Number.isInteger(instanceId) &&
+      instanceId >= 0 &&
+      instanceId < object.count
+    ) {
+      object.getMatrixAt(instanceId, originalMatrix);
+      originalMatrix.scale(zeroScale);
+      object.setMatrixAt(instanceId, originalMatrix);
+      collapsed = true;
+    }
+  }
+  if (collapsed) {
+    object.instanceMatrix.needsUpdate = true;
+  }
+}
 
 function canonicalApparatusBaseId(baseId) {
   return APPARATUS_ATTACHMENT_MAP[baseId] || baseId;
@@ -173,10 +271,32 @@ function registerSelectableObjects(root, parser) {
     const selectable = selectableObjectFor(object, parser, fallbackIndex++);
     const rawBaseId = selectionBaseIdFor(object, selectable, parser);
     const selectionBaseId = canonicalApparatusBaseId(rawBaseId);
-    selectableMeshes.push(object);
+    // Pass-through arrows are never raycast targets: the tap lands on the
+    // roof/body below them, so an arrow can never be picked or highlighted
+    // as a separate object. They stay registered for id lookup, only the
+    // raycast list skips them.
+    // Hidden roofs are removed from view AND touch: taps land on the
+    // revealed body below.
+    const isHiddenRoof =
+      isHiddenRoofBaseId(selectionBaseId) ||
+      isHiddenRoofBaseId(rawBaseId);
+    if (isHiddenRoof) {
+      object.visible = false;
+    }
+    if (!isPassThroughArrowBaseId(selectionBaseId) &&
+        !isPassThroughArrowBaseId(rawBaseId) &&
+        !isHiddenRoof) {
+      selectableMeshes.push(object);
+    }
     if (object.isInstancedMesh) {
       object.userData.factoryMapObjectSelectionBaseId = selectionBaseId;
       object.userData.factoryMapRawBaseId = rawBaseId;
+      // Instance-level covers: collapse only the black-cube instances,
+      // keep the remaining instances of the same node visible + tappable.
+      collapseHiddenRoofInstances(object, rawBaseId);
+      if (rawBaseId !== selectionBaseId) {
+        collapseHiddenRoofInstances(object, selectionBaseId);
+      }
       selectableInstancedMeshesById.set(rawBaseId, object);
       if (rawBaseId === selectionBaseId) {
         selectableInstancedMeshesById.set(selectionBaseId, object);
@@ -249,19 +369,22 @@ function selectionHelperFor(target) {
   if (attachedBaseIds) {
     for (const attachedBaseId of attachedBaseIds) {
       const attachedMesh = selectableInstancedMeshesById.get(attachedBaseId);
-      if (
-        attachedMesh &&
-        attachedMesh.isInstancedMesh &&
-        target.instanceId < attachedMesh.count
-      ) {
+      if (attachedMesh && attachedMesh.isInstancedMesh) {
+        // Attached nodes like node:34 / node:38 alternate two physical
+        // positions across even/odd instances, but both positions sit on the
+        // same apparatus body. Union every instance so the highlight always
+        // covers the full apparatus + all of its overhead arrows.
         attachedMesh.geometry.computeBoundingBox();
-        const attachedBox = attachedMesh.geometry.boundingBox.clone();
-        const attachedMatrix = new THREE.Matrix4();
-        attachedMesh.getMatrixAt(target.instanceId, attachedMatrix);
-        attachedBox.applyMatrix4(attachedMatrix);
         attachedMesh.updateWorldMatrix(true, false);
-        attachedBox.applyMatrix4(attachedMesh.matrixWorld);
-        instanceBox.union(attachedBox);
+        const attachedCount = attachedMesh.count || 0;
+        for (let i = 0; i < attachedCount; i++) {
+          const attachedBox = attachedMesh.geometry.boundingBox.clone();
+          const attachedMatrix = new THREE.Matrix4();
+          attachedMesh.getMatrixAt(i, attachedMatrix);
+          attachedBox.applyMatrix4(attachedMatrix);
+          attachedBox.applyMatrix4(attachedMesh.matrixWorld);
+          instanceBox.union(attachedBox);
+        }
       }
     }
   }
@@ -271,6 +394,21 @@ function selectionHelperFor(target) {
 
 function selectObject(objectId, emitMessage = true) {
   const canonicalId = canonicalApparatusObjectId(objectId);
+  // Pass-through arrows are never objects: no highlight, no message, from
+  // any path (tap, initial selection, legacy saves). There is only the body.
+  // Hidden roofs share the same rule (whole-node + collapsed instances).
+  if (isHiddenRoofInstanceId(canonicalId) ||
+      isHiddenRoofInstanceId(objectId)) {
+    return;
+  }
+  const canonicalBase = (() => {
+    const m = /^(.*):instance:\d+$/.exec(canonicalId);
+    return m ? m[1] : canonicalId;
+  })();
+  if (isPassThroughArrowBaseId(canonicalBase) ||
+      isHiddenRoofBaseId(canonicalBase)) {
+    return;
+  }
   const target = selectableTargetForId(canonicalId);
   if (!target) {
     return;
@@ -302,14 +440,24 @@ function selectObjectAt(clientX, clientY) {
   pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
   pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
-  const hit = raycaster.intersectObjects(selectableMeshes, false)[0];
-  const instanceId = hit?.instanceId;
-  const selectionBaseId = hit?.object?.userData?.factoryMapObjectSelectionBaseId;
-  const objectId = selectionBaseId
-    ? selectionIdFor(selectionBaseId, instanceId)
-    : hit?.object?.userData?.factoryMapObjectId;
-  if (objectId) {
-    selectObject(objectId);
+  // Collapsed instances are zero-scaled so they normally miss, but filter
+  // explicitly: take the first hit that is not a hidden roof instance, so
+  // taps land on the revealed body below the black cube.
+  const hits = raycaster.intersectObjects(selectableMeshes, false);
+  for (const hit of hits) {
+    const hitSelectionBaseId = hit?.object?.userData?.factoryMapObjectSelectionBaseId;
+    const hitObjectId = hitSelectionBaseId
+      ? selectionIdFor(hitSelectionBaseId, hit?.instanceId)
+      : hit?.object?.userData?.factoryMapObjectId;
+    if (!hitObjectId) {
+      continue;
+    }
+    if (isHiddenRoofInstanceId(canonicalApparatusObjectId(hitObjectId)) ||
+        isHiddenRoofInstanceId(hitObjectId)) {
+      continue;
+    }
+    selectObject(hitObjectId);
+    return;
   }
 }
 
@@ -381,6 +529,63 @@ function applyFactoryPalette(material) {
 
 function styleFactoryMaterial(material) {
   return applyFactoryPalette(replaceUnlitMaterial(material));
+}
+
+// Arrow-bearing spots are apparatuses: the verified arrow meshes (node:5 flat
+// rooftop arrows, node:33 billboard) AND the bodies beneath them (node:1, 3,
+// 6, 7, 18 walls/blocks, node:39 room) share one marker color, so each pair
+// reads as a single apparatus object. Materials are shared across the map, so
+// each marked object gets its own clone; the shared originals are untouched.
+// Runs after enableRealShadows (which needs userData set by registration).
+const APPARATUS_MARKER_BASE_IDS = Object.freeze([
+  'node:1',
+  'node:3',
+  'node:5',
+  'node:6',
+  'node:7',
+  'node:18',
+  'node:33',
+  'node:39',
+]);
+
+function markerBaseIdOf(objectId) {
+  if (!objectId) {
+    return '';
+  }
+  return objectId.replace(/:primitive:\d+$/, '');
+}
+
+function applyApparatusMarkerTint(root) {
+  root.traverse((object) => {
+    if (!object.isMesh && !object.isInstancedMesh) {
+      return;
+    }
+    const rawBaseId = markerBaseIdOf(object.userData?.factoryMapRawBaseId);
+    const selectionBaseId = markerBaseIdOf(
+      object.userData?.factoryMapObjectSelectionBaseId,
+    );
+    const isMarked =
+      APPARATUS_MARKER_BASE_IDS.indexOf(rawBaseId) !== -1 ||
+      APPARATUS_MARKER_BASE_IDS.indexOf(selectionBaseId) !== -1;
+    if (!isMarked) {
+      return;
+    }
+    const tint = (material) => {
+      const clone = material.clone();
+      if ('color' in clone && clone.color) {
+        clone.color.setHex(FACTORY_PALETTE.apparatusMarker);
+      }
+      if ('emissive' in clone && clone.emissive) {
+        clone.emissive.setHex(FACTORY_PALETTE.apparatusMarker);
+        clone.emissiveIntensity = 0.2;
+      }
+      clone.needsUpdate = true;
+      return clone;
+    };
+    object.material = Array.isArray(object.material)
+      ? object.material.map(tint)
+      : tint(object.material);
+  });
 }
 
 function enableRealShadows(root, bounds) {
@@ -510,6 +715,7 @@ async function loadModel() {
           registerSelectableObjects(root, gltf.parser);
           const bounds = new THREE.Box3().setFromObject(root);
           enableRealShadows(root, bounds);
+          applyApparatusMarkerTint(root);
           renderer.shadowMap.needsUpdate = true;
           status.hidden = true;
           status.style.display = 'none';

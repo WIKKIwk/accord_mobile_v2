@@ -57,18 +57,43 @@ void main() {
     );
   });
 
-  test('canonicalFactoryMapObjectId maps arrow ids to apparatus ids', () {
+  test('canonicalFactoryMapObjectId maps only the verified arrow', () {
     expect(
       canonicalFactoryMapObjectId('node:33:instance:0'),
       'node:39:instance:0',
     );
     expect(
-      canonicalFactoryMapObjectId('node:34:instance:2'),
-      'node:39:instance:2',
-    );
-    expect(
       canonicalFactoryMapObjectId('node:33'),
       'node:39',
+    );
+    // Roof, fins, plates, signs and machine panels stay separate objects.
+    expect(
+      canonicalFactoryMapObjectId('node:32:instance:0'),
+      'node:32:instance:0',
+    );
+    expect(
+      canonicalFactoryMapObjectId('node:34:instance:2'),
+      'node:34:instance:2',
+    );
+    expect(
+      canonicalFactoryMapObjectId('node:38:instance:0'),
+      'node:38:instance:0',
+    );
+    expect(
+      canonicalFactoryMapObjectId('node:90:instance:4'),
+      'node:90:instance:4',
+    );
+    expect(
+      canonicalFactoryMapObjectId('node:91:instance:0'),
+      'node:91:instance:0',
+    );
+    expect(
+      canonicalFactoryMapObjectId('node:36:instance:1'),
+      'node:36:instance:1',
+    );
+    expect(
+      canonicalFactoryMapObjectId('node:37'),
+      'node:37',
     );
     expect(
       canonicalFactoryMapObjectId('node:39:instance:1'),
@@ -90,10 +115,11 @@ void main() {
       same(apparatus),
     );
 
-    // Tapping the arrow backing above instance 0 resolves to the apparatus
+    // Tapping the arrow backing above instance 0 does NOT resolve: the fin
+    // is a separate object, not the verified arrow.
     expect(
       resolveFactoryMapApparatus([apparatus], 'node:34:instance:0'),
-      same(apparatus),
+      isNull,
     );
 
     // Tapping the arrow above instance 1 does NOT resolve to instance 0 apparatus

@@ -11,6 +11,7 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../logic/canonical_apparatus_groups.dart';
+import '../logic/factory_map_mapping.dart';
 import 'admin_apparatus_capacity_panel.dart';
 import 'admin_factory_map_viewer.dart';
 import 'admin_queue_policy_screen.dart';

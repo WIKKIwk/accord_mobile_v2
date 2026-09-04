@@ -1,10 +1,14 @@
 import '../../../core/api/mobile_api.dart';
 import '../../shared/models/app_models.dart';
 
+// Verified against the GLB geometry (2026-09-04): node:33 is the overhead
+// arrow billboard (7-vertex arrow silhouette) floating above the node:39
+// apparatus body. Neighbouring floating parts (node:32 roof canopy, node:34
+// corner fins, node:38 corner plates, node:90/91 text signs, node:36/37
+// machine panels) are intentionally NOT merged: they stay separately
+// tappable so nothing foreign is ever grouped into an apparatus.
 const Map<String, String> _apparatusAttachmentBaseMap = {
-  'node:32': 'node:39',
   'node:33': 'node:39',
-  'node:34': 'node:39',
 };
 
 String canonicalFactoryMapObjectId(String objectId) {

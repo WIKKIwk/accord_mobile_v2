@@ -344,7 +344,9 @@ extension __AdminApparatusSettingsScreenStateAstPart01
     String objectId,
   ) async {
     final current = _latest(apparatus);
-    final normalized = objectId.trim();
+    // Canonicalize so an overhead arrow tap can never be saved as a separate
+    // apparatus placement: arrows resolve to their apparatus body id.
+    final normalized = canonicalFactoryMapObjectId(objectId.trim());
     if (normalized.isNotEmpty &&
         _apparatus.any(
           (item) =>
