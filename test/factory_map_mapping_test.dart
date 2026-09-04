@@ -56,4 +56,66 @@ void main() {
       'Aparat AASX ma’lumotlari tekshirilmadi (HTTP 500)',
     );
   });
+
+  test('canonicalFactoryMapObjectId maps arrow ids to apparatus ids', () {
+    expect(
+      canonicalFactoryMapObjectId('node:33:instance:0'),
+      'node:39:instance:0',
+    );
+    expect(
+      canonicalFactoryMapObjectId('node:34:instance:2'),
+      'node:39:instance:2',
+    );
+    expect(
+      canonicalFactoryMapObjectId('node:33'),
+      'node:39',
+    );
+    expect(
+      canonicalFactoryMapObjectId('node:39:instance:1'),
+      'node:39:instance:1',
+    );
+    expect(
+      canonicalFactoryMapObjectId('node:73:instance:0'),
+      'node:73:instance:0',
+    );
+    expect(canonicalFactoryMapObjectId(''), '');
+  });
+
+  test('resolves apparatus when tapping overhead arrow instead of machine body', () {
+    final apparatus = _apparatus('Pechat aparati', 'node:39:instance:0');
+
+    // Tapping the arrow above instance 0 resolves to the apparatus
+    expect(
+      resolveFactoryMapApparatus([apparatus], 'node:33:instance:0'),
+      same(apparatus),
+    );
+
+    // Tapping the arrow backing above instance 0 resolves to the apparatus
+    expect(
+      resolveFactoryMapApparatus([apparatus], 'node:34:instance:0'),
+      same(apparatus),
+    );
+
+    // Tapping the arrow above instance 1 does NOT resolve to instance 0 apparatus
+    expect(
+      resolveFactoryMapApparatus([apparatus], 'node:33:instance:1'),
+      isNull,
+    );
+  });
+
+  test('resolves apparatus when machine body is tapped for legacy arrow binding', () {
+    final apparatus = _apparatus('Legacy strelka boglangan aparat', 'node:33:instance:2');
+
+    // Tapping the machine body resolves to the apparatus bound with the arrow ID
+    expect(
+      resolveFactoryMapApparatus([apparatus], 'node:39:instance:2'),
+      same(apparatus),
+    );
+
+    // Tapping the arrow itself still resolves
+    expect(
+      resolveFactoryMapApparatus([apparatus], 'node:33:instance:2'),
+      same(apparatus),
+    );
+  });
 }

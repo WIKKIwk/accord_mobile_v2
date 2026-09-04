@@ -109,3 +109,63 @@ test('factory map asset contains instanced geometry that needs per-instance ids'
   assert.ok(instancedNodes.length >= 12);
   assert.ok(instanceCount >= 12);
 });
+
+test('factory map unifies apparatus arrows with corresponding apparatus objects', () => {
+  assert.match(rendererSource, /APPARATUS_ATTACHMENT_MAP/);
+  assert.match(rendererSource, /APPARATUS_ATTACHED_BASES_MAP/);
+  assert.match(rendererSource, /'node:33':\s*'node:39'/);
+  assert.match(rendererSource, /'node:34':\s*'node:39'/);
+
+  const baseFuncSource = rendererSource.match(
+    /function canonicalApparatusBaseId\(baseId\) \{[\s\S]*?\n\}/,
+  )?.[0];
+  const objFuncSource = rendererSource.match(
+    /function canonicalApparatusObjectId\(objectId\) \{[\s\S]*?\n\}/,
+  )?.[0];
+  const selectionIdSource = rendererSource.match(
+    /function selectionIdFor\(baseId, instanceId\) \{[\s\S]*?\n\}/,
+  )?.[0];
+
+  assert.ok(baseFuncSource);
+  assert.ok(objFuncSource);
+  assert.ok(selectionIdSource);
+
+  const testScope = new Function(`
+    const APPARATUS_ATTACHMENT_MAP = Object.freeze({
+      'node:32': 'node:39',
+      'node:33': 'node:39',
+      'node:34': 'node:39',
+    });
+    ${selectionIdSource}
+    ${baseFuncSource}
+    ${objFuncSource}
+    return { canonicalApparatusBaseId, canonicalApparatusObjectId };
+  `)();
+
+  assert.equal(testScope.canonicalApparatusBaseId('node:33'), 'node:39');
+  assert.equal(testScope.canonicalApparatusBaseId('node:34'), 'node:39');
+  assert.equal(testScope.canonicalApparatusBaseId('node:39'), 'node:39');
+  assert.equal(testScope.canonicalApparatusBaseId('node:73'), 'node:73');
+
+  assert.equal(
+    testScope.canonicalApparatusObjectId('node:33:instance:0'),
+    'node:39:instance:0',
+  );
+  assert.equal(
+    testScope.canonicalApparatusObjectId('node:33:instance:3'),
+    'node:39:instance:3',
+  );
+  assert.equal(
+    testScope.canonicalApparatusObjectId('node:34:instance:2'),
+    'node:39:instance:2',
+  );
+  assert.equal(
+    testScope.canonicalApparatusObjectId('node:39:instance:1'),
+    'node:39:instance:1',
+  );
+});
+
+test('factory map selection helper unites attached arrow bounds with apparatus bounds', () => {
+  assert.match(rendererSource, /attachedMesh\.geometry\.computeBoundingBox/);
+  assert.match(rendererSource, /instanceBox\.union\(attachedBox\)/);
+});

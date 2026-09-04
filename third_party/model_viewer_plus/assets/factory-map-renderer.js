@@ -111,6 +111,32 @@ function selectableObjectFor(mesh, parser, fallbackIndex) {
   };
 }
 
+const APPARATUS_ATTACHMENT_MAP = Object.freeze({
+  'node:32': 'node:39',
+  'node:33': 'node:39',
+  'node:34': 'node:39',
+});
+
+const APPARATUS_ATTACHED_BASES_MAP = Object.freeze({
+  'node:39': ['node:32', 'node:33', 'node:34'],
+});
+
+function canonicalApparatusBaseId(baseId) {
+  return APPARATUS_ATTACHMENT_MAP[baseId] || baseId;
+}
+
+function canonicalApparatusObjectId(objectId) {
+  if (!objectId) {
+    return objectId;
+  }
+  const match = /^(.*):instance:(\d+)$/.exec(objectId);
+  if (match) {
+    const canonicalBase = canonicalApparatusBaseId(match[1]);
+    return selectionIdFor(canonicalBase, Number(match[2]));
+  }
+  return canonicalApparatusBaseId(objectId);
+}
+
 function selectionIdFor(baseId, instanceId) {
   return Number.isInteger(instanceId)
     ? `${baseId}:instance:${instanceId}`
@@ -145,17 +171,25 @@ function registerSelectableObjects(root, parser) {
       return;
     }
     const selectable = selectableObjectFor(object, parser, fallbackIndex++);
-    const selectionBaseId = selectionBaseIdFor(object, selectable, parser);
+    const rawBaseId = selectionBaseIdFor(object, selectable, parser);
+    const selectionBaseId = canonicalApparatusBaseId(rawBaseId);
     selectableMeshes.push(object);
     if (object.isInstancedMesh) {
       object.userData.factoryMapObjectSelectionBaseId = selectionBaseId;
-      selectableInstancedMeshesById.set(selectionBaseId, object);
+      object.userData.factoryMapRawBaseId = rawBaseId;
+      selectableInstancedMeshesById.set(rawBaseId, object);
+      if (!selectableInstancedMeshesById.has(selectionBaseId)) {
+        selectableInstancedMeshesById.set(selectionBaseId, object);
+      }
       // Keep old node-level IDs resolvable for existing placements. New taps
       // use the instance-specific ID below.
+      registerSelectableTarget(rawBaseId, object);
       registerSelectableTarget(selectionBaseId, object);
       return;
     }
     object.userData.factoryMapObjectId = selectionBaseId;
+    object.userData.factoryMapRawBaseId = rawBaseId;
+    registerSelectableTarget(rawBaseId, object);
     registerSelectableTarget(selectionBaseId, object);
   });
 }
@@ -166,7 +200,16 @@ function selectableTargetForId(objectId) {
     return directTarget;
   }
 
-  const match = /^(.*):instance:(\d+)$/.exec(objectId);
+  const canonicalId = canonicalApparatusObjectId(objectId);
+  if (canonicalId !== objectId) {
+    const canonicalTarget = selectableObjectsById.get(canonicalId);
+    if (canonicalTarget) {
+      selectableObjectsById.set(objectId, canonicalTarget);
+      return canonicalTarget;
+    }
+  }
+
+  const match = /^(.*):instance:(\d+)$/.exec(canonicalId);
   if (!match) {
     return null;
   }
@@ -184,6 +227,7 @@ function selectableTargetForId(objectId) {
     object,
     instanceId: Number.isInteger(instanceId) ? instanceId : null,
   };
+  selectableObjectsById.set(canonicalId, target);
   selectableObjectsById.set(objectId, target);
   return target;
 }
@@ -198,6 +242,30 @@ function selectionHelperFor(target) {
   const instanceMatrix = new THREE.Matrix4();
   target.object.getMatrixAt(target.instanceId, instanceMatrix);
   instanceBox.applyMatrix4(instanceMatrix);
+
+  const baseId =
+    target.object.userData?.factoryMapRawBaseId ||
+    target.object.userData?.factoryMapObjectSelectionBaseId;
+  const canonicalBaseId = canonicalApparatusBaseId(baseId);
+  const attachedBaseIds = APPARATUS_ATTACHED_BASES_MAP[canonicalBaseId];
+  if (attachedBaseIds) {
+    for (const attachedBaseId of attachedBaseIds) {
+      const attachedMesh = selectableInstancedMeshesById.get(attachedBaseId);
+      if (
+        attachedMesh &&
+        attachedMesh.isInstancedMesh &&
+        target.instanceId < attachedMesh.count
+      ) {
+        attachedMesh.geometry.computeBoundingBox();
+        const attachedBox = attachedMesh.geometry.boundingBox.clone();
+        const attachedMatrix = new THREE.Matrix4();
+        attachedMesh.getMatrixAt(target.instanceId, attachedMatrix);
+        attachedBox.applyMatrix4(attachedMatrix);
+        instanceBox.union(attachedBox);
+      }
+    }
+  }
+
   target.object.updateWorldMatrix(true, false);
   instanceBox.applyMatrix4(target.object.matrixWorld);
   return new THREE.Box3Helper(instanceBox, FACTORY_PALETTE.selected);

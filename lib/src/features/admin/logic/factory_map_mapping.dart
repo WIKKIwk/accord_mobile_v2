@@ -1,6 +1,27 @@
 import '../../../core/api/mobile_api.dart';
 import '../../shared/models/app_models.dart';
 
+const Map<String, String> _apparatusAttachmentBaseMap = {
+  'node:32': 'node:39',
+  'node:33': 'node:39',
+  'node:34': 'node:39',
+};
+
+String canonicalFactoryMapObjectId(String objectId) {
+  final trimmed = objectId.trim();
+  if (trimmed.isEmpty) {
+    return '';
+  }
+  final match = RegExp(r'^(.*):instance:(\d+)$').firstMatch(trimmed);
+  if (match != null) {
+    final base = match.group(1)?.trim() ?? '';
+    final instance = match.group(2)?.trim() ?? '';
+    final canonicalBase = _apparatusAttachmentBaseMap[base] ?? base;
+    return '$canonicalBase:instance:$instance';
+  }
+  return _apparatusAttachmentBaseMap[trimmed] ?? trimmed;
+}
+
 AdminApparatus? resolveFactoryMapApparatus(
   Iterable<AdminApparatus> apparatus,
   String objectId,
@@ -14,6 +35,15 @@ AdminApparatus? resolveFactoryMapApparatus(
       return item;
     }
   }
+  final canonicalTarget = canonicalFactoryMapObjectId(normalizedObjectId);
+  if (canonicalTarget.isNotEmpty) {
+    for (final item in apparatus) {
+      final itemObjectId = item.factoryMapObjectId.trim();
+      if (canonicalFactoryMapObjectId(itemObjectId) == canonicalTarget) {
+        return item;
+      }
+    }
+  }
   return null;
 }
 
@@ -25,8 +55,13 @@ bool hasLegacyFactoryMapBinding(
   if (legacyObjectId == null) {
     return false;
   }
+  final canonicalLegacy = canonicalFactoryMapObjectId(legacyObjectId);
   return apparatus.any(
-    (item) => item.factoryMapObjectId.trim() == legacyObjectId,
+    (item) {
+      final itemObjectId = item.factoryMapObjectId.trim();
+      return itemObjectId == legacyObjectId ||
+          canonicalFactoryMapObjectId(itemObjectId) == canonicalLegacy;
+    },
   );
 }
 
