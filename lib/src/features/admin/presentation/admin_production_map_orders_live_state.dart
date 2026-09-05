@@ -140,89 +140,23 @@ extension _AdminProductionMapOrdersLiveState
       }
       return;
     }
+    final orders = _productionMapZakazOrders(snapshot.maps);
     if (decision == _CanonicalSnapshotDecision.applyLegacy) {
       // Legacy live payload without `rev`: only rebuild when content
       // actually changed to avoid duplicate rebuilds.
-      final nextOrders = _productionMapZakazOrders(snapshot.maps);
-      if (_ordersRevision(nextOrders) == _ordersRevision(_orders) &&
-          !_queueSnapshotChanged(
-            snapshot: AdminApparatusQueueSnapshot(
-              sequences: snapshot.sequences,
-              visibleOrderIds: snapshot.visibleOrderIds,
-              queueStates: snapshot.queueStates,
-              stageStates: snapshot.stageStates,
-              queuePolicies: snapshot.queuePolicies,
-              queueActionControls: snapshot.queueActionControls,
-              orderControls: snapshot.orderControls,
-              orderCustomers: snapshot.orderCustomers,
-              orderStatuses: snapshot.orderStatuses,
-              frozenOrdersByApparatus: snapshot.frozenOrdersByApparatus,
-            ),
-            sequenceByApparatus: _sequenceByApparatus,
-            visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
-            queueStatesByApparatus: _queueStatesByApparatus,
-            stageStatesByOrderId: _stageStatesByOrderId,
-            queuePoliciesByApparatus: _queuePoliciesByApparatus,
-            queueActionControlsByApparatus: _queueActionControlsByApparatus,
-            orderControlsByOrderId: _orderControlsByOrderId,
-            orderCustomersByOrderId: _customerByMapId,
-            orderStatusesByOrderId: _orderStatusesByOrderId,
-            frozenOrdersByApparatus: _frozenOrdersByApparatus,
-          )) {
+      if (_ordersRevision(orders) == _ordersRevision(_orders) &&
+          !_queueSnapshotChanged(snapshot)) {
         return;
       }
-      _queueSnapshotGeneration++;
-      final orders = nextOrders;
-      _updateScreenState(() {
-        _orders = orders;
-        _replaceQueueSnapshotMaps(
-          sequences: snapshot.sequences,
-          visibleOrderIds: snapshot.visibleOrderIds,
-          queueStates: snapshot.queueStates,
-          stageStates: snapshot.stageStates,
-          queuePolicies: snapshot.queuePolicies,
-          queueActionControls: snapshot.queueActionControls,
-          orderControls: snapshot.orderControls,
-          orderCustomers: snapshot.orderCustomers,
-          orderStatuses: snapshot.orderStatuses,
-          frozenOrdersByApparatus: snapshot.frozenOrdersByApparatus,
-        );
-        _completedWorkerOrders = snapshot.completedOrders;
-        _workerCompletedHistoryError = false;
-        _workerCompletedHistoryErrorMessage = null;
-        _completionRequests = snapshot.completionRequests;
-        _completionRequestsErrorMessage = null;
-        _loading = false;
-        if (_queueSnapshotContractError) {
-          _queueSnapshotContractError = false;
-          _queueSnapshotErrorMessage = null;
-          _loadError = null;
-        }
-      });
-      _showNewRejectedCompletionDecisionNotices(
-        snapshot.completionRequestDecisions,
-      );
-      return;
     }
-    // Revisioned path: a new `rev` applies exactly once, atomically.
     _queueSnapshotGeneration++;
-    _lastAppliedSnapshotRevision = snapshot.revision;
-    _liveReconnectAttempt = 0;
-    final orders = _productionMapZakazOrders(snapshot.maps);
+    if (decision != _CanonicalSnapshotDecision.applyLegacy) {
+      _lastAppliedSnapshotRevision = snapshot.revision;
+      _liveReconnectAttempt = 0;
+    }
     _updateScreenState(() {
       _orders = orders;
-      _replaceQueueSnapshotMaps(
-        sequences: snapshot.sequences,
-        visibleOrderIds: snapshot.visibleOrderIds,
-        queueStates: snapshot.queueStates,
-        stageStates: snapshot.stageStates,
-        queuePolicies: snapshot.queuePolicies,
-        queueActionControls: snapshot.queueActionControls,
-        orderControls: snapshot.orderControls,
-        orderCustomers: snapshot.orderCustomers,
-        orderStatuses: snapshot.orderStatuses,
-        frozenOrdersByApparatus: snapshot.frozenOrdersByApparatus,
-      );
+      _replaceQueueSnapshotMaps(snapshot);
       _completedWorkerOrders = snapshot.completedOrders;
       _workerCompletedHistoryError = false;
       _workerCompletedHistoryErrorMessage = null;
@@ -364,18 +298,7 @@ extension _AdminProductionMapOrdersLiveState
           if (nextOrders != null) {
             _orders = nextOrders;
           }
-          _replaceQueueSnapshotMaps(
-            sequences: queueSnapshot.sequences,
-            visibleOrderIds: queueSnapshot.visibleOrderIds,
-            queueStates: queueSnapshot.queueStates,
-            stageStates: queueSnapshot.stageStates,
-            queuePolicies: queueSnapshot.queuePolicies,
-            queueActionControls: queueSnapshot.queueActionControls,
-            orderControls: queueSnapshot.orderControls,
-            orderCustomers: queueSnapshot.orderCustomers,
-            orderStatuses: queueSnapshot.orderStatuses,
-            frozenOrdersByApparatus: queueSnapshot.frozenOrdersByApparatus,
-          );
+          _replaceQueueSnapshotMaps(queueSnapshot);
           if (_queueSnapshotContractError) {
             _queueSnapshotContractError = false;
             _queueSnapshotErrorMessage = null;
@@ -384,19 +307,7 @@ extension _AdminProductionMapOrdersLiveState
         return;
       }
       // Legacy (no rev): fall back to content comparison to avoid rebuilds.
-      if (!_queueSnapshotChanged(
-        snapshot: queueSnapshot,
-        sequenceByApparatus: _sequenceByApparatus,
-        visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
-        queueStatesByApparatus: _queueStatesByApparatus,
-        stageStatesByOrderId: _stageStatesByOrderId,
-        queuePoliciesByApparatus: _queuePoliciesByApparatus,
-        queueActionControlsByApparatus: _queueActionControlsByApparatus,
-        orderControlsByOrderId: _orderControlsByOrderId,
-        orderCustomersByOrderId: _customerByMapId,
-        orderStatusesByOrderId: _orderStatusesByOrderId,
-        frozenOrdersByApparatus: _frozenOrdersByApparatus,
-      )) {
+      if (!_queueSnapshotChanged(queueSnapshot)) {
         if (_queueSnapshotContractError) {
           _updateScreenState(() {
             _queueSnapshotContractError = false;
@@ -406,18 +317,7 @@ extension _AdminProductionMapOrdersLiveState
         return;
       }
       _updateScreenState(() {
-        _replaceQueueSnapshotMaps(
-          sequences: queueSnapshot.sequences,
-          visibleOrderIds: queueSnapshot.visibleOrderIds,
-          queueStates: queueSnapshot.queueStates,
-          stageStates: queueSnapshot.stageStates,
-          queuePolicies: queueSnapshot.queuePolicies,
-          queueActionControls: queueSnapshot.queueActionControls,
-          orderControls: queueSnapshot.orderControls,
-          orderCustomers: queueSnapshot.orderCustomers,
-          orderStatuses: queueSnapshot.orderStatuses,
-          frozenOrdersByApparatus: queueSnapshot.frozenOrdersByApparatus,
-        );
+        _replaceQueueSnapshotMaps(queueSnapshot);
         if (_queueSnapshotContractError) {
           _queueSnapshotContractError = false;
           _queueSnapshotErrorMessage = null;
@@ -455,47 +355,120 @@ extension _AdminProductionMapOrdersLiveState
     });
   }
 
-  void _replaceQueueSnapshotMaps({
-    required Map<String, List<String>> sequences,
-    required Map<String, List<String>> visibleOrderIds,
-    required Map<String, Map<String, String>> queueStates,
-    required Map<String, Map<String, String>> stageStates,
-    required Map<String, AdminApparatusQueuePolicy> queuePolicies,
-    required Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
-        queueActionControls,
-    required Map<String, AdminOrderControlState> orderControls,
-    required Map<String, String> orderCustomers,
-    required Map<String, AdminProductionOrderStatusDetail> orderStatuses,
-    required Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus,
-  }) {
+  bool _queueSnapshotChanged(AdminApparatusQueueSnapshot snapshot) {
+    if (_sequenceByApparatus.length != snapshot.sequences.length ||
+        _visibleOrderIdsByApparatus.length != snapshot.visibleOrderIds.length ||
+        _queueStatesByApparatus.length != snapshot.queueStates.length ||
+        _stageStatesByOrderId.length != snapshot.stageStates.length ||
+        _queuePoliciesByApparatus.length != snapshot.queuePolicies.length ||
+        _queueActionControlsByApparatus.length !=
+            snapshot.queueActionControls.length ||
+        _orderControlsByOrderId.length != snapshot.orderControls.length ||
+        _customerByMapId.length != snapshot.orderCustomers.length ||
+        _orderStatusesByOrderId.length != snapshot.orderStatuses.length ||
+        _frozenOrdersByApparatus.length !=
+            snapshot.frozenOrdersByApparatus.length) {
+      return true;
+    }
+    for (final entry in snapshot.sequences.entries) {
+      final current = _sequenceByApparatus[entry.key];
+      if (current == null ||
+          current.length != entry.value.length ||
+          !_stringListsEqual(current, entry.value)) {
+        return true;
+      }
+    }
+    for (final entry in snapshot.visibleOrderIds.entries) {
+      final current = _visibleOrderIdsByApparatus[entry.key];
+      if (current == null ||
+          current.length != entry.value.length ||
+          !_stringListsEqual(current, entry.value)) {
+        return true;
+      }
+    }
+    for (final entry in snapshot.queueStates.entries) {
+      final current = _queueStatesByApparatus[entry.key];
+      if (current == null || !_stringMapsEqual(current, entry.value)) {
+        return true;
+      }
+    }
+    for (final entry in snapshot.stageStates.entries) {
+      final current = _stageStatesByOrderId[entry.key];
+      if (current == null || !_stringMapsEqual(current, entry.value)) {
+        return true;
+      }
+    }
+    for (final entry in snapshot.queuePolicies.entries) {
+      final current = _queuePoliciesByApparatus[entry.key];
+      if (current == null ||
+          current.policy != entry.value.policy ||
+          current.locked != entry.value.locked) {
+        return true;
+      }
+    }
+    for (final entry in snapshot.queueActionControls.entries) {
+      final current = _queueActionControlsByApparatus[entry.key];
+      if (current == null || !_queueActionControlsEqual(current, entry.value)) {
+        return true;
+      }
+    }
+    for (final entry in snapshot.orderControls.entries) {
+      if (_orderControlsByOrderId[entry.key] != entry.value) {
+        return true;
+      }
+    }
+    for (final entry in snapshot.orderCustomers.entries) {
+      if (_customerByMapId[entry.key] != entry.value) {
+        return true;
+      }
+    }
+    for (final entry in snapshot.orderStatuses.entries) {
+      final current = _orderStatusesByOrderId[entry.key];
+      if (current == null ||
+          current.orderStatus != entry.value.orderStatus ||
+          current.completedWithIssueCount !=
+              entry.value.completedWithIssueCount) {
+        return true;
+      }
+    }
+    for (final entry in snapshot.frozenOrdersByApparatus.entries) {
+      final current = _frozenOrdersByApparatus[entry.key];
+      if (current == null || !_frozenOrdersEqual(current, entry.value)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void _replaceQueueSnapshotMaps(AdminApparatusQueueSnapshot snapshot) {
     _sequenceByApparatus
       ..clear()
-      ..addAll(sequences);
+      ..addAll(snapshot.sequences);
     _visibleOrderIdsByApparatus
       ..clear()
-      ..addAll(visibleOrderIds);
+      ..addAll(snapshot.visibleOrderIds);
     _queueStatesByApparatus
       ..clear()
-      ..addAll(queueStates);
+      ..addAll(snapshot.queueStates);
     _stageStatesByOrderId
       ..clear()
-      ..addAll(stageStates);
+      ..addAll(snapshot.stageStates);
     _queuePoliciesByApparatus
       ..clear()
-      ..addAll(queuePolicies);
+      ..addAll(snapshot.queuePolicies);
     _queueActionControlsByApparatus
       ..clear()
-      ..addAll(queueActionControls);
+      ..addAll(snapshot.queueActionControls);
     _frozenOrdersByApparatus
       ..clear()
-      ..addAll(frozenOrdersByApparatus);
+      ..addAll(snapshot.frozenOrdersByApparatus);
     _orderControlsByOrderId
       ..clear()
-      ..addAll(orderControls);
-    _customerByMapId = {...orderCustomers};
+      ..addAll(snapshot.orderControls);
+    _customerByMapId = {...snapshot.orderCustomers};
     _orderStatusesByOrderId
       ..clear()
-      ..addAll(orderStatuses);
+      ..addAll(snapshot.orderStatuses);
   }
 
   Future<void> _refreshWorkerCompletedOrders() async {
@@ -745,18 +718,7 @@ extension _AdminProductionMapOrdersLiveState
         _loadError = null;
         _orders = orders;
         _apparatus = apparatus;
-        _replaceQueueSnapshotMaps(
-          sequences: queueSnapshot.sequences,
-          visibleOrderIds: queueSnapshot.visibleOrderIds,
-          queueStates: queueSnapshot.queueStates,
-          stageStates: queueSnapshot.stageStates,
-          queuePolicies: queueSnapshot.queuePolicies,
-          queueActionControls: queueSnapshot.queueActionControls,
-          orderControls: queueSnapshot.orderControls,
-          orderCustomers: queueSnapshot.orderCustomers,
-          orderStatuses: queueSnapshot.orderStatuses,
-          frozenOrdersByApparatus: queueSnapshot.frozenOrdersByApparatus,
-        );
+        _replaceQueueSnapshotMaps(queueSnapshot);
         if (!widget.workerMode) {
           _syncSelectedSequenceApparatus(apparatus);
           _syncMoveApparatusDefaults(apparatus);

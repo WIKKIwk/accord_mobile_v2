@@ -107,45 +107,29 @@ void _validateProductionMapQueueContract({
   }
 }
 
-class AdminProductionMapLiveSnapshot {
+class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot {
   const AdminProductionMapLiveSnapshot({
-    required this.maps,
-    required this.sequences,
-    required this.visibleOrderIds,
-    required this.queueStates,
-    required this.queuePolicies,
-    this.queueActionControls = const {},
-    this.stageStates = const {},
+    required super.maps,
+    required super.sequences,
+    required super.visibleOrderIds,
+    required super.queueStates,
+    required super.queuePolicies,
+    super.queueActionControls = const {},
+    super.stageStates = const {},
     required this.completedOrders,
     required this.completionRequests,
     required this.completionRequestDecisions,
-    required this.orderControls,
-    this.orderCustomers = const {},
-    this.orderStatuses = const {},
-    this.frozenOrdersByApparatus = const {},
-    this.revision,
+    required super.orderControls,
+    super.orderCustomers = const {},
+    super.orderStatuses = const {},
+    super.frozenOrdersByApparatus = const {},
+    super.revision,
   });
 
-  final List<ProductionMapSaved> maps;
-  final Map<String, List<String>> sequences;
-  final Map<String, List<String>> visibleOrderIds;
-  final Map<String, Map<String, String>> queueStates;
-  final Map<String, Map<String, String>> stageStates;
-  final Map<String, AdminApparatusQueuePolicy> queuePolicies;
-  final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
-      queueActionControls;
   final List<AdminCompletedQueueOrder> completedOrders;
   final List<AdminCompletionRequestNotification> completionRequests;
   final List<AdminCompletionRequestDecisionNotification>
       completionRequestDecisions;
-  final Map<String, AdminOrderControlState> orderControls;
-  final Map<String, String> orderCustomers;
-  final Map<String, AdminProductionOrderStatusDetail> orderStatuses;
-  final Map<String, List<AdminFrozenQueueOrder>> frozenOrdersByApparatus;
-
-  /// Monotonic snapshot revision from the backend `rev` field.
-  /// Null when an old backend does not send it (fail-safe legacy path).
-  final int? revision;
 
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
     final visibleOrderIds = _parseRequiredProductionMapVisibleOrderIds(json);
@@ -202,17 +186,5 @@ class AdminProductionMapLiveSnapshot {
     );
     snapshot.validateContract();
     return snapshot;
-  }
-
-  void validateContract() {
-    _validateProductionMapQueueContract(
-      sequences: sequences,
-      visibleOrderIds: visibleOrderIds,
-      queueStates: queueStates,
-      stageStates: stageStates,
-      queuePolicies: queuePolicies,
-      queueActionControls: queueActionControls,
-      frozenOrdersByApparatus: frozenOrdersByApparatus,
-    );
   }
 }
