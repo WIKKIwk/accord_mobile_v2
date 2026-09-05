@@ -119,14 +119,15 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
   void _handleObjectTap(FactoryMapObjectSelection selection) {
     final mapped = resolveFactoryMapApparatus(_apparatus, selection.objectId);
     if (mapped == null) {
-      showAdminTopNotice(
-        context,
-        context.l10n.adminText(
-          hasLegacyFactoryMapBinding(_apparatus, selection.objectId)
-              ? 'factory_map.legacy_object_binding'
-              : 'factory_map.unassigned_object',
-        ),
-      );
+      if (hasLegacyFactoryMapBinding(_apparatus, selection.objectId)) {
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('factory_map.legacy_object_binding'),
+        );
+        return;
+      }
+      setState(() => _factoryMapInteractionEnabled = false);
+      unawaited(_showUnassignedSheet(selection.objectId));
       return;
     }
     setState(() => _factoryMapInteractionEnabled = false);
@@ -153,6 +154,104 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
           ),
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _factoryMapInteractionEnabled = true);
+      }
+    }
+  }
+
+  Future<AdminApparatus?> _attachApparatusToObject(
+    AdminApparatus apparatus,
+    String objectId,
+  ) async {
+    final normalized = canonicalFactoryMapObjectId(objectId.trim());
+    if (normalized.isEmpty) {
+      return null;
+    }
+    // One apparatus id binds to exactly one unique map object: never steal
+    // an object that is already taken (canonical compare, so the node:33
+    // arrow can never double-book its node:39 body).
+    if (_apparatus.any(
+      (item) =>
+          item.id != apparatus.id &&
+          canonicalFactoryMapObjectId(item.factoryMapObjectId.trim()) ==
+              normalized,
+    )) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('apparatus.map_duplicate'),
+        );
+      }
+      return null;
+    }
+    try {
+      final saved = await MobileApi.instance.adminPatchCanonicalApparatus(
+        apparatus: apparatus,
+        patch: {
+          'placement': {'factory_map_object_id': normalized},
+        },
+      );
+      if (normalized != saved.factoryMapObjectId.trim()) {
+        throw const MobileApiException(
+          code: 'canonical_placement_not_applied',
+          message: 'Canonical joylashuv yangilanmadi',
+        );
+      }
+      if (!mounted) return null;
+      setState(() {
+        _apparatus = [
+          for (final item in _apparatus)
+            if (item.id != saved.id) item,
+          saved,
+        ];
+      });
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('apparatus.map_assigned'),
+      );
+      return saved;
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : context.l10n.adminText('apparatus.map_save_failed'),
+        );
+      }
+      return null;
+    }
+  }
+
+  Future<void> _showUnassignedSheet(String objectId) async {
+    try {
+      final attached = await showModalBottomSheet<AdminApparatus>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (context) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.58,
+          minChildSize: 0.32,
+          maxChildSize: 0.92,
+          snap: true,
+          snapSizes: const [0.58, 0.92],
+          builder: (context, scrollController) => _FactoryMapAttachSheet(
+            objectId: canonicalFactoryMapObjectId(objectId.trim()),
+            apparatus: unboundFactoryMapApparatus(_apparatus),
+            scrollController: scrollController,
+            onAttach:
+                (apparatus) => _attachApparatusToObject(apparatus, objectId),
+          ),
+        ),
+      );
+      if (attached == null || !mounted) {
+        return;
+      }
+      await _showApparatusLiveSheet(attached);
     } finally {
       if (mounted) {
         setState(() => _factoryMapInteractionEnabled = true);
@@ -286,4 +385,141 @@ class _FactoryApparatusLiveSheet extends StatefulWidget {
   @override
   State<_FactoryApparatusLiveSheet> createState() =>
       _FactoryApparatusLiveSheetState();
+}
+
+class _FactoryMapAttachSheet extends StatefulWidget {
+  const _FactoryMapAttachSheet({
+    required this.objectId,
+    required this.apparatus,
+    required this.scrollController,
+    required this.onAttach,
+  });
+
+  final String objectId;
+  final List<AdminApparatus> apparatus;
+  final ScrollController scrollController;
+  final Future<AdminApparatus?> Function(AdminApparatus apparatus) onAttach;
+
+  @override
+  State<_FactoryMapAttachSheet> createState() => _FactoryMapAttachSheetState();
+}
+
+class _FactoryMapAttachSheetState extends State<_FactoryMapAttachSheet> {
+  bool _choosing = false;
+  String _savingId = '';
+
+  Future<void> _attach(AdminApparatus apparatus) async {
+    if (_savingId.isNotEmpty) {
+      return;
+    }
+    setState(() => _savingId = apparatus.id);
+    try {
+      final saved = await widget.onAttach(apparatus);
+      if (saved != null && mounted) {
+        Navigator.of(context).pop(saved);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _savingId = '');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    if (!_choosing) {
+      return ListView(
+        controller: widget.scrollController,
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        children: [
+          Icon(
+            Icons.link_off_rounded,
+            size: 40,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            l10n.adminText('factory_map.attach_title'),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.adminText('factory_map.unassigned_object'),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 8),
+          SelectableText(
+            widget.objectId,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: () => setState(() => _choosing = true),
+            icon: const Icon(Icons.link_rounded),
+            label: Text(l10n.adminText('factory_map.attach_action')),
+          ),
+        ],
+      );
+    }
+    final free = widget.apparatus;
+    return ListView(
+      controller: widget.scrollController,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            l10n.adminText('factory_map.attach_choose'),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
+          child: SelectableText(
+            widget.objectId,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          ),
+        ),
+        if (free.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              l10n.adminText('factory_map.attach_empty'),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          )
+        else
+          for (final item in free)
+            ListTile(
+              enabled: _savingId.isEmpty,
+              leading: _savingId == item.id
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.precision_manufacturing_outlined),
+              title: Text(item.name),
+              subtitle: Text(item.id),
+              onTap: () => _attach(item),
+            ),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: _savingId.isNotEmpty
+              ? null
+              : () => Navigator.of(context).pop(),
+          child: Text(l10n.adminText('action.cancel')),
+        ),
+      ],
+    );
+  }
 }

@@ -533,7 +533,7 @@ function styleFactoryMaterial(material) {
 
 // Arrow-bearing spots are apparatuses: the verified arrow meshes (node:5 flat
 // rooftop arrows, node:33 billboard) AND the bodies beneath them (node:1, 3,
-// 6, 7, 18 walls/blocks, node:39 room) share one marker color, so each pair
+// 6, 7, 18, 19 walls/blocks, node:39 room) share one marker color, so each pair
 // reads as a single apparatus object. Materials are shared across the map, so
 // each marked object gets its own clone; the shared originals are untouched.
 // Runs after enableRealShadows (which needs userData set by registration).
@@ -544,6 +544,7 @@ const APPARATUS_MARKER_BASE_IDS = Object.freeze([
   'node:6',
   'node:7',
   'node:18',
+  'node:19',
   'node:33',
   'node:39',
 ]);

@@ -51,6 +51,19 @@ AdminApparatus? resolveFactoryMapApparatus(
   return null;
 }
 
+/// Free apparatus for the map attach sheet: active items with no map
+/// object attached. One apparatus id binds to exactly one unique map
+/// object (also enforced by the server unique index), so already-bound
+/// items are never offered.
+List<AdminApparatus> unboundFactoryMapApparatus(
+  Iterable<AdminApparatus> apparatus,
+) {
+  return [
+    for (final item in apparatus)
+      if (item.isActive && item.factoryMapObjectId.trim().isEmpty) item,
+  ];
+}
+
 bool hasLegacyFactoryMapBinding(
   Iterable<AdminApparatus> apparatus,
   String objectId,

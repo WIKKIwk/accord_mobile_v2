@@ -348,4 +348,24 @@ const _admin_localization_adminTranslations_resplitPart08 = {
     'en': 'Could not load live production data',
     'ru': 'Не удалось загрузить данные производства в реальном времени',
   },
+  'admin.factory_map.attach_title': {
+    'uz': 'Aparat ulanmagan',
+    'en': 'No equipment attached',
+    'ru': 'Оборудование не привязано',
+  },
+  'admin.factory_map.attach_action': {
+    'uz': 'Aparat ulash',
+    'en': 'Attach equipment',
+    'ru': 'Привязать оборудование',
+  },
+  'admin.factory_map.attach_choose': {
+    'uz': 'Ulash uchun aparat tanlang',
+    'en': 'Select equipment to attach',
+    'ru': 'Выберите оборудование для привязки',
+  },
+  'admin.factory_map.attach_empty': {
+    'uz': 'Bo‘sh aparat yo‘q — barchasi ulangan',
+    'en': 'No free equipment — everything is attached',
+    'ru': 'Свободного оборудования нет — всё привязано',
+  },
 };

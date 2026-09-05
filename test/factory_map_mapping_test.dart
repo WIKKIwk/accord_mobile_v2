@@ -144,4 +144,19 @@ void main() {
       same(apparatus),
     );
   });
+
+  test('unboundFactoryMapApparatus offers only active unattached items', () {
+    final free = _apparatus('Bosh aparat', '');
+    final blank = _apparatus('Probel', '   ');
+    final bound = _apparatus('Ulangan aparat', 'node:19:instance:0');
+    final retired =
+        _apparatus('Eski aparat', '').copyWith(lifecycleState: 'retired');
+
+    final result = unboundFactoryMapApparatus([bound, free, blank, retired]);
+
+    expect(
+      result.map((item) => item.name),
+      ['Bosh aparat', 'Probel'],
+    );
+  });
 }

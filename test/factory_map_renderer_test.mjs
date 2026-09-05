@@ -211,7 +211,7 @@ test('factory map tints arrow-merged apparatus objects cream', () => {
   assert.match(rendererSource, /applyApparatusMarkerTint/);
   assert.match(rendererSource, /APPARATUS_MARKER_BASE_IDS/);
   // Verified arrows and the bodies beneath them share one marker color.
-  for (const nodeId of ['node:1', 'node:3', 'node:5', 'node:6', 'node:7', 'node:18', 'node:33', 'node:39']) {
+  for (const nodeId of ['node:1', 'node:3', 'node:5', 'node:6', 'node:7', 'node:18', 'node:19', 'node:33', 'node:39']) {
     assert.match(rendererSource, new RegExp(`'${nodeId}'`));
   }
 });

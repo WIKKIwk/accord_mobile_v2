@@ -117,7 +117,13 @@ class _AssignedMaterialTile extends StatelessWidget {
         _rawMaterialAssignmentCanBeUnlinked(assignment);
     final muted = consumed || (locked && !scanned);
     final normalizedBarcode = assignment.barcode.trim().toUpperCase();
-    return Container(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        _showAssignedMaterialReprintSheet(context, assignment);
+      },
+      child: Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: muted
@@ -228,7 +234,100 @@ class _AssignedMaterialTile extends StatelessWidget {
             ),
           ],
         ],
+        ),
       ),
     );
+  }
+}
+
+void _showAssignedMaterialReprintSheet(
+  BuildContext context,
+  AdminRawMaterialAssignment assignment,
+) {
+  final barcode = assignment.barcode.trim();
+  if (barcode.isEmpty) {
+    return;
+  }
+  final itemName = assignment.itemName.trim().isEmpty
+      ? (assignment.itemCode.trim().isEmpty
+          ? barcode
+          : assignment.itemCode.trim())
+      : assignment.itemName.trim();
+  final quantity = assignment.stockQty > 0
+      ? '${formatRawQuantity(assignment.stockQty)} ${assignment.stockUom}'
+          .trim()
+      : '';
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (sheetContext) => RpsQrReprintSheet(
+      payload: barcode,
+      itemName: itemName,
+      previewKey: ValueKey('assigned-material-qr-preview-$barcode'),
+      reprintButtonKey: ValueKey('assigned-material-qr-reprint-$barcode'),
+      details: [
+        RpsQrDetail(
+          sheetContext.l10n.adminText('label.item_code'),
+          assignment.itemCode,
+        ),
+        RpsQrDetail(
+          sheetContext.l10n.adminText('label.group'),
+          assignment.itemGroup,
+        ),
+        RpsQrDetail(
+          sheetContext.l10n.adminText('label.quantity'),
+          quantity,
+        ),
+        RpsQrDetail(
+          sheetContext.l10n.adminText('label.warehouse'),
+          assignment.stockWarehouse,
+        ),
+        RpsQrDetail(
+          sheetContext.l10n.adminText('label.apparatus'),
+          assignment.apparatus,
+        ),
+        RpsQrDetail(
+          sheetContext.l10n.adminText('label.status'),
+          assignment.stockStatus,
+        ),
+      ],
+      onReprint: () => _reprintAssignedMaterialStock(sheetContext, barcode),
+      errorMessage: (error) => error is MobileApiException
+          ? error.message
+          : sheetContext.l10n.adminText('warehouse.qr_print_failed'),
+    ),
+  );
+}
+
+Future<String?> _reprintAssignedMaterialStock(
+  BuildContext context,
+  String barcode,
+) async {
+  final l10n = context.l10n;
+  final prepared = await MobileApi.instance
+      .adminPrepareRawMaterialStockReprint(barcode: barcode);
+  final expectedBarcode = barcode.trim().toUpperCase();
+  if (prepared.reprintId.trim().isEmpty ||
+      prepared.stock.barcode.trim().toUpperCase() != expectedBarcode ||
+      prepared.printRequest.epc.trim().toUpperCase() != expectedBarcode) {
+    throw MobileApiException(
+      code: 'raw_material_stock_reprint_identity_mismatch',
+      message: l10n.adminText('warehouse.qr_identity_mismatch'),
+    );
+  }
+  final result = await PrintService.printRps(prepared.printRequest);
+  if (!result.ok) {
+    throw StateError(l10n.adminText('warehouse.qr_printer_failed'));
+  }
+  try {
+    await MobileApi.instance.adminConfirmRawMaterialStockReprint(
+      barcode: prepared.stock.barcode,
+      reprintId: prepared.reprintId,
+    );
+    return null;
+  } catch (_) {
+    return l10n.adminText('warehouse.qr_confirmation_failed');
   }
 }
