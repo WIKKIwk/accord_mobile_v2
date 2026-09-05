@@ -394,7 +394,7 @@ Widget _productionMapOrderImageThumbnail({
       ? ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: ImageFade(
-            image: MemoryImage(Uint8List.fromList(imageBytes!)),
+            image: MemoryImage(Uint8List.fromList(imageBytes)),
             key: const ValueKey('production-order-detail-photo'),
             width: 44,
             height: 44,

@@ -126,7 +126,7 @@ void main() {
       () {
     final screenSource = File(
       'lib/src/features/admin/presentation/'
-      'admin_production_map_orders_screen.dart',
+      'admin_production_map_orders_screen_state.dart',
     ).readAsStringSync();
     final screenStart = screenSource.indexOf(
       'Future<void> _handleWorkerFabQr(String qrPayload)',

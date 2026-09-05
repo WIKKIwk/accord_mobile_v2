@@ -182,10 +182,6 @@ ApparatusQueueOrderState? _orderMapNodeStatus(
   );
 }
 
-bool _orderMapNodeMatchesStation(ProductionMapNode node, String station) {
-  return productionMapNodeMatchesStation(node: node, station: station);
-}
-
 bool _orderMapStepIsIntro({
   required List<ProductionMapNode> steps,
   required int index,
