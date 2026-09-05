@@ -4,14 +4,13 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/navigation/native_back_button.dart';
+import '../../admin/presentation/widgets/admin_summary_card.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/werka_dock.dart';
 import 'package:flutter/material.dart';
 
 class WerkaArchiveScreen extends StatelessWidget {
   const WerkaArchiveScreen({super.key});
-
-  static const int _entryCount = 3;
 
   @override
   Widget build(BuildContext context) {
@@ -29,11 +28,11 @@ class WerkaArchiveScreen extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(0, 4, 0, bottomPadding),
         children: [
           M3SegmentSpacedColumn(
-            padding: const EdgeInsets.symmetric(horizontal: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             children: [
               _WerkaArchiveSegmentTile(
-                index: 0,
-                itemCount: _entryCount,
+                slot: M3SegmentVerticalSlot.top,
+                cornerRadius: M3SegmentedListGeometry.cornerLarge,
                 title: context.l10n.archiveReceivedTitle,
                 icon: Icons.inventory_2_outlined,
                 onTap: () => Navigator.of(context).pushNamed(
@@ -42,8 +41,8 @@ class WerkaArchiveScreen extends StatelessWidget {
                 ),
               ),
               _WerkaArchiveSegmentTile(
-                index: 1,
-                itemCount: _entryCount,
+                slot: M3SegmentVerticalSlot.middle,
+                cornerRadius: M3SegmentedListGeometry.cornerMiddle,
                 title: context.l10n.archiveSentTitle,
                 icon: Icons.outbox_outlined,
                 onTap: () => Navigator.of(
@@ -51,8 +50,8 @@ class WerkaArchiveScreen extends StatelessWidget {
                 ).pushNamed(AppRoutes.werkaArchiveSentHub),
               ),
               _WerkaArchiveSegmentTile(
-                index: 2,
-                itemCount: _entryCount,
+                slot: M3SegmentVerticalSlot.bottom,
+                cornerRadius: M3SegmentedListGeometry.cornerLarge,
                 title: context.l10n.archiveReturnedTitle,
                 icon: Icons.assignment_return_outlined,
                 onTap: () => Navigator.of(context).pushNamed(
@@ -70,51 +69,31 @@ class WerkaArchiveScreen extends StatelessWidget {
 
 class _WerkaArchiveSegmentTile extends StatelessWidget {
   const _WerkaArchiveSegmentTile({
-    required this.index,
-    required this.itemCount,
+    required this.slot,
+    required this.cornerRadius,
     required this.title,
     required this.icon,
     required this.onTap,
   });
 
-  final int index;
-  final int itemCount;
+  final M3SegmentVerticalSlot slot;
+  final double cornerRadius;
   final String title;
   final IconData icon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final slot = M3SegmentedListGeometry.standaloneListSlotForIndex(
-      index,
-      itemCount,
-    );
-    final r = M3SegmentedListGeometry.cornerRadiusForSlot(slot);
-
-    return M3SegmentFilledSurface(
+    final scheme = Theme.of(context).colorScheme;
+    return AdminSummaryCard(
       slot: slot,
-      cornerRadius: r,
+      cornerRadius: cornerRadius,
+      backgroundColor: scheme.surfaceContainerLowest,
+      title: title,
+      value: '',
+      leading: Icon(icon, size: 23, color: scheme.onSurfaceVariant),
       onTap: onTap,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 66),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: Row(
-            children: [
-              Icon(icon, size: 22, color: scheme.onSurfaceVariant),
-              const SizedBox(width: 14),
-              Expanded(child: Text(title, style: theme.textTheme.titleMedium)),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 22,
-                color: scheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-      ),
+      elevation: 4,
     );
   }
 }
