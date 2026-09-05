@@ -2,6 +2,7 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _OrderStartUnifiedCard extends StatelessWidget {
   const _OrderStartUnifiedCard({
+    required this.uiState,
     required this.apparatusCatalog,
     required this.orderCode,
     required this.orderImageBytes,
@@ -10,42 +11,17 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.productTitle,
     required this.customerName,
     required this.workerMode,
-    required this.contractSynchronized,
     required this.showContractWarning,
-    required this.blockingReasonCode,
-    required this.showBackendBlockingState,
-    required this.startAssignments,
-    required this.intakeCandidateAssignments,
-    required this.assignedAssignments,
-    required this.showStartMaterials,
-    required this.showIntakeCandidates,
-    required this.materialIntakeAllowed,
     required this.materialsLoading,
     required this.materialsError,
     required this.materialStartReady,
     required this.materialStartBlockingText,
-    required this.scannedBarcodes,
-    required this.scannedCount,
-    required this.requiredCount,
-    required this.showStart,
-    required this.allMaterialsScanned,
     required this.actionInFlight,
     required this.materialIntakeInFlight,
     required this.materialIntakeMode,
     required this.intakeCandidatesExpanded,
     required this.onToggleIntakeCandidatesExpanded,
-    required this.showPause,
     required this.pauseLabel,
-    required this.showMerge,
-    required this.showRollComplete,
-    required this.showComplete,
-    required this.showResume,
-    required this.showWaitingForPrevious,
-    required this.showWaitingForSequence,
-    required this.previousStage,
-    required this.openingWipRequired,
-    required this.previousProgressRequired,
-    required this.previousProgressReady,
     required this.previousProgressBatch,
     required this.openingWipBatch,
     required this.openingWipBatches,
@@ -85,42 +61,17 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final String productTitle;
   final String? customerName;
   final bool workerMode;
-  final bool contractSynchronized;
   final bool showContractWarning;
-  final String blockingReasonCode;
-  final bool showBackendBlockingState;
-  final List<AdminRawMaterialAssignment> startAssignments;
-  final List<AdminRawMaterialAssignment> intakeCandidateAssignments;
-  final List<AdminRawMaterialAssignment> assignedAssignments;
-  final bool showStartMaterials;
-  final bool showIntakeCandidates;
-  final bool materialIntakeAllowed;
   final bool materialsLoading;
   final String materialsError;
   final bool materialStartReady;
   final String materialStartBlockingText;
-  final Set<String> scannedBarcodes;
-  final int scannedCount;
-  final int requiredCount;
-  final bool showStart;
-  final bool allMaterialsScanned;
   final bool actionInFlight;
   final bool materialIntakeInFlight;
   final bool materialIntakeMode;
   final bool intakeCandidatesExpanded;
   final VoidCallback onToggleIntakeCandidatesExpanded;
-  final bool showPause;
   final String pauseLabel;
-  final bool showMerge;
-  final bool showRollComplete;
-  final bool showComplete;
-  final bool showResume;
-  final bool showWaitingForPrevious;
-  final bool showWaitingForSequence;
-  final String? previousStage;
-  final bool openingWipRequired;
-  final bool previousProgressRequired;
-  final bool previousProgressReady;
   final AdminProgressBatch? previousProgressBatch;
   final AdminOpeningWipBatch? openingWipBatch;
   final List<AdminOpeningWipBatch> openingWipBatches;
@@ -152,6 +103,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final void Function(AdminRawMaterialAssignment assignment)? onUnlinkMaterial;
   final String unlinkingMaterialBarcode;
 
+  final _ReadOnlyOrderDetailUiState uiState;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -171,35 +124,38 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           );
     final orderControlBlocked =
         orderControlState != AdminOrderControlState.active;
-    final hasActions = showStart ||
-        showPause ||
-        showMerge ||
-        showComplete ||
-        showResume ||
-        showWaitingForPrevious ||
-        showWaitingForSequence;
-    final showContractSyncNotice = showContractWarning && !contractSynchronized;
-    final showBackendBlockingNotice = showBackendBlockingState &&
+    final hasActions = uiState.showStart ||
+        uiState.showPause ||
+        uiState.showMerge ||
+        uiState.showComplete ||
+        uiState.showResume ||
+        uiState.showWaitingForPrevious ||
+        uiState.showWaitingForSequence;
+    final showContractSyncNotice =
+        showContractWarning && !uiState.contractSynchronized;
+    final showBackendBlockingNotice = uiState.showBackendBlockingState &&
         !orderControlBlocked &&
-        !showWaitingForPrevious &&
-        !showWaitingForSequence;
-    final backendBlockingText = switch (blockingReasonCode.trim()) {
+        !uiState.showWaitingForPrevious &&
+        !uiState.showWaitingForSequence;
+    final backendBlockingText = switch (uiState.blockingReasonCode.trim()) {
       'raw_material_assignment_required' => context.l10n.productionText(
           'worker.error.incomplete_material_groups',
         ),
       'order_frozen' => context.l10n.productionText('worker.freeze.active'),
       _ => context.l10n.productionText('worker.error.sync'),
     };
-    final showRezkaInputProgressScan = previousProgressRequired && showStart;
-    final hasIntakeCandidates = intakeCandidateAssignments.isNotEmpty;
-    final showMaterialIntake = materialIntakeAllowed && hasIntakeCandidates;
+    final showRezkaInputProgressScan =
+        uiState.previousProgressRequired && uiState.showStart;
+    final hasIntakeCandidates = uiState.intakeCandidateAssignments.isNotEmpty;
+    final showMaterialIntake =
+        uiState.materialIntakeAllowed && hasIntakeCandidates;
     final intakeCandidatesExpandable = materialsLoading ||
         materialsError.trim().isNotEmpty ||
         hasIntakeCandidates;
     final attachedMaterialsExpandable = materialsLoading ||
         materialsError.trim().isNotEmpty ||
-        assignedAssignments.isNotEmpty;
-    final startMaterialsExpandable = startAssignments.isNotEmpty;
+        uiState.assignedMaterialAssignments.isNotEmpty;
+    final startMaterialsExpandable = uiState.materialAssignments.isNotEmpty;
     final qolipsExpandable = requiredQolips.isNotEmpty;
     final customer = customerName?.trim() ?? '';
     final product = productTitle.trim();
@@ -328,7 +284,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          if (showStartMaterials) ...[
+          if (uiState.showStartMaterials) ...[
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-start-materials-expansion'),
               title: context.l10n.productionText(
@@ -336,10 +292,12 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                     ? 'worker.materials.start'
                     : 'worker.materials.start.empty',
               ),
-              countText:
-                  materialsLoading ? '...' : '$scannedCount/$requiredCount',
+              countText: materialsLoading
+                  ? '...'
+                  : '${uiState.scannedCount}/${uiState.materialRequiredCount}',
               expanded: startMaterialsExpandable && startMaterialsExpanded,
-              complete: requiredCount > 0 && allMaterialsScanned,
+              complete: uiState.materialRequiredCount > 0 &&
+                  uiState.allMaterialsScanned,
               onTap: startMaterialsExpandable
                   ? onToggleStartMaterialsExpanded
                   : null,
@@ -347,14 +305,14 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             if (startMaterialsExpandable && startMaterialsExpanded) ...[
               const SizedBox(height: 12),
               _RawMaterialAssignmentsExpansionBody(
-                assignments: startAssignments,
+                assignments: uiState.materialAssignments,
                 apparatusCatalog: apparatusCatalog,
                 loading: materialsLoading,
                 error: materialsError,
                 emptyText: context.l10n.productionText(
                   'worker.materials.start.empty',
                 ),
-                scannedBarcodes: scannedBarcodes,
+                scannedBarcodes: uiState.confirmedMaterialBarcodes,
                 allowUnlink: allowMaterialUnlink,
                 onUnlink: onUnlinkMaterial,
                 unlinkingBarcode: unlinkingMaterialBarcode,
@@ -381,7 +339,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               height: 28,
               color: scheme.outlineVariant.withValues(alpha: 0.5),
             ),
-          ] else if (showIntakeCandidates) ...[
+          ] else if (uiState.showIntakeCandidates) ...[
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-intake-materials-expansion'),
               title: context.l10n.productionText(
@@ -392,7 +350,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               countText: materialsLoading
                   ? '...'
                   : context.l10n.productionCount(
-                      intakeCandidateAssignments.length,
+                      uiState.intakeCandidateAssignments.length,
                       kind: 'materials',
                     ),
               expanded: intakeCandidatesExpandable && intakeCandidatesExpanded,
@@ -404,7 +362,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             if (intakeCandidatesExpandable && intakeCandidatesExpanded) ...[
               const SizedBox(height: 12),
               _RawMaterialAssignmentsExpansionBody(
-                assignments: intakeCandidateAssignments,
+                assignments: uiState.intakeCandidateAssignments,
                 apparatusCatalog: apparatusCatalog,
                 loading: materialsLoading,
                 error: materialsError,
@@ -432,7 +390,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             countText: materialsLoading
                 ? '...'
                 : context.l10n.productionCount(
-                    assignedAssignments.length,
+                    uiState.assignedMaterialAssignments.length,
                     kind: 'materials',
                   ),
             expanded: attachedMaterialsExpandable && materialsExpanded,
@@ -443,20 +401,20 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           if (attachedMaterialsExpandable && materialsExpanded) ...[
             const SizedBox(height: 12),
             _RawMaterialAssignmentsExpansionBody(
-              assignments: assignedAssignments,
+              assignments: uiState.assignedMaterialAssignments,
               apparatusCatalog: apparatusCatalog,
               loading: materialsLoading,
               error: materialsError,
               emptyText: context.l10n.productionText(
                 'worker.materials.attached.empty',
               ),
-              scannedBarcodes: scannedBarcodes,
+              scannedBarcodes: uiState.confirmedMaterialBarcodes,
               allowUnlink: allowMaterialUnlink,
               onUnlink: onUnlinkMaterial,
               unlinkingBarcode: unlinkingMaterialBarcode,
             ),
           ],
-          if (showStart && requiresQolipScan) ...[
+          if (uiState.showStart && requiresQolipScan) ...[
             Divider(
               height: 28,
               color: scheme.outlineVariant.withValues(alpha: 0.5),
@@ -495,11 +453,11 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 height: 28,
                 color: scheme.outlineVariant.withValues(alpha: 0.5)),
             if (showRezkaInputProgressScan) ...[
-              if (openingWipRequired)
+              if (uiState.openingWipRequired)
                 _OpeningWipQrTile(
-                  previousStage: previousStage ?? '',
+                  previousStage: uiState.previousStage ?? '',
                   apparatusCatalog: apparatusCatalog,
-                  ready: previousProgressReady,
+                  ready: uiState.previousProgressReady,
                   batch: openingWipBatch,
                   availableBatches: openingWipBatches,
                   loading: inputProgressLoading,
@@ -507,9 +465,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 )
               else
                 _PreviousProgressQrTile(
-                  previousStage: previousStage ?? '',
+                  previousStage: uiState.previousStage ?? '',
                   apparatusCatalog: apparatusCatalog,
-                  ready: previousProgressReady,
+                  ready: uiState.previousProgressReady,
                   batch: previousProgressBatch,
                   availableBatches: inputProgressBatches,
                   loading: inputProgressLoading,
@@ -583,13 +541,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               duration: AppMotion.medium,
               curve: AppMotion.standardDecelerate,
               alignment: Alignment.topCenter,
-              child: showStart
+              child: uiState.showStart
                   ? FilledButton.icon(
                       key: const ValueKey('production-order-start-action'),
                       onPressed: actionInFlight ||
                               !materialStartReady ||
                               (requiresQolipScan && !qolipScanned) ||
-                              !previousProgressReady
+                              !uiState.previousProgressReady
                           ? null
                           : onStart,
                       icon: const Icon(Icons.play_arrow_rounded),
@@ -626,7 +584,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               duration: AppMotion.medium,
               curve: AppMotion.standardDecelerate,
               alignment: Alignment.topCenter,
-              child: showPause || showComplete
+              child: uiState.showPause || uiState.showComplete
                   ? Column(
                       key: const ValueKey(
                         'production-order-pause-complete-visible',
@@ -635,7 +593,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                         const SizedBox(height: 10),
                         Row(
                           children: [
-                            if (showPause)
+                            if (uiState.showPause)
                               Expanded(
                                 child: OutlinedButton(
                                   onPressed: actionInFlight ? null : onPause,
@@ -658,9 +616,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                                   child: Text(pauseLabel),
                                 ),
                               ),
-                            if (showPause && showComplete)
+                            if (uiState.showPause && uiState.showComplete)
                               const SizedBox(width: 10),
-                            if (showComplete)
+                            if (uiState.showComplete)
                               Expanded(
                                 child: FilledButton(
                                   onPressed: actionInFlight ? null : onComplete,
@@ -700,7 +658,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               duration: AppMotion.medium,
               curve: AppMotion.standardDecelerate,
               alignment: Alignment.topCenter,
-              child: showMerge
+              child: uiState.showMerge
                   ? Column(
                       key: const ValueKey(
                         'production-order-merge-visible',
@@ -734,7 +692,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               duration: AppMotion.medium,
               curve: AppMotion.standardDecelerate,
               alignment: Alignment.topCenter,
-              child: showResume
+              child: uiState.showResume
                   ? Column(
                       key: const ValueKey('production-order-resume-visible'),
                       children: [
@@ -758,7 +716,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                       key: ValueKey('production-order-resume-hidden'),
                     ),
             ),
-            if (showWaitingForPrevious && previousStage != null) ...[
+            if (uiState.showWaitingForPrevious &&
+                uiState.previousStage != null) ...[
               const SizedBox(height: 10),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -775,7 +734,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                         'worker.waiting.previous',
                         values: {
                           'stage': canonicalApparatusDisplayLabel(
-                            previousStage!,
+                            uiState.previousStage!,
                             apparatusCatalog,
                           ),
                         },
@@ -789,7 +748,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 ],
               ),
             ],
-            if (showWaitingForSequence) ...[
+            if (uiState.showWaitingForSequence) ...[
               const SizedBox(height: 10),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
