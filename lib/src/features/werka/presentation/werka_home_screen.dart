@@ -11,6 +11,7 @@ import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/display/motion_widgets.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
+import '../../admin/presentation/widgets/admin_summary_card.dart';
 import '../../shared/models/app_models.dart';
 import '../state/werka_store.dart';
 import 'widgets/werka_dock.dart';
@@ -214,37 +215,43 @@ class _WerkaSummaryList extends StatelessWidget {
   Widget build(BuildContext context) {
     return SmoothAppear(
       child: M3SegmentSpacedColumn(
-        padding: const EdgeInsets.symmetric(horizontal: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         children: [
-          AppSummarySegmentCard(
+          AdminSummaryCard(
             slot: M3SegmentVerticalSlot.top,
             cornerRadius: M3SegmentedListGeometry.cornerLarge,
-            label: context.l10n.pendingStatus,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+            title: context.l10n.pendingStatus,
             value: summary.pendingCount.toString(),
             onTap: () => Navigator.of(context).pushNamed(
               AppRoutes.werkaStatusBreakdown,
               arguments: WerkaStatusKind.pending,
             ),
+            elevation: 4,
           ),
-          AppSummarySegmentCard(
+          AdminSummaryCard(
             slot: M3SegmentVerticalSlot.middle,
             cornerRadius: M3SegmentedListGeometry.cornerMiddle,
-            label: context.l10n.confirmedStatus,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+            title: context.l10n.confirmedStatus,
             value: summary.confirmedCount.toString(),
             onTap: () => Navigator.of(context).pushNamed(
               AppRoutes.werkaStatusBreakdown,
               arguments: WerkaStatusKind.confirmed,
             ),
+            elevation: 4,
           ),
-          AppSummarySegmentCard(
+          AdminSummaryCard(
             slot: M3SegmentVerticalSlot.bottom,
             cornerRadius: M3SegmentedListGeometry.cornerLarge,
-            label: context.l10n.returnedStatus,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+            title: context.l10n.returnedStatus,
             value: summary.returnedCount.toString(),
             onTap: () => Navigator.of(context).pushNamed(
               AppRoutes.werkaStatusBreakdown,
               arguments: WerkaStatusKind.returned,
             ),
+            elevation: 4,
           ),
         ],
       ),
