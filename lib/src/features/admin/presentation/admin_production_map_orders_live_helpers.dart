@@ -169,7 +169,6 @@ enum CanonicalSnapshotDecision {
   applyLegacy
 }
 
-// Private alias kept for existing call sites inside the screen library.
 typedef _CanonicalSnapshotDecision = CanonicalSnapshotDecision;
 
 CanonicalSnapshotDecision canonicalSnapshotDecision({

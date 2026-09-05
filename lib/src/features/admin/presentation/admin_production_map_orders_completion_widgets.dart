@@ -7,7 +7,6 @@ class _CompletionRequestsSection extends StatelessWidget {
     required this.expandedRequestId,
     required this.onExpandedChanged,
   });
-
   final List<AdminCompletionRequestNotification> requests;
   final List<AdminApparatus> apparatusCatalog;
   final String? expandedRequestId;
@@ -71,7 +70,6 @@ class _CompletionRequestRow extends StatelessWidget {
     required this.expanded,
     required this.onExpandedChanged,
   });
-
   final M3SegmentVerticalSlot slot;
   final AdminCompletionRequestNotification request;
   final String apparatusLabel;
@@ -220,7 +218,6 @@ class _CompletionRequestDetail extends StatelessWidget {
     required this.request,
     required this.apparatusLabel,
   });
-
   final AdminCompletionRequestNotification request;
   final String apparatusLabel;
 

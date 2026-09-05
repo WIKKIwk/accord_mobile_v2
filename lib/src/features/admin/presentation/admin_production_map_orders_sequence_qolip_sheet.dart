@@ -2,7 +2,6 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _SequenceQolipSheet extends StatefulWidget {
   const _SequenceQolipSheet({required this.order});
-
   final ProductionMapSaved order;
 
   @override

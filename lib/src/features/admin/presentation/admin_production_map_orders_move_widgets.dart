@@ -2,7 +2,6 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _MoveDragPayload {
   const _MoveDragPayload({required this.orders, required this.source});
-
   final List<ProductionMapSaved> orders;
   final AdminApparatus source;
 }
@@ -18,7 +17,6 @@ class _MoveOrderCard extends StatelessWidget {
     this.trailing,
     this.borderRadiusOverride,
   });
-
   final ProductionMapSaved order;
   final int index;
   final M3SegmentVerticalSlot slot;
@@ -49,7 +47,6 @@ class _MoveOrderCard extends StatelessWidget {
 
 class _MoveDragHandle extends StatelessWidget {
   const _MoveDragHandle({required this.color});
-
   final Color color;
 
   @override
@@ -63,7 +60,6 @@ class _MoveDragHandle extends StatelessWidget {
 
 class _MoveEmptyZone extends StatelessWidget {
   const _MoveEmptyZone({required this.apparatus});
-
   final AdminApparatus apparatus;
 
   @override
@@ -99,7 +95,6 @@ class _MoveDropZone extends StatelessWidget {
     required this.onDragEnded,
     required this.onMove,
   });
-
   final AdminApparatus apparatus;
   final List<ProductionMapSaved> orders;
   final Set<String> selectedOrderIds;
@@ -246,7 +241,6 @@ class _MoveApparatusHeader extends StatelessWidget {
     required this.alignment,
     required this.onTap,
   });
-
   final AdminApparatus apparatus;
   final Alignment alignment;
   final VoidCallback onTap;
@@ -306,7 +300,6 @@ class _MoveBoundary extends StatelessWidget {
     required this.onTap,
     required this.onVerticalDragUpdate,
   });
-
   final AdminApparatus apparatus;
   final VoidCallback onTap;
   final ValueChanged<double> onVerticalDragUpdate;
@@ -354,7 +347,6 @@ class _MoveOrderTile extends StatelessWidget {
     required this.onDragStarted,
     required this.onDragEnded,
   });
-
   final ProductionMapSaved order;
   final AdminApparatus source;
   final int index;

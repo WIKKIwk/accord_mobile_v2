@@ -8,7 +8,6 @@ class _ApparatusPickerSheet extends StatelessWidget {
     this.showUnassigned = false,
     this.unassignedOrderCount = 0,
   });
-
   final List<AdminApparatus> apparatus;
   final AdminApparatus? selected;
   final int Function(AdminApparatus apparatus)? orderCountFor;
@@ -61,7 +60,6 @@ class _ApparatusPickerList extends StatelessWidget {
     this.showUnassigned = false,
     this.unassignedOrderCount = 0,
   });
-
   final List<AdminApparatus> apparatus;
   final AdminApparatus? selected;
   final int Function(AdminApparatus apparatus)? orderCountFor;
@@ -114,7 +112,6 @@ class _ApparatusRow extends StatelessWidget {
     required this.orderCount,
     required this.onTap,
   });
-
   final M3SegmentVerticalSlot slot;
   final AdminApparatus apparatus;
   final bool selected;

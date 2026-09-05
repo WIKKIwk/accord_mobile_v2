@@ -5,7 +5,6 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
       _showRezkaFrameInputs &&
       _rezkaReport != null &&
       !_isFreezeRequestSafeStop;
-
   String _rezkaText(String key, {Map<String, Object> values = const {}}) =>
       context.l10n.productionText('worker.rezka.print.$key', values: values);
 

@@ -47,7 +47,6 @@ class _ReadOnlyQueueActionRequest {
     this.freezeWithIssue = false,
     this.issueNote = '',
   });
-
   final AdminApparatus apparatus;
   final ProductionMapSaved order;
   final String action;
@@ -89,10 +88,10 @@ class _ReadOnlyQueueActionRequest {
 
 class _WorkerWatchTab {
   const _WorkerWatchTab.apparatus(this.apparatus) : isCompleted = false;
+
   const _WorkerWatchTab.completed()
       : apparatus = null,
         isCompleted = true;
-
   final AdminApparatus? apparatus;
   final bool isCompleted;
 }
@@ -104,12 +103,10 @@ class _WorkerCompletedOrderEntry {
     required this.status,
     required this.issueNote,
   });
-
   final ProductionMapSaved order;
   final AdminApparatus? apparatus;
   final String status;
   final String issueNote;
-
   bool get isInProgress => status.trim().toLowerCase() == 'in_progress';
   bool get isFrozen => status.trim().toLowerCase() == 'frozen';
   bool get hasFreezeIssue => isFrozen || issueNote.trim().isNotEmpty;
@@ -120,7 +117,6 @@ class _MoveApparatusDefaults {
     required this.top,
     required this.bottom,
   });
-
   final AdminApparatus? top;
   final AdminApparatus? bottom;
 }
@@ -130,7 +126,6 @@ class _ProductionMapOrdersAndApparatus {
     required this.orders,
     required this.apparatus,
   });
-
   final List<ProductionMapSaved> orders;
   final List<AdminApparatus> apparatus;
 }
@@ -141,7 +136,6 @@ class _ProductionMapOrderMetrics {
     required this.orderKgByMapId,
     required this.customerByMapId,
   });
-
   final Map<String, double> baseMetrajByMapId;
   final Map<String, double> orderKgByMapId;
   final Map<String, String> customerByMapId;
@@ -182,7 +176,6 @@ class _ReadOnlyOrderDetailUiState {
     required this.blockingReasonCode,
     required this.showBackendBlockingState,
   });
-
   final String orderId;
   final String station;
   final String stageNodeId;
@@ -221,7 +214,6 @@ class _ReadOnlyOrderDetailUiState {
   final bool contractSynchronized;
   final String blockingReasonCode;
   final bool showBackendBlockingState;
-
   int get scannedCount => materialScannedCount;
 }
 
@@ -235,7 +227,6 @@ class _PreparedReadOnlyQueueAction {
     required this.startInputQrPayload,
     this.blockReason,
   });
-
   final AdminApparatus apparatus;
   final _ReadOnlyQueueActionCallback onQueueAction;
   final List<AdminRawMaterialAssignment> materialAssignments;

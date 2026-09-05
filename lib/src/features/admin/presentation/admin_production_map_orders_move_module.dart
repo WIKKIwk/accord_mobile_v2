@@ -18,7 +18,6 @@ class _MoveModulePage extends StatefulWidget {
     required this.onDragEnded,
     required this.onMove,
   });
-
   final AdminApparatus? topApparatus;
   final AdminApparatus? bottomApparatus;
   final List<ProductionMapSaved> topOrders;
@@ -55,27 +54,37 @@ class _MoveModulePageState extends State<_MoveModulePage> {
   double _topZoneRatio = 0.5;
 
   AdminApparatus? get topApparatus => widget.topApparatus;
+
   AdminApparatus? get bottomApparatus => widget.bottomApparatus;
   List<ProductionMapSaved> get topOrders => widget.topOrders;
   List<ProductionMapSaved> get bottomOrders => widget.bottomOrders;
+
   Set<String> get selectedOrderIds => widget.selectedOrderIds;
   List<ProductionMapSaved> get draggingOrders => widget.draggingOrders;
+
   AdminApparatus? get draggingSource => widget.draggingSource;
   bool Function(
     ProductionMapSaved order,
     AdminApparatus target,
     AdminApparatus source,
   ) get canMoveTo => widget.canMoveTo;
+
   VoidCallback get onPickTop => widget.onPickTop;
+
   VoidCallback get onPickBottom => widget.onPickBottom;
+
   ValueChanged<String> get onToggleSelect => widget.onToggleSelect;
+
   _MoveDragPayload Function({
     required ProductionMapSaved order,
     required AdminApparatus source,
     required List<ProductionMapSaved> zoneOrders,
   }) get buildDragPayload => widget.buildDragPayload;
+
   ValueChanged<_MoveDragPayload> get onDragStarted => widget.onDragStarted;
+
   VoidCallback get onDragEnded => widget.onDragEnded;
+
   Future<void> Function({
     required List<ProductionMapSaved> orders,
     required AdminApparatus from,

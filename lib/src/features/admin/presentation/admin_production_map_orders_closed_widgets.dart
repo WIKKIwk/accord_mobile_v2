@@ -7,7 +7,6 @@ class _ClosedOrdersModulePage extends StatelessWidget {
     required this.apparatusCatalog,
     required this.visibleClosedOrders,
   });
-
   final double bottomPadding;
   final List<AdminClosedProductionOrder> closedOrders;
   final List<AdminApparatus> apparatusCatalog;
@@ -59,7 +58,6 @@ class _ClosedOrderTile extends StatelessWidget {
     required this.apparatusCatalog,
     required this.index,
   });
-
   final M3SegmentVerticalSlot slot;
   final AdminClosedProductionOrder order;
   final List<AdminApparatus> apparatusCatalog;
@@ -149,7 +147,6 @@ class _ClosedOrderLogList extends StatelessWidget {
     required this.logs,
     required this.apparatusCatalog,
   });
-
   final AdminClosedProductionOrder order;
   final List<AdminProductionOrderLogEntry> logs;
   final List<AdminApparatus> apparatusCatalog;
@@ -177,7 +174,6 @@ class _ClosedOrderLogRow extends StatelessWidget {
     required this.log,
     required this.apparatusCatalog,
   });
-
   final AdminClosedProductionOrder order;
   final AdminProductionOrderLogEntry log;
   final List<AdminApparatus> apparatusCatalog;

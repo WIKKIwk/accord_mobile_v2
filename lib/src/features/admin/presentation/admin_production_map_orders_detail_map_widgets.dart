@@ -15,7 +15,6 @@ class _OrderMapProgressCard extends StatelessWidget {
     required this.onToggleExpanded,
     required this.onTapApparatus,
   });
-
   final bool workerMode;
   final List<ProductionMapNode> steps;
   final List<AdminApparatus> apparatusCatalog;
@@ -49,9 +48,7 @@ class _OrderMapProgressCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Column(
                     children: [
-                      for (var index = 0;
-                          index < steps.length;
-                          index++) ...[
+                      for (var index = 0; index < steps.length; index++) ...[
                         _SequenceStepTile(
                           node: steps[index],
                           operation: _canonicalNodeOperation(
