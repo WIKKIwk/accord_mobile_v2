@@ -18,6 +18,15 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   bool _descriptionFieldRevealed = false;
   late final List<_RezkaFrameControllers> _rezkaFrameControllers;
   final Set<int> _rezkaFrameIssuePrompted = <int>{};
+  AdminRezkaOutputReport? _rezkaReport;
+  bool _rezkaPrintBusy = false;
+  bool _rezkaSyncRequired = false;
+  final Map<int, String> _rezkaPrintStatus = {};
+  _ProgressPrinterOption? _rezkaPrinter;
+
+  void _updateRezkaPrint(VoidCallback update) {
+    if (mounted) setState(update);
+  }
 
   @override
   void initState() {
@@ -26,6 +35,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       for (var index = 0; index < _rezkaFrameCount; index += 1)
         _RezkaFrameControllers(),
     ];
+    _restoreRezkaOutputReport(widget.rezkaOutputReport);
     for (final frame in _rezkaFrameControllers) {
       frame.meter.addListener(_onRezkaFrameInputChanged);
       frame.kg.addListener(_onRezkaFrameInputChanged);
@@ -55,6 +65,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      __ProgressQtyDialogState_resplit2BuildAstPart(context);
+  Widget build(BuildContext context) => PopScope(
+        canPop: !_rezkaPrintBusy,
+        child: __ProgressQtyDialogState_resplit2BuildAstPart(context),
+      );
 }

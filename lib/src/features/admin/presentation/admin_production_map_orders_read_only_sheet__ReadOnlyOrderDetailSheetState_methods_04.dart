@@ -31,6 +31,16 @@ extension __ReadOnlyOrderDetailSheetStateAstPart04
       _returnedPaintDraftScope = scope;
     }
     if (!mounted) return _ProgressActionOutcome.cancelled;
+    if (widget.apparatus?.operation.trim() == 'cut') {
+      try {
+        final latest = await _loadCurrentQueueActionControl();
+        if (!mounted) return _ProgressActionOutcome.cancelled;
+        _queueActionControl = latest;
+      } catch (_) {
+        _showSheetNotice(context.l10n.productionText('worker.error.sync'));
+        return _ProgressActionOutcome.failed;
+      }
+    }
     final rezkaOutputKadrCounts =
         _queueActionControl?.rezkaOutputKadrCounts ?? const <int>[];
     final requiresRezkaOutputs = widget.apparatus?.operation.trim() == 'cut' &&
@@ -56,6 +66,13 @@ extension __ReadOnlyOrderDetailSheetStateAstPart04
       removeRollFromApparatus: removeRollFromApparatus,
       freezeRequestSafeStop: freezeRequestSafeStop,
       rezkaOutputKadrCounts: rezkaOutputKadrCounts,
+      rezkaOutputReport: _queueActionControl?.rezkaOutputReport,
+      progressDriverUrlPicker: widget.progressDriverUrlPicker,
+      reloadRezkaOutputReport: () async {
+        final latest = await _loadCurrentQueueActionControl();
+        if (mounted) _queueActionControl = latest;
+        return latest?.rezkaOutputReport;
+      },
     );
     if (!mounted || input == null) {
       return _ProgressActionOutcome.cancelled;
@@ -103,7 +120,22 @@ extension __ReadOnlyOrderDetailSheetStateAstPart04
     }
     final hasHealthyRezkaFrame = input.rezkaFrames.isEmpty ||
         input.rezkaFrames.any((frame) => !frame.isIssue);
-    if ((action == 'roll_complete' || action == 'complete') &&
+    final allHealthyRollsRecorded = input.rezkaRecordedFrameCount > 0 &&
+        input.rezkaRecordedFrameCount ==
+            input.rezkaFrames.where((frame) => !frame.isIssue).length;
+    if (allHealthyRollsRecorded && !isTrainingOrder) {
+      final completed = await _runQueueAction(action,
+          progressInput: input,
+          uom: 'm',
+          freezeRequestId: freezeRequest?.requestId ?? '');
+      return completed
+          ? _ProgressActionOutcome.completed
+          : _ProgressActionOutcome.failed;
+    }
+    if ((action == 'roll_complete' ||
+            action == 'complete' ||
+            action == 'pause' ||
+            action == 'detach_roll') &&
         !hasHealthyRezkaFrame &&
         !isTrainingOrder) {
       final completed = await _runQueueAction(

@@ -132,6 +132,83 @@ const _app_localizations_declarations__productionTranslations_resplitPart09 = {
     'en': 'Frame {index}',
     'ru': '{index}-й кадр',
   },
+  'worker.rezka.print.issue': {
+    'uz': 'Muammo',
+    'en': 'Issue',
+    'ru': 'Проблема',
+  },
+  'worker.rezka.print.issue_note': {
+    'uz': 'Muammo izohi',
+    'en': 'Issue explanation',
+    'ru': 'Описание проблемы',
+  },
+  'worker.rezka.print.issue_required': {
+    'uz': 'Muammo izohini kiriting.',
+    'en': 'Enter an issue explanation.',
+    'ru': 'Опишите проблему.',
+  },
+  'worker.rezka.print.issue_saved': {
+    'uz': 'Muammo saqlandi · karta qulflangan',
+    'en': 'Issue saved · card locked',
+    'ru': 'Проблема сохранена · карточка заблокирована',
+  },
+  'worker.rezka.print.issue_save_failed': {
+    'uz': 'Muammo saqlanmadi. Qayta urinib ko‘ring.',
+    'en': 'Issue not saved. Try again.',
+    'ru': 'Проблема не сохранена. Повторите попытку.',
+  },
+  'worker.rezka.print.progress_with_issues': {
+    'uz': '{healthy} ta rulon · {issues} ta muammo · {pending} ta kutilmoqda',
+    'en': '{healthy} rolls · {issues} issues · {pending} pending',
+    'ru': '{healthy} рулонов · {issues} проблем · ожидается {pending}',
+  },
+  'worker.rezka.print.print': {
+    "uz": "Print",
+    "en": "Print",
+    "ru": "Печать",
+  },
+  'worker.rezka.print.reprint': {
+    "uz": "Qayta chop etish",
+    "en": "Reprint",
+    "ru": "Повторная печать",
+  },
+  'worker.rezka.print.fill_roll': {
+    "uz": "Shu rulonning metraj, og‘irlik, babina va diametrini kiriting.",
+    "en": "Enter this roll’s length, weight, core weight and diameter.",
+    "ru": "Введите метраж, вес, вес бобины и диаметр этого рулона.",
+  },
+  'worker.rezka.print.saved': {
+    "uz": "Saqlandi · ma’lumotlar qulflangan",
+    "en": "Saved · fields locked",
+    "ru": "Сохранено · поля заблокированы",
+  },
+  'worker.rezka.print.printed': {
+    "uz": "Chop etildi · QRni shu rulonga yopishtiring",
+    "en": "Printed · attach the QR to this roll",
+    "ru": "Напечатано · наклейте QR на этот рулон",
+  },
+  'worker.rezka.print.saved_print_failed': {
+    "uz": "Saqlandi. Chop etish tasdiqlanmadi — qayta chop etishingiz mumkin.",
+    "en": "Saved. Printing was not confirmed — you can reprint.",
+    "ru": "Сохранено. Печать не подтверждена — можно повторить.",
+  },
+  'worker.rezka.print.save_failed': {
+    "uz": "Saqlanmadi. Printni qayta bosing.",
+    "en": "Not saved. Press Print again.",
+    "ru": "Не сохранено. Нажмите Печать ещё раз.",
+  },
+  'worker.rezka.print.sync_failed': {
+    "uz":
+        "Holatni tekshirib bo‘lmadi yoki rulonlar o‘zgargan. Oynani qayta oching.",
+    "en": "Could not verify the rolls, or the set changed. Reopen this dialog.",
+    "ru":
+        "Не удалось проверить рулоны или набор изменился. Откройте окно заново.",
+  },
+  'worker.rezka.print.progress': {
+    "uz": "{saved}/{total} rulon saqlandi · {pending} ta kutilmoqda",
+    "en": "{saved}/{total} rolls saved · {pending} pending",
+    "ru": "Сохранено {saved}/{total} рулонов · ожидается {pending}",
+  },
   'worker.progress.qty.rezka_outputs': {
     'uz': 'Chiqish rulonlari ({count} ta)',
     'en': 'Output rolls ({count})',

@@ -290,6 +290,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     totalWaste: progressInput?.totalWaste,
     finishedGoodsKg: progressInput?.finishedGoodsKg,
     finishedGoodsMeter: progressInput?.finishedGoodsMeter,
+    rezkaOutputCycle: progressInput?.rezkaOutputCycle ?? '',
     rezkaFrames: [
       for (final frame in progressInput?.rezkaFrames ?? const [])
         frame.toJson(),

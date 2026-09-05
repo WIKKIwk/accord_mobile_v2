@@ -28,6 +28,7 @@ class _ReadOnlyQueueActionRequest {
     this.finishedGoodsKg,
     this.finishedGoodsMeter,
     this.rezkaFrames = const [],
+    this.rezkaOutputCycle = '',
     this.uom = '',
     this.qrPayload = '',
     this.progressBatchId = '',
@@ -66,6 +67,7 @@ class _ReadOnlyQueueActionRequest {
   final double? finishedGoodsKg;
   final double? finishedGoodsMeter;
   final List<Map<String, dynamic>> rezkaFrames;
+  final String rezkaOutputCycle;
   final String uom;
   final String qrPayload;
   final String progressBatchId;

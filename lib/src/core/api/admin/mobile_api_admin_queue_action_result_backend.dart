@@ -1,7 +1,8 @@
 part of '../mobile_api.dart';
 
 extension MobileApiAdminQueueActionResultBackend on MobileApi {
-Future<AdminApparatusQueueActionResult> _adminApparatusQueueActionResultBackend({
+  Future<AdminApparatusQueueActionResult>
+      _adminApparatusQueueActionResultBackend({
     required String apparatus,
     required String orderId,
     required String action,
@@ -23,6 +24,8 @@ Future<AdminApparatusQueueActionResult> _adminApparatusQueueActionResultBackend(
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
     List<Map<String, dynamic>> rezkaFrames = const [],
+    int? rezkaRecordFrameIndex,
+    String rezkaOutputCycle = '',
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -40,10 +43,9 @@ Future<AdminApparatusQueueActionResult> _adminApparatusQueueActionResultBackend(
     String freezeRequestId = '',
     bool freezeWithIssue = false,
     String issueNote = '',
-  
     required String trimmedIssueNote,
-}) async {
-final trimmedBarcode = materialBarcode.trim();
+  }) async {
+    final trimmedBarcode = materialBarcode.trim();
     final trimmedQolipCode = qolipCode.trim();
     final trimmedQolipCodes = <String>[];
     for (final code in qolipCodes) {
@@ -64,7 +66,8 @@ final trimmedBarcode = materialBarcode.trim();
     final trimmedCompletionRequestNote = completionRequestNote.trim();
     final response = await _sendAuthorized(
       () => _post(
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/production-maps/queue-action'),
+        Uri.parse(
+            '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/queue-action'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
@@ -99,6 +102,10 @@ final trimmedBarcode = materialBarcode.trim();
           if (finishedGoodsMeter != null)
             'finished_goods_meter': finishedGoodsMeter,
           if (rezkaFrames.isNotEmpty) 'rezka_frames': rezkaFrames,
+          if (rezkaRecordFrameIndex != null)
+            'rezka_record_frame_index': rezkaRecordFrameIndex,
+          if (rezkaOutputCycle.isNotEmpty)
+            'rezka_output_cycle': rezkaOutputCycle,
           if (uom.trim().isNotEmpty) 'uom': uom.trim(),
           if (qrPayload.trim().isNotEmpty) 'qr_payload': qrPayload.trim(),
           if (progressBatchId.trim().isNotEmpty)
@@ -189,6 +196,9 @@ final trimmedBarcode = materialBarcode.trim();
       orderControl: orderControl,
       progressBatch: legacyProgressBatch,
       progressBatches: progressBatches,
+      rezkaOutputReport: payload['session'] is Map
+          ? AdminRezkaOutputReport.fromSession(payload['session'] as Map)
+          : null,
       completionRequest: requestRaw is Map
           ? AdminCompletionRequestNotification.fromJson(
               requestRaw.cast<String, dynamic>(),
@@ -197,5 +207,5 @@ final trimmedBarcode = materialBarcode.trim();
       printJob: legacyPrintJob,
       printJobs: printJobs,
     );
-}
+  }
 }

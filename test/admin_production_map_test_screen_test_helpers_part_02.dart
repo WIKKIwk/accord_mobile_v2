@@ -158,6 +158,7 @@ AdminApparatusQueueOrderActionControl _inProgressQueueControl({
   bool completeRequiresRezkaTotalWasteOnly = false,
   String stageNodeId = '',
   List<int> rezkaOutputKadrCounts = const [],
+  AdminRezkaOutputReport? rezkaOutputReport,
   List<AdminRezkaInputLink> rezkaInputLineage = const [],
   List<AdminRezkaActivePartialRoll> rezkaActivePartialRolls = const [],
 }) {
@@ -176,6 +177,7 @@ AdminApparatusQueueOrderActionControl _inProgressQueueControl({
     completeRequiresRezkaTotalWasteOnly: completeRequiresRezkaTotalWasteOnly,
     stageNodeId: stageNodeId,
     rezkaOutputKadrCounts: rezkaOutputKadrCounts,
+    rezkaOutputReport: rezkaOutputReport,
     rezkaInputLineage: rezkaInputLineage,
     rezkaActivePartialRolls: rezkaActivePartialRolls,
     interaction: AdminQueueWorkerInteraction(

@@ -153,6 +153,7 @@ class AdminApparatusQueueOrderActionControl {
     this.stageNodeId = '',
     this.previousStageReady = false,
     this.rezkaOutputKadrCounts = const [],
+    this.rezkaOutputReport,
     this.rezkaInputLineage = const [],
     this.rezkaActivePartialRolls = const [],
     this.hasValidRezkaMergeState = true,
@@ -170,6 +171,7 @@ class AdminApparatusQueueOrderActionControl {
   final String stageNodeId;
   final bool previousStageReady;
   final List<int> rezkaOutputKadrCounts;
+  final AdminRezkaOutputReport? rezkaOutputReport;
   final List<AdminRezkaInputLink> rezkaInputLineage;
   final List<AdminRezkaActivePartialRoll> rezkaActivePartialRolls;
   final bool hasValidRezkaMergeState;
@@ -359,6 +361,12 @@ class AdminApparatusQueueOrderActionControl {
         }
       }
     }
+    final rezkaOutputReport = AdminRezkaOutputReport.tryFromJson(json['rezka_output_report']);
+    if (json['rezka_output_report'] != null &&
+        (rezkaOutputReport == null || rezkaOutputReport.frames.any(
+          (slot) => slot.index > rezkaOutputKadrCounts.length))) {
+      hasValidRezkaMergeState = false;
+    }
     final lineageBatchIds = <String>{};
     final lineageSequenceNos = <int>{};
     final activeInputBatchIds = <String>[];
@@ -402,6 +410,7 @@ class AdminApparatusQueueOrderActionControl {
       stageNodeId: json['stage_node_id']?.toString().trim() ?? '',
       previousStageReady: json['previous_stage_ready'] == true,
       rezkaOutputKadrCounts: List<int>.unmodifiable(rezkaOutputKadrCounts),
+      rezkaOutputReport: rezkaOutputReport,
       rezkaInputLineage:
           List<AdminRezkaInputLink>.unmodifiable(rezkaInputLineage),
       rezkaActivePartialRolls: List<AdminRezkaActivePartialRoll>.unmodifiable(

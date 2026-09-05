@@ -13,34 +13,75 @@ extension __ProgressQtyDialogStateAstPart03 on _ProgressQtyDialogState {
           'worker.daily.required_field',
           values: {'label': label},
         );
-    final issueAllowed = _rezkaFrameIssueAllowed(index, frame);
+    final record = _rezkaReport?.frameAt(index);
+    final saved = record != null;
+    final savedIssue = record?.isIssue == true;
+    final fieldsEnabled = !saved && !_rezkaPrintBusy && !_rezkaSyncRequired;
+    final issueAllowed = !saved && _rezkaFrameIssueAllowed(index, frame);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        color: saved
+            ? scheme.surfaceContainerHighest
+            : scheme.surfaceContainerHighest.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            context.l10n.productionText(
-              'worker.progress.qty.rezka_output_roll',
-              values: {
-                'index': index + 1,
-                'frames': widget.rezkaOutputKadrCounts[index],
-              },
-            ),
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: scheme.primary,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
+          Row(children: [
+            Expanded(
+                child: Text(
+              context.l10n.productionText(
+                'worker.progress.qty.rezka_output_roll',
+                values: {
+                  'index': index + 1,
+                  'frames': widget.rezkaOutputKadrCounts[index],
+                },
+              ),
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: scheme.primary,
+                fontWeight: FontWeight.w800,
+              ),
+            )),
+            if (_canPrintRezkaFrames) ...[
+              IconButton(
+                key: ValueKey<String>('rezka-frame-$index-issue'),
+                tooltip: _rezkaText('issue'),
+                onPressed:
+                    fieldsEnabled ? () => _reportRezkaFrameIssue(index) : null,
+                icon: Icon(Icons.report_problem_outlined,
+                    color: fieldsEnabled ? scheme.error : null),
+              ),
+              IconButton.filledTonal(
+                key: ValueKey<String>('rezka-frame-$index-print'),
+                tooltip: _rezkaText(saved ? 'reprint' : 'print'),
+                onPressed: _rezkaPrintBusy || savedIssue
+                    ? null
+                    : () => _printRezkaFrame(index),
+                icon: const Icon(Icons.print_outlined),
+              ),
+            ],
+          ]),
+          if (_rezkaPrintStatus[index] != null || saved) ...[
+            const SizedBox(height: 6),
+            Text(
+                _rezkaPrintStatus[index] ??
+                    _rezkaText(savedIssue ? 'issue_saved' : 'saved'),
+                style: theme.textTheme.bodySmall),
+          ],
+          if (savedIssue) ...[
+            const SizedBox(height: 6),
+            Text(record!.issueNote,
+                style:
+                    theme.textTheme.bodySmall?.copyWith(color: scheme.error)),
+          ],
           const SizedBox(height: 10),
           _qtyField(
             key: ValueKey<String>('rezka-frame-$index-meter'),
+            enabled: fieldsEnabled,
             controller: frame.meter,
             label: context.l10n.productionText(
               'worker.daily.field.length',
@@ -51,36 +92,39 @@ extension __ProgressQtyDialogStateAstPart03 on _ProgressQtyDialogState {
             suffix: context.l10n.productionText(
               'worker.progress.qty.unit.meter',
             ),
-            requiredField: issueAllowed ? false : true,
+            requiredField: !issueAllowed && !savedIssue,
             positive: true,
           ),
           const SizedBox(height: 10),
           _qtyField(
             key: ValueKey<String>('rezka-frame-$index-kg'),
+            enabled: fieldsEnabled,
             controller: frame.kg,
             label: context.l10n.productionText('worker.daily.field.weight'),
             error: requiredError(
               context.l10n.productionText('worker.daily.field.weight'),
             ),
             suffix: context.l10n.productionText('worker.progress.qty.unit.kg'),
-            requiredField: issueAllowed ? false : true,
+            requiredField: !issueAllowed && !savedIssue,
             positive: true,
           ),
           const SizedBox(height: 10),
           _qtyField(
             key: ValueKey<String>('rezka-frame-$index-bobina'),
+            enabled: fieldsEnabled,
             controller: frame.bobina,
             label: context.l10n.productionText('worker.daily.field.roll'),
             error: context.l10n.productionText(
               'worker.progress.qty.roll_required',
             ),
             suffix: context.l10n.productionText('worker.progress.qty.unit.kg'),
-            requiredField: issueAllowed ? false : true,
+            requiredField: !issueAllowed && !savedIssue,
             positive: true,
           ),
           const SizedBox(height: 10),
           _qtyField(
             key: ValueKey<String>('rezka-frame-$index-diameter'),
+            enabled: fieldsEnabled,
             controller: frame.diameter,
             label: context.l10n.productionText(
               'worker.daily.field.diameter',
@@ -89,12 +133,13 @@ extension __ProgressQtyDialogStateAstPart03 on _ProgressQtyDialogState {
               context.l10n.productionText('worker.daily.field.diameter'),
             ),
             suffix: context.l10n.productionText('worker.progress.qty.unit.mm'),
-            requiredField: issueAllowed ? false : true,
+            requiredField: !issueAllowed && !savedIssue,
             positive: true,
           ),
           if (issueAllowed) ...[
             const SizedBox(height: 10),
             TextFormField(
+              enabled: fieldsEnabled,
               controller: frame.issueNote,
               minLines: 2,
               maxLines: 4,

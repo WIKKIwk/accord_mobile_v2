@@ -23,6 +23,8 @@ Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
     List<Map<String, dynamic>> rezkaFrames = const [],
+    int? rezkaRecordFrameIndex,
+    String rezkaOutputCycle = '',
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -69,6 +71,12 @@ final normalizedApparatusId = apparatus.trim();
     }
     final issueFreezeRequested = action == 'freeze' && freezeWithIssue;
     if (await TestModeController.instance.isEnabled()) {
+      if (rezkaRecordFrameIndex != null) {
+        throw const MobileApiException(
+          code: 'rezka_individual_print_requires_backend',
+          message: 'Bittalab saqlash ERP ulanishini talab qiladi',
+        );
+      }
       return _adminApparatusQueueActionResultTestMode(
       apparatus: apparatus,
       orderId: orderId,
@@ -114,6 +122,8 @@ final normalizedApparatusId = apparatus.trim();
       );
     }
     return _adminApparatusQueueActionResultBackend(
+      rezkaRecordFrameIndex: rezkaRecordFrameIndex,
+      rezkaOutputCycle: rezkaOutputCycle,
       apparatus: apparatus,
       orderId: orderId,
       action: action,

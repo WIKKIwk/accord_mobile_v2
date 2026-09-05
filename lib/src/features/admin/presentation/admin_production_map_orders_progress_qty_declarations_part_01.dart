@@ -66,6 +66,8 @@ class _ProgressQtyInput {
     this.isIssue = false,
     this.fullCompletionReportRequired = false,
     this.rezkaFrames = const [],
+    this.rezkaOutputCycle = '',
+    this.rezkaRecordedFrameCount = 0,
   });
 
   final double? meterQty;
@@ -87,6 +89,8 @@ class _ProgressQtyInput {
   final bool isIssue;
   final bool fullCompletionReportRequired;
   final List<_RezkaFrameInput> rezkaFrames;
+  final String rezkaOutputCycle;
+  final int rezkaRecordedFrameCount;
 }
 
 Future<_ProgressQtyInput?> _showProgressQtyDialog(
@@ -105,6 +109,9 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   bool astatkaReport = false,
   bool freezeRequestSafeStop = false,
   List<int> rezkaOutputKadrCounts = const [],
+  AdminRezkaOutputReport? rezkaOutputReport,
+  Future<AdminRezkaOutputReport?> Function()? reloadRezkaOutputReport,
+  Future<String?> Function(BuildContext)? progressDriverUrlPicker,
 }) async {
   final draft = returnedPaintDraft ??
       await ReturnedPaintDraftStore.instance.load(
@@ -134,6 +141,9 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       astatkaReport: astatkaReport,
       freezeRequestSafeStop: freezeRequestSafeStop,
       rezkaOutputKadrCounts: rezkaOutputKadrCounts,
+      rezkaOutputReport: rezkaOutputReport,
+      reloadRezkaOutputReport: reloadRezkaOutputReport,
+      progressDriverUrlPicker: progressDriverUrlPicker,
     ),
   );
 }
@@ -151,6 +161,9 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   bool astatkaReport = false,
   bool freezeRequestSafeStop = false,
   List<int> rezkaOutputKadrCounts = const [],
+  AdminRezkaOutputReport? rezkaOutputReport,
+  Future<AdminRezkaOutputReport?> Function()? reloadRezkaOutputReport,
+  Future<String?> Function(BuildContext)? progressDriverUrlPicker,
 }) {
   final apparatusId = apparatus?.id ?? '';
   final operation = apparatus?.operation.trim() ?? '';
@@ -171,6 +184,9 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     astatkaReport: astatkaReport,
     freezeRequestSafeStop: freezeRequestSafeStop,
     rezkaOutputKadrCounts: rezkaOutputKadrCounts,
+    rezkaOutputReport: rezkaOutputReport,
+    reloadRezkaOutputReport: reloadRezkaOutputReport,
+    progressDriverUrlPicker: progressDriverUrlPicker,
   );
 }
 
@@ -206,6 +222,9 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.astatkaReport,
     required this.freezeRequestSafeStop,
     required this.rezkaOutputKadrCounts,
+    this.rezkaOutputReport,
+    this.reloadRezkaOutputReport,
+    this.progressDriverUrlPicker,
   });
 
   final String action;
@@ -222,6 +241,9 @@ class _ProgressQtyDialog extends StatefulWidget {
   final bool astatkaReport;
   final bool freezeRequestSafeStop;
   final List<int> rezkaOutputKadrCounts;
+  final AdminRezkaOutputReport? rezkaOutputReport;
+  final Future<AdminRezkaOutputReport?> Function()? reloadRezkaOutputReport;
+  final Future<String?> Function(BuildContext)? progressDriverUrlPicker;
 
   @override
   State<_ProgressQtyDialog> createState() => _ProgressQtyDialogState();

@@ -57,6 +57,7 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
       'merge_input_frame_count_mismatch' =>
         'worker.error.merge_input_frame_count_mismatch',
       'rezka_frame_count_mismatch' => 'worker.error.rezka_frame_count_mismatch',
+      'rezka_output_cycle_conflict' => 'worker.rezka.print.sync_failed',
       'progress_qr_reprint' => 'worker.daily.reprint_failed',
       'progress_batch_correction_reason_required' =>
         'worker.daily.correction.required',

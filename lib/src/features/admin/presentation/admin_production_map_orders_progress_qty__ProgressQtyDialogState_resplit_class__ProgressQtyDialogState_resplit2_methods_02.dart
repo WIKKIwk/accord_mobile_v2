@@ -382,6 +382,29 @@ extension __ProgressQtyDialogStateAstPartResplit2_02
                               values: {'count': _rezkaFrameCount},
                             ),
                           ),
+                          if (_canPrintRezkaFrames)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                  _rezkaText(
+                                      _rezkaReport!.frames
+                                              .any((frame) => frame.isIssue)
+                                          ? 'progress_with_issues'
+                                          : 'progress',
+                                      values: {
+                                        'issues': _rezkaReport!.frames
+                                            .where((frame) => frame.isIssue)
+                                            .length,
+                                        'healthy': _rezkaReport!.frames
+                                            .where((frame) => !frame.isIssue)
+                                            .length,
+                                        'saved': _rezkaReport!.frames.length,
+                                        'total': _rezkaFrameCount,
+                                        'pending': _rezkaFrameCount -
+                                            _rezkaReport!.frames.length,
+                                      }),
+                                  textAlign: TextAlign.center),
+                            ),
                           for (var index = 0;
                               index < _rezkaFrameControllers.length;
                               index += 1)
@@ -628,7 +651,9 @@ extension __ProgressQtyDialogStateAstPartResplit2_02
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: _rezkaPrintBusy
+                          ? null
+                          : () => Navigator.of(context).pop(),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(
@@ -643,7 +668,9 @@ extension __ProgressQtyDialogStateAstPartResplit2_02
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton(
-                      onPressed: _submit,
+                      onPressed: _rezkaPrintBusy || _rezkaSyncRequired
+                          ? null
+                          : _submit,
                       style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(

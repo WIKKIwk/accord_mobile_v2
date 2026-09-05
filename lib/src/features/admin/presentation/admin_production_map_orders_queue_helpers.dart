@@ -278,6 +278,7 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     finishedGoodsKg: request.finishedGoodsKg,
     finishedGoodsMeter: request.finishedGoodsMeter,
     rezkaFrames: request.rezkaFrames,
+    rezkaOutputCycle: request.rezkaOutputCycle,
     uom: request.uom,
     qrPayload: request.qrPayload,
     progressBatchId: request.progressBatchId,

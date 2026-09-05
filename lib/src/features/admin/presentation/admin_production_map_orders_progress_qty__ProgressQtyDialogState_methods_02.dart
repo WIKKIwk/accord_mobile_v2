@@ -3,6 +3,7 @@ part of 'admin_production_map_orders_screen.dart';
 
 extension __ProgressQtyDialogStateAstPart02 on _ProgressQtyDialogState {
   void _submit() {
+    if (_rezkaPrintBusy || _rezkaSyncRequired) return;
     setState(() => _completionError = '');
     final description = _descriptionController.text.trim();
     final hasRawOutput = <TextEditingController>[
@@ -29,7 +30,9 @@ extension __ProgressQtyDialogStateAstPart02 on _ProgressQtyDialogState {
     if (frameIssueMode) {
       final incompleteFrameIndexes = [
         for (var index = 0; index < _rezkaFrameControllers.length; index += 1)
-          if (!_rezkaFrameMetricsComplete(_rezkaFrameControllers[index])) index,
+          if (_rezkaReport?.frameAt(index)?.isIssue != true &&
+              !_rezkaFrameMetricsComplete(_rezkaFrameControllers[index]))
+            index,
       ];
       final hasNewIncompleteFrame = incompleteFrameIndexes.any(
         (index) => !_rezkaFrameIssuePrompted.contains(index),
@@ -324,6 +327,9 @@ extension __ProgressQtyDialogStateAstPart02 on _ProgressQtyDialogState {
           returnedPaintImageId: returnedPaintImageId,
           fullCompletionReportRequired: _requiresFullCompletionReport,
           rezkaFrames: rezkaFrameInputs ?? const [],
+          rezkaOutputCycle: _rezkaReport?.cycleId ?? '',
+          rezkaRecordedFrameCount:
+              _rezkaReport?.frames.where((frame) => !frame.isIssue).length ?? 0,
           description: description,
         ),
       );

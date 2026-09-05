@@ -62,9 +62,11 @@ extension __ProgressQtyDialogStateAstPart01 on _ProgressQtyDialogState {
     bool? requiredField,
     bool positive = false,
     bool allowZero = false,
+    bool enabled = true,
   }) {
     return TextFormField(
       key: key,
+      enabled: enabled,
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: <TextInputFormatter>[
@@ -141,6 +143,11 @@ extension __ProgressQtyDialogStateAstPart01 on _ProgressQtyDialogState {
     }
     final frames = <_RezkaFrameInput>[];
     for (var index = 0; index < _rezkaFrameControllers.length; index += 1) {
+      final saved = _rezkaReport?.frameAt(index);
+      if (saved?.isIssue == true) {
+        frames.add(_RezkaFrameInput(issueNote: saved!.issueNote));
+        continue;
+      }
       final frame = _rezkaFrameControllers[index];
       final meter = _parseQty(frame.meter.text);
       final kg = _parseQty(frame.kg.text);
