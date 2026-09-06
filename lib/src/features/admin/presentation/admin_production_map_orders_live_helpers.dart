@@ -102,29 +102,11 @@ Future<List<AdminCompletedQueueOrder>>
   ];
 }
 
-Future<List<AdminCompletionRequestDecisionNotification>>
-    _loadProductionMapCompletionRequestDecisions() {
-  return MobileApi.instance.adminProductionMapCompletionRequestDecisions();
-}
-
-Future<List<AdminClosedProductionOrder>> _loadClosedProductionMapOrders() {
-  return MobileApi.instance.adminClosedProductionMapOrders();
-}
-
-Future<List<AdminCompletionRequestNotification>>
-    _loadProductionMapCompletionRequests() {
-  return MobileApi.instance.adminProductionMapCompletionRequests();
-}
-
-Future<List<AdminApparatus>> _loadProductionMapApparatus() {
-  return MobileApi.instance.adminApparatus(limit: 200);
-}
-
 Future<_ProductionMapOrdersAndApparatus>
     _loadProductionMapOrdersAndApparatus() async {
   final results = await Future.wait([
     MobileApi.instance.adminProductionMaps(),
-    _loadProductionMapApparatus(),
+    MobileApi.instance.adminApparatus(limit: 200),
   ]);
   final maps = results[0] as List<ProductionMapSaved>;
   final apparatus = results[1] as List<AdminApparatus>;
@@ -147,14 +129,6 @@ bool _productionMapOrdersOrApparatusChanged({
       );
 }
 
-bool _shouldRefreshWorkerOnlyData(bool workerMode) {
-  return workerMode;
-}
-
-bool _shouldRefreshAdminOnlyData(bool workerMode) {
-  return !workerMode;
-}
-
 /// Canonical snapshot apply decision for the revision guard.
 ///
 /// - null incoming revision (legacy backend) => [applyLegacy] so the caller
@@ -168,8 +142,6 @@ enum CanonicalSnapshotDecision {
   ignoreDuplicate,
   applyLegacy
 }
-
-typedef _CanonicalSnapshotDecision = CanonicalSnapshotDecision;
 
 CanonicalSnapshotDecision canonicalSnapshotDecision({
   required int? incomingRevision,

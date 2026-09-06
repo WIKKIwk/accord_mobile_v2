@@ -89,7 +89,7 @@ extension _AdminProductionMapOrdersLiveState
         }
         // A fresh snapshot means the stream is healthy: reset backoff.
         _liveReconnectAttempt = 0;
-        _applyWorkerLiveSnapshot(snapshot);
+        _applyCanonicalLiveSnapshot(snapshot);
       },
       onError: (error, _) {
         if (!completer.isCompleted) {
@@ -107,7 +107,7 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _loadWorkerApparatus() async {
-    final apparatus = await _loadProductionMapApparatus();
+    final apparatus = await MobileApi.instance.adminApparatus(limit: 200);
     if (!mounted) {
       return;
     }
@@ -120,17 +120,13 @@ extension _AdminProductionMapOrdersLiveState
     });
   }
 
-  void _applyWorkerLiveSnapshot(AdminProductionMapLiveSnapshot snapshot) {
-    _applyCanonicalLiveSnapshot(snapshot);
-  }
-
   void _applyCanonicalLiveSnapshot(AdminProductionMapLiveSnapshot snapshot) {
     final decision = canonicalSnapshotDecision(
       incomingRevision: snapshot.revision,
       lastAppliedRevision: _lastAppliedSnapshotRevision,
     );
-    if (decision == _CanonicalSnapshotDecision.ignoreStale ||
-        decision == _CanonicalSnapshotDecision.ignoreDuplicate) {
+    if (decision == CanonicalSnapshotDecision.ignoreStale ||
+        decision == CanonicalSnapshotDecision.ignoreDuplicate) {
       if (_queueSnapshotContractError) {
         _updateScreenState(() {
           _queueSnapshotContractError = false;
@@ -141,7 +137,7 @@ extension _AdminProductionMapOrdersLiveState
       return;
     }
     final orders = _productionMapZakazOrders(snapshot.maps);
-    if (decision == _CanonicalSnapshotDecision.applyLegacy) {
+    if (decision == CanonicalSnapshotDecision.applyLegacy) {
       // Legacy live payload without `rev`: only rebuild when content
       // actually changed to avoid duplicate rebuilds.
       if (_ordersRevision(orders) == _ordersRevision(_orders) &&
@@ -150,7 +146,7 @@ extension _AdminProductionMapOrdersLiveState
       }
     }
     _queueSnapshotGeneration++;
-    if (decision != _CanonicalSnapshotDecision.applyLegacy) {
+    if (decision != CanonicalSnapshotDecision.applyLegacy) {
       _lastAppliedSnapshotRevision = snapshot.revision;
       _liveReconnectAttempt = 0;
     }
@@ -266,7 +262,8 @@ extension _AdminProductionMapOrdersLiveState
     _queueSnapshotRefreshInFlight = true;
     final requestGeneration = ++_queueSnapshotGeneration;
     try {
-      final queueSnapshot = await _loadQueueSnapshot();
+      final queueSnapshot =
+          await MobileApi.instance.adminProductionMapQueueSnapshot();
       if (!mounted || requestGeneration != _queueSnapshotGeneration) {
         return;
       }
@@ -275,8 +272,8 @@ extension _AdminProductionMapOrdersLiveState
         incomingRevision: queueSnapshot.revision,
         lastAppliedRevision: _lastAppliedSnapshotRevision,
       );
-      if (decision == _CanonicalSnapshotDecision.ignoreStale ||
-          decision == _CanonicalSnapshotDecision.ignoreDuplicate) {
+      if (decision == CanonicalSnapshotDecision.ignoreStale ||
+          decision == CanonicalSnapshotDecision.ignoreDuplicate) {
         // Successful fetch still clears a previous transient warning.
         if (_queueSnapshotContractError) {
           _updateScreenState(() {
@@ -286,7 +283,7 @@ extension _AdminProductionMapOrdersLiveState
         }
         return;
       }
-      if (decision == _CanonicalSnapshotDecision.apply) {
+      if (decision == CanonicalSnapshotDecision.apply) {
         // New canonical revision: apply atomically, including orders when
         // the snapshot bundles maps (new backend).
         _lastAppliedSnapshotRevision = queueSnapshot.revision;
@@ -372,29 +369,25 @@ extension _AdminProductionMapOrdersLiveState
     }
     for (final entry in snapshot.sequences.entries) {
       final current = _sequenceByApparatus[entry.key];
-      if (current == null ||
-          current.length != entry.value.length ||
-          !_stringListsEqual(current, entry.value)) {
+      if (!listEquals(current, entry.value)) {
         return true;
       }
     }
     for (final entry in snapshot.visibleOrderIds.entries) {
       final current = _visibleOrderIdsByApparatus[entry.key];
-      if (current == null ||
-          current.length != entry.value.length ||
-          !_stringListsEqual(current, entry.value)) {
+      if (!listEquals(current, entry.value)) {
         return true;
       }
     }
     for (final entry in snapshot.queueStates.entries) {
       final current = _queueStatesByApparatus[entry.key];
-      if (current == null || !_stringMapsEqual(current, entry.value)) {
+      if (!mapEquals(current, entry.value)) {
         return true;
       }
     }
     for (final entry in snapshot.stageStates.entries) {
       final current = _stageStatesByOrderId[entry.key];
-      if (current == null || !_stringMapsEqual(current, entry.value)) {
+      if (!mapEquals(current, entry.value)) {
         return true;
       }
     }
@@ -472,7 +465,7 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _refreshWorkerCompletedOrders() async {
-    if (!_shouldRefreshWorkerOnlyData(widget.workerMode)) {
+    if (!widget.workerMode) {
       return;
     }
     try {
@@ -499,11 +492,12 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _refreshWorkerCompletionRequestDecisions() async {
-    if (!_shouldRefreshWorkerOnlyData(widget.workerMode)) {
+    if (!widget.workerMode) {
       return;
     }
     try {
-      final decisions = await _loadProductionMapCompletionRequestDecisions();
+      final decisions = await MobileApi.instance
+          .adminProductionMapCompletionRequestDecisions();
       if (!mounted) {
         return;
       }
@@ -533,12 +527,12 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _refreshClosedOrders() async {
-    if (!_shouldRefreshAdminOnlyData(widget.workerMode)) {
+    if (widget.workerMode) {
       return;
     }
     try {
-      final loader =
-          widget.closedOrdersLoader ?? _loadClosedProductionMapOrders;
+      final loader = widget.closedOrdersLoader ??
+          MobileApi.instance.adminClosedProductionMapOrders;
       final closed = await loader();
       if (!mounted) {
         return;
@@ -561,12 +555,12 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _refreshCompletionRequests() async {
-    if (!_shouldRefreshAdminOnlyData(widget.workerMode)) {
+    if (widget.workerMode) {
       return;
     }
     try {
       final loader = widget.completionRequestsLoader ??
-          _loadProductionMapCompletionRequests;
+          MobileApi.instance.adminProductionMapCompletionRequests;
       final requests = await loader();
       if (!mounted) {
         return;
@@ -679,8 +673,8 @@ extension _AdminProductionMapOrdersLiveState
   Future<void> _refreshCanonicalInitial() async {
     try {
       final results = await Future.wait<Object>([
-        _loadQueueSnapshot(),
-        _loadProductionMapApparatus(),
+        MobileApi.instance.adminProductionMapQueueSnapshot(),
+        MobileApi.instance.adminApparatus(limit: 200),
       ]);
       final queueSnapshot = results[0] as AdminApparatusQueueSnapshot;
       final apparatus = results[1] as List<AdminApparatus>;
@@ -701,8 +695,8 @@ extension _AdminProductionMapOrdersLiveState
         incomingRevision: queueSnapshot.revision,
         lastAppliedRevision: _lastAppliedSnapshotRevision,
       );
-      if ((decision == _CanonicalSnapshotDecision.ignoreStale ||
-              decision == _CanonicalSnapshotDecision.ignoreDuplicate) &&
+      if ((decision == CanonicalSnapshotDecision.ignoreStale ||
+              decision == CanonicalSnapshotDecision.ignoreDuplicate) &&
           _orders.isNotEmpty) {
         return;
       }
@@ -744,7 +738,7 @@ extension _AdminProductionMapOrdersLiveState
   /// Orders arrive only via the revisioned queue/live snapshot authority.
   Future<void> _refreshApparatusCatalog() async {
     try {
-      final apparatus = await _loadProductionMapApparatus();
+      final apparatus = await MobileApi.instance.adminApparatus(limit: 200);
       if (!mounted) return;
       if (_apparatusListsHaveSameCanonicalRevisions(_apparatus, apparatus)) {
         return;

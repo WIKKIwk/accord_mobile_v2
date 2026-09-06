@@ -68,30 +68,6 @@ bool _queueActionControlsEqual(
   return true;
 }
 
-bool _stringListsEqual(List<String> left, List<String> right) {
-  if (left.length != right.length) {
-    return false;
-  }
-  for (var index = 0; index < left.length; index++) {
-    if (left[index] != right[index]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool _stringMapsEqual(Map<String, String> left, Map<String, String> right) {
-  if (left.length != right.length) {
-    return false;
-  }
-  for (final entry in left.entries) {
-    if (right[entry.key] != entry.value) {
-      return false;
-    }
-  }
-  return true;
-}
-
 int _ordersRevision(List<ProductionMapSaved> orders) {
   return Object.hashAll(
     orders.map(
@@ -199,8 +175,4 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     freezeWithIssue: request.freezeWithIssue,
     issueNote: request.issueNote,
   );
-}
-
-Future<AdminApparatusQueueSnapshot> _loadQueueSnapshot() async {
-  return MobileApi.instance.adminProductionMapQueueSnapshot();
 }
