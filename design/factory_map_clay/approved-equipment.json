@@ -1,0 +1,37 @@
+[
+  {
+    "report": "laminatsiya-2-v2-fit-report.json",
+    "apparatus_id": "apparatus:default:asset-008",
+    "approved_at": "2026-09-06",
+    "approved_view": "full_model_with_canopy",
+    "export_sha256": "64488acf4dbccc0295efe5c54ca76a27b321d10b127ced9d88f52c39e32ff8d5"
+  },
+  {
+    "report": "laminatsiya-1-fit-report.json",
+    "apparatus_id": "apparatus:default:asset-007",
+    "approved_at": "2026-09-06",
+    "approved_view": "full_model_with_canopy",
+    "export_sha256": "04c41a6b5ba86d38806460c6408d70a5bb10ce04ee3c15e0ba8be6ad653c3fad"
+  },
+  {
+    "report": "flexo-fit-report.json",
+    "apparatus_id": "apparatus:default:asset-005",
+    "approved_at": "2026-09-06",
+    "approved_view": "full_model_with_canopy",
+    "export_sha256": "ebc731bc48ead7f6f6509e68378320234e1c0f511efa37e2010beff8649a9587"
+  },
+  {
+    "report": "coating-v2-fit-report.json",
+    "apparatus_id": "apparatus:default:holodniy_kley",
+    "approved_at": "2026-09-06",
+    "approved_view": "full_model_with_canopy",
+    "export_sha256": "f2b37e49885f98c343eeb787048bbfc2e202d43a11946d078acf0d07ba4fd160"
+  },
+  {
+    "report": "extruder-fit-report.json",
+    "apparatus_id": "apparatus:default:asset-004",
+    "approved_at": "2026-09-06",
+    "approved_view": "full_model_with_canopy",
+    "export_sha256": "1ba0445f9a984f95305253d04c3cc6e49858ca7c226cfad7907a85fd2ff6374e"
+  }
+]

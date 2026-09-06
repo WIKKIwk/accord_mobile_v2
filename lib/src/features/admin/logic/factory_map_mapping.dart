@@ -11,6 +11,21 @@ const Map<String, String> _apparatusAttachmentBaseMap = {
   'node:33': 'node:39',
 };
 
+// The original extruder mesh has exactly eight coincident copies, not eight
+// separate machines (verified against zavod6-phone.glb world transforms).
+// Preserve its saved node:7 placement while accepting only these known taps.
+// Do not generalize this to other legacy node bindings or future instances.
+const Set<String> _extruderCoincidentInstances = {
+  '0',
+  '1',
+  '2',
+  '3',
+  '4',
+  '5',
+  '6',
+  '7',
+};
+
 String canonicalFactoryMapObjectId(String objectId) {
   final trimmed = objectId.trim();
   if (trimmed.isEmpty) {
@@ -20,6 +35,9 @@ String canonicalFactoryMapObjectId(String objectId) {
   if (match != null) {
     final base = match.group(1)?.trim() ?? '';
     final instance = match.group(2)?.trim() ?? '';
+    if (base == 'node:7' && _extruderCoincidentInstances.contains(instance)) {
+      return base;
+    }
     final canonicalBase = _apparatusAttachmentBaseMap[base] ?? base;
     return '$canonicalBase:instance:$instance';
   }
@@ -68,6 +86,9 @@ bool hasLegacyFactoryMapBinding(
   Iterable<AdminApparatus> apparatus,
   String objectId,
 ) {
+  if (resolveFactoryMapApparatus(apparatus, objectId) != null) {
+    return false;
+  }
   final legacyObjectId = _legacyFactoryMapObjectId(objectId);
   if (legacyObjectId == null) {
     return false;

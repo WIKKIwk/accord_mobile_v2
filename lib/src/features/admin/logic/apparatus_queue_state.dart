@@ -270,8 +270,7 @@ String? firstActiveQueueOrderId({
       continue;
     }
     final state = apparatusQueueOrderStateFromRaw(states[normalized]);
-    if (state == ApparatusQueueOrderState.inProgress ||
-        state == ApparatusQueueOrderState.paused) {
+    if (state == ApparatusQueueOrderState.inProgress) {
       return normalized;
     }
   }

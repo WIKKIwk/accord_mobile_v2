@@ -52,7 +52,7 @@ test('factory map uses a calm runtime palette and reserves fault red', () => {
     /const FACTORY_PALETTE = Object\.freeze\(\{[\s\S]*?\n\}\);/,
   )?.[0];
   assert.ok(paletteSource);
-  assert.match(paletteSource, /apparatus:\s*0x65798f/);
+  assert.match(paletteSource, /apparatus:\s*0xb6beb7/);
   assert.match(paletteSource, /selected:\s*0x4f6fb5/);
   assert.match(paletteSource, /healthy:\s*0x5faf7a/);
   assert.match(paletteSource, /warning:\s*0xd6a34a/);
@@ -207,7 +207,7 @@ test('factory map selection helper unites attached arrow bounds with apparatus b
 });
 
 test('factory map tints arrow-merged apparatus objects cream', () => {
-  assert.match(rendererSource, /apparatusMarker:\s*0xf0e9b6/);
+  assert.match(rendererSource, /apparatusMarker:\s*0xe4dfd2/);
   assert.match(rendererSource, /applyApparatusMarkerTint/);
   assert.match(rendererSource, /APPARATUS_MARKER_BASE_IDS/);
   // Verified arrows and the bodies beneath them share one marker color.
@@ -251,4 +251,3 @@ test('factory map collapses only the black-cube instances of node:30', () => {
   assert.doesNotMatch(rendererSource, /setPosition\(0,\s*-1000,\s*0\)/);
   assert.match(rendererSource, /originalMatrix\.scale\(zeroScale\)/);
 });
-

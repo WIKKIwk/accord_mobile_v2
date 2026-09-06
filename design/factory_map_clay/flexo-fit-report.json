@@ -1,0 +1,148 @@
+{
+  "source_model": "assets/models/zavod6-phone.glb",
+  "source_sha256": "3f1c64fac1d3374895f3fd892c45551a18219ea7e307624d71e859f5ab2ca13b",
+  "verified_at": "2026-09-06",
+  "source_database": "local PostgreSQL mini_rs_erp canonical head, read-only",
+  "apparatus_id": "apparatus:default:asset-005",
+  "revision": 3,
+  "label": "Flexo pechat",
+  "factory_map_object_id": "node:18:instance:0",
+  "node": 18,
+  "instance": 0,
+  "coincident_instances": [
+    0,
+    4,
+    7,
+    11,
+    14,
+    18,
+    21,
+    25
+  ],
+  "bounds_gltf": [
+    [
+      20.396834015846252,
+      -0.007761597633361816,
+      22.348907470703125
+    ],
+    [
+      23.896865252136195,
+      3.992238402366638,
+      32.348907470703125
+    ]
+  ],
+  "dimensions_gltf": [
+    3.500031236289942,
+    4,
+    10
+  ],
+  "rotation_gltf": [
+    0,
+    -0.7071067811865476,
+    0,
+    0.7071067811865476
+  ],
+  "export": "flexo-lishg-clay.glb",
+  "units_note": "Existing map envelope, not surveyed dimensions. Blender X is machine length; roller shafts are Blender Y / local glTF Z. Placement rotates local length into map Z.",
+  "placement_note": "Preview only. Coincident bodies were identified by world-space bounds, not equal transforms. Unseen attached geometry requires a final placement check after approval.",
+  "approval_status": "awaiting_user",
+  "mesh_stats": {
+    "meshes": 13,
+    "triangles": 36536,
+    "bytes": 1782492,
+    "editable_parts": 526
+  },
+  "local_bounds_blender": [
+    [
+      -5.0,
+      -1.7500156164169312,
+      0.0
+    ],
+    [
+      4.999999523162842,
+      1.7500156164169312,
+      4.0
+    ]
+  ],
+  "fits_original_envelope": true,
+  "protected_sha256": {
+    "assets/models/zavod6-phone.glb": "3f1c64fac1d3374895f3fd892c45551a18219ea7e307624d71e859f5ab2ca13b",
+    "assets/models/zavod6-clay.glb": "d97a971ef8dd30aa1b5528315db7927b52096eb9c6f2c7f9ada751154a19471e",
+    "design/factory_map_clay/approved-equipment.json": "0c971333a961c2bf331bcbd4375cbca80f761d7f4e76d2971c78a9ad830ac93f",
+    "design/factory_map_clay/build_mobile_map.mjs": "3e4896552827a75048445ee2739753388e2784046d86f04859ecfd78b9022c2b",
+    "design/factory_map_clay/exports/laminatsiya-1-slf1000b-clay.glb": "04c41a6b5ba86d38806460c6408d70a5bb10ce04ee3c15e0ba8be6ad653c3fad",
+    "design/factory_map_clay/exports/laminatsiya-2-clay-v2.glb": "64488acf4dbccc0295efe5c54ca76a27b321d10b127ced9d88f52c39e32ff8d5"
+  },
+  "design_fit_scale": [
+    1.0152284362253532,
+    1.0434149761178668,
+    1.0075566678019074
+  ],
+  "printing_stations": [
+    {
+      "number": 4,
+      "xyz_blender": [
+        1.6815686274509805,
+        0,
+        0.59
+      ]
+    },
+    {
+      "number": 3,
+      "xyz_blender": [
+        1.5388235294117647,
+        0,
+        1.15
+      ]
+    },
+    {
+      "number": 2,
+      "xyz_blender": [
+        1.543921568627451,
+        0,
+        1.71
+      ]
+    },
+    {
+      "number": 1,
+      "xyz_blender": [
+        1.6866666666666668,
+        0,
+        2.27
+      ]
+    },
+    {
+      "number": 8,
+      "xyz_blender": [
+        3.5184313725490197,
+        0,
+        0.59
+      ]
+    },
+    {
+      "number": 7,
+      "xyz_blender": [
+        3.6611764705882353,
+        0,
+        1.15
+      ]
+    },
+    {
+      "number": 6,
+      "xyz_blender": [
+        3.656078431372549,
+        0,
+        1.71
+      ]
+    },
+    {
+      "number": 5,
+      "xyz_blender": [
+        3.5133333333333336,
+        0,
+        2.27
+      ]
+    }
+  ],
+  "reference_note": "User's two catalogue and two actual factory photos. Platform, rails, ladder, front reel, inspection web, eight printing units, blowers and hoist are represented. Concealed mechanics, drum dimensions and full web routing are approximate. No live state is shown."
+}

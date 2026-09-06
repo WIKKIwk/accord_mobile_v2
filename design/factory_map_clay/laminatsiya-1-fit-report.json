@@ -1,0 +1,90 @@
+{
+  "source_model": "assets/models/zavod6-phone.glb",
+  "source_sha256": "3f1c64fac1d3374895f3fd892c45551a18219ea7e307624d71e859f5ab2ca13b",
+  "verified_at": "2026-09-06",
+  "source_database": "local PostgreSQL mini_rs_erp canonical head, read-only",
+  "apparatus_id": "apparatus:default:asset-007",
+  "revision": 4,
+  "label": "Laminatsiya 1",
+  "factory_map_object_id": "node:6:instance:7",
+  "node": 6,
+  "instance": 7,
+  "coincident_instances": [
+    1,
+    3,
+    5,
+    7,
+    9,
+    11,
+    13,
+    15
+  ],
+  "attached_components": [
+    {
+      "node": 4,
+      "coincident_instances": [
+        1,
+        3,
+        5,
+        7,
+        9,
+        11,
+        13,
+        15
+      ]
+    }
+  ],
+  "bounds_gltf": [
+    [
+      12.301057946198853,
+      -0.007816076278686523,
+      20.504205088320305
+    ],
+    [
+      17.301223624235718,
+      2.6922948360443115,
+      23.704371114072273
+    ]
+  ],
+  "dimensions_gltf": [
+    5.000165678036865,
+    2.700110912322998,
+    3.200166025751969
+  ],
+  "rotation_gltf": [
+    0,
+    0,
+    0,
+    1
+  ],
+  "export": "laminatsiya-1-slf1000b-clay.glb",
+  "units_note": "Existing map envelope, not surveyed physical dimensions. Longitudinal roll axes are glTF Z / Blender Y.",
+  "approval_status": "awaiting_user",
+  "mesh_stats": {
+    "meshes": 20,
+    "triangles": 81272,
+    "bytes": 3383932,
+    "editable_parts": 494
+  },
+  "local_bounds_blender": [
+    [
+      -2.5000829696655273,
+      -1.6000829935073853,
+      0.0
+    ],
+    [
+      2.5000829696655273,
+      1.6000829935073853,
+      2.700111150741577
+    ]
+  ],
+  "fits_original_envelope": true,
+  "protected_sha256": {
+    "assets/models/zavod6-clay.glb": "37d6d9d19cccca23b59e651e8baec77c14baa923448f22a512e917823e295514",
+    "assets/models/zavod6-phone.glb": "3f1c64fac1d3374895f3fd892c45551a18219ea7e307624d71e859f5ab2ca13b",
+    "design/factory_map_clay/approved-equipment.json": "243a1da20d8f10aad5678eac44a7b3b1e9e43df0bf6fe484bb51f7f777e572d4",
+    "design/factory_map_clay/build_mobile_map.mjs": "3e4896552827a75048445ee2739753388e2784046d86f04859ecfd78b9022c2b",
+    "design/factory_map_clay/accord-clay-laminatsiya-2-v2.blend": "ddfa87dbd6849900f9c3e272f0a8841d4c5b6f4e30349075fe70bfeab6c8b34a"
+  },
+  "reference_note": "Four SLF1000B photos. Visible foil carriage, white panels and dense roller banks reconstructed; unseen mechanisms and inner reel stock are illustrative."
+}

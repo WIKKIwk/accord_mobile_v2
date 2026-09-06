@@ -1,0 +1,20 @@
+{
+  "source_model": "assets/models/zavod6-phone.glb",
+  "source_sha256": "3f1c64fac1d3374895f3fd892c45551a18219ea7e307624d71e859f5ab2ca13b",
+  "verified_at": "2026-09-06",
+  "source_database": "local PostgreSQL mini_rs_erp canonical head, read-only",
+  "apparatus_id": "apparatus:default:holodniy_kley",
+  "revision": 2,
+  "label": "Holodniy kley aparat",
+  "reference_model": "HTL-F1050 Coating Machine (user identification)",
+  "factory_map_object_id": "node:18:instance:2",
+  "node": 18,
+  "instance": 2,
+  "coincident_instances": [2, 6, 9, 13, 16, 20, 23, 27],
+  "bounds_gltf": [[32.167115688323975, -0.007761478424072266, 15.298965454101562], [36.06715060109855, 4.492238521575928, 27.298965454101562]],
+  "dimensions_gltf": [3.900034912774572, 4.5, 12],
+  "rotation_gltf": [0, -0.7071067811865476, 0, 0.7071067811865476],
+  "export": "coating-htl-f1050-clay.glb",
+  "units_note": "Existing map envelope, not surveyed physical dimensions. Blender X is length, Z is up; roller shafts span Blender Y / local glTF Z.",
+  "placement_note": "Preview only. Existing instances stay intact until approval. Check any separately modelled attached parts before map integration."
+}

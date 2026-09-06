@@ -1,0 +1,20 @@
+{
+  "source_model": "assets/models/zavod6-phone.glb",
+  "source_sha256": "3f1c64fac1d3374895f3fd892c45551a18219ea7e307624d71e859f5ab2ca13b",
+  "verified_at": "2026-09-06",
+  "source_database": "local PostgreSQL mini_rs_erp canonical head, read-only",
+  "apparatus_id": "apparatus:default:asset-008",
+  "revision": 3,
+  "label": "Laminatsiya 2",
+  "factory_map_object_id": "node:6:instance:6",
+  "node": 6,
+  "instance": 6,
+  "coincident_instances": [0, 2, 4, 6, 8, 10, 12, 14],
+  "coincident_note": "World-space geometry overlap, including rotated/reflected copies; exact transform equality misses six copies.",
+  "attached_components": [{"node": 4, "coincident_instances": [0, 2, 4, 6, 8, 10, 12, 14], "note": "Old roll-support shape physically overlaps this body; odd instances belong to Laminatsiya 1."}],
+  "bounds_gltf": [[12.301057946198853, -0.007816076278686523, 25.178834299746086], [17.301223624235718, 2.6922948360443115, 28.379000325498055]],
+  "dimensions_gltf": [5.000165678036865, 2.700110912322998, 3.200166025751969],
+  "rotation_gltf": [0, 0, 0, 1],
+  "export": "laminatsiya-2-clay.glb",
+  "units_note": "Original map envelope, not measured machine dimensions. Front faces map +Z; width follows map X."
+}

@@ -1,0 +1,11 @@
+{
+  "source_model": "assets/models/zavod6-phone.glb",
+  "source_database": "local PostgreSQL mini_rs_erp, canonical head revisions (read-only)",
+  "verified_at": "2026-09-06",
+  "units_note": "Existing glTF coordinate units, treated as metres by the map; not measured machine dimensions.",
+  "presses": [
+    {"colors": 7, "apparatus_id": "apparatus:default:bosma_7", "factory_map_object_id": "node:1:instance:0", "revision": 7},
+    {"colors": 8, "apparatus_id": "apparatus:default:bosma_8", "factory_map_object_id": "node:18:instance:3", "revision": 2},
+    {"colors": 9, "apparatus_id": "apparatus:default:bosma_9", "factory_map_object_id": "node:3:instance:0", "revision": 6}
+  ]
+}

@@ -2,7 +2,7 @@ name: accord_mobile_v2
 description: Android-first operational app for supplier and warehouse workflows.
 publish_to: none
 
-version: 1.0.10+39
+version: 1.0.12+41
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -67,6 +67,7 @@ flutter:
     - assets/icons/
     - assets/images/
     - assets/models/zavod6-phone.glb
+    - assets/models/zavod6-clay.glb
 
 flutter_launcher_icons:
   android: true

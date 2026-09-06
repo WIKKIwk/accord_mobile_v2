@@ -134,7 +134,22 @@ extension MobileApiAdminQueueActionResultTestModeAstPart01 on MobileApi {
         message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
       );
     }
-    if (policy == ApparatusQueuePolicy.strictSequence && !startUsesProgressQr) {
+    if ((action == 'start' || action == 'resume' || removeRollFromApparatus) &&
+        states.entries.any((entry) =>
+            entry.key.trim() != orderId.trim() &&
+            apparatusQueueOrderStateFromRaw(entry.value) ==
+                ApparatusQueueOrderState.inProgress)) {
+      throw const MobileApiException(
+        code: 'queue_action_not_allowed',
+        message: 'Apparatda boshqa ish bajarilmoqda',
+      );
+    }
+    final requiresSequenceHead = action == 'start' ||
+        (action == 'resume' &&
+            _testModeRequeuedOrderIds.contains(orderId.trim()));
+    if (policy == ApparatusQueuePolicy.strictSequence &&
+        requiresSequenceHead &&
+        !startUsesProgressQr) {
       final actionable = firstActionableQueueOrderId(
         sequence: sequence,
         states: actionableStates,

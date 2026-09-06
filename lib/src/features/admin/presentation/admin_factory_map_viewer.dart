@@ -55,25 +55,25 @@ class AdminFactoryMapViewer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    const scriptVersion = '20260904_17';
+    const scriptVersion = '20260906_clay_extruder_m250009';
     final rendererScript = kIsWeb
         ? 'assets/packages/model_viewer_plus/assets/factory-map-renderer.js?v=$scriptVersion'
         : './factory-map-renderer.js?v=$scriptVersion';
     final escapedSelectedObjectId = htmlEscape.convert(selectedObjectId.trim());
 
     return ModelViewer(
-      src: 'assets/models/zavod6-phone.glb',
+      src: 'assets/models/zavod6-clay.glb',
       alt: l10n.adminText('factory_map.title'),
       interactionEnabled: interactionEnabled,
       customHtml: '''
         <style>
-          html, body { background: #d7dde2; }
+          html, body { background: #daddd7; }
           #factory-map-canvas {
             width: 100%;
             height: 100%;
             display: block;
             touch-action: none;
-            background: #d7dde2;
+            background: #daddd7;
           }
           #factory-map-status {
             position: fixed;
@@ -232,7 +232,7 @@ class _FactoryMapObjectPickerState extends State<_FactoryMapObjectPicker> {
             const Divider(height: 1),
             Expanded(
               child: ColoredBox(
-                color: const Color(0xFFD7DDE2),
+                  color: const Color(0xFFDADDD7),
                 child: AdminFactoryMapViewer(
                   selectedObjectId: widget.initialObjectId,
                   selectionMode: true,

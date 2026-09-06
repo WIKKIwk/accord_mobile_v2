@@ -1,0 +1,19 @@
+{
+  "source_model": "assets/models/zavod6-phone.glb",
+  "source_sha256": "3f1c64fac1d3374895f3fd892c45551a18219ea7e307624d71e859f5ab2ca13b",
+  "verified_at": "2026-09-06",
+  "source_database": "local PostgreSQL mini_rs_erp canonical head, read-only",
+  "apparatus_id": "apparatus:default:asset-005",
+  "revision": 3,
+  "label": "Flexo pechat",
+  "factory_map_object_id": "node:18:instance:0",
+  "node": 18,
+  "instance": 0,
+  "coincident_instances": [0, 4, 7, 11, 14, 18, 21, 25],
+  "bounds_gltf": [[20.396834015846252, -0.007761597633361816, 22.348907470703125], [23.896865252136195, 3.992238402366638, 32.348907470703125]],
+  "dimensions_gltf": [3.500031236289942, 4, 10],
+  "rotation_gltf": [0, -0.7071067811865476, 0, 0.7071067811865476],
+  "export": "flexo-lishg-clay.glb",
+  "units_note": "Existing map envelope, not surveyed dimensions. Blender X is machine length; roller shafts are Blender Y / local glTF Z. Placement rotates local length into map Z.",
+  "placement_note": "Preview only. Coincident bodies were identified by world-space bounds, not equal transforms. Unseen attached geometry requires a final placement check after approval."
+}

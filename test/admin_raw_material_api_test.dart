@@ -1167,6 +1167,56 @@ void main() {
     expect(resumed.progressBatch, isNull);
   });
 
+  test('test mode switches paused jobs without running two orders', () async {
+    await TestModeController.instance.setEnabled(true);
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Aparatchi',
+      legalName: '',
+      ref: 'ap-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+    const apparatus = 'apparatus:default:asset-005';
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const ['zakaz-switch-a', 'zakaz-switch-b', 'zakaz-switch-c'],
+    );
+    Future<AdminApparatusQueueActionResult> act(String order, String action) =>
+        MobileApi.instance.adminApparatusQueueActionResult(
+          apparatus: apparatus,
+          orderId: 'zakaz-switch-$order',
+          action: action,
+          producedQty: 1,
+          grossQty: 1,
+          uom: 'kg',
+        );
+
+    await act('a', 'start');
+    await act('a', 'pause');
+    final runningB = await act('b', 'start');
+    expect(runningB.states['zakaz-switch-a'], 'paused');
+    expect(runningB.states['zakaz-switch-b'], 'in_progress');
+    final busy = throwsA(isA<MobileApiException>().having(
+      (error) => error.code,
+      'code',
+      'queue_action_not_allowed',
+    ));
+    await expectLater(act('a', 'resume'), busy);
+    await expectLater(act('c', 'start'), busy);
+
+    await act('b', 'pause');
+    final resumedB = await act('b', 'resume');
+    expect(resumedB.states['zakaz-switch-a'], 'paused');
+    expect(resumedB.states['zakaz-switch-b'], 'in_progress');
+    await act('b', 'complete');
+    final resumedA = await act('a', 'resume');
+    expect(resumedA.states['zakaz-switch-a'], 'in_progress');
+    expect(resumedA.states['zakaz-switch-b'], 'completed');
+    expect(resumedA.states['zakaz-switch-c'], isNull);
+  });
+
   test('test mode completed queue excludes paused work in progress', () async {
     await TestModeController.instance.setEnabled(true);
     AppSession.instance.profile = const SessionProfile(

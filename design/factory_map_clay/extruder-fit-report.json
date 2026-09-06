@@ -1,0 +1,76 @@
+{
+  "apparatus_id": "apparatus:default:asset-004",
+  "label": "Extruder laminatsiya",
+  "factory_map_object_id": "node:7",
+  "node": 7,
+  "coincident_instances": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "source_blend": "/Volumes/Samsung990P/M250009_3D/Photorealistic/M250009_Photorealistic.blend",
+  "source_blend_sha256": "dae5385773d96208fb601784a79fab5eda357250caecc96a948cca3a533f2eff",
+  "protected_sha256": {
+    "/Volumes/Samsung990P/M250009_3D/Photorealistic/M250009_Photorealistic.blend": "dae5385773d96208fb601784a79fab5eda357250caecc96a948cca3a533f2eff",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/assets/models/zavod6-phone.glb": "3f1c64fac1d3374895f3fd892c45551a18219ea7e307624d71e859f5ab2ca13b",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/assets/models/zavod6-clay.glb": "46463312ec4cfe625635abc0034ed2ce6c117bff81afbce9e4a3279053b028d9",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/design/factory_map_clay/approved-equipment.json": "c77a4b7749d0b47a64ea7af151864e532275338116e408bd1f26ba8e8051253e",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/design/factory_map_clay/build_mobile_map.mjs": "3e4896552827a75048445ee2739753388e2784046d86f04859ecfd78b9022c2b",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/design/factory_map_clay/exports/bosma-7-clay.glb": "de1e31818baf78bf79fa4de2c4694a46c9e29454a45dfa0d241ef36671f79a06",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/design/factory_map_clay/exports/bosma-8-clay.glb": "30b2b5a219ed4e5fe35974d5c56e4d5389bcb579f915ae3992be07d4c1c9368c",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/design/factory_map_clay/exports/bosma-9-clay.glb": "629dc9f3f8518225a3b09587ab6a14356b6a2b36e5b09ded3953d117f5a2fa07",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/design/factory_map_clay/exports/coating-htl-f1050-clay-v2.glb": "f2b37e49885f98c343eeb787048bbfc2e202d43a11946d078acf0d07ba4fd160",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/design/factory_map_clay/exports/coating-htl-f1050-clay.glb": "06e6bafc4069af72134cb28ff9824e4be7c47266f73740e87ac8e7839f764dca",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/design/factory_map_clay/exports/flexo-lishg-clay.glb": "ebc731bc48ead7f6f6509e68378320234e1c0f511efa37e2010beff8649a9587",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/design/factory_map_clay/exports/laminatsiya-1-slf1000b-clay.glb": "04c41a6b5ba86d38806460c6408d70a5bb10ce04ee3c15e0ba8be6ad653c3fad",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/design/factory_map_clay/exports/laminatsiya-2-clay-v2.glb": "64488acf4dbccc0295efe5c54ca76a27b321d10b127ced9d88f52c39e32ff8d5",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/design/factory_map_clay/exports/laminatsiya-2-clay.glb": "f07d33a32e5f630f99dcf9795e031773bfb6802dff79c0b01d3f41fb0b8b01d3",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/design/factory_map_clay/exports/source-map-with-identities.glb": "6cb0bbd07cc8e4daa3a6480fdb69185ec1c535a2bdf3f2b68bc8c841f26ca2b4"
+  },
+  "source_model": "assets/models/zavod6-phone.glb",
+  "source_sha256": "3f1c64fac1d3374895f3fd892c45551a18219ea7e307624d71e859f5ab2ca13b",
+  "export": "extruder-m250009-clay.glb",
+  "approved_at": "2026-09-06",
+  "approval_status": "approved",
+  "bounds_gltf": [
+    [
+      16.813805103302002,
+      -0.007760763168334961,
+      6.65891432762146
+    ],
+    [
+      33.298668384552,
+      3.9922125339508057,
+      17.95285964012146
+    ]
+  ],
+  "dimensions_gltf": [
+    16.48486328125,
+    3.9999732971191406,
+    11.2939453125
+  ],
+  "rotation_gltf": [
+    0,
+    1,
+    0,
+    0
+  ],
+  "mesh_stats": {
+    "meshes": 12,
+    "triangles": 159208,
+    "bytes": 7822980
+  },
+  "preview_export_sha256": "5d2c89be68becb6e8322c1878a8bec99a62a617a778682936f5786445674e3b3",
+  "design_fit_scale": [
+    0.990676859442794,
+    0.9984920464620004,
+    0.9546474432654897
+  ],
+  "fit_note": "Fits the original map envelope. A half-turn places the long machine line at low map Z and the extruder carriage tail at high map Z, matching the original T-shaped footprint. Map units are not surveyed dimensions.",
+  "geometry_note": "Full approved machine, excluding warehouse/external ventilation runs. Material-batch simplification retains the clay silhouette. Original editable source and preview are preserved."
+}

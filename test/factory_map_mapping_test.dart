@@ -8,6 +8,27 @@ AdminApparatus _apparatus(String name, String objectId) {
 }
 
 void main() {
+  test('verified coincident extruder taps resolve the saved apparatus', () {
+    final extruder = _apparatus('Extruder laminatsiya', 'node:7');
+    final neighbour = _apparatus('Boshqa aparat', 'node:18:instance:2');
+    for (var i = 0; i < 8; i++) {
+      final target = 'node:7:instance:$i';
+      expect(canonicalFactoryMapObjectId(target), 'node:7');
+      expect(resolveFactoryMapApparatus([neighbour, extruder], target),
+          same(extruder));
+      expect(hasLegacyFactoryMapBinding([extruder], target), isFalse);
+    }
+    for (final target in [
+      'node:7:instance:8',
+      'node:7:instance:01',
+      'node:17:instance:0'
+    ]) {
+      expect(canonicalFactoryMapObjectId(target), target);
+      expect(resolveFactoryMapApparatus([extruder], target), isNull);
+    }
+    expect(canonicalFactoryMapObjectId('node:7'), 'node:7');
+  });
+
   test('resolves the exact instanced map object without grouping siblings', () {
     final first = _apparatus('Birinchi aparat', 'node:73:instance:0');
     final second = _apparatus('Ikkinchi aparat', 'node:73:instance:1');
@@ -106,7 +127,8 @@ void main() {
     expect(canonicalFactoryMapObjectId(''), '');
   });
 
-  test('resolves apparatus when tapping overhead arrow instead of machine body', () {
+  test('resolves apparatus when tapping overhead arrow instead of machine body',
+      () {
     final apparatus = _apparatus('Pechat aparati', 'node:39:instance:0');
 
     // Tapping the arrow above instance 0 resolves to the apparatus
@@ -129,8 +151,11 @@ void main() {
     );
   });
 
-  test('resolves apparatus when machine body is tapped for legacy arrow binding', () {
-    final apparatus = _apparatus('Legacy strelka boglangan aparat', 'node:33:instance:2');
+  test(
+      'resolves apparatus when machine body is tapped for legacy arrow binding',
+      () {
+    final apparatus =
+        _apparatus('Legacy strelka boglangan aparat', 'node:33:instance:2');
 
     // Tapping the machine body resolves to the apparatus bound with the arrow ID
     expect(

@@ -1,0 +1,172 @@
+{
+  "source_model": "assets/models/zavod6-phone.glb",
+  "source_database": "local PostgreSQL mini_rs_erp, canonical head revisions (read-only)",
+  "verified_at": "2026-09-06",
+  "units_note": "Existing glTF coordinate units, treated as metres by the map; not measured machine dimensions.",
+  "presses": [
+    {
+      "colors": 7,
+      "apparatus_id": "apparatus:default:bosma_7",
+      "factory_map_object_id": "node:1:instance:0",
+      "revision": 7,
+      "node": 1,
+      "instance": 0,
+      "bounds_gltf": [
+        [
+          1.754101037979126,
+          -0.007760882377624512,
+          35.915992736816406
+        ],
+        [
+          5.854101181030273,
+          3.3922390937805176,
+          54.115997314453125
+        ]
+      ],
+      "dimensions_gltf": [
+        4.1000001430511475,
+        3.399999976158142,
+        18.20000457763672
+      ],
+      "coincident_instances": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "export": "bosma-7-clay.glb",
+      "mesh_stats": {
+        "meshes": 12,
+        "triangles": 52380,
+        "bytes": 2410788
+      },
+      "old_shape_instances_hidden": 8,
+      "placed_bounds_blender": [
+        [
+          1.7541004419326782,
+          -54.115997314453125,
+          -0.007760882377624512
+        ],
+        [
+          5.854101657867432,
+          -35.915992736816406,
+          3.395299196243286
+        ]
+      ],
+      "fits_original_envelope": true
+    },
+    {
+      "colors": 8,
+      "apparatus_id": "apparatus:default:bosma_8",
+      "factory_map_object_id": "node:18:instance:3",
+      "revision": 2,
+      "node": 18,
+      "instance": 3,
+      "bounds_gltf": [
+        [
+          1.7432854175567627,
+          -0.007760763168334961,
+          17.719200134277344
+        ],
+        [
+          6.543328285217285,
+          3.292239189147949,
+          32.9192008972168
+        ]
+      ],
+      "dimensions_gltf": [
+        4.8000428676605225,
+        3.299999952316284,
+        15.200000762939453
+      ],
+      "coincident_instances": [
+        3,
+        10,
+        17,
+        24
+      ],
+      "export": "bosma-8-clay.glb",
+      "mesh_stats": {
+        "meshes": 12,
+        "triangles": 58836,
+        "bytes": 2697332
+      },
+      "old_shape_instances_hidden": 4,
+      "placed_bounds_blender": [
+        [
+          1.743284821510315,
+          -32.9192008972168,
+          -0.007760763168334961
+        ],
+        [
+          6.543328762054443,
+          -17.719200134277344,
+          3.2952091693878174
+        ]
+      ],
+      "fits_original_envelope": true
+    },
+    {
+      "colors": 9,
+      "apparatus_id": "apparatus:default:bosma_9",
+      "factory_map_object_id": "node:3:instance:0",
+      "revision": 6,
+      "node": 3,
+      "instance": 0,
+      "bounds_gltf": [
+        [
+          11.11836051940918,
+          -0.00776219367980957,
+          29.93906021118164
+        ],
+        [
+          17.318357467651367,
+          4.442237854003906,
+          52.83906173706055
+        ]
+      ],
+      "dimensions_gltf": [
+        6.1999969482421875,
+        4.450000047683716,
+        22.900001525878906
+      ],
+      "coincident_instances": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "export": "bosma-9-clay.glb",
+      "mesh_stats": {
+        "meshes": 12,
+        "triangles": 65100,
+        "bytes": 3009456
+      },
+      "old_shape_instances_hidden": 8,
+      "placed_bounds_blender": [
+        [
+          11.118359565734863,
+          -52.83906173706055,
+          -0.00776219367980957
+        ],
+        [
+          17.318357467651367,
+          -29.93906021118164,
+          4.446242809295654
+        ]
+      ],
+      "fits_original_envelope": true
+    }
+  ],
+  "source_sha256": "3f1c64fac1d3374895f3fd892c45551a18219ea7e307624d71e859f5ab2ca13b",
+  "blender_version": "5.2.1 LTS",
+  "hidden_source_objects_in_review": 1072
+}

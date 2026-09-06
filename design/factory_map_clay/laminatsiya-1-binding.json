@@ -1,0 +1,19 @@
+{
+  "source_model": "assets/models/zavod6-phone.glb",
+  "source_sha256": "3f1c64fac1d3374895f3fd892c45551a18219ea7e307624d71e859f5ab2ca13b",
+  "verified_at": "2026-09-06",
+  "source_database": "local PostgreSQL mini_rs_erp canonical head, read-only",
+  "apparatus_id": "apparatus:default:asset-007",
+  "revision": 4,
+  "label": "Laminatsiya 1",
+  "factory_map_object_id": "node:6:instance:7",
+  "node": 6,
+  "instance": 7,
+  "coincident_instances": [1, 3, 5, 7, 9, 11, 13, 15],
+  "attached_components": [{"node": 4, "coincident_instances": [1, 3, 5, 7, 9, 11, 13, 15]}],
+  "bounds_gltf": [[12.301057946198853, -0.007816076278686523, 20.504205088320305], [17.301223624235718, 2.6922948360443115, 23.704371114072273]],
+  "dimensions_gltf": [5.000165678036865, 2.700110912322998, 3.200166025751969],
+  "rotation_gltf": [0, 0, 0, 1],
+  "export": "laminatsiya-1-slf1000b-clay.glb",
+  "units_note": "Existing map envelope, not surveyed physical dimensions. Longitudinal roll axes are glTF Z / Blender Y."
+}

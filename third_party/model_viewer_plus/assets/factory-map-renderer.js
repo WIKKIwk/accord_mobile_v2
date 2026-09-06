@@ -22,12 +22,12 @@ let selectionHelper = null;
 let pointerStart = null;
 
 const FACTORY_PALETTE = Object.freeze({
-  background: 0xd7dde2,
-  ground: 0xe7ecef,
-  slab: 0xc4ced6,
-  apparatus: 0x65798f,
-  apparatusAccent: 0x8a9caf,
-  apparatusMarker: 0xf0e9b6,
+  background: 0xdaddd7,
+  ground: 0xdde1d9,
+  slab: 0xc8cec7,
+  apparatus: 0xb6beb7,
+  apparatusAccent: 0xc9cbbf,
+  apparatusMarker: 0xe4dfd2,
   selected: 0x4f6fb5,
   healthy: 0x5faf7a,
   warning: 0xd6a34a,
@@ -68,7 +68,7 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.35));
 
 const keyLight = new THREE.DirectionalLight(0xfff4e6, 2.1);
 keyLight.castShadow = true;
-keyLight.shadow.mapSize.set(512, 512);
+keyLight.shadow.mapSize.set(1024, 1024);
 keyLight.shadow.bias = -0.0003;
 keyLight.shadow.normalBias = 0.04;
 keyLight.shadow.radius = 3;
@@ -262,10 +262,33 @@ function registerSelectableTarget(objectId, object, instanceId = null) {
   }
 }
 
+function factoryMapReplacementOwner(object) {
+  for (let current = object; current; current = current.parent) {
+    if (current.userData?.factory_map_object_id) {
+      return current;
+    }
+  }
+  return null;
+}
+
 function registerSelectableObjects(root, parser) {
   let fallbackIndex = 0;
   root.traverse((object) => {
     if (!object.isMesh && !object.isInstancedMesh) {
+      return;
+    }
+    const replacement = factoryMapReplacementOwner(object);
+    if (replacement) {
+      const objectId = replacement.userData.factory_map_object_id;
+      object.userData.factoryMapObjectId = objectId;
+      // Every cabinet/roller must select the same persisted apparatus ID,
+      // and the highlight must cover the complete machine, not one small part.
+      selectableMeshes.push(object);
+      const target = { object: replacement, instanceId: null };
+      selectableObjectsById.set(objectId, target);
+      for (const alias of replacement.userData.factory_map_aliases ?? []) {
+        selectableObjectsById.set(alias, target);
+      }
       return;
     }
     const selectable = selectableObjectFor(object, parser, fallbackIndex++);
@@ -279,7 +302,8 @@ function registerSelectableObjects(root, parser) {
     // revealed body below.
     const isHiddenRoof =
       isHiddenRoofBaseId(selectionBaseId) ||
-      isHiddenRoofBaseId(rawBaseId);
+      isHiddenRoofBaseId(rawBaseId) ||
+      object.userData?.factory_map_hidden === true;
     if (isHiddenRoof) {
       object.visible = false;
     }
@@ -427,7 +451,7 @@ function selectObject(objectId, emitMessage = true) {
     postFactoryMapMessage({
       type: 'object_tap',
       objectId: canonicalId,
-      label: `3D obyekt · ${canonicalId}`,
+      label: target.object.userData.factory_map_label || `3D obyekt · ${canonicalId}`,
     });
   }
 }
@@ -714,6 +738,10 @@ async function loadModel() {
           const root = gltf.scene;
           scene.add(root);
           registerSelectableObjects(root, gltf.parser);
+          canvas.dataset.factoryMapStyle = root.userData.factory_map_style || 'original';
+          canvas.dataset.replacementCount = String(root.children.filter(
+            (object) => object.userData.factory_map_object_id,
+          ).length);
           const bounds = new THREE.Box3().setFromObject(root);
           enableRealShadows(root, bounds);
           applyApparatusMarkerTint(root);

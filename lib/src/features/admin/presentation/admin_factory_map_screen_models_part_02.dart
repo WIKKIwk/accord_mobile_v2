@@ -17,7 +17,11 @@ class _FactoryApparatusLiveSheetState
   @override
   void initState() {
     super.initState();
-    unawaited(_load());
+    // The apparatus tap opens this sheet before inherited localizations may
+    // be read. Wait for its first frame before resolving localized errors.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_load());
+    });
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 15),
       (_) => unawaited(_load(silent: true)),

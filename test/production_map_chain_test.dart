@@ -674,4 +674,28 @@ void main() {
       'zakaz-b',
     );
   });
+
+  test('paused work does not occupy the apparatus or block the next order', () {
+    const sequence = ['zakaz-a', 'zakaz-b'];
+    const states = {'zakaz-a': 'paused'};
+    expect(firstActiveQueueOrderId(sequence: sequence, states: states), isNull);
+    expect(
+      firstActionableQueueOrderId(sequence: sequence, states: states),
+      'zakaz-b',
+    );
+    expect(
+      firstInProgressQueueOrderId(
+        sequence: sequence,
+        states: const {'zakaz-a': 'paused', 'zakaz-b': 'in_progress'},
+      ),
+      'zakaz-b',
+    );
+    expect(
+      firstActionableQueueOrderId(
+        sequence: sequence,
+        states: const {'zakaz-a': 'paused', 'zakaz-b': 'paused'},
+      ),
+      isNull,
+    );
+  });
 }

@@ -1,0 +1,205 @@
+{
+  "source_model": "assets/models/zavod6-phone.glb",
+  "source_sha256": "3f1c64fac1d3374895f3fd892c45551a18219ea7e307624d71e859f5ab2ca13b",
+  "verified_at": "2026-09-06",
+  "source_database": "local PostgreSQL mini_rs_erp canonical head, read-only",
+  "apparatus_id": "apparatus:default:holodniy_kley",
+  "revision": 2,
+  "label": "Holodniy kley aparat",
+  "reference_model": "HTL-F1050 Coating Machine (user identification)",
+  "factory_map_object_id": "node:18:instance:2",
+  "node": 18,
+  "instance": 2,
+  "coincident_instances": [
+    2,
+    6,
+    9,
+    13,
+    16,
+    20,
+    23,
+    27
+  ],
+  "bounds_gltf": [
+    [
+      32.167115688323975,
+      -0.007761478424072266,
+      15.298965454101562
+    ],
+    [
+      36.06715060109855,
+      4.492238521575928,
+      27.298965454101562
+    ]
+  ],
+  "dimensions_gltf": [
+    3.900034912774572,
+    4.5,
+    12
+  ],
+  "rotation_gltf": [
+    0,
+    -0.7071067811865476,
+    0,
+    0.7071067811865476
+  ],
+  "export": "coating-htl-f1050-clay-v2.glb",
+  "units_note": "Existing map envelope, not surveyed physical dimensions. Blender X is length, Z is up; roller shafts span Blender Y / local glTF Z.",
+  "placement_note": "Approved full open-gap model. Replace only the eight coincident Holodniy kley bodies at the existing saved placement.",
+  "preview_version": 2,
+  "approval_status": "approved",
+  "approved_at": "2026-09-06",
+  "brand_text": "ACCORD",
+  "brand_note": "Photo-inspired black serif lettering and tapered underline, not a supplied vector logo.",
+  "mesh_stats": {
+    "meshes": 16,
+    "triangles": 49284,
+    "bytes": 2128520,
+    "editable_parts": 581
+  },
+  "protected_sha256": {
+    "assets/models/zavod6-phone.glb": "3f1c64fac1d3374895f3fd892c45551a18219ea7e307624d71e859f5ab2ca13b",
+    "assets/models/zavod6-clay.glb": "08805c70f5d16807dba0bca0cb08b8d1da59ae2bc32b4a81c58168466777e27c",
+    "design/factory_map_clay/approved-equipment.json": "6df0f67716fd7a340445e94eb3ac7e876168019428331dff8337aaa22af12421",
+    "design/factory_map_clay/build_mobile_map.mjs": "3e4896552827a75048445ee2739753388e2784046d86f04859ecfd78b9022c2b",
+    "design/factory_map_clay/accord-clay-coating-htl-f1050.blend": "1282f8316b22ac3c21f0a74da47a3245091ce9950cc2bed91d88ee21a238b64b",
+    "design/factory_map_clay/coating-fit-report.json": "ec7788786ec893207439d98df0913499ab3a9ef85e81b1835c688034418a5416",
+    "design/factory_map_clay/exports/coating-htl-f1050-clay.glb": "06e6bafc4069af72134cb28ff9824e4be7c47266f73740e87ac8e7839f764dca",
+    "design/factory_map_clay/exports/bosma-8-clay.glb": "30b2b5a219ed4e5fe35974d5c56e4d5389bcb579f915ae3992be07d4c1c9368c",
+    "design/factory_map_clay/exports/bosma-9-clay.glb": "629dc9f3f8518225a3b09587ab6a14356b6a2b36e5b09ded3953d117f5a2fa07",
+    "design/factory_map_clay/exports/source-map-with-identities.glb": "6cb0bbd07cc8e4daa3a6480fdb69185ec1c535a2bdf3f2b68bc8c841f26ca2b4",
+    "design/factory_map_clay/exports/flexo-lishg-clay.glb": "ebc731bc48ead7f6f6509e68378320234e1c0f511efa37e2010beff8649a9587",
+    "design/factory_map_clay/exports/laminatsiya-2-clay.glb": "f07d33a32e5f630f99dcf9795e031773bfb6802dff79c0b01d3f41fb0b8b01d3",
+    "design/factory_map_clay/exports/bosma-7-clay.glb": "de1e31818baf78bf79fa4de2c4694a46c9e29454a45dfa0d241ef36671f79a06",
+    "design/factory_map_clay/exports/laminatsiya-1-slf1000b-clay.glb": "04c41a6b5ba86d38806460c6408d70a5bb10ce04ee3c15e0ba8be6ad653c3fad",
+    "design/factory_map_clay/exports/laminatsiya-2-clay-v2.glb": "64488acf4dbccc0295efe5c54ca76a27b321d10b127ced9d88f52c39e32ff8d5"
+  },
+  "local_bounds_blender": [
+    [
+      -6.0,
+      -1.9500173330307007,
+      0.0
+    ],
+    [
+      6.0,
+      1.9500173330307007,
+      4.5
+    ]
+  ],
+  "design_fit_scale": [
+    1.0037987142543285,
+    1.0769114721364648,
+    1.0
+  ],
+  "fits_original_envelope": true,
+  "roller_banks": [
+    {
+      "label": "Left coating",
+      "centers_blender": [
+        [
+          -5.0600000000000005,
+          0,
+          0.43
+        ],
+        [
+          -4.86,
+          0,
+          0.78
+        ],
+        [
+          -5.0600000000000005,
+          0,
+          1.09
+        ],
+        [
+          -4.86,
+          0,
+          1.43
+        ],
+        [
+          -5.0600000000000005,
+          0,
+          1.78
+        ],
+        [
+          -4.86,
+          0,
+          2.13
+        ],
+        [
+          -5.0600000000000005,
+          0,
+          2.48
+        ],
+        [
+          -4.86,
+          0,
+          2.8
+        ]
+      ]
+    },
+    {
+      "label": "Right composite",
+      "centers_blender": [
+        [
+          4.78,
+          0,
+          0.43
+        ],
+        [
+          4.58,
+          0,
+          0.78
+        ],
+        [
+          4.78,
+          0,
+          1.09
+        ],
+        [
+          4.58,
+          0,
+          1.43
+        ],
+        [
+          4.78,
+          0,
+          1.78
+        ],
+        [
+          4.58,
+          0,
+          2.13
+        ],
+        [
+          4.78,
+          0,
+          2.48
+        ],
+        [
+          4.58,
+          0,
+          2.8
+        ]
+      ]
+    }
+  ],
+  "reels": [
+    "left_loaded_reel",
+    "right_loaded_reel"
+  ],
+  "open_gap_bounds_blender": [
+    [
+      -2.549944020743243,
+      -1.950017456387286,
+      0
+    ],
+    [
+      2.167909936252101,
+      1.950017456387286,
+      2.9
+    ]
+  ],
+  "open_gap_note": "Clearance is a conservative empty model volume derived from the photo, not a surveyed aisle measurement. The overhead hood remains connected; the two lower machine blocks do not touch.",
+  "reference_note": "User's actual factory photo corrects the original catalogue study: remove central nip head and bed, move both reel carriages into the end modules, retain a wide open center beneath the unchanged hood. Stored pallets/rolls in the photo are not structural machine parts and are not placed in the gap. Rear controls, reel stock and hidden mechanisms remain illustrative."
+}
