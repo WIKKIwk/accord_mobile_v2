@@ -143,8 +143,8 @@ Future<double?> _productionMapBaseMetrajFromMapOnly(
     if (response.results.isEmpty) {
       return null;
     }
-    final base = response.results.first.baseLength;
-    return base > 0 ? base : null;
+    final plannedLength = response.results.first.roundedLength;
+    return plannedLength > 0 ? plannedLength : null;
   } catch (_) {
     return null;
   }
@@ -166,8 +166,8 @@ Future<double?> _productionMapBaseMetrajForTemplate(
     if (response.results.isEmpty) {
       return null;
     }
-    final base = response.results.first.baseLength;
-    return base > 0 ? base : null;
+    final plannedLength = response.results.first.roundedLength;
+    return plannedLength > 0 ? plannedLength : null;
   } catch (_) {
     return null;
   }

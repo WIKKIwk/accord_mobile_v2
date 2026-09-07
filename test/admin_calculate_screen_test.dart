@@ -4,6 +4,7 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_calculate_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/calculate_order_store.dart';
@@ -16,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 part 'admin_calculate_screen_test_widgets_part_01.dart';
 part 'admin_calculate_screen_test_cases_resplit_part_01.dart';
 part 'admin_calculate_screen_test_cases_resplit_part_02.dart';
+part 'admin_calculate_screen_waste_tests.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -42,4 +44,5 @@ void main() {
   _registeradmin_calculate_screen_testCases01();
 
   _registeradmin_calculate_screen_testCases02();
+  _registerWasteTests();
 }

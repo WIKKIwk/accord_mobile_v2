@@ -28,6 +28,7 @@ class ProductionMapDefinition {
   final double? rollCount;
   final double? widthMm;
   final double? orderKg;
+  /// Planned production meters including waste and rounding; legacy API name.
   final double? baseLength;
   final List<ProductionMapNode> nodes;
   final List<ProductionMapEdge> edges;

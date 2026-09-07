@@ -275,7 +275,7 @@ map yoki parallel order emas; ular shu bosqichni bajara oladigan nomzodlardir.
 | `rollCount` | Rulon soni, mavjud bo'lsa. |
 | `widthMm` | Ish kengligi millimetrda. |
 | `orderKg` | Order og'irligi kilogrammda. |
-| `baseLength` | Hisoblangan bazaviy uzunlik. |
+| `baseLength` | Ishlab chiqarish metraji: atxot bilan hisoblangan va yaxlitlangan `roundedLength` (API field nomi tarixiy). |
 | `nodes`, `edges` | Graph bosqichlari va ulanishlari. |
 
 Asosiy node turlari:
@@ -371,7 +371,7 @@ foydalanuvchi qayta `Hisoblash` qilishi kerak.
 ### 2. Map bilan orderni atomik ochish
 
 Mobile source mapdan order-specific nusxa tayyorlab, order number, product,
-width, KG, roll count va base lengthni qo'llaydi. Map va quick-order ma'lumoti
+width, KG, roll count va atxot bilan yakuniy metrajni qo'llaydi. Map va quick-order ma'lumoti
 bitta request bilan yuboriladi:
 
 ```text

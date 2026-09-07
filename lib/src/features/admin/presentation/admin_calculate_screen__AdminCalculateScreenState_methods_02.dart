@@ -37,8 +37,8 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       final kg = _parseRequiredDouble(_kg.text);
       final savedQuickTemplate = await CalculateOrderTemplateStore.instance
           .upsert(_buildTemplateDraft().copyWith(kg: 0, orderNumber: ''));
-      final baseLength = _result != null && _result!.results.isNotEmpty
-          ? _result!.results.first.baseLength
+      final plannedLength = _result != null && _result!.results.isNotEmpty
+          ? _result!.results.first.roundedLength
           : null;
       final clonedMap = sourceMap.copyWith(
         id: 'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}',
@@ -51,7 +51,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
         rollCount: _parseOptionalDouble(_rollCount.text),
         widthMm: _derivedWidthMm(),
         orderKg: kg,
-        baseLength: baseLength,
+        baseLength: plannedLength,
       );
       final draft = savedQuickTemplate.copyWith(
         id: '',
@@ -149,7 +149,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           widthMm: _derivedWidthMm(),
           orderKg: _parseRequiredDouble(_kg.text),
           baseLength: calculation != null && calculation.results.isNotEmpty
-              ? calculation.results.first.baseLength
+              ? calculation.results.first.roundedLength
               : null,
           nodes: productionMapOrderFlowNodes(orderContext),
           edges: productionMapOrderFlowEdges(orderContext),

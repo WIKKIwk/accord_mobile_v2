@@ -220,6 +220,25 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
       try {
         var orderMap =
             previousIndex < 0 ? _testModeAssignOrderNumberIfMissing(map) : map;
+        if (template.kg > 0) {
+          final calculation = await calculate(
+            CalculateRequest(
+              product: template.product,
+              kg: template.kg,
+              frameProductSizeMm: template.frameProductSizeMm,
+              frameCount: template.frameCount,
+              edgeAllowanceMm: template.edgeAllowanceMm,
+              wastePercent: template.wastePercent,
+              rollCount: template.rollCount,
+              layers: template.effectiveLayers,
+            ),
+          );
+          orderMap = orderMap.copyWith(
+            widthMm: calculation.widthMm,
+            orderKg: calculation.kg,
+            baseLength: calculation.results.first.roundedLength,
+          );
+        }
         if (previousIndex < 0) {
           orderMap = _orderMapWithTemplateRezkaKadrCount(orderMap, template);
         }
