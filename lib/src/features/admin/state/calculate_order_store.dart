@@ -48,6 +48,12 @@ class CalculateOrderTemplateStore extends ChangeNotifier {
     return List<CalculateOrderTemplate>.unmodifiable(_templates);
   }
 
+  /// Template ro'yxati serverdan kamida bir marta muvaffaqiyatli yuklanganmi.
+  ///
+  /// Admin bo'lmagan rollarda `/v1/mobile/calculate/orders` 403 qaytaradi —
+  /// bu holda cover rasmlar order-image endpointi orqali yuklanadi.
+  bool get isLoaded => _loaded;
+
   Future<void> load({bool force = false}) async {
     if (_loaded && !force) {
       return;

@@ -100,6 +100,48 @@ class AdminOrderCoverThumb extends StatelessWidget {
   final String displayName;
   final String heroTag;
   final double width;
+  @override
+  Widget build(BuildContext context) {
+    final trimmedUrl = imageUrl.trim();
+    if (trimmedUrl.isEmpty) {
+      return AdminOrderCoverImage(
+        displayName: displayName,
+        heroTag: heroTag,
+        width: width,
+      );
+    }
+    final token = AppSession.instance.token?.trim() ?? '';
+    final image = NetworkImage(
+      MobileApi.instance.calculateOrderImageUrl(trimmedUrl),
+      headers: token.isEmpty ? null : {'Authorization': 'Bearer $token'},
+    );
+    return AdminOrderCoverImage(
+      image: image,
+      displayName: displayName,
+      heroTag: heroTag,
+      width: width,
+    );
+  }
+}
+
+/// Cover qutining o'zi: [ImageProvider] dan chizadi.
+///
+/// [image] `null` bo'lsa fallback polosa chiqadi. Bytes orqali kelgan
+/// rasmlar ([MemoryImage]) ham shu widget orqali bir xil ko'rinishda
+/// chiziladi.
+class AdminOrderCoverImage extends StatelessWidget {
+  const AdminOrderCoverImage({
+    super.key,
+    this.image,
+    required this.displayName,
+    required this.heroTag,
+    this.width = kAdminOrderCoverWidth,
+  });
+
+  final ImageProvider? image;
+  final String displayName;
+  final String heroTag;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -113,20 +155,15 @@ class AdminOrderCoverThumb extends StatelessWidget {
         color: scheme.onSecondaryContainer,
       ),
     );
-    final trimmedUrl = imageUrl.trim();
-    if (trimmedUrl.isEmpty) {
+    final provider = image;
+    if (provider == null) {
       return SizedBox(width: width, child: fallback);
     }
-    final token = AppSession.instance.token?.trim() ?? '';
-    final image = NetworkImage(
-      MobileApi.instance.calculateOrderImageUrl(trimmedUrl),
-      headers: token.isEmpty ? null : {'Authorization': 'Bearer $token'},
-    );
     return SizedBox(
       width: width,
       child: ProfileAvatarPreview(
         displayName: displayName,
-        avatarImage: image,
+        avatarImage: provider,
         semanticLabel: context.l10n.productionText(
           'worker.action.view_order_image',
         ),
@@ -143,7 +180,7 @@ class AdminOrderCoverThumb extends StatelessWidget {
             final boxHeight =
                 constraints.maxHeight.isFinite ? constraints.maxHeight : width;
             return ImageFade(
-              image: image,
+              image: provider,
               width: boxWidth,
               height: boxHeight,
               fit: BoxFit.cover,
