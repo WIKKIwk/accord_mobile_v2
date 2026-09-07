@@ -136,11 +136,20 @@ bool _queueActionSentCompletionRequest({
 Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
   _ReadOnlyQueueActionRequest request, {
   required String apparatusKey,
-}) {
+}) async {
+  final outputPaddonCode = request.apparatus.operation.trim() == 'cut' &&
+          const {'pause', 'detach_roll', 'roll_complete', 'complete'}
+              .contains(request.action) &&
+          !request.workerHandoff &&
+          !request.removeRollFromApparatus &&
+          !request.order.map.id.startsWith('training-')
+      ? await ActiveRezkaPaddonStore.load(apparatusKey)
+      : null;
   return MobileApi.instance.adminApparatusQueueActionResult(
     apparatus: apparatusKey,
     orderId: request.order.map.id,
     action: request.action,
+    outputPaddonCode: outputPaddonCode ?? '',
     materialBarcodes: request.materialBarcodes,
     qolipCodes: request.qolipCodes,
     producedQty: request.producedQty,

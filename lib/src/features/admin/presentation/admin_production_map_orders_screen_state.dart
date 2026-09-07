@@ -127,6 +127,20 @@ class _AdminProductionMapOrdersScreenState
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     final role = AppSession.instance.profile?.role;
+    final assignedRezka = widget.workerMode
+        ? _apparatus.where((apparatus) =>
+            apparatus.operation.trim() == 'cut' &&
+            _isAssignedWatchApparatus(apparatus,
+              assignedApparatus:
+                  AppSession.instance.profile?.assignedApparatus ?? const []))
+            .toList()
+        : <AdminApparatus>[];
+    final paddonApparatus = assignedRezka
+        .where((apparatus) => apparatus.id == _selectedApparatus?.id)
+        .firstOrNull ??
+        (_selectedApparatus == null && assignedRezka.length == 1
+            ? assignedRezka.single
+            : null);
     final isQolipchi = role == UserRole.qolipchi;
     final isMaterialTaminotchi = role == UserRole.materialTaminotchi;
     final canViewSupplyOrderInfo =
@@ -166,6 +180,13 @@ class _AdminProductionMapOrdersScreenState
       title: '',
       subtitle: '',
       nativeTopBar: true,
+      actions: [
+        if (paddonApparatus != null)
+          ActiveRezkaPaddonAction(
+            key: ValueKey(ActiveRezkaPaddonStore.scopeKey(paddonApparatus.id)),
+            apparatusId: paddonApparatus.id,
+          ),
+      ],
       automaticallyImplyNativeLeading: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       profileActionListenable: _searchFocusNode,

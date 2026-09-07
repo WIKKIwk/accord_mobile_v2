@@ -182,6 +182,37 @@ void main() {
   });
 
   test(
+      'active pallet accompanies individual and bulk outputs and is omitted when unset',
+      () async {
+    for (final action in ['roll_complete', 'pause', 'complete']) {
+      for (final code in ['', '00001']) {
+        final client = MockClient((request) async {
+          final body = jsonDecode(request.body) as Map;
+          expect(body['output_paddon_code'], code.isEmpty ? null : code);
+          expect(body['rezka_frames'], [frame]);
+          return http.Response(
+              jsonEncode({
+                'states': {'order-1': 'in_progress'},
+                'prints': []
+              }),
+              200);
+        });
+        await http.runWithClient(
+            () => MobileApi.instance.adminApparatusQueueActionResult(
+                  apparatus: 'apparatus:default:asset-010',
+                  orderId: 'order-1',
+                  action: action,
+                  rezkaFrames: [frame],
+                  outputPaddonCode: code,
+                  rezkaRecordFrameIndex: action == 'roll_complete' ? 1 : null,
+                  rezkaOutputCycle: 'cycle-1',
+                ),
+            () => client);
+      }
+    }
+  });
+
+  test(
       'report rejects duplicate slot or batch identities and accepts empty cycle',
       () {
     expect(

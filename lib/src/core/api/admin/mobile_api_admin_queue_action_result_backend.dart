@@ -26,6 +26,7 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
     List<Map<String, dynamic>> rezkaFrames = const [],
     int? rezkaRecordFrameIndex,
     String rezkaOutputCycle = '',
+    String outputPaddonCode = '',
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -75,6 +76,8 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
           'apparatus': apparatus,
           'order_id': orderId,
           'action': action,
+          if (outputPaddonCode.trim().isNotEmpty)
+            'output_paddon_code': outputPaddonCode.trim(),
           if (completeWithoutOutput) 'complete_without_output': true,
           if (freezeWithIssue) 'freeze_with_issue': true,
           if (freezeWithIssue) 'issue_note': trimmedIssueNote,

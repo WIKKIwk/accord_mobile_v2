@@ -25,6 +25,7 @@ Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
     List<Map<String, dynamic>> rezkaFrames = const [],
     int? rezkaRecordFrameIndex,
     String rezkaOutputCycle = '',
+    String outputPaddonCode = '',
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -72,6 +73,10 @@ final normalizedApparatusId = apparatus.trim();
     }
     final issueFreezeRequested = action == 'freeze' && freezeWithIssue;
     if (await TestModeController.instance.isEnabled()) {
+      if (outputPaddonCode.trim().isNotEmpty) {
+        throw const MobileApiException(code: 'paddon_invalid_input',
+            message: 'Paddonga avtomatik qo‘shish ERP ulanishini talab qiladi');
+      }
       if (completeWithoutOutput) {
         throw const MobileApiException(code: 'queue_action_not_allowed',
             message: 'Rulonsiz yakunlash ERP ulanishini talab qiladi');
@@ -127,6 +132,7 @@ final normalizedApparatusId = apparatus.trim();
       );
     }
     return _adminApparatusQueueActionResultBackend(
+      outputPaddonCode: outputPaddonCode,
       completeWithoutOutput: completeWithoutOutput,
       rezkaRecordFrameIndex: rezkaRecordFrameIndex,
       rezkaOutputCycle: rezkaOutputCycle,

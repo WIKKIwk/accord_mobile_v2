@@ -75,6 +75,7 @@ void _registerRezkaRecordedRollTests() {
             progressDriverUrlPicker: (_) async => 'http://printer.test'),
       ));
       await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('rezka-active-paddon')), findsOneWidget);
       await tester.tap(find.text('Rezka'));
       await tester.pumpAndSettle();
       await tester.tap(find.textContaining('rezka-recorded-dialog').first);

@@ -178,12 +178,14 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
       if (!mounted || _rezkaPrinter == null) return;
       var saved = _rezkaReport!.frameAt(index);
       if (saved == null) {
+        final paddonCode = await ActiveRezkaPaddonStore.load(widget.apparatus);
         final result = await MobileApi.instance.adminApparatusQueueActionResult(
           apparatus: widget.apparatus,
           orderId: widget.order.map.id,
           action: 'roll_complete',
           rezkaRecordFrameIndex: index + 1,
           rezkaOutputCycle: _rezkaReport!.cycleId,
+          outputPaddonCode: paddonCode ?? '',
           rezkaFrames: [
             _RezkaFrameInput(
               meterQty: _parseQty(frame.meter.text),
@@ -232,7 +234,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         if (!printed.ok) throw StateError('print_failed');
       }
       _updateRezkaPrint(() => _rezkaPrintStatus[index] = _rezkaText('printed'));
-    } catch (_) {
+    } catch (error) {
       // A timed-out save may have committed. Reconcile before unlocking or
       // submitting the group, and always retry the saved QR via reprint.
       AdminRezkaOutputReport? latest;
@@ -253,7 +255,14 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
                 ? _rezkaText(_rezkaReport!.frameAt(index)!.isIssue
                     ? 'issue_saved'
                     : 'saved_print_failed')
-                : _rezkaText('save_failed');
+                : _rezkaText(error is MobileApiException &&
+                        const {
+                          'paddon_not_found',
+                          'paddon_invalid_input',
+                          'paddon_item_already_assigned'
+                        }.contains(error.code)
+                    ? 'paddon_failed'
+                    : 'save_failed');
         _rezkaPrinter = null;
       });
     } finally {

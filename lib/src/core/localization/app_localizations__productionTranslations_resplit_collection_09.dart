@@ -167,6 +167,32 @@ const _app_localizations_declarations__productionTranslations_resplitPart09 = {
     "en": "Print",
     "ru": "Печать",
   },
+  'worker.paddon.active.choose': {
+    'uz': 'Faol paddonni tanlang', 'en': 'Select active pallet', 'ru': 'Выберите активный поддон',
+  },
+  'worker.rezka.print.paddon_failed': {
+    'uz': 'Tanlangan paddonga yozib bo‘lmadi. Faol paddonni tekshiring.',
+    'en': 'Could not assign this roll. Check the active pallet.',
+    'ru': 'Не удалось добавить рулон. Проверьте активный поддон.',
+  },
+  'worker.paddon.active.selected': {
+    'uz': 'Faol paddon: {code}', 'en': 'Active pallet: {code}', 'ru': 'Активный поддон: {code}',
+  },
+  'worker.paddon.active.none': {
+    'uz': 'Paddonga avtomatik qo‘shmaslik', 'en': 'Do not add to a pallet automatically', 'ru': 'Не добавлять на поддон автоматически',
+  },
+  'worker.paddon.active.rolls': {
+    'uz': '{count} ta rulon', 'en': '{count} rolls', 'ru': '{count} рулонов',
+  },
+  'worker.paddon.active.empty': {
+    'uz': 'Paddonlar bo‘limida yangi paddon yarating.', 'en': 'Create a pallet in Pallets first.', 'ru': 'Создайте поддон в разделе «Поддоны».',
+  },
+  'worker.paddon.active.load_failed': {
+    'uz': 'Paddonlar yuklanmadi. Oynani qayta oching.', 'en': 'Could not load pallets. Reopen the picker.', 'ru': 'Не удалось загрузить поддоны. Откройте выбор заново.',
+  },
+  'worker.paddon.active.save_failed': {
+    'uz': 'Faol paddon saqlanmadi. Qayta tanlang.', 'en': 'Active pallet was not saved. Select it again.', 'ru': 'Активный поддон не сохранён. Выберите его снова.',
+  },
   'worker.rezka.print.reprint': {
     "uz": "Qayta chop etish",
     "en": "Reprint",
