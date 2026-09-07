@@ -303,3 +303,45 @@ node design/factory_map_clay/build_mobile_map.mjs
 node design/factory_map_clay/verify_extruder.mjs
 node --test test/factory_map_clay_test.mjs test/factory_map_renderer_test.mjs
 ```
+
+## Web transport and safe camera
+
+After rebuilding the approved map, regenerate its lossless web transport:
+
+```sh
+node design/factory_map_clay/build_web_transport.mjs
+node --test test/factory_map_navigation_test.mjs
+```
+
+`web/models/zavod6-clay.glb.gz` expands byte-for-byte to the original GLB.
+It is served only on web, not included as a second asset in native builds.
+The loader falls back to the bundled GLB when gzip is unsupported or missing.
+The tests reject a stale transport after model changes. Bump the transport
+version in `admin_factory_map_viewer.dart` when publishing an updated model.
+
+The renderer coalesces frames, stops while idle/hidden, disposes GPU resources
+on route exit and caches only one source buffer on web. Exact coincident
+instances share a rendering proxy; picking retains the original instance IDs.
+Camera constraints use visible world bounds, not simplified replacement models.
+Focus completes before opening the compact sheet; dismissal restores the
+previous pose. The overview button restores the entry view. Reduced-motion
+preferences skip the camera flight and sheet animation.
+
+## Apparatus-only picking and scenery cleanup
+
+`factory-map-scene-policy.js` allows only tagged equipment roots and the
+read-only verified legacy Rezka body (`node:20`). Visible walls/floors block
+ray hits instead of selecting an apparatus through them. The placement picker
+also waits for a valid renderer selection before enabling confirmation.
+
+Runtime-only cleanup removes the photo-identified racks at the 7/9-color
+press heads and near Flexo, roof ribs, pallet lifters and broken forklift
+fragments. Node 108 is a mixed mesh: only primitives 0/4/5/6 are hidden;
+entrance-door primitives 1/2/3 remain. The detached rods embedded in nodes
+19 and 20 are removed from cloned geometry, retaining all 12 body triangles
+and original instance IDs. Whole walls, the worker figure, approved models
+and GLB source files remain unchanged. Undoing the policy restores scenery.
+
+```sh
+node --test test/factory_map_scene_policy_test.mjs
+```

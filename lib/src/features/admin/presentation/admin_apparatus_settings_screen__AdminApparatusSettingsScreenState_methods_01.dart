@@ -4,6 +4,8 @@ part of 'admin_apparatus_settings_screen.dart';
 extension __AdminApparatusSettingsScreenStateAstPart01
     on _AdminApparatusSettingsScreenState {
   Future<void> _load({bool showLoading = true}) async {
+    if (_bindings.saving) return;
+    final generation = ++_loadGeneration;
     if (showLoading && mounted) {
       setState(() {
         _loading = true;
@@ -16,7 +18,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
         MobileApi.instance.adminApparatusMasterOptions(),
         MobileApi.instance.adminApparatusCollections(),
       ]);
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       final apparatus = [
         ...(results[0] as List<AdminApparatus>).where((item) => item.isActive),
       ]..sort(_compareApparatus);
@@ -38,7 +40,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
     } catch (error, stackTrace) {
       debugPrint('Canonical apparatus load failed: $error');
       debugPrintStack(stackTrace: stackTrace);
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       if (_AdminApparatusSettingsScreenState._cache != null) {
         setState(() => _loading = false);
         return;
@@ -343,37 +345,13 @@ extension __AdminApparatusSettingsScreenStateAstPart01
     AdminApparatus apparatus,
     String objectId,
   ) async {
-    final current = _latest(apparatus);
-    // Canonicalize so an overhead arrow tap can never be saved as a separate
-    // apparatus placement: arrows resolve to their apparatus body id.
+    if (_bindings.saving) return null;
+    ++_loadGeneration;
     final normalized = canonicalFactoryMapObjectId(objectId.trim());
-    if (normalized.isNotEmpty &&
-        _apparatus.any(
-          (item) =>
-              item.id != current.id &&
-              item.factoryMapObjectId.trim() == normalized,
-        )) {
-      showAdminTopNotice(
-        context,
-        context.l10n.adminText('apparatus.map_duplicate'),
-      );
-      return null;
-    }
     try {
-      final saved = await MobileApi.instance.adminPatchCanonicalApparatus(
-        apparatus: current,
-        patch: {
-          'placement':
-              normalized.isEmpty ? null : {'factory_map_object_id': normalized},
-        },
-      );
-      if (normalized != saved.factoryMapObjectId.trim()) {
-        throw const MobileApiException(
-          code: 'canonical_placement_not_applied',
-          message: 'Canonical joylashuv yangilanmadi',
-        );
-      }
+      final saved = await _bindings.save(apparatus, normalized);
       if (!mounted) return null;
+      _apparatus = _bindings.apparatus;
       _replaceApparatus(saved);
       showAdminTopNotice(
         context,
@@ -388,12 +366,24 @@ extension __AdminApparatusSettingsScreenStateAstPart01
       if (mounted) {
         showAdminTopNotice(
           context,
-          error is MobileApiException
-              ? error.message
-              : context.l10n.adminText('apparatus.map_save_failed'),
+          error is FactoryMapBindingFailure
+              ? context.l10n.adminText('factory_map.binding_${error.reason}')
+              : error is MobileApiException
+                  ? error.message
+                  : context.l10n.adminText('apparatus.map_save_failed'),
         );
       }
       return null;
+    } finally {
+      if (mounted) {
+        if (_bindings.ready) {
+          setState(() => _apparatus = _bindings.apparatus
+              .where((item) => item.isActive)
+              .toList()
+            ..sort(_compareApparatus));
+        }
+        unawaited(_load(showLoading: false));
+      }
     }
   }
 }

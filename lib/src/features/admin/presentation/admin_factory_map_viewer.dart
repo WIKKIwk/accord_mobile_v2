@@ -22,24 +22,43 @@ class AdminFactoryMapViewer extends StatelessWidget {
     this.selectedObjectId = '',
     this.selectionMode = false,
     this.interactionEnabled = true,
+    this.renderSuspended = false,
     this.onObjectTap,
+    this.focusedObjectId = '',
+    this.resetRevision = 0,
+    this.onFocusComplete,
+    this.liveState = const {},
+    this.stockState = const {},
+    this.showLabels = true,
   });
 
   final String selectedObjectId;
   final bool selectionMode;
   final bool interactionEnabled;
+  final bool renderSuspended;
   final ValueChanged<FactoryMapObjectSelection>? onObjectTap;
+  final String focusedObjectId;
+  final int resetRevision;
+  final ValueChanged<String>? onFocusComplete;
+  final Map<String, dynamic> liveState;
+  final Map<String, dynamic> stockState;
+  final bool showLabels;
 
   void _handleMessage(String message, String fallbackLabel) {
     try {
       final payload = jsonDecode(message);
-      if (payload is! Map || payload['type'] != 'object_tap') {
+      if (payload is! Map) {
         return;
       }
       final objectId = payload['objectId']?.toString().trim() ?? '';
       if (objectId.isEmpty) {
         return;
       }
+      if (payload['type'] == 'focus_complete') {
+        onFocusComplete?.call(objectId);
+        return;
+      }
+      if (payload['type'] != 'object_tap') return;
       final label = payload['label']?.toString().trim() ?? '';
       onObjectTap?.call(
         FactoryMapObjectSelection(
@@ -55,20 +74,35 @@ class AdminFactoryMapViewer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    const scriptVersion = '20260906_clay_extruder_m250009';
+    const scriptVersion = '20260907_sheet_render_suspend_v1';
     final rendererScript = kIsWeb
-        ? 'assets/packages/model_viewer_plus/assets/factory-map-renderer.js?v=$scriptVersion'
+        ? './assets/packages/model_viewer_plus/assets/factory-map-renderer.js?v=$scriptVersion'
         : './factory-map-renderer.js?v=$scriptVersion';
     final escapedSelectedObjectId = htmlEscape.convert(selectedObjectId.trim());
 
     return ModelViewer(
-      src: 'assets/models/zavod6-clay.glb',
+      src: kIsWeb
+          ? 'assets/assets/models/zavod6-clay.glb'
+          : 'assets/models/zavod6-clay.glb',
       alt: l10n.adminText('factory_map.title'),
       interactionEnabled: interactionEnabled,
+      lockPageViewport: true,
+      customRendererState: jsonEncode({
+        'enabled': interactionEnabled,
+        'renderSuspended': renderSuspended,
+        'focusedObjectId': focusedObjectId,
+        'resetRevision': resetRevision,
+        'reducedMotion': MediaQuery.disableAnimationsOf(context),
+        'live': selectionMode ? const {} : liveState,
+        'stock': selectionMode ? const {} : stockState,
+        'showLabels': !selectionMode && showLabels,
+      }),
       customHtml: '''
         <style>
           html, body { background: #daddd7; }
           #factory-map-canvas {
+            position: absolute;
+            inset: 0;
             width: 100%;
             height: 100%;
             display: block;
@@ -84,24 +118,12 @@ class AdminFactoryMapViewer extends StatelessWidget {
             font: 14px sans-serif;
           }
         </style>
-        <script>
-          function showFactoryMapError(event) {
-            var statuses = document.querySelectorAll('[data-factory-map-status]');
-            var status = statuses.length ? statuses[statuses.length - 1] : null;
-            if (status) {
-              status.textContent = '${htmlEscape.convert(l10n.adminText('factory_map.renderer_failed'))}';
-              status.title = event && (event.message || event.reason || event.type) || 'Renderer error';
-              status.hidden = false;
-              status.style.display = 'grid';
-            }
-          }
-          window.addEventListener('error', showFactoryMapError, true);
-          window.addEventListener('unhandledrejection', showFactoryMapError);
-        </script>
         <canvas
           id="factory-map-canvas"
           data-factory-map-canvas
+          draggable="false"
           data-model-src="__MODEL_SRC__"
+          data-model-gzip-src="${kIsWeb ? 'models/zavod6-clay.glb.gz?v=20260906-extruder' : ''}"
           data-selection-mode="$selectionMode"
           data-selected-object-id="$escapedSelectedObjectId"
         ></canvas>
@@ -113,7 +135,18 @@ class AdminFactoryMapViewer extends StatelessWidget {
           data-model-viewer-message=""
           hidden
         ></div>
-        <script type="module" src="$rendererScript"></script>
+        <script type="module">
+          const host = Array.from(document.querySelectorAll('[data-factory-map-canvas]'))
+            .find(canvas => canvas.dataset.rendererInitialized !== 'true')?.parentElement;
+          import('$rendererScript').then(({ mountFactoryMap }) => mountFactoryMap()).catch(error => {
+            const status = host?.querySelector('[data-factory-map-status]');
+            if (!status) return;
+            status.textContent = '${htmlEscape.convert(l10n.adminText('factory_map.renderer_failed'))}';
+            status.title = String(error);
+            status.hidden = false;
+            status.style.display = 'grid';
+          });
+        </script>
       ''',
       cameraControls: true,
       cameraTarget: '0m 0m 0m',
@@ -163,19 +196,9 @@ class _FactoryMapObjectPicker extends StatefulWidget {
 }
 
 class _FactoryMapObjectPickerState extends State<_FactoryMapObjectPicker> {
+  // The renderer validates the saved target against actual apparatus geometry
+  // before enabling confirmation. A legacy wall/floor ID is not a selection.
   FactoryMapObjectSelection? _selection;
-
-  @override
-  void initState() {
-    super.initState();
-    final initialObjectId = widget.initialObjectId.trim();
-    if (initialObjectId.isNotEmpty) {
-      _selection = FactoryMapObjectSelection(
-        objectId: initialObjectId,
-        label: initialObjectId,
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -232,7 +255,7 @@ class _FactoryMapObjectPickerState extends State<_FactoryMapObjectPicker> {
             const Divider(height: 1),
             Expanded(
               child: ColoredBox(
-                  color: const Color(0xFFDADDD7),
+                color: const Color(0xFFDADDD7),
                 child: AdminFactoryMapViewer(
                   selectedObjectId: widget.initialObjectId,
                   selectionMode: true,

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:convert' show utf8;
+import 'dart:convert' show jsonEncode, utf8;
 import 'dart:io'
     show File, HttpResponse, HttpServer, HttpStatus, InternetAddress, Platform;
 
@@ -17,12 +17,31 @@ import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart'
     as ios;
 
 import 'html_builder.dart';
+import 'locked_viewport.dart';
 import 'model_viewer_plus.dart';
 
 class ModelViewerState extends State<ModelViewer> {
   HttpServer? _proxy;
   WebViewController? _webViewController;
   late String _proxyURL;
+  bool _pageLoaded = false;
+
+  @override
+  void didUpdateWidget(covariant ModelViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.customRendererState != widget.customRendererState) {
+      unawaited(_setCustomRendererState());
+    }
+  }
+
+  Future<void> _setCustomRendererState() async {
+    final state = widget.customRendererState;
+    if (!_pageLoaded || state == null || _webViewController == null) return;
+    await _webViewController!.runJavaScript('''
+      document.body.setAttribute('data-model-viewer-state', ${jsonEncode(state)});
+      document.body.dispatchEvent(new Event('model-viewer-state'));
+    ''');
+  }
 
   @override
   void initState() {
@@ -32,6 +51,11 @@ class ModelViewerState extends State<ModelViewer> {
 
   @override
   void dispose() {
+    unawaited(
+      _webViewController?.runJavaScript(
+        "document.body.dispatchEvent(new Event('model-viewer-dispose'));",
+      ),
+    );
     if (_proxy != null) {
       unawaited(_proxy!.close(force: true));
       _proxy = null;
@@ -121,6 +145,7 @@ class ModelViewerState extends State<ModelViewer> {
       // Others
       innerModelViewerHtml: widget.innerModelViewerHtml,
       customHtml: widget.customHtml,
+      lockPageViewport: widget.lockPageViewport,
       relatedCss: widget.relatedCss,
       relatedJs: widget.relatedJs,
       id: widget.id,
@@ -144,8 +169,17 @@ class ModelViewerState extends State<ModelViewer> {
     );
     await webViewController.setBackgroundColor(Colors.transparent);
     await webViewController.setJavaScriptMode(JavaScriptMode.unrestricted);
+    await configureModelViewerViewport(
+      webViewController,
+      locked: widget.lockPageViewport,
+    );
     await webViewController.setNavigationDelegate(
       NavigationDelegate(
+        onPageFinished: (_) {
+          if (!mounted) return;
+          _pageLoaded = true;
+          unawaited(_setCustomRendererState());
+        },
         onNavigationRequest: (request) async {
           debugPrint('ModelViewer wants to load: ${request.url}');
           if (Platform.isIOS && request.url == widget.iosSrc) {
@@ -227,8 +261,9 @@ class ModelViewerState extends State<ModelViewer> {
 
     debugPrint('ModelViewer initializing... <$_proxyURL>');
     widget.onWebViewCreated?.call(webViewController);
-    await webViewController.loadRequest(Uri.parse(_proxyURL));
+    if (!mounted) return;
     setState(() => _webViewController = webViewController);
+    await webViewController.loadRequest(Uri.parse(_proxyURL));
   }
 
   Future<void> _initProxy() async {
@@ -263,6 +298,12 @@ class ModelViewerState extends State<ModelViewer> {
         case '/GLTFLoader.js':
         case '/OrbitControls.js':
         case '/factory-map-renderer.js':
+        case '/factory-map-live.js':
+        case '/factory-map-stock.js':
+        case '/factory-map-gestures.js':
+        case '/factory-map-navigation.js':
+        case '/factory-map-performance.js':
+        case '/factory-map-scene-policy.js':
         case '/utils/BufferGeometryUtils.js':
           final Uint8List code = await _readAsset(
             'packages/model_viewer_plus/assets${request.uri.path}',

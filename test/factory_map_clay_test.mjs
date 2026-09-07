@@ -331,6 +331,8 @@ test(`${item.label}: full-scene raycasts reach the new canopy, not a rotated dup
 test('Flutter bundles and displays the assembled clay model', () => {
   const viewer = fs.readFileSync(path.join(repo, 'lib/src/features/admin/presentation/admin_factory_map_viewer.dart'), 'utf8');
   const pubspec = fs.readFileSync(path.join(repo, 'pubspec.yaml'), 'utf8');
-  assert.match(viewer, /src: 'assets\/models\/zavod6-clay\.glb'/);
+  // Release web assets gain Flutter's assets/ URL prefix; native uses its
+  // rootBundle key. Both point to the exact same approved source model.
+  assert.match(viewer, /src: kIsWeb\s*\? 'assets\/assets\/models\/zavod6-clay\.glb'\s*: 'assets\/models\/zavod6-clay\.glb'/);
   assert.match(pubspec, /- assets\/models\/zavod6-clay\.glb/);
 });

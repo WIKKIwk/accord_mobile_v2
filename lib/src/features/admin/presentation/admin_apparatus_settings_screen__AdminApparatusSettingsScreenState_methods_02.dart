@@ -59,10 +59,12 @@ extension __AdminApparatusSettingsScreenStateAstPart02
   Future<void> _showSettings(AdminApparatus apparatus) async {
     await showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: _CanonicalApparatusSettingsCard(
           apparatus: _latest(apparatus),
+          currentApparatus: () => _latest(apparatus),
           onClose: () => Navigator.of(dialogContext).pop(),
           onPlacementChanged: _savePlacement,
           onTrainingChanged: _saveTraining,

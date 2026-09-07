@@ -4,21 +4,65 @@ part of 'admin_factory_map_screen.dart';
 class _FactoryApparatusLiveSheetState
     extends State<_FactoryApparatusLiveSheet> {
   Timer? _refreshTimer;
+  Animation<double>? _openingAnimation;
+  bool _loadStarted = false;
   bool _loading = true;
   bool _refreshing = false;
+  bool _unlinking = false;
   String _error = '';
-  AdminApparatusQueueSnapshot? _snapshot;
-  List<ProductionMapSaved> _orders = const [];
+  AdminApparatusQueueSnapshot? get _snapshot => widget.live.snapshot;
+  List<ProductionMapSaved> get _orders => widget.live.maps;
   List<AdminRawMaterialAssignment> _materials = const [];
   List<AdminProgressBatch> _wipBatches = const [];
   FactoryMapOrderFilter _orderFilter = FactoryMapOrderFilter.inProgress;
   bool _orderFilterExpanded = false;
 
+  Future<void> _unlink() async {
+    if (_unlinking) return;
+    setState(() => _unlinking = true);
+    try {
+      if (!await confirmFactoryMapUnlink(context, widget.apparatus.name) ||
+          !mounted) {
+        return;
+      }
+      final saved = await widget.onUnlink();
+      if (saved != null && mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _unlinking = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    // The apparatus tap opens this sheet before inherited localizations may
-    // be read. Wait for its first frame before resolving localized errors.
+    widget.live.addListener(_liveChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_loadStarted) return;
+    final animation = ModalRoute.of(context)?.animation;
+    if (!identical(animation, _openingAnimation)) {
+      _openingAnimation?.removeStatusListener(_onOpeningStatus);
+      _openingAnimation = animation;
+      animation?.addStatusListener(_onOpeningStatus);
+    }
+    if (animation == null || animation.status == AnimationStatus.completed) {
+      _startLoading();
+    }
+  }
+
+  void _onOpeningStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed) _startLoading();
+  }
+
+  void _startLoading() {
+    if (_loadStarted || !mounted) return;
+    _loadStarted = true;
+    _openingAnimation?.removeStatusListener(_onOpeningStatus);
+    // Network completion and building the order cards must not compete with
+    // the sheet's entrance animation. Also handles disabled animations.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_load());
     });
@@ -30,8 +74,14 @@ class _FactoryApparatusLiveSheetState
 
   @override
   void dispose() {
+    _openingAnimation?.removeStatusListener(_onOpeningStatus);
+    widget.live.removeListener(_liveChanged);
     _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  void _liveChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -50,8 +100,6 @@ class _FactoryApparatusLiveSheetState
     }
     try {
       final results = await Future.wait<Object>([
-        MobileApi.instance.adminProductionMaps(),
-        MobileApi.instance.adminProductionMapQueueSnapshot(),
         MobileApi.instance.adminRawMaterialAssignments(
           apparatus: widget.apparatus.id,
         ),
@@ -60,15 +108,13 @@ class _FactoryApparatusLiveSheetState
           apparatus: widget.apparatus.id,
           limit: 250,
         ),
-      ]);
+      ]).timeout(const Duration(seconds: 12));
       if (!mounted) {
         return;
       }
       setState(() {
-        _orders = results[0] as List<ProductionMapSaved>;
-        _snapshot = results[1] as AdminApparatusQueueSnapshot;
-        _materials = results[2] as List<AdminRawMaterialAssignment>;
-        _wipBatches = results[3] as List<AdminProgressBatch>;
+        _materials = results[0] as List<AdminRawMaterialAssignment>;
+        _wipBatches = results[1] as List<AdminProgressBatch>;
         _error = '';
       });
     } catch (_) {
@@ -184,173 +230,197 @@ class _FactoryApparatusLiveSheetState
       sequence: orderIds,
       states: states,
     );
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 2, 8, 10),
-          child: Row(
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF2E7D32),
-                  shape: BoxShape.circle,
+    return PopScope(
+      canPop: !_unlinking,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 2, 8, 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: !widget.live.fresh
+                        ? Colors.grey
+                        : states.values.contains('in_progress')
+                            ? const Color(0xFF278263)
+                            : states.values.contains('paused')
+                                ? const Color(0xFFB37B22)
+                                : Colors.blueGrey,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.apparatus.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                    Text(
-                      l10n.adminText('factory_map.live_status'),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: l10n.adminText('factory_map.refresh'),
-                onPressed: _refreshing ? null : _load,
-                icon: const Icon(Icons.refresh_rounded),
-              ),
-              IconButton(
-                tooltip: l10n.adminText('factory_map.close'),
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        AdminExpandableFilterChip<FactoryMapOrderFilter>(
-          chipKey: const ValueKey('factory-map-order-filter-chip'),
-          label: l10n.adminText('factory_map.filter'),
-          emptyLabel: _factoryMapFilterLabel(l10n, _orderFilter),
-          icon: Icons.filter_list_rounded,
-          selectedValue: _orderFilter,
-          expanded: _orderFilterExpanded,
-          onToggle: () => setState(
-            () => _orderFilterExpanded = !_orderFilterExpanded,
-          ),
-          onSelect: _setOrderFilter,
-          optionKeyPrefix: 'factory-map-order-filter-option',
-          options: [
-            for (final filter in FactoryMapOrderFilter.values)
-              AdminFilterChipOption<FactoryMapOrderFilter>(
-                value: filter,
-                label: _factoryMapFilterLabel(l10n, filter),
-                key: ValueKey(
-                  'factory-map-order-filter-option-${filter.name}',
-                ),
-              ),
-          ],
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-        ),
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(
-                    controller: widget.scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (_error.isNotEmpty)
-                        _FactoryMapNoticeCard(
-                          icon: Icons.cloud_off_outlined,
-                          message: _error,
-                          actionLabel: l10n.adminText('factory_map.retry'),
-                          onAction: _load,
-                        ),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _FactoryMapMetric(
-                            icon: Icons.receipt_long_outlined,
-                            label: l10n.adminText(
-                              'factory_map.order_count',
-                              values: {'count': orderIds.length},
+                      Text(
+                        widget.apparatus.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
                             ),
-                          ),
-                          _FactoryMapMetric(
-                            icon: Icons.inventory_2_outlined,
-                            label: l10n.adminText(
-                              'factory_map.material_count',
-                              values: {'count': visibleMaterials.length},
-                            ),
-                          ),
-                          _FactoryMapMetric(
-                            icon: Icons.precision_manufacturing_outlined,
-                            label: l10n.adminText(
-                              'factory_map.wip_count',
-                              values: {'count': visibleWipBatches.length},
-                            ),
-                          ),
-                        ],
                       ),
-                      const SizedBox(height: 12),
-                      if (orderIds.isEmpty)
-                        _FactoryMapNoticeCard(
-                          icon: Icons.check_circle_outline_rounded,
-                          message: _factoryMapEmptyMessage(l10n, _orderFilter),
-                        )
-                      else
-                        M3SegmentSpacedColumn(
-                          children: [
-                            for (var index = 0;
-                                index < orderIds.length;
-                                index++)
-                              _FactoryOrderCard(
-                                key: ValueKey(
-                                  'factory-map-order-${orderIds[index]}',
-                                ),
-                                slot: M3SegmentedListGeometry
-                                    .standaloneListSlotForIndex(
-                                  index,
-                                  orderIds.length,
-                                ),
-                                orderId: orderIds[index],
-                                order: _orderForId(orderIds[index]),
-                                state: apparatusQueueOrderStateFromRaw(
-                                  states[orderIds[index]],
-                                ),
-                                isActive: activeOrderId == orderIds[index],
-                                materials: _materialsForOrder(orderIds[index]),
-                                wipBatches: _wipForOrder(orderIds[index]),
-                                onOpenDetail: _orderForId(orderIds[index]) ==
-                                        null
-                                    ? null
-                                    : () =>
-                                        showAdminProductionMapOrderReadOnlyDetail(
-                                          context,
-                                          order: _orderForId(
-                                            orderIds[index],
-                                          )!,
-                                          apparatus: widget.apparatus,
-                                          queueSnapshot: _snapshot,
-                                        ),
-                              ),
-                          ],
-                        ),
+                      Text(
+                        l10n.adminText(widget.live.fresh
+                            ? 'factory_map.live_status'
+                            : 'factory_map.live.unknown'),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                      ),
                     ],
                   ),
                 ),
-        ),
-      ],
+                IconButton(
+                  key: const ValueKey('factory-map-unlink'),
+                  tooltip: l10n.adminText('apparatus.remove_link'),
+                  onPressed: _unlinking ? null : _unlink,
+                  icon: _unlinking
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.link_off_rounded),
+                ),
+                IconButton(
+                  tooltip: l10n.adminText('factory_map.refresh'),
+                  onPressed: _refreshing ? null : _load,
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+                IconButton(
+                  tooltip: l10n.adminText('factory_map.close'),
+                  onPressed:
+                      _unlinking ? null : () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          AdminExpandableFilterChip<FactoryMapOrderFilter>(
+            chipKey: const ValueKey('factory-map-order-filter-chip'),
+            label: l10n.adminText('factory_map.filter'),
+            emptyLabel: _factoryMapFilterLabel(l10n, _orderFilter),
+            icon: Icons.filter_list_rounded,
+            selectedValue: _orderFilter,
+            expanded: _orderFilterExpanded,
+            onToggle: () => setState(
+              () => _orderFilterExpanded = !_orderFilterExpanded,
+            ),
+            onSelect: _setOrderFilter,
+            optionKeyPrefix: 'factory-map-order-filter-option',
+            options: [
+              for (final filter in FactoryMapOrderFilter.values)
+                AdminFilterChipOption<FactoryMapOrderFilter>(
+                  value: filter,
+                  label: _factoryMapFilterLabel(l10n, filter),
+                  key: ValueKey(
+                    'factory-map-order-filter-option-${filter.name}',
+                  ),
+                ),
+            ],
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView(
+                      controller: widget.scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
+                      children: [
+                        if (_error.isNotEmpty)
+                          _FactoryMapNoticeCard(
+                            icon: Icons.cloud_off_outlined,
+                            message: _error,
+                            actionLabel: l10n.adminText('factory_map.retry'),
+                            onAction: _load,
+                          ),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _FactoryMapMetric(
+                              icon: Icons.receipt_long_outlined,
+                              label: l10n.adminText(
+                                'factory_map.order_count',
+                                values: {'count': orderIds.length},
+                              ),
+                            ),
+                            _FactoryMapMetric(
+                              icon: Icons.inventory_2_outlined,
+                              label: l10n.adminText(
+                                'factory_map.material_count',
+                                values: {'count': visibleMaterials.length},
+                              ),
+                            ),
+                            _FactoryMapMetric(
+                              icon: Icons.precision_manufacturing_outlined,
+                              label: l10n.adminText(
+                                'factory_map.wip_count',
+                                values: {'count': visibleWipBatches.length},
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (orderIds.isEmpty)
+                          _FactoryMapNoticeCard(
+                            icon: Icons.check_circle_outline_rounded,
+                            message:
+                                _factoryMapEmptyMessage(l10n, _orderFilter),
+                          )
+                        else
+                          M3SegmentSpacedColumn(
+                            children: [
+                              for (var index = 0;
+                                  index < orderIds.length;
+                                  index++)
+                                _FactoryOrderCard(
+                                  key: ValueKey(
+                                    'factory-map-order-${orderIds[index]}',
+                                  ),
+                                  slot: M3SegmentedListGeometry
+                                      .standaloneListSlotForIndex(
+                                    index,
+                                    orderIds.length,
+                                  ),
+                                  orderId: orderIds[index],
+                                  order: _orderForId(orderIds[index]),
+                                  state: apparatusQueueOrderStateFromRaw(
+                                    states[orderIds[index]],
+                                  ),
+                                  isActive: activeOrderId == orderIds[index],
+                                  materials:
+                                      _materialsForOrder(orderIds[index]),
+                                  wipBatches: _wipForOrder(orderIds[index]),
+                                  onOpenDetail: _orderForId(orderIds[index]) ==
+                                          null
+                                      ? null
+                                      : () =>
+                                          showAdminProductionMapOrderReadOnlyDetail(
+                                            context,
+                                            order: _orderForId(
+                                              orderIds[index],
+                                            )!,
+                                            apparatus: widget.apparatus,
+                                            queueSnapshot: _snapshot,
+                                          ),
+                                ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

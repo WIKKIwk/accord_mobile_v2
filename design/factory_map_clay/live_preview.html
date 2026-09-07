@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="uz"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Factory map · isolated animation QA</title>
+<style>
+body{margin:0;background:#eef1ed;font:13px system-ui;color:#30423c;display:grid;justify-items:center;gap:8px;padding:10px}
+nav{display:flex;gap:8px;flex-wrap:wrap;max-width:580px}button{padding:8px;border:1px solid #adbdb3;border-radius:8px;background:white;cursor:pointer}
+#demo{position:relative;width:min(390px,94vw);height:min(650px,78vh);border-radius:18px;overflow:hidden;background:#daddd7}
+canvas{width:100%;height:100%;display:block;touch-action:none}#stats{font-variant-numeric:tabular-nums;min-height:20px}p{margin:0}
+</style>
+<p>TEST FIXTURE · sun’iy holatlar · ERP o‘zgarmaydi</p>
+<nav><button id="running">7 apparat ishlayapti</button><button id="pause">Pauza</button><button id="stale">Eskirgan</button><button id="motion">Kam harakat</button><button id="reset">Umumiy ko‘rinish</button></nav>
+<div id="demo" data-model-viewer-state="{}">
+<canvas data-factory-map-canvas data-model-src="../../assets/models/zavod6-clay.glb"></canvas>
+<div data-factory-map-status>Model yuklanmoqda…</div>
+<div data-factory-map-bridge hidden></div>
+</div><div id="stats"></div>
+<script type="module">
+import { mountFactoryMap } from '../../third_party/model_viewer_plus/assets/factory-map-renderer.js?v=20260907coast4';
+const demo = document.querySelector('#demo');
+const canvas = demo.querySelector('canvas');
+const state = {enabled:true,showLabels:true,resetRevision:0,reducedMotion:false,live:{fresh:true,validUntil:Date.now()+30000,
+  unknownLabel:'Holat tasdiqlanmagan',routeLabel:'Rejadagi yo‘nalish · real harakat emas',connections:[], machines:[
+    ['node:1:instance:0','Bosma 7 rang'],['node:18:instance:3','Bosma 8 rang'],['node:3:instance:0','Bosma 9 rang'],
+    ['node:6:instance:6','Laminatsiya 2'],['node:6:instance:7','Laminatsiya 1'],['node:18:instance:0','Flexo'],
+    ['node:18:instance:2','Holodniy kley'],['node:7','Extruder'],['node:20','Rezka'],
+  ].map(([objectId,name],index)=>({objectId,name,state:'idle',statusLabel:'Faol buyurtma yo‘q',orderId:'QA-1042',orderLabel:''}))}};
+function publish(){demo.setAttribute('data-model-viewer-state',JSON.stringify(state));demo.dispatchEvent(new Event('model-viewer-state'));}
+function mode(raw,label){state.live.fresh=true;state.live.validUntil=Date.now()+30000;state.live.machines.forEach((m,i)=>{
+  m.state=i<7?raw:'idle';m.statusLabel=i<7?label:'Faol buyurtma yo‘q';m.orderLabel=i<7?'#QA-1042 · Qadoq plyonkasi':'';});publish();}
+document.querySelector('#running').onclick=()=>mode('in_progress','Ishlayapti');
+document.querySelector('#pause').onclick=()=>mode('paused','Pauzada');
+document.querySelector('#stale').onclick=()=>{state.live.validUntil=0;publish();};
+document.querySelector('#motion').onclick=()=>{state.reducedMotion=!state.reducedMotion;publish();};
+document.querySelector('#reset').onclick=()=>{state.resetRevision++;state.focusedObjectId='';state.live.connections=[];publish();};
+demo.addEventListener('model-viewer-plus-message',event=>{
+  const message=JSON.parse(event.target.getAttribute('data-model-viewer-message'));
+  if(message.type==='object_tap'){state.focusedObjectId=message.objectId;state.live.connections=[
+    {from:'node:1:instance:0',to:'node:6:instance:6'},{from:'node:6:instance:6',to:'node:20'}];publish();}
+});
+setInterval(()=>{document.querySelector('#stats').textContent=`${canvas.dataset.fps||'—'} FPS · p95 ${canvas.dataset.frameP95||'—'} ms · ${canvas.dataset.drawCalls||'—'} calls · ${canvas.dataset.triangles||'—'} triangles · ${canvas.dataset.activeReels||0} reels · DPR ${canvas.dataset.pixelRatio||'—'} · frames ${canvas.dataset.renderCount||0}`;},500);
+publish(); mountFactoryMap();
+</script></html>

@@ -90,6 +90,7 @@ import '../features/werka/presentation/werka_archive_yearly_calendar_screen.dart
 import '../features/werka/presentation/werka_archive_period_screen.dart';
 import '../features/werka/presentation/werka_archive_list_screen.dart';
 import '../features/werka/presentation/werka_home_screen.dart';
+import '../features/werka/presentation/werka_paddon_receive_screen.dart';
 import '../features/werka/presentation/werka_batch_dispatch_screen.dart';
 import '../features/werka/presentation/werka_create_hub_screen.dart';
 import '../features/werka/presentation/werka_customer_issue_customer_screen.dart';

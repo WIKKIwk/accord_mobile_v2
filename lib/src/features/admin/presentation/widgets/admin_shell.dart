@@ -22,6 +22,7 @@ class AdminShell extends StatelessWidget {
     this.contentPadding = EdgeInsets.zero,
     this.includeDrawer = true,
     this.primaryFabActions,
+    this.showPrimaryFab = true,
   });
 
   final String title;
@@ -35,6 +36,7 @@ class AdminShell extends StatelessWidget {
   final EdgeInsets contentPadding;
   final bool includeDrawer;
   final List<AdminFabMenuAction>? primaryFabActions;
+  final bool showPrimaryFab;
 
   void _openDrawerRoute(BuildContext context, String routeName) {
     if (ModalRoute.of(context)?.settings.name == routeName) {
@@ -62,6 +64,7 @@ class AdminShell extends StatelessWidget {
       bottom: AdminDock(
         activeTab: activeTab,
         primaryFabActions: primaryFabActions,
+        showPrimaryFab: showPrimaryFab,
       ),
       bottomDockFadeStrength: bottomDockFadeStrength,
       contentPadding: contentPadding,

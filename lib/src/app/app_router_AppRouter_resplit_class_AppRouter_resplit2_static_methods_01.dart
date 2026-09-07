@@ -83,8 +83,10 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
         WerkaUnannouncedSupplierScreen(prefill: args),
       );
     case AppRoutes.werkaStockEntryQrScan:
+      return AppRouter._buildRoute(settings, const WerkaStockEntryQrScanScreen());
+    case AppRoutes.werkaPaddonReceive:
       return AppRouter._buildRoute(
-          settings, const WerkaStockEntryQrScanScreen());
+          settings, WerkaPaddonReceiveScreen(initialCode: settings.arguments as String?));
     case AppRoutes.werkaStockEntryLookup:
       final WerkaStockEntryLookupArgs args =
           settings.arguments as WerkaStockEntryLookupArgs;

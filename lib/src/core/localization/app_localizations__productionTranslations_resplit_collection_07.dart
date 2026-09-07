@@ -63,10 +63,10 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'ru': '4. Неполное завершение',
   },
   'worker.notice.action_sent': {
-    'uz': 'Amal serverga yuborildi. Holat avtomatik yangilanadi',
+    'uz': 'Server tasdig‘i kelmadi. Amal bajarilgan bo‘lishi mumkin. Holatni tekshiring.',
     'en':
-        'The action was sent to the server. The status will update automatically.',
-    'ru': 'Действие отправлено на сервер. Состояние обновится автоматически.',
+        'Server confirmation was not received. The action may have completed. Check its status.',
+    'ru': 'Подтверждение сервера не получено. Действие могло выполниться. Проверьте состояние.',
   },
   'worker.notice.action_print_failed': {
     'uz': 'Amal bajarildi, local printer chop etmadi',
@@ -113,6 +113,31 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'en':
         'The work state is not synchronized with the server. Refresh the page.',
     'ru': 'Состояние работы не синхронизировано с сервером. Обновите страницу.',
+  },
+  'worker.queue.action_unavailable': {
+    'uz': 'Bu amal hozir mavjud emas. Buyurtma holatini yangilang. Holat o‘zgarmasa, adminga murojaat qiling.',
+    'en': 'This action is not currently available. Refresh the order status. If it remains unavailable, contact an admin.',
+    'ru': 'Это действие сейчас недоступно. Обновите состояние заказа. Если действие по-прежнему недоступно, обратитесь к администратору.',
+  },
+  'worker.waiting.apparatus_busy': {
+    'uz': 'Apparatda boshqa buyurtma ishlanmoqda. Boshlash yoki davom ettirish uchun apparat bo‘shashishini kuting.',
+    'en': 'Another order is running on this machine. Wait until the machine is free to start or resume.',
+    'ru': 'На аппарате выполняется другой заказ. Чтобы начать или продолжить работу, дождитесь освобождения аппарата.',
+  },
+  'worker.error.previous_stage_not_configured': {
+    'uz': 'Buyurtmaning oldingi ishlab chiqarish bosqichi sozlanmagan. Adminga murojaat qiling.',
+    'en': 'The previous production stage is not configured for this order. Contact an admin.',
+    'ru': 'Для заказа не настроен предыдущий этап производства. Обратитесь к администратору.',
+  },
+  'worker.waiting.previous_short': {
+    'uz': 'Oldingi bosqichdan mahsulot kelishi kutilmoqda.',
+    'en': 'Waiting for output from the previous stage.',
+    'ru': 'Ожидается продукция с предыдущего этапа.',
+  },
+  'worker.waiting.opening_wip': {
+    'uz': 'Boshlang‘ich yarim tayyor mahsulot (Opening WIP) tayyor bo‘lishi kutilmoqda. Admindan holatini tekshirishni so‘rang.',
+    'en': 'Waiting for opening work-in-progress (Opening WIP) to be ready. Ask an admin to check its status.',
+    'ru': 'Ожидается готовность начального полуфабриката (Opening WIP). Попросите администратора проверить его состояние.',
   },
   'worker.error.rule_loading': {
     'uz': 'Homashyo qoidasi yuklanmoqda',

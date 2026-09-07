@@ -35,6 +35,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   AdminOpeningWipBatch? _startInputOpeningWipBatch;
   bool _actionInFlight = false;
+  int _actionControlGeneration = 0;
   bool _lastQueueActionPrintFailed = false;
   bool _materialIntakeMode = false;
   bool _mergeScanMode = false;
@@ -826,18 +827,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   Future<AdminApparatusQueueOrderActionControl?>
       _loadCurrentQueueActionControl() async {
+    final generation = _actionControlGeneration;
     final apparatus = widget.apparatus?.id.trim() ?? '';
     final orderId = widget.order.map.id.trim();
     if (apparatus.isEmpty || orderId.isEmpty) {
       return null;
     }
     final snapshot = await MobileApi.instance
-        .adminProductionMapQueueSnapshot()
+        .adminProductionMapQueueSnapshot(apparatus: apparatus, orderId: orderId)
         .timeout(_queueActionControlRefreshTimeout);
     final control = snapshot.queueActionControls[apparatus]?[orderId];
     final nextQueueStates = snapshot.queueStates[apparatus];
     final nextStageStates = snapshot.stageStates[orderId];
     final nextOrderControl = snapshot.orderControlFor(orderId);
+    if (!mounted || generation != _actionControlGeneration) return null;
     if (mounted) {
       setState(() {
         _queueStates = Map<String, String>.from(nextQueueStates ?? const {});
@@ -917,50 +920,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     String freezeRequestId = '',
   }) async {
     final l10n = context.l10n;
-    if (!_queueActionContractSynchronized ||
+    if (_actionInFlight || !_queueActionContractSynchronized ||
         _queueActionControl?.allows(action) != true) {
       return false;
     }
-    AdminApparatusQueueOrderActionControl? latestControl;
-    try {
-      latestControl = await _loadCurrentQueueActionControl();
-    } catch (error) {
-      if (mounted) {
-        setState(() => _queueActionControl = null);
-        _showSheetNotice(l10n.productionText('worker.error.sync'));
-      }
-      return false;
-    }
-    if (!mounted) {
-      return false;
-    }
-    final latestQueueState = _queueStates[widget.order.map.id.trim()];
-    if (latestControl?.isConsistentWith(
-              _orderControlState,
-              queueState: latestQueueState,
-            ) !=
-            true ||
-        latestControl?.allows(action) != true) {
-      setState(() => _queueActionControl = latestControl);
-      _showSheetNotice(l10n.productionText('worker.error.sync'));
-      return false;
-    }
-    setState(() => _queueActionControl = latestControl);
+    // The displayed server contract is a UX hint, not write authority. The
+    // POST validates current queue/material/WIP/tooling state under its lock
+    // and transaction. A full snapshot GET here cannot prevent a race and
+    // used to add an entire network round trip to every click.
+    final latestControl = _queueActionControl;
     if (action == 'complete' && widget.apparatus?.operation.trim() == 'print' &&
         (progressInput?.closingOutputBatchId ?? '') != latestControl?.closingOutputBatchId) {
       _showSheetNotice(l10n.productionText('worker.error.sync'));
-      return false;
-    }
-    if (action == 'start' &&
-        !_bypassStartMaterialScan &&
-        !await _loadMaterialAssignments(showLoading: false)) {
-      if (mounted) {
-        _showSheetNotice(
-          _materialsError.isEmpty
-              ? l10n.productionText('worker.error.rule_failed')
-              : _materialsError,
-        );
-      }
       return false;
     }
     final prepared = _prepareReadOnlyQueueAction(
@@ -991,6 +962,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       return false;
     }
     setState(() {
+      _actionControlGeneration++;
       _actionInFlight = true;
       _lastQueueActionPrintFailed = false;
     });
@@ -1022,14 +994,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             ),
           )
           .timeout(_queueActionUiTimeout);
-      AdminApparatusQueueOrderActionControl? nextActionControl;
-      if (states != null) {
-        try {
-          nextActionControl = await _loadCurrentQueueActionControl();
-        } catch (_) {
-          nextActionControl = null;
-        }
-      }
       if (!mounted) {
         return false;
       }
@@ -1041,7 +1005,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             _orderControlState = states.orderControl!;
             _orderControls[widget.order.map.id.trim()] = states.orderControl!;
           }
-          _queueActionControl = nextActionControl;
+          // Do not invent permissions from the new state. The next controls
+          // arrive separately, without holding the completed action open.
+          _queueActionControl = null;
         }
         if (_queueActionShouldClearStartInputProgress(
           action: action,
@@ -1056,16 +1022,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           _qolipsExpanded = false;
         }
       });
-      if (_queueActionShouldReloadMaterials(action: action, result: states)) {
-        unawaited(_loadMaterialAssignments());
-      }
-      if (states != null && nextActionControl == null && mounted) {
-        _showSheetNotice(
-          context.l10n.productionText('worker.error.sync'),
-        );
-      }
       if (states != null) {
-        unawaited(_loadInputProgressBatches());
+        unawaited(_refreshQueueActionControlAfterWrite());
       }
       if (states?.completionRequest != null) {
         return false;
@@ -1155,6 +1113,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (requirementsChanged) {
         unawaited(_loadQolipRequirements());
       }
+      // Never keep a stale, permissive contract after a rejected/uncertain
+      // write. Refresh is read-only; no automatic replay of a mutation.
+      setState(() => _queueActionControl = null);
+      unawaited(_refreshQueueActionControlAfterWrite());
       _showSheetNotice(
         error is TimeoutException
             ? context.l10n.productionText('worker.notice.action_sent')
@@ -1165,6 +1127,21 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (mounted && _actionInFlight) {
         setState(() => _actionInFlight = false);
       }
+    }
+  }
+
+  Future<void> _refreshQueueActionControlAfterWrite() async {
+    final generation = ++_actionControlGeneration;
+    try {
+      final control = await _loadCurrentQueueActionControl();
+      if (!mounted || generation != _actionControlGeneration) return;
+      setState(() => _queueActionControl = control);
+      // Requirements depend on the new interaction, not the preceding action.
+      unawaited(_loadMaterialAssignments());
+      unawaited(_loadInputProgressBatches());
+    } catch (_) {
+      // The write already has its own result. A refresh failure must not be
+      // reported as a failed write or hold the action's spinner open.
     }
   }
 
@@ -1491,7 +1468,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             ) !=
             true ||
         targetControl?.allows('start') != true) {
-      _showSheetNotice(context.l10n.productionText('worker.error.sync'));
+      _showSheetNotice(_queueActionUnavailableText(
+        l10n: context.l10n,
+        control: targetControl,
+        orderControlState: targetOrderControl,
+        queueState: targetQueueState,
+      ));
       return false;
     }
     final currentInteraction = _queueActionControl?.interaction;
@@ -1740,7 +1722,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     bool workerHandoff = false,
     bool removeRollFromApparatus = false,
   }) async {
-    if (action == 'complete' && widget.apparatus?.operation.trim() == 'print') {
+    if (action == 'complete' && widget.apparatus?.operation.trim() == 'print' &&
+        !_queueActionContractSynchronized) {
       try {
         final latest = await _loadCurrentQueueActionControl();
         if (!mounted) return _ProgressActionOutcome.cancelled;
@@ -1748,7 +1731,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         if (latest?.isConsistentWith(_orderControlState,
               queueState: _queueStates[widget.order.map.id.trim()]) != true ||
             latest?.allows('complete') != true) {
-          _showSheetNotice(context.l10n.productionText('worker.error.sync'));
+          _showSheetNotice(_queueActionUnavailableText(
+            l10n: context.l10n,
+            control: latest,
+            orderControlState: _orderControlState,
+            queueState: _queueStates[widget.order.map.id.trim()],
+          ));
           return _ProgressActionOutcome.failed;
         }
       } catch (_) {
@@ -1778,7 +1766,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _returnedPaintDraftScope = scope;
     }
     if (!mounted) return _ProgressActionOutcome.cancelled;
-    if (widget.apparatus?.operation.trim() == 'cut') {
+    if (widget.apparatus?.operation.trim() == 'cut' &&
+        !_queueActionContractSynchronized) {
       try {
         final latest = await _loadCurrentQueueActionControl();
         if (!mounted) return _ProgressActionOutcome.cancelled;

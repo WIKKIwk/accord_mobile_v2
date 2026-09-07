@@ -22,6 +22,39 @@ const modelPath = path.join(
 );
 const rendererSource = fs.readFileSync(rendererPath, 'utf8');
 
+test('sheet suspension cancels rendering and defers scene updates until resume', () => {
+  const stateFunction = rendererSource.match(/function handleRendererState\(\) \{[\s\S]*?\n\}/)[0];
+  const requestFunction = rendererSource.match(/function requestRender\(\) \{[\s\S]*?\n\}/)[0];
+  const frameFunction = rendererSource.match(/function renderFrame\(now\) \{[\s\S]*?\n\}/)[0];
+  const harness = new Function(`
+    let payload = {}, lastState = {}, frameId = 7, cancelled = [], scheduled = 0;
+    let updates = 0, renders = 0;
+    const canvas = {dataset: {}}, stateHost = {getAttribute: () => JSON.stringify(payload)};
+    const disposed = false, document = {hidden: false}, viewportVisible = true;
+    const cancelAnimationFrame = id => cancelled.push(id);
+    const requestAnimationFrame = () => ++scheduled;
+    const mapBounds = {}, controls = {}, focusId = '';
+    const liveView = {setState: () => updates++}, stockView = {setState: () => updates++};
+    ${stateFunction}
+    ${requestFunction}
+    ${frameFunction}
+    return {
+      state(value) { payload = value; handleRendererState(); },
+      request: requestRender,
+      frame: renderFrame,
+      metrics: () => ({cancelled, scheduled, updates, frameId, paused: canvas.dataset.renderSuspended})
+    };
+  `)();
+  harness.state({renderSuspended: true});
+  harness.request();
+  harness.frame(100); // A frame already dispatched must also bail out.
+  assert.deepEqual(harness.metrics(), {cancelled: [7], scheduled: 0, updates: 0, frameId: 0, paused: 'true'});
+  harness.state({renderSuspended: false});
+  assert.equal(harness.metrics().updates, 2);
+  assert.equal(harness.metrics().scheduled, 1);
+  assert.equal(harness.metrics().paused, 'false');
+});
+
 test('factory map assigns a distinct selection id to each instanced hit', () => {
   assert.match(rendererSource, /hit\?\.instanceId/);
   assert.match(rendererSource, /:instance:\$\{instanceId\}/);
@@ -203,7 +236,7 @@ test('factory map selection helper unites attached arrow bounds with apparatus b
   assert.match(rendererSource, /attachedMesh\.geometry\.computeBoundingBox/);
   assert.match(rendererSource, /instanceBox\.union\(attachedBox\)/);
   assert.match(rendererSource, /attachedBox\.applyMatrix4\(attachedMesh\.matrixWorld\)/);
-  assert.match(rendererSource, /objectId:\s*canonicalId/);
+  assert.match(rendererSource, /objectId:\s*apparatusObjectId\(target.object\)/);
 });
 
 test('factory map tints arrow-merged apparatus objects cream', () => {

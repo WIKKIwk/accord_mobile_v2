@@ -28,6 +28,7 @@ const _app_router_AppRouter_resplit_class_AppRouter__routeCapabilities_resplit2V
   AppRoutes.werkaCustomerIssueCustomer: {'werka.access'},
   AppRoutes.werkaUnannouncedSupplier: {'werka.access'},
   AppRoutes.werkaStockEntryQrScan: {'werka.access'},
+  AppRoutes.werkaPaddonReceive: {'werka.access'},
   AppRoutes.werkaStockEntryLookup: {'werka.access'},
   AppRoutes.werkaArchiveBatchQrLookup: {'werka.access'},
   AppRoutes.werkaNotifications: {'werka.access'},

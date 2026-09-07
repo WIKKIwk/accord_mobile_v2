@@ -7,7 +7,24 @@ extension MobileApiAdminQueueState on MobileApi {
     return snapshot.sequences;
   }
 
-  Future<AdminApparatusQueueSnapshot> adminProductionMapQueueSnapshot() async {
+  Future<AdminApparatusQueueSnapshot> adminProductionMapQueueSnapshot({
+    String apparatus = '',
+    String orderId = '',
+  }) {
+    final reads = _queueSnapshotReads[Zone.current] ??= {};
+    final key = jsonEncode([
+      MobileApi.baseUrl, AppSession.instance.token, _queueSnapshotReadEpoch,
+      apparatus.trim(), orderId.trim(),
+    ]);
+    return reads.putIfAbsent(key, () => _loadProductionMapQueueSnapshot(
+      apparatus: apparatus.trim(), orderId: orderId.trim(),
+    ).whenComplete(() { reads.remove(key); }));
+  }
+
+  Future<AdminApparatusQueueSnapshot> _loadProductionMapQueueSnapshot({
+    required String apparatus,
+    required String orderId,
+  }) async {
     if (await TestModeController.instance.isEnabled()) {
       if (_testModeForceProductionMapQueueSnapshotLoadFailure) {
         throw const MobileApiException(
@@ -54,7 +71,10 @@ extension MobileApiAdminQueueState on MobileApi {
     final response = await _sendAuthorized(
       () => _get(
         Uri.parse(
-            '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/sequence'),
+            '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/sequence')
+            .replace(queryParameters: apparatus.isEmpty ? null : {
+              'apparatus': apparatus, 'order_id': orderId,
+            }),
         headers: _headers(requireToken()),
       ),
     );
@@ -85,6 +105,7 @@ extension MobileApiAdminQueueState on MobileApi {
       // Missing rev => null triggers the fail-safe legacy apply path.
       maps: parseProductionMapSnapshotMaps(payload['maps']),
       revision: parseProductionMapSnapshotRevisionFromJson(payload),
+      epoch: payload['epoch'] is String ? payload['epoch'] as String : '',
     );
     snapshot.validateContract();
     return snapshot;

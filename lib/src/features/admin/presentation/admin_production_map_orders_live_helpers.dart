@@ -146,7 +146,16 @@ enum CanonicalSnapshotDecision {
 CanonicalSnapshotDecision canonicalSnapshotDecision({
   required int? incomingRevision,
   required int? lastAppliedRevision,
+  String incomingEpoch = '',
+  String lastAppliedEpoch = '',
+  Set<String> retiredEpochs = const {},
 }) {
+  if (incomingEpoch.isNotEmpty && retiredEpochs.contains(incomingEpoch)) {
+    return CanonicalSnapshotDecision.ignoreStale;
+  }
+  if (incomingEpoch.isNotEmpty && incomingEpoch != lastAppliedEpoch) {
+    return CanonicalSnapshotDecision.apply;
+  }
   if (incomingRevision == null) return CanonicalSnapshotDecision.applyLegacy;
   if (lastAppliedRevision == null) return CanonicalSnapshotDecision.apply;
   if (incomingRevision < lastAppliedRevision) {

@@ -45,7 +45,16 @@ class ModelViewerState extends State<ModelViewer> {
             widget.interactionEnabled ? 'auto' : 'none',
           )
           ..innerHTML = html.toJS;
+        if (widget.lockPageViewport) {
+          // Scope the lock to this platform view, not Flutter's document or
+          // other pages. Three.js remains responsible for model pinch/pan.
+          element.style.setProperty('position', 'relative');
+          element.style.setProperty('overflow', 'hidden');
+          element.style.setProperty('overscroll-behavior', 'none');
+          element.style.setProperty('touch-action', 'none');
+        }
         _htmlElement = element;
+        _setCustomRendererState();
         _wireJavascriptChannels(element);
         // Scripts inserted through innerHTML are inert. Recreate them after
         // the platform view is attached so custom HTML can run its scripts.
@@ -59,7 +68,7 @@ class ModelViewerState extends State<ModelViewer> {
       },
     );
 
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
@@ -68,6 +77,24 @@ class ModelViewerState extends State<ModelViewer> {
     if (oldWidget.interactionEnabled != widget.interactionEnabled) {
       _setInteractionEnabled(widget.interactionEnabled);
     }
+    if (oldWidget.customRendererState != widget.customRendererState) {
+      _setCustomRendererState();
+    }
+  }
+
+  void _setCustomRendererState() {
+    final element = _htmlElement;
+    final state = widget.customRendererState;
+    if (element == null || state == null) return;
+    element.setAttribute('data-model-viewer-state', state);
+    element.dispatchEvent(web.Event('model-viewer-state'));
+  }
+
+  @override
+  void dispose() {
+    _htmlElement?.dispatchEvent(web.Event('model-viewer-dispose'));
+    _htmlElement = null;
+    super.dispose();
   }
 
   void _setInteractionEnabled(bool enabled) {
@@ -104,6 +131,7 @@ class ModelViewerState extends State<ModelViewer> {
   }
 
   void _activateScripts(web.HTMLHtmlElement element) {
+    if (!mounted) return;
     final scripts = element.querySelectorAll('script');
     for (var index = 0; index < scripts.length; index++) {
       final node = scripts.item(index);

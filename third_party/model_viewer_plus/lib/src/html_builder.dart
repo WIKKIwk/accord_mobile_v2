@@ -70,11 +70,25 @@ abstract class HTMLBuilder {
     // Others
     final String? innerModelViewerHtml,
     final String? customHtml,
+    final bool lockPageViewport = false,
     final String? relatedCss,
     final String? relatedJs,
     final String? id,
     final bool? debugLogging,
   }) {
+    if (lockPageViewport) {
+      htmlTemplate = htmlTemplate
+          .replaceFirst(
+            'content="width=device-width, initial-scale=1"',
+            'content="width=device-width, initial-scale=1, minimum-scale=1, '
+                'maximum-scale=1, user-scalable=no"',
+          )
+          .replaceFirst(
+            '/* other-css */',
+            'html, body { width:100%; height:100%; overflow:hidden; '
+                'overscroll-behavior:none; }\n/* other-css */',
+          );
+    }
     if (relatedCss != null) {
       // ignore: parameter_assignments
       htmlTemplate = htmlTemplate.replaceFirst('/* other-css */', relatedCss);

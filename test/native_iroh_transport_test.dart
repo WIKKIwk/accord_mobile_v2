@@ -1,8 +1,78 @@
 import 'package:accord_mobile_v2/src/core/native_iroh_transport.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const channel = MethodChannel('accord/iroh_transport');
+  for (final method in ['POST', 'PUT', 'PATCH', 'DELETE']) {
+    test('native $method failure is not silently replayed', () async {
+      SharedPreferences.setMockInitialValues(
+          {'iroh_endpoint_ticket': 'test-ticket'});
+      var requests = 0;
+      var resets = 0;
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'isSupported') return true;
+        if (call.method == 'reset') {
+          resets++;
+          return null;
+        }
+        if (call.method == 'request') {
+          requests++;
+          throw PlatformException(code: 'reply_lost_after_commit');
+        }
+        return null;
+      });
+      try {
+        await expectLater(
+            NativeIrohTransport.send(
+                method: method,
+                uri: Uri.parse('https://test.invalid/queue-action'),
+                body: '{}'),
+            throwsA(isA<PlatformException>()));
+        expect(requests, 1);
+        expect(resets, 0);
+      } finally {
+        messenger.setMockMethodCallHandler(channel, null);
+      }
+    });
+  }
+  test('native GET still rediscovers and retries a failed read once', () async {
+    SharedPreferences.setMockInitialValues(
+        {'iroh_endpoint_ticket': 'test-ticket'});
+    var requests = 0;
+    var resets = 0;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'isSupported') return true;
+      if (call.method == 'reset') {
+        resets++;
+        return null;
+      }
+      if (call.method == 'request') {
+        if (++requests == 1) throw PlatformException(code: 'stale_endpoint');
+        return {
+          'statusCode': 200,
+          'body': <int>[],
+          'headers': <String, String>{}
+        };
+      }
+      return null;
+    });
+    try {
+      final response = await NativeIrohTransport.send(
+          method: 'GET', uri: Uri.parse('https://test.invalid/sequence'));
+      expect(response.statusCode, 200);
+      expect(requests, 2);
+      expect(resets, 1);
+    } finally {
+      messenger.setMockMethodCallHandler(channel, null);
+    }
+  });
   test('does not enable native iroh transport by default', () {
     expect(NativeIrohTransport.endpointTicketFromEnvironment, isEmpty);
     expect(NativeIrohTransport.endpointTicketDiscoveryUrl, isEmpty);

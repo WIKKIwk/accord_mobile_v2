@@ -343,6 +343,56 @@ const _admin_localization_adminTranslations_resplitPart08 = {
     'en': 'Refresh mappings',
     'ru': 'Обновить привязки',
   },
+  'admin.factory_map.overview': {
+    'uz': 'Umumiy ko‘rinishga qaytish',
+    'en': 'Back to overview',
+    'ru': 'Вернуться к общему виду',
+  },
+  'admin.factory_map.live.summary': {
+    'uz': '{count} apparat', 'en': '{count} machines', 'ru': '{count} аппаратов',
+  },
+  'admin.factory_map.stock.rolls': {
+    'uz': 'rulon', 'en': 'rolls', 'ru': 'рул.',
+  },
+  'admin.factory_map.stock.unknown': {
+    'uz': 'State qoldig‘i tasdiqlanmagan',
+    'en': 'State inventory unconfirmed',
+    'ru': 'Остаток State не подтверждён',
+  },
+  'admin.factory_map.stock.no_space': {
+    'uz': 'State yonida bo‘sh joy yetmadi',
+    'en': 'No free space beside state',
+    'ru': 'Недостаточно места возле State',
+  },
+  'admin.factory_map.live.synced': {
+    'uz': 'ERP · 15 s', 'en': 'ERP · 15 s', 'ru': 'ERP · 15 с',
+  },
+  'admin.factory_map.live.in_progress': {
+    'uz': 'Ishlayapti', 'en': 'Running', 'ru': 'Работает',
+  },
+  'admin.factory_map.live.paused': {
+    'uz': 'Pauzada', 'en': 'Paused', 'ru': 'На паузе',
+  },
+  'admin.factory_map.live.frozen': {
+    'uz': 'Buyurtma muzlatilgan', 'en': 'Order frozen', 'ru': 'Заказ заморожен',
+  },
+  'admin.factory_map.live.pending': {
+    'uz': 'Navbat kutmoqda', 'en': 'Queued', 'ru': 'В очереди',
+  },
+  'admin.factory_map.live.idle': {
+    'uz': 'Faol buyurtma yo‘q', 'en': 'No active order', 'ru': 'Нет активного заказа',
+  },
+  'admin.factory_map.live.unknown': {
+    'uz': 'Holat tasdiqlanmagan', 'en': 'Status unconfirmed', 'ru': 'Статус не подтверждён',
+  },
+  'admin.factory_map.live.labels': {
+    'uz': 'Apparat belgilarini ko‘rsatish', 'en': 'Show machine labels', 'ru': 'Метки аппаратов',
+  },
+  'admin.factory_map.live.planned_route': {
+    'uz': 'Rejadagi yo‘nalish · real harakat emas',
+    'en': 'Planned route · not physical tracking',
+    'ru': 'Плановый маршрут · не фактическое движение',
+  },
   'admin.factory_map.live_load_failed': {
     'uz': 'Live ishlab chiqarish ma’lumoti olinmadi',
     'en': 'Could not load live production data',
@@ -367,5 +417,45 @@ const _admin_localization_adminTranslations_resplitPart08 = {
     'uz': 'Bo‘sh aparat yo‘q — barchasi ulangan',
     'en': 'No free equipment — everything is attached',
     'ru': 'Свободного оборудования нет — всё привязано',
+  },
+  'admin.factory_map.unlink_confirmation': {
+    'uz': '“{name}”ning faqat xarita bilan bog‘lanishi uziladi. Aparat, buyurtmalar va ishlab chiqarish ma’lumotlari o‘chirilmaydi. Davom etilsinmi?',
+    'en': 'Unlink “{name}” from the map? The equipment, orders and production data will not be deleted.',
+    'ru': 'Отвязать «{name}» от карты? Аппарат, заказы и производственные данные не будут удалены.',
+  },
+  'admin.factory_map.binding_busy': {
+    'uz': 'Bog‘lanish saqlanmoqda. Biroz kuting.',
+    'en': 'Saving the mapping. Please wait.',
+    'ru': 'Привязка сохраняется. Подождите.',
+  },
+  'admin.factory_map.binding_changed': {
+    'uz': 'Bog‘lanish boshqa joyda o‘zgartirilgan. Yangilangan xaritadan aparatni qayta tanlang.',
+    'en': 'The mapping changed elsewhere. Select the equipment again from the refreshed map.',
+    'ru': 'Привязка изменена в другом месте. Выберите аппарат заново на обновлённой карте.',
+  },
+  'admin.factory_map.binding_duplicate': {
+    'uz': 'Bu joy boshqa aparatga ulangan. Avval uning bog‘lanishini uzing.',
+    'en': 'This object belongs to another equipment item. Unlink it first.',
+    'ru': 'Объект уже привязан к другому аппарату. Сначала отвяжите его.',
+  },
+  'admin.factory_map.binding_retired': {
+    'uz': 'Faol bo‘lmagan aparatni xaritaga ulab bo‘lmaydi.',
+    'en': 'Inactive equipment cannot be attached to the map.',
+    'ru': 'Неактивный аппарат нельзя привязать к карте.',
+  },
+  'admin.factory_map.binding_not_applied': {
+    'uz': 'Server bog‘lanish o‘zgarishini saqlamadi. Xarita yangilandi; qayta urinib ko‘ring.',
+    'en': 'The server did not save the mapping change. The map was refreshed; please retry.',
+    'ru': 'Сервер не сохранил привязку. Карта обновлена; повторите попытку.',
+  },
+  'admin.factory_map.binding_uncertain': {
+    'uz': 'Saqlash natijasini tekshirib bo‘lmadi. Aloqa tiklangach bog‘lanishlarni yangilang.',
+    'en': 'Could not confirm the save result. Refresh mappings when the connection returns.',
+    'ru': 'Не удалось подтвердить сохранение. Обновите привязки после восстановления связи.',
+  },
+  'admin.factory_map.binding_save_failed': {
+    'uz': 'Aparat bog‘lanishini saqlab bo‘lmadi.',
+    'en': 'Could not save the equipment mapping.',
+    'ru': 'Не удалось сохранить привязку аппарата.',
   },
 };

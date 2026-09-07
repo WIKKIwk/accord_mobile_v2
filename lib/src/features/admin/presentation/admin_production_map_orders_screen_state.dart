@@ -13,6 +13,7 @@ class _AdminProductionMapOrdersScreenState
   bool _mapsRefreshInFlight = false;
   bool _queueSnapshotRefreshInFlight = false;
   bool _queueSnapshotRefreshQueued = false;
+  bool _queueSnapshotNeedsReconcile = false;
   bool _queueSnapshotContractError = false;
   String? _queueSnapshotErrorMessage;
   bool _workerCompletedHistoryError = false;
@@ -23,9 +24,14 @@ class _AdminProductionMapOrdersScreenState
   int _queueSnapshotGeneration = 0;
 
   StreamSubscription<AdminProductionMapLiveSnapshot>? _liveStreamSubscription;
+  Completer<void>? _liveStreamFinished;
+  Completer<void>? _liveReconnectFinished;
+  Timer? _liveReconnectTimer;
 
   Timer? _queueSnapshotPollTimer;
   int? _lastAppliedSnapshotRevision;
+  String _lastAppliedSnapshotEpoch = '';
+  final Set<String> _retiredSnapshotEpochs = {};
   int _liveReconnectAttempt = 0;
   String _searchQuery = '';
 
@@ -415,6 +421,7 @@ class _AdminProductionMapOrdersScreenState
       setState(() {});
     }
     try {
+      final snapshotGeneration = _queueSnapshotGeneration;
       final result = await _submitAdminApparatusQueueAction(
         request,
         apparatusKey: apparatusKey,
@@ -427,6 +434,7 @@ class _AdminProductionMapOrdersScreenState
         orderId: request.order.map.id.trim(),
         completionRequestNote: request.completionRequestNote,
         result: result,
+        applyState: snapshotGeneration == _queueSnapshotGeneration,
       );
       return result;
     } finally {
@@ -442,14 +450,18 @@ class _AdminProductionMapOrdersScreenState
     required String orderId,
     required String completionRequestNote,
     required AdminApparatusQueueActionResult result,
+    bool applyState = true,
   }) {
     setState(() {
       _queueSnapshotGeneration++;
-      _queueActionControlsByApparatus.clear();
-      _queueStatesByApparatus[apparatusKey] = result.states;
-      _orderStatusesByOrderId[orderId] = result.orderStatus;
-      if (result.orderControl != null) {
-        _orderControlsByOrderId[orderId] = result.orderControl!;
+      _queueSnapshotNeedsReconcile = true;
+      if (applyState) {
+        _queueActionControlsByApparatus.remove(apparatusKey);
+        _queueStatesByApparatus[apparatusKey] = result.states;
+        _orderStatusesByOrderId[orderId] = result.orderStatus;
+        if (result.orderControl != null) {
+          _orderControlsByOrderId[orderId] = result.orderControl!;
+        }
       }
     });
     if (_queueActionSentCompletionRequest(
@@ -463,7 +475,14 @@ class _AdminProductionMapOrdersScreenState
         ),
       );
     }
-    unawaited(_refreshLive());
+    // Catalog/history refreshes are not prerequisites for a queue mutation.
+    unawaited(_refreshQueueSnapshot());
+    if (widget.workerMode) {
+      // Stage history is actor-scoped and may change even when the whole
+      // order is not finished yet. Keep the worker's completed tab current.
+      unawaited(_refreshWorkerCompletedOrders());
+      unawaited(_refreshWorkerCompletionRequestDecisions());
+    }
   }
 
   void _openDrawerRoute(String routeName) {
@@ -661,7 +680,12 @@ class _AdminProductionMapOrdersScreenState
           targetControl?.allows('start') != true) {
         showAdminTopNotice(
           context,
-          context.l10n.productionText('worker.error.sync'),
+          _queueActionUnavailableText(
+            l10n: context.l10n,
+            control: targetControl,
+            orderControlState: targetOrderControl,
+            queueState: targetQueueState,
+          ),
         );
         return;
       }

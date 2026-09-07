@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/app/app_router.dart';
@@ -22,6 +23,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 part 'admin_production_map_test_screen_test_helpers_part_01.dart';
 part 'admin_production_map_test_screen_test_helpers_part_02.dart';
@@ -49,6 +52,8 @@ part 'admin_production_map_test_screen_test_cases_resplit_part_20.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_21.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_22.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_23.dart';
+part 'admin_production_map_worker_latency_test_part.dart';
+part 'admin_production_map_worker_notices_test_part.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
 const _print7Id = 'apparatus:default:bosma_7';
@@ -140,4 +145,6 @@ void main() {
   _registeradmin_production_map_test_screen_testCases22();
 
   _registeradmin_production_map_test_screen_testCases23();
+  _registerWorkerLatencyTests();
+  _registerWorkerNoticeTests();
 }

@@ -2,13 +2,26 @@ part of 'admin_production_map_orders_screen.dart';
 
 extension _AdminProductionMapOrdersLiveState
     on _AdminProductionMapOrdersScreenState {
+  void _rememberSnapshotVersion(AdminApparatusQueueSnapshot snapshot) {
+    if (snapshot.epoch.isNotEmpty && snapshot.epoch != _lastAppliedSnapshotEpoch) {
+      if (_lastAppliedSnapshotEpoch.isNotEmpty) {
+        _retiredSnapshotEpochs.add(_lastAppliedSnapshotEpoch);
+      }
+      _lastAppliedSnapshotEpoch = snapshot.epoch;
+    }
+    _lastAppliedSnapshotRevision = snapshot.revision;
+  }
+
   Future<void> _startWorkerLive() async {
-    await _loadWorkerApparatus();
+    // REST has bounded requests and a visible error state. Never leave the
+    // first frame dependent on an unbounded/silent WebSocket handshake.
+    await _refreshCanonicalInitial();
     if (!mounted) {
       return;
     }
+    unawaited(_refreshWorkerCompletedOrders());
+    unawaited(_refreshWorkerCompletionRequestDecisions());
     if (await TestModeController.instance.isEnabled()) {
-      await _refreshLive(initial: true);
       return;
     }
     _stopWorkerLiveStream();
@@ -45,6 +58,11 @@ extension _AdminProductionMapOrdersLiveState
 
   void _stopWorkerLiveStream() {
     _liveStreamGeneration++;
+    _liveReconnectTimer?.cancel();
+    final reconnect = _liveReconnectFinished;
+    if (reconnect != null && !reconnect.isCompleted) reconnect.complete();
+    final finished = _liveStreamFinished;
+    if (finished != null && !finished.isCompleted) finished.complete();
     final subscription = _liveStreamSubscription;
     _liveStreamSubscription = null;
     unawaited(subscription?.cancel());
@@ -74,13 +92,23 @@ extension _AdminProductionMapOrdersLiveState
       // Reset to 1s on the next successful snapshot (see listener below).
       final delay = productionMapLiveReconnectDelay(_liveReconnectAttempt);
       _liveReconnectAttempt++;
-      await Future.delayed(delay);
+      final reconnect = Completer<void>();
+      _liveReconnectFinished = reconnect;
+      _liveReconnectTimer = Timer(delay, reconnect.complete);
+      await reconnect.future;
     }
   }
 
   Future<void> _connectWorkerLiveStreamOnce(int generation) async {
-    final completer = Completer<void>();
     await _liveStreamSubscription?.cancel();
+    if (!mounted || generation != _liveStreamGeneration) return;
+    final completer = Completer<void>();
+    _liveStreamFinished = completer;
+    final firstSnapshotTimer = Timer(const Duration(seconds: 10), () {
+      if (!completer.isCompleted) {
+        completer.completeError(TimeoutException('First production snapshot'));
+      }
+    });
     _liveStreamSubscription =
         MobileApi.instance.adminProductionMapLiveEvents().listen(
       (snapshot) {
@@ -88,6 +116,7 @@ extension _AdminProductionMapOrdersLiveState
           return;
         }
         // A fresh snapshot means the stream is healthy: reset backoff.
+        firstSnapshotTimer.cancel();
         _liveReconnectAttempt = 0;
         _applyCanonicalLiveSnapshot(snapshot);
       },
@@ -103,30 +132,25 @@ extension _AdminProductionMapOrdersLiveState
       },
       cancelOnError: true,
     );
-    await completer.future;
-  }
-
-  Future<void> _loadWorkerApparatus() async {
-    final apparatus = await MobileApi.instance.adminApparatus(limit: 200);
-    if (!mounted) {
-      return;
+    try {
+      await completer.future;
+    } finally {
+      firstSnapshotTimer.cancel();
+      if (identical(_liveStreamFinished, completer)) _liveStreamFinished = null;
     }
-    if (widget.workerMode &&
-        _workerWatchTabCount(apparatus) != _tabController.length) {
-      _recreateWorkerTabController(apparatus);
-    }
-    _updateScreenState(() {
-      _apparatus = apparatus;
-    });
   }
 
   void _applyCanonicalLiveSnapshot(AdminProductionMapLiveSnapshot snapshot) {
     final decision = canonicalSnapshotDecision(
       incomingRevision: snapshot.revision,
       lastAppliedRevision: _lastAppliedSnapshotRevision,
+      incomingEpoch: snapshot.epoch,
+      lastAppliedEpoch: _lastAppliedSnapshotEpoch,
+      retiredEpochs: _retiredSnapshotEpochs,
     );
     if (decision == CanonicalSnapshotDecision.ignoreStale ||
-        decision == CanonicalSnapshotDecision.ignoreDuplicate) {
+        (decision == CanonicalSnapshotDecision.ignoreDuplicate &&
+            !_queueSnapshotNeedsReconcile)) {
       if (_queueSnapshotContractError) {
         _updateScreenState(() {
           _queueSnapshotContractError = false;
@@ -146,8 +170,9 @@ extension _AdminProductionMapOrdersLiveState
       }
     }
     _queueSnapshotGeneration++;
+    _queueSnapshotNeedsReconcile = false;
     if (decision != CanonicalSnapshotDecision.applyLegacy) {
-      _lastAppliedSnapshotRevision = snapshot.revision;
+      _rememberSnapshotVersion(snapshot);
       _liveReconnectAttempt = 0;
     }
     _updateScreenState(() {
@@ -271,9 +296,13 @@ extension _AdminProductionMapOrdersLiveState
       final decision = canonicalSnapshotDecision(
         incomingRevision: queueSnapshot.revision,
         lastAppliedRevision: _lastAppliedSnapshotRevision,
+        incomingEpoch: queueSnapshot.epoch,
+        lastAppliedEpoch: _lastAppliedSnapshotEpoch,
+        retiredEpochs: _retiredSnapshotEpochs,
       );
       if (decision == CanonicalSnapshotDecision.ignoreStale ||
-          decision == CanonicalSnapshotDecision.ignoreDuplicate) {
+          (decision == CanonicalSnapshotDecision.ignoreDuplicate &&
+              !_queueSnapshotNeedsReconcile)) {
         // Successful fetch still clears a previous transient warning.
         if (_queueSnapshotContractError) {
           _updateScreenState(() {
@@ -283,10 +312,12 @@ extension _AdminProductionMapOrdersLiveState
         }
         return;
       }
-      if (decision == CanonicalSnapshotDecision.apply) {
+      if (decision == CanonicalSnapshotDecision.apply ||
+          decision == CanonicalSnapshotDecision.ignoreDuplicate) {
+        _queueSnapshotNeedsReconcile = false;
         // New canonical revision: apply atomically, including orders when
         // the snapshot bundles maps (new backend).
-        _lastAppliedSnapshotRevision = queueSnapshot.revision;
+        _rememberSnapshotVersion(queueSnapshot);
         _liveReconnectAttempt = 0;
         final hasMaps = queueSnapshot.maps.isNotEmpty;
         final nextOrders =
@@ -679,7 +710,7 @@ extension _AdminProductionMapOrdersLiveState
       final queueSnapshot = results[0] as AdminApparatusQueueSnapshot;
       final apparatus = results[1] as List<AdminApparatus>;
       List<ProductionMapSaved> orders;
-      if (queueSnapshot.maps.isNotEmpty) {
+      if (queueSnapshot.maps.isNotEmpty || queueSnapshot.epoch.isNotEmpty) {
         orders = _productionMapZakazOrders(queueSnapshot.maps);
       } else {
         final legacyMaps = await MobileApi.instance.adminProductionMaps();
@@ -694,6 +725,9 @@ extension _AdminProductionMapOrdersLiveState
       final decision = canonicalSnapshotDecision(
         incomingRevision: queueSnapshot.revision,
         lastAppliedRevision: _lastAppliedSnapshotRevision,
+        incomingEpoch: queueSnapshot.epoch,
+        lastAppliedEpoch: _lastAppliedSnapshotEpoch,
+        retiredEpochs: _retiredSnapshotEpochs,
       );
       if ((decision == CanonicalSnapshotDecision.ignoreStale ||
               decision == CanonicalSnapshotDecision.ignoreDuplicate) &&
@@ -701,7 +735,7 @@ extension _AdminProductionMapOrdersLiveState
         return;
       }
       if (queueSnapshot.revision != null) {
-        _lastAppliedSnapshotRevision = queueSnapshot.revision;
+        _rememberSnapshotVersion(queueSnapshot);
       }
       _liveReconnectAttempt = 0;
       if (widget.workerMode &&

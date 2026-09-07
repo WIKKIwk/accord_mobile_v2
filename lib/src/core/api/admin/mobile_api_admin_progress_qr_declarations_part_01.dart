@@ -288,9 +288,8 @@ class AdminProgressBatch {
         allowEmpty: true,
       ),
       processedBySessionId: json['processed_by_session_id']?.toString() ?? '',
-      processedByApparatus: _requireCanonicalApparatusId(
+      processedByApparatus: _progressBatchProcessorId(
         json['processed_by_apparatus']?.toString() ?? '',
-        allowEmpty: true,
       ),
       startedAtUnix: (json['started_at_unix'] as num?)?.toInt() ?? 0,
       completedAtUnix: (json['completed_at_unix'] as num?)?.toInt() ?? 0,

@@ -236,13 +236,6 @@ bool _queueActionShouldClearStartInputProgress({
       const {'start', 'roll_complete', 'complete'}.contains(action);
 }
 
-bool _queueActionShouldReloadMaterials({
-  required String action,
-  required AdminApparatusQueueActionResult? result,
-}) {
-  return action == 'start' && result != null;
-}
-
 _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
   required _PreparedReadOnlyQueueAction prepared,
   required ProductionMapSaved order,
@@ -624,14 +617,25 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     contractSynchronized: contractSynchronized,
     blockingReasonCode: interaction?.blockingReasonCode ?? '',
     showBackendBlockingState: canManageQueue &&
-        contractValid &&
-        const {
-          AdminQueueInteractionMode.freshStartBlocked,
-          AdminQueueInteractionMode.requeuedWaiting,
-          AdminQueueInteractionMode.waitingPreviousStage,
-          AdminQueueInteractionMode.paused,
-          AdminQueueInteractionMode.frozen,
-        }.contains(interaction?.mode),
+        contractSynchronized &&
+        (interaction?.blockingReasonCode.trim().isNotEmpty ?? false),
+  );
+}
+
+String _queueActionUnavailableText({
+  required AppLocalizations l10n,
+  required AdminApparatusQueueOrderActionControl? control,
+  required AdminOrderControlState orderControlState,
+  required String? queueState,
+}) {
+  if (control?.isConsistentWith(orderControlState, queueState: queueState) !=
+      true) {
+    return l10n.productionText('worker.error.sync');
+  }
+  // An unavailable action is a normal server decision, not a sync failure.
+  return l10n.productionErrorMessage(
+    control?.interaction?.blockingReasonCode ?? '',
+    fallback: l10n.productionText('worker.queue.action_unavailable'),
   );
 }
 

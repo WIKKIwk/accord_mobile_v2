@@ -257,6 +257,20 @@ extension MobileApiAdminItemsAstPart04 on MobileApi {
     );
   }
 
+  Future<AdminApparatus> adminCanonicalApparatus(String id) async {
+    final response = await _sendAuthorized(
+      () => _get(_canonicalApparatusUri(id), headers: _headers(requireToken())),
+    );
+    if (response.statusCode != 200) {
+      throw _adminApiException(response,
+          fallbackCode: 'apparatus_load_failed',
+          fallbackMessage: 'Aparat ma’lumotlari yuklanmadi');
+    }
+    return AdminApparatus.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<AdminApparatus> adminPatchCanonicalApparatus({
     required AdminApparatus apparatus,
     required Map<String, dynamic> patch,

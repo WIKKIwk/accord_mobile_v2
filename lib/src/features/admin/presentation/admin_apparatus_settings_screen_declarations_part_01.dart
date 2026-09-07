@@ -33,10 +33,12 @@ class _CanonicalApparatusSettingsCard extends StatefulWidget {
     required this.onClose,
     required this.onPlacementChanged,
     required this.onTrainingChanged,
+    required this.currentApparatus,
   });
 
   final AdminApparatus apparatus;
   final VoidCallback onClose;
+  final AdminApparatus Function() currentApparatus;
   final Future<AdminApparatus?> Function(
     AdminApparatus apparatus,
     String objectId,
@@ -63,18 +65,19 @@ class _CanonicalApparatusSettingsCardState
 
   Future<void> _choosePlacement() async {
     if (_savingPlacement) return;
-    final selection = await showAdminFactoryMapObjectPicker(
-      context,
-      initialObjectId: _apparatus.factoryMapObjectId,
-    );
-    if (selection == null || !mounted) return;
     setState(() => _savingPlacement = true);
     try {
+      final selection = await showAdminFactoryMapObjectPicker(
+        context,
+        initialObjectId: _apparatus.factoryMapObjectId,
+      );
+      if (selection == null || !mounted) return;
       final saved = await widget.onPlacementChanged(
         _apparatus,
         selection.objectId,
       );
-      if (saved != null && mounted) setState(() => _apparatus = saved);
+      if (mounted)
+        setState(() => _apparatus = saved ?? widget.currentApparatus());
     } finally {
       if (mounted) setState(() => _savingPlacement = false);
     }
@@ -84,8 +87,13 @@ class _CanonicalApparatusSettingsCardState
     if (_savingPlacement || _apparatus.factoryMapObjectId.isEmpty) return;
     setState(() => _savingPlacement = true);
     try {
+      if (!await confirmFactoryMapUnlink(context, _apparatus.name) ||
+          !mounted) {
+        return;
+      }
       final saved = await widget.onPlacementChanged(_apparatus, '');
-      if (saved != null && mounted) setState(() => _apparatus = saved);
+      if (mounted)
+        setState(() => _apparatus = saved ?? widget.currentApparatus());
     } finally {
       if (mounted) setState(() => _savingPlacement = false);
     }
@@ -160,51 +168,58 @@ class _CanonicalApparatusSettingsCardState
       420.0,
       640.0,
     );
-    return SizedBox(
-      height: height.toDouble(),
-      child: DefaultTabController(
-        length: 4,
-        child: Material(
-          borderRadius: BorderRadius.circular(24),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              ListTile(
-                leading: Icon(_apparatusIcon(_apparatus)),
-                title: Text(_apparatus.name),
-                subtitle: SelectableText(_apparatus.id),
-                trailing: IconButton(
-                  onPressed: widget.onClose,
-                  icon: const Icon(Icons.close_rounded),
+    return PopScope(
+      canPop: !_savingPlacement,
+      child: SizedBox(
+        height: height.toDouble(),
+        child: DefaultTabController(
+          length: 4,
+          child: Material(
+            borderRadius: BorderRadius.circular(24),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(_apparatusIcon(_apparatus)),
+                  title: Text(_apparatus.name),
+                  subtitle: SelectableText(_apparatus.id),
+                  trailing: IconButton(
+                    onPressed: _savingPlacement ? null : widget.onClose,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
                 ),
-              ),
-              TabBar(
-                isScrollable: true,
-                tabs: [
-                  Tab(text: context.l10n.adminText('apparatus.tabs_queue')),
-                  Tab(text: context.l10n.adminText('apparatus.tabs_capacity')),
-                  Tab(text: context.l10n.adminText('apparatus.tabs_map')),
-                  Tab(text: context.l10n.adminText('apparatus.tabs_training')),
-                ],
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    AdminQueuePolicyPanel(
-                      bottomPadding: bottomPadding,
-                      apparatusId: _apparatus.id,
-                    ),
-                    AdminApparatusCapacityPanel(
-                      apparatus: [_apparatus],
-                      bottomPadding: bottomPadding,
-                      showApparatusSelector: false,
-                    ),
-                    _mapTab(),
-                    _trainingTab(),
+                TabBar(
+                  isScrollable: true,
+                  tabs: [
+                    Tab(text: context.l10n.adminText('apparatus.tabs_queue')),
+                    Tab(
+                        text:
+                            context.l10n.adminText('apparatus.tabs_capacity')),
+                    Tab(text: context.l10n.adminText('apparatus.tabs_map')),
+                    Tab(
+                        text:
+                            context.l10n.adminText('apparatus.tabs_training')),
                   ],
                 ),
-              ),
-            ],
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      AdminQueuePolicyPanel(
+                        bottomPadding: bottomPadding,
+                        apparatusId: _apparatus.id,
+                      ),
+                      AdminApparatusCapacityPanel(
+                        apparatus: [_apparatus],
+                        bottomPadding: bottomPadding,
+                        showApparatusSelector: false,
+                      ),
+                      _mapTab(),
+                      _trainingTab(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

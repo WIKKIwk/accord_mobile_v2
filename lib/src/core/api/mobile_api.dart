@@ -83,6 +83,7 @@ part 'rezka/mobile_api_rezka.dart';
 part 'server/mobile_api_server.dart';
 part 'supplier/mobile_api_supplier_notifications.dart';
 part 'werka/mobile_api_werka.dart';
+part 'werka/mobile_api_werka_paddons.dart';
 part 'calculate/mobile_api_calculate_models_part_02.dart';
 part 'calculate/mobile_api_calculate_models_part_01.dart';
 part 'calculate/mobile_api_calculate_helpers_part_04.dart';
@@ -203,6 +204,29 @@ class MobileApi {
   static const Duration _requestTimeout = Duration(seconds: 10);
   int _canonicalMutationCounter = 0;
   Future<bool>? _reauthenticationInFlight;
+  // Clients are reused for keep-alive/TLS. Zone scoping preserves http's
+  // runWithClient injection contract instead of capturing a test client in
+  // this process-wide singleton.
+  final _httpClients = Expando<http.Client>();
+  http.Client get _httpClient =>
+      _httpClients[Zone.current] ??= http.Client();
+  final _queueSnapshotReads =
+      Expando<Map<String, Future<AdminApparatusQueueSnapshot>>>();
+  int _queueSnapshotReadEpoch = 0;
+
+  Future<http.Response> _mutationRequest(
+    Future<http.Response> Function() send,
+  ) {
+    // A read started before any mutation (including admin freeze/material
+    // edits) must not be shared with a read requested after it finishes.
+    _queueSnapshotReadEpoch++;
+    try {
+      return send().whenComplete(() { _queueSnapshotReadEpoch++; });
+    } catch (_) {
+      _queueSnapshotReadEpoch++;
+      rethrow;
+    }
+  }
 
   static String get baseUrl => ServerEndpointStore.instance.baseUrl;
 
@@ -235,14 +259,14 @@ class MobileApi {
         headers: headers,
       ).timeout(_requestTimeout);
     }
-    return http.get(uri, headers: headers).timeout(_requestTimeout);
+    return _httpClient.get(uri, headers: headers).timeout(_requestTimeout);
   }
 
   Future<http.Response> _post(
     Uri uri, {
     Map<String, String>? headers,
     Object? body,
-  }) {
+  }) => _mutationRequest(() {
     if (NativeIrohTransport.hasEndpointTicket &&
         !ServerEndpointStore.instance.isRuntimeOverride) {
       return NativeIrohTransport.send(
@@ -252,16 +276,16 @@ class MobileApi {
         body: body,
       ).timeout(_requestTimeout);
     }
-    return http
+    return _httpClient
         .post(uri, headers: headers, body: body)
         .timeout(_requestTimeout);
-  }
+  });
 
   Future<http.Response> _put(
     Uri uri, {
     Map<String, String>? headers,
     Object? body,
-  }) {
+  }) => _mutationRequest(() {
     if (NativeIrohTransport.hasEndpointTicket &&
         !ServerEndpointStore.instance.isRuntimeOverride) {
       return NativeIrohTransport.send(
@@ -271,14 +295,14 @@ class MobileApi {
         body: body,
       ).timeout(_requestTimeout);
     }
-    return http.put(uri, headers: headers, body: body).timeout(_requestTimeout);
-  }
+    return _httpClient.put(uri, headers: headers, body: body).timeout(_requestTimeout);
+  });
 
   Future<http.Response> _patch(
     Uri uri, {
     Map<String, String>? headers,
     Object? body,
-  }) {
+  }) => _mutationRequest(() {
     if (NativeIrohTransport.hasEndpointTicket &&
         !ServerEndpointStore.instance.isRuntimeOverride) {
       return NativeIrohTransport.send(
@@ -288,16 +312,16 @@ class MobileApi {
         body: body,
       ).timeout(_requestTimeout);
     }
-    return http
+    return _httpClient
         .patch(uri, headers: headers, body: body)
         .timeout(_requestTimeout);
-  }
+  });
 
   Future<http.Response> _delete(
     Uri uri, {
     Map<String, String>? headers,
     Object? body,
-  }) {
+  }) => _mutationRequest(() {
     if (NativeIrohTransport.hasEndpointTicket &&
         !ServerEndpointStore.instance.isRuntimeOverride) {
       return NativeIrohTransport.send(
@@ -307,10 +331,10 @@ class MobileApi {
         body: body,
       ).timeout(_requestTimeout);
     }
-    return http
+    return _httpClient
         .delete(uri, headers: headers, body: body)
         .timeout(_requestTimeout);
-  }
+  });
 
   Future<http.Response> _directGet(Uri uri) {
     return http.get(uri).timeout(_requestTimeout);

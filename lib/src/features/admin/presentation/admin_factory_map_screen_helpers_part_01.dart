@@ -26,20 +26,65 @@ String _factoryMapEmptyMessage(
     };
 
 class AdminFactoryMapScreen extends StatefulWidget {
-  const AdminFactoryMapScreen({super.key});
+  const AdminFactoryMapScreen(
+      {super.key, this.bindings, this.viewerBuilder, this.live, this.stock});
+
+  final FactoryMapBindings? bindings;
+  final FactoryMapLive? live;
+  final FactoryMapStock? stock;
+  final Widget Function(AdminFactoryMapViewer viewer)? viewerBuilder;
 
   @override
   State<AdminFactoryMapScreen> createState() => _AdminFactoryMapScreenState();
 }
 
-class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
+class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
+    with WidgetsBindingObserver {
   Animation<double>? _routeAnimation;
   bool _modelLoadScheduled = false;
   bool _showModel = false;
   bool _factoryMapInteractionEnabled = true;
-  bool _loadingMappings = false;
-  String _mappingError = '';
-  List<AdminApparatus> _apparatus = const [];
+  bool _sheetVisible = false;
+  String _focusedObjectId = '';
+  AdminApparatus? _pendingApparatus;
+  int _resetRevision = 0;
+  late final FactoryMapBindings _bindings;
+  late final FactoryMapLive _live;
+  late final FactoryMapStock _stock;
+  bool _showLabels = true;
+  bool get _loadingMappings => _bindings.loading || _bindings.saving;
+  List<AdminApparatus> get _apparatus => _bindings.apparatus;
+  String get _mappingError => _bindings.error == null
+      ? ''
+      : factoryMapLoadErrorMessage(_bindings.error!,
+          context.l10n.adminText('factory_map.mapping_load_failed'));
+
+  @override
+  void initState() {
+    super.initState();
+    _bindings = widget.bindings ?? FactoryMapBindings();
+    _bindings.addListener(_bindingsChanged);
+    _live = widget.live ?? FactoryMapLive();
+    _live.addListener(_bindingsChanged);
+    _stock = widget.stock ?? FactoryMapStock();
+    _stock.addListener(_bindingsChanged);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _showModel) {
+      _live.start();
+      _stock.start();
+    } else {
+      _live.stop();
+      _stock.stop();
+    }
+  }
+
+  void _bindingsChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void didChangeDependencies() {
@@ -57,6 +102,21 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stock.removeListener(_bindingsChanged);
+    if (widget.stock == null) {
+      _stock.dispose();
+    } else {
+      _stock.stop();
+    }
+    _live.removeListener(_bindingsChanged);
+    if (widget.live == null) {
+      _live.dispose();
+    } else {
+      _live.stop();
+    }
+    _bindings.removeListener(_bindingsChanged);
+    if (widget.bindings == null) _bindings.dispose();
     _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
     super.dispose();
   }
@@ -82,41 +142,25 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
         return;
       }
       setState(() => _showModel = true);
+      _live.start();
       unawaited(_loadMappings());
+      _stock.start();
     });
   }
 
-  Future<void> _loadMappings() async {
-    if (_loadingMappings) {
-      return;
-    }
-    final loadFailed = context.l10n.adminText(
-      'factory_map.mapping_load_failed',
-    );
-    setState(() {
-      _loadingMappings = true;
-      _mappingError = '';
-    });
-    try {
-      final apparatus = await MobileApi.instance.adminApparatus(limit: 500);
-      if (!mounted) {
-        return;
-      }
-      setState(() => _apparatus = apparatus);
-    } catch (error) {
-      if (mounted) {
-        setState(
-          () => _mappingError = factoryMapLoadErrorMessage(error, loadFailed),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _loadingMappings = false);
-      }
-    }
-  }
+  Future<void> _loadMappings() => _bindings.refresh();
 
   void _handleObjectTap(FactoryMapObjectSelection selection) {
+    if (!_factoryMapInteractionEnabled) return;
+    if (_loadingMappings || !_bindings.ready) {
+      if (!_loadingMappings) unawaited(_loadMappings());
+      return;
+    }
+    if (factoryMapObjectOwners(_apparatus, selection.objectId).length > 1) {
+      showAdminTopNotice(
+          context, context.l10n.adminText('factory_map.binding_duplicate'));
+      return;
+    }
     final mapped = resolveFactoryMapApparatus(_apparatus, selection.objectId);
     if (mapped == null) {
       if (hasLegacyFactoryMapBinding(_apparatus, selection.objectId)) {
@@ -130,95 +174,94 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
       unawaited(_showUnassignedSheet(selection.objectId));
       return;
     }
-    setState(() => _factoryMapInteractionEnabled = false);
-    unawaited(_showApparatusLiveSheet(mapped));
+    setState(() {
+      _factoryMapInteractionEnabled = false;
+      _focusedObjectId = selection.objectId;
+      _pendingApparatus = mapped;
+    });
+  }
+
+  void _handleFocusComplete(String objectId) {
+    final apparatus = _pendingApparatus;
+    if (!mounted || apparatus == null || objectId != _focusedObjectId) return;
+    _pendingApparatus = null;
+    unawaited(_showApparatusLiveSheet(apparatus));
   }
 
   Future<void> _showApparatusLiveSheet(AdminApparatus apparatus) async {
+    ModalRoute<void>? sheetRoute;
+    setState(() => _sheetVisible = true);
     try {
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
         showDragHandle: true,
-        builder: (context) => DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.58,
-          minChildSize: 0.32,
-          maxChildSize: 0.92,
-          snap: true,
-          snapSizes: const [0.58, 0.92],
-          builder: (context, scrollController) => _FactoryApparatusLiveSheet(
-            apparatus: apparatus,
-            scrollController: scrollController,
-          ),
-        ),
+        isDismissible: false,
+        enableDrag: false,
+        barrierColor: Colors.black.withValues(alpha: .12),
+        sheetAnimationStyle: MediaQuery.disableAnimationsOf(context)
+            ? AnimationStyle.noAnimation
+            : const AnimationStyle(
+                duration: Duration(milliseconds: 360),
+                reverseDuration: Duration(milliseconds: 280),
+              ),
+        builder: (context) {
+          sheetRoute = ModalRoute.of<void>(context);
+          return DraggableScrollableSheet(
+            expand: false,
+            shouldCloseOnMinExtent: false,
+            initialChildSize: 0.38,
+            minChildSize: 0.28,
+            maxChildSize: 0.92,
+            snap: true,
+            snapSizes: const [0.38, 0.68, 0.92],
+            builder: (context, scrollController) => _FactoryApparatusLiveSheet(
+              apparatus: apparatus,
+              live: _live,
+              scrollController: scrollController,
+              onUnlink: () => _savePlacement(apparatus, ''),
+            ),
+          );
+        },
       );
     } finally {
+      // Keep the WebGL frame frozen through the reverse animation as well.
+      await sheetRoute?.completed;
       if (mounted) {
-        setState(() => _factoryMapInteractionEnabled = true);
+        setState(() {
+          _sheetVisible = false;
+          _factoryMapInteractionEnabled = true;
+          _focusedObjectId = '';
+        });
       }
     }
   }
 
-  Future<AdminApparatus?> _attachApparatusToObject(
+  Future<AdminApparatus?> _savePlacement(
     AdminApparatus apparatus,
     String objectId,
   ) async {
     final normalized = canonicalFactoryMapObjectId(objectId.trim());
-    if (normalized.isEmpty) {
-      return null;
-    }
-    // One apparatus id binds to exactly one unique map object: never steal
-    // an object that is already taken (canonical compare, so the node:33
-    // arrow can never double-book its node:39 body).
-    if (_apparatus.any(
-      (item) =>
-          item.id != apparatus.id &&
-          canonicalFactoryMapObjectId(item.factoryMapObjectId.trim()) ==
-              normalized,
-    )) {
-      if (mounted) {
-        showAdminTopNotice(
-          context,
-          context.l10n.adminText('apparatus.map_duplicate'),
-        );
-      }
-      return null;
-    }
     try {
-      final saved = await MobileApi.instance.adminPatchCanonicalApparatus(
-        apparatus: apparatus,
-        patch: {
-          'placement': {'factory_map_object_id': normalized},
-        },
-      );
-      if (normalized != saved.factoryMapObjectId.trim()) {
-        throw const MobileApiException(
-          code: 'canonical_placement_not_applied',
-          message: 'Canonical joylashuv yangilanmadi',
-        );
-      }
+      final saved = await _bindings.save(apparatus, normalized);
       if (!mounted) return null;
-      setState(() {
-        _apparatus = [
-          for (final item in _apparatus)
-            if (item.id != saved.id) item,
-          saved,
-        ];
-      });
       showAdminTopNotice(
         context,
-        context.l10n.adminText('apparatus.map_assigned'),
+        context.l10n.adminText(normalized.isEmpty
+            ? 'apparatus.map_removed'
+            : 'apparatus.map_assigned'),
       );
       return saved;
     } catch (error) {
       if (mounted) {
         showAdminTopNotice(
           context,
-          error is MobileApiException
-              ? error.message
-              : context.l10n.adminText('apparatus.map_save_failed'),
+          error is FactoryMapBindingFailure
+              ? context.l10n.adminText('factory_map.binding_${error.reason}')
+              : error is MobileApiException
+                  ? error.message
+                  : context.l10n.adminText('apparatus.map_save_failed'),
         );
       }
       return null;
@@ -226,35 +269,49 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
   }
 
   Future<void> _showUnassignedSheet(String objectId) async {
+    ModalRoute<AdminApparatus>? sheetRoute;
+    setState(() => _sheetVisible = true);
     try {
       final attached = await showModalBottomSheet<AdminApparatus>(
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
         showDragHandle: true,
-        builder: (context) => DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.58,
-          minChildSize: 0.32,
-          maxChildSize: 0.92,
-          snap: true,
-          snapSizes: const [0.58, 0.92],
-          builder: (context, scrollController) => _FactoryMapAttachSheet(
-            objectId: canonicalFactoryMapObjectId(objectId.trim()),
-            apparatus: unboundFactoryMapApparatus(_apparatus),
-            scrollController: scrollController,
-            onAttach:
-                (apparatus) => _attachApparatusToObject(apparatus, objectId),
-          ),
-        ),
+        isDismissible: false,
+        enableDrag: false,
+        builder: (context) {
+          sheetRoute = ModalRoute.of<AdminApparatus>(context);
+          return DraggableScrollableSheet(
+            expand: false,
+            shouldCloseOnMinExtent: false,
+            initialChildSize: 0.58,
+            minChildSize: 0.32,
+            maxChildSize: 0.92,
+            snap: true,
+            snapSizes: const [0.58, 0.92],
+            builder: (context, scrollController) => _FactoryMapAttachSheet(
+              objectId: canonicalFactoryMapObjectId(objectId.trim()),
+              apparatus: () => unboundFactoryMapApparatus(_apparatus),
+              scrollController: scrollController,
+              onAttach: (apparatus) => _savePlacement(apparatus, objectId),
+            ),
+          );
+        },
       );
       if (attached == null || !mounted) {
         return;
       }
-      await _showApparatusLiveSheet(attached);
+      setState(() {
+        _focusedObjectId = canonicalFactoryMapObjectId(objectId);
+        _pendingApparatus = attached;
+      });
     } finally {
+      await sheetRoute?.completed;
       if (mounted) {
-        setState(() => _factoryMapInteractionEnabled = true);
+        setState(() {
+          _sheetVisible = false;
+          _factoryMapInteractionEnabled = _pendingApparatus == null;
+        });
       }
     }
   }
@@ -263,110 +320,129 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
-    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
     final mappedCount = _apparatus
         .where((item) => item.factoryMapObjectId.trim().isNotEmpty)
         .length;
+    final viewer = AdminFactoryMapViewer(
+      interactionEnabled: _factoryMapInteractionEnabled,
+      renderSuspended: _sheetVisible,
+      focusedObjectId: _focusedObjectId,
+      resetRevision: _resetRevision,
+      onObjectTap: _handleObjectTap,
+      onFocusComplete: _handleFocusComplete,
+      showLabels: _showLabels,
+      stockState: _stock.payload(_apparatus, (key) => l10n.adminText(key)),
+      liveState: _live.payload(_apparatus, (key) => l10n.adminText(key),
+          focusedObjectId: _focusedObjectId),
+    );
 
     return AdminShell(
       title: l10n.adminText('factory_map.title'),
       selectedRouteName: AppRoutes.adminFactoryMap,
       activeTab: AdminDockTab.home,
+      showPrimaryFab: false,
       child: ColoredBox(
         color: scheme.surfaceContainerHighest,
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(4, 8, 4, bottomPadding),
-          children: [
-            Container(
-              height: MediaQuery.sizeOf(context).height * 0.72,
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.78),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: scheme.shadow.withValues(alpha: 0.18),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: _showModel
-                  ? Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        IgnorePointer(
-                          ignoring: !_factoryMapInteractionEnabled,
-                          child: AdminFactoryMapViewer(
-                            interactionEnabled: _factoryMapInteractionEnabled,
-                            onObjectTap: _handleObjectTap,
-                          ),
-                        ),
-                        Positioned(
-                          top: 10,
-                          left: 10,
-                          right: 10,
-                          child: IgnorePointer(
-                            child: Align(
-                              alignment: Alignment.topLeft,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: const Color(0xD91B1F21),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 7,
-                                  ),
-                                  child: Text(
-                                    _loadingMappings
-                                        ? l10n.adminText(
-                                            'factory_map.loading_equipment',
-                                          )
-                                        : _mappingError.isNotEmpty
-                                            ? _mappingError
-                                            : l10n.adminText(
-                                                'factory_map.mapping_summary',
-                                                values: {'count': mappedCount},
-                                              ),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
+        child: SizedBox.expand(
+          key: const ValueKey('factory-map-viewport'),
+          child: _showModel
+              ? Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    IgnorePointer(
+                      ignoring: !_factoryMapInteractionEnabled,
+                      child: widget.viewerBuilder?.call(viewer) ?? viewer,
+                    ),
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      right: 10,
+                      child: IgnorePointer(
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: const Color(0xD91B1F21),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 7,
+                              ),
+                              child: Text(
+                                _loadingMappings
+                                    ? l10n.adminText(
+                                        'factory_map.loading_equipment',
+                                      )
+                                    : _mappingError.isNotEmpty
+                                        ? _mappingError
+                                        : '${l10n.adminText('factory_map.live.summary', values: {
+                                                'count': mappedCount
+                                              })} · ${l10n.adminText(_live.fresh ? 'factory_map.live.synced' : 'factory_map.live.unknown')}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        Positioned(
-                          right: 10,
-                          bottom: 10,
-                          child: IconButton.filledTonal(
-                            tooltip: l10n.adminText(
-                              'factory_map.refresh_mappings',
-                            ),
-                            onPressed: _loadingMappings ? null : _loadMappings,
-                            icon: _loadingMappings
-                                ? const SizedBox.square(
-                                    dimension: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.refresh_rounded),
-                          ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 10,
+                      bottom: 10,
+                      child: IconButton.filledTonal(
+                        key: const ValueKey('factory-map-reset-camera'),
+                        tooltip: l10n.adminText('factory_map.overview'),
+                        onPressed: _factoryMapInteractionEnabled
+                            ? () => setState(() => _resetRevision++)
+                            : null,
+                        icon: const Icon(Icons.center_focus_strong_rounded),
+                      ),
+                    ),
+                    Positioned(
+                      left: 62,
+                      bottom: 10,
+                      child: IconButton.filledTonal(
+                        key: const ValueKey('factory-map-labels'),
+                        tooltip: l10n.adminText('factory_map.live.labels'),
+                        isSelected: _showLabels,
+                        onPressed: () =>
+                            setState(() => _showLabels = !_showLabels),
+                        icon: const Icon(Icons.label_outline_rounded),
+                        selectedIcon: const Icon(Icons.label_rounded),
+                      ),
+                    ),
+                    Positioned(
+                      right: 10,
+                      bottom: 10,
+                      child: IconButton.filledTonal(
+                        tooltip: l10n.adminText(
+                          'factory_map.refresh_mappings',
                         ),
-                      ],
-                    )
-                  : const _FactoryMapPlaceholder(),
-            ),
-          ],
+                        onPressed: _loadingMappings
+                            ? null
+                            : () {
+                                unawaited(_loadMappings());
+                                unawaited(_live.refresh());
+                                unawaited(_stock.refresh());
+                              },
+                        icon: _loadingMappings
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.refresh_rounded),
+                      ),
+                    ),
+                  ],
+                )
+              : const _FactoryMapPlaceholder(),
         ),
       ),
     );
@@ -376,11 +452,15 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
 class _FactoryApparatusLiveSheet extends StatefulWidget {
   const _FactoryApparatusLiveSheet({
     required this.apparatus,
+    required this.live,
     required this.scrollController,
+    required this.onUnlink,
   });
 
   final AdminApparatus apparatus;
+  final FactoryMapLive live;
   final ScrollController scrollController;
+  final Future<AdminApparatus?> Function() onUnlink;
 
   @override
   State<_FactoryApparatusLiveSheet> createState() =>
@@ -396,7 +476,7 @@ class _FactoryMapAttachSheet extends StatefulWidget {
   });
 
   final String objectId;
-  final List<AdminApparatus> apparatus;
+  final List<AdminApparatus> Function() apparatus;
   final ScrollController scrollController;
   final Future<AdminApparatus?> Function(AdminApparatus apparatus) onAttach;
 
@@ -464,62 +544,67 @@ class _FactoryMapAttachSheetState extends State<_FactoryMapAttachSheet> {
             icon: const Icon(Icons.link_rounded),
             label: Text(l10n.adminText('factory_map.attach_action')),
           ),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(l10n.adminText('action.cancel'))),
         ],
       );
     }
-    final free = widget.apparatus;
-    return ListView(
-      controller: widget.scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Text(
-            l10n.adminText('factory_map.attach_choose'),
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
-          child: SelectableText(
-            widget.objectId,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-          ),
-        ),
-        if (free.isEmpty)
+    final free = widget.apparatus();
+    return PopScope(
+      canPop: _savingId.isEmpty,
+      child: ListView(
+        controller: widget.scrollController,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text(
-              l10n.adminText('factory_map.attach_empty'),
-              style: Theme.of(context).textTheme.bodyMedium,
+              l10n.adminText('factory_map.attach_choose'),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
             ),
-          )
-        else
-          for (final item in free)
-            ListTile(
-              enabled: _savingId.isEmpty,
-              leading: _savingId == item.id
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.precision_manufacturing_outlined),
-              title: Text(item.name),
-              subtitle: Text(item.id),
-              onTap: () => _attach(item),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
+            child: SelectableText(
+              widget.objectId,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
             ),
-        const SizedBox(height: 8),
-        TextButton(
-          onPressed: _savingId.isNotEmpty
-              ? null
-              : () => Navigator.of(context).pop(),
-          child: Text(l10n.adminText('action.cancel')),
-        ),
-      ],
+          ),
+          if (free.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                l10n.adminText('factory_map.attach_empty'),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            )
+          else
+            for (final item in free)
+              ListTile(
+                enabled: _savingId.isEmpty,
+                leading: _savingId == item.id
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.precision_manufacturing_outlined),
+                title: Text(item.name),
+                subtitle: Text(item.id),
+                onTap: () => _attach(item),
+              ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed:
+                _savingId.isNotEmpty ? null : () => Navigator.of(context).pop(),
+            child: Text(l10n.adminText('action.cancel')),
+          ),
+        ],
+      ),
     );
   }
 }

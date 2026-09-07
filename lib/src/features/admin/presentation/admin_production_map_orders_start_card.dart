@@ -143,17 +143,17 @@ class _OrderStartUnifiedCard extends StatelessWidget {
         uiState.showWaitingForSequence;
     final showContractSyncNotice =
         showContractWarning && !uiState.contractSynchronized;
+    final showPreviousStageWaitingNotice = uiState.showWaitingForPrevious &&
+        uiState.previousStage != null &&
+        uiState.blockingReasonCode.trim() != 'waiting_opening_wip';
     final showBackendBlockingNotice = uiState.showBackendBlockingState &&
         !orderControlBlocked &&
-        !uiState.showWaitingForPrevious &&
+        !showPreviousStageWaitingNotice &&
         !uiState.showWaitingForSequence;
-    final backendBlockingText = switch (uiState.blockingReasonCode.trim()) {
-      'raw_material_assignment_required' => context.l10n.productionText(
-          'worker.error.incomplete_material_groups',
-        ),
-      'order_frozen' => context.l10n.productionText('worker.freeze.active'),
-      _ => context.l10n.productionText('worker.error.sync'),
-    };
+    final backendBlockingText = context.l10n.productionErrorMessage(
+      uiState.blockingReasonCode,
+      fallback: context.l10n.productionText('worker.queue.action_unavailable'),
+    );
     final showRezkaInputProgressScan =
         uiState.previousProgressRequired && uiState.showStart;
     final hasIntakeCandidates = uiState.intakeCandidateAssignments.isNotEmpty;
@@ -775,8 +775,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                       key: ValueKey('production-order-resume-hidden'),
                     ),
             ),
-            if (uiState.showWaitingForPrevious &&
-                uiState.previousStage != null) ...[
+            if (showPreviousStageWaitingNotice) ...[
               const SizedBox(height: 10),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,

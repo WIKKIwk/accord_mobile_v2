@@ -148,6 +148,10 @@ class NativeIrohTransport {
         bodyBytes: bodyBytes,
       );
     } catch (_) {
+      // A transport failure does not prove a mutation failed to commit.
+      // Replaying POST/PUT/DELETE here can duplicate production output. Only
+      // reads may be transparently rediscovered and retried.
+      if (method != 'GET' && method != 'HEAD') rethrow;
       await resetEndpoint();
       var retryConfig = config;
       try {

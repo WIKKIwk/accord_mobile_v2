@@ -12,6 +12,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../logic/canonical_apparatus_groups.dart';
 import '../logic/factory_map_mapping.dart';
+import '../logic/factory_map_bindings.dart';
 import 'admin_apparatus_capacity_panel.dart';
 import 'admin_factory_map_viewer.dart';
 import 'admin_queue_policy_screen.dart';
@@ -20,6 +21,7 @@ import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_surface_tab_bar.dart';
 import 'widgets/admin_top_notice.dart';
+import 'widgets/factory_map_unlink_dialog.dart';
 
 part 'admin_apparatus_settings_screen__AdminApparatusSettingsScreenState_methods_01.dart';
 part 'admin_apparatus_settings_screen__AdminApparatusSettingsScreenState_methods_02.dart';
@@ -39,6 +41,8 @@ class _AdminApparatusSettingsScreenState
   bool _saving = false;
   bool _focusedEditorOpened = false;
   Object? _loadError;
+  final _bindings = FactoryMapBindings();
+  int _loadGeneration = 0;
 
   @override
   void initState() {
@@ -63,6 +67,7 @@ class _AdminApparatusSettingsScreenState
 
   @override
   void dispose() {
+    _bindings.dispose();
     _tabController.dispose();
     super.dispose();
   }

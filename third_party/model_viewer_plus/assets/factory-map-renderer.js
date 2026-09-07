@@ -1,7 +1,16 @@
 import * as THREE from './three.module.js';
 import { GLTFLoader } from './GLTFLoader.js';
 import { OrbitControls } from './OrbitControls.js';
+import { CAMERA_LIMITS, constrainCamera, focusCamera, overviewCamera, smoothStep, visibleWorldBoxes } from './factory-map-navigation.js?v=20260907near4';
+import { buildPickBounds, closestMapHits, loadMapBytes, optimizeStaticMap } from './factory-map-performance.js?v=20260907live2';
+import { apparatusHit, apparatusObjectId, cleanFactoryMapGeometry, FACTORY_MAP_CLUTTER_BASE_IDS, isFactoryMapApparatus } from './factory-map-scene-policy.js?v=20260907live2';
+import { createFactoryLive, FrameBudget } from './factory-map-live.js?v=20260907stock2';
+import { createFactoryStock } from './factory-map-stock.js?v=20260907stock2';
+import { lockFactoryMapGestures } from './factory-map-gestures.js?v=20260907touch1';
 
+// The module is cached by the browser; mounting is explicit so route re-entry
+// creates a fresh view without re-downloading the Three.js modules.
+export function mountFactoryMap() {
 const canvas = Array.from(
   document.querySelectorAll('[data-factory-map-canvas]'),
 ).find((candidate) => candidate.dataset.rendererInitialized !== 'true');
@@ -10,6 +19,7 @@ if (!canvas) {
 }
 canvas.dataset.rendererInitialized = 'true';
 const factoryMapHost = canvas.parentElement;
+const unlockGestures = lockFactoryMapGestures(factoryMapHost);
 const status = factoryMapHost.querySelector('[data-factory-map-status]');
 const modelSource = canvas.dataset.modelSrc || '/model';
 const initialSelectedObjectId = canvas.dataset.selectedObjectId || '';
@@ -20,6 +30,31 @@ const selectableObjectsById = new Map();
 const selectableInstancedMeshesById = new Map();
 let selectionHelper = null;
 let pointerStart = null;
+const activePointers = new Set();
+let pickBounds = [];
+let mapBounds = null;
+let obstacles = [];
+let disposed = false;
+let frameId = 0;
+let tween = null;
+let overview = null;
+let beforeFocus = null;
+let focusId = '';
+let viewOffset = 0;
+let interacting = false;
+let settleFrames = 0;
+let fullQualityTimer = 0;
+let lastState = {};
+let liveView = null;
+let stockView = null;
+let viewportVisible = true;
+let diagnosticsAt = 0;
+let renderCount = 0;
+const requestController = new AbortController();
+const fullPixelRatio = Math.min(window.devicePixelRatio || 1, 1.35);
+const frameBudget = new FrameBudget(fullPixelRatio);
+const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+const stateHost = canvas.closest('[data-model-viewer-state]') || factoryMapHost;
 
 const FACTORY_PALETTE = Object.freeze({
   background: 0xdaddd7,
@@ -45,22 +80,28 @@ renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = false;
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35));
+renderer.setPixelRatio(fullPixelRatio);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(FACTORY_PALETTE.background);
 const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 400);
 const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = false;
+controls.enableDamping = true;
+controls.dampingFactor = .14;
+controls.rotateSpeed = .55;
+controls.panSpeed = .65;
+controls.zoomSpeed = .6;
+controls.autoRotate = false;
 controls.enableZoom = true;
 controls.enablePan = true;
+controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
 // Keep panning on the factory's horizontal plane so it cannot move the
 // camera target below the map floor.
 controls.screenSpacePanning = false;
-// The camera may look down to the horizon, but never orbit underneath it.
-controls.maxPolarAngle = Math.PI / 2 - 0.04;
-controls.minDistance = 5;
-controls.maxDistance = 250;
+controls.minPolarAngle = CAMERA_LIMITS.minPolar;
+controls.maxPolarAngle = CAMERA_LIMITS.maxPolar;
+controls.minDistance = CAMERA_LIMITS.minDistance;
+controls.maxDistance = 160;
 controls.target.set(0, 0, 0);
 
 scene.add(new THREE.HemisphereLight(0xf7fafc, 0x7d8790, 1.7));
@@ -294,6 +335,7 @@ function registerSelectableObjects(root, parser) {
     const selectable = selectableObjectFor(object, parser, fallbackIndex++);
     const rawBaseId = selectionBaseIdFor(object, selectable, parser);
     const selectionBaseId = canonicalApparatusBaseId(rawBaseId);
+    cleanFactoryMapGeometry(object, rawBaseId);
     // Pass-through arrows are never raycast targets: the tap lands on the
     // roof/body below them, so an arrow can never be picked or highlighted
     // as a separate object. They stay registered for id lookup, only the
@@ -303,6 +345,7 @@ function registerSelectableObjects(root, parser) {
     const isHiddenRoof =
       isHiddenRoofBaseId(selectionBaseId) ||
       isHiddenRoofBaseId(rawBaseId) ||
+      FACTORY_MAP_CLUTTER_BASE_IDS.includes(rawBaseId) ||
       object.userData?.factory_map_hidden === true;
     if (isHiddenRoof) {
       object.visible = false;
@@ -434,7 +477,7 @@ function selectObject(objectId, emitMessage = true) {
     return;
   }
   const target = selectableTargetForId(canonicalId);
-  if (!target) {
+  if (!target || !isFactoryMapApparatus(target.object)) {
     return;
   }
   if (selectionHelper) {
@@ -446,17 +489,18 @@ function selectObject(objectId, emitMessage = true) {
   selectionHelper.material.depthTest = false;
   selectionHelper.renderOrder = 1000;
   scene.add(selectionHelper);
-  renderer.render(scene, camera);
+  requestRender();
   if (emitMessage) {
     postFactoryMapMessage({
       type: 'object_tap',
-      objectId: canonicalId,
+      objectId: apparatusObjectId(target.object),
       label: target.object.userData.factory_map_label || `3D obyekt · ${canonicalId}`,
     });
   }
 }
 
 function selectObjectAt(clientX, clientY) {
+  if (lastState.enabled === false) return;
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) {
     return;
@@ -467,7 +511,7 @@ function selectObjectAt(clientX, clientY) {
   // Collapsed instances are zero-scaled so they normally miss, but filter
   // explicitly: take the first hit that is not a hidden roof instance, so
   // taps land on the revealed body below the black cube.
-  const hits = raycaster.intersectObjects(selectableMeshes, false);
+  const hits = closestMapHits(raycaster, pickBounds);
   for (const hit of hits) {
     const hitSelectionBaseId = hit?.object?.userData?.factoryMapObjectSelectionBaseId;
     const hitObjectId = hitSelectionBaseId
@@ -480,12 +524,18 @@ function selectObjectAt(clientX, clientY) {
         isHiddenRoofInstanceId(hitObjectId)) {
       continue;
     }
+    if (!apparatusHit([hit])) return;
     selectObject(hitObjectId);
     return;
   }
 }
 
 canvas.addEventListener('pointerdown', (event) => {
+  activePointers.add(event.pointerId);
+  if (activePointers.size > 1) {
+    pointerStart = null;
+    return;
+  }
   pointerStart = {
     id: event.pointerId,
     x: event.clientX,
@@ -495,6 +545,7 @@ canvas.addEventListener('pointerdown', (event) => {
 });
 
 canvas.addEventListener('pointerup', (event) => {
+  activePointers.delete(event.pointerId);
   const start = pointerStart;
   pointerStart = null;
   if (!start || start.id !== event.pointerId) {
@@ -507,6 +558,7 @@ canvas.addEventListener('pointerup', (event) => {
 });
 
 canvas.addEventListener('pointercancel', () => {
+  activePointers.clear();
   pointerStart = null;
 });
 
@@ -551,8 +603,12 @@ function applyFactoryPalette(material) {
   return material;
 }
 
+const styledMaterials = new WeakMap();
 function styleFactoryMaterial(material) {
-  return applyFactoryPalette(replaceUnlitMaterial(material));
+  if (!styledMaterials.has(material)) {
+    styledMaterials.set(material, applyFactoryPalette(replaceUnlitMaterial(material)));
+  }
+  return styledMaterials.get(material);
 }
 
 // Arrow-bearing spots are apparatuses: the verified arrow meshes (node:5 flat
@@ -691,6 +747,141 @@ function enableRealShadows(root, bounds) {
   controls.update();
 }
 
+function updateProjection() {
+  if (viewOffset) {
+    camera.setViewOffset(canvas.clientWidth, canvas.clientHeight, 0,
+      canvas.clientHeight * viewOffset, canvas.clientWidth, canvas.clientHeight);
+  } else {
+    camera.clearViewOffset();
+  }
+}
+
+function snapshotCamera() {
+  return { position: camera.position.clone(), target: controls.target.clone(), offset: viewOffset };
+}
+
+function resetDamping() {
+  // Use the public API to consume any residual drag before a scripted flight.
+  controls.enableDamping = false;
+  controls.update();
+  controls.enableDamping = true;
+}
+
+function animateCamera(destination, complete) {
+  resetDamping();
+  tween = { from: snapshotCamera(), to: destination, at: performance.now(), complete,
+    duration: (lastState.reducedMotion || reducedMotionQuery.matches) ? 0 : CAMERA_LIMITS.duration };
+  requestRender();
+}
+
+function handleRendererState() {
+  let state;
+  try { state = JSON.parse(stateHost.getAttribute('data-model-viewer-state') || '{}'); }
+  catch { return; }
+  const previous = lastState;
+  lastState = state;
+  canvas.dataset.renderSuspended = String(state.renderSuspended === true);
+  if (state.renderSuspended === true) {
+    cancelAnimationFrame(frameId);
+    frameId = 0;
+    return;
+  }
+  if (!mapBounds) return;
+  liveView?.setState(state);
+  stockView?.setState(state);
+  controls.enabled = state.enabled !== false;
+  if (state.resetRevision !== previous.resetRevision && state.resetRevision > 0) {
+    beforeFocus = null;
+    focusId = '';
+    overview = overviewCamera(mapBounds, camera, obstacles);
+    animateCamera(overview);
+  } else if ((state.focusedObjectId || '') !== focusId) {
+    focusId = state.focusedObjectId || '';
+    if (!focusId) {
+      if (beforeFocus) animateCamera(beforeFocus);
+      beforeFocus = null;
+      if (selectionHelper) {
+        scene.remove(selectionHelper);
+        selectionHelper.geometry.dispose();
+        selectionHelper.material.dispose();
+        selectionHelper = null;
+      }
+    } else {
+      const target = selectableTargetForId(focusId);
+      if (target) {
+        beforeFocus ??= snapshotCamera();
+        selectObject(focusId, false);
+        // BoxHelper also handles old instance IDs; its geometry is already
+        // in world space, so framing and the visible highlight always agree.
+        selectionHelper.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(selectionHelper);
+        const selectedId = focusId;
+        animateCamera(focusCamera(box, camera, controls.target, mapBounds, obstacles), () => {
+          if (focusId === selectedId) postFactoryMapMessage({ type: 'focus_complete', objectId: selectedId });
+        });
+      } else {
+        postFactoryMapMessage({ type: 'focus_complete', objectId: focusId });
+      }
+    }
+  }
+  requestRender();
+}
+
+function requestRender() {
+  if (!disposed && !frameId && !document.hidden && viewportVisible && !lastState.renderSuspended) frameId = requestAnimationFrame(renderFrame);
+}
+
+function renderFrame(now) {
+  frameId = 0;
+  if (disposed || document.hidden || !viewportVisible || lastState.renderSuspended) return;
+  const started = performance.now();
+  const flying = Boolean(tween);
+  let finished = null;
+  if (tween) {
+    const t = tween.duration ? Math.min(1, (now - tween.at) / tween.duration) : 1;
+    const progress = smoothStep(t);
+    camera.position.lerpVectors(tween.from.position, tween.to.position, progress);
+    controls.target.lerpVectors(tween.from.target, tween.to.target, progress);
+    viewOffset = THREE.MathUtils.lerp(tween.from.offset, tween.to.offset, progress);
+    if (t === 1) { finished = tween.complete; tween = null; }
+  }
+  const changed = controls.update();
+  if (changed || flying || !renderCount) {
+    if (mapBounds) constrainCamera(camera.position, controls.target, mapBounds, obstacles);
+    camera.lookAt(controls.target);
+    updateProjection();
+  }
+  camera.updateMatrixWorld();
+  const animated = liveView?.frame(now, changed || flying,
+    lastState.reducedMotion || reducedMotionQuery.matches) || false;
+  stockView?.frame(changed || flying);
+  renderer.render(scene, camera);
+  renderCount++;
+  if (frameBudget.sample(now)) renderer.setPixelRatio(interacting
+    ? Math.min(frameBudget.ratio, 1) : frameBudget.ratio);
+  // Frame intervals (not CPU submission time) expose actual browser pacing.
+  // Throttle diagnostics/labels; only reels update during stationary animation.
+  const continuing = tween || interacting || changed || animated || settleFrames > 0;
+  if (now - diagnosticsAt > 250 || !continuing) {
+  diagnosticsAt = now;
+  canvas.dataset.renderCount = String(renderCount);
+  canvas.dataset.drawCalls = String(renderer.info.render.calls);
+  canvas.dataset.triangles = String(renderer.info.render.triangles);
+  canvas.dataset.renderMs = (performance.now() - started).toFixed(2);
+  canvas.dataset.cameraPosition = camera.position.toArray().map(v => v.toFixed(3)).join(',');
+  canvas.dataset.cameraTarget = controls.target.toArray().map(v => v.toFixed(3)).join(',');
+  canvas.dataset.cameraMotion = tween ? 'animating' : interacting ? 'gesture' : 'idle';
+  canvas.dataset.cameraDamping = String(changed);
+  canvas.dataset.cameraAutoRotate = String(controls.autoRotate);
+  canvas.dataset.fps = frameBudget.metrics.fps.toFixed(1);
+  canvas.dataset.frameP95 = frameBudget.metrics.p95.toFixed(1);
+  canvas.dataset.slowFrames = String(frameBudget.metrics.slowFrames);
+  canvas.dataset.pixelRatio = renderer.getPixelRatio().toFixed(2);
+  }
+  finished?.();
+  if (tween || interacting || changed || animated || settleFrames-- > 0) requestRender();
+}
+
 function resize() {
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
@@ -700,12 +891,77 @@ function resize() {
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
-  renderer.render(scene, camera);
+  liveView?.invalidate();
+  stockView?.invalidate();
+  requestRender();
 }
 
-controls.addEventListener('change', () => renderer.render(scene, camera));
+controls.addEventListener('change', requestRender);
+controls.addEventListener('start', () => {
+  interacting = true;
+  tween = null;
+  // Slightly lower raster resolution only while moving; exact original
+  // material/geometry and full resting quality are restored after settling.
+  window.clearTimeout(fullQualityTimer);
+  renderer.setPixelRatio(Math.min(frameBudget.ratio, 1));
+  requestRender();
+});
+controls.addEventListener('end', () => {
+  interacting = false;
+  settleFrames = 30;
+  fullQualityTimer = window.setTimeout(() => {
+    renderer.setPixelRatio(frameBudget.ratio);
+    requestRender();
+  }, 250);
+  requestRender();
+});
 window.addEventListener('resize', resize);
-new ResizeObserver(resize).observe(canvas);
+const resizeObserver = new ResizeObserver(resize);
+resizeObserver.observe(canvas);
+const visibilityObserver = new IntersectionObserver(entries => {
+  viewportVisible = entries[0]?.isIntersecting !== false;
+  requestRender();
+});
+visibilityObserver.observe(canvas);
+stateHost.addEventListener('model-viewer-state', handleRendererState);
+document.addEventListener('visibilitychange', requestRender);
+
+function disposeScene(root) {
+  const geometries = new Set(), materials = new Set(), textures = new Set();
+  root.traverse(object => {
+    if (object.geometry) geometries.add(object.geometry);
+    for (const material of [].concat(object.material || [])) {
+      materials.add(material);
+      for (const value of Object.values(material)) if (value?.isTexture) textures.add(value);
+    }
+  });
+  geometries.forEach(value => value.dispose());
+  materials.forEach(value => value.dispose());
+  textures.forEach(value => value.dispose());
+}
+
+function dispose() {
+  if (disposed) return;
+  disposed = true;
+  unlockGestures();
+  requestController.abort();
+  cancelAnimationFrame(frameId);
+  window.clearTimeout(fullQualityTimer);
+  window.removeEventListener('resize', resize);
+  document.removeEventListener('visibilitychange', requestRender);
+  stateHost.removeEventListener('model-viewer-state', handleRendererState);
+  stateHost.removeEventListener('model-viewer-dispose', dispose);
+  resizeObserver.disconnect();
+  visibilityObserver.disconnect();
+  liveView?.dispose();
+  stockView?.dispose();
+  controls.dispose();
+  disposeScene(scene);
+  renderer.dispose();
+  renderer.forceContextLoss();
+  canvas.dataset.rendererDisposed = 'true';
+}
+stateHost.addEventListener('model-viewer-dispose', dispose);
 
 function showError(error) {
   const message = error instanceof Error ? error.message : String(error);
@@ -717,25 +973,21 @@ function showError(error) {
 }
 
 async function loadModel() {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 20000);
+  const timeout = window.setTimeout(() => requestController.abort(), 20000);
 
   try {
-    const response = await fetch(modelSource, {
-      cache: 'no-store',
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      throw new Error(`Model request failed: HTTP ${response.status}`);
-    }
-
-    const data = await response.arrayBuffer();
+    const compressedSource = canvas.dataset.modelGzipSrc;
+    const data = await loadMapBytes(new URL(modelSource, document.baseURI).href,
+      requestController.signal, fetch,
+      compressedSource ? new URL(compressedSource, document.baseURI).href : '');
+    if (disposed) return;
     await new Promise((resolve, reject) => {
       new GLTFLoader().parse(
         data,
         '',
         (gltf) => {
           const root = gltf.scene;
+          if (disposed) { disposeScene(root); resolve(); return; }
           scene.add(root);
           registerSelectableObjects(root, gltf.parser);
           canvas.dataset.factoryMapStyle = root.userData.factory_map_style || 'original';
@@ -745,19 +997,52 @@ async function loadModel() {
           const bounds = new THREE.Box3().setFromObject(root);
           enableRealShadows(root, bounds);
           applyApparatusMarkerTint(root);
+          pickBounds = buildPickBounds(selectableMeshes);
+          // Before static proxies hide original meshes: retain all floor-level
+          // solids for stock placement, including the complete apparatus body.
+          const stockObstacles = visibleWorldBoxes(root);
+          const optimized = optimizeStaticMap(root);
+          canvas.dataset.instancesBefore = String(optimized.instancesBefore);
+          canvas.dataset.instancesAfter = String(optimized.instancesAfter);
+          mapBounds = bounds;
+          obstacles = visibleWorldBoxes(root);
+          if (canvas.dataset.selectionMode !== 'true') {
+            const getMachineBox = id => {
+              const target = selectableTargetForId(id);
+              if (!target || !isFactoryMapApparatus(target.object)) return null;
+              const helper = selectionHelperFor(target);
+              const box = new THREE.Box3().setFromObject(helper);
+              helper.geometry.dispose(); helper.material.dispose();
+              return box;
+            };
+            liveView = createFactoryLive({ host: factoryMapHost, root, camera, canvas,
+              requestRender, onSelect: id => selectObject(id),
+              getBox: getMachineBox });
+            stockView = createFactoryStock({ host: factoryMapHost, scene, camera, canvas,
+              bounds, obstacles: stockObstacles, getBox: getMachineBox,
+              getLabelRects: liveView.getLabelRects, requestRender });
+          }
+          controls.maxDistance = bounds.getSize(new THREE.Vector3()).length() * CAMERA_LIMITS.maxExtentMultiplier;
+          constrainCamera(camera.position, controls.target, mapBounds, obstacles);
           renderer.shadowMap.needsUpdate = true;
           status.hidden = true;
           status.style.display = 'none';
           resize();
+          overview = overviewCamera(mapBounds, camera, obstacles);
+          camera.position.copy(overview.position);
+          controls.target.copy(overview.target);
+          controls.update();
           if (initialSelectedObjectId) {
-            selectObject(initialSelectedObjectId, false);
+            selectObject(initialSelectedObjectId, canvas.dataset.selectionMode === 'true');
           }
+          handleRendererState();
           resolve();
         },
         reject,
       );
     });
   } catch (error) {
+    if (disposed) return;
     showError(error?.name === 'AbortError'
       ? new Error('Model yuklanishi 20 soniyada tugamadi')
       : error);
@@ -767,3 +1052,4 @@ async function loadModel() {
 }
 
 loadModel().catch(showError);
+}

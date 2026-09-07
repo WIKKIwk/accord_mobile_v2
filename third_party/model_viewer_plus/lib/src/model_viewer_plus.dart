@@ -83,11 +83,13 @@ class ModelViewer extends StatefulWidget {
     this.maxHotspotOpacity,
     this.innerModelViewerHtml,
     this.customHtml,
+    this.customRendererState,
     this.relatedCss,
     this.relatedJs,
     this.id,
     this.debugLogging = true,
     this.interactionEnabled = true,
+    this.lockPageViewport = false,
     this.javascriptChannels,
     this.onWebViewCreated,
     super.key,
@@ -566,6 +568,11 @@ class ModelViewer extends StatefulWidget {
   /// renderer so that the model's own floor can receive real shadow maps.
   final String? customHtml;
 
+  /// JSON state delivered to custom HTML without recreating its WebGL view.
+  /// The host receives `model-viewer-state`; disposing sends
+  /// `model-viewer-dispose` so custom renderers can release their resources.
+  final String? customRendererState;
+
   /// Custom CSS
   final String? relatedCss;
 
@@ -584,6 +591,11 @@ class ModelViewer extends StatefulWidget {
   ///
   /// This is useful when a Flutter modal is displayed above a platform view.
   final bool interactionEnabled;
+
+  /// Lock the containing page at creation, not the model's camera. Custom
+  /// renderers can still implement pinch zoom/pan without WebView page zoom
+  /// or rubber-band scrolling. Other model viewers keep their default behavior.
+  final bool lockPageViewport;
 
   /// Passthrough to `javascriptChannels` in the underlying `WebView`.
   final Set<JavascriptChannel>? javascriptChannels;

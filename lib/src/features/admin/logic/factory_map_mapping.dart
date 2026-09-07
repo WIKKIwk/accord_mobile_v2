@@ -11,9 +11,9 @@ const Map<String, String> _apparatusAttachmentBaseMap = {
   'node:33': 'node:39',
 };
 
-// The original extruder mesh has exactly eight coincident copies, not eight
-// separate machines (verified against zavod6-phone.glb world transforms).
-// Preserve its saved node:7 placement while accepting only these known taps.
+// Extruder and Rezka each have eight coincident copies, not eight separate
+// machines (verified against the source GLB world transforms).
+// Preserve their node:7 / node:20 placements for these known taps only.
 // Do not generalize this to other legacy node bindings or future instances.
 const Set<String> _extruderCoincidentInstances = {
   '0',
@@ -35,7 +35,8 @@ String canonicalFactoryMapObjectId(String objectId) {
   if (match != null) {
     final base = match.group(1)?.trim() ?? '';
     final instance = match.group(2)?.trim() ?? '';
-    if (base == 'node:7' && _extruderCoincidentInstances.contains(instance)) {
+    if ((base == 'node:7' || base == 'node:20') &&
+        _extruderCoincidentInstances.contains(instance)) {
       return base;
     }
     final canonicalBase = _apparatusAttachmentBaseMap[base] ?? base;
@@ -48,25 +49,20 @@ AdminApparatus? resolveFactoryMapApparatus(
   Iterable<AdminApparatus> apparatus,
   String objectId,
 ) {
-  final normalizedObjectId = objectId.trim();
-  if (normalizedObjectId.isEmpty) {
-    return null;
-  }
-  for (final item in apparatus) {
-    if (item.factoryMapObjectId.trim() == normalizedObjectId) {
-      return item;
-    }
-  }
-  final canonicalTarget = canonicalFactoryMapObjectId(normalizedObjectId);
-  if (canonicalTarget.isNotEmpty) {
-    for (final item in apparatus) {
-      final itemObjectId = item.factoryMapObjectId.trim();
-      if (canonicalFactoryMapObjectId(itemObjectId) == canonicalTarget) {
-        return item;
-      }
-    }
-  }
-  return null;
+  final owners = factoryMapObjectOwners(apparatus, objectId);
+  return owners.length == 1 ? owners.single : null;
+}
+
+List<AdminApparatus> factoryMapObjectOwners(
+  Iterable<AdminApparatus> apparatus,
+  String objectId,
+) {
+  final target = canonicalFactoryMapObjectId(objectId);
+  if (target.isEmpty) return const [];
+  return apparatus
+      .where((item) =>
+          canonicalFactoryMapObjectId(item.factoryMapObjectId) == target)
+      .toList();
 }
 
 /// Free apparatus for the map attach sheet: active items with no map

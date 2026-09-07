@@ -9,6 +9,8 @@ class HTMLHtmlElement {
   Node? querySelector(String selectors) => null;
 
   void addEventListener(String type, Object listener) {}
+  void setAttribute(String name, String value) {}
+  bool dispatchEvent(Event event) => true;
 }
 
 class NodeList {
@@ -31,7 +33,9 @@ class HTMLScriptElement extends Node {
   String text = '';
 }
 
-class Event {}
+class Event {
+  Event(String type);
+}
 
 extension type CSSStyleDeclarationX._(Object _) implements Object {
   set width(String width) {}

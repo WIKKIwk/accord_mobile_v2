@@ -38,6 +38,16 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
     String fallback = '',
   }) {
     final key = switch (code.trim().toLowerCase()) {
+      'apparatus_busy' => 'worker.waiting.apparatus_busy',
+      'previous_stage_not_configured' =>
+        'worker.error.previous_stage_not_configured',
+      'raw_material_assignment_required' =>
+        'worker.error.incomplete_material_groups',
+      'waiting_sequence' => 'worker.waiting.sequence',
+      'waiting_previous_stage' => 'worker.waiting.previous_short',
+      'waiting_opening_wip' => 'worker.waiting.opening_wip',
+      'order_frozen' => 'worker.freeze.active',
+      'order_freeze_requested' => 'worker.freeze.requested',
       'qolip_scan_incomplete' => 'worker.error.scan_molds',
       'raw_material_rule_missing' => 'worker.error.rule_failed',
       'raw_material_rule_load_failed' => 'worker.error.rule_failed',

@@ -3,6 +3,36 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('worker queue blocking reasons are localized without sync fallbacks',
+      () {
+    const keys = {
+      'apparatus_busy': 'worker.waiting.apparatus_busy',
+      'previous_stage_not_configured':
+          'worker.error.previous_stage_not_configured',
+      'raw_material_assignment_required':
+          'worker.error.incomplete_material_groups',
+      'waiting_sequence': 'worker.waiting.sequence',
+      'waiting_previous_stage': 'worker.waiting.previous_short',
+      'waiting_opening_wip': 'worker.waiting.opening_wip',
+      'order_frozen': 'worker.freeze.active',
+      'order_freeze_requested': 'worker.freeze.requested',
+    };
+    for (final language in ['uz', 'en', 'ru']) {
+      final l10n = AppLocalizations(Locale(language));
+      for (final entry in keys.entries) {
+        final message = l10n.productionErrorMessage(entry.key);
+        expect(message, isNotEmpty, reason: '$language: ${entry.key}');
+        expect(message, l10n.productionText(entry.value));
+        expect(message, isNot(entry.value));
+        expect(message, isNot(l10n.productionText('worker.error.sync')));
+      }
+      final fallback = l10n.productionText('worker.queue.action_unavailable');
+      expect(fallback, isNot('worker.queue.action_unavailable'));
+      expect(l10n.productionErrorMessage('future_reason', fallback: fallback),
+          fallback);
+    }
+  });
+
   test('worker production text follows the selected locale', () {
     final uzbek = AppLocalizations(const Locale('uz'));
     final english = AppLocalizations(const Locale('en'));

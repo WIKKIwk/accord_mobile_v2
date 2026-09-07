@@ -124,6 +124,21 @@ void main() {
   });
 
   group('canonical revision guard', () {
+    test('server restart accepts its lower revision but rejects retired epochs', () {
+      expect(canonicalSnapshotDecision(
+        incomingRevision: 1, lastAppliedRevision: 900,
+        incomingEpoch: 'new-server', lastAppliedEpoch: 'old-server',
+      ), CanonicalSnapshotDecision.apply);
+      expect(canonicalSnapshotDecision(
+        incomingRevision: 901, lastAppliedRevision: 1,
+        incomingEpoch: 'old-server', lastAppliedEpoch: 'new-server',
+        retiredEpochs: {'old-server'},
+      ), CanonicalSnapshotDecision.ignoreStale);
+      expect(canonicalSnapshotDecision(
+        incomingRevision: 2, lastAppliedRevision: 3,
+        incomingEpoch: 'new-server', lastAppliedEpoch: 'new-server',
+      ), CanonicalSnapshotDecision.ignoreStale);
+    });
     test('first revision applies', () {
       expect(
         canonicalSnapshotDecision(
