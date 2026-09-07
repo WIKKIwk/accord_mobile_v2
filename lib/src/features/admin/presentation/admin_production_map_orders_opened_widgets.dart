@@ -132,12 +132,24 @@ class _OpenedOrderRow extends StatelessWidget {
                   apparatuses: watermarks,
                 ),
               ),
+            // Cover chapda suzadi (Positioned): qator balandligini faqat
+            // matn belgilaydi, rasm o'lchami ta'sir qilmaydi.
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: kAdminOrderCoverWidth,
+              child: _ProductionMapOrderCoverImage(map: map),
+            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
+              padding: const EdgeInsets.fromLTRB(
+                kAdminOrderCoverWidth + 12,
+                8,
+                4,
+                8,
+              ),
               child: Row(
                 children: [
-                  _ProductionMapOrderImageThumb(map: map),
-                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

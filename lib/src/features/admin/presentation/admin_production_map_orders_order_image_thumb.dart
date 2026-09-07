@@ -1,13 +1,13 @@
 part of 'admin_production_map_orders_screen.dart';
 
-/// Ish xaritasi qatorlari uchun tezkor buyurtma rasmini reuse qiladi.
+/// Ish xaritasi qatorlari uchun chap yon cover-rasm.
 ///
 /// Rasm [CalculateOrderTemplateStore] dagi template orqali topiladi
 /// (order -> sourceMapId bog'lanishi). Store yangilanganda
 /// [AnimatedBuilder] orqali qator o'zi qayta chiziladi, shuning uchun
 /// ota widgetlarga qo'shimcha plumbing kerak emas.
-class _ProductionMapOrderImageThumb extends StatelessWidget {
-  const _ProductionMapOrderImageThumb({required this.map});
+class _ProductionMapOrderCoverImage extends StatelessWidget {
+  const _ProductionMapOrderCoverImage({required this.map});
 
   final ProductionMapDefinition map;
 
@@ -23,10 +23,10 @@ class _ProductionMapOrderImageThumb extends StatelessWidget {
         final title = map.title.trim().isEmpty
             ? _openedOrderPrimaryTitle(map, l10n: context.l10n)
             : map.title.trim();
-        return AdminOrderImageThumb(
+        return AdminOrderCoverThumb(
           imageUrl: template?.imageUrl ?? '',
           displayName: title,
-          heroTag: 'production-order-image-${map.id.trim()}',
+          heroTag: 'production-order-cover-${map.id.trim()}',
         );
       },
     );

@@ -416,96 +416,114 @@ class _SequenceOrderRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 45),
-            child: Row(
-              children: [
-                _ProductionMapOrderImageThumb(map: map),
-                const SizedBox(width: 10),
-                _OpenedOrderIndexBadge(index: index),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _OpenedOrderTitleLine(
-                        map: map,
-                        theme: theme,
-                        scheme: scheme,
-                        titleColor: titleColor,
-                        secondaryColor: secondaryColor,
-                      ),
-                      if (subtitle.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: secondaryColor ?? scheme.onSurfaceVariant,
-                            height: 1.05,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (resolvedStatusLabel != null &&
-                    resolvedStatusLabel.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color:
-                            statusBackgroundColor ?? scheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 5,
-                        ),
-                        child: Text(
-                          resolvedStatusLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: statusForegroundColor ??
-                                scheme.onSecondaryContainer,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (!readOnly)
-                  ReorderableDragStartListener(
-                    index: index,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.drag_handle_rounded,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                if (onInfo != null)
-                  IconButton(
-                    tooltip: context.l10n.productionText('worker.order.info'),
-                    onPressed: onInfo,
-                    icon: Icon(
-                      Icons.info_outline_rounded,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  )
-                else
-                  const SizedBox(width: 8),
-              ],
+        child: Stack(
+          children: [
+            // Cover chapda suzadi (Positioned): qator balandligini faqat
+            // matn belgilaydi, rasm o'lchami ta'sir qilmaydi.
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: kAdminOrderCoverWidth,
+              child: _ProductionMapOrderCoverImage(map: map),
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                kAdminOrderCoverWidth + 12,
+                8,
+                4,
+                8,
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 45),
+                child: Row(
+                  children: [
+                    _OpenedOrderIndexBadge(index: index),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _OpenedOrderTitleLine(
+                            map: map,
+                            theme: theme,
+                            scheme: scheme,
+                            titleColor: titleColor,
+                            secondaryColor: secondaryColor,
+                          ),
+                          if (subtitle.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color:
+                                    secondaryColor ?? scheme.onSurfaceVariant,
+                                height: 1.05,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (resolvedStatusLabel != null &&
+                        resolvedStatusLabel.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: statusBackgroundColor ??
+                                scheme.secondaryContainer,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 5,
+                            ),
+                            child: Text(
+                              resolvedStatusLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: statusForegroundColor ??
+                                    scheme.onSecondaryContainer,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (!readOnly)
+                      ReorderableDragStartListener(
+                        index: index,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Icon(
+                            Icons.drag_handle_rounded,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    if (onInfo != null)
+                      IconButton(
+                        tooltip:
+                            context.l10n.productionText('worker.order.info'),
+                        onPressed: onInfo,
+                        icon: Icon(
+                          Icons.info_outline_rounded,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      )
+                    else
+                      const SizedBox(width: 8),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
