@@ -136,6 +136,8 @@ class _OpenedOrderRow extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
               child: Row(
                 children: [
+                  _ProductionMapOrderImageThumb(map: map),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

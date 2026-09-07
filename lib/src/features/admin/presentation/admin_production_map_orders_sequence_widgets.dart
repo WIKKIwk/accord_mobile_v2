@@ -422,6 +422,8 @@ class _SequenceOrderRow extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: 45),
             child: Row(
               children: [
+                _ProductionMapOrderImageThumb(map: map),
+                const SizedBox(width: 10),
                 _OpenedOrderIndexBadge(index: index),
                 const SizedBox(width: 14),
                 Expanded(
