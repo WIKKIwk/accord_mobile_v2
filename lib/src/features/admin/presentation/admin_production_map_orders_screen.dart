@@ -34,7 +34,10 @@ import '../../boyoqchi/state/returned_paint_draft_store.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../qolip/presentation/qolip_home_screen.dart'
-    show showQolipProductSpecSheet;
+    show
+        showQolipProductSpecSheet,
+        showQolipPrinterPicker,
+        qolipPrinterChoiceForDriver;
 import '../../qolip/presentation/widgets/qolip_dock.dart';
 import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
@@ -51,6 +54,7 @@ import 'raw_material_scan_dialog.dart';
 import 'admin_production_map_test_screen.dart'
     show ProductionMapOrderContext, ProductionMapTestArgs;
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_order_image_thumb.dart';
 import 'widgets/admin_shell.dart';
 import 'widgets/admin_catalog_search_field.dart';
 import 'widgets/admin_navigation_drawer.dart';
@@ -78,6 +82,7 @@ part 'admin_production_map_orders_closed_widgets.dart';
 part 'admin_production_map_orders_closed_log_sheet.dart';
 part 'admin_production_map_orders_apparatus_picker.dart';
 part 'admin_production_map_orders_opened_widgets.dart';
+part 'admin_production_map_orders_order_image_thumb.dart';
 part 'admin_production_map_orders_completion_widgets.dart';
 part 'admin_production_map_orders_sequence_widgets.dart';
 part 'admin_production_map_orders_sequence_assignment_sheet.dart';

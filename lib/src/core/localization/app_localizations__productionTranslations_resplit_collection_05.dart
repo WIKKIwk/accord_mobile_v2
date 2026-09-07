@@ -94,6 +94,16 @@ const _app_localizations_declarations__productionTranslations_resplitPart05 = {
     'en': 'Molds',
     'ru': 'Формы',
   },
+  'worker.molds.attached': {
+    'uz': 'Biriktirilgan qoliplar',
+    'en': 'Attached molds',
+    'ru': 'Прикрепленные формы',
+  },
+  'worker.molds.attached.empty': {
+    'uz': 'Qolip biriktirilmagan',
+    'en': 'No molds attached',
+    'ru': 'Формы не прикреплены',
+  },
   'worker.progress.previous.confirmed': {
     'uz': 'Oldingi bosqich tasdiqlandi',
     'en': 'Previous stage confirmed',

@@ -39,6 +39,11 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.onToggleMaterialsExpanded,
     required this.qolipsExpanded,
     required this.onToggleQolipsExpanded,
+    this.attachedQolips = const [],
+    this.attachedQolipsLoading = false,
+    this.attachedQolipsError = '',
+    this.attachedQolipsExpanded = false,
+    this.onToggleAttachedQolipsExpanded,
     required this.rezkaInstructionLines,
     required this.rezkaMergeStateLines,
     required this.onMaterialIntake,
@@ -89,6 +94,11 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final VoidCallback onToggleMaterialsExpanded;
   final bool qolipsExpanded;
   final VoidCallback onToggleQolipsExpanded;
+  final List<QolipProduct> attachedQolips;
+  final bool attachedQolipsLoading;
+  final String attachedQolipsError;
+  final bool attachedQolipsExpanded;
+  final VoidCallback? onToggleAttachedQolipsExpanded;
   final List<String> rezkaInstructionLines;
   final List<String> rezkaMergeStateLines;
   final VoidCallback onMaterialIntake;
@@ -414,6 +424,55 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               unlinkingBarcode: unlinkingMaterialBarcode,
             ),
           ],
+          Builder(
+            builder: (context) {
+              final attachedExpandable = attachedQolipsLoading ||
+                  attachedQolipsError.trim().isNotEmpty ||
+                  attachedQolips.isNotEmpty;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Divider(
+                    height: 28,
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                  _ScannedItemsExpansionHeader(
+                    key: const ValueKey(
+                      'production-attached-qolips-expansion',
+                    ),
+                    title: context.l10n.productionText(
+                      attachedExpandable || attachedQolipsLoading
+                          ? 'worker.molds.attached'
+                          : 'worker.molds.attached.empty',
+                    ),
+                    countText: attachedQolipsLoading
+                        ? '...'
+                        : context.l10n.productionCount(
+                            attachedQolips.length,
+                            kind: 'molds',
+                          ),
+                    expanded:
+                        attachedExpandable && attachedQolipsExpanded,
+                    complete: false,
+                    onTap: attachedExpandable
+                        ? onToggleAttachedQolipsExpanded
+                        : null,
+                  ),
+                  if (attachedExpandable && attachedQolipsExpanded) ...[
+                    const SizedBox(height: 12),
+                    _AttachedQolipListBody(
+                      qolips: attachedQolips,
+                      loading: attachedQolipsLoading,
+                      error: attachedQolipsError,
+                      emptyText: context.l10n.productionText(
+                        'worker.molds.attached.empty',
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
           if (uiState.showStart && requiresQolipScan) ...[
             Divider(
               height: 28,

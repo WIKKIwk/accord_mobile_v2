@@ -53,6 +53,11 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onToggleMaterialsExpanded,
     required this.qolipsExpanded,
     required this.onToggleQolipsExpanded,
+    this.attachedQolips = const [],
+    this.attachedQolipsLoading = false,
+    this.attachedQolipsError = '',
+    this.attachedQolipsExpanded = false,
+    this.onToggleAttachedQolipsExpanded,
     required this.mapExpanded,
     required this.onToggleMapExpanded,
     required this.onTapMapApparatus,
@@ -119,6 +124,11 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onToggleMaterialsExpanded;
   final bool qolipsExpanded;
   final VoidCallback onToggleQolipsExpanded;
+  final List<QolipProduct> attachedQolips;
+  final bool attachedQolipsLoading;
+  final String attachedQolipsError;
+  final bool attachedQolipsExpanded;
+  final VoidCallback? onToggleAttachedQolipsExpanded;
   final bool mapExpanded;
   final VoidCallback onToggleMapExpanded;
   final ValueChanged<ProductionMapNode> onTapMapApparatus;
@@ -310,6 +320,12 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     onToggleMaterialsExpanded: onToggleMaterialsExpanded,
                     qolipsExpanded: qolipsExpanded,
                     onToggleQolipsExpanded: onToggleQolipsExpanded,
+                    attachedQolips: attachedQolips,
+                    attachedQolipsLoading: attachedQolipsLoading,
+                    attachedQolipsError: attachedQolipsError,
+                    attachedQolipsExpanded: attachedQolipsExpanded,
+                    onToggleAttachedQolipsExpanded:
+                        onToggleAttachedQolipsExpanded,
                     rezkaInstructionLines: rezkaInstructionLines,
                     rezkaMergeStateLines: rezkaMergeStateLines,
                     onMaterialIntake: onMaterialIntake,

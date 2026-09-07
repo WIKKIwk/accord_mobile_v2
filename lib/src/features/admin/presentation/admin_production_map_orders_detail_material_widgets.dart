@@ -1019,3 +1019,262 @@ Future<String?> _reprintAssignedMaterialStock(
     return l10n.adminText('warehouse.qr_confirmation_failed');
   }
 }
+
+class _AttachedQolipListBody extends StatelessWidget {
+  const _AttachedQolipListBody({
+    required this.qolips,
+    required this.loading,
+    required this.error,
+    required this.emptyText,
+  });
+  final List<QolipProduct> qolips;
+  final bool loading;
+  final String error;
+  final String emptyText;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    if (loading) {
+      return Row(
+        children: [
+          SizedBox.square(
+            dimension: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: scheme.primary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            context.l10n.loading,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      );
+    }
+    if (error.trim().isNotEmpty) {
+      return Text(
+        error,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: scheme.error,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+    if (qolips.isEmpty) {
+      return Text(
+        emptyText,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: scheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (var index = 0; index < qolips.length; index++) ...[
+          if (index > 0) const SizedBox(height: 8),
+          _AttachedQolipTile(product: qolips[index]),
+        ],
+      ],
+    );
+  }
+}
+
+class _AttachedQolipTile extends StatelessWidget {
+  const _AttachedQolipTile({required this.product});
+  final QolipProduct product;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final code = product.qolipCode.trim();
+    final exactColor = _exactQolipHexColor(product.qolipColor);
+    final details = <String>[];
+    if (product.qolipSize > 0) {
+      details.add('${product.qolipSize}');
+    }
+    if (product.qolipColor.trim().isNotEmpty &&
+        _exactQolipHexColor(product.qolipColor) == null) {
+      details.add(product.qolipColor.trim());
+    }
+    if (product.isInUse) {
+      details.add(context.l10n.adminText('production.qolip_in_use'));
+    }
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        _showAttachedQolipQrSheet(context, product);
+      },
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: scheme.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.qr_code_rounded,
+                color: scheme.onSurfaceVariant,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.productionText(
+                      'worker.mold.code',
+                      values: {'code': code},
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      if (exactColor != null) ...[
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: exactColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: scheme.outlineVariant),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Expanded(
+                        child: Text(
+                          details.isEmpty
+                              ? context.l10n.productionText(
+                                  'worker.mold.color.missing',
+                                )
+                              : details.join(' • '),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void _showAttachedQolipQrSheet(BuildContext context, QolipProduct product) {
+  final code = product.qolipCode.trim();
+  if (code.isEmpty) {
+    return;
+  }
+  final itemName = product.name.trim().isEmpty ? code : product.name.trim();
+  final l10n = context.l10n;
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (sheetContext) => RpsQrReprintSheet(
+      title: l10n.productionText('worker.mold.qr_title'),
+      payload: code,
+      itemName: itemName,
+      previewKey: ValueKey('attached-qolip-qr-preview-$code'),
+      reprintButtonKey: ValueKey('attached-qolip-qr-reprint-$code'),
+      details: [
+        if (product.code.trim().isNotEmpty)
+          RpsQrDetail(
+            sheetContext.l10n.qolipText('products.product_code'),
+            product.code,
+          ),
+        if (product.qolipSize > 0)
+          RpsQrDetail(
+            sheetContext.l10n.qolipText('products.size'),
+            '${product.qolipSize}',
+          ),
+        if (product.customerNames.isNotEmpty)
+          RpsQrDetail(
+            sheetContext.l10n.qolipText('products.customer'),
+            product.customerNames.join(', '),
+          ),
+      ],
+      onReprint: () => _reprintAttachedQolipCodeQr(sheetContext, product),
+      errorMessage: (error) => qolipErrorMessage(
+        error,
+        fallback: l10n.qolipText('products.qr_failed'),
+        l10n: l10n,
+      ),
+    ),
+  );
+}
+
+Future<String?> _reprintAttachedQolipCodeQr(
+  BuildContext context,
+  QolipProduct product,
+) async {
+  final option = await showQolipPrinterPicker(context);
+  if (option == null) {
+    throw const RpsQrReprintCancelled();
+  }
+  final printer = option.transport.isLocal
+      ? option.transport.isBluetooth
+          ? option.bluetoothPrinter!.printer
+          : option.offlinePrinter!.printer
+      : qolipPrinterChoiceForDriver(
+          kind: option.printerKind,
+          label: option.printerLabel,
+        );
+  final result = await MobileApi.instance.qolipPrintCodeQr(
+    qolipCode: product.qolipCode.trim(),
+    driverUrl: option.driverUrl,
+    printer: printer,
+    printMode: option.transport.isLocal
+        ? option.transport.isBluetooth
+            ? option.bluetoothPrinter!.printMode
+            : option.offlinePrinter!.printMode
+        : printer == 'godex'
+            ? 'label'
+            : 'rfid',
+    customerName: product.customerNames.join(', '),
+    qolipColor: product.qolipColor,
+    printTransport: option.transport,
+  );
+  if (option.transport.isLocal) {
+    await PrintService.printRps(
+      result.printJob,
+      printerProfile: option.offlinePrinter,
+      bluetoothPrinter: option.bluetoothPrinter,
+      transport: option.transport,
+    );
+  }
+  return null;
+}

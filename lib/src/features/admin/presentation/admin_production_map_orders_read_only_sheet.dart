@@ -46,6 +46,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   bool _intakeCandidatesExpanded = false;
   bool _materialsExpanded = false;
   bool _qolipsExpanded = false;
+  bool _attachedQolipsExpanded = false;
+  List<QolipProduct> _attachedQolips = const [];
+  bool _attachedQolipsLoading = true;
+  String _attachedQolipsError = '';
+  int _attachedQolipsLoadGeneration = 0;
   bool _mapExpanded = false;
   bool _summaryExpanded = false;
 
@@ -86,6 +91,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (widget.startPauseOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_runInitialPauseFlow());
+      });
+    } else if (widget.startBosmaFinishOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_runInitialBosmaFinishFlow());
       });
     } else if (widget.startAstatkaOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -154,6 +163,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _startMaterialsExpanded = false;
       _intakeCandidatesExpanded = false;
       _qolipsExpanded = false;
+      _attachedQolipsExpanded = false;
+      _attachedQolips = const [];
+      _attachedQolipsLoading = true;
+      _attachedQolipsError = '';
+      _attachedQolipsLoadGeneration++;
       _materialIntakeMode = false;
       _mergeScanMode = false;
       _seenQuickScanValues.clear();
@@ -347,6 +361,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         onToggleQolipsExpanded: () {
           setState(() => _qolipsExpanded = !_qolipsExpanded);
         },
+        attachedQolips: _attachedQolips,
+        attachedQolipsLoading: _attachedQolipsLoading,
+        attachedQolipsError: _attachedQolipsError,
+        attachedQolipsExpanded: _attachedQolipsExpanded,
+        onToggleAttachedQolipsExpanded: () {
+          setState(
+            () => _attachedQolipsExpanded = !_attachedQolipsExpanded,
+          );
+        },
         mapExpanded: _mapExpanded,
         onToggleMapExpanded: () {
           setState(() {
@@ -479,7 +502,62 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _loadMaterialAssignments(),
       _loadInputProgressBatches(),
       _loadQolipRequirements(),
+      _loadAttachedQolips(),
     ]);
+  }
+
+  Future<void> _loadAttachedQolips() async {
+    final generation = ++_attachedQolipsLoadGeneration;
+    final itemCode = widget.order.map.productCode.trim();
+    if (itemCode.isEmpty) {
+      if (!mounted || generation != _attachedQolipsLoadGeneration) return;
+      setState(() {
+        _attachedQolips = const [];
+        _attachedQolipsLoading = false;
+        _attachedQolipsError = '';
+      });
+      return;
+    }
+    if (mounted && generation == _attachedQolipsLoadGeneration) {
+      setState(() {
+        _attachedQolipsLoading = true;
+        _attachedQolipsError = '';
+      });
+    }
+    try {
+      final products = await MobileApi.instance.qolipProducts(
+        query: itemCode,
+        limit: 200,
+        withQolipOnly: true,
+      );
+      if (!mounted || generation != _attachedQolipsLoadGeneration) return;
+      final seen = <String>{};
+      final qolips = [
+        for (final product in products)
+          if (product.code.trim().toLowerCase() == itemCode.toLowerCase() &&
+              product.qolipCode.trim().isNotEmpty &&
+              seen.add(product.qolipCode.trim().toLowerCase()))
+            product,
+      ]..sort(
+          (left, right) => left.qolipCode
+              .toLowerCase()
+              .compareTo(right.qolipCode.toLowerCase()),
+        );
+      setState(() {
+        _attachedQolips = qolips;
+        _attachedQolipsLoading = false;
+        _attachedQolipsError = '';
+      });
+    } catch (error) {
+      if (!mounted || generation != _attachedQolipsLoadGeneration) return;
+      setState(() {
+        _attachedQolips = const [];
+        _attachedQolipsLoading = false;
+        _attachedQolipsError = error is MobileApiException
+            ? error.message
+            : context.l10n.adminText('production.qolip_load_failed');
+      });
+    }
   }
 
   Future<_MaterialAssignmentsSnapshot> _fetchMaterialAssignments({
@@ -868,6 +946,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       return false;
     }
     setState(() => _queueActionControl = latestControl);
+    if (action == 'complete' && widget.apparatus?.operation.trim() == 'print' &&
+        (progressInput?.closingOutputBatchId ?? '') != latestControl?.closingOutputBatchId) {
+      _showSheetNotice(l10n.productionText('worker.error.sync'));
+      return false;
+    }
     if (action == 'start' &&
         !_bypassStartMaterialScan &&
         !await _loadMaterialAssignments(showLoading: false)) {
@@ -1528,6 +1611,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
+  Future<void> _runInitialBosmaFinishFlow() async {
+    final outcome = await _runProgressAction('complete');
+    if (mounted) Navigator.of(context).pop(outcome == _ProgressActionOutcome.completed);
+  }
+
   Future<_ProgressActionOutcome> _runAstatkaReport() async {
     if (!mounted) return _ProgressActionOutcome.cancelled;
     final input = await _showProgressQtyDialogForApparatus(
@@ -1635,6 +1723,22 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     bool workerHandoff = false,
     bool removeRollFromApparatus = false,
   }) async {
+    if (action == 'complete' && widget.apparatus?.operation.trim() == 'print') {
+      try {
+        final latest = await _loadCurrentQueueActionControl();
+        if (!mounted) return _ProgressActionOutcome.cancelled;
+        setState(() => _queueActionControl = latest);
+        if (latest?.isConsistentWith(_orderControlState,
+              queueState: _queueStates[widget.order.map.id.trim()]) != true ||
+            latest?.allows('complete') != true) {
+          _showSheetNotice(context.l10n.productionText('worker.error.sync'));
+          return _ProgressActionOutcome.failed;
+        }
+      } catch (_) {
+        if (mounted) _showSheetNotice(context.l10n.productionText('worker.error.sync'));
+        return _ProgressActionOutcome.failed;
+      }
+    }
     if (_orderControlState == AdminOrderControlState.frozen) {
       return _ProgressActionOutcome.failed;
     }
@@ -1686,6 +1790,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       returnedPaintDraft: _returnedPaintDraft,
       fullCompletionReportRequired:
           fullCompletionReportRequired ?? _completionNeedsFullReport(action),
+      closingOutputBatchId: action == 'complete'
+          ? _queueActionControl?.closingOutputBatchId ?? '' : '',
       rezkaTotalWasteOnlyCompletionRequired:
           _queueActionControl?.completeRequiresRezkaTotalWasteOnly ?? false,
       workerHandoff: workerHandoff,
@@ -1702,6 +1808,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     );
     if (!mounted || input == null) {
       return _ProgressActionOutcome.cancelled;
+    }
+    if (input.closingOutputBatchId.isNotEmpty) {
+      final completed = await _runQueueAction('complete', progressInput: input);
+      if (completed) {
+        await ReturnedPaintDraftStore.instance.clear(scope);
+        _returnedPaintDraft = null;
+        _returnedPaintDraftScope = '';
+      }
+      return completed ? _ProgressActionOutcome.completed : _ProgressActionOutcome.failed;
     }
     final isTrainingOrder = widget.order.map.id.trim().startsWith('training-');
     if (input.isIssue && freezeRequestSafeStop && !isTrainingOrder) {
@@ -2122,6 +2237,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.startPauseOnOpen = false,
     this.startWorkerHandoffOnOpen = false,
     this.startAstatkaOnOpen = false,
+    this.startBosmaFinishOnOpen = false,
     this.startRollRemovalOnOpen = false,
     this.startResumeOnOpen = false,
   });
@@ -2149,6 +2265,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final bool startPauseOnOpen;
   final bool startWorkerHandoffOnOpen;
   final bool startAstatkaOnOpen;
+  final bool startBosmaFinishOnOpen;
   final bool startRollRemovalOnOpen;
   final bool startResumeOnOpen;
 
