@@ -34,7 +34,7 @@ part 'admin_calculate_screen_declarations_part_03.dart';
 part 'admin_calculate_screen_models_part_04.dart';
 part 'admin_calculate_screen_declarations_part_05.dart';
 
-const _calculateOrderTypeOptions = <String>['Paket', 'Rulon'];
+const _calculateOrderTypeOptions = <String>['Paket', 'Rulon', 'Flexo'];
 
 class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _formKey = GlobalKey<FormState>();
@@ -45,6 +45,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _kg = TextEditingController();
   final _frameProductSizeMm = TextEditingController();
   final _frameCount = TextEditingController();
+  final _edgeAllowanceMm = TextEditingController();
+  bool _calculateByVal = false;
+  final _printValSizeMm = TextEditingController();
   final _wastePercent = TextEditingController(text: '5');
   final _rollCount = TextEditingController();
   final List<_LayerControllers> _layers = [_LayerControllers()];
@@ -99,6 +102,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     _kg.dispose();
     _frameProductSizeMm.dispose();
     _frameCount.dispose();
+    _edgeAllowanceMm.dispose();
+    _printValSizeMm.dispose();
     _wastePercent.dispose();
     _rollCount.dispose();
     for (final layer in _layers) {
@@ -113,6 +118,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         _kg,
         _frameProductSizeMm,
         _frameCount,
+        _edgeAllowanceMm,
+        _printValSizeMm,
         _wastePercent,
         _rollCount,
         for (final layer in _layers) ...[

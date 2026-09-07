@@ -263,6 +263,7 @@ MobileApiException _adminProductionMapException(
       'invalid_formula_target' => 'Formula maqsadi noto‘g‘ri',
       'invalid_formula_expression' => 'Formula ifodasi noto‘g‘ri',
       'invalid_order_qty' => 'Zakaz miqdori 0 dan katta bo‘lishi kerak',
+      'invalid_print_val_size' => 'Val razmeri 0 dan katta bo‘lishi kerak',
       'invalid_node_qty' => 'Bosqich miqdori noto‘g‘ri',
       'invalid_location' => 'Joylashuv noto‘g‘ri',
       'unknown_formula_variable' => 'Formula ichidagi o‘zgaruvchi topilmadi',

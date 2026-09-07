@@ -320,6 +320,13 @@ class QolipPrinterOption {
 }
 
 Future<QolipPrinterOption?> showQolipPrinterPicker(BuildContext context) async {
+  final sessionBluetooth = await SessionBluetoothPrinter.resolveCached();
+  if (sessionBluetooth != null) {
+    return QolipPrinterOption.bluetooth(sessionBluetooth);
+  }
+  if (!context.mounted) {
+    return null;
+  }
   final selection = await showPrintDevicePicker(context);
   if (selection == null) {
     return null;
@@ -330,7 +337,11 @@ Future<QolipPrinterOption?> showQolipPrinterPicker(BuildContext context) async {
   }
   if (selection.transport.isBluetooth) {
     final printer = selection.bluetoothPrinter;
-    return printer == null ? null : QolipPrinterOption.bluetooth(printer);
+    if (printer == null) {
+      return null;
+    }
+    SessionBluetoothPrinter.remember(printer);
+    return QolipPrinterOption.bluetooth(printer);
   }
   final server = selection.server;
   if (server == null) {

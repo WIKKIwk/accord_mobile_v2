@@ -22,6 +22,7 @@ class CalculateOrderTemplate {
     required this.imageUrl,
     this.frameProductSizeMm = 0,
     this.frameCount = 0,
+    this.printValSizeMm,
     this.edgeAllowanceMm = kCalculateEdgeAllowanceMm,
     required this.widthMm,
     required this.wastePercent,
@@ -81,6 +82,7 @@ class CalculateOrderTemplate {
       imageUrl: _calculateText(json['image_url']),
       frameProductSizeMm: frameProductSizeMm,
       frameCount: frameCount,
+      printValSizeMm: _calculateOptionalNumber(json['print_val_size_mm']),
       edgeAllowanceMm: _calculateNumber(
         json['edge_allowance_mm'],
         fallback: kCalculateEdgeAllowanceMm,
@@ -120,6 +122,8 @@ class CalculateOrderTemplate {
   final String imageUrl;
   final double frameProductSizeMm;
   final double frameCount;
+  /// Optional val size used only for print-apparatus compatibility.
+  final double? printValSizeMm;
   final double edgeAllowanceMm;
   final double widthMm;
   final double wastePercent;
@@ -181,6 +185,7 @@ class CalculateOrderTemplate {
       'image_url': imageUrl.trim(),
       'frame_product_size_mm': frameProductSizeMm,
       'frame_count': frameCount,
+      if (printValSizeMm != null) 'print_val_size_mm': printValSizeMm,
       'edge_allowance_mm': edgeAllowanceMm,
       'width_mm': widthMm,
       'waste_percent': wastePercent,
@@ -219,6 +224,8 @@ class CalculateOrderTemplate {
     String? imageUrl,
     double? frameProductSizeMm,
     double? frameCount,
+    double? printValSizeMm,
+    bool clearPrintValSize = false,
     double? edgeAllowanceMm,
     double? widthMm,
     double? wastePercent,
@@ -254,6 +261,8 @@ class CalculateOrderTemplate {
       imageUrl: imageUrl ?? this.imageUrl,
       frameProductSizeMm: frameProductSizeMm ?? this.frameProductSizeMm,
       frameCount: frameCount ?? this.frameCount,
+      printValSizeMm:
+          clearPrintValSize ? null : (printValSizeMm ?? this.printValSizeMm),
       edgeAllowanceMm: edgeAllowanceMm ?? this.edgeAllowanceMm,
       widthMm: widthMm ?? this.widthMm,
       wastePercent: wastePercent ?? this.wastePercent,
@@ -331,6 +340,7 @@ CalculateOrderTemplate _testModeUpsertCalculateOrderTemplate(
     imageUrl: template.imageUrl,
     frameProductSizeMm: template.frameProductSizeMm,
     frameCount: template.frameCount,
+    printValSizeMm: template.printValSizeMm,
     edgeAllowanceMm: template.edgeAllowanceMm,
     widthMm: template.widthMm,
     wastePercent: template.wastePercent,

@@ -242,6 +242,7 @@ class QolipBlocksResult {
 
 class QolipProduct {
   const QolipProduct({
+    this.warehouse = '',
     required this.code,
     required this.name,
     required this.itemGroup,
@@ -254,6 +255,7 @@ class QolipProduct {
     this.isInUse = false,
   });
 
+  final String warehouse;
   final String code;
   final String name;
   final String itemGroup;
@@ -267,6 +269,7 @@ class QolipProduct {
 
   factory QolipProduct.fromJson(Map<String, dynamic> json) {
     return QolipProduct(
+      warehouse: json['warehouse']?.toString() ?? '',
       code: json['code']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       itemGroup: json['item_group']?.toString() ?? '',

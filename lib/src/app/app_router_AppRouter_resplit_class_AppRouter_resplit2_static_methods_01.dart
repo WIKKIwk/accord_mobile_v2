@@ -550,6 +550,8 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
           settings, const QolipLocationTransferScreen());
     case AppRoutes.boyoqchiHome:
       return AppRouter._buildRoute(settings, const BoyoqchiHomeScreen());
+    case AppRoutes.preparation:
+      return AppRouter._buildRoute(settings, const PreparationScreen());
     case AppRoutes.boyoqchiAstatka:
       return AppRouter._buildRoute(settings, const BoyoqchiAstatkaScreen());
     case AppRoutes.rezkaSplit:

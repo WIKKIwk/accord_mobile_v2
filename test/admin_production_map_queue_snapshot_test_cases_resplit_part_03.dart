@@ -78,6 +78,52 @@ void _registeradmin_production_map_queue_snapshot_testCases03() {
     expect(resumeOnInProgress.contractValid, isFalse);
   });
 
+  test('bosma closing control requires a paused output anchor', () {
+    final base = <String, dynamic>{
+      'state': 'paused',
+      'allowed_actions': ['resume', 'complete'],
+      'interaction': {
+        'mode': 'paused',
+        'start_materials_mode': 'hidden',
+        'material_scan_required': false,
+        'assigned_materials_display_only': false,
+        'material_intake_allowed': true,
+        'previous_wip_mode': 'not_required',
+        'qolip_mode': 'not_required',
+      },
+      'previous_stage_ready': false,
+      'complete_requires_full_report': false,
+    };
+    expect(AdminApparatusQueueOrderActionControl.fromJson(base).contractValid,
+        isFalse);
+    final closing = {
+      ...base,
+      'closing_output_batch_id': 'detached-output-1',
+    };
+    final control = AdminApparatusQueueOrderActionControl.fromJson(closing);
+    expect(control.closingOutputBatchId, 'detached-output-1');
+    expect(control.contractValid, isTrue);
+    expect(
+      AdminApparatusQueueOrderActionControl.fromJson({
+        ...closing,
+        'allowed_actions': ['resume'],
+      }).contractValid,
+      isFalse,
+    );
+    expect(
+      AdminApparatusQueueOrderActionControl.fromJson({
+        ...closing,
+        'state': 'in_progress',
+        'allowed_actions': ['complete'],
+        'interaction': {
+          ...base['interaction'] as Map<String, dynamic>,
+          'mode': 'in_progress',
+        },
+      }).contractValid,
+      isFalse,
+    );
+  });
+
   test('live snapshot rejects unknown queue states and state mismatches', () {
     final base = <String, dynamic>{
       'maps': const [],

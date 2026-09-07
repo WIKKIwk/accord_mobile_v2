@@ -91,7 +91,7 @@ void _registeradmin_calculate_screen_testCases01() {
     expect(find.text('Production mapga ulash'), findsNothing);
   });
 
-  testWidgets('order type picker offers only Paket and Rulon', (tester) async {
+  testWidgets('order type picker offers Paket, Rulon and Flexo', (tester) async {
     await TestModeController.instance.setEnabled(true);
     await _pumpCalculateScreen(tester);
 
@@ -109,6 +109,7 @@ void _registeradmin_calculate_screen_testCases01() {
 
     expect(find.text('Paket'), findsOneWidget);
     expect(find.text('Rulon'), findsOneWidget);
+    expect(find.text('Flexo'), findsOneWidget);
     expect(find.text('Ready'), findsNothing);
 
     await tester.tap(find.text('Rulon'));

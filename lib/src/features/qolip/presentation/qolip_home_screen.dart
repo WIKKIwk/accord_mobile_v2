@@ -10,6 +10,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/native_bluetooth_printer.dart';
 import '../../../core/native_usb_printer.dart';
+import '../../../core/printing/session_bluetooth_printer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/print_transport.dart';
 import '../../../core/widgets/feedback/app_dialog_action_row.dart';

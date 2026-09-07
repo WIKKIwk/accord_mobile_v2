@@ -30,10 +30,28 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
     }
   }
 
+  Future<void> _restoreSessionBluetoothPrinter() async {
+    if (_bluetoothPrinter != null) {
+      return;
+    }
+    final cached = await SessionBluetoothPrinter.resolveCached();
+    if (!mounted || cached == null) {
+      return;
+    }
+    setState(() {
+      _bluetoothPrinter = cached;
+      _printTransport = PrintTransport.bluetooth;
+    });
+  }
+
   Future<void> _selectPrinter() async {
     final selection = await showPrintDevicePicker(context);
     if (!mounted || selection == null) {
       return;
+    }
+    final bluetoothPrinter = selection.bluetoothPrinter;
+    if (selection.transport.isBluetooth && bluetoothPrinter != null) {
+      SessionBluetoothPrinter.remember(bluetoothPrinter);
     }
     setState(() {
       _printTransport = selection.transport;

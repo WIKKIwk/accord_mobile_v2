@@ -98,7 +98,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
       assignments
           .where(
             (assignment) =>
-                assignment.principalRole == UserRole.qolipchi &&
+                assignment.principalRole == _warehousePrincipalRole &&
                 assignment.principalRef.trim().toLowerCase() == normalizedRef,
           )
           .map((assignment) => assignment.warehouse),

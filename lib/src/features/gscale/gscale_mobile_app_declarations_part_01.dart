@@ -290,6 +290,24 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
   }
 
   Future<void> _restoreLastPrintDevice() async {
+    final sessionBluetooth = await SessionBluetoothPrinter.resolveCached();
+    if (sessionBluetooth != null) {
+      if (!mounted) {
+        return;
+      }
+      _printTransport = PrintTransport.bluetooth;
+      _offlinePrinter = null;
+      _bluetoothPrinter = sessionBluetooth;
+      _selectedServer = null;
+      _deviceNeedsAttention = false;
+      await saveLastPrintDevice(
+        PrintDeviceSelection.bluetooth(sessionBluetooth),
+      );
+      if (mounted) {
+        setState(() {});
+      }
+      return;
+    }
     final saved = await loadLastPrintDevice();
     if (saved == null) {
       return;
@@ -328,6 +346,10 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
       _bluetoothPrinter = selection.bluetoothPrinter;
       _selectedServer = selection.server;
     });
+    final bluetoothPrinter = selection.bluetoothPrinter;
+    if (selection.transport.isBluetooth && bluetoothPrinter != null) {
+      SessionBluetoothPrinter.remember(bluetoothPrinter);
+    }
     await saveLastPrintDevice(selection);
   }
 

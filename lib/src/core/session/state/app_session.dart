@@ -46,6 +46,9 @@ class AppSession {
       return '/';
     }
     final profile = this.profile!;
+    if (profile.role == UserRole.tayyorlovMasteri && profile.hasCapability('preparation.access')) {
+      return '/preparation';
+    }
     if (profile.role == UserRole.qolipchi &&
         profile.hasCapability('qolip.manage')) {
       return '/qolip';

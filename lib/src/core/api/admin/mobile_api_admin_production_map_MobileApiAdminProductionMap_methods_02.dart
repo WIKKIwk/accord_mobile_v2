@@ -96,7 +96,7 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
         fromApparatus: sourceApparatus,
         toApparatus: targetApparatus,
         rollCount: current.map.rollCount,
-        widthMm: current.map.widthMm,
+        widthMm: current.map.printCompatibilityWidthMm,
       )) {
         throw const MobileApiException(
           code: 'move_not_allowed',
@@ -210,7 +210,7 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
         fromApparatus: sourceApparatus,
         toApparatus: targetApparatus,
         rollCount: current.map.rollCount,
-        widthMm: current.map.widthMm,
+        widthMm: current.map.printCompatibilityWidthMm,
       )) {
         throw const MobileApiException(
           code: 'move_not_allowed',

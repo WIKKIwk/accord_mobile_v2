@@ -187,6 +187,21 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'en': 'Frame count',
     'ru': 'Количество кадров',
   },
+  'admin.calculate.edge_allowance': {
+    'uz': 'Qo‘shimcha uzunlik',
+    'en': 'Additional length',
+    'ru': 'Дополнительная длина',
+  },
+  'admin.calculate.by_val': {
+    'uz': 'Val bo‘yicha hisoblash',
+    'en': 'Calculate by cylinder size',
+    'ru': 'Расчёт по размеру вала',
+  },
+  'admin.calculate.val_size': {
+    'uz': 'Val razmeri',
+    'en': 'Cylinder size',
+    'ru': 'Размер вала',
+  },
   'admin.calculate.waste_percent': {
     'uz': 'Atxod foiz',
     'en': 'Waste percentage',

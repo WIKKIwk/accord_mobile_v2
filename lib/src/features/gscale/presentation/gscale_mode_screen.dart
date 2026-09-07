@@ -5,6 +5,7 @@ import '../../../app/app_router.dart';
 import '../../../core/session/session.dart';
 import '../../../core/native_bluetooth_printer.dart';
 import '../../../core/native_usb_printer.dart';
+import '../../../core/printing/session_bluetooth_printer.dart';
 import '../../../core/print_transport.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/logout_prompt.dart';
@@ -59,6 +60,26 @@ class _MaterialGScaleControlScreenState
   }
 
   Future<void> _restoreLastPrintDevice() async {
+    // Boshqa ekranda (Qolip, Progress, ...) tanlangan BT printer sessiya
+    // davomida eslab qolinadi — kirim sahifasiga har kirganda qayta so'ramaslik
+    // uchun avval shuni tekshiramiz.
+    final sessionBluetooth = await SessionBluetoothPrinter.resolveCached();
+    if (sessionBluetooth != null) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _printTransport = PrintTransport.bluetooth;
+        _offlinePrinter = null;
+        _bluetoothPrinter = sessionBluetooth;
+        _selectedServer = null;
+        _deviceNeedsAttention = false;
+      });
+      await saveLastPrintDevice(
+        PrintDeviceSelection.bluetooth(sessionBluetooth),
+      );
+      return;
+    }
     final saved = await loadLastPrintDevice();
     if (saved == null) {
       return;
@@ -93,6 +114,9 @@ class _MaterialGScaleControlScreenState
       _selectedServer = selection.server;
       _deviceNeedsAttention = false;
     });
+    if (selection.transport.isBluetooth && selection.bluetoothPrinter != null) {
+      SessionBluetoothPrinter.remember(selection.bluetoothPrinter!);
+    }
     await saveLastPrintDevice(selection);
   }
 

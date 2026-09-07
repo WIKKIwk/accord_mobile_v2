@@ -2,6 +2,31 @@
 part of 'qolip_home_screen.dart';
 
 extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
+  Future<void> _loadSpecWarehouses() async {
+    setState(() {
+      _warehousesLoading = true;
+      _warehousesFailed = false;
+      _specWarehouse = null;
+    });
+    try {
+      final result = await MobileApi.instance.qolipBlocksData();
+      final warehouses = result.warehouses
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toSet()
+          .toList(growable: false);
+      if (!mounted) return;
+      setState(() {
+        _specWarehouses = warehouses;
+        _specWarehouse = warehouses.length == 1 ? warehouses.single : null;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _warehousesFailed = true);
+    } finally {
+      if (mounted) setState(() => _warehousesLoading = false);
+    }
+  }
+
   QolipBlock? _initialBlock() {
     if (widget.mode == _QolipAttachMode.productSpec) {
       return null;
@@ -217,6 +242,9 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
       await _saveCellProducts(_selectedProducts);
       return;
     }
+    if (_specWarehouse == null || _warehousesLoading || _warehousesFailed) {
+      return;
+    }
     if (size == null || size <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.qolipText('home.size_invalid'))),
@@ -263,6 +291,7 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
     setState(() => _saving = true);
     try {
       final saved = await MobileApi.instance.qolipSaveProductSpecsBatch(
+        warehouse: _specWarehouse!,
         product: product,
         specs: batchItems,
       );

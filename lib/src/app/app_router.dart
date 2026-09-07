@@ -16,6 +16,7 @@ import '../features/chat/presentation/chat_participant_profile_screen.dart';
 import '../features/chat/models/chat_models.dart';
 import '../features/boyoqchi/presentation/boyoqchi_astatka_screen.dart';
 import '../features/boyoqchi/presentation/boyoqchi_home_screen.dart';
+import '../features/preparation/presentation/preparation_screen.dart';
 import '../features/admin/presentation/admin_activity_screen.dart';
 import '../features/admin/presentation/admin_apparatus_settings_screen.dart';
 import '../features/admin/presentation/admin_calculate_screen.dart';

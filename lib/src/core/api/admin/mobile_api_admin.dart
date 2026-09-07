@@ -140,6 +140,7 @@ void resetMobileApiTestModeData() {
   _testModeActiveProgressInputByQueue.clear();
   _testModeOrderStartedAtUnix.clear();
   _testModeLaminatsiyaAstatkaReports.clear();
+  _testModeBosmaAstatkaReports.clear();
   _testModeRezkaAstatkaReports.clear();
   _testModeRawMaterialRules.clear();
   _testModeRawMaterialAssignments.clear();
@@ -223,7 +224,7 @@ bool _testModeCandidateAllowedForOrder(
     fromApparatus: source,
     toApparatus: candidate,
     rollCount: map.rollCount,
-    widthMm: map.widthMm,
+    widthMm: map.printCompatibilityWidthMm,
   );
 }
 

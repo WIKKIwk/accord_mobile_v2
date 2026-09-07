@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'godex_rps_renderer.dart';
 import 'native_bluetooth_printer.dart';
 import 'native_usb_printer.dart';
+import 'printing/session_bluetooth_printer.dart';
 import 'print_transport.dart';
 import 'zebra_rps_renderer.dart';
 
@@ -54,10 +55,17 @@ class PrintService {
         progressQty: request.progressQty,
         progressUnit: request.progressUnit,
       );
-      final result = await NativeBluetoothPrinter.printLabel(
-        effectiveRequest,
-        printer: printer,
-      );
+      final Map<String, Object?> result;
+      try {
+        result = await NativeBluetoothPrinter.printLabel(
+          effectiveRequest,
+          printer: printer,
+        );
+      } catch (_) {
+        // Eski/boshqa printer keshi keyingi safar qayta so'ralishi uchun.
+        SessionBluetoothPrinter.forgetIfMatches(printer.address);
+        rethrow;
+      }
       return UsbRpsPrintResponse.fromMap({
         ...effectiveRequest.toJson(),
         ...result,

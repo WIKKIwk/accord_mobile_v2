@@ -29,6 +29,7 @@ class ProductionMapOrderContext {
     required this.itemCode,
     this.rollCount,
     this.widthMm,
+    this.printValSizeMm,
     this.apparatus = '',
     this.apparatusId = '',
     this.templateDraft,
@@ -41,6 +42,8 @@ class ProductionMapOrderContext {
   final String itemCode;
   final double? rollCount;
   final double? widthMm;
+  final double? printValSizeMm;
+  double? get printCompatibilityWidthMm => printValSizeMm ?? widthMm;
   final String apparatus;
   final String apparatusId;
   final CalculateOrderTemplate? templateDraft;
@@ -193,7 +196,7 @@ bool productionMapApparatusMatchesOrder(
   }
   final recommended = productionMapRecommendedPechatColorCount(
     rollCount: context.rollCount,
-    widthMm: context.widthMm,
+    widthMm: context.printCompatibilityWidthMm,
   );
   if (recommended == null) {
     return context.rollCount == null && context.widthMm == null;
@@ -201,11 +204,12 @@ bool productionMapApparatusMatchesOrder(
   return productionMapPechatCanHandleOrder(
     apparatusColorCount: apparatusColorCount,
     rollCount: context.rollCount,
-    widthMm: context.widthMm,
+    widthMm: context.printCompatibilityWidthMm,
   );
 }
 
 double? _productionMapOrderProfileWidth(ProductionMapOrderContext context) {
+  if (context.printValSizeMm != null) return context.printValSizeMm;
   final template = context.templateDraft;
   if (template != null &&
       template.frameProductSizeMm.isFinite &&

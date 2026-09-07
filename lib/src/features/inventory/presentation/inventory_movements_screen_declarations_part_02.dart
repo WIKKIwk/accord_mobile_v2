@@ -171,11 +171,26 @@ class _InventoryAssetQrSheetState extends State<_InventoryAssetQrSheet> {
     if (!mounted) {
       throw const RpsQrReprintCancelled();
     }
-    final selection = await showPrintDevicePicker(context);
-    if (selection == null) {
+    final sessionBluetooth = await SessionBluetoothPrinter.resolveCached();
+    if (!mounted) {
       throw const RpsQrReprintCancelled();
     }
-    await _printToSelectedDevice(selection, prepared.printRequest);
+    if (sessionBluetooth != null) {
+      await _printToSelectedDevice(
+        PrintDeviceSelection.bluetooth(sessionBluetooth),
+        prepared.printRequest,
+      );
+    } else {
+      final selection = await showPrintDevicePicker(context);
+      if (selection == null) {
+        throw const RpsQrReprintCancelled();
+      }
+      final bluetoothPrinter = selection.bluetoothPrinter;
+      if (selection.transport.isBluetooth && bluetoothPrinter != null) {
+        SessionBluetoothPrinter.remember(bluetoothPrinter);
+      }
+      await _printToSelectedDevice(selection, prepared.printRequest);
+    }
     try {
       await MobileApi.instance.adminConfirmRawMaterialStockReprint(
         barcode: prepared.stock.barcode,

@@ -12,6 +12,7 @@ class ProductionMapDefinition {
     this.imageId = '',
     this.rollCount,
     this.widthMm,
+    this.printValSizeMm,
     this.orderKg,
     this.baseLength,
     required this.nodes,
@@ -27,6 +28,8 @@ class ProductionMapDefinition {
   final String imageId;
   final double? rollCount;
   final double? widthMm;
+  final double? printValSizeMm;
+  double? get printCompatibilityWidthMm => printValSizeMm ?? widthMm;
   final double? orderKg;
   /// Planned production meters including waste and rounding; legacy API name.
   final double? baseLength;
@@ -44,6 +47,7 @@ class ProductionMapDefinition {
       imageId: json['image_id'] as String? ?? '',
       rollCount: (json['roll_count'] as num?)?.toDouble(),
       widthMm: (json['width_mm'] as num?)?.toDouble(),
+      printValSizeMm: (json['print_val_size_mm'] as num?)?.toDouble(),
       orderKg: (json['order_kg'] as num?)?.toDouble(),
       baseLength: (json['base_length'] as num?)?.toDouble(),
       nodes: (json['nodes'] as List<dynamic>? ?? const [])
@@ -70,6 +74,7 @@ class ProductionMapDefinition {
       if (imageId.trim().isNotEmpty) 'image_id': imageId.trim(),
       if (rollCount != null) 'roll_count': rollCount,
       if (widthMm != null) 'width_mm': widthMm,
+      if (printValSizeMm != null) 'print_val_size_mm': printValSizeMm,
       if (orderKg != null) 'order_kg': orderKg,
       if (baseLength != null) 'base_length': baseLength,
       'nodes': nodes.map((node) => node.toJson()).toList(growable: false),
@@ -87,6 +92,8 @@ class ProductionMapDefinition {
     String? imageId,
     double? rollCount,
     double? widthMm,
+    double? printValSizeMm,
+    bool clearPrintValSize = false,
     double? orderKg,
     double? baseLength,
     List<ProductionMapNode>? nodes,
@@ -102,6 +109,8 @@ class ProductionMapDefinition {
       imageId: imageId ?? this.imageId,
       rollCount: rollCount ?? this.rollCount,
       widthMm: widthMm ?? this.widthMm,
+      printValSizeMm:
+          clearPrintValSize ? null : (printValSizeMm ?? this.printValSizeMm),
       orderKg: orderKg ?? this.orderKg,
       baseLength: baseLength ?? this.baseLength,
       nodes: nodes ?? this.nodes,

@@ -13,6 +13,7 @@ Future<AdminUserListPage> adminUserList({
       final systemRole = switch (normalizedRole) {
         'qolipchi' => UserRole.qolipchi,
         'boyoqchi' => UserRole.boyoqchi,
+        'tayyorlov_masteri' => UserRole.tayyorlovMasteri,
         'material_taminotchi' ||
         'material-taminotchi' =>
           UserRole.materialTaminotchi,
@@ -35,6 +36,7 @@ Future<AdminUserListPage> adminUserList({
                 phone: user.phone,
                 kind: switch (systemRole) {
                   UserRole.qolipchi => AdminUserKind.qolipchi,
+                  UserRole.tayyorlovMasteri => AdminUserKind.tayyorlovMasteri,
                   UserRole.materialTaminotchi =>
                     AdminUserKind.materialTaminotchi,
                   _ => AdminUserKind.boyoqchi,

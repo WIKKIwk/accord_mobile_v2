@@ -37,6 +37,7 @@ Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
     List<ReturnedPaintItemInput> returnedPaintItems = const [],
     String returnedPaintImageId = '',
     bool fullCompletionReportRequired = false,
+    bool completeWithoutOutput = false,
     bool workerHandoff = false,
     bool removeRollFromApparatus = false,
     String freezeRequestId = '',
@@ -71,6 +72,10 @@ final normalizedApparatusId = apparatus.trim();
     }
     final issueFreezeRequested = action == 'freeze' && freezeWithIssue;
     if (await TestModeController.instance.isEnabled()) {
+      if (completeWithoutOutput) {
+        throw const MobileApiException(code: 'queue_action_not_allowed',
+            message: 'Rulonsiz yakunlash ERP ulanishini talab qiladi');
+      }
       if (rezkaRecordFrameIndex != null) {
         throw const MobileApiException(
           code: 'rezka_individual_print_requires_backend',
@@ -122,6 +127,7 @@ final normalizedApparatusId = apparatus.trim();
       );
     }
     return _adminApparatusQueueActionResultBackend(
+      completeWithoutOutput: completeWithoutOutput,
       rezkaRecordFrameIndex: rezkaRecordFrameIndex,
       rezkaOutputCycle: rezkaOutputCycle,
       apparatus: apparatus,

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../core/native_bluetooth_printer.dart';
 import '../../../core/native_usb_printer.dart';
+import '../../../core/printing/session_bluetooth_printer.dart';
 import '../../../core/print_transport.dart';
 import '../../gscale/gscale_mobile_app.dart'
     show DiscoveredServer, driverUrlForRs, showPrintDevicePicker;
@@ -66,6 +67,14 @@ Future<ProgressPrinterOption?> pickProgressPrinter(
     );
   }
 
+  final sessionBluetooth = await SessionBluetoothPrinter.resolveCached();
+  if (sessionBluetooth != null) {
+    return ProgressPrinterOption.bluetooth(sessionBluetooth);
+  }
+  if (!context.mounted) {
+    return null;
+  }
+
   final selection = await showPrintDevicePicker(context);
   if (selection == null) {
     return null;
@@ -76,7 +85,11 @@ Future<ProgressPrinterOption?> pickProgressPrinter(
   }
   if (selection.transport.isBluetooth) {
     final printer = selection.bluetoothPrinter;
-    return printer == null ? null : ProgressPrinterOption.bluetooth(printer);
+    if (printer == null) {
+      return null;
+    }
+    SessionBluetoothPrinter.remember(printer);
+    return ProgressPrinterOption.bluetooth(printer);
   }
   final server = selection.server;
   if (server == null) {

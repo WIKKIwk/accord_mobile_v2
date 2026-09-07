@@ -50,6 +50,8 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
             : sourceMap.productCode,
         rollCount: _parseOptionalDouble(_rollCount.text),
         widthMm: _derivedWidthMm(),
+        printValSizeMm: _activePrintValSizeMm,
+        clearPrintValSize: !_calculateByVal,
         orderKg: kg,
         baseLength: plannedLength,
       );
@@ -147,6 +149,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           customerName: _customer.text.trim(),
           rollCount: _parseOptionalDouble(_rollCount.text),
           widthMm: _derivedWidthMm(),
+          printValSizeMm: _activePrintValSizeMm,
           orderKg: _parseRequiredDouble(_kg.text),
           baseLength: calculation != null && calculation.results.isNotEmpty
               ? calculation.results.first.roundedLength
@@ -285,7 +288,8 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       imageUrl: _imageUrl,
       frameProductSizeMm: _parseRequiredDouble(_frameProductSizeMm.text),
       frameCount: _parseRequiredDouble(_frameCount.text),
-      edgeAllowanceMm: kCalculateEdgeAllowanceMm,
+      printValSizeMm: _activePrintValSizeMm,
+      edgeAllowanceMm: _activeEdgeAllowanceMm,
       widthMm: _derivedWidthMm(),
       wastePercent: _parseRequiredDouble(_wastePercent.text),
       rollCount: _parseOptionalDouble(_rollCount.text),

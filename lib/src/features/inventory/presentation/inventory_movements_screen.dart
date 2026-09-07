@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/native_usb_printer.dart';
+import '../../../core/printing/session_bluetooth_printer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/session/session.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';

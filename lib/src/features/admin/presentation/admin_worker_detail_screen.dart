@@ -51,8 +51,9 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
       widget.entry.principalRole == UserRole.qolipchi;
   bool get _isSystemUser =>
       widget.entry.kind == AdminUserKind.qolipchi ||
-      widget.entry.kind == AdminUserKind.boyoqchi;
-  bool get _warehouseManagementEnabled => _isQolipchi && !widget.readOnly;
+      widget.entry.kind == AdminUserKind.boyoqchi || widget.entry.kind == AdminUserKind.tayyorlovMasteri;
+  bool get _warehouseManagementEnabled => (_isQolipchi || widget.entry.kind == AdminUserKind.tayyorlovMasteri) && !widget.readOnly;
+  UserRole get _warehousePrincipalRole => _isQolipchi ? UserRole.qolipchi : UserRole.tayyorlovMasteri;
 
   @override
   void initState() {
@@ -85,7 +86,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
     final warehouseEditor = _warehouseManagementEnabled
         ? AdminWarehouseAssignmentEditor(
             assignedWarehouses: _assignedWarehouses,
-            principalRole: UserRole.qolipchi,
+            principalRole: _warehousePrincipalRole,
             principalRef: _workerId,
             displayName: detail.name,
             reloadAssignedWarehouses: _loadAssignedWarehouses,

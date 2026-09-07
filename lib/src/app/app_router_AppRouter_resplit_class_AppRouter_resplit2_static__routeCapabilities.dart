@@ -69,6 +69,7 @@ const _app_router_AppRouter_resplit_class_AppRouter__routeCapabilities_resplit2V
   AppRoutes.qolipCheckouts: {'qolip.manage'},
   AppRoutes.qolipLocationTransfer: {'qolip.manage'},
   AppRoutes.boyoqchiHome: {'boyoqchi.access'},
+  AppRoutes.preparation: {'preparation.access'},
   AppRoutes.boyoqchiAstatka: {'boyoqchi.access'},
   AppRoutes.rezkaSplit: {'rezka.split.manage'},
   AppRoutes.adminHome: {

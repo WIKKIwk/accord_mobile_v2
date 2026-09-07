@@ -158,6 +158,7 @@ class AdminApparatusQueueOrderActionControl {
     this.rezkaActivePartialRolls = const [],
     this.hasValidRezkaMergeState = true,
     this.completeRequiresFullReport = false,
+    this.closingOutputBatchId = '',
     this.completeRequiresRezkaTotalWasteOnly = false,
     this.freezeRequest,
   });
@@ -176,6 +177,7 @@ class AdminApparatusQueueOrderActionControl {
   final List<AdminRezkaActivePartialRoll> rezkaActivePartialRolls;
   final bool hasValidRezkaMergeState;
   final bool completeRequiresFullReport;
+  final String closingOutputBatchId;
   final bool completeRequiresRezkaTotalWasteOnly;
   final AdminProductionOrderFreezeDetails? freezeRequest;
 
@@ -193,9 +195,18 @@ class AdminApparatusQueueOrderActionControl {
       return false;
     }
     for (final action in allowedActions) {
+      if (action == 'complete' && value.mode == AdminQueueInteractionMode.paused &&
+          closingOutputBatchId.trim().isNotEmpty) {
+        continue;
+      }
       if (!_queueActionMatchesInteractionMode(action, value.mode)) {
         return false;
       }
+    }
+    if (closingOutputBatchId.trim().isNotEmpty &&
+        (normalizedState != 'paused' || value.mode != AdminQueueInteractionMode.paused ||
+            !allowedActions.contains('complete'))) {
+      return false;
     }
     if (value.startMaterialsMode == AdminQueueStartMaterialsMode.scanRequired &&
         !value.materialScanRequired) {
@@ -418,6 +429,8 @@ class AdminApparatusQueueOrderActionControl {
       ),
       hasValidRezkaMergeState: hasValidRezkaMergeState,
       completeRequiresFullReport: json['complete_requires_full_report'] == true,
+      closingOutputBatchId: json['closing_output_batch_id'] is String
+          ? (json['closing_output_batch_id'] as String).trim() : '',
       completeRequiresRezkaTotalWasteOnly:
           json['complete_requires_rezka_total_waste_only'] == true,
       freezeRequest: json['freeze_request'] is Map

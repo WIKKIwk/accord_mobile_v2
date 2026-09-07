@@ -124,7 +124,7 @@ bool _canMoveOrderToApparatus(
     fromApparatus: source,
     toApparatus: target,
     rollCount: order.map.rollCount,
-    widthMm: order.map.widthMm,
+    widthMm: order.map.printCompatibilityWidthMm,
   );
 }
 

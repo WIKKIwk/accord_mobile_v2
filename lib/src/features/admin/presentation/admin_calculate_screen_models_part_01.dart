@@ -22,6 +22,8 @@ String _calculateOrderTypeDisplay(String raw) {
     case 'rulo':
     case 'rulon':
       return 'Rulon';
+    case 'flexo':
+      return 'Flexo';
     default:
       return raw.trim();
   }

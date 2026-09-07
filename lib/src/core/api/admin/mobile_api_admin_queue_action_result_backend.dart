@@ -38,6 +38,7 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
     List<ReturnedPaintItemInput> returnedPaintItems = const [],
     String returnedPaintImageId = '',
     bool fullCompletionReportRequired = false,
+    bool completeWithoutOutput = false,
     bool workerHandoff = false,
     bool removeRollFromApparatus = false,
     String freezeRequestId = '',
@@ -74,6 +75,7 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
           'apparatus': apparatus,
           'order_id': orderId,
           'action': action,
+          if (completeWithoutOutput) 'complete_without_output': true,
           if (freezeWithIssue) 'freeze_with_issue': true,
           if (freezeWithIssue) 'issue_note': trimmedIssueNote,
           if (freezeRequestId.trim().isNotEmpty)

@@ -249,6 +249,9 @@ extension _AdminProductionMapTestDefinitionState
       // Re-saving an opened zakaz must keep its pechat constraints.
       rollCount: context?.rollCount ?? savedMap?.rollCount,
       widthMm: context?.widthMm ?? savedMap?.widthMm,
+      printValSizeMm: context != null
+          ? context.printValSizeMm
+          : savedMap?.printValSizeMm,
       orderKg: savedMap?.orderKg,
       baseLength: savedMap?.baseLength,
       nodes: List<ProductionMapNode>.unmodifiable(nodes),

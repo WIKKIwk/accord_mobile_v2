@@ -41,6 +41,7 @@ class _ReadOnlyQueueActionRequest {
     this.returnedPaintItems = const [],
     this.returnedPaintImageId = '',
     this.fullCompletionReportRequired = false,
+    this.completeWithoutOutput = false,
     this.workerHandoff = false,
     this.removeRollFromApparatus = false,
     this.freezeRequestId = '',
@@ -79,6 +80,7 @@ class _ReadOnlyQueueActionRequest {
   final List<ReturnedPaintItemInput> returnedPaintItems;
   final String returnedPaintImageId;
   final bool fullCompletionReportRequired;
+  final bool completeWithoutOutput;
   final bool workerHandoff;
   final bool removeRollFromApparatus;
   final String freezeRequestId;

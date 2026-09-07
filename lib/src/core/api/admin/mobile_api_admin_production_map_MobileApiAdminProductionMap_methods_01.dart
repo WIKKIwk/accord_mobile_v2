@@ -220,6 +220,10 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
       try {
         var orderMap =
             previousIndex < 0 ? _testModeAssignOrderNumberIfMissing(map) : map;
+        orderMap = orderMap.copyWith(
+          printValSizeMm: template.printValSizeMm,
+          clearPrintValSize: template.printValSizeMm == null,
+        );
         if (template.kg > 0) {
           final calculation = await calculate(
             CalculateRequest(
@@ -357,7 +361,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
           fromApparatus: sourceApparatus,
           toApparatus: targetApparatus,
           rollCount: current.map.rollCount,
-          widthMm: current.map.widthMm,
+          widthMm: current.map.printCompatibilityWidthMm,
         )) {
           throw const MobileApiException(
             code: 'move_not_allowed',

@@ -61,6 +61,7 @@ class _ProgressQtyInput {
     this.description = '',
     this.isIssue = false,
     this.fullCompletionReportRequired = false,
+    this.closingOutputBatchId = '',
     this.rezkaFrames = const [],
     this.rezkaOutputCycle = '',
     this.rezkaRecordedFrameCount = 0,
@@ -83,6 +84,7 @@ class _ProgressQtyInput {
   final String description;
   final bool isIssue;
   final bool fullCompletionReportRequired;
+  final String closingOutputBatchId;
   final List<_RezkaFrameInput> rezkaFrames;
   final String rezkaOutputCycle;
   final int rezkaRecordedFrameCount;
@@ -98,6 +100,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   required bool isRezka,
   ReturnedPaintDraft? returnedPaintDraft,
   bool fullCompletionReportRequired = false,
+  String closingOutputBatchId = '',
   bool rezkaTotalWasteOnlyCompletionRequired = false,
   bool workerHandoff = false,
   bool removeRollFromApparatus = false,
@@ -110,11 +113,11 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
 }) async {
   final draft = returnedPaintDraft ??
       await ReturnedPaintDraftStore.instance.load(
-        scope: returnedPaintWorkerDraftScope(
+        scope: '${returnedPaintWorkerDraftScope(
           actorRef: AppSession.instance.profile?.ref ?? '',
           orderId: order.map.id,
           apparatus: apparatus,
-        ),
+        )}${astatkaReport && isBosma ? ':astatka' : ''}',
       );
   if (!context.mounted) return null;
   return showDialog<_ProgressQtyInput>(
@@ -129,6 +132,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       isRezka: isRezka,
       returnedPaintDraft: draft,
       fullCompletionReportRequired: fullCompletionReportRequired,
+      closingOutputBatchId: closingOutputBatchId,
       rezkaTotalWasteOnlyCompletionRequired:
           rezkaTotalWasteOnlyCompletionRequired,
       workerHandoff: workerHandoff,
@@ -150,6 +154,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   required ProductionMapSaved order,
   ReturnedPaintDraft? returnedPaintDraft,
   bool fullCompletionReportRequired = false,
+  String closingOutputBatchId = '',
   bool rezkaTotalWasteOnlyCompletionRequired = false,
   bool workerHandoff = false,
   bool removeRollFromApparatus = false,
@@ -172,6 +177,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     isRezka: operation == 'cut',
     returnedPaintDraft: returnedPaintDraft,
     fullCompletionReportRequired: fullCompletionReportRequired,
+    closingOutputBatchId: closingOutputBatchId,
     rezkaTotalWasteOnlyCompletionRequired:
         rezkaTotalWasteOnlyCompletionRequired,
     workerHandoff: workerHandoff,
@@ -211,6 +217,7 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.isRezka,
     required this.returnedPaintDraft,
     required this.fullCompletionReportRequired,
+    required this.closingOutputBatchId,
     required this.rezkaTotalWasteOnlyCompletionRequired,
     required this.workerHandoff,
     required this.removeRollFromApparatus,
@@ -229,6 +236,7 @@ class _ProgressQtyDialog extends StatefulWidget {
   final bool isRezka;
   final ReturnedPaintDraft returnedPaintDraft;
   final bool fullCompletionReportRequired;
+  final String closingOutputBatchId;
   final bool rezkaTotalWasteOnlyCompletionRequired;
   final bool workerHandoff;
   final bool removeRollFromApparatus;
@@ -547,7 +555,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       }
       return;
     }
-    if (_isComplete && description.isNotEmpty && !_showRezkaFrameInputs) {
+    if (_isComplete && !_isBosmaClosingReport && description.isNotEmpty && !_showRezkaFrameInputs) {
       Navigator.of(context).pop(
         _ProgressQtyInput(description: description, isIssue: true),
       );
@@ -562,7 +570,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final kgQty = _parseQty(_kgController.text);
     final bobinaKg = _parseQty(_bobinaController.text);
     final diameter = _parseQty(_diameterController.text);
-    if (_requiresFullCompletionReport &&
+    if (_requiresPaintReport &&
         widget.isBosma &&
         returnedPaintDraftHasInvalidValues(_returnedPaintDraft)) {
       _setCompletionError(
@@ -573,14 +581,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       return;
     }
     final returnedPaintItems = _returnedPaintItems;
-    final rawReturnInkKg = _requiresFullCompletionReport
+    final rawReturnInkKg = _requiresPaintReport
         ? returnedPaintAstatkaTotal(returnedPaintItems)
         : null;
     final returnInkKg =
         rawReturnInkKg != null && rawReturnInkKg.isFinite && rawReturnInkKg > 0
             ? rawReturnInkKg
             : null;
-    final returnedPaintImageId = _requiresFullCompletionReport
+    final returnedPaintImageId = _requiresPaintReport
         ? (_returnedPaintDraft.image?.imageId.trim() ?? '')
         : '';
     final returnedPaintFieldCount =
@@ -597,7 +605,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       items: returnedPaintItems,
       imageId: returnedPaintImageId,
     );
-    if (_requiresFullCompletionReport &&
+    if (_requiresPaintReport &&
         widget.isBosma &&
         !returnedPaintValid) {
       _setCompletionError(
@@ -622,6 +630,18 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         _parseQty(_rezkaLaminationWasteController.text);
     final rezkaEdgeWaste = _parseQty(_rezkaEdgeWasteController.text);
     final totalWaste = _parseQty(_wasteController.text);
+    if (_isBosmaClosingReport) {
+      if (!formValid) return;
+      Navigator.of(context).pop(_ProgressQtyInput(
+        totalWaste: totalWaste,
+        returnedPaintItems: returnedPaintItems,
+        returnedPaintImageId: returnedPaintImageId,
+        returnInkKg: rawReturnInkKg,
+        description: description,
+        closingOutputBatchId: widget.closingOutputBatchId,
+      ));
+      return;
+    }
     final allFrameMetricsEmpty = _rezkaFrameControllers.every(
       (frame) => !_rezkaFrameHasAnyMetric(frame),
     );
@@ -712,6 +732,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           meterQty: meterQty,
           kgQty: kgQty,
           bobinaKg: bobinaKg,
+          returnedPaintItems: widget.isBosma ? returnedPaintItems : const [],
+          returnedPaintImageId: widget.isBosma ? returnedPaintImageId : '',
           laminationPrintLeftoverRolls: printLeftoverRolls,
           laminationFilmLeftoverRolls: filmLeftoverRolls,
           totalWaste: totalWaste,
@@ -1031,20 +1053,24 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
 
   ReturnedPaintDraft get _returnedPaintDraft => widget.returnedPaintDraft;
   List<ReturnedPaintItemInput> get _returnedPaintItems =>
-      _requiresFullCompletionReport
+      _requiresPaintReport
           ? returnedPaintItemsFromDraft(_returnedPaintDraft)
           : const [];
   bool get _isComplete => widget.action == 'complete';
+  bool get _isBosmaClosingReport => _isComplete && widget.isBosma &&
+      widget.closingOutputBatchId.isNotEmpty;
   bool get _requiresRezkaTotalWasteOnlyCompletion =>
       _isComplete &&
       widget.isRezka &&
       widget.rezkaTotalWasteOnlyCompletionRequired;
   bool get _requiresFullCompletionReport =>
       _isComplete &&
-      widget.fullCompletionReportRequired &&
+      (widget.fullCompletionReportRequired || _isBosmaClosingReport) &&
       !_requiresRezkaTotalWasteOnlyCompletion;
   bool get _isWorkerHandoff => widget.workerHandoff;
   bool get _isAstatkaReport => widget.astatkaReport;
+  bool get _requiresPaintReport => _requiresFullCompletionReport ||
+      (_isAstatkaReport && widget.isBosma);
   bool get _isRollRemoval => widget.removeRollFromApparatus;
   bool get _isFreezeRequestSafeStop => widget.freezeRequestSafeStop;
   bool get _descriptionFieldRelevant =>
@@ -1082,7 +1108,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final title = _isFreezeRequestSafeStop
         ? context.l10n.productionText('worker.freeze.safe_stop.title')
         : _isAstatkaReport
-            ? context.l10n.productionText('worker.finish.title')
+            ? context.l10n.productionText(widget.isBosma
+                ? 'worker.bosma.astatka.title' : 'worker.finish.title')
             : _isWorkerHandoff
                 ? context.l10n.productionText('worker.finish.title')
                 : _isRollRemoval
@@ -1191,7 +1218,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (!_showRezkaFrameInputs) ...[
+                        if (!_showRezkaFrameInputs && !_isBosmaClosingReport) ...[
                           _progressQtySectionLabel(
                             context,
                             context.l10n.productionText(
@@ -1477,7 +1504,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                               _rezkaFrameControllers[index],
                             ),
                         ],
-                        if (!_isWorkerHandoff && !_showRezkaFrameInputs) ...[
+                        if (!_isWorkerHandoff && !_showRezkaFrameInputs && !_isBosmaClosingReport) ...[
                           _progressQtySectionLabel(
                             context,
                             hasDetailedMetrics
@@ -1558,7 +1585,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             ),
                           ],
                         ],
-                        if (_requiresFullCompletionReport && isBosma) ...[
+                        if (_requiresPaintReport && isBosma) ...[
                           const SizedBox(height: 10),
                           _progressQtySectionLabel(
                             context,
@@ -1568,6 +1595,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           ),
                           _qtyField(
                             controller: _wasteController,
+                            requiredField: (_isBosmaClosingReport || _isAstatkaReport) ? true : null,
+                            allowZero: _isBosmaClosingReport || _isAstatkaReport,
                             label: context.l10n.productionText(
                               'worker.daily.field.total_waste',
                             ),
@@ -1636,7 +1665,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                         maxLines: 4,
                                         decoration: appSurfaceInputDecoration(
                                           context,
-                                          labelText: _isAstatkaReport
+                                          labelText: (_isAstatkaReport || _isBosmaClosingReport)
                                               ? context.l10n.productionText(
                                                   'worker.progress.qty.optional_note',
                                                 )

@@ -1631,7 +1631,24 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     setState(() => _actionInFlight = true);
     try {
       final apparatusId = widget.apparatus?.id ?? '';
-      if (widget.apparatus?.operation.trim() == 'cut') {
+      if (widget.apparatus?.operation.trim() == 'print') {
+        await MobileApi.instance.adminBosmaAstatkaReport(
+          apparatus: apparatusId,
+          orderId: widget.order.map.id,
+          totalWaste: input.totalWaste,
+          finishedGoodsMeter: input.meterQty,
+          finishedGoodsKg: input.kgQty,
+          bobinaKg: input.bobinaKg,
+          returnedPaintItems: input.returnedPaintItems,
+          returnedPaintImageId: input.returnedPaintImageId,
+          description: input.description,
+        );
+        await ReturnedPaintDraftStore.instance.clear('${returnedPaintWorkerDraftScope(
+          actorRef: AppSession.instance.profile?.ref ?? '',
+          orderId: widget.order.map.id,
+          apparatus: apparatusId,
+        )}:astatka');
+      } else if (widget.apparatus?.operation.trim() == 'cut') {
         await MobileApi.instance.adminRezkaAstatkaReport(
           apparatus: apparatusId,
           orderId: widget.order.map.id,

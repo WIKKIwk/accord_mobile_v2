@@ -124,6 +124,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
   }
 
   Future<QolipProduct> qolipSaveProductSpec({
+    String warehouse = '',
     required QolipProduct product,
     required String qolipCode,
     required int size,
@@ -131,6 +132,8 @@ extension MobileApiQolipAstPart02 on MobileApi {
     String? previousQolipCode,
   }) async {
     var saved = QolipProduct(
+      warehouse:
+          warehouse.trim().isEmpty ? product.warehouse : warehouse.trim(),
       code: product.code.trim(),
       name: product.name.trim(),
       itemGroup: product.itemGroup.trim(),
@@ -150,6 +153,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
         () => saved.firstQolipCode,
       );
       saved = QolipProduct(
+        warehouse: saved.warehouse,
         code: saved.code,
         name: saved.name,
         itemGroup: saved.itemGroup,
@@ -232,6 +236,8 @@ extension MobileApiQolipAstPart02 on MobileApi {
           'item_name': product.name.trim(),
           'item_group': product.itemGroup.trim(),
           'qolip_code': qolipCode.trim(),
+          'warehouse':
+              warehouse.trim().isEmpty ? product.warehouse : warehouse.trim(),
           'color': qolipColor.trim(),
           if (previousQolipCode != null && previousQolipCode.trim().isNotEmpty)
             'previous_qolip_code': previousQolipCode.trim(),
@@ -253,6 +259,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
   }
 
   Future<List<QolipProduct>> qolipSaveProductSpecsBatch({
+    String warehouse = '',
     required QolipProduct product,
     required List<QolipProductSpecBatchItem> specs,
   }) async {
@@ -272,6 +279,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
         for (final item in specs) {
           saved.add(
             await qolipSaveProductSpec(
+              warehouse: warehouse,
               product: product,
               qolipCode: item.qolipCode,
               size: item.size,
@@ -303,6 +311,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
                 'item_name': product.name.trim(),
                 'item_group': product.itemGroup.trim(),
                 'qolip_code': item.qolipCode.trim(),
+                'warehouse': warehouse.trim(),
                 'color': item.qolipColor.trim(),
                 'size': item.size,
               },

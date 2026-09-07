@@ -25,7 +25,7 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
         _ResultPanel(
           response: freshResult,
           rollCount: _parseOptionalDouble(_rollCount.text),
-          widthMm: _derivedWidthMm(),
+          widthMm: _activePrintValSizeMm ?? _derivedWidthMm(),
           onViewMap: _sourceMapId.trim().isEmpty ? null : _viewProductionMap,
         ),
         if (widget.trainingMode) ...[
@@ -87,6 +87,10 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
       _kg.text.trim(),
       _frameProductSizeMm.text.trim(),
       _frameCount.text.trim(),
+      _orderType.trim().toLowerCase(),
+      if (_isFlexo) _edgeAllowanceMm.text.trim(),
+      _calculateByVal.toString(),
+      if (_calculateByVal) _printValSizeMm.text.trim(),
       _wastePercent.text.trim(),
       _rollCount.text.trim(),
       for (final layer in _layers) ...[

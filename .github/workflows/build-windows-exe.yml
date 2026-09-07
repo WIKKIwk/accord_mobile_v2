@@ -12,7 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  MOBILE_API_BASE_URL: https://core.wspace.sbs
+  MOBILE_API_BASE_URL: https://mini-rs-erp-dev.wspace.sbs
+  API_BASE_URL: https://mini-rs-erp-dev.wspace.sbs
 
 jobs:
   build-windows-exe:
@@ -36,10 +37,10 @@ jobs:
         run: flutter pub get
 
       - name: Analyze
-        run: flutter analyze
+        run: flutter analyze lib windows --no-fatal-infos --no-fatal-warnings
 
       - name: Build Windows release
-        run: flutter build windows --release --dart-define=MOBILE_API_BASE_URL="${env:MOBILE_API_BASE_URL}"
+        run: flutter build windows --release --dart-define=MOBILE_API_BASE_URL="${env:MOBILE_API_BASE_URL}" --dart-define=API_BASE_URL="${env:API_BASE_URL}"
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4

@@ -488,6 +488,7 @@ class _AdminProductionMapOrdersScreenState
     required ProductionMapSaved order,
     bool startWorkerHandoffOnOpen = false,
     bool startAstatkaOnOpen = false,
+    bool startBosmaFinishOnOpen = false,
     bool startRollRemovalOnOpen = false,
     bool startResumeOnOpen = false,
     AdminProgressBatch? initialOrderSwitchBatch,
@@ -542,6 +543,7 @@ class _AdminProductionMapOrdersScreenState
         initialOrderSwitchBatch: initialOrderSwitchBatch,
         startWorkerHandoffOnOpen: startWorkerHandoffOnOpen,
         startAstatkaOnOpen: startAstatkaOnOpen,
+        startBosmaFinishOnOpen: startBosmaFinishOnOpen,
         startRollRemovalOnOpen: startRollRemovalOnOpen,
         startResumeOnOpen: startResumeOnOpen,
       ),
@@ -809,7 +811,8 @@ class _AdminProductionMapOrdersScreenState
   }) async {
     final operation = apparatus.operation.trim().toLowerCase();
     final isLaminatsiya = operation == 'laminate';
-    final supportsAstatka = operation == 'laminate' || operation == 'cut';
+    final isBosma = operation == 'print';
+    final supportsAstatka = operation == 'laminate' || operation == 'cut' || isBosma;
     if (!widget.workerMode ||
         !_isAssignedWatchApparatus(
           apparatus,
@@ -830,6 +833,26 @@ class _AdminProductionMapOrdersScreenState
     final state = apparatusQueueOrderStateFromRaw(
       queueStates[order.map.id.trim()],
     );
+    if (isBosma) {
+      final control = _queueActionControlForApparatus(apparatus: apparatus,
+          orderId: order.map.id.trim());
+      if (control?.isConsistentWith(
+            _orderControlsByOrderId[order.map.id.trim()] ?? AdminOrderControlState.active,
+            queueState: queueStates[order.map.id.trim()]) != true ||
+          !const {ApparatusQueueOrderState.inProgress, ApparatusQueueOrderState.paused,
+            ApparatusQueueOrderState.completed}.contains(state)) {
+        return;
+      }
+      final choice = await showModalBottomSheet<_BosmaWorkerLongPressChoice>(
+        context: context, useSafeArea: true, showDragHandle: true,
+        builder: (_) => _BosmaWorkerFinishSheet(canFinish: control?.allows('complete') == true),
+      );
+      if (!mounted || choice == null) return;
+      _showWatchOrderDetail(apparatus: apparatus, order: order,
+        startBosmaFinishOnOpen: choice == _BosmaWorkerLongPressChoice.finishWork,
+        startAstatkaOnOpen: choice == _BosmaWorkerLongPressChoice.astatkaReport);
+      return;
+    }
     if (isLaminatsiya && state == ApparatusQueueOrderState.paused) {
       final handoffBatch = await _laminatsiyaWorkerHandoffBatch(
         apparatus: apparatus,
@@ -944,6 +967,7 @@ class _AdminProductionMapOrdersScreenState
             itemCode: map.productCode,
             rollCount: map.rollCount,
             widthMm: map.widthMm,
+            printValSizeMm: map.printValSizeMm,
           ),
           savedMap: map,
           lockedNodeIds: lockedNodeIds,

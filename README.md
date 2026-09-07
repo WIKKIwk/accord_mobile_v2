@@ -358,6 +358,11 @@ waste foizi, rulon soni va material qatlamlarini kiritadi. Birinchi va ikkinchi
 qatlam majburiy, uchinchisi optional. Mobile preview qiymatlarini ko'rsatadi,
 lekin authoritative natija `POST /v1/mobile/calculate`dan keladi.
 
+`Val bo‘yicha hisoblash` yoqilsa, majburiy `Val razmeri` (mm) faqat bosma
+apparati mosligini tekshirishda ishlatiladi. Optional `print_val_size_mm`
+template va mapda saqlanadi; o‘chirilganda yuborilmaydi va eski kadr formulasi
+ishlaydi. Kadr o‘lchami/soni, material eni, sarf va Rezka kesish hisobi o‘zgarmaydi.
+
 Quick-order template'lar:
 
 - `GET /v1/mobile/calculate/orders` orqali olinadi;

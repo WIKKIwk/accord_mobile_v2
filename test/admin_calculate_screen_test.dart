@@ -17,6 +17,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 part 'admin_calculate_screen_test_widgets_part_01.dart';
 part 'admin_calculate_screen_test_cases_resplit_part_01.dart';
 part 'admin_calculate_screen_test_cases_resplit_part_02.dart';
+part 'admin_calculate_screen_print_val_tests.dart';
+part 'admin_calculate_screen_flexo_tests.dart';
 part 'admin_calculate_screen_waste_tests.dart';
 
 void main() {
@@ -44,5 +46,7 @@ void main() {
   _registeradmin_calculate_screen_testCases01();
 
   _registeradmin_calculate_screen_testCases02();
+  _registerPrintValTests();
+  _registerFlexoTests();
   _registerWasteTests();
 }

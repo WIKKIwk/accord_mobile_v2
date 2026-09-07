@@ -161,6 +161,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
   bool get _isAparatchiRole => widget.assignedRole.id == 'aparatchi';
   bool get _isQolipchiRole => widget.assignedRole.id == 'qolipchi';
   bool get _isBoyoqchiRole => widget.assignedRole.id == 'boyoqchi';
+  bool get _isPreparationRole => widget.assignedRole.baseRole == UserRole.tayyorlovMasteri;
   bool get _isMaterialTaminotchiAssignedRole =>
       _isMaterialTaminotchiRole(widget.assignedRole);
 
@@ -235,14 +236,17 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
     }
     setState(() => saving = true);
     try {
-      if (_isQolipchiRole || _isBoyoqchiRole) {
-        final role = _isBoyoqchiRole ? UserRole.boyoqchi : UserRole.qolipchi;
+      if (_isQolipchiRole || _isBoyoqchiRole || _isPreparationRole) {
+        final role = _isPreparationRole ? UserRole.tayyorlovMasteri : _isBoyoqchiRole ? UserRole.boyoqchi : UserRole.qolipchi;
         final user = await MobileApi.instance.adminCreateSystemUser(
           role: role,
           name: name.text.trim(),
           phone: phone.text.trim(),
         );
         await MobileApi.instance.adminRegenerateSystemUserCode(user.id);
+        if (_isPreparationRole && !widget.assignedRole.system) {
+          await _assignCustomRole(widget.assignedRole, role, user.id);
+        }
       } else if (_isMaterialTaminotchiAssignedRole) {
         await MobileApi.instance.adminCreateMaterialTaminotchi(
           name: name.text.trim(),

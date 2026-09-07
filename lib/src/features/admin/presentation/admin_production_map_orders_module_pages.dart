@@ -849,6 +849,50 @@ enum _LaminatsiyaWorkerLongPressChoice {
   removeRoll,
 }
 
+enum _BosmaWorkerLongPressChoice { finishWork, astatkaReport }
+
+class _BosmaWorkerFinishSheet extends StatelessWidget {
+  const _BosmaWorkerFinishSheet({required this.canFinish});
+
+  final bool canFinish;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(l10n.productionText('worker.bosma.astatka.title'),
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(l10n.productionText('worker.finish.description')),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(_BosmaWorkerLongPressChoice.astatkaReport),
+              icon: const Icon(Icons.assignment_outlined),
+              label: Text(l10n.productionText('worker.bosma.astatka.title')),
+            ),
+            if (canFinish) ...[
+              const SizedBox(height: 16),
+              Text(l10n.productionText('worker.bosma.finish.description')),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: () => Navigator.of(context).pop(_BosmaWorkerLongPressChoice.finishWork),
+                icon: const Icon(Icons.logout_rounded),
+                label: Text(l10n.productionText('worker.finish.title')),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
   const _LaminatsiyaWorkerFinishSheet();
 

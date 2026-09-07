@@ -57,7 +57,9 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
     if (_applyingTemplate || !mounted) {
       return;
     }
-    if (_result == null && _lastCalculatedSignature.isEmpty) {
+    if (_result == null &&
+        _lastCalculatedSignature.isEmpty &&
+        !(_isFlexo && !_editingAllFields)) {
       return;
     }
     setState(() {});
@@ -86,6 +88,12 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       _kg.clear();
       _frameProductSizeMm.text = _fmtInput(template.frameProductSizeMm);
       _frameCount.text = _fmtInput(template.frameCount);
+      _edgeAllowanceMm.text =
+          _isFlexo ? _fmtInput(template.edgeAllowanceMm) : '';
+      _calculateByVal = template.printValSizeMm != null;
+      _printValSizeMm.text = template.printValSizeMm == null
+          ? ''
+          : _fmtInput(template.printValSizeMm!);
       _wastePercent.text = _fmtInput(template.wastePercent);
       _rollCount.text =
           template.rollCount == null ? '' : _fmtInput(template.rollCount!);
@@ -261,6 +269,8 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
               : cleanSourceMap.productCode,
           rollCount: _parseOptionalDouble(_rollCount.text),
           widthMm: _derivedWidthMm(),
+          printValSizeMm: _activePrintValSizeMm,
+          clearPrintValSize: !_calculateByVal,
         );
       } catch (error) {
         if (_isProductionMapMissing(error)) {
@@ -341,6 +351,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       itemCode: _itemCode,
       rollCount: _parseOptionalDouble(_rollCount.text),
       widthMm: _derivedWidthMm(),
+      printValSizeMm: _activePrintValSizeMm,
       apparatus: widget.trainingMode ? widget.trainingApparatus.trim() : '',
       apparatusId: widget.trainingMode ? widget.trainingApparatusId.trim() : '',
       templateDraft: _buildTemplateDraft(),

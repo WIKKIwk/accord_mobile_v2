@@ -152,6 +152,7 @@ enum AdminUserKind {
   worker,
   qolipchi,
   boyoqchi,
+  tayyorlovMasteri,
   materialTaminotchi,
 }
 
@@ -181,7 +182,7 @@ class AdminUserListEntry {
     final principalRole = userRoleFromJson(
       json['principal_role'] as String? ?? source,
     );
-    final kind = source == 'worker'
+    final kind = principalRole == UserRole.tayyorlovMasteri ? AdminUserKind.tayyorlovMasteri : source == 'worker'
         ? AdminUserKind.worker
         : source == 'werka' || principalRole == UserRole.werka
             ? AdminUserKind.werka
@@ -209,6 +210,7 @@ class AdminUserListEntry {
   }
 
   String get roleLabel {
+    if (kind == AdminUserKind.tayyorlovMasteri) return 'Tayyorlov masteri';
     final override = roleLabelOverride?.trim() ?? '';
     if (override.isNotEmpty) {
       return override;

@@ -300,7 +300,8 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     ),
     progressBatchId: _queueActionProgressBatchId(
       action: action,
-      progressBatchId: progressBatchId,
+      progressBatchId: progressInput?.closingOutputBatchId.isNotEmpty == true
+          ? progressInput!.closingOutputBatchId : progressBatchId,
       startInputBatchId: prepared.startInputBatchId,
     ),
     customerName: customerName.trim(),
@@ -315,6 +316,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     returnedPaintImageId: progressInput?.returnedPaintImageId ?? '',
     fullCompletionReportRequired:
         progressInput?.fullCompletionReportRequired ?? false,
+    completeWithoutOutput: progressInput?.closingOutputBatchId.isNotEmpty == true,
     workerHandoff: workerHandoff,
     removeRollFromApparatus: removeRollFromApparatus,
     freezeRequestId: freezeRequestId,

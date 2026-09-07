@@ -321,6 +321,7 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
           List<AdminRezkaActivePartialRoll>.unmodifiable(activeRolls),
       hasValidRezkaMergeState: true,
       completeRequiresFullReport: fixture.completeRequiresFullReport,
+      closingOutputBatchId: fixture.closingOutputBatchId,
       completeRequiresRezkaTotalWasteOnly:
           fixture.completeRequiresRezkaTotalWasteOnly,
       freezeRequest: fixture.freezeRequest,

@@ -2,6 +2,196 @@
 part of 'admin_production_map_test_screen_test.dart';
 
 void _registeradmin_production_map_test_screen_testCases16() {
+  for (final paused in [false, true]) {
+    testWidgets('bosma astatka report keeps ${paused ? "paused" : "running"} work unchanged', (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      const orderId = 'zakaz-bosma-astatka-widget';
+      await AppSession.instance.setSession(token: 'worker-token', profile: const SessionProfile(
+        role: UserRole.aparatchi, displayName: 'Bosmachi', legalName: '', ref: 'bosma-astatka-worker',
+        phone: '', avatarUrl: '', capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [_print8Id],
+      ));
+      await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
+        id: orderId, title: 'Bosma astatka', productCode: 'BAST', apparatusId: _print8Id, product: 'Bosma astatka'));
+      await MobileApi.instance.adminSaveProductionMapSequence(apparatus: _print8Id, orderIds: [orderId]);
+      await MobileApi.instance.adminApparatusQueueActionResult(apparatus: _print8Id, orderId: orderId, action: 'start');
+      if (paused) {
+        await MobileApi.instance.adminApparatusQueueActionResult(apparatus: _print8Id, orderId: orderId,
+          action: 'detach_roll', producedQty: 80, finishedGoodsMeter: 80, finishedGoodsKg: 12, bobinaKg: 1, uom: 'm');
+      }
+      setMobileApiTestModeQueueActionControlFixture(apparatus: _print8Id, orderId: orderId,
+        control: paused ? const AdminApparatusQueueOrderActionControl(
+          state: 'paused', allowedActions: {'resume'}, hasOnlyKnownActions: true,
+          interaction: AdminQueueWorkerInteraction(mode: AdminQueueInteractionMode.paused,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden, materialScanRequired: false,
+            assignedMaterialsDisplayOnly: true, materialIntakeAllowed: false,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired, qolipMode: AdminQueueQolipMode.notRequired),
+        ) : _inProgressQueueControl(completeRequiresFullReport: true));
+      final baseScope = returnedPaintWorkerDraftScope(actorRef: 'bosma-astatka-worker', orderId: orderId, apparatus: _print8Id);
+      final finishDraft = await ReturnedPaintDraftStore.instance.load(scope: baseScope);
+      finishDraft.setValue('rasxot:Oq', 0, '99', 9);
+      final reportDraft = await ReturnedPaintDraftStore.instance.load(scope: '$baseScope:astatka');
+      for (final usage in ['rasxot', 'astatka']) {
+        for (var index = 0; index < 3; index++) {
+          reportDraft.setValue('$usage:Oq', index, index == 0 && usage == 'rasxot' ? '9' : '0', 9);
+        }
+      }
+      final before = await MobileApi.instance.adminProductionMapQueueSnapshot();
+      final wipBefore = await MobileApi.instance.adminWipBatches(status: 'all', orderId: orderId);
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(MaterialApp(theme: ThemeData(useMaterial3: true), locale: const Locale('uz'),
+        localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate, GlobalWidgetsLocalizations.delegate],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(readOnly: true, workerMode: true)));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.byKey(const ValueKey('worker-order-$orderId')));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(FilledButton, 'Ishimni tugatish'), paused ? findsNothing : findsOneWidget);
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Astatka hisobotini topshirish'));
+      await tester.pumpAndSettle();
+      expect(find.text('Astatka hisobotini topshirish'), findsOneWidget);
+      await tester.tap(find.text('Tasdiqlash'));
+      await tester.pumpAndSettle();
+      expect(mobileApiTestModeBosmaAstatkaReports(), isEmpty);
+      for (final entry in {'Babina': '1', 'Metraj': '80', 'Og‘irlik': '12', 'Jami chiqindi': '0'}.entries) {
+        final field = find.widgetWithText(TextFormField, entry.key);
+        await tester.ensureVisible(field);
+        await tester.enterText(field, entry.value);
+      }
+      await tester.tap(find.text('Tasdiqlash'));
+      await tester.pumpAndSettle();
+      final reports = mobileApiTestModeBosmaAstatkaReports();
+      expect(reports, hasLength(1));
+      expect(reports.single['total_waste'], 0);
+      expect(reports.single['returned_paint_items'], hasLength(2));
+      final after = await MobileApi.instance.adminProductionMapQueueSnapshot();
+      expect(after.queueStates, before.queueStates);
+      final wipAfter = await MobileApi.instance.adminWipBatches(status: 'all', orderId: orderId);
+      expect(wipAfter.map((batch) => batch.batchId).toList(), wipBefore.map((batch) => batch.batchId).toList());
+      expect((await ReturnedPaintDraftStore.instance.load(scope: baseScope)).valuesFor('rasxot:Oq', 9)[0], '99');
+      expect((await ReturnedPaintDraftStore.instance.load(scope: '$baseScope:astatka')).valuesFor('rasxot:Oq', 9)[0], '');
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    });
+  }
+  for (final targetIndex in [1, 2]) {
+    testWidgets('bosma adjacent queue shows start only for neighbour $targetIndex', (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      const ids = ['zakaz-adjacent-a', 'zakaz-adjacent-b', 'zakaz-adjacent-c'];
+      const completedId = 'zakaz-adjacent-completed';
+      for (final id in [completedId, ...ids]) {
+        await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
+          id: id, title: id, productCode: id, apparatusId: _print8Id, product: id,
+        ));
+      }
+      await MobileApi.instance.adminSaveProductionMapSequence(apparatus: _print8Id, orderIds: [completedId, ...ids]);
+      await MobileApi.instance.adminApparatusQueueActionResult(apparatus: _print8Id, orderId: completedId, action: 'start');
+      await MobileApi.instance.adminApparatusQueueActionResult(apparatus: _print8Id, orderId: completedId,
+        action: 'complete', producedQty: 10, uom: 'm', finishedGoodsMeter: 10,
+        finishedGoodsKg: 5, bobinaKg: 1, totalWaste: 1, returnInkKg: 1);
+      setMobileApiTestModeQueueActionControlFixture(apparatus: _print8Id, orderId: completedId,
+        control: _completedQueueControl());
+      await MobileApi.instance.adminSaveProductionMapSequence(apparatus: _print8Id,
+        orderIds: [ids[0], completedId, ids[1], ids[2]]);
+      await MobileApi.instance.adminApparatusQueueActionResult(apparatus: _print8Id, orderId: ids[0], action: 'start');
+      await MobileApi.instance.adminApparatusQueueActionResult(apparatus: _print8Id, orderId: ids[0],
+        action: 'detach_roll', producedQty: 80, uom: 'm');
+      setMobileApiTestModeQueueActionControlFixture(apparatus: _print8Id, orderId: ids[0],
+        control: const AdminApparatusQueueOrderActionControl(
+          state: 'paused', allowedActions: {'resume'}, hasOnlyKnownActions: true,
+          interaction: AdminQueueWorkerInteraction(mode: AdminQueueInteractionMode.paused,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden, materialScanRequired: false,
+            assignedMaterialsDisplayOnly: true, materialIntakeAllowed: false,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired, qolipMode: AdminQueueQolipMode.notRequired),
+        ));
+      setMobileApiTestModeQueueActionControlFixture(apparatus: _print8Id, orderId: ids[1],
+        control: _freshStartQueueControl());
+      setMobileApiTestModeQueueActionControlFixture(apparatus: _print8Id, orderId: ids[2],
+        control: const AdminApparatusQueueOrderActionControl(
+          state: 'pending', allowedActions: {}, hasOnlyKnownActions: true,
+          interaction: AdminQueueWorkerInteraction(mode: AdminQueueInteractionMode.freshStartBlocked,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden, materialScanRequired: false,
+            assignedMaterialsDisplayOnly: true, materialIntakeAllowed: false,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired, qolipMode: AdminQueueQolipMode.notRequired,
+            blockingReasonCode: 'waiting_sequence'),
+        ));
+      await AppSession.instance.setSession(token: 'worker-token', profile: const SessionProfile(
+        role: UserRole.aparatchi, displayName: 'Bosmachi', legalName: '', ref: 'bosma-adjacent',
+        phone: '', avatarUrl: '', capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [_print8Id],
+      ));
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(MaterialApp(theme: ThemeData(useMaterial3: true), locale: const Locale('uz'),
+        localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate, GlobalWidgetsLocalizations.delegate],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(readOnly: true, workerMode: true)));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('worker-order-$completedId')), findsNothing);
+      final row = find.byKey(ValueKey('worker-order-${ids[targetIndex]}'));
+      await tester.ensureVisible(row);
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(FilledButton, 'Boshlash'), targetIndex == 1 ? findsOneWidget : findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    });
+  }
+  for (final closingOnly in [true, false]) {
+    testWidgets('bosma long press finish uses ${closingOnly ? "closing-only" : "full resumed"} form', (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      const orderId = 'zakaz-bosma-long-press-close';
+      await AppSession.instance.setSession(token: 'worker-token', profile: const SessionProfile(
+        role: UserRole.aparatchi, displayName: 'Bosmachi', legalName: '', ref: 'bosma-closer',
+        phone: '', avatarUrl: '', capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [_print8Id],
+      ));
+      await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
+        id: orderId, title: 'Bosma closing', productCode: 'BCL', apparatusId: _print8Id, product: 'Bosma closing'));
+      await MobileApi.instance.adminSaveProductionMapSequence(apparatus: _print8Id, orderIds: [orderId]);
+      await MobileApi.instance.adminApparatusQueueActionResult(apparatus: _print8Id, orderId: orderId, action: 'start');
+      final detached = await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: _print8Id, orderId: orderId, action: 'pause', producedQty: 80,
+        finishedGoodsMeter: 80, finishedGoodsKg: 12, bobinaKg: 1, uom: 'm');
+      if (!closingOnly) {
+        await MobileApi.instance.adminApparatusQueueActionResult(apparatus: _print8Id, orderId: orderId, action: 'resume');
+      }
+      setMobileApiTestModeQueueActionControlFixture(apparatus: _print8Id, orderId: orderId,
+        control: closingOnly ? AdminApparatusQueueOrderActionControl(
+          state: 'paused', allowedActions: const {'resume', 'complete'}, hasOnlyKnownActions: true,
+          closingOutputBatchId: detached.progressBatch!.batchId,
+          interaction: const AdminQueueWorkerInteraction(mode: AdminQueueInteractionMode.paused,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden, materialScanRequired: false,
+            assignedMaterialsDisplayOnly: true, materialIntakeAllowed: false,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired, qolipMode: AdminQueueQolipMode.notRequired),
+        ) : _inProgressQueueControl(completeRequiresFullReport: true));
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(MaterialApp(theme: ThemeData(useMaterial3: true), locale: const Locale('uz'),
+        localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate, GlobalWidgetsLocalizations.delegate],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(readOnly: true, workerMode: true)));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.byKey(const ValueKey('worker-order-$orderId')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Ishimni tugatish'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextFormField, 'Jami chiqindi'), findsOneWidget);
+      for (final field in ['Babina', 'Metraj', 'Og‘irlik']) {
+        expect(find.widgetWithText(TextFormField, field), closingOnly ? findsNothing : findsOneWidget);
+      }
+      // Empty submission stays on the closing report; it must not create an output or open a printer picker.
+      if (closingOnly) {
+        await tester.tap(find.text('Tasdiqlash'));
+        await tester.pumpAndSettle();
+        expect(find.widgetWithText(TextFormField, 'Jami chiqindi'), findsOneWidget);
+        expect(find.widgetWithText(TextFormField, 'Metraj'), findsNothing);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    });
+  }
   testWidgets(
     'worker laminatsiya long press records astatka without changing queue state',
     (tester) async {

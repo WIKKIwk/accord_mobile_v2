@@ -7,6 +7,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/native_bluetooth_printer.dart';
 import '../../../core/native_usb_printer.dart';
+import '../../../core/printing/session_bluetooth_printer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/print_transport.dart';
 import '../../../core/scanner/reliable_mobile_scanner.dart';
@@ -49,6 +50,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   void initState() {
     super.initState();
     unawaited(_detectOfflinePrinter());
+    unawaited(_restoreSessionBluetoothPrinter());
   }
 
   @override

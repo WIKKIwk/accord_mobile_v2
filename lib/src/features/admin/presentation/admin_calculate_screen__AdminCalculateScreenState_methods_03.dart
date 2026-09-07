@@ -114,14 +114,80 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
   double _derivedWidthMm() {
     return _parseRequiredDouble(_frameProductSizeMm.text) *
             _parseRequiredDouble(_frameCount.text) +
-        kCalculateEdgeAllowanceMm;
+        _activeEdgeAllowanceMm;
   }
+
+  bool get _isFlexo => _orderType.trim().toLowerCase() == 'flexo';
+
+  double get _activeEdgeAllowanceMm => _isFlexo
+      ? _parseRequiredDouble(_edgeAllowanceMm.text)
+      : kCalculateEdgeAllowanceMm;
+
+  String? _edgeAllowanceValidationError(String? value,
+      [AppLocalizations? l10n]) {
+    final error = _requiredNonNegativeNumber(value, l10n);
+    if (error != null) return error;
+    if (!_parseRequiredDouble(value!).isFinite) {
+      return l10n?.adminText('calculate.invalid') ?? 'Noto‘g‘ri';
+    }
+    return null;
+  }
+
+  List<Widget> _edgeAllowanceChildren(AppLocalizations l10n) => [
+        if (_isFlexo)
+          _NumberInput(
+            key: const ValueKey('calculate-edge-allowance'),
+            controller: _edgeAllowanceMm,
+            label: l10n.adminText('calculate.edge_allowance'),
+            suffixText: 'mm',
+            required: true,
+            allowZero: true,
+            validator: (value) => _edgeAllowanceValidationError(value, l10n),
+          ),
+      ];
+
+  double? get _activePrintValSizeMm =>
+      _calculateByVal ? _parseRequiredDouble(_printValSizeMm.text) : null;
+
+  String? _printValSizeValidationError(String? value,
+      [AppLocalizations? l10n]) {
+    final error = _requiredPositiveNumber(value, l10n);
+    if (error != null) return error;
+    if (!_parseRequiredDouble(value!).isFinite) {
+      return l10n?.adminText('calculate.invalid') ?? 'Noto‘g‘ri';
+    }
+    return null;
+  }
+
+  List<Widget> _printValChildren(AppLocalizations l10n) => [
+        Material(
+          type: MaterialType.transparency,
+          child: SwitchListTile.adaptive(
+            key: const ValueKey('calculate-by-val'),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            title: Text(l10n.adminText('calculate.by_val')),
+            value: _calculateByVal,
+            onChanged: (value) => setState(() => _calculateByVal = value),
+          ),
+        ),
+        if (_calculateByVal)
+          _NumberInput(
+            key: const ValueKey('calculate-print-val-size'),
+            controller: _printValSizeMm,
+            label: l10n.adminText('calculate.val_size'),
+            suffixText: 'mm',
+            required: true,
+            validator: (value) => _printValSizeValidationError(value, l10n),
+          ),
+      ];
 
   String? _templateValidationError() {
     final checks = <String?>[
       _requiredText(_product.text),
       _requiredPositiveNumber(_frameProductSizeMm.text),
       _requiredPositiveNumber(_frameCount.text),
+      if (_isFlexo) _edgeAllowanceValidationError(_edgeAllowanceMm.text),
+      if (_calculateByVal) _printValSizeValidationError(_printValSizeMm.text),
       _requiredNonNegativeNumber(_wastePercent.text),
       for (final layer in _layers) ...[
         _requiredText(layer.material.text),
@@ -151,6 +217,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       );
       return;
     }
+    final signature = _calculationSignature();
     setState(() {
       _calculating = true;
       _error = '';
@@ -167,7 +234,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
           kg: _parseRequiredDouble(_kg.text),
           frameProductSizeMm: _parseRequiredDouble(_frameProductSizeMm.text),
           frameCount: _parseRequiredDouble(_frameCount.text),
-          edgeAllowanceMm: kCalculateEdgeAllowanceMm,
+          edgeAllowanceMm: _activeEdgeAllowanceMm,
           wastePercent: _parseRequiredDouble(_wastePercent.text),
           rollCount: _parseOptionalDouble(_rollCount.text),
           layers: _layerInputs,
@@ -179,7 +246,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       }
       setState(() {
         _result = result;
-        _lastCalculatedSignature = _calculationSignature();
+        _lastCalculatedSignature = signature;
       });
     } catch (error) {
       if (!mounted) {
@@ -323,6 +390,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         suffixText: l10n.adminText('calculate.pieces_suffix'),
         required: true,
       ),
+      ..._edgeAllowanceChildren(l10n),
       _NumberInput(
         controller: _wastePercent,
         label: l10n.adminText('calculate.waste_percent'),
@@ -335,6 +403,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         label: l10n.adminText('calculate.roll_count'),
         suffixText: l10n.adminText('calculate.pieces_suffix'),
       ),
+      ..._printValChildren(l10n),
       const SizedBox(height: 18),
       Wrap(
         alignment: WrapAlignment.spaceBetween,
@@ -394,13 +463,18 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         imageSizeBytes: _imageSizeBytes,
         frameProductSizeMm: _frameProductSizeMm.text,
         frameCount: _frameCount.text,
-        widthMm: _fmtInput(_derivedWidthMm()),
+        widthMm: _isFlexo &&
+                _edgeAllowanceValidationError(_edgeAllowanceMm.text) != null
+            ? '—'
+            : _fmtInput(_derivedWidthMm()),
         rollCount: _rollCount.text,
         layers: _layerInputs,
         note: _note.text,
       ),
       const SizedBox(height: 18),
       _SectionHeader(title: l10n.adminText('calculate.accounting_section')),
+      ..._edgeAllowanceChildren(l10n),
+      ..._printValChildren(l10n),
       _NumberInput(
         controller: _kg,
         label: l10n.adminText('calculate.kg_input'),

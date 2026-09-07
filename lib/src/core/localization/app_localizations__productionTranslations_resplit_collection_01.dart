@@ -102,6 +102,16 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'en': 'Report work output',
     'ru': 'Отчитаться о выполненной работе',
   },
+  'worker.bosma.astatka.title': {
+    'uz': 'Astatka hisobotini topshirish',
+    'en': 'Submit remainder report',
+    'ru': 'Сдать отчёт об остатках',
+  },
+  'worker.bosma.finish.description': {
+    'uz': 'Bu amal orderning bosma apparatidagi ishini tugatadi.',
+    'en': 'This completes the order’s work on the printing machine.',
+    'ru': 'Это завершает работу по заказу на печатном аппарате.',
+  },
   'worker.finish.description': {
     'uz':
         'Bu amal faqat order astatkasini qayd qiladi. Pauza ham, Tugatish ham bosilmaydi; queue va WIP holati o‘zgarmaydi.',

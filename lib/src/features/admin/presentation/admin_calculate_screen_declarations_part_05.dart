@@ -35,6 +35,7 @@ class _TextInput extends StatelessWidget {
 
 class _NumberInput extends StatelessWidget {
   const _NumberInput({
+    super.key,
     required this.controller,
     required this.label,
     required this.suffixText,

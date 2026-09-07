@@ -7,6 +7,10 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   late final Future<Set<String>> _placedQolipCodesFuture;
   Future<List<QolipProduct>>? _productsFuture;
   QolipBlock? _block;
+  List<String> _specWarehouses = const [];
+  String? _specWarehouse;
+  bool _warehousesLoading = false;
+  bool _warehousesFailed = false;
   QolipProduct? _product;
   List<QolipProduct> _selectedProducts = const <QolipProduct>[];
   List<QolipProduct> _savedProductSpecs = const <QolipProduct>[];
@@ -31,6 +35,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     _placedQolipCodesFuture = widget.mode == _QolipAttachMode.cellPlacement
         ? _loadPlacedQolipCodes()
         : Future.value(const <String>{});
+    if (widget.mode == _QolipAttachMode.productSpec) {
+      _loadSpecWarehouses();
+    }
   }
 
   @override
@@ -56,6 +63,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
               ? _selectedColors.length <= 1
               : _selectedColors.length == draft.count);
       return _savedProductSpecs.isEmpty &&
+          _specWarehouse != null &&
+          !_warehousesLoading &&
           _product != null &&
           draft != null &&
           colorsValid &&
@@ -166,6 +175,34 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
               ),
               const SizedBox(height: 12),
               if (widget.mode == _QolipAttachMode.productSpec) ...[
+                if (_warehousesLoading)
+                  const LinearProgressIndicator()
+                else if (_warehousesFailed || _specWarehouses.isEmpty)
+                  TextButton.icon(
+                    onPressed: _loadSpecWarehouses,
+                    icon: const Icon(Icons.refresh),
+                    label: Text(l10n.qolipText('blocks.load_failed')),
+                  )
+                else
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('qolip-spec-warehouse-$_specWarehouse'),
+                    initialValue: _specWarehouse,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: l10n.qolipText('blocks.warehouse'),
+                    ),
+                    items: [
+                      for (final warehouse in _specWarehouses)
+                        DropdownMenuItem(
+                            value: warehouse, child: Text(warehouse)),
+                    ],
+                    onChanged: productSpecSaved ||
+                            _saving ||
+                            _specWarehouses.length == 1
+                        ? null
+                        : (value) => setState(() => _specWarehouse = value),
+                  ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _qolipCode,
                   enabled: !productSpecSaved,

@@ -37,6 +37,7 @@ bool _queueActionControlsEqual(
         control.previousStageReady != other.previousStageReady ||
         control.completeRequiresFullReport !=
             other.completeRequiresFullReport ||
+        control.closingOutputBatchId != other.closingOutputBatchId ||
         control.contractValid != other.contractValid ||
         control.interaction?.mode != other.interaction?.mode ||
         control.interaction?.startMaterialsMode !=
@@ -169,6 +170,7 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     returnedPaintItems: request.returnedPaintItems,
     returnedPaintImageId: request.returnedPaintImageId,
     fullCompletionReportRequired: request.fullCompletionReportRequired,
+    completeWithoutOutput: request.completeWithoutOutput,
     workerHandoff: request.workerHandoff,
     removeRollFromApparatus: request.removeRollFromApparatus,
     freezeRequestId: request.freezeRequestId,

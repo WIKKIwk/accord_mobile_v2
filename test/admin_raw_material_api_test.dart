@@ -59,6 +59,26 @@ void main() {
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
 
+  test('bosma closing-only request sends anchor and accounting without output', () async {
+    final requests = <String>[];
+    AppSession.instance.token = 'token';
+    await HttpOverrides.runZoned(() async {
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: 'apparatus:default:bosma_8', orderId: 'zakaz-1', action: 'complete',
+        completeWithoutOutput: true, progressBatchId: 'detached-output-1', totalWaste: 0,
+        returnedPaintImageId: 'paint-report-1');
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(requests));
+    final request = requests.singleWhere((value) => value.startsWith('BODY POST /v1/mobile/admin/production-maps/queue-action '));
+    final body = jsonDecode(request.substring(request.indexOf('{'))) as Map<String, dynamic>;
+    expect(body['complete_without_output'], true);
+    expect(body['progress_batch_id'], 'detached-output-1');
+    expect(body['total_waste'], 0);
+    expect(body['returned_paint_image_id'], 'paint-report-1');
+    for (final field in ['produced_qty', 'gross_qty', 'bobina_kg', 'finished_goods_kg', 'finished_goods_meter']) {
+      expect(body.containsKey(field), false);
+    }
+  });
+
   test('qolip is confirmed only after backend order validation', () async {
     final seenRequests = <String>[];
     AppSession.instance.token = 'token';

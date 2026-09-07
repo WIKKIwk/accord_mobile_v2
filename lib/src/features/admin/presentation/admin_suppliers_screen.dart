@@ -33,6 +33,7 @@ const List<AdminUserKind> _adminUserTabKinds = [
   AdminUserKind.worker,
   AdminUserKind.qolipchi,
   AdminUserKind.boyoqchi,
+  AdminUserKind.tayyorlovMasteri,
 ];
 
 class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {

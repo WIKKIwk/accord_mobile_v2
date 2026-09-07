@@ -16,6 +16,7 @@ enum _ProfileShellKind {
   aparatchi,
   qolip,
   boyoqchi,
+  preparation,
   admin,
   none,
 }
@@ -29,6 +30,7 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
     AppRoutes.apparatusQueue => _ProfileShellKind.aparatchi,
     AppRoutes.qolipHome => _ProfileShellKind.qolip,
     AppRoutes.boyoqchiHome => _ProfileShellKind.boyoqchi,
+    AppRoutes.preparation => _ProfileShellKind.preparation,
     AppRoutes.adminHome => _ProfileShellKind.admin,
     _ => _ProfileShellKind.none,
   };

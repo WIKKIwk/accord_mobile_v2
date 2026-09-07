@@ -217,6 +217,7 @@ extension __AdminSuppliersScreenStateAstPart02 on _AdminSuppliersScreenState {
   ) {
     final showFooter = kind != AdminUserKind.qolipchi &&
         kind != AdminUserKind.boyoqchi &&
+        kind != AdminUserKind.tayyorlovMasteri &&
         visibleItems.isNotEmpty &&
         (_loadingMore || _hasMore);
     return AppRefreshIndicator(
