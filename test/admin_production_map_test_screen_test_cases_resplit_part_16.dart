@@ -201,10 +201,13 @@ void _registeradmin_production_map_test_screen_testCases16() {
       await tester.tap(find.widgetWithText(OutlinedButton, 'Astatka hisobotini topshirish'));
       await tester.pumpAndSettle();
       expect(find.text('Astatka hisobotini topshirish'), findsOneWidget);
+      for (final label in ['Babina', 'Metraj', 'Og‘irlik', 'Diametr']) {
+        expect(find.widgetWithText(TextFormField, label), findsNothing);
+      }
       await tester.tap(find.text('Tasdiqlash'));
       await tester.pumpAndSettle();
       expect(mobileApiTestModeBosmaAstatkaReports(), isEmpty);
-      for (final entry in {'Babina': '1', 'Metraj': '80', 'Og‘irlik': '12', 'Jami chiqindi': '0'}.entries) {
+      for (final entry in {'Jami chiqindi': '0'}.entries) {
         final field = find.widgetWithText(TextFormField, entry.key);
         await tester.ensureVisible(field);
         await tester.enterText(field, entry.value);
@@ -215,6 +218,9 @@ void _registeradmin_production_map_test_screen_testCases16() {
       expect(reports, hasLength(1));
       expect(reports.single['total_waste'], 0);
       expect(reports.single['returned_paint_items'], hasLength(2));
+      for (final field in ['finished_goods_meter', 'finished_goods_kg', 'bobina_kg']) {
+        expect(reports.single.containsKey(field), isFalse, reason: field);
+      }
       final after = await MobileApi.instance.adminProductionMapQueueSnapshot();
       expect(after.queueStates, before.queueStates);
       final wipAfter = await MobileApi.instance.adminWipBatches(status: 'all', orderId: orderId);
@@ -414,20 +420,26 @@ void _registeradmin_production_map_test_screen_testCases16() {
       await tester.longPress(orderFinder);
       await tester.pumpAndSettle();
 
-      expect(find.text('Ishimni tugatish'), findsNWidgets(2));
+      expect(find.text('Ishimni tugatish'), findsNothing);
+      expect(find.text('Astatka hisobotini topshirish'), findsNWidgets(2));
       expect(find.text('Metraj'), findsNothing);
       expect(find.text('Og‘irlik'), findsNothing);
 
       await tester.tap(
-        find.widgetWithText(FilledButton, 'Ishimni tugatish'),
+        find.widgetWithText(FilledButton, 'Astatka hisobotini topshirish'),
       );
       await tester.pumpAndSettle();
       expect(find.text('Bosmadan ortgan rulon'), findsOneWidget);
       expect(find.text('Plyonkadan ortgan rulon'), findsOneWidget);
       expect(find.text('Jami chiqindi'), findsOneWidget);
-      expect(find.text('Babina'), findsOneWidget);
-      expect(find.text('Metraj'), findsOneWidget);
-      expect(find.text('Og‘irlik'), findsOneWidget);
+      expect(find.text('Astatka hisobotini topshirish'), findsOneWidget);
+      for (final label in ['Babina', 'Metraj', 'Og‘irlik', 'Diametr']) {
+        expect(find.widgetWithText(TextFormField, label), findsNothing);
+      }
+      expect(find.byType(TextFormField), findsNWidgets(3));
+      await tester.tap(find.text('Tasdiqlash'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextFormField, 'Jami chiqindi'), findsOneWidget);
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Bosmadan ortgan rulon'),
         '0',
@@ -440,20 +452,9 @@ void _registeradmin_production_map_test_screen_testCases16() {
         find.widgetWithText(TextFormField, 'Jami chiqindi'),
         '0',
       );
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Babina'),
-        '1',
-      );
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Metraj'),
-        '1',
-      );
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Og‘irlik'),
-        '1',
-      );
       await tester.tap(find.text('Tasdiqlash'));
       await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
 
       final afterAstatka =
           await MobileApi.instance.adminProductionMapQueueSnapshot();

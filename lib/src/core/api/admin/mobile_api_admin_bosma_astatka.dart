@@ -12,9 +12,9 @@ extension MobileApiAdminBosmaAstatka on MobileApi {
     required String apparatus,
     required String orderId,
     required double? totalWaste,
-    required double? finishedGoodsMeter,
-    required double? finishedGoodsKg,
-    required double? bobinaKg,
+    double? finishedGoodsMeter,
+    double? finishedGoodsKg,
+    double? bobinaKg,
     required List<ReturnedPaintItemInput> returnedPaintItems,
     String returnedPaintImageId = '',
     String description = '',
@@ -27,7 +27,7 @@ extension MobileApiAdminBosmaAstatka on MobileApi {
         !totalWaste.isFinite ||
         totalWaste < 0 ||
         [finishedGoodsMeter, finishedGoodsKg, bobinaKg]
-            .any((value) => value == null || !value.isFinite || value <= 0) ||
+            .any((value) => value != null && (!value.isFinite || value <= 0)) ||
         (returnedPaintItems.isEmpty && returnedPaintImageId.trim().isEmpty)) {
       throw const MobileApiException(
           code: 'progress_input_invalid',
@@ -37,9 +37,9 @@ extension MobileApiAdminBosmaAstatka on MobileApi {
       'apparatus': apparatus,
       'order_id': orderId,
       'total_waste': totalWaste,
-      'finished_goods_meter': finishedGoodsMeter,
-      'finished_goods_kg': finishedGoodsKg,
-      'bobina_kg': bobinaKg,
+      if (finishedGoodsMeter != null) 'finished_goods_meter': finishedGoodsMeter,
+      if (finishedGoodsKg != null) 'finished_goods_kg': finishedGoodsKg,
+      if (bobinaKg != null) 'bobina_kg': bobinaKg,
       'returned_paint_items': [
         for (final item in returnedPaintItems) item.toJson()
       ],

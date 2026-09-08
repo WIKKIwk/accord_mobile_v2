@@ -903,7 +903,9 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final title = context.l10n.productionText(
-      isRezka ? 'worker.rezka.astatka.title' : 'worker.finish.title',
+      isRezka
+          ? 'worker.rezka.astatka.title'
+          : 'worker.laminatsiya.astatka.title',
     );
     return SafeArea(
       child: Padding(

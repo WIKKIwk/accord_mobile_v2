@@ -20,14 +20,15 @@ void main() {
     AppSession.instance.token = null;
   });
 
-  Future<Map<String, dynamic>> submit({double waste = 0}) =>
+  Future<Map<String, dynamic>> submit(
+          {double waste = 0, bool legacy = false}) =>
       MobileApi.instance.adminBosmaAstatkaReport(
         apparatus: 'apparatus:default:bosma_8',
         orderId: 'zakaz-bosma-astatka',
         totalWaste: waste,
-        finishedGoodsMeter: 80,
-        finishedGoodsKg: 12,
-        bobinaKg: 1,
+        finishedGoodsMeter: legacy ? 80 : null,
+        finishedGoodsKg: legacy ? 12 : null,
+        bobinaKg: legacy ? 1 : null,
         returnedPaintItems: const [],
         returnedPaintImageId: 'paint-image',
         description: 'Hisobot',
@@ -56,11 +57,11 @@ void main() {
     expect(request.headers['authorization'], contains('worker-token'));
     final body = jsonDecode(request.body) as Map<String, dynamic>;
     expect(body['total_waste'], 0);
-    expect(body['finished_goods_meter'], 80);
-    expect(body['finished_goods_kg'], 12);
-    expect(body['bobina_kg'], 1);
     expect(body['returned_paint_image_id'], 'paint-image');
     for (final field in [
+      'finished_goods_meter',
+      'finished_goods_kg',
+      'bobina_kg',
       'action',
       'complete_without_output',
       'progress_batch_id',
@@ -69,6 +70,20 @@ void main() {
     ]) {
       expect(body.containsKey(field), isFalse, reason: field);
     }
+  });
+
+  test('bosma astatka keeps legacy metrics compatible', () async {
+    await http.runWithClient(
+      () => submit(legacy: true),
+      () => MockClient((request) async {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['finished_goods_meter'], 80);
+        expect(body['finished_goods_kg'], 12);
+        expect(body['bobina_kg'], 1);
+        return http.Response(
+            '{"ok":true,"report":{"report_id":"legacy-1"}}', 200);
+      }),
+    );
   });
 
   test('bosma astatka backend rejection never falls back to complete or pause',

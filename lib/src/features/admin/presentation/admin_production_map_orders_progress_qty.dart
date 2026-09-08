@@ -726,9 +726,6 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       }
       Navigator.of(context).pop(
         _ProgressQtyInput(
-          meterQty: meterQty,
-          kgQty: kgQty,
-          bobinaKg: bobinaKg,
           returnedPaintItems: widget.isBosma ? returnedPaintItems : const [],
           returnedPaintImageId: widget.isBosma ? returnedPaintImageId : '',
           laminationPrintLeftoverRolls: printLeftoverRolls,
@@ -1066,7 +1063,6 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       !_requiresRezkaTotalWasteOnlyCompletion;
   bool get _isWorkerHandoff => widget.workerHandoff;
   bool get _isAstatkaReport => widget.astatkaReport;
-  bool get _isRezkaAstatkaReport => _isAstatkaReport && widget.isRezka;
   bool get _requiresPaintReport => _requiresFullCompletionReport ||
       (_isAstatkaReport && widget.isBosma);
   bool get _isRollRemoval => widget.removeRollFromApparatus;
@@ -1111,7 +1107,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                     ? 'worker.bosma.astatka.title'
                     : isRezka
                         ? 'worker.rezka.astatka.title'
-                        : 'worker.finish.title',
+                        : 'worker.laminatsiya.astatka.title',
               )
             : _isWorkerHandoff
                 ? context.l10n.productionText('worker.finish.title')
@@ -1223,7 +1219,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                       children: [
                         if (!_showRezkaFrameInputs &&
                             !_isBosmaClosingReport &&
-                            !_isRezkaAstatkaReport) ...[
+                            !_isAstatkaReport) ...[
                           _progressQtySectionLabel(
                             context,
                             context.l10n.productionText(
@@ -1512,7 +1508,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                         if (!_isWorkerHandoff &&
                             !_showRezkaFrameInputs &&
                             !_isBosmaClosingReport &&
-                            !_isRezkaAstatkaReport) ...[
+                            !_isAstatkaReport) ...[
                           _progressQtySectionLabel(
                             context,
                             hasDetailedMetrics
