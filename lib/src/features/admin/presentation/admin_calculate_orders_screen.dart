@@ -1,5 +1,4 @@
 import '../../../app/app_router.dart';
-import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
@@ -30,7 +29,6 @@ class _AdminCalculateOrdersScreenState
   final _searchFocusNode = FocusNode();
   bool _loading = true;
   String _searchQuery = '';
-  Set<String> _sourceMapIds = const <String>{};
 
   @override
   void initState() {
@@ -47,15 +45,10 @@ class _AdminCalculateOrdersScreenState
 
   Future<void> _load() async {
     await CalculateOrderTemplateStore.instance.load();
-    final maps = await MobileApi.instance.adminProductionMaps();
     if (!mounted) {
       return;
     }
     setState(() {
-      _sourceMapIds = maps
-          .map((item) => item.map.id.trim())
-          .where((id) => id.isNotEmpty)
-          .toSet();
       _loading = false;
     });
   }
@@ -94,15 +87,12 @@ class _AdminCalculateOrdersScreenState
   List<CalculateOrderTemplate> _visibleTemplates(
     List<CalculateOrderTemplate> templates,
   ) {
-    final activeTemplates = templates.where((template) {
-      final sourceMapId = template.sourceMapId.trim();
-      return sourceMapId.isNotEmpty && _sourceMapIds.contains(sourceMapId);
-    }).toList();
+    // Saved templates exist independently of orders and linked flow maps.
     final query = _searchQuery.trim().toLowerCase();
     if (query.isEmpty) {
-      return activeTemplates;
+      return templates;
     }
-    return activeTemplates.where((template) {
+    return templates.where((template) {
       final haystack = [
         template.code,
         template.name,

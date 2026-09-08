@@ -614,6 +614,9 @@ class _AuditCountChip extends StatelessWidget {
 
 class _WorkerWatchBody extends StatelessWidget {
   const _WorkerWatchBody({
+    required this.workActivityByApparatus,
+    required this.workerRole,
+    required this.workerRef,
     required this.apparatus,
     required this.assignedApparatus,
     required this.orders,
@@ -630,6 +633,9 @@ class _WorkerWatchBody extends StatelessWidget {
     required this.onTapWatchOrder,
     required this.onLongPressWatchOrder,
   });
+  final Map<String, Map<String, AdminQueueWorkActivity>> workActivityByApparatus;
+  final String workerRole;
+  final String workerRef;
   final List<AdminApparatus> apparatus;
   final List<String> assignedApparatus;
   final List<ProductionMapSaved> orders;
@@ -717,6 +723,9 @@ class _WorkerWatchBody extends StatelessWidget {
                   )
                 else
                   _AparatchiWatchSequencePage(
+                    workActivity: workActivityByApparatus[tab.apparatus!.id.trim()] ?? const {},
+                    workerRole: workerRole,
+                    workerRef: workerRef,
                     apparatus: tab.apparatus!,
                     orders: _ordersForApparatus(tab.apparatus!),
                     bottomPadding: bottomPadding,
@@ -751,6 +760,9 @@ class _WorkerWatchBody extends StatelessWidget {
 
 class _AparatchiWatchSequencePage extends StatelessWidget {
   const _AparatchiWatchSequencePage({
+    required this.workActivity,
+    required this.workerRole,
+    required this.workerRef,
     required this.apparatus,
     required this.orders,
     required this.bottomPadding,
@@ -761,6 +773,9 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
     required this.onTapOrder,
     required this.onLongPressOrder,
   });
+  final Map<String, AdminQueueWorkActivity> workActivity;
+  final String workerRole;
+  final String workerRef;
   final AdminApparatus apparatus;
   final List<ProductionMapSaved> orders;
   final double bottomPadding;
@@ -823,7 +838,10 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                     readOnly: true,
                     onTap: () => onTapOrder(orders[index]),
                     onLongPress: () => onLongPressOrder(orders[index]),
-                    tone: _resolveOrderCardTone(
+                    tone: _resolveWorkerOrderCardTone(
+                      workActivity: workActivity[orders[index].map.id.trim()],
+                      workerRole: workerRole,
+                      workerRef: workerRef,
                       orderStatus:
                           orderStatusesByOrderId[orders[index].map.id.trim()],
                       orderControl: adminProductionMapOrderControlFor(

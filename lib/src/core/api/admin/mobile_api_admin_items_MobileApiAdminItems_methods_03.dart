@@ -291,7 +291,11 @@ extension MobileApiAdminItemsAstPart03 on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin warehouse assignment failed');
+      throw _adminApiException(
+        response,
+        fallbackCode: 'warehouse_assignment_failed',
+        fallbackMessage: 'Ombor biriktirilmadi',
+      );
     }
     return AdminWarehouseAssignment.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,

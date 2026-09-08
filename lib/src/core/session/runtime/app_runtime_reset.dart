@@ -14,6 +14,7 @@ import '../../notifications/store/supplier_runtime_store.dart';
 import '../../notifications/store/werka_runtime_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
+import '../../cache/order_image_cache.dart';
 
 class AppRuntimeReset {
   AppRuntimeReset._();
@@ -44,6 +45,7 @@ class AppRuntimeReset {
     }
     await ProfileAvatarCache.clearAll();
     await ProfileCoverCache.clearAll();
+    await OrderImageCache.instance.clear();
     PaintingBinding.instance.imageCache.clear();
     PaintingBinding.instance.imageCache.clearLiveImages();
 

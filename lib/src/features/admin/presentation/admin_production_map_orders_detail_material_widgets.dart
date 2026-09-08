@@ -248,25 +248,27 @@ class _InputProgressBatchList extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            _inputProgressSummaryText(
-              l10n: context.l10n,
-              previousStageLabel: canonicalApparatusDisplayLabel(
-                previousStage,
-                apparatusCatalog,
+          if (!loading && error.trim().isEmpty && batches.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              _inputProgressSummaryText(
+                l10n: context.l10n,
+                previousStageLabel: canonicalApparatusDisplayLabel(
+                  previousStage,
+                  apparatusCatalog,
+                ),
+                total: batches.length,
+                open: openCount,
+                used: usedCount,
               ),
-              total: batches.length,
-              open: openCount,
-              used: usedCount,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          ],
           if (loading) ...[
             const SizedBox(height: 10),
             LinearProgressIndicator(color: scheme.primary),

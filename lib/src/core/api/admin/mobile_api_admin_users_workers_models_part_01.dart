@@ -16,6 +16,8 @@ String _adminWarehouseRoleToJson(UserRole role) {
   switch (role) {
     case UserRole.tayyorlovMasteri:
       return 'tayyorlov_masteri';
+    case UserRole.homashyoRezkachi:
+      return 'homashyo_rezkachi';
     case UserRole.admin:
       return 'admin';
     case UserRole.supplier:

@@ -204,9 +204,14 @@ const _app_localizations_declarations__productionTranslations_resplitPart05 = {
     'ru': 'Продукция с предыдущего этапа',
   },
   'worker.progress.none': {
-    'uz': '{stage} hali bu order uchun mahsulot chiqarmagan.',
-    'en': '{stage} has not produced anything for this order yet.',
-    'ru': 'Аппарат «{stage}» еще не выпустил продукцию по этому заказу.',
+    'uz': '{stage}dan ushbu buyurtma va bosqich uchun qabul qilishga tayyor WIP topilmadi.',
+    'en': 'No WIP from {stage} is available to accept for this order and stage.',
+    'ru': 'Нет доступной для приема продукции WIP от «{stage}» для этого заказа и этапа.',
+  },
+  'worker.wip.access_denied': {
+    'uz': 'Bu apparat uchun WIP ma’lumotlarini ko‘rish huquqi yo‘q.',
+    'en': 'You do not have permission to view WIP for this machine.',
+    'ru': 'Нет разрешения на просмотр WIP для этого аппарата.',
   },
   'worker.progress.scan_required': {
     'uz': 'Scan qilish kerak',

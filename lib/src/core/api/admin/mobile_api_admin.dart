@@ -373,6 +373,8 @@ MobileApiException _adminApiException(
 
 String _adminErrorMessage(String code) {
   return switch (code.trim().toLowerCase()) {
+    'warehouse_assignee_not_allowed' =>
+      'Bu rolga ombor biriktirishga server ruxsat bermadi',
     'aasx_integrity_failed' => 'Aparat AASX ma’lumotlari tekshirilmadi',
     'apparatus_persistence_failed' => 'Aparatlar bazadan yuklanmadi',
     'apparatus_cutover_blocked' =>

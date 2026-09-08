@@ -18,6 +18,11 @@ bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
     return false;
   }
   final profile = session.profile!;
+  if ((routeName == AppRoutes.rawMaterialSplit ||
+          routeName == AppRoutes.rawMaterialSplitHistory) &&
+      profile.role != UserRole.homashyoRezkachi) {
+    return false;
+  }
   final required = AppRouter._routeCapabilities[routeName];
   if (required == null) {
     return false;

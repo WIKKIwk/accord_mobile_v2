@@ -1133,10 +1133,13 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
         : label.materialNameLines.flatMap {
             wrapLabelText(cleanLabelText($0), width: Self.materialTitleWidthChars)
           }
-      let weightLines = wrapLabelText(
-        cleanLabelText("NET VAZNI: \(netWeight) \(unit)"),
-        width: Self.materialTitleWidthChars
-      )
+      let weights = label.tareEnabled
+        ? ["BRUTTO: \(compactLabelQty(label.grossQty)) \(unit)",
+           "NETTO: \(netWeight) \(unit)"]
+        : ["NET VAZNI: \(netWeight) \(unit)"]
+      let weightLines = weights.flatMap {
+        wrapLabelText(cleanLabelText($0), width: Self.materialTitleWidthChars)
+      }
       return productLines + weightLines
     }
     if label.labelKind == "qolip_code" && !label.customerName.isEmpty {

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/api/mobile_api.dart';
 import '../../../../core/localization/app_localizations.dart';
-import '../../../../core/session/state/app_session.dart';
+import '../../../../core/widgets/display/order_image_provider.dart';
 import '../../../../core/widgets/display/image_fade.dart';
 import '../../../shared/presentation/widgets/profile_avatar_preview.dart';
 
@@ -43,16 +42,12 @@ class AdminOrderImageThumb extends StatelessWidget {
     if (trimmedUrl.isEmpty) {
       return SizedBox.square(dimension: dimension, child: fallback);
     }
-    final token = AppSession.instance.token?.trim() ?? '';
-    final image = NetworkImage(
-      MobileApi.instance.calculateOrderImageUrl(trimmedUrl),
-      headers: token.isEmpty ? null : {'Authorization': 'Bearer $token'},
-    );
+    final image = OrderImageProvider(trimmedUrl, thumbnail: true);
     return SizedBox.square(
       dimension: dimension,
       child: ProfileAvatarPreview(
         displayName: displayName,
-        avatarImage: image,
+        avatarImage: OrderImageProvider(trimmedUrl),
         semanticLabel: context.l10n.productionText(
           'worker.action.view_order_image',
         ),
@@ -110,13 +105,10 @@ class AdminOrderCoverThumb extends StatelessWidget {
         width: width,
       );
     }
-    final token = AppSession.instance.token?.trim() ?? '';
-    final image = NetworkImage(
-      MobileApi.instance.calculateOrderImageUrl(trimmedUrl),
-      headers: token.isEmpty ? null : {'Authorization': 'Bearer $token'},
-    );
+    final image = OrderImageProvider(trimmedUrl, thumbnail: true);
     return AdminOrderCoverImage(
       image: image,
+      previewImage: OrderImageProvider(trimmedUrl),
       displayName: displayName,
       heroTag: heroTag,
       width: width,
@@ -133,12 +125,14 @@ class AdminOrderCoverImage extends StatelessWidget {
   const AdminOrderCoverImage({
     super.key,
     this.image,
+    this.previewImage,
     required this.displayName,
     required this.heroTag,
     this.width = kAdminOrderCoverWidth,
   });
 
   final ImageProvider? image;
+  final ImageProvider? previewImage;
   final String displayName;
   final String heroTag;
   final double width;
@@ -163,7 +157,7 @@ class AdminOrderCoverImage extends StatelessWidget {
       width: width,
       child: ProfileAvatarPreview(
         displayName: displayName,
-        avatarImage: provider,
+        avatarImage: previewImage ?? provider,
         semanticLabel: context.l10n.productionText(
           'worker.action.view_order_image',
         ),

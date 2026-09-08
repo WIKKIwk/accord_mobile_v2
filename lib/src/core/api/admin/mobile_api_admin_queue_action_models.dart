@@ -84,6 +84,8 @@ class AdminRezkaOutputReport {
 class AdminApparatusQueueActionResult {
   const AdminApparatusQueueActionResult({
     required this.states,
+    this.workActivity,
+    this.hasWorkActivity = false,
     this.orderStatus = const AdminProductionOrderStatusDetail(),
     this.orderControl,
     this.progressBatch,
@@ -95,6 +97,8 @@ class AdminApparatusQueueActionResult {
   });
 
   final Map<String, String> states;
+  final AdminQueueWorkActivity? workActivity;
+  final bool hasWorkActivity;
   final AdminProductionOrderStatusDetail orderStatus;
   final AdminOrderControlState? orderControl;
   final AdminProgressBatch? progressBatch;

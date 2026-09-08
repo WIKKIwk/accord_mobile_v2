@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'order_image_test_data.dart';
+import 'package:accord_mobile_v2/src/core/cache/order_image_cache.dart';
+import 'package:accord_mobile_v2/src/core/cache/order_image_disk_store_stub.dart';
 
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/app/app_router.dart';
@@ -12,6 +15,8 @@ import 'package:accord_mobile_v2/src/features/admin/logic/production_map_edit_po
 import 'package:accord_mobile_v2/src/features/admin/logic/canonical_apparatus_groups.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_order_image_thumb.dart';
+import 'package:accord_mobile_v2/src/features/admin/state/calculate_order_store.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -54,6 +59,10 @@ part 'admin_production_map_test_screen_test_cases_resplit_part_22.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_23.dart';
 part 'admin_production_map_worker_latency_test_part.dart';
 part 'admin_production_map_worker_notices_test_part.dart';
+part 'admin_production_map_worker_recovery_test_part.dart';
+part 'admin_production_map_worker_activity_test_part.dart';
+part 'admin_production_map_order_image_zoom_test_part.dart';
+part 'admin_production_map_worker_wip_accuracy_test_part.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
 const _print7Id = 'apparatus:default:bosma_7';
@@ -77,6 +86,7 @@ void main() {
   });
 
   setUp(() {
+    OrderImageCache.debugOverride = OrderImageCache(disk: createOrderImageDiskStore());
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     resetMobileApiTestModeData();
     AppSession.instance.token = 'token';
@@ -91,7 +101,9 @@ void main() {
     );
   });
 
-  tearDown(() {
+  tearDown(() async {
+    await OrderImageCache.instance.clear();
+    OrderImageCache.debugOverride = null;
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
     setMobileApiTestModeForceProductionMapMenuLoadFailure(false);
@@ -147,4 +159,8 @@ void main() {
   _registeradmin_production_map_test_screen_testCases23();
   _registerWorkerLatencyTests();
   _registerWorkerNoticeTests();
+  _registerWorkerRecoveryTests();
+  _registerWorkerActivityTests();
+  _registerOrderImageZoomTests();
+  _registerWorkerWipAccuracyTests();
 }

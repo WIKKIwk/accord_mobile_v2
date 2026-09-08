@@ -35,6 +35,7 @@ import '../../qolip/presentation/widgets/qolip_dock.dart';
 import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
 import '../../boyoqchi/presentation/widgets/boyoqchi_dock.dart';
 import '../../preparation/presentation/preparation_navigation.dart';
+import '../../raw_material_split/presentation/raw_material_split_navigation.dart';
 import '../../boyoqchi/presentation/widgets/boyoqchi_navigation_drawer.dart';
 import '../../werka/presentation/widgets/werka_dock.dart';
 import '../../werka/presentation/widgets/werka_navigation_drawer.dart';
@@ -113,7 +114,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         );
         final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
         final bottomPadding = bottomInset + 136.0;
-        final subtitle = current.accessRole == UserRole.tayyorlovMasteri ? 'Tayyorlov masteri profili' : current.isCapabilityOnlyProfile
+        final subtitle = current.accessRole == UserRole.homashyoRezkachi ? 'Homashyo rezkachisi profili' : current.accessRole == UserRole.tayyorlovMasteri ? 'Tayyorlov masteri profili' : current.isCapabilityOnlyProfile
             ? l10n.capabilityBasedAccount
             : current.accessRole == UserRole.supplier
                 ? l10n.supplierAccount
@@ -180,6 +181,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 onNavigate: _openBoyoqchiDrawerRoute,
               ),
             _ProfileShellKind.preparation => const PreparationDrawer(profile:true),
+            _ProfileShellKind.rawMaterialSplit => const RawMaterialSplitDrawer(profile:true),
             _ProfileShellKind.admin || _ProfileShellKind.none => null,
           },
           bottom: switch (shellKind) {
@@ -207,6 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 activeTab: BoyoqchiDockTab.profile,
               ),
             _ProfileShellKind.preparation => const PreparationDock(profile:true),
+            _ProfileShellKind.rawMaterialSplit => const RawMaterialSplitDock(profile:true),
             _ProfileShellKind.admin => const AdminDock(
                 activeTab: AdminDockTab.user,
                 showPrimaryFab: false,

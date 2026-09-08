@@ -431,7 +431,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     setState(() => _orderImageLoading = true);
     try {
       final bytes =
-          await MobileApi.instance.adminProductionMapOrderImage(map.id);
+          await MobileApi.instance.adminProductionMapOrderImage(map.id,
+            imageId: map.imageId, thumbnail: true);
       if (!mounted) return;
       setState(() {
         _orderImageBytes = bytes;
@@ -449,22 +450,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _openOrderImage() async {
-    if (_orderImageLoading) return;
-    final cachedImage = _orderImageBytes;
-    if (cachedImage != null && cachedImage.isNotEmpty) {
-      _showProductionMapOrderImageDialog(context, cachedImage);
-      return;
-    }
-    await _loadOrderImage();
-    if (!mounted) return;
-    final loadedImage = _orderImageBytes;
-    if (loadedImage == null || loadedImage.isEmpty) {
-      _showSheetNotice(
-        context.l10n.productionText('worker.error.order_image_unavailable'),
-      );
-      return;
-    }
-    _showProductionMapOrderImageDialog(context, loadedImage);
+    final map = widget.order.map;
+    _showProductionMapOrderImageDialog(context, OrderImageProvider(
+      MobileApi.instance.adminProductionMapOrderImageUrl(map.id, imageId: map.imageId),
+    ));
   }
 
   Future<void> _loadInteractionContractAndSections() async {
@@ -508,6 +497,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _loadAttachedQolips() async {
+    // Workers use the order's start requirements, not the Qolip warehouse API.
+    if (widget.workerMode) return;
     final generation = ++_attachedQolipsLoadGeneration;
     final itemCode = widget.order.map.productCode.trim();
     if (itemCode.isEmpty) {
@@ -2101,7 +2092,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               );
         _startInputProgressBatch = matchingCurrentBatch;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
@@ -2109,9 +2100,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _availableInputProgressBatches = const [];
         _availableOpeningWipBatches = const [];
         _inputProgressLoading = false;
-        _inputProgressError = context.l10n.productionText(
-          'worker.wip.load_failed',
-        );
+        _inputProgressError = error is TimeoutException || error is http.ClientException
+            ? context.l10n.productionText('worker.error.network_timeout')
+            : context.l10n.productionText(
+                error is MobileApiException &&
+                        (error.statusCode == 403 || error.code == 'forbidden')
+                    ? 'worker.wip.access_denied'
+                    : 'worker.wip.load_failed',
+              );
       });
     }
   }

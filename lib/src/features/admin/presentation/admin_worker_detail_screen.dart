@@ -51,9 +51,9 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
       widget.entry.principalRole == UserRole.qolipchi;
   bool get _isSystemUser =>
       widget.entry.kind == AdminUserKind.qolipchi ||
-      widget.entry.kind == AdminUserKind.boyoqchi || widget.entry.kind == AdminUserKind.tayyorlovMasteri;
-  bool get _warehouseManagementEnabled => (_isQolipchi || widget.entry.kind == AdminUserKind.tayyorlovMasteri) && !widget.readOnly;
-  UserRole get _warehousePrincipalRole => _isQolipchi ? UserRole.qolipchi : UserRole.tayyorlovMasteri;
+      widget.entry.kind == AdminUserKind.boyoqchi || widget.entry.kind == AdminUserKind.tayyorlovMasteri || widget.entry.kind == AdminUserKind.homashyoRezkachi;
+  bool get _warehouseManagementEnabled => (_isQolipchi || widget.entry.kind == AdminUserKind.tayyorlovMasteri || widget.entry.kind == AdminUserKind.homashyoRezkachi) && !widget.readOnly;
+  UserRole get _warehousePrincipalRole => widget.entry.kind == AdminUserKind.homashyoRezkachi ? UserRole.homashyoRezkachi : _isQolipchi ? UserRole.qolipchi : UserRole.tayyorlovMasteri;
 
   @override
   void initState() {

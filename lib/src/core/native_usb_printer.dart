@@ -260,7 +260,7 @@ class UsbRpsPrintRequest {
     final name = itemName.trim().isEmpty ? itemCode.trim() : itemName.trim();
     final normalizedUnit = unit.trim().isEmpty ? 'kg' : unit.trim();
     final net = _compactPrintQty(netQty);
-    if (tareEnabled && tareKg > 0) {
+    if (tareEnabled) {
       return '$name  B:${_compactPrintQty(grossQty)} $normalizedUnit '
           'N:$net $normalizedUnit';
     }

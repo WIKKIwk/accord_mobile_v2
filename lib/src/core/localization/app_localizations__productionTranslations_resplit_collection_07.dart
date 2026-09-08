@@ -114,6 +114,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
         'The work state is not synchronized with the server. Refresh the page.',
     'ru': 'Состояние работы не синхронизировано с сервером. Обновите страницу.',
   },
+  'worker.connection.reconnecting': {
+    'uz': 'Aloqa vaqtincha uzildi. Avtomatik qayta ulanmoqda…',
+    'en': 'Connection interrupted. Reconnecting automatically…',
+    'ru': 'Соединение прервано. Автоматическое переподключение…',
+  },
   'worker.queue.action_unavailable': {
     'uz': 'Bu amal hozir mavjud emas. Buyurtma holatini yangilang. Holat o‘zgarmasa, adminga murojaat qiling.',
     'en': 'This action is not currently available. Refresh the order status. If it remains unavailable, contact an admin.',

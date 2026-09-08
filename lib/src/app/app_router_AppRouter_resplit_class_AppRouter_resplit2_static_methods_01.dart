@@ -83,10 +83,11 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
         WerkaUnannouncedSupplierScreen(prefill: args),
       );
     case AppRoutes.werkaStockEntryQrScan:
-      return AppRouter._buildRoute(settings, const WerkaStockEntryQrScanScreen());
-    case AppRoutes.werkaPaddonReceive:
       return AppRouter._buildRoute(
-          settings, WerkaPaddonReceiveScreen(initialCode: settings.arguments as String?));
+          settings, const WerkaStockEntryQrScanScreen());
+    case AppRoutes.werkaPaddonReceive:
+      return AppRouter._buildRoute(settings,
+          WerkaPaddonReceiveScreen(initialCode: settings.arguments as String?));
     case AppRoutes.werkaStockEntryLookup:
       final WerkaStockEntryLookupArgs args =
           settings.arguments as WerkaStockEntryLookupArgs;
@@ -554,6 +555,13 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
       return AppRouter._buildRoute(settings, const BoyoqchiHomeScreen());
     case AppRoutes.preparation:
       return AppRouter._buildRoute(settings, const PreparationScreen());
+    case AppRoutes.rawMaterialSplit:
+      return AppRouter._buildRoute(settings, const RawMaterialSplitScreen());
+    case AppRoutes.rawMaterialSplitHistory:
+      return AppRouter._buildRoute(
+        settings,
+        const RawMaterialSplitHistoryScreen(),
+      );
     case AppRoutes.boyoqchiAstatka:
       return AppRouter._buildRoute(settings, const BoyoqchiAstatkaScreen());
     case AppRoutes.rezkaSplit:

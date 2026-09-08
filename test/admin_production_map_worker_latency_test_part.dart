@@ -81,6 +81,10 @@ void _registerWorkerLatencyTests() {
                 'lifecycle_status': 'in_progress'
               },
               'order_control': {'state': 'active'},
+              'work_activity': {
+                'worker_role': 'aparatchi', 'worker_ref': 'worker-fast',
+                'state': 'in_progress',
+              },
             }),
             200));
         await tester.pump();
@@ -88,6 +92,13 @@ void _registerWorkerLatencyTests() {
         // An acknowledged Start must stop showing its old button even while
         // both canonical background refreshes remain deliberately unresolved.
         expect(start, findsNothing);
+        final row = find.byKey(const ValueKey('worker-order-$orderId'));
+        final card = tester.widget<Material>(find.descendant(
+          of: row, matching: find.byType(Material)).first);
+        expect(card.color, Color.alphaBlend(
+          const Color(0xFF2E7D32).withValues(alpha: 0.16),
+          ThemeData(useMaterial3: true).colorScheme.surfaceContainerLowest,
+        ), reason: 'the authoritative POST colors the card before any refresh returns');
         expect(requests.where((r) => r.method == 'POST'), hasLength(1));
         expect(refresh.isCompleted, isFalse);
         expect(requests.where((r) => r.method == 'GET'), isNotEmpty);

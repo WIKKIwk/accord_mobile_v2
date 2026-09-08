@@ -272,6 +272,36 @@ enum _OrderCardTone {
   completed,
 }
 
+_OrderCardTone _resolveWorkerOrderCardTone({
+  required AdminQueueWorkActivity? workActivity,
+  required String workerRole,
+  required String workerRef,
+  AdminProductionOrderStatusDetail? orderStatus,
+  AdminOrderControlState orderControl = AdminOrderControlState.active,
+  ApparatusQueueOrderState? apparatusState,
+}) {
+  // Order-wide safety warnings remain shared. Active/paused/completed on a
+  // different stage must not override this worker's own apparatus session.
+  final globalTone = _resolveOrderCardTone(
+    orderStatus: orderStatus,
+    orderControl: orderControl,
+    apparatusState: apparatusState,
+  );
+  if (globalTone == _OrderCardTone.issue || globalTone == _OrderCardTone.frozen ||
+      apparatusState == ApparatusQueueOrderState.frozen) {
+    return globalTone == _OrderCardTone.issue ? globalTone : _OrderCardTone.frozen;
+  }
+  if (workActivity == null ||
+      !workActivity.belongsTo(role: workerRole, ref: workerRef)) {
+    return _OrderCardTone.neutral;
+  }
+  return switch ((workActivity.state, apparatusState)) {
+    ('in_progress', ApparatusQueueOrderState.inProgress) => _OrderCardTone.inProgress,
+    ('paused', ApparatusQueueOrderState.paused) => _OrderCardTone.paused,
+    _ => _OrderCardTone.neutral,
+  };
+}
+
 _OrderCardTone _resolveOrderCardTone({
   AdminProductionOrderStatusDetail? orderStatus,
   AdminOrderControlState orderControl = AdminOrderControlState.active,

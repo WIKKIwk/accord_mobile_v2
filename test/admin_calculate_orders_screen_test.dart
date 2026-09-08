@@ -36,7 +36,7 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  testWidgets('quick orders list hides templates without existing source map', (
+  testWidgets('quick orders list shows templates regardless of source map', (
     tester,
   ) async {
     await MobileApi.instance.adminSaveProductionMap(
@@ -48,7 +48,9 @@ void main() {
     );
     await MobileApi.instance.upsertCalculateOrderTemplate(
       _template(
-          code: 'Z-MISSING', name: 'Missing quick', sourceMapId: 'zakaz-9999'),
+          code: 'Z-MISSING',
+          name: 'Missing quick',
+          sourceMapId: 'template-zakaz-9999'),
     );
     await MobileApi.instance.upsertCalculateOrderTemplate(
       _template(code: 'Z-NOMAP', name: 'No map quick'),
@@ -57,8 +59,60 @@ void main() {
     await _pumpScreen(tester);
 
     expect(find.text('Valid quick'), findsOneWidget);
-    expect(find.text('Missing quick'), findsNothing);
-    expect(find.text('No map quick'), findsNothing);
+    expect(find.text('Missing quick'), findsOneWidget);
+    expect(find.text('No map quick'), findsOneWidget);
+    expect(find.text('Saqlangan shablonlar hozircha yo‘q'), findsNothing);
+  });
+
+  testWidgets('saved templates load without any production-map access', (
+    tester,
+  ) async {
+    setMobileApiTestModeForceProductionMapMenuLoadFailure(true);
+    addTearDown(
+        () => setMobileApiTestModeForceProductionMapMenuLoadFailure(false));
+    await MobileApi.instance.upsertCalculateOrderTemplate(
+      _template(
+          code: 'Z-SAVED',
+          name: 'Saved template',
+          sourceMapId: 'template-deleted-map'),
+    );
+
+    await _pumpScreen(tester);
+
+    expect(find.text('Saved template'), findsOneWidget);
+    expect(find.text('Saqlangan shablonlar hozircha yo‘q'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'search includes unlinked templates and keeps empty states distinct', (
+    tester,
+  ) async {
+    await MobileApi.instance.upsertCalculateOrderTemplate(
+      _template(code: 'Z-MONO', name: 'Mono template'),
+    );
+    await MobileApi.instance.upsertCalculateOrderTemplate(
+      _template(
+          code: 'Z-MOKO', name: 'Moko template', sourceMapId: 'deleted-map'),
+    );
+    await _pumpScreen(tester);
+
+    final search = find.byType(EditableText);
+    await tester.enterText(search, '  MoNo  ');
+    await tester.pumpAndSettle();
+    expect(find.text('Mono template'), findsOneWidget);
+    expect(find.text('Moko template'), findsNothing);
+
+    await tester.enterText(search, 'unmatched-product');
+    await tester.pumpAndSettle();
+    expect(find.text('Mono template'), findsNothing);
+    expect(find.text('Moko template'), findsNothing);
+    expect(find.text('Saqlangan shablonlar hozircha yo‘q'), findsNothing);
+
+    await tester.enterText(search, '');
+    await tester.pumpAndSettle();
+    expect(find.text('Mono template'), findsOneWidget);
+    expect(find.text('Moko template'), findsOneWidget);
   });
 
   testWidgets('quick orders list empty state names saved templates', (

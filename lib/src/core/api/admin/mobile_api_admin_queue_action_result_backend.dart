@@ -197,6 +197,8 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
     };
     return AdminApparatusQueueActionResult(
       states: Map<String, String>.unmodifiable(parsedStates),
+      workActivity: AdminQueueWorkActivity.tryFromJson(payload['work_activity']),
+      hasWorkActivity: payload.containsKey('work_activity'),
       orderStatus: orderStatus,
       orderControl: orderControl,
       progressBatch: legacyProgressBatch,

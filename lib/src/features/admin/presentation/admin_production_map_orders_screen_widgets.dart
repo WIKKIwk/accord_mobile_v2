@@ -160,6 +160,9 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
     this.progressDriverUrlPicker,
     this.closedOrdersLoader,
     this.completionRequestsLoader,
+    this.queueSnapshotLoader,
+    this.apparatusLoader,
+    this.liveEventsLoader,
   }) : assert(!(workerMode && supplyViewerMode));
   final bool readOnly;
   final bool workerMode;
@@ -168,6 +171,9 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
   final Future<List<AdminClosedProductionOrder>> Function()? closedOrdersLoader;
   final Future<List<AdminCompletionRequestNotification>> Function()?
       completionRequestsLoader;
+  final Future<AdminApparatusQueueSnapshot> Function()? queueSnapshotLoader;
+  final Future<List<AdminApparatus>> Function()? apparatusLoader;
+  final Stream<AdminProductionMapLiveSnapshot> Function()? liveEventsLoader;
 
   @override
   State<AdminProductionMapOrdersScreen> createState() =>

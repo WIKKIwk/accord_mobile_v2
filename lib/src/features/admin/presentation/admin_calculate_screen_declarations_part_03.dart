@@ -221,10 +221,8 @@ class _ImagePreview extends StatelessWidget {
       return Image.file(File(localPath), fit: BoxFit.cover);
     }
     if (imageUrl.trim().isNotEmpty) {
-      final token = _sessionToken();
-      return Image.network(
-        MobileApi.instance.calculateOrderImageUrl(imageUrl),
-        headers: token.isEmpty ? null : {'Authorization': 'Bearer $token'},
+      return Image(
+        image: OrderImageProvider(imageUrl),
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => _ImagePlaceholder(color: scheme.primary),
       );
@@ -244,14 +242,6 @@ class _ImagePlaceholder extends StatelessWidget {
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Icon(Icons.image_outlined, color: color),
     );
-  }
-}
-
-String _sessionToken() {
-  try {
-    return MobileApi.instance.requireToken();
-  } catch (_) {
-    return '';
   }
 }
 

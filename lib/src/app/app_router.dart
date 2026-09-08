@@ -17,6 +17,8 @@ import '../features/chat/models/chat_models.dart';
 import '../features/boyoqchi/presentation/boyoqchi_astatka_screen.dart';
 import '../features/boyoqchi/presentation/boyoqchi_home_screen.dart';
 import '../features/preparation/presentation/preparation_screen.dart';
+import '../features/raw_material_split/presentation/raw_material_split_screen.dart';
+import '../features/raw_material_split/presentation/raw_material_split_history_screen.dart';
 import '../features/admin/presentation/admin_activity_screen.dart';
 import '../features/admin/presentation/admin_apparatus_settings_screen.dart';
 import '../features/admin/presentation/admin_calculate_screen.dart';

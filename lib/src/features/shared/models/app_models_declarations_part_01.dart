@@ -11,11 +11,13 @@ enum UserRole {
   tayyorlovMasteri,
   materialTaminotchi,
   admin,
+  homashyoRezkachi,
 }
 
 UserRole userRoleFromJson(String? value) {
   final roleValue = (value ?? '').trim().toLowerCase();
   if (roleValue == 'tayyorlov_masteri') return UserRole.tayyorlovMasteri;
+  if (roleValue == 'homashyo_rezkachi') return UserRole.homashyoRezkachi;
   return roleValue == 'werka'
       ? UserRole.werka
       : roleValue == 'customer'
@@ -38,6 +40,7 @@ UserRole userRoleFromJson(String? value) {
 
 String userRoleToJson(UserRole role) {
   if (role == UserRole.tayyorlovMasteri) return 'tayyorlov_masteri';
+  if (role == UserRole.homashyoRezkachi) return 'homashyo_rezkachi';
   return role == UserRole.werka
       ? 'werka'
       : role == UserRole.customer
@@ -94,6 +97,7 @@ bool canonicalAasxSha256IsValid(String value) {
 
 String userRoleLabel(UserRole role) {
   if (role == UserRole.tayyorlovMasteri) return 'Tayyorlov masteri';
+  if (role == UserRole.homashyoRezkachi) return 'Homashyo rezkachisi';
   return role == UserRole.werka
       ? 'Werka'
       : role == UserRole.customer

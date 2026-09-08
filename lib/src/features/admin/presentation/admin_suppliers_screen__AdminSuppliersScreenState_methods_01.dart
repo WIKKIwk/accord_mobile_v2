@@ -288,7 +288,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
     bool changed = false;
     if (item.kind == AdminUserKind.worker ||
         item.kind == AdminUserKind.qolipchi ||
-        item.kind == AdminUserKind.boyoqchi || item.kind == AdminUserKind.tayyorlovMasteri) {
+        item.kind == AdminUserKind.boyoqchi || item.kind == AdminUserKind.tayyorlovMasteri || item.kind == AdminUserKind.homashyoRezkachi) {
       final result = await Navigator.of(
         context,
       ).pushNamed(AppRoutes.adminWorkerDetail, arguments: item);

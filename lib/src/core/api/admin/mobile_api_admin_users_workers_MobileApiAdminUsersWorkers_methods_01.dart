@@ -135,6 +135,7 @@ extension MobileApiAdminUsersWorkersAstPart01 on MobileApi {
       if (role != UserRole.qolipchi &&
           role != UserRole.boyoqchi &&
           role != UserRole.tayyorlovMasteri &&
+          role != UserRole.homashyoRezkachi &&
           role != UserRole.materialTaminotchi) {
         throw Exception('Unsupported system user role');
       }
@@ -147,7 +148,7 @@ extension MobileApiAdminUsersWorkersAstPart01 on MobileApi {
       _testModeSystemUsers.add(user);
       return user;
     }
-    if (role != UserRole.qolipchi && role != UserRole.boyoqchi && role != UserRole.tayyorlovMasteri) {
+    if (role != UserRole.qolipchi && role != UserRole.boyoqchi && role != UserRole.tayyorlovMasteri && role != UserRole.homashyoRezkachi) {
       throw Exception('Unsupported system user role');
     }
     final response = await _sendAuthorized(
@@ -244,7 +245,7 @@ extension MobileApiAdminUsersWorkersAstPart01 on MobileApi {
         (user) => user.id == id,
         orElse: () => throw Exception('Admin system user not found'),
       );
-      final prefix = user.role == UserRole.tayyorlovMasteri ? '90' : user.role == UserRole.boyoqchi ? '80' : '50';
+      final prefix = user.role == UserRole.homashyoRezkachi ? '91' : user.role == UserRole.tayyorlovMasteri ? '90' : user.role == UserRole.boyoqchi ? '80' : '50';
       final code =
           '$prefix${DateTime.now().microsecondsSinceEpoch.toString().padLeft(10, '0').substring(0, 10)}';
       _testModeSystemUserCodes[id] = code;

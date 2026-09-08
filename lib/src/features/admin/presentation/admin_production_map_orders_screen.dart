@@ -23,6 +23,7 @@ import '../../../core/widgets/navigation/dock_gesture_overlay.dart';
 import '../../../core/widgets/navigation/dock_system_bottom_inset.dart';
 import '../../../core/widgets/display/app_info_row.dart';
 import '../../../core/widgets/display/image_fade.dart';
+import '../../../core/widgets/display/order_image_provider.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';

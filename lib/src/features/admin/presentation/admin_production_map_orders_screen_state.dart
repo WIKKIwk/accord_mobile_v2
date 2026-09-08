@@ -8,6 +8,11 @@ class _AdminProductionMapOrdersScreenState
   late TabController _tabController;
   bool _loading = true;
   String? _loadError;
+  Future<void>? _initialRefresh;
+  bool _workerCatalogReady = false;
+  bool _workerForeground = true;
+  bool _workerRetryAllowed = true;
+  Timer? _workerRecoveryTimer;
   bool _liveRefreshInFlight = false;
   bool _liveRefreshQueued = false;
   bool _mapsRefreshInFlight = false;
@@ -52,6 +57,10 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, List<String>> _sequenceByApparatus = {};
   final Map<String, List<String>> _visibleOrderIdsByApparatus = {};
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
+  // Kept separately from action permissions, which are invalidated on a
+  // mutation. Other cards retain their activity until the atomic snapshot.
+  final Map<String, Map<String, AdminQueueWorkActivity>>
+      _workActivityByApparatus = {};
   final Map<String, Map<String, String>> _stageStatesByOrderId = {};
   final Map<String, AdminApparatusQueuePolicy> _queuePoliciesByApparatus = {};
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
@@ -101,6 +110,7 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void dispose() {
+    _workerRecoveryTimer?.cancel();
     if (widget.workerMode) {
       WidgetsBinding.instance.removeObserver(this);
     }
@@ -119,7 +129,17 @@ class _AdminProductionMapOrdersScreenState
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (widget.workerMode && state == AppLifecycleState.resumed) {
+      _workerForeground = true;
+      _workerRetryAllowed = true;
       unawaited(_startWorkerLive());
+    } else if (widget.workerMode &&
+        (state == AppLifecycleState.paused ||
+            state == AppLifecycleState.hidden ||
+            state == AppLifecycleState.detached)) {
+      _workerForeground = false;
+      _workerRecoveryTimer?.cancel();
+      _workerRecoveryTimer = null;
+      _stopWorkerLiveStream();
     }
   }
 
@@ -291,6 +311,10 @@ class _AdminProductionMapOrdersScreenState
                               visibleOrderIdsByApparatus:
                                   _visibleOrderIdsByApparatus,
                               queueStatesByApparatus: _queueStatesByApparatus,
+                              workActivityByApparatus: _workActivityByApparatus,
+                              workerRole: AppSession.instance.profile == null
+                                  ? '' : userRoleToJson(AppSession.instance.profile!.role),
+                              workerRef: AppSession.instance.profile?.ref ?? '',
                               orderStatusesByOrderId: _orderStatusesByOrderId,
                               orderControlsByOrderId: _orderControlsByOrderId,
                               searchQuery: _searchQuery,
@@ -458,6 +482,15 @@ class _AdminProductionMapOrdersScreenState
       if (applyState) {
         _queueActionControlsByApparatus.remove(apparatusKey);
         _queueStatesByApparatus[apparatusKey] = result.states;
+        if (result.hasWorkActivity) {
+          final activities = _workActivityByApparatus.putIfAbsent(apparatusKey, () => {});
+          final activity = result.workActivity;
+          if (activity == null) {
+            activities.remove(orderId);
+          } else {
+            activities[orderId] = activity;
+          }
+        }
         _orderStatusesByOrderId[orderId] = result.orderStatus;
         if (result.orderControl != null) {
           _orderControlsByOrderId[orderId] = result.orderControl!;

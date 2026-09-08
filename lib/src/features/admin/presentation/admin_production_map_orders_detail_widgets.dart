@@ -426,16 +426,15 @@ Widget _productionMapOrderImageThumbnail({
   return InkWell(
     key: const ValueKey('production-order-detail-photo-thumbnail'),
     borderRadius: BorderRadius.circular(12),
-    onTap: loading ? null : onTap,
+    onTap: onTap,
     child: SizedBox(width: 44, height: 44, child: child),
   );
 }
 
 void _showProductionMapOrderImageDialog(
   BuildContext context,
-  List<int> imageBytes,
+  ImageProvider image,
 ) {
-  final image = Uint8List.fromList(imageBytes);
   showDialog<void>(
     context: context,
     builder: (context) {
@@ -450,9 +449,12 @@ void _showProductionMapOrderImageDialog(
                   minScale: 1,
                   maxScale: 4,
                   child: Center(
-                    child: Image.memory(
-                      image,
+                    child: Image(
+                      image: image,
                       fit: BoxFit.contain,
+                      frameBuilder: (context, child, frame, synchronous) =>
+                          frame != null || synchronous ? child
+                              : const Center(child: CircularProgressIndicator()),
                       errorBuilder: (_, __, ___) => Icon(
                         Icons.broken_image_outlined,
                         color: scheme.primary,

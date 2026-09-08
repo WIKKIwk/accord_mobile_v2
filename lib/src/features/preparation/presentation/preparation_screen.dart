@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/api/mobile_api.dart';
-import '../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
+import '../../admin/presentation/widgets/admin_surface_tab_bar.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
 import 'preparation_navigation.dart';
@@ -16,7 +17,9 @@ class PreparationScreen extends StatefulWidget {
   State<PreparationScreen> createState() => _PreparationScreenState();
 }
 
-class _PreparationScreenState extends State<PreparationScreen> {
+class _PreparationScreenState extends State<PreparationScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
   PreparationSnapshot? _snapshot;
   PreparationPendingCommand? _pending;
   PreparationOrder? _order;
@@ -30,11 +33,13 @@ class _PreparationScreenState extends State<PreparationScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _reload();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     for (final c in _percent.values) {
       c.dispose();
     }
@@ -158,28 +163,35 @@ class _PreparationScreenState extends State<PreparationScreen> {
                           ])),
                     if (data != null) ...[
                       if (data.warehouses.isEmpty)
-                        _surface(const Text(
-                            'Sizga ombor biriktirilmagan. Admin foydalanuvchi kartasidan ombor biriktirishi kerak.')),
-                      _surface(ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Ombor'),
-                          subtitle: Text(_warehouse ?? 'Ombor tanlang'),
-                          trailing: const Icon(Icons.expand_more),
-                          onTap: _locked || data.warehouses.isEmpty
-                              ? null
-                              : _pickWarehouse)),
-                      const SizedBox(height: 12),
-                      SegmentedButton<int>(
-                          segments: const [
-                            ButtonSegment(value: 0, label: Text('Homashyo')),
-                            ButtonSegment(value: 1, label: Text('Order')),
-                            ButtonSegment(value: 2, label: Text('Tarix'))
+                        _surface(const Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.warehouse_outlined),
+                            SizedBox(width: 12),
+                            Expanded(
+                                child: Text(
+                                    'Sizga ombor biriktirilmagan. Admin foydalanuvchi kartasidan ombor biriktirishi kerak.')),
                           ],
-                          selected: {
-                            _tab
-                          },
-                          onSelectionChanged: (v) =>
-                              setState(() => _tab = v.first)),
+                        ))
+                      else
+                        _surface(ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.warehouse_outlined),
+                            title: Text(_warehouse ?? 'Ombor tanlang'),
+                            trailing: const Icon(Icons.expand_more),
+                            onTap: _locked ? null : _pickWarehouse)),
+                      const SizedBox(height: 12),
+                      AdminSurfaceTabBar(
+                        controller: _tabController,
+                        isScrollable: true,
+                        tabAlignment: TabAlignment.start,
+                        tabs: const [
+                          Tab(text: 'Homashyo'),
+                          Tab(text: 'Order'),
+                          Tab(text: 'Tarix'),
+                        ],
+                        onTap: (index) => setState(() => _tab = index),
+                      ),
                       const SizedBox(height: 16),
                       if (_loading) const LinearProgressIndicator(),
                       if (_tab == 0) ..._materials(data),
@@ -192,17 +204,19 @@ class _PreparationScreenState extends State<PreparationScreen> {
 
   Widget _surface(Widget child) => Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: M3SegmentFilledSurface(
-          slot: M3SegmentVerticalSlot.middle,
-          cornerRadius: 18,
-          child: Padding(padding: const EdgeInsets.all(12), child: child)));
+      child: AppSegmentSurfaceCard(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          elevation: 0,
+          child: child));
 
   List<Widget> _materials(PreparationSnapshot data) => [
-        FilledButton.icon(
-            key: const Key('preparation-add-material'),
-            onPressed: _locked ? null : _createMaterial,
-            icon: const Icon(Icons.add),
-            label: const Text('Homashyo qo‘shish')),
+        Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+                key: const Key('preparation-add-material'),
+                onPressed: _locked ? null : _createMaterial,
+                icon: const Icon(Icons.add),
+                label: const Text('Homashyo qo‘shish'))),
         const SizedBox(height: 10),
         if (data.materials.isEmpty) const Text('Hali homashyo qo‘shilmagan.'),
         for (final material in data.materials)

@@ -971,10 +971,14 @@ class BluetoothPrinterChannel(
                     wrapLabelText(cleanLabelText(it), MATERIAL_TITLE_WIDTH_CHARS)
                 }
             }
-            val weightLines = wrapLabelText(
-                cleanLabelText("NET VAZNI: $netWeight $unit"),
-                MATERIAL_TITLE_WIDTH_CHARS,
-            )
+            val weights = if (label.tareEnabled) {
+                listOf("BRUTTO: ${compactLabelQty(label.grossQty)} $unit", "NETTO: $netWeight $unit")
+            } else {
+                listOf("NET VAZNI: $netWeight $unit")
+            }
+            val weightLines = weights.flatMap {
+                wrapLabelText(cleanLabelText(it), MATERIAL_TITLE_WIDTH_CHARS)
+            }
             return productLines + weightLines
         }
         if (label.isQolipCode && label.customerName.isNotBlank()) {

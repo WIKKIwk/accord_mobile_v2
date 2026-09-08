@@ -123,6 +123,32 @@ void main() {
             : _snapshot()));
   });
 
+  test('network recovery bypasses a read stuck on the previous connection', () async {
+    final oldResponse = Completer<http.Response>();
+    final entered = Completer<void>();
+    var reads = 0;
+    await http.runWithClient(() async {
+      final oldRead = MobileApi.instance.adminProductionMapQueueSnapshot();
+      await entered.future;
+      final recovered = await MobileApi.instance
+          .adminProductionMapQueueSnapshot(fresh: true);
+      expect(recovered.revision, 1);
+      expect(reads, 2);
+      expect(oldResponse.isCompleted, isFalse);
+      oldResponse.complete(_snapshot());
+      await oldRead;
+      await MobileApi.instance.adminProductionMapQueueSnapshot();
+      expect(reads, 3, reason: 'late old responses are never cached');
+    }, () => MockClient((request) {
+      expect(request.method, 'GET', reason: 'recovery never replays a mutation');
+      if (++reads == 1) {
+        entered.complete();
+        return oldResponse.future;
+      }
+      return Future.value(_snapshot());
+    }));
+  });
+
   test('an admin mutation prevents sharing a pre-mutation snapshot', () async {
     final oldRead = Completer<http.Response>();
     final entered = Completer<void>();
@@ -180,10 +206,14 @@ void main() {
         if (!timeout) {
           pending.complete(http.Response('{"error":"store_failed"}', 503));
         }
-        await tester.pump(const Duration(seconds: 11));
+        // Inspect the first failure before the new automatic retry fires.
+        // Test mode then supplies a healthy snapshot on that retry.
+        if (timeout) await tester.pump(const Duration(seconds: 10));
+        await tester.pump();
         await tester.pump();
         expect(find.byType(AppLoadingIndicator), findsNothing);
-        expect(find.text('Reja menu yuklanmadi'), findsOneWidget);
+        expect(find.text('Aloqa vaqtincha uzildi. Avtomatik qayta ulanmoqda…'),
+            findsOneWidget);
         expect(tester.takeException(), isNull);
         if (!pending.isCompleted) pending.complete(http.Response('{}', 503));
         await tester.pumpWidget(const SizedBox.shrink());

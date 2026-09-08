@@ -17,6 +17,7 @@ enum _ProfileShellKind {
   qolip,
   boyoqchi,
   preparation,
+  rawMaterialSplit,
   admin,
   none,
 }
@@ -31,6 +32,7 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
     AppRoutes.qolipHome => _ProfileShellKind.qolip,
     AppRoutes.boyoqchiHome => _ProfileShellKind.boyoqchi,
     AppRoutes.preparation => _ProfileShellKind.preparation,
+    AppRoutes.rawMaterialSplit => _ProfileShellKind.rawMaterialSplit,
     AppRoutes.adminHome => _ProfileShellKind.admin,
     _ => _ProfileShellKind.none,
   };

@@ -77,10 +77,12 @@ extension MobileApiAdminOrderLifecycleAstPart01 on MobileApi {
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
     final raw = payload['batches'];
+    if (raw is! List) {
+      throw const FormatException('WIP response must contain a batches list');
+    }
     return [
-      if (raw is List)
-        for (final item in raw)
-          AdminProgressBatch.fromJson((item as Map).cast<String, dynamic>()),
+      for (final item in raw)
+        AdminProgressBatch.fromJson((item as Map).cast<String, dynamic>()),
     ];
   }
 

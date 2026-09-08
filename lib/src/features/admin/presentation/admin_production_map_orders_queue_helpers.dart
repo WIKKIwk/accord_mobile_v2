@@ -32,6 +32,7 @@ bool _queueActionControlsEqual(
     final other = right[entry.key];
     final control = entry.value;
     if (other == null ||
+        control.workActivity != other.workActivity ||
         control.state != other.state ||
         control.previousStage != other.previousStage ||
         control.previousStageReady != other.previousStageReady ||

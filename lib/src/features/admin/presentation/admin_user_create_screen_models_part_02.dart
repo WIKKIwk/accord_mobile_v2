@@ -162,6 +162,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
   bool get _isQolipchiRole => widget.assignedRole.id == 'qolipchi';
   bool get _isBoyoqchiRole => widget.assignedRole.id == 'boyoqchi';
   bool get _isPreparationRole => widget.assignedRole.baseRole == UserRole.tayyorlovMasteri;
+  bool get _isRawMaterialSplitRole => widget.assignedRole.baseRole == UserRole.homashyoRezkachi;
   bool get _isMaterialTaminotchiAssignedRole =>
       _isMaterialTaminotchiRole(widget.assignedRole);
 
@@ -236,15 +237,15 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
     }
     setState(() => saving = true);
     try {
-      if (_isQolipchiRole || _isBoyoqchiRole || _isPreparationRole) {
-        final role = _isPreparationRole ? UserRole.tayyorlovMasteri : _isBoyoqchiRole ? UserRole.boyoqchi : UserRole.qolipchi;
+      if (_isQolipchiRole || _isBoyoqchiRole || _isPreparationRole || _isRawMaterialSplitRole) {
+        final role = _isRawMaterialSplitRole ? UserRole.homashyoRezkachi : _isPreparationRole ? UserRole.tayyorlovMasteri : _isBoyoqchiRole ? UserRole.boyoqchi : UserRole.qolipchi;
         final user = await MobileApi.instance.adminCreateSystemUser(
           role: role,
           name: name.text.trim(),
           phone: phone.text.trim(),
         );
         await MobileApi.instance.adminRegenerateSystemUserCode(user.id);
-        if (_isPreparationRole && !widget.assignedRole.system) {
+        if ((_isPreparationRole || _isRawMaterialSplitRole) && !widget.assignedRole.system) {
           await _assignCustomRole(widget.assignedRole, role, user.id);
         }
       } else if (_isMaterialTaminotchiAssignedRole) {

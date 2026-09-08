@@ -10,7 +10,11 @@ extension MobileApiAdminQueueState on MobileApi {
   Future<AdminApparatusQueueSnapshot> adminProductionMapQueueSnapshot({
     String apparatus = '',
     String orderId = '',
+    bool fresh = false,
   }) {
+    // Recovery after a network change must not rejoin a read still waiting
+    // on the old connection. Ordinary concurrent readers remain deduplicated.
+    if (fresh) _queueSnapshotReadEpoch++;
     final reads = _queueSnapshotReads[Zone.current] ??= {};
     final key = jsonEncode([
       MobileApi.baseUrl, AppSession.instance.token, _queueSnapshotReadEpoch,

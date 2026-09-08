@@ -321,33 +321,12 @@ extension MobileApiAdminProductionMapOrderImage on MobileApi {
   /// the detail sheet simply hides the image instead of failing. An *empty*
   /// 404 body means the route itself is missing (old server binary) and
   /// throws so the sheet can surface it instead of hiding silently.
-  Future<List<int>?> adminProductionMapOrderImage(String orderId) async {
+  Future<List<int>?> adminProductionMapOrderImage(String orderId, {
+    String imageId = '', bool thumbnail = false,
+  }) async {
     final normalizedOrderId = orderId.trim();
     if (normalizedOrderId.isEmpty) return null;
-    if (await TestModeController.instance.isEnabled()) return null;
-    final response = await _sendAuthorized(
-      () => _get(
-        Uri.parse(
-          '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/order-image/view?order_id=${Uri.encodeQueryComponent(normalizedOrderId)}',
-        ),
-        headers: _headers(requireToken()),
-      ),
-    );
-    if (response.statusCode == 404) {
-      if (response.bodyBytes.isEmpty) {
-        throw const MobileApiException(
-          code: 'production_map_order_image_route_missing',
-          message: 'Rasm xizmati topilmadi — server yangilanmagan',
-        );
-      }
-      return null;
-    }
-    if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
-      throw _adminProductionMapException(
-        response,
-        'production_map_order_image',
-      );
-    }
-    return response.bodyBytes;
+    return cachedOrderImageBytes(adminProductionMapOrderImageUrl(
+      normalizedOrderId, imageId: imageId), thumbnail: thumbnail);
   }
 }

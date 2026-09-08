@@ -46,6 +46,9 @@ class AppSession {
       return '/';
     }
     final profile = this.profile!;
+    if (profile.role == UserRole.homashyoRezkachi && profile.hasCapability('raw_material.split')) {
+      return '/raw-material-split';
+    }
     if (profile.role == UserRole.tayyorlovMasteri && profile.hasCapability('preparation.access')) {
       return '/preparation';
     }

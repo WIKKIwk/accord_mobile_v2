@@ -424,7 +424,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               unlinkingBarcode: unlinkingMaterialBarcode,
             ),
           ],
-          Builder(
+          if (!workerMode) Builder(
             builder: (context) {
               final attachedExpandable = attachedQolipsLoading ||
                   attachedQolipsError.trim().isNotEmpty ||

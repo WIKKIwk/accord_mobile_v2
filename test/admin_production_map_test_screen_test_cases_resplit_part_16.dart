@@ -686,7 +686,29 @@ void _registeradmin_production_map_test_screen_testCases16() {
     await _usePhoneViewport(tester);
     final theme = ThemeData(useMaterial3: true);
 
-    Future<void> pumpWorkerScreen() async {
+    Future<void> pumpWorkerScreen({String state = 'in_progress'}) async {
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: apparatus,
+        orderId: orderId,
+        control: AdminApparatusQueueOrderActionControl(
+          state: state,
+          allowedActions: state == 'in_progress' ? const {'pause'} : const {'resume'},
+          hasOnlyKnownActions: true,
+          interaction: AdminQueueWorkerInteraction(
+            mode: state == 'paused' ? AdminQueueInteractionMode.paused
+                : AdminQueueInteractionMode.inProgress,
+            startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+            materialScanRequired: false,
+            assignedMaterialsDisplayOnly: true,
+            materialIntakeAllowed: false,
+            previousWipMode: AdminQueuePreviousWipMode.notRequired,
+            qolipMode: AdminQueueQolipMode.notRequired,
+          ),
+          workActivity: AdminQueueWorkActivity(
+            workerRole: 'aparatchi', workerRef: 'worker-status-colors', state: state,
+          ),
+        ),
+      );
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
       await tester.pumpWidget(
@@ -735,7 +757,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
       action: 'pause',
       producedQty: 1,
     );
-    await pumpWorkerScreen();
+    await pumpWorkerScreen(state: 'paused');
     expect(cardColor(), expectedTint(const Color(0xFFF9A825)));
 
     await MobileApi.instance.adminApparatusQueueActionResult(

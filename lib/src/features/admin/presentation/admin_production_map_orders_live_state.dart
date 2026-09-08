@@ -2,6 +2,78 @@ part of 'admin_production_map_orders_screen.dart';
 
 extension _AdminProductionMapOrdersLiveState
     on _AdminProductionMapOrdersScreenState {
+  void _scheduleWorkerRecovery() {
+    if (!_workerRetryAllowed) {
+      _workerRecoveryTimer?.cancel();
+      _workerRecoveryTimer = null;
+      return;
+    }
+    if (!widget.workerMode || !mounted || !_workerForeground ||
+        !_workerRetryAllowed || _workerRecoveryTimer != null) {
+      return;
+    }
+    _workerRecoveryTimer = Timer(const Duration(seconds: 2), () {
+      _workerRecoveryTimer = null;
+      unawaited(_recoverWorkerOrders());
+    });
+  }
+
+  Future<void> _recoverWorkerOrders() async {
+    if (!mounted || !_workerForeground || !_workerRetryAllowed) return;
+    // Initial/catalog failures need both reads, not a queue-only fallback.
+    // This is read-only; queue actions are never replayed by recovery.
+    await _refreshCanonicalInitial();
+    if (!mounted || !_workerForeground) return;
+    if (_loadError != null || _queueSnapshotContractError ||
+        !_workerCatalogReady) {
+      _scheduleWorkerRecovery();
+    } else {
+      await _restartWorkerLiveStream();
+    }
+  }
+
+  void _clearOrdersLoadError() {
+    if (widget.workerMode && !_workerCatalogReady) return;
+    _workerRecoveryTimer?.cancel();
+    _workerRecoveryTimer = null;
+    _workerRetryAllowed = true;
+    _loading = false;
+    _loadError = null;
+    _queueSnapshotContractError = false;
+    _queueSnapshotErrorMessage = null;
+  }
+
+  bool _canRetryWorkerRead(Object error) => error is! MobileApiException ||
+      (error.statusCode != 401 && error.statusCode != 403 &&
+          error.code != 'unauthorized' && error.code != 'forbidden' &&
+          error.code != 'production_map_snapshot_contract_invalid');
+
+  String _workerReadErrorText(Object error) => _canRetryWorkerRead(error)
+      ? context.l10n.productionText('worker.connection.reconnecting')
+      : error is MobileApiException
+          ? error.message
+          : context.l10n.productionText('worker.error.sync');
+
+  Future<AdminApparatusQueueSnapshot> _readOrdersSnapshot({bool fresh = false}) {
+    return widget.queueSnapshotLoader?.call() ??
+        MobileApi.instance.adminProductionMapQueueSnapshot(fresh: fresh);
+  }
+
+  Future<List<AdminApparatus>> _readOrdersApparatus() =>
+      widget.apparatusLoader?.call() ?? MobileApi.instance.adminApparatus(limit: 200);
+
+  Future<void> _restartWorkerLiveStream() async {
+    if (!_workerRetryAllowed) return;
+    final generation = _liveStreamGeneration;
+    if (widget.liveEventsLoader == null &&
+        await TestModeController.instance.isEnabled()) {
+      return;
+    }
+    if (!mounted || !_workerForeground || generation != _liveStreamGeneration) return;
+    _stopWorkerLiveStream();
+    unawaited(_runWorkerLiveStream(_liveStreamGeneration));
+  }
+
   void _rememberSnapshotVersion(AdminApparatusQueueSnapshot snapshot) {
     if (snapshot.epoch.isNotEmpty && snapshot.epoch != _lastAppliedSnapshotEpoch) {
       if (_lastAppliedSnapshotEpoch.isNotEmpty) {
@@ -13,20 +85,18 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _startWorkerLive() async {
+    // Drop the previous provider's stream before awaiting any REST request.
+    _stopWorkerLiveStream();
+    final generation = _liveStreamGeneration;
     // REST has bounded requests and a visible error state. Never leave the
     // first frame dependent on an unbounded/silent WebSocket handshake.
     await _refreshCanonicalInitial();
-    if (!mounted) {
+    if (!mounted || !_workerForeground || generation != _liveStreamGeneration) {
       return;
     }
     unawaited(_refreshWorkerCompletedOrders());
     unawaited(_refreshWorkerCompletionRequestDecisions());
-    if (await TestModeController.instance.isEnabled()) {
-      return;
-    }
-    _stopWorkerLiveStream();
-    _liveStreamGeneration++;
-    unawaited(_runWorkerLiveStream(_liveStreamGeneration));
+    await _restartWorkerLiveStream();
   }
 
   Future<void> _startAdminLive() async {
@@ -70,27 +140,37 @@ extension _AdminProductionMapOrdersLiveState
 
   Future<void> _runWorkerLiveStream(int generation) async {
     while (mounted && generation == _liveStreamGeneration) {
+      Object? streamError;
       try {
         await _connectWorkerLiveStreamOnce(generation);
-      } catch (_) {
+      } catch (error) {
+        streamError = error;
         if (!mounted || generation != _liveStreamGeneration) {
           return;
         }
         final wasLoading = _loading;
         // Keep the last good state on screen. Fall back to the canonical
         // REST snapshot (revision-guarded) instead of clearing the list.
-        if (wasLoading) {
+        if (!widget.workerMode && wasLoading) {
           await _refreshLive(initial: true);
-        } else {
+        } else if (!widget.workerMode) {
           await _refreshQueueSnapshot();
         }
       }
       if (!mounted || generation != _liveStreamGeneration) {
         return;
       }
-      // Bounded exponential backoff: 1s -> 2s -> 4s -> 8s -> max 30s.
+      if (widget.workerMode) {
+        final error = streamError ?? const MobileApiException(
+          code: 'live_closed', message: 'Live connection closed');
+        _workerRetryAllowed = _canRetryWorkerRead(error);
+        _invalidateQueueSnapshotContract(_workerReadErrorText(error));
+        if (!_workerRetryAllowed) return;
+      }
+      // Workers retry at 1s -> 2s -> max 4s; admin keeps its 30s cap.
       // Reset to 1s on the next successful snapshot (see listener below).
-      final delay = productionMapLiveReconnectDelay(_liveReconnectAttempt);
+      final delay = productionMapLiveReconnectDelay(
+        widget.workerMode && _liveReconnectAttempt > 2 ? 2 : _liveReconnectAttempt);
       _liveReconnectAttempt++;
       final reconnect = Completer<void>();
       _liveReconnectFinished = reconnect;
@@ -100,7 +180,9 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _connectWorkerLiveStreamOnce(int generation) async {
-    await _liveStreamSubscription?.cancel();
+    // Cancellation may wait for a dead native/socket handshake. It must not
+    // prevent opening a connection on the newly available network.
+    unawaited(_liveStreamSubscription?.cancel());
     if (!mounted || generation != _liveStreamGeneration) return;
     final completer = Completer<void>();
     _liveStreamFinished = completer;
@@ -109,8 +191,9 @@ extension _AdminProductionMapOrdersLiveState
         completer.completeError(TimeoutException('First production snapshot'));
       }
     });
-    _liveStreamSubscription =
-        MobileApi.instance.adminProductionMapLiveEvents().listen(
+    final subscription =
+        (widget.liveEventsLoader?.call() ??
+            MobileApi.instance.adminProductionMapLiveEvents()).listen(
       (snapshot) {
         if (!mounted || generation != _liveStreamGeneration) {
           return;
@@ -130,12 +213,19 @@ extension _AdminProductionMapOrdersLiveState
           completer.complete();
         }
       },
-      cancelOnError: true,
+      // Auto-cancel can await a dead native handshake before delivering the
+      // error. Deliver it now, and cancel without awaiting cleanup below.
+      cancelOnError: false,
     );
+    _liveStreamSubscription = subscription;
     try {
       await completer.future;
     } finally {
       firstSnapshotTimer.cancel();
+      if (identical(_liveStreamSubscription, subscription)) {
+        _liveStreamSubscription = null;
+      }
+      unawaited(subscription.cancel());
       if (identical(_liveStreamFinished, completer)) _liveStreamFinished = null;
     }
   }
@@ -148,15 +238,11 @@ extension _AdminProductionMapOrdersLiveState
       lastAppliedEpoch: _lastAppliedSnapshotEpoch,
       retiredEpochs: _retiredSnapshotEpochs,
     );
-    if (decision == CanonicalSnapshotDecision.ignoreStale ||
-        (decision == CanonicalSnapshotDecision.ignoreDuplicate &&
-            !_queueSnapshotNeedsReconcile)) {
-      if (_queueSnapshotContractError) {
-        _updateScreenState(() {
-          _queueSnapshotContractError = false;
-          _queueSnapshotErrorMessage = null;
-          _loadError = null;
-        });
+    if (decision == CanonicalSnapshotDecision.ignoreStale) return;
+    if (decision == CanonicalSnapshotDecision.ignoreDuplicate &&
+        !_queueSnapshotNeedsReconcile) {
+      if (_queueSnapshotContractError || _loadError != null || _loading) {
+        _updateScreenState(_clearOrdersLoadError);
       }
       return;
     }
@@ -166,6 +252,9 @@ extension _AdminProductionMapOrdersLiveState
       // actually changed to avoid duplicate rebuilds.
       if (_ordersRevision(orders) == _ordersRevision(_orders) &&
           !_queueSnapshotChanged(snapshot)) {
+        if (_queueSnapshotContractError || _loadError != null || _loading) {
+          _updateScreenState(_clearOrdersLoadError);
+        }
         return;
       }
     }
@@ -183,12 +272,7 @@ extension _AdminProductionMapOrdersLiveState
       _workerCompletedHistoryErrorMessage = null;
       _completionRequests = snapshot.completionRequests;
       _completionRequestsErrorMessage = null;
-      _loading = false;
-      if (_queueSnapshotContractError) {
-        _queueSnapshotContractError = false;
-        _queueSnapshotErrorMessage = null;
-        _loadError = null;
-      }
+      _clearOrdersLoadError();
     });
     _showNewRejectedCompletionDecisionNotices(
       snapshot.completionRequestDecisions,
@@ -287,8 +371,7 @@ extension _AdminProductionMapOrdersLiveState
     _queueSnapshotRefreshInFlight = true;
     final requestGeneration = ++_queueSnapshotGeneration;
     try {
-      final queueSnapshot =
-          await MobileApi.instance.adminProductionMapQueueSnapshot();
+      final queueSnapshot = await _readOrdersSnapshot();
       if (!mounted || requestGeneration != _queueSnapshotGeneration) {
         return;
       }
@@ -300,15 +383,12 @@ extension _AdminProductionMapOrdersLiveState
         lastAppliedEpoch: _lastAppliedSnapshotEpoch,
         retiredEpochs: _retiredSnapshotEpochs,
       );
-      if (decision == CanonicalSnapshotDecision.ignoreStale ||
-          (decision == CanonicalSnapshotDecision.ignoreDuplicate &&
-              !_queueSnapshotNeedsReconcile)) {
+      if (decision == CanonicalSnapshotDecision.ignoreStale) return;
+      if (decision == CanonicalSnapshotDecision.ignoreDuplicate &&
+          !_queueSnapshotNeedsReconcile) {
         // Successful fetch still clears a previous transient warning.
-        if (_queueSnapshotContractError) {
-          _updateScreenState(() {
-            _queueSnapshotContractError = false;
-            _queueSnapshotErrorMessage = null;
-          });
+        if (_queueSnapshotContractError || _loadError != null || _loading) {
+          _updateScreenState(_clearOrdersLoadError);
         }
         return;
       }
@@ -319,7 +399,7 @@ extension _AdminProductionMapOrdersLiveState
         // the snapshot bundles maps (new backend).
         _rememberSnapshotVersion(queueSnapshot);
         _liveReconnectAttempt = 0;
-        final hasMaps = queueSnapshot.maps.isNotEmpty;
+        final hasMaps = queueSnapshot.maps.isNotEmpty || queueSnapshot.epoch.isNotEmpty;
         final nextOrders =
             hasMaps ? _productionMapZakazOrders(queueSnapshot.maps) : null;
         _updateScreenState(() {
@@ -327,34 +407,26 @@ extension _AdminProductionMapOrdersLiveState
             _orders = nextOrders;
           }
           _replaceQueueSnapshotMaps(queueSnapshot);
-          if (_queueSnapshotContractError) {
-            _queueSnapshotContractError = false;
-            _queueSnapshotErrorMessage = null;
-          }
+          _clearOrdersLoadError();
         });
         return;
       }
       // Legacy (no rev): fall back to content comparison to avoid rebuilds.
       if (!_queueSnapshotChanged(queueSnapshot)) {
-        if (_queueSnapshotContractError) {
-          _updateScreenState(() {
-            _queueSnapshotContractError = false;
-            _queueSnapshotErrorMessage = null;
-          });
+        if (_queueSnapshotContractError || _loadError != null || _loading) {
+          _updateScreenState(_clearOrdersLoadError);
         }
         return;
       }
       _updateScreenState(() {
         _replaceQueueSnapshotMaps(queueSnapshot);
-        if (_queueSnapshotContractError) {
-          _queueSnapshotContractError = false;
-          _queueSnapshotErrorMessage = null;
-        }
+        _clearOrdersLoadError();
       });
     } catch (error) {
       if (mounted && requestGeneration == _queueSnapshotGeneration) {
+        if (widget.workerMode) _workerRetryAllowed = _canRetryWorkerRead(error);
         _invalidateQueueSnapshotContract(
-          error is MobileApiException
+          widget.workerMode ? _workerReadErrorText(error) : error is MobileApiException
               ? error.message
               : context.l10n.productionText('worker.error.sync'),
         );
@@ -374,13 +446,19 @@ extension _AdminProductionMapOrdersLiveState
     if (!mounted) {
       return;
     }
+    if (_queueSnapshotContractError && !_loading &&
+        _queueSnapshotErrorMessage == message) {
+      _scheduleWorkerRecovery();
+      return;
+    }
     // Keep the last good state on screen (no list wipe, no loading spinner).
     // Only surface the warning; a newer canonical snapshot will recover.
     _updateScreenState(() {
       _queueSnapshotContractError = true;
-      _queueSnapshotErrorMessage ??= message;
+      _queueSnapshotErrorMessage = message;
       _loading = false;
     });
+    _scheduleWorkerRecovery();
   }
 
   bool _queueSnapshotChanged(AdminApparatusQueueSnapshot snapshot) {
@@ -483,6 +561,16 @@ extension _AdminProductionMapOrdersLiveState
     _queueActionControlsByApparatus
       ..clear()
       ..addAll(snapshot.queueActionControls);
+    _workActivityByApparatus
+      ..clear()
+      ..addAll({
+        for (final apparatus in snapshot.queueActionControls.entries)
+          apparatus.key: {
+            for (final order in apparatus.value.entries)
+              if (order.value.workActivity != null)
+                order.key: order.value.workActivity!,
+          },
+      });
     _frozenOrdersByApparatus
       ..clear()
       ..addAll(snapshot.frozenOrdersByApparatus);
@@ -701,12 +789,22 @@ extension _AdminProductionMapOrdersLiveState
   /// First non-loading frame already carries the final title/subtitle.
   /// Legacy backends without `maps` fall back to a single
   /// `adminProductionMaps()` fetch, still applied in one transaction.
-  Future<void> _refreshCanonicalInitial() async {
+  Future<void> _refreshCanonicalInitial() {
+    return _initialRefresh ??= _refreshCanonicalInitialOnce().whenComplete(() {
+      _initialRefresh = null;
+    });
+  }
+
+  Future<void> _refreshCanonicalInitialOnce() async {
     try {
-      final results = await Future.wait<Object>([
-        MobileApi.instance.adminProductionMapQueueSnapshot(),
-        MobileApi.instance.adminApparatus(limit: 200),
-      ]);
+      final pending = Future.wait<Object>([
+        _readOrdersSnapshot(fresh: widget.workerMode),
+        _readOrdersApparatus(),
+      ], eagerError: true);
+      // Keep the API's existing download budget on weak factory networks.
+      // Eager errors still recover immediately instead of waiting for siblings.
+      final results = await (widget.workerMode
+          ? pending.timeout(const Duration(seconds: 10)) : pending);
       final queueSnapshot = results[0] as AdminApparatusQueueSnapshot;
       final apparatus = results[1] as List<AdminApparatus>;
       List<ProductionMapSaved> orders;
@@ -729,9 +827,23 @@ extension _AdminProductionMapOrdersLiveState
         lastAppliedEpoch: _lastAppliedSnapshotEpoch,
         retiredEpochs: _retiredSnapshotEpochs,
       );
-      if ((decision == CanonicalSnapshotDecision.ignoreStale ||
-              decision == CanonicalSnapshotDecision.ignoreDuplicate) &&
-          _orders.isNotEmpty) {
+      if (decision == CanonicalSnapshotDecision.ignoreStale) {
+        _scheduleWorkerRecovery();
+        return;
+      }
+      if (decision == CanonicalSnapshotDecision.ignoreDuplicate &&
+          !_queueSnapshotNeedsReconcile) {
+        // A same-revision reply still proves recovery. Do not leave a resume
+        // error covering valid rows, including a genuinely empty queue.
+        if (widget.workerMode &&
+            _workerWatchTabCount(apparatus) != _tabController.length) {
+          _recreateWorkerTabController(apparatus);
+        }
+        _updateScreenState(() {
+          _apparatus = apparatus;
+          _workerCatalogReady = true;
+          _clearOrdersLoadError();
+        });
         return;
       }
       if (queueSnapshot.revision != null) {
@@ -743,6 +855,8 @@ extension _AdminProductionMapOrdersLiveState
         _recreateWorkerTabController(apparatus);
       }
       _updateScreenState(() {
+        _workerCatalogReady = true;
+        _queueSnapshotNeedsReconcile = false;
         _loadError = null;
         _orders = orders;
         _apparatus = apparatus;
@@ -751,19 +865,14 @@ extension _AdminProductionMapOrdersLiveState
           _syncSelectedSequenceApparatus(apparatus);
           _syncMoveApparatusDefaults(apparatus);
         }
-        _loading = false;
-        _loadError = null;
-        if (_queueSnapshotContractError) {
-          _queueSnapshotContractError = false;
-          _queueSnapshotErrorMessage = null;
-        }
+        _clearOrdersLoadError();
       });
       if (!widget.supplyViewerMode) {
         unawaited(_refreshOrderBaseMetraj(orders));
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        _applyInitialProductionMapLoadError();
+        _applyInitialProductionMapLoadError(error);
       }
     }
   }
@@ -772,7 +881,7 @@ extension _AdminProductionMapOrdersLiveState
   /// Orders arrive only via the revisioned queue/live snapshot authority.
   Future<void> _refreshApparatusCatalog() async {
     try {
-      final apparatus = await MobileApi.instance.adminApparatus(limit: 200);
+      final apparatus = await _readOrdersApparatus();
       if (!mounted) return;
       if (_apparatusListsHaveSameCanonicalRevisions(_apparatus, apparatus)) {
         return;
@@ -865,11 +974,20 @@ extension _AdminProductionMapOrdersLiveState
     }
   }
 
-  void _applyInitialProductionMapLoadError() {
+  void _applyInitialProductionMapLoadError(Object error) {
+    if (widget.workerMode) {
+      _workerRetryAllowed = _canRetryWorkerRead(error);
+      if (_workerCatalogReady) {
+        _invalidateQueueSnapshotContract(_workerReadErrorText(error));
+        return;
+      }
+    }
     _updateScreenState(() {
       _loading = false;
-      _loadError = 'Reja menu yuklanmadi';
+      _loadError = widget.workerMode
+          ? _workerReadErrorText(error) : 'Reja menu yuklanmadi';
     });
+    _scheduleWorkerRecovery();
   }
 
   Future<void> _refreshOrderBaseMetraj(List<ProductionMapSaved> orders) async {
@@ -896,5 +1014,8 @@ extension _AdminProductionMapOrdersLiveState
     });
   }
 
-  Future<void> _load() => _refreshLive(initial: true);
+  Future<void> _load() {
+    _workerRetryAllowed = true;
+    return _refreshLive(initial: true);
+  }
 }

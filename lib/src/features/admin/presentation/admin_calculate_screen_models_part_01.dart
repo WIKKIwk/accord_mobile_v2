@@ -332,7 +332,6 @@ class _ReceiptDivider extends StatelessWidget {
 }
 
 void _showCalculateImageDialog(BuildContext context, String imageUrl) {
-  final token = _sessionToken();
   showDialog<void>(
     context: context,
     builder: (context) {
@@ -347,11 +346,8 @@ void _showCalculateImageDialog(BuildContext context, String imageUrl) {
                   minScale: 1,
                   maxScale: 4,
                   child: Center(
-                    child: Image.network(
-                      MobileApi.instance.calculateOrderImageUrl(imageUrl),
-                      headers: token.isEmpty
-                          ? null
-                          : {'Authorization': 'Bearer $token'},
+                    child: Image(
+                      image: OrderImageProvider(imageUrl),
                       fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) =>
                           _ImagePlaceholder(color: scheme.primary),

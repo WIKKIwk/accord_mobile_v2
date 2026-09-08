@@ -144,6 +144,7 @@ class AdminRezkaActivePartialRoll {
 
 class AdminApparatusQueueOrderActionControl {
   const AdminApparatusQueueOrderActionControl({
+    this.workActivity,
     this.state = '',
     this.allowedActions = const {},
     this.interaction,
@@ -163,6 +164,7 @@ class AdminApparatusQueueOrderActionControl {
     this.freezeRequest,
   });
 
+  final AdminQueueWorkActivity? workActivity;
   final String state;
   final Set<String> allowedActions;
   final AdminQueueWorkerInteraction? interaction;
@@ -408,6 +410,7 @@ class AdminApparatusQueueOrderActionControl {
       }
     }
     return AdminApparatusQueueOrderActionControl(
+      workActivity: AdminQueueWorkActivity.tryFromJson(json['work_activity']),
       state: json['state']?.toString().trim() ?? '',
       allowedActions: Set<String>.unmodifiable(actions),
       interaction: AdminQueueWorkerInteraction.tryFromJson(json['interaction']),
