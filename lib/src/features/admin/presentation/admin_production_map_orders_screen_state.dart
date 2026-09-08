@@ -941,7 +941,7 @@ class _AdminProductionMapOrdersScreenState
         context: context,
         useSafeArea: true,
         showDragHandle: true,
-        builder: (_) => const _LaminatsiyaWorkerFinishSheet(),
+        builder: (_) => _LaminatsiyaWorkerFinishSheet(isRezka: operation == 'cut'),
       );
       if (!mounted || choice != _LaminatsiyaWorkerLongPressChoice.finishWork) {
         return;

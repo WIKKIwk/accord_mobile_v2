@@ -715,9 +715,6 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       if (widget.isRezka) {
         Navigator.of(context).pop(
           _ProgressQtyInput(
-            meterQty: meterQty,
-            kgQty: kgQty,
-            bobinaKg: bobinaKg,
             totalWaste: totalWaste,
             rezkaBosmaWaste: rezkaBosmaWaste,
             rezkaLaminationWaste: rezkaLaminationWaste,
@@ -1069,6 +1066,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       !_requiresRezkaTotalWasteOnlyCompletion;
   bool get _isWorkerHandoff => widget.workerHandoff;
   bool get _isAstatkaReport => widget.astatkaReport;
+  bool get _isRezkaAstatkaReport => _isAstatkaReport && widget.isRezka;
   bool get _requiresPaintReport => _requiresFullCompletionReport ||
       (_isAstatkaReport && widget.isBosma);
   bool get _isRollRemoval => widget.removeRollFromApparatus;
@@ -1108,8 +1106,13 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final title = _isFreezeRequestSafeStop
         ? context.l10n.productionText('worker.freeze.safe_stop.title')
         : _isAstatkaReport
-            ? context.l10n.productionText(widget.isBosma
-                ? 'worker.bosma.astatka.title' : 'worker.finish.title')
+            ? context.l10n.productionText(
+                isBosma
+                    ? 'worker.bosma.astatka.title'
+                    : isRezka
+                        ? 'worker.rezka.astatka.title'
+                        : 'worker.finish.title',
+              )
             : _isWorkerHandoff
                 ? context.l10n.productionText('worker.finish.title')
                 : _isRollRemoval
@@ -1218,7 +1221,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (!_showRezkaFrameInputs && !_isBosmaClosingReport) ...[
+                        if (!_showRezkaFrameInputs &&
+                            !_isBosmaClosingReport &&
+                            !_isRezkaAstatkaReport) ...[
                           _progressQtySectionLabel(
                             context,
                             context.l10n.productionText(
@@ -1504,7 +1509,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                               _rezkaFrameControllers[index],
                             ),
                         ],
-                        if (!_isWorkerHandoff && !_showRezkaFrameInputs && !_isBosmaClosingReport) ...[
+                        if (!_isWorkerHandoff &&
+                            !_showRezkaFrameInputs &&
+                            !_isBosmaClosingReport &&
+                            !_isRezkaAstatkaReport) ...[
                           _progressQtySectionLabel(
                             context,
                             hasDetailedMetrics

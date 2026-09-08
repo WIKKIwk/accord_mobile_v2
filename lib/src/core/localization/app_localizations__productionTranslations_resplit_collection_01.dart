@@ -107,6 +107,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'en': 'Submit remainder report',
     'ru': 'Сдать отчёт об остатках',
   },
+  'worker.rezka.astatka.title': {
+    'uz': 'Astatka hisobotini topshirish',
+    'en': 'Submit remainder report',
+    'ru': 'Сдать отчёт об остатках',
+  },
   'worker.bosma.finish.description': {
     'uz': 'Bu amal orderning bosma apparatidagi ishini tugatadi.',
     'en': 'This completes the order’s work on the printing machine.',

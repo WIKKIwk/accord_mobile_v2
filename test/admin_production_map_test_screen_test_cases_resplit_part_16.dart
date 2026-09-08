@@ -3,6 +3,156 @@ part of 'admin_production_map_test_screen_test.dart';
 
 void _registeradmin_production_map_test_screen_testCases16() {
   for (final paused in [false, true]) {
+    testWidgets(
+      'rezka astatka submits waste only and keeps ${paused ? "paused" : "running"} work unchanged',
+      (tester) async {
+        await TestModeController.instance.setEnabled(true);
+        const orderId = 'zakaz-rezka-astatka-widget';
+        await AppSession.instance.setSession(
+          token: 'worker-token',
+          profile: const SessionProfile(
+            role: UserRole.aparatchi,
+            displayName: 'Rezkachi',
+            legalName: '',
+            ref: 'rezka-astatka-worker',
+            phone: '',
+            avatarUrl: '',
+            capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+            assignedApparatus: [_rezkaId],
+          ),
+        );
+        final map = _productionOrderMap(
+          id: orderId,
+          title: 'Rezka astatka',
+          productCode: 'RAST',
+          apparatusId: _rezkaId,
+          product: 'Rezka astatka',
+        );
+        await MobileApi.instance.adminSaveProductionMap(
+          map.copyWith(
+            nodes: [
+              for (final node in map.nodes)
+                node.apparatusId == _rezkaId
+                    ? node.copyWith(rezkaKadrCount: 1)
+                    : node,
+            ],
+          ),
+        );
+        await MobileApi.instance.adminSaveProductionMapSequence(
+          apparatus: _rezkaId,
+          orderIds: [orderId],
+        );
+        await MobileApi.instance.adminApparatusQueueActionResult(
+          apparatus: _rezkaId,
+          orderId: orderId,
+          action: 'start',
+        );
+        if (paused) {
+          await MobileApi.instance.adminApparatusQueueActionResult(
+            apparatus: _rezkaId,
+            orderId: orderId,
+            action: 'pause',
+            producedQty: 80,
+            finishedGoodsMeter: 80,
+            finishedGoodsKg: 12,
+            bobinaKg: 1,
+            diameter: 100,
+            uom: 'm',
+          );
+        }
+        setMobileApiTestModeQueueActionControlFixture(
+          apparatus: _rezkaId,
+          orderId: orderId,
+          control: paused
+              ? const AdminApparatusQueueOrderActionControl(
+                  state: 'paused',
+                  allowedActions: {'resume'},
+                  hasOnlyKnownActions: true,
+                  interaction: AdminQueueWorkerInteraction(
+                    mode: AdminQueueInteractionMode.paused,
+                    startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+                    materialScanRequired: false,
+                    assignedMaterialsDisplayOnly: true,
+                    materialIntakeAllowed: false,
+                    previousWipMode: AdminQueuePreviousWipMode.notRequired,
+                    qolipMode: AdminQueueQolipMode.notRequired,
+                  ),
+                )
+              : _inProgressQueueControl(completeRequiresFullReport: true),
+        );
+        final before = await MobileApi.instance.adminProductionMapQueueSnapshot();
+        final wipBefore = await MobileApi.instance.adminWipBatches(
+          status: 'all',
+          orderId: orderId,
+        );
+        await _usePhoneViewport(tester);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(useMaterial3: true),
+            locale: const Locale('uz'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const AdminProductionMapOrdersScreen(
+              readOnly: true,
+              workerMode: true,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.longPress(find.byKey(const ValueKey('worker-order-$orderId')));
+        await tester.pumpAndSettle();
+        expect(find.text('Ishimni tugatish'), findsNothing);
+        expect(find.text('Astatka hisobotini topshirish'), findsNWidgets(2));
+        await tester.tap(
+          find.widgetWithText(FilledButton, 'Astatka hisobotini topshirish'),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Astatka hisobotini topshirish'), findsOneWidget);
+        for (final label in ['Babina', 'Metraj', 'Og‘irlik', 'Diametr']) {
+          expect(find.widgetWithText(TextFormField, label), findsNothing);
+        }
+        const wasteLabels = [
+          'Jami chiqindi',
+          'Bosma chiqindisi',
+          'Laminatsiya chiqindisi',
+          'Chet chiqindisi',
+        ];
+        expect(find.byType(TextFormField), findsNWidgets(wasteLabels.length));
+        await tester.tap(find.text('Tasdiqlash'));
+        await tester.pumpAndSettle();
+        expect(find.text('Order astatkasi qayd qilindi'), findsNothing);
+        for (final label in wasteLabels) {
+          final field = find.widgetWithText(TextFormField, label);
+          await tester.ensureVisible(field);
+          await tester.enterText(field, '0');
+        }
+        await tester.tap(find.text('Tasdiqlash'));
+        await tester.pumpAndSettle();
+        // A failed request leaves the detail sheet open. Successful reporting
+        // closes it without performing a queue or output action.
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(find.widgetWithText(TextFormField, 'Jami chiqindi'), findsNothing);
+        final after = await MobileApi.instance.adminProductionMapQueueSnapshot();
+        expect(after.queueStates, before.queueStates);
+        final wipAfter = await MobileApi.instance.adminWipBatches(
+          status: 'all',
+          orderId: orderId,
+        );
+        expect(
+          wipAfter.map((batch) => batch.batchId).toList(),
+          wipBefore.map((batch) => batch.batchId).toList(),
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+  for (final paused in [false, true]) {
     testWidgets('bosma astatka report keeps ${paused ? "paused" : "running"} work unchanged', (tester) async {
       await TestModeController.instance.setEnabled(true);
       const orderId = 'zakaz-bosma-astatka-widget';

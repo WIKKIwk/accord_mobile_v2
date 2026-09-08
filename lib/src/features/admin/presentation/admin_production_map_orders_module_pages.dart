@@ -894,12 +894,17 @@ class _BosmaWorkerFinishSheet extends StatelessWidget {
 }
 
 class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
-  const _LaminatsiyaWorkerFinishSheet();
+  const _LaminatsiyaWorkerFinishSheet({this.isRezka = false});
+
+  final bool isRezka;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final title = context.l10n.productionText(
+      isRezka ? 'worker.rezka.astatka.title' : 'worker.finish.title',
+    );
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -908,7 +913,7 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              context.l10n.productionText('worker.finish.title'),
+              title,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
@@ -927,9 +932,7 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
                 _LaminatsiyaWorkerLongPressChoice.finishWork,
               ),
               icon: const Icon(Icons.logout_rounded),
-              label: Text(
-                context.l10n.productionText('worker.finish.title'),
-              ),
+              label: Text(title),
             ),
           ],
         ),
