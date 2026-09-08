@@ -227,25 +227,74 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return '';
   }
 
+  _ReadOnlyOrderDetailUiState get _detailUiState => _readOnlyOrderDetailUiState(
+        order: widget.order,
+        apparatus: widget.apparatus,
+        queueActionControl: _queueActionControl,
+        orderControlState: _orderControlState,
+        queueState: _queueStates[widget.order.map.id.trim()],
+        materialAssignments: _materialAssignments,
+        startMaterialAssignments: _startAssignments,
+        intakeCandidateAssignments: _intakeCandidateAssignments,
+        materialRequirements: _materialStartRequirements,
+        scannedMaterialBarcodes: _scannedMaterialBarcodes,
+        canManageQueue: widget.canManageQueue,
+        startInputProgressBatch: _startInputProgressBatch,
+        startInputOpeningWipBatch: _startInputOpeningWipBatch,
+      );
+
+  ({bool visible, bool materialIntake, bool merge}) _quickScanTasks(
+    _ReadOnlyOrderDetailUiState uiState,
+  ) {
+    final startMaterialScanPending = uiState.showStart &&
+        uiState.showStartMaterials &&
+        !_materialsLoading &&
+        _materialsError.isEmpty &&
+        _materialStartUnavailableReason(
+              materialRequirements: _materialStartRequirements,
+              materialsLoading: _materialsLoading,
+              materialsError: _materialsError,
+              materialScanRequired: uiState.showStartMaterials,
+              l10n: context.l10n,
+            ) ==
+            null &&
+        uiState.materialRequiredCount > uiState.materialScannedCount;
+    final qolipScanPending = uiState.showStart &&
+        uiState.qolipScanRequired &&
+        !_qolipRequirementsLoading &&
+        _qolipRequirementsError.isEmpty &&
+        _requiredQolips.isNotEmpty &&
+        !_allRequiredQolipsScanned;
+    final inputWipScanPending = uiState.showStart &&
+        uiState.previousProgressRequired &&
+        !uiState.previousProgressReady &&
+        !_inputProgressLoading &&
+        _inputProgressError.isEmpty &&
+        (uiState.openingWipRequired
+            ? _availableOpeningWipBatches.isNotEmpty
+            : _availableInputProgressBatches.isNotEmpty);
+    final materialIntake = _materialIntakeMode &&
+        uiState.materialIntakeAllowed &&
+        !_materialsLoading &&
+        _materialsError.isEmpty &&
+        _intakeCandidateAssignments.isNotEmpty;
+    final merge = _mergeScanMode && uiState.showMerge;
+    return (
+      visible: startMaterialScanPending ||
+          qolipScanPending ||
+          inputWipScanPending ||
+          materialIntake ||
+          merge,
+      materialIntake: materialIntake,
+      merge: merge,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final map = widget.order.map;
     final steps = _linearProductionMapNodes(map);
-    final uiState = _readOnlyOrderDetailUiState(
-      order: widget.order,
-      apparatus: widget.apparatus,
-      queueActionControl: _queueActionControl,
-      orderControlState: _orderControlState,
-      queueState: _queueStates[widget.order.map.id.trim()],
-      materialAssignments: _materialAssignments,
-      startMaterialAssignments: _startAssignments,
-      intakeCandidateAssignments: _intakeCandidateAssignments,
-      materialRequirements: _materialStartRequirements,
-      scannedMaterialBarcodes: _scannedMaterialBarcodes,
-      canManageQueue: widget.canManageQueue,
-      startInputProgressBatch: _startInputProgressBatch,
-      startInputOpeningWipBatch: _startInputOpeningWipBatch,
-    );
+    final uiState = _detailUiState;
     final requiresQolipScan = uiState.qolipScanRequired;
     final qolipScanAllowsStart =
         !requiresQolipScan || _allRequiredQolipsScanned;
@@ -265,34 +314,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         (!_materialsLoading &&
             materialStartUnavailableReason == null &&
             _materialStartRequirements?.scanSatisfied == true);
-    final startMaterialScanPending = uiState.showStart &&
-        uiState.showStartMaterials &&
-        !_materialsLoading &&
-        _materialsError.isEmpty &&
-        materialStartUnavailableReason == null &&
-        uiState.materialRequiredCount > uiState.materialScannedCount;
-    final qolipScanPending = uiState.showStart &&
-        requiresQolipScan &&
-        !_qolipRequirementsLoading &&
-        _qolipRequirementsError.isEmpty &&
-        _requiredQolips.isNotEmpty &&
-        !_allRequiredQolipsScanned;
-    final inputWipScanPending = uiState.showStart &&
-        uiState.previousProgressRequired &&
-        !uiState.previousProgressReady &&
-        !_inputProgressLoading &&
-        _inputProgressError.isEmpty &&
-        (uiState.openingWipRequired
-            ? _availableOpeningWipBatches.isNotEmpty
-            : _availableInputProgressBatches.isNotEmpty);
-    final materialIntakeScanActive =
-        _materialIntakeMode && uiState.materialIntakeAllowed;
-    final mergeScanActive = _mergeScanMode && uiState.showMerge;
-    final showQuickScanner = startMaterialScanPending ||
-        qolipScanPending ||
-        inputWipScanPending ||
-        materialIntakeScanActive ||
-        mergeScanActive;
+    final scanTasks = _quickScanTasks(uiState);
     return PopScope(
       canPop: false,
       child: _ReadOnlyOrderDetailContent(
@@ -342,8 +364,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         inputProgressError: _inputProgressError,
         quickScanStatus: _quickScanStatus,
         quickScanInFlight: _quickScanInFlight,
-        showQuickScanner: showQuickScanner,
-        allowConcurrentQuickScanner: widget.workerMode && !mergeScanActive,
+        showQuickScanner: scanTasks.visible,
+        allowConcurrentQuickScanner: widget.workerMode && !scanTasks.merge,
         onQuickScan: _handleQuickScan,
         requiresQolipScan: requiresQolipScan,
         qolipScanned: qolipScanAllowsStart,
@@ -594,8 +616,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           orderId: orderId,
           apparatus: apparatus,
         );
-        if (_queueActionContractSynchronized &&
-            interaction?.materialIntakeAllowed == true) {
+        if (_detailUiState.materialIntakeAllowed) {
           intakeCandidates =
               await MobileApi.instance.adminRawMaterialIntakeCandidates(
             orderId: orderId,
@@ -625,6 +646,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _startAssignments = snapshot.startAssignments;
       _intakeCandidateAssignments = snapshot.intakeCandidateAssignments;
       _materialStartRequirements = snapshot.requirements;
+      if (_intakeCandidateAssignments.isEmpty) {
+        _materialIntakeMode = false;
+      }
       if (eligibleBarcodes != null) {
         _scannedMaterialBarcodes.removeWhere(
           (barcode) => !eligibleBarcodes.contains(barcode),
@@ -675,6 +699,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _materialAssignments = const [];
         _startAssignments = const [];
         _intakeCandidateAssignments = const [];
+        _materialIntakeMode = false;
         _materialStartRequirements = null;
         _materialsLoading = false;
         _materialsError = _readOnlyQueueActionErrorText(error, context.l10n);
@@ -1167,12 +1192,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _handleQuickScan(String rawValue) async {
+    if (!mounted) return;
+    // A camera callback can arrive after the scan task has ended.
+    final scanTasks = _quickScanTasks(_detailUiState);
+    if (!scanTasks.visible) return;
     final normalized = rawMaterialBarcodeFromQr(rawValue).trim();
     final scanKey = normalized.toUpperCase();
     if (normalized.isEmpty || !_seenQuickScanValues.add(scanKey)) {
-      return;
-    }
-    if (!mounted) {
       return;
     }
     setState(() {
@@ -1183,13 +1209,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     });
 
     try {
-      if (_materialIntakeMode) {
+      if (scanTasks.materialIntake) {
         await _receiveAdditionalMaterialFromQuickScan(normalized);
         return;
       }
-      if (_mergeScanMode &&
-          _queueActionContractSynchronized &&
-          _queueActionControl?.allows('merge') == true) {
+      if (scanTasks.merge) {
         final merged = await _runQueueAction(
           'merge',
           qrPayload: rawValue.trim(),
@@ -1921,6 +1945,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _toggleMaterialIntakeMode() async {
+    if (!mounted) return;
     if (_materialIntakeMode) {
       setState(() {
         _materialIntakeMode = false;
@@ -1930,10 +1955,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       });
       return;
     }
+    if (!_detailUiState.materialIntakeAllowed) return;
     setState(() => _intakeCandidatesExpanded = true);
     if (!await _loadMaterialAssignments(showLoading: false) || !mounted) {
       return;
     }
+    if (!_detailUiState.materialIntakeAllowed) return;
     if (_intakeCandidateAssignments.isEmpty) {
       setState(() {
         _quickScanStatus = context.l10n.productionText(
@@ -1989,8 +2016,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       final hasRemainingCandidates = _intakeCandidateAssignments.isNotEmpty;
       setState(() {
         _intakeCandidatesExpanded = true;
-        _materialIntakeMode =
-            hasRemainingCandidates || _materialIntakeActiveCount > 1;
+        // Finishing an in-flight receipt must never reopen a closed scanner.
+        if (!hasRemainingCandidates) _materialIntakeMode = false;
         _quickScanStatus = hasRemainingCandidates
             ? context.l10n.productionText(
                 'worker.notice.material_received',

@@ -571,6 +571,10 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   final showResume = contractSynchronized &&
       canManageQueue &&
       queueActionControl.allows('resume');
+  // Rezka consumes upstream WIP, not additional raw materials.
+  final materialIntakeAllowed = contractSynchronized &&
+      apparatus?.operation.trim().toLowerCase() != 'cut' &&
+      (interaction?.materialIntakeAllowed ?? false);
   return _ReadOnlyOrderDetailUiState(
     orderId: orderId,
     station: station,
@@ -591,10 +595,8 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     showStartMaterials: contractSynchronized &&
         interaction?.startMaterialsMode ==
             AdminQueueStartMaterialsMode.scanRequired,
-    showIntakeCandidates:
-        contractSynchronized && (interaction?.materialIntakeAllowed ?? false),
-    materialIntakeAllowed:
-        contractSynchronized && (interaction?.materialIntakeAllowed ?? false),
+    showIntakeCandidates: materialIntakeAllowed,
+    materialIntakeAllowed: materialIntakeAllowed,
     qolipScanRequired: contractSynchronized &&
         interaction?.qolipMode == AdminQueueQolipMode.scanRequired,
     previousStage: previousStage,

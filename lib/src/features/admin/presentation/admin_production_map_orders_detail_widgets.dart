@@ -241,41 +241,30 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     duration: AppMotion.medium,
                     curve: AppMotion.standardDecelerate,
                     alignment: Alignment.topCenter,
-                    child: AnimatedSwitcher(
-                      duration: AppMotion.medium,
-                      switchInCurve: AppMotion.standardDecelerate,
-                      switchOutCurve: AppMotion.standardAccelerate,
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: SizeTransition(
-                          sizeFactor: animation,
-                          axisAlignment: -1,
-                          child: child,
-                        ),
-                      ),
-                      child: showQuickScanner
-                          ? Column(
-                              key: const ValueKey(
-                                'production-order-quick-scanner-visible',
-                              ),
-                              children: [
-                                ProductionQuickScannerPanel(
-                                  statusText: quickScanStatus,
-                                  busy: quickScanInFlight,
-                                  allowConcurrentDetections:
-                                      allowConcurrentQuickScanner,
-                                  allowManualEntry: !uiState.openingWipRequired,
-                                  onCodeDetected: onQuickScan,
-                                ),
-                                const SizedBox(height: 10),
-                              ],
-                            )
-                          : const SizedBox(
-                              key: ValueKey(
-                                'production-order-quick-scanner-hidden',
-                              ),
+                    // Unmount the camera immediately when its task ends;
+                    // an outgoing AnimatedSwitcher child keeps scanning.
+                    child: showQuickScanner
+                        ? Column(
+                            key: const ValueKey(
+                              'production-order-quick-scanner-visible',
                             ),
-                    ),
+                            children: [
+                              ProductionQuickScannerPanel(
+                                statusText: quickScanStatus,
+                                busy: quickScanInFlight,
+                                allowConcurrentDetections:
+                                    allowConcurrentQuickScanner,
+                                allowManualEntry: !uiState.openingWipRequired,
+                                onCodeDetected: onQuickScan,
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                          )
+                        : const SizedBox(
+                            key: ValueKey(
+                              'production-order-quick-scanner-hidden',
+                            ),
+                          ),
                   ),
                   _OrderStartUnifiedCard(
                     uiState: uiState,

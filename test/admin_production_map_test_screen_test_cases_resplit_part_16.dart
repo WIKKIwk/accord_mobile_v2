@@ -473,178 +473,288 @@ void _registeradmin_production_map_test_screen_testCases16() {
     },
   );
 
-  testWidgets('worker intake shows and expands only pending assigned material',
-      (
-    tester,
-  ) async {
-    await TestModeController.instance.setEnabled(true);
-    const apparatus = _rezkaId;
-    const orderId = 'zakaz-worker-material-intake';
-    const candidateBarcode = 'ROLL-WORKER-ASSIGNED';
-    const stateLocation = InventoryLocation(
-      id: 'inventory_location:state:rezka-intake',
-      kind: InventoryLocationKind.state,
-      name: 'Rezka State',
-      factoryLocationId: 'state_rezka_intake',
-      apparatus: [
-        InventoryLocationApparatus(id: apparatus, name: 'Rezka'),
-      ],
-    );
-    seedMobileApiInventoryMovementTestData(
-      locations: const [stateLocation],
-      assets: const [
-        InventoryAsset(
-          kind: InventoryAssetKind.rawMaterial,
-          assetRef: 'raw:worker-intake-assigned',
-          custodyWarehouseId: 'warehouse:material',
-          custodyWarehouse: 'Material ombor',
-          itemCode: 'ROLL-WORKER',
-          itemName: 'Worker assigned material',
-          identifier: candidateBarcode,
-          qty: 100,
-          uom: 'kg',
-          status: 'available',
-          physicalLocation: InventoryLocationReference(
-            id: 'inventory_location:state:rezka-intake',
-            kind: InventoryLocationKind.state,
-            name: 'Rezka State',
+  for (final receiptScenario in [
+    'sequential',
+    'parallel failure',
+    'refresh failure',
+  ]) {
+    testWidgets(
+      'worker intake shows and expands only pending assigned material: $receiptScenario',
+      (tester) async {
+        await TestModeController.instance.setEnabled(true);
+        const apparatus = _lamination1Id;
+        const orderId = 'zakaz-worker-material-intake';
+        const candidateBarcode = 'ROLL-WORKER-ASSIGNED';
+        const stateLocation = InventoryLocation(
+          id: 'inventory_location:state:lamination-intake',
+          kind: InventoryLocationKind.state,
+          name: 'Laminatsiya State',
+          factoryLocationId: 'state_lamination_intake',
+          apparatus: [
+            InventoryLocationApparatus(id: apparatus, name: 'Laminatsiya 1'),
+          ],
+        );
+        seedMobileApiInventoryMovementTestData(
+          locations: const [stateLocation],
+          assets: const [
+            InventoryAsset(
+              kind: InventoryAssetKind.rawMaterial,
+              assetRef: 'raw:worker-intake-assigned',
+              custodyWarehouseId: 'warehouse:material',
+              custodyWarehouse: 'Material ombor',
+              itemCode: 'ROLL-WORKER',
+              itemName: 'Worker assigned material',
+              identifier: candidateBarcode,
+              qty: 100,
+              uom: 'kg',
+              status: 'available',
+              physicalLocation: InventoryLocationReference(
+                id: 'inventory_location:state:lamination-intake',
+                kind: InventoryLocationKind.state,
+                name: 'Laminatsiya State',
+              ),
+            ),
+          ],
+        );
+        await AppSession.instance.setSession(
+          token: 'worker-material-intake-token',
+          profile: const SessionProfile(
+            role: UserRole.aparatchi,
+            displayName: 'Laminatsiya operatori',
+            legalName: '',
+            ref: 'worker-material-intake',
+            phone: '',
+            avatarUrl: '',
+            capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+            assignedApparatus: [apparatus],
           ),
-        ),
-      ],
-    );
-    await AppSession.instance.setSession(
-      token: 'worker-material-intake-token',
-      profile: const SessionProfile(
-        role: UserRole.aparatchi,
-        displayName: 'Rezka operatori',
-        legalName: '',
-        ref: 'worker-material-intake',
-        phone: '',
-        avatarUrl: '',
-        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-        assignedApparatus: [apparatus],
-      ),
-    );
-    await MobileApi.instance.adminSaveProductionMap(
-      _productionOrderMap(
-        id: orderId,
-        title: 'Worker material intake',
-        productCode: 'WMI-A',
-        apparatusId: apparatus,
-        product: 'worker material product',
-      ),
-    );
-    await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: apparatus,
-      orderIds: const [orderId],
-    );
-    await MobileApi.instance.adminApparatusQueueAction(
-      apparatus: apparatus,
-      orderId: orderId,
-      action: 'start',
-    );
-    await MobileApi.instance.adminAssignRawMaterialToOrder(
-      orderId: orderId,
-      apparatus: apparatus,
-      barcode: candidateBarcode,
-    );
-    setMobileApiTestModeQueueActionControlFixture(
-      apparatus: apparatus,
-      orderId: orderId,
-      control: _inProgressQueueControl(materialIntakeAllowed: true),
-    );
-    await _usePhoneViewport(tester);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(useMaterial3: true),
-        locale: const Locale('uz'),
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const AdminProductionMapOrdersScreen(
-          readOnly: true,
-          workerMode: true,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+        );
+        await MobileApi.instance.adminSaveProductionMap(
+          _productionOrderMap(
+            id: orderId,
+            title: 'Worker material intake',
+            productCode: 'WMI-A',
+            apparatusId: apparatus,
+            product: 'worker material product',
+          ),
+        );
+        await MobileApi.instance.adminSaveProductionMapSequence(
+          apparatus: apparatus,
+          orderIds: const [orderId],
+        );
+        await MobileApi.instance.adminApparatusQueueAction(
+          apparatus: apparatus,
+          orderId: orderId,
+          action: 'start',
+        );
+        await MobileApi.instance.adminAssignRawMaterialToOrder(
+          orderId: orderId,
+          apparatus: apparatus,
+          barcode: candidateBarcode,
+        );
+        setMobileApiTestModeQueueActionControlFixture(
+          apparatus: apparatus,
+          orderId: orderId,
+          control: _inProgressQueueControl(
+            materialIntakeAllowed: true,
+            allowMerge: true,
+          ),
+        );
+        await _usePhoneViewport(tester);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(useMaterial3: true),
+            locale: const Locale('uz'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const AdminProductionMapOrdersScreen(
+              readOnly: true,
+              workerMode: true,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Rezka'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('worker-material-intake').first);
-    await tester.pumpAndSettle();
-    expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
-    expect(find.text('Hali qabul qilinmagan homashyolar'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey('production-intake-materials-expansion'),
-        ),
-        matching: find.text('1 ta'),
-      ),
-      findsOneWidget,
-    );
-    expect(find.text(candidateBarcode), findsNothing);
-    expect(
-      find.byKey(const ValueKey('receive-additional-raw-material')),
-      findsOneWidget,
-    );
+        await tester.tap(find.text('Laminatsiya 1'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('worker-material-intake').first);
+        await tester.pumpAndSettle();
+        expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
+        expect(
+          find.byType(ProductionQuickScannerPanel),
+          findsNothing,
+          reason: 'an active job and pending material do not open intake automatically',
+        );
+        expect(find.text('Hali qabul qilinmagan homashyolar'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(
+              const ValueKey('production-intake-materials-expansion'),
+            ),
+            matching: find.text('1 ta'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text(candidateBarcode), findsNothing);
+        expect(
+          find.byKey(const ValueKey('receive-additional-raw-material')),
+          findsOneWidget,
+        );
 
-    await tester.tap(
-      find.byKey(const ValueKey('receive-additional-raw-material')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text(candidateBarcode), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
-      findsOneWidget,
-    );
-    await tester.tap(
-      find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
-    );
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('production-quick-scanner-manual')),
-      'ROLL-WORKER-1000',
-    );
-    await tester.tap(find.byTooltip('Qabul qilish'));
-    await tester.pumpAndSettle();
-    expect(find.text('Homashyo biriktirilmagan'), findsWidgets);
-    expect(find.text('ROLL-WORKER-1000'), findsNothing);
-    expect(find.text(candidateBarcode), findsOneWidget);
+        await tester.tap(
+          find.byKey(const ValueKey('receive-additional-raw-material')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(candidateBarcode), findsOneWidget);
+        if (receiptScenario != 'sequential') {
+          final scan = tester
+              .widget<ProductionQuickScannerPanel>(
+                find.byType(ProductionQuickScannerPanel),
+              )
+              .onCodeDetected;
+          final requests = <http.Request>[];
+          final receipt = Completer<http.Response>();
+          final failedReceipt = Completer<http.Response>();
+          await TestModeController.instance.setEnabled(false);
+          await http.runWithClient(
+            () async {
+              final accepted = scan(candidateBarcode);
+              final rejected = receiptScenario == 'parallel failure'
+                  ? scan('ROLL-WORKER-UNASSIGNED')
+                  : Future<void>.value();
+              await tester.pump();
+              expect(
+                requests.where((r) => r.method == 'POST'),
+                hasLength(receiptScenario == 'parallel failure' ? 2 : 1),
+              );
+              receipt.complete(
+                http.Response(
+                  jsonEncode({
+                    'order_id': orderId,
+                    'apparatus': apparatus,
+                    'barcode': candidateBarcode,
+                    'stock_status': 'in_use',
+                    'received_qty': 100,
+                    'stock_uom': 'kg',
+                  }),
+                  200,
+                ),
+              );
+              await tester.pumpAndSettle();
+              await accepted;
+              expect(
+                find.byType(ProductionQuickScannerPanel),
+                findsNothing,
+                reason: 'no pending scan task remains, even with a receipt still in flight',
+              );
+              if (receiptScenario == 'parallel failure') {
+                failedReceipt.complete(
+                  http.Response(
+                    '{"error":"raw_material_assignment_not_found"}',
+                    400,
+                  ),
+                );
+                await tester.pumpAndSettle();
+                await rejected;
+              }
+              expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+              final requestCount = requests.length;
+              await scan('LATE-CAMERA-FRAME');
+              await tester.pumpAndSettle();
+              expect(
+                requests,
+                hasLength(requestCount),
+                reason: 'a stale callback must not send a lookup or receipt',
+              );
+              await tester.pumpWidget(const SizedBox.shrink());
+              await tester.pumpAndSettle();
+            },
+            () => MockClient((request) {
+              requests.add(request);
+              if (request.method == 'POST' &&
+                  request.url.path.endsWith('/raw-material-intake')) {
+                return jsonDecode(request.body)['barcode'] == candidateBarcode
+                    ? receipt.future
+                    : failedReceipt.future;
+              }
+              if (receiptScenario == 'refresh failure') {
+                return Future.value(
+                  http.Response('{"error":"store_failed"}', 503),
+                );
+              }
+              return Future.value(http.Response('[]', 200));
+            }),
+          );
+          return;
+        }
+        expect(
+          find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
+          findsOneWidget,
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('production-quick-scanner-manual')),
+          'ROLL-WORKER-1000',
+        );
+        await tester.tap(find.byTooltip('Qabul qilish'));
+        await tester.pumpAndSettle();
+        expect(find.text('Homashyo biriktirilmagan'), findsWidgets);
+        expect(find.text('ROLL-WORKER-1000'), findsNothing);
+        expect(find.text(candidateBarcode), findsOneWidget);
 
-    await tester.enterText(
-      find.byKey(const ValueKey('production-quick-scanner-manual')),
-      candidateBarcode,
+        await tester.enterText(
+          find.byKey(const ValueKey('production-quick-scanner-manual')),
+          candidateBarcode,
+        );
+        await tester.tap(find.byTooltip('Qabul qilish'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Hali qabul qilinmagan homashyo yo‘q'),
+          findsOneWidget,
+        );
+        expect(find.text('0 ta'), findsOneWidget);
+        expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+        expect(
+          find.byKey(const ValueKey('receive-additional-raw-material')),
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(
+              const ValueKey('production-intake-materials-expansion'),
+            ),
+            matching: find.byIcon(Icons.expand_more_rounded),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('production-quick-scanner-manual')),
+          findsNothing,
+        );
+        await tester.tap(find.text('Merge'));
+        await tester.pump();
+        expect(
+          find.byType(ProductionQuickScannerPanel),
+          findsOneWidget,
+          reason:
+              'explicit Merge remains available without pending raw material',
+        );
+        await tester.tap(find.text('Merge'));
+        await tester.pump();
+        expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+      },
     );
-    await tester.tap(find.byTooltip('Qabul qilish'));
-    await tester.pumpAndSettle();
-    expect(find.text('Hali qabul qilinmagan homashyo yo‘q'), findsOneWidget);
-    expect(find.text('0 ta'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('receive-additional-raw-material')),
-      findsNothing,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey('production-intake-materials-expansion'),
-        ),
-        matching: find.byIcon(Icons.expand_more_rounded),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey('production-quick-scanner-manual')),
-      findsNothing,
-    );
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
-  });
+  }
 
   testWidgets('worker order cards use the shared production status colors', (
     tester,

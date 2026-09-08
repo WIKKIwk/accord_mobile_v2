@@ -245,6 +245,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
       control: _inProgressQueueControl(
         allowMerge: true,
         allowRollComplete: true,
+        materialIntakeAllowed: true,
         completeRequiresFullReport: true,
         stageNodeId: 'apparatus',
         rezkaOutputKadrCounts: const [1, 2],
@@ -296,6 +297,12 @@ void _registeradmin_production_map_test_screen_testCases19() {
     await tester.pumpAndSettle();
     expect(find.text('Rulonni tugatish'), findsNothing);
     expect(find.text('Merge'), findsOneWidget);
+    expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+    expect(find.text('Hali qabul qilinmagan homashyo yo‘q'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('receive-additional-raw-material')),
+      findsNothing,
+    );
     expect(
       find.byKey(const ValueKey('production-order-rezka-merge-state')),
       findsOneWidget,
@@ -320,6 +327,8 @@ void _registeradmin_production_map_test_screen_testCases19() {
     await tester.tap(find.text('Merge'));
     await tester.pump();
 
+    expect(find.byType(ProductionQuickScannerPanel), findsNothing,
+        reason: 'closing Merge must unmount its live camera immediately');
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
 
