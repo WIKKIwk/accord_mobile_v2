@@ -58,6 +58,8 @@ void _registeradmin_production_map_test_screen_testCases12() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ko‘chirish'), findsOneWidget);
+    await tester.tap(find.text('Buyurtmalar'));
+    await tester.pumpAndSettle();
     expect(find.byIcon(Icons.add_rounded), findsOneWidget);
     await tester.tap(find.text('Ko‘chirish'));
     await tester.pumpAndSettle();

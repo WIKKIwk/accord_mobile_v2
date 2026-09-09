@@ -40,7 +40,7 @@ class _AdminProductionMapOrdersScreenState
   int _liveReconnectAttempt = 0;
   String _searchQuery = '';
 
-  _OpenedOrderModule _module = _OpenedOrderModule.orders;
+  _OpenedOrderModule _module = _OpenedOrderModule.sequence;
 
   AdminApparatus? _selectedApparatus;
   bool _userChangedSequenceApparatus = false;

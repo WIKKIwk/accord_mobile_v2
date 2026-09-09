@@ -1,6 +1,6 @@
 part of 'admin_production_map_orders_screen.dart';
 
-enum _OpenedOrderModule { orders, move, sequence, closed, audit }
+enum _OpenedOrderModule { sequence, orders, move, closed, audit }
 
 enum _OrderLongPressAction {
   freeze,

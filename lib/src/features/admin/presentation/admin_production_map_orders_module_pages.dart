@@ -169,8 +169,8 @@ class _AdminModulesBody extends StatelessWidget {
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
   String _moduleLabel(_OpenedOrderModule module) {
     return switch (module) {
-      _OpenedOrderModule.orders => 'Buyurtmalar',
       _OpenedOrderModule.sequence => 'Ketma-ketlik',
+      _OpenedOrderModule.orders => 'Buyurtmalar',
       _OpenedOrderModule.move => 'Ko‘chirish',
       _OpenedOrderModule.closed => 'Yopilgan',
       _OpenedOrderModule.audit => 'Tekshiruv',
@@ -204,22 +204,6 @@ class _AdminModulesBody extends StatelessWidget {
             children: [
               for (final module in modules)
                 switch (module) {
-                  _OpenedOrderModule.orders => _OrdersModulePage(
-                      bottomPadding: bottomPadding,
-                      orders: activeOrders,
-                      apparatusCatalog: apparatus,
-                      visibleOrders: _visibleOrders(
-                        orders: activeOrders,
-                        query: searchQuery,
-                      ),
-                      customerNameByMapId: customerNameByMapId,
-                      orderStatusesByOrderId: orderStatusesByOrderId,
-                      orderControlsByOrderId: orderControlsByOrderId,
-                      queueStatesByApparatus: queueStatesByApparatus,
-                      visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
-                      onInfoOrder: onInfoOrder,
-                      onLongPressOrder: onLongPressOrder,
-                    ),
                   _OpenedOrderModule.sequence => _SequenceModulePage(
                       bottomPadding: bottomPadding,
                       availableApparatus: apparatus,
@@ -247,6 +231,22 @@ class _AdminModulesBody extends StatelessWidget {
                                 apparatus: selectedApparatus!,
                                 order: order,
                               ),
+                      onLongPressOrder: onLongPressOrder,
+                    ),
+                  _OpenedOrderModule.orders => _OrdersModulePage(
+                      bottomPadding: bottomPadding,
+                      orders: activeOrders,
+                      apparatusCatalog: apparatus,
+                      visibleOrders: _visibleOrders(
+                        orders: activeOrders,
+                        query: searchQuery,
+                      ),
+                      customerNameByMapId: customerNameByMapId,
+                      orderStatusesByOrderId: orderStatusesByOrderId,
+                      orderControlsByOrderId: orderControlsByOrderId,
+                      queueStatesByApparatus: queueStatesByApparatus,
+                      visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
+                      onInfoOrder: onInfoOrder,
                       onLongPressOrder: onLongPressOrder,
                     ),
                   _OpenedOrderModule.move => _MoveModulePage(

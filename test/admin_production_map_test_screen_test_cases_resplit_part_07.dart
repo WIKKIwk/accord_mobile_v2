@@ -241,7 +241,7 @@ void _registeradmin_production_map_test_screen_testCases07() {
     },
   );
 
-  testWidgets('opened orders modules are ordered orders move sequence closed', (
+  testWidgets('opened orders modules are ordered sequence orders move closed', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
@@ -262,14 +262,14 @@ void _registeradmin_production_map_test_screen_testCases07() {
     );
     await tester.pumpAndSettle();
 
+    final sequenceCenter = tester.getCenter(find.text('Ketma-ketlik'));
     final buyurtmalarCenter = tester.getCenter(find.text('Buyurtmalar'));
     final moveCenter = tester.getCenter(find.text('Ko‘chirish'));
-    final sequenceCenter = tester.getCenter(find.text('Ketma-ketlik'));
     final closedCenter = tester.getCenter(find.text('Yopilgan'));
 
+    expect(sequenceCenter.dx, lessThan(buyurtmalarCenter.dx));
     expect(buyurtmalarCenter.dx, lessThan(moveCenter.dx));
-    expect(moveCenter.dx, lessThan(sequenceCenter.dx));
-    expect(sequenceCenter.dx, lessThan(closedCenter.dx));
+    expect(moveCenter.dx, lessThan(closedCenter.dx));
   });
 
   testWidgets('opened orders sequence module picks apparatus and reorders', (
@@ -311,11 +311,15 @@ void _registeradmin_production_map_test_screen_testCases07() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Buyurtmalar'), findsOneWidget);
     expect(find.text('Ketma-ketlik'), findsOneWidget);
+    expect(find.text('Buyurtmalar'), findsOneWidget);
     expect(find.text('Ko‘chirish'), findsOneWidget);
     expect(find.text('Yopilgan'), findsOneWidget);
 
+    expect(find.byIcon(Icons.add_rounded), findsNothing);
+
+    await tester.tap(find.text('Buyurtmalar'));
+    await tester.pumpAndSettle();
     expect(find.byIcon(Icons.add_rounded), findsOneWidget);
 
     await tester.tap(find.text('Ketma-ketlik'));
