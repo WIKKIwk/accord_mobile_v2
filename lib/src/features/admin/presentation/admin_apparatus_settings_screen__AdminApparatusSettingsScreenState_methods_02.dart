@@ -77,7 +77,12 @@ extension __AdminApparatusSettingsScreenStateAstPart02
     return ColoredBox(
       color: AppTheme.shellStart(context),
       child: ListView(
-        padding: EdgeInsets.fromLTRB(8, 10, 8, bottomPadding),
+        padding: EdgeInsets.fromLTRB(
+          _adminApparatusPanelGap,
+          _adminApparatusPanelGap,
+          _adminApparatusPanelGap,
+          bottomPadding,
+        ),
         children: [
           FilledButton.icon(
             onPressed: _saving ? null : () => _showEditor(),
@@ -93,45 +98,22 @@ extension __AdminApparatusSettingsScreenStateAstPart02
               ),
             )
           else
-            for (final apparatus in _apparatus)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: ListTile(
-                    leading: Icon(_apparatusIcon(apparatus)),
-                    title: Text(apparatus.name),
-                    subtitle: Text(
-                      '${_apparatusOptionLabel(apparatus.family, context.l10n)}'
-                      ' · ${apparatus.id}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+            M3SegmentSpacedColumn(
+              children: [
+                for (int index = 0; index < _apparatus.length; index++)
+                  _AdminApparatusListRow(
+                    apparatus: _apparatus[index],
+                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                      index,
+                      _apparatus.length,
                     ),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (action) {
-                        if (action == 'edit') {
-                          unawaited(_showEditor(apparatus));
-                        } else if (action == 'settings') {
-                          unawaited(_showSettings(apparatus));
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: 'settings',
-                          child: Text(
-                            context.l10n.adminText('apparatus.settings'),
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Text(context.l10n.adminText('action.edit')),
-                        ),
-                      ],
-                    ),
-                    onTap: () => _showSettings(apparatus),
+                    onTap: () => _showSettings(_apparatus[index]),
+                    onEdit: () => unawaited(_showEditor(_apparatus[index])),
+                    onSettings: () =>
+                        unawaited(_showSettings(_apparatus[index])),
                   ),
-                ),
-              ),
+              ],
+            ),
         ],
       ),
     );
@@ -359,5 +341,93 @@ extension __AdminApparatusSettingsScreenStateAstPart02
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+}
+
+class _AdminApparatusListRow extends StatelessWidget {
+  const _AdminApparatusListRow({
+    required this.apparatus,
+    required this.slot,
+    required this.onTap,
+    required this.onEdit,
+    required this.onSettings,
+  });
+
+  final AdminApparatus apparatus;
+  final M3SegmentVerticalSlot slot;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    final familyLabel = _apparatusOptionLabel(apparatus.family, l10n);
+    final subtitleLine = '$familyLabel · ${apparatus.id}';
+
+    return AdminSummaryCard(
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      onTap: onTap,
+      backgroundColor: scheme.surfaceContainerLowest,
+      fixedHeight: 61,
+      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      value: '',
+      showChevron: false,
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            _apparatusIcon(apparatus),
+            size: 16,
+            color: scheme.onSecondaryContainer,
+          ),
+        ),
+      ),
+      title: apparatus.name,
+      subtitle: subtitleLine,
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      titleStyle: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.05,
+          ),
+      trailing: PopupMenuButton<String>(
+        icon: Icon(
+          Icons.more_horiz_rounded,
+          size: 20,
+          color: scheme.onSurfaceVariant,
+        ),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        onSelected: (action) {
+          if (action == 'edit') {
+            onEdit();
+          } else if (action == 'settings') {
+            onSettings();
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: 'settings',
+            child: Text(
+              l10n.adminText('apparatus.settings'),
+            ),
+          ),
+          PopupMenuItem(
+            value: 'edit',
+            child: Text(l10n.adminText('action.edit')),
+          ),
+        ],
+      ),
+    );
   }
 }

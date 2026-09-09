@@ -12,7 +12,12 @@ extension __AdminApparatusSettingsScreenStateAstPart03
       color: AppTheme.shellStart(context),
       child: ListView(
         key: const ValueKey('canonical-apparatus-groups-list'),
-        padding: EdgeInsets.fromLTRB(8, 10, 8, bottomPadding),
+        padding: EdgeInsets.fromLTRB(
+          _adminApparatusPanelGap,
+          _adminApparatusPanelGap,
+          _adminApparatusPanelGap,
+          bottomPadding,
+        ),
         children: [
           Card(
             child: Padding(
