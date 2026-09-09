@@ -18,6 +18,7 @@ import '../logic/factory_map_bindings.dart';
 import 'admin_apparatus_capacity_panel.dart';
 import 'admin_factory_map_viewer.dart';
 import 'admin_queue_policy_screen.dart';
+import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_navigation_drawer.dart';
@@ -113,7 +114,19 @@ class _AdminApparatusSettingsScreenState
               ),
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-        bottom: const AdminDock(activeTab: AdminDockTab.home),
+        bottom: AdminDock(
+          activeTab: AdminDockTab.home,
+          primaryFabActions: _selectedModule == AdminApparatusModule.catalog
+              ? [
+                  AdminFabMenuAction(
+                    title: context.l10n.adminText('apparatus.add'),
+                    icon: Icons.precision_manufacturing_outlined,
+                    onTap: () => unawaited(_showEditor()),
+                    enabled: !_saving,
+                  ),
+                ]
+              : null,
+        ),
         contentPadding: EdgeInsets.zero,
         child: _loading
             ? const Center(child: AppLoadingIndicator())

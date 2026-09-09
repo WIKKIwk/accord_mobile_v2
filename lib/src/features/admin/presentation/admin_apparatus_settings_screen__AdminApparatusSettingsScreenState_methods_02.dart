@@ -79,17 +79,11 @@ extension __AdminApparatusSettingsScreenStateAstPart02
       child: ListView(
         padding: EdgeInsets.fromLTRB(
           _adminApparatusPanelGap,
-          _adminApparatusPanelGap,
+          8,
           _adminApparatusPanelGap,
           bottomPadding,
         ),
         children: [
-          FilledButton.icon(
-            onPressed: _saving ? null : () => _showEditor(),
-            icon: const Icon(Icons.add_rounded),
-            label: Text(context.l10n.adminText('apparatus.add')),
-          ),
-          const SizedBox(height: 12),
           if (_apparatus.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 32),
