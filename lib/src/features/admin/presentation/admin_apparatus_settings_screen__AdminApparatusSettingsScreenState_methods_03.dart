@@ -24,7 +24,6 @@ extension __AdminApparatusSettingsScreenStateAstPart03
         ),
         children: [
           AppSegmentSurfaceCard(
-            slot: M3SegmentVerticalSlot.standalone,
             backgroundColor: scheme.surfaceContainerLowest,
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             child: Row(
@@ -123,7 +122,6 @@ extension __AdminApparatusSettingsScreenStateAstPart03
           ),
           const SizedBox(height: 8),
           AppSegmentSurfaceCard(
-            slot: M3SegmentVerticalSlot.standalone,
             backgroundColor: scheme.surfaceContainerLowest,
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             child: Row(

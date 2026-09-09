@@ -14,14 +14,7 @@ AdminApparatusModule _moduleFromSettingsTab(AdminApparatusSettingsTab tab) {
   };
 }
 
-int _apparatusSettingsTabIndex(AdminApparatusSettingsTab tab) {
-  return switch (tab) {
-    AdminApparatusSettingsTab.create => 0,
-    AdminApparatusSettingsTab.groups => 1,
-    AdminApparatusSettingsTab.queue => 2,
-    AdminApparatusSettingsTab.capacity => 3,
-  };
-}
+
 
 class AdminApparatusSettingsScreen extends StatefulWidget {
   const AdminApparatusSettingsScreen({
