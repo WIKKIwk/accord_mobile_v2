@@ -223,15 +223,21 @@ class _AdminApparatusCollectionGroupCardState
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
       child: Theme(
-        data: theme.copyWith(dividerColor: Colors.transparent),
+        data: theme.copyWith(
+          dividerColor: Colors.transparent,
+          visualDensity: VisualDensity.compact,
+        ),
         child: ExpansionTile(
           key: ValueKey(
             'custom-apparatus-collection-${widget.collection.id}',
           ),
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          minTileHeight: 58,
           onExpansionChanged: (expanded) {
             setState(() => _isExpanded = expanded);
           },
-          tilePadding: const EdgeInsets.fromLTRB(14, 4, 8, 4),
+          tilePadding: const EdgeInsets.fromLTRB(14, 0, 8, 0),
           childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
           leading: SizedBox.square(
             dimension: 30,
@@ -390,15 +396,21 @@ class _AdminApparatusCanonicalGroupCardState
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
       child: Theme(
-        data: theme.copyWith(dividerColor: Colors.transparent),
+        data: theme.copyWith(
+          dividerColor: Colors.transparent,
+          visualDensity: VisualDensity.compact,
+        ),
         child: ExpansionTile(
           key: ValueKey(
             'canonical-apparatus-group-${widget.group.operation}',
           ),
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          minTileHeight: 58,
           onExpansionChanged: (expanded) {
             setState(() => _isExpanded = expanded);
           },
-          tilePadding: const EdgeInsets.fromLTRB(14, 4, 12, 4),
+          tilePadding: const EdgeInsets.fromLTRB(14, 0, 12, 0),
           childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
           leading: SizedBox.square(
             dimension: 30,
