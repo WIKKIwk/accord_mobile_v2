@@ -120,6 +120,16 @@ class _WerkaStockEntryQrScanScreenState
     await _stopScanner();
 
     try {
+      // Printed paddon QRs are bare five-digit codes. Confirm their identity
+      // before falling back to stock lookup: stock barcodes can be numeric too.
+      if (RegExp(r'^\d{5}$').hasMatch(rawValue) && await _isPaddon(rawValue)) {
+        if (!mounted) return;
+        await Navigator.of(context).pushReplacementNamed(
+          AppRoutes.werkaPaddonReceive,
+          arguments: rawValue,
+        );
+        return;
+      }
       if (!mounted) {
         return;
       }
@@ -146,9 +156,25 @@ class _WerkaStockEntryQrScanScreenState
     }
   }
 
+  Future<bool> _isPaddon(String code) async {
+    try {
+      await MobileApi.instance.werkaPaddonPreview(code);
+      return true;
+    } on MobileApiException catch (error) {
+      // Only a confirmed missing pallet may use the legacy lookup. Permission,
+      // network and missing-endpoint errors must not be disguised as stock QR.
+      if (error.code == 'paddon_not_found') return false;
+      rethrow;
+    }
+  }
+
   String _messageForError(Object error) {
     if (error is MobileApiException) {
       return switch (error.code) {
+        'forbidden' =>
+          'Paddonni ko‘rishga ruxsat yo‘q. Sizga ombor biriktirilganini tekshiring.',
+        'paddon_preview_failed' =>
+          'Paddon ma’lumotini olib bo‘lmadi. Qayta urinib ko‘ring.',
         'stock_entry_not_found' => 'Bu barcode bo‘yicha stock entry topilmadi.',
         'direct_db_lookup_unavailable' =>
           'Barcode lookup vaqtincha ishlamayapti.',

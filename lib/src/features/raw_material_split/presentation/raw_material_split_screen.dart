@@ -52,6 +52,12 @@ class _OutputDraft {
 class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
   final _barcode = TextEditingController();
   final _waste = TextEditingController();
+  final _issueNote = TextEditingController();
+  final _issueKey = GlobalKey();
+  bool _showIssue = false;
+  bool _issueSaved = false;
+  String? _issueError;
+  Map<String, dynamic>? _pendingIssue;
   final _outputs = <_OutputDraft>[];
   RawSplitRoll? _source;
   RawSplitSnapshot? _snapshot;
@@ -62,7 +68,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
   String? _error;
   bool _busy = false;
   late final String _scope;
-  bool get _locked => _busy || _pending != null;
+  bool get _locked => _busy || _pending != null || _pendingIssue != null;
   @override
   void initState() {
     super.initState();
@@ -74,6 +80,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
   void dispose() {
     _barcode.dispose();
     _waste.dispose();
+    _issueNote.dispose();
     for (final o in _outputs) {
       o.dispose();
     }
@@ -93,6 +100,9 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
       final pending = await MobileApi.instance.rawSplitPending();
       _checkScope();
       setState(() => _pending = pending);
+      final pendingIssue = await MobileApi.instance.rawSplitIssuePending();
+      _checkScope();
+      setState(() => _pendingIssue = pendingIssue);
       final snapshot = await MobileApi.instance.rawSplitSnapshot();
       _checkScope();
       setState(() => _snapshot = snapshot);
@@ -130,6 +140,10 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
           ..clear()
           ..add(_OutputDraft());
         _waste.clear();
+        _issueNote.clear();
+        _showIssue = false;
+        _issueSaved = false;
+        _issueError = null;
       });
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -138,17 +152,10 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
     }
   }
 
-  Map<String, dynamic> _payload() {
+  Map<String, dynamic> _payload({bool issue = false}) {
     final source = _source!;
     _widthPlan.validateForSave();
-    if (_waste.text.trim().isEmpty) {
-      throw const FormatException('Atxot kg ni kiriting (0 dan katta)');
-    }
-    final waste = rawSplitQuantity(_waste.text, allowZero: true);
-    if (waste == BigInt.zero) {
-      throw const FormatException('Atxot 0 dan katta bo‘lishi kerak');
-    }
-    var sum = waste;
+    var sum = BigInt.zero;
     final outputs = <Map<String, String>>[];
     for (final o in _outputs) {
       if (o.gross.text.trim().isEmpty || o.bobina.text.trim().isEmpty) {
@@ -169,9 +176,11 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
             rawSplitDecimal(rawSplitQuantity(o.bobina.text, allowZero: true)),
       });
     }
-    if (sum != rawSplitQuantity(source.kg)) {
-      throw const FormatException(
-          'Rulonlar + chiqindi asl kg ga aniq teng bo‘lsin');
+    final check =
+        RawSplitWasteCheck(rawSplitQuantity(source.kg), sum, _waste.text);
+    if (!issue && check.kind != null) throw _WasteInputError();
+    if (issue && check.kind == null) {
+      throw StateError('Hisob teng, vazn xatosi yo‘q');
     }
     return {
       'request_id': newRawSplitRequestId(),
@@ -180,7 +189,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
       'expected_kg': source.kg,
       'expected_width_mm': source.widthMm,
       'expected_micron': source.micron,
-      'waste_kg': rawSplitDecimal(waste),
+      'waste_kg': issue ? _waste.text.trim() : rawSplitDecimal(check.waste!),
       'outputs': outputs
     };
   }
@@ -212,6 +221,17 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
         _barcode.clear();
       });
       await _print(result);
+    } on _WasteInputError {
+      if (mounted) {
+        setState(() => _showIssue = true);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final target = _issueKey.currentContext;
+          if (mounted && target != null) {
+            Scrollable.ensureVisible(target,
+                duration: const Duration(milliseconds: 200));
+          }
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _error =
@@ -223,6 +243,90 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
         await _reload();
       }
     }
+  }
+
+  RawSplitWasteCheck? get _wasteCheck {
+    if (_source == null) return null;
+    try {
+      return RawSplitWasteCheck(
+          rawSplitQuantity(_source!.kg),
+          _outputs.fold(BigInt.zero, (sum, output) => sum + output.net),
+          _waste.text);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  Future<void> _saveIssue({bool retry = false}) async {
+    if (_busy || (!retry && (_locked || _issueSaved))) return;
+    setState(() {
+      _busy = true;
+      _issueError = null;
+      _error = null;
+    });
+    try {
+      if (!retry && _issueNote.text.trim().isEmpty) {
+        throw const FormatException('Farq sababini yozing');
+      }
+      final payload = retry
+          ? _pendingIssue!
+          : {
+              'command': _payload(issue: true),
+              'note': _issueNote.text.trim(),
+            };
+      await MobileApi.instance.rawSplitReportIssue(payload);
+      if (!mounted) return;
+      _checkScope();
+      setState(() {
+        _pendingIssue = null;
+        _issueSaved = true;
+      });
+      if (_source == null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Muammo saqlandi')));
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() =>
+            _issueError = e is FormatException ? e.message : e.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+        await _reload();
+      }
+    }
+  }
+
+  Widget _issueForm() {
+    final check = _wasteCheck;
+    if (!_showIssue || check?.kind == null) return const SizedBox.shrink();
+    return Column(
+        key: _issueKey,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(check!.message,
+              style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _issueNote,
+            enabled: !_locked && !_issueSaved,
+            minLines: 2,
+            maxLines: 3,
+            maxLength: 1000,
+            decoration: const InputDecoration(labelText: 'Farq sababi'),
+          ),
+          if (_issueError != null)
+            Text(_issueError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          if (_issueSaved)
+            const Text('Muammo saqlandi. Chop etish uchun hisobni to‘g‘rilang.')
+          else
+            OutlinedButton(
+                onPressed: _locked ? null : () => _saveIssue(),
+                child: const Text('Muammoni saqlash')),
+          const SizedBox(height: 16),
+        ]);
   }
 
   Future<void> _print(RawSplitResult result) async {
@@ -354,7 +458,10 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                 ? null
                 : inputTheme.focusedErrorBorder ?? errorBorder),
         onSubmitted: onDone == null ? null : (_) => onDone(),
-        onChanged: (_) => setState(() {}));
+        onChanged: (_) => setState(() {
+              _issueSaved = false;
+              _issueError = null;
+            }));
   }
 
   @override
@@ -395,6 +502,17 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                 FilledButton(
                     onPressed: _busy ? null : () => _save(retry: true),
                     child: const Text('Tekshirish va chop etish')),
+                const SizedBox(height: 24),
+              ],
+              if (_pendingIssue != null) ...[
+                const Text('Oldingi muammo qaydi natijasini tekshiring.'),
+                if (_issueError != null)
+                  Text(_issueError!,
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.error)),
+                OutlinedButton(
+                    onPressed: _busy ? null : () => _saveIssue(retry: true),
+                    child: const Text('Muammo qaydini tekshirish')),
                 const SizedBox(height: 24),
               ],
               Text(
@@ -466,6 +584,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                             : () {
                                 setState(() {
                                   _outputs.removeAt(i).dispose();
+                                  _issueSaved = false;
                                 });
                               },
                         icon: const Icon(Icons.close))
@@ -515,6 +634,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                 const Divider(height: 32),
                 _number(_waste, 'Atxot (kg) *'),
                 const SizedBox(height: 16),
+                _issueForm(),
                 for (var i = 0; i < _outputs.length; i++)
                   if (_widthPlan.errors[i] != null) ...[
                     Text('${i + 1}-rulon: ${_widthPlan.errors[i]}',
@@ -539,3 +659,5 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
             ]),
       );
 }
+
+class _WasteInputError implements Exception {}

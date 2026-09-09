@@ -1,11 +1,44 @@
 import 'package:accord_mobile_v2/src/core/native_iroh_transport.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('accord/iroh_transport');
+  test('missing native Iroh bridge reports unsupported', () async {
+    expect(await NativeIrohTransport.isSupported(), isFalse);
+  });
+
+  for (final method in ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE']) {
+    test('missing native Iroh bridge uses direct HTTP for $method', () async {
+      var requests = 0;
+      final uri = Uri.parse('https://test.invalid/orders?limit=1');
+      final body = method == 'GET' || method == 'HEAD' ? '' : '{"id":1}';
+      final response = await http.runWithClient(
+        () => NativeIrohTransport.send(
+          method: method,
+          uri: uri,
+          headers: {'authorization': 'Bearer test-token'},
+          body: body,
+        ),
+        () => MockClient((request) async {
+          requests++;
+          expect(request.method, method);
+          expect(request.url, uri);
+          expect(request.headers['authorization'], 'Bearer test-token');
+          expect(request.body, body);
+          return http.Response('{"ok":true}', 200);
+        }),
+      );
+      expect(requests, 1);
+      expect(response.statusCode, 200);
+      expect(response.body, '{"ok":true}');
+    });
+  }
+
   for (final method in ['POST', 'PUT', 'PATCH', 'DELETE']) {
     test('native $method failure is not silently replayed', () async {
       SharedPreferences.setMockInitialValues(

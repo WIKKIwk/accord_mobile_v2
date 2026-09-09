@@ -124,7 +124,103 @@ class RawSplitSnapshot {
         history = (json['history'] as List)
             .map((e) =>
                 RawSplitResult.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(growable: false),
+        issues = ((json['issues'] as List?) ?? const [])
+            .map((e) =>
+                RawSplitIssue.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList(growable: false);
   final List<String> warehouses;
   final List<RawSplitResult> history;
+  final List<RawSplitIssue> issues;
+}
+
+/// Waste is measured, never inferred or silently replaced by the difference.
+class RawSplitWasteCheck {
+  RawSplitWasteCheck(this.source, this.output, String enteredWaste) {
+    try {
+      waste = rawSplitQuantity(enteredWaste, allowZero: true);
+    } on FormatException {
+      waste = null;
+    }
+  }
+
+  final BigInt source, output;
+  late final BigInt? waste;
+  BigInt? get difference => waste == null ? null : source - output - waste!;
+  String? get kind => waste == null
+      ? 'invalid_waste'
+      : waste == BigInt.zero
+          ? 'zero_waste'
+          : difference! > BigInt.zero
+              ? 'missing_weight'
+              : difference! < BigInt.zero
+                  ? 'excess_weight'
+                  : null;
+
+  String get message {
+    if (waste == null) {
+      return 'Atxot kg ni kiriting (0 dan katta, ko‘pi bilan 6 kasr xona).';
+    }
+    final lines = <String>[];
+    if (waste == BigInt.zero) lines.add('Atxot 0 dan katta bo‘lishi kerak.');
+    final delta = difference!;
+    final amount =
+        rawSplitDecimal(delta.abs()).replaceFirst(RegExp(r'\.?0+$'), '');
+    if (delta > BigInt.zero) {
+      lines.add('$amount kg hisobga olinmagan — yetishmayapti.');
+    }
+    if (delta < BigInt.zero) lines.add('Asl vazndan $amount kg oshib ketdi.');
+    return lines.join('\n');
+  }
+}
+
+class RawSplitIssue {
+  RawSplitIssue.fromJson(Map<String, dynamic> json)
+      : id = _required(json, 'id'),
+        requestId = _required(json, 'request_id'),
+        source = RawSplitRoll.fromJson(
+            Map<String, dynamic>.from(json['source'] as Map)),
+        note = _required(json, 'note'),
+        actorRef = _required(json, 'actor_ref'),
+        actorName = _required(json, 'actor_name'),
+        createdAt = DateTime.parse(_required(json, 'created_at')),
+        enteredWaste = json['entered_waste_kg'] as String,
+        outputs = (json['outputs'] as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(growable: false) {
+    var sum = BigInt.zero;
+    for (final output in outputs) {
+      final net = rawSplitQuantity(_required(output, 'kg'));
+      if (rawSplitQuantity(_required(output, 'gross_kg')) -
+              rawSplitQuantity(_required(output, 'bobina_kg'),
+                  allowZero: true) !=
+          net) {
+        throw const FormatException('Muammodagi netto hisobi noto‘g‘ri');
+      }
+      rawSplitQuantity(_required(output, 'width_mm'));
+      sum += net;
+    }
+    check = RawSplitWasteCheck(rawSplitQuantity(source.kg), sum, enteredWaste);
+    final delta = check.difference;
+    final expectedDelta = delta == null
+        ? null
+        : '${delta.isNegative ? '-' : ''}${rawSplitDecimal(delta.abs())}';
+    if (outputs.isEmpty ||
+        outputs.length > 100 ||
+        check.kind == null ||
+        json['kind'] != check.kind ||
+        rawSplitQuantity(_required(json, 'source_kg')) != check.source ||
+        json['output_kg'] != rawSplitDecimal(sum) ||
+        json['difference_kg'] != expectedDelta ||
+        json['waste_kg'] !=
+            (check.waste == null ? null : rawSplitDecimal(check.waste!))) {
+      throw const FormatException('Muammo hisobining javobi noto‘g‘ri');
+    }
+  }
+
+  final String id, requestId, note, actorRef, actorName, enteredWaste;
+  final DateTime createdAt;
+  final RawSplitRoll source;
+  final List<Map<String, dynamic>> outputs;
+  late final RawSplitWasteCheck check;
 }

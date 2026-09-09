@@ -87,6 +87,26 @@ http.Response _json(Object body, [int status = 200]) =>
     http.Response(jsonEncode(body), status,
         headers: {'content-type': 'application/json; charset=utf-8'});
 
+Map<String, dynamic> _issueResult(Map<String, dynamic> payload) {
+  final command = payload['command'] as Map;
+  return {
+    'id': 'raw-issue:test',
+    'request_id': command['request_id'],
+    'source': _source,
+    'source_kg': '100.000000',
+    'output_kg': '98.000000',
+    'entered_waste_kg': command['waste_kg'],
+    'waste_kg': '1.000000',
+    'difference_kg': '1.000000',
+    'kind': 'missing_weight',
+    'outputs': command['outputs'],
+    'note': (payload['note'] as String).trim(),
+    'actor_ref': 'split-1',
+    'actor_name': 'Cutter',
+    'created_at': '2026-09-08T12:00:00+00:00',
+  };
+}
+
 Future<void> _submitWidth(WidgetTester tester, int index, String width) async {
   await tester.enterText(
       find.widgetWithText(TextField, 'Eni (mm)').at(index), width);
@@ -111,6 +131,188 @@ void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+  });
+  test(
+      'waste errors preserve measurements and distinguish zero, missing and excess',
+      () {
+    for (final entry in [
+      ('0', 'zero_waste', '2 kg hisobga olinmagan'),
+      ('00,000000', 'zero_waste', '2 kg hisobga olinmagan'),
+      ('1', 'missing_weight', '1 kg hisobga olinmagan'),
+      ('2.000001', 'excess_weight', 'Asl vazndan 0.000001 kg oshib ketdi'),
+      ('', 'invalid_waste', 'Atxot kg ni kiriting'),
+      ('bad', 'invalid_waste', 'Atxot kg ni kiriting'),
+      ('-1', 'invalid_waste', 'Atxot kg ni kiriting'),
+      ('1.', 'invalid_waste', 'Atxot kg ni kiriting'),
+    ]) {
+      final check = RawSplitWasteCheck(
+          rawSplitQuantity('100'), rawSplitQuantity('98'), entry.$1);
+      expect(check.kind, entry.$2);
+      expect(check.message, contains(entry.$3));
+      if (check.kind == 'invalid_waste') expect(check.difference, isNull);
+    }
+    expect(
+        RawSplitWasteCheck(rawSplitQuantity('100'), rawSplitQuantity('98'), '2')
+            .kind,
+        isNull);
+  });
+
+  test(
+      'issue retry survives lost or invalid response and stays separate from stock',
+      () async {
+    final payload = {
+      'command': _payload()..['waste_kg'] = '1',
+      'note': 'Tarozi tekshirilsin'
+    };
+    final calls = <String>[];
+    var attempt = 0;
+    await http.runWithClient(() async {
+      await expectLater(MobileApi.instance.rawSplitReportIssue(payload),
+          throwsA(isA<http.ClientException>()));
+      expect(await MobileApi.instance.rawSplitIssuePending(), payload);
+      expect(await MobileApi.instance.rawSplitPending(), isNull);
+      AppSession.instance.profile = _profile.copyWith(ref: 'split-2');
+      expect(await MobileApi.instance.rawSplitIssuePending(), isNull);
+      AppSession.instance.profile = _profile;
+      await expectLater(
+          MobileApi.instance
+              .rawSplitReportIssue({...payload, 'note': 'Changed'}),
+          throwsStateError);
+      await expectLater(MobileApi.instance.rawSplitReportIssue(payload),
+          throwsFormatException);
+      expect(await MobileApi.instance.rawSplitIssuePending(), payload);
+      final saved = await MobileApi.instance.rawSplitReportIssue(
+          (await MobileApi.instance.rawSplitIssuePending())!);
+      expect(saved.check.difference, rawSplitQuantity('1'));
+      expect(await MobileApi.instance.rawSplitIssuePending(), isNull);
+      expect(calls.length, 3);
+      expect(calls.toSet().length, 1);
+    },
+        () => MockClient((request) async {
+              expect(request.url.path, '/v1/mobile/raw-material-split/issues');
+              calls.add(request.body);
+              attempt++;
+              if (attempt == 1) throw http.ClientException('lost response');
+              final result = _issueResult(payload);
+              if (attempt == 2) result['difference_kg'] = '2.000000';
+              return _json(result);
+            }));
+  });
+
+  testWidgets(
+      'print exposes inline issue form; reporting saves only audit and appears in history',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    Map<String, dynamic>? report;
+    final posts = <String>[];
+    Widget app(Widget home) => MaterialApp(
+          theme: AppTheme.light(),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: home,
+        );
+    Future<void> tap(String text) async {
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text(text));
+      await tester.tap(find.text(text));
+      await tester.pumpAndSettle();
+    }
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const RawMaterialSplitScreen()));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'parent');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      await _submitWidth(tester, 0, '700');
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Og‘irlik (kg)'), '99');
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Babina (kg)'), '1');
+      final waste = find.widgetWithText(TextField, 'Atxot (kg) *');
+      await tester.enterText(waste, '0');
+      expect(find.widgetWithText(TextField, 'Farq sababi'), findsNothing);
+      await tap('Saqlash va chop etish');
+      expect(find.textContaining('2 kg hisobga olinmagan'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Farq sababi'), findsOneWidget);
+      expect(posts, isEmpty);
+      expect(find.byType(ServerPickerPage), findsNothing);
+      expect(tester.widget<TextField>(waste).controller!.text, '0');
+      expect(tester.getRect(find.textContaining('2 kg hisobga olinmagan')).top,
+          greaterThanOrEqualTo(tester.getRect(waste).bottom));
+      await tap('Muammoni saqlash');
+      expect(find.text('Farq sababini yozing'), findsOneWidget);
+      expect(posts, isEmpty);
+      await tester.enterText(waste, '1');
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Farq sababi'), 'Tarozi tekshirilsin');
+      await tap('Muammoni saqlash');
+      expect(posts, ['/v1/mobile/raw-material-split/issues']);
+      expect(
+          find.text('Muammo saqlandi. Chop etish uchun hisobni to‘g‘rilang.'),
+          findsOneWidget);
+      expect(tester.widget<TextField>(waste).controller!.text, '1');
+      await tap('Saqlash va chop etish');
+      expect(posts.length, 1); // Reporting never permits an invalid stock save.
+      expect(find.byType(ServerPickerPage), findsNothing);
+      await tester.enterText(waste, '2');
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, 'Farq sababi'), findsNothing);
+      expect(find.textContaining('Hisob teng ✓'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(app(const RawMaterialSplitHistoryScreen()));
+      await tester.pumpAndSettle();
+      expect(find.text('Muammolar'), findsOneWidget);
+      await tester.tap(find.byType(ExpansionTile));
+      await tester.pumpAndSettle();
+      expect(find.text('Sabab: Tarozi tekshirilsin'), findsOneWidget);
+      expect(find.text('QR: parent'), findsOneWidget);
+      expect(find.textContaining('Cutter ·'), findsOneWidget);
+      expect(find.byTooltip('Shu rulonni qayta chop etish'), findsNothing);
+      expect(find.text('Muammo qaydi. Ombor hisobi o‘zgartirilmagan.'),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+        () => MockClient((request) async {
+              if (request.method == 'POST') {
+                posts.add(request.url.path);
+                expect(
+                    request.url.path, '/v1/mobile/raw-material-split/issues');
+                final body =
+                    Map<String, dynamic>.from(jsonDecode(request.body) as Map);
+                final command = body['command'] as Map;
+                expect(command['waste_kg'], '1');
+                expect(command['outputs'], [
+                  {
+                    'kg': '98.000000',
+                    'gross_kg': '99.000000',
+                    'bobina_kg': '1.000000',
+                    'width_mm': '700.000000'
+                  }
+                ]);
+                report = _issueResult(body);
+                return _json(report!);
+              }
+              if (request.url.path.endsWith('/source')) return _json(_source);
+              return _json({
+                'warehouses': ['Raw W'],
+                'history': [],
+                'issues': [if (report != null) report]
+              });
+            }));
   });
   test('width plans enforce 355 mm, exact total and usable remainder', () {
     final one = RawSplitWidthPlan('700', ['400']);
@@ -703,9 +905,7 @@ void main() {
       await tester.tap(find.text('Saqlash va chop etish'));
       await tester.pumpAndSettle();
       expect(saves, 0);
-      expect(
-          find.textContaining(
-              'Rulonlar + chiqindi asl kg ga aniq teng bo‘lsin'),
+      expect(find.textContaining('Asl vazndan 0.000001 kg oshib ketdi'),
           findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();

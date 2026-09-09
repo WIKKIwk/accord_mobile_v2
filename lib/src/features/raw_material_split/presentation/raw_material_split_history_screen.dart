@@ -115,6 +115,7 @@ class _RawMaterialSplitHistoryScreenState
   @override
   Widget build(BuildContext context) {
     final history = _snapshot?.history ?? const <RawSplitResult>[];
+    final issues = _snapshot?.issues ?? const <RawSplitIssue>[];
     return AppShell(
       leading: IconButton(
         tooltip: 'Orqaga',
@@ -154,7 +155,7 @@ class _RawMaterialSplitHistoryScreenState
                 padding: EdgeInsets.only(top: 24),
                 child: Center(child: CircularProgressIndicator()),
               )
-            else if (history.isEmpty)
+            else if (history.isEmpty && issues.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(top: 24),
                 child: Text('Hali bo‘lish tarixi yo‘q.'),
@@ -196,6 +197,38 @@ class _RawMaterialSplitHistoryScreenState
                   busy: _busy,
                   onReprint: (output) => _reprint(result, only: output),
                   onReprintAll: () => _reprint(result),
+                ),
+            ],
+            if (issues.isNotEmpty) ...[
+              const Divider(height: 32),
+              Text('Muammolar', style: Theme.of(context).textTheme.titleMedium),
+              for (final issue in issues)
+                Material(
+                  type: MaterialType.transparency,
+                  child: ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: Text(issue.source.itemName),
+                    subtitle: Text(issue.check.message),
+                    childrenPadding: const EdgeInsets.only(bottom: 16),
+                    expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text('QR: ${issue.source.barcode}'),
+                      Text(
+                          'Asl: ${rawSplitDisplay(issue.source.kg)} kg · Atxot: ${issue.enteredWaste.isEmpty ? 'kiritilmagan' : issue.enteredWaste} kg'),
+                      for (var i = 0; i < issue.outputs.length; i++)
+                        Text(
+                            '${i + 1}-rulon: ${rawSplitDisplay(issue.outputs[i]['width_mm'] as String)} mm · '
+                            'Og‘irlik: ${rawSplitDisplay(issue.outputs[i]['gross_kg'] as String)} kg · '
+                            'Babina: ${rawSplitDisplay(issue.outputs[i]['bobina_kg'] as String)} kg · '
+                            'Netto: ${rawSplitDisplay(issue.outputs[i]['kg'] as String)} kg'),
+                      const SizedBox(height: 8),
+                      Text('Sabab: ${issue.note}'),
+                      Text('${issue.actorName} · ${issue.createdAt.toLocal()}',
+                          style: Theme.of(context).textTheme.bodySmall),
+                      const Text(
+                          'Muammo qaydi. Ombor hisobi o‘zgartirilmagan.'),
+                    ],
+                  ),
                 ),
             ],
           ],

@@ -6,7 +6,6 @@ import UIKit
 
 class SceneDelegate: FlutterSceneDelegate {
   private var deviceInfoBridge: DeviceInfoChannelBridge?
-  private var irohTransportBridge: IrohTransportChannelBridge?
   private var gscaleBonjourBridge: GScaleBonjourDiscoveryBridge?
   private var gscaleUdpDiscoveryBridge: GScaleUdpDiscoveryBridge?
   private var xprinterBluetoothChannel: XPrinterBluetoothChannel?
@@ -21,7 +20,7 @@ class SceneDelegate: FlutterSceneDelegate {
 
     if let window, let flutterViewController = window.rootViewController as? FlutterViewController {
       deviceInfoBridge = DeviceInfoChannelBridge(messenger: flutterViewController.binaryMessenger)
-      irohTransportBridge = IrohTransportChannelBridge(messenger: flutterViewController.binaryMessenger)
+      // Iroh is temporarily excluded from iOS builds; Dart uses HTTPS/WebSocket.
       gscaleBonjourBridge = GScaleBonjourDiscoveryBridge(
         messenger: flutterViewController.binaryMessenger
       )

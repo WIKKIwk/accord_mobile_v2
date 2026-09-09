@@ -1,6 +1,7 @@
 part of '../mobile_api.dart';
 
 bool _rawSplitSending = false;
+bool _rawSplitIssueSending = false;
 
 extension MobileApiRawMaterialSplit on MobileApi {
   String rawSplitScope() {
@@ -21,6 +22,80 @@ extension MobileApiRawMaterialSplit on MobileApi {
     return raw == null
         ? null
         : Map<String, dynamic>.from(jsonDecode(raw) as Map);
+  }
+
+  Future<Map<String, dynamic>?> rawSplitIssuePending() async {
+    final scope = rawSplitScope();
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('$scope:issue');
+    if (rawSplitScope() != scope) throw StateError('Akkaunt o‘zgargan');
+    return raw == null
+        ? null
+        : Map<String, dynamic>.from(jsonDecode(raw) as Map);
+  }
+
+  /// Issue reports have their own retry key and cannot be replayed as stock.
+  Future<RawSplitIssue> rawSplitReportIssue(
+      Map<String, dynamic> payload) async {
+    if (_rawSplitIssueSending) throw StateError('Muammo saqlanmoqda');
+    _rawSplitIssueSending = true;
+    try {
+      if (await TestModeController.instance.isEnabled()) {
+        throw StateError('Haqiqiy akkaunt kerak');
+      }
+      final scope = rawSplitScope();
+      final key = '$scope:issue';
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(key);
+      final pending = raw == null
+          ? payload
+          : Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      if (jsonEncode(pending) != jsonEncode(payload)) {
+        throw StateError('Avval oldingi muammo natijasini tekshiring');
+      }
+      if (!await prefs.setString(key, jsonEncode(pending))) {
+        throw StateError('Muammo so‘rovi saqlanmadi');
+      }
+      final response = await _sendAuthorized(() {
+        if (rawSplitScope() != scope) throw StateError('Akkaunt o‘zgargan');
+        return _post(
+            Uri.parse(
+                '${MobileApi.baseUrl}/v1/mobile/raw-material-split/issues'),
+            headers: _headers(requireToken())
+              ..['Content-Type'] = 'application/json',
+            body: jsonEncode(pending));
+      });
+      String? code;
+      try {
+        code = (jsonDecode(response.body) as Map)['code'] as String?;
+      } catch (_) {}
+      if (response.statusCode >= 400 &&
+          response.statusCode < 500 &&
+          ['raw_split_invalid', 'raw_split_conflict', 'raw_split_scope']
+              .contains(code)) {
+        await prefs.remove(key);
+      }
+      final result = RawSplitIssue.fromJson(_rawSplitResponse(response));
+      final command = pending['command'] as Map;
+      final outputs = command['outputs'] as List;
+      if (result.requestId != command['request_id'] ||
+          result.source.barcode != command['source_barcode'] ||
+          result.note != (pending['note'] as String).trim() ||
+          result.enteredWaste != command['waste_kg'] ||
+          result.outputs.length != outputs.length ||
+          result.outputs.asMap().entries.any((entry) => entry.value.entries.any(
+              (field) =>
+                  (outputs[entry.key] as Map)[field.key] != field.value))) {
+        throw const FormatException('Boshqa muammoning javobi olindi');
+      }
+      if (!await prefs.remove(key)) {
+        throw StateError('Muammo natijasini qayta tekshiring');
+      }
+      if (rawSplitScope() != scope) throw StateError('Akkaunt o‘zgargan');
+      return result;
+    } finally {
+      _rawSplitIssueSending = false;
+    }
   }
 
   Future<Map<String, dynamic>> _rawSplitRead(String path,

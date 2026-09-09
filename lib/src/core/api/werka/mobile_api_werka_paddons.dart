@@ -45,7 +45,7 @@ extension MobileApiWerkaPaddons on MobileApi {
           headers: _headers(requireToken()),
         ));
     if (response.statusCode != 200)
-      throw _adminProductionMapException(response, 'paddon_not_found');
+      throw _adminProductionMapException(response, 'paddon_preview_failed');
     return WerkaPaddonPreview.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>);
   }
