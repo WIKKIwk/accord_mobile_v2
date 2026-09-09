@@ -10,7 +10,7 @@ TextStyle? _AppTheme_werkaNativeAppBarTitleStyle_resplit2AstPart(
 }
 
 ThemeData _AppTheme_dark_resplit2AstPart(
-    [AppThemeVariant variant = AppThemeVariant.kalmar]) {
+    [AppThemeVariant variant = AppThemeVariant.classic]) {
   final colorScheme = switch (variant) {
     AppThemeVariant.classic => AppTheme._classicDarkScheme(),
     AppThemeVariant.kalmar => AppTheme._kalmarDarkScheme(),
@@ -35,7 +35,7 @@ ThemeData _AppTheme_dark_resplit2AstPart(
 }
 
 ThemeData _AppTheme_light_resplit2AstPart(
-    [AppThemeVariant variant = AppThemeVariant.kalmar]) {
+    [AppThemeVariant variant = AppThemeVariant.classic]) {
   final colorScheme = switch (variant) {
     AppThemeVariant.classic => AppTheme._classicLightScheme(),
     AppThemeVariant.kalmar => AppTheme._kalmarLightScheme(),

@@ -24,10 +24,10 @@ class AppTheme {
   static TextStyle? werkaNativeAppBarTitleStyle(BuildContext context) =>
       _AppTheme_werkaNativeAppBarTitleStyle_resplit2AstPart(context);
 
-  static ThemeData dark([AppThemeVariant variant = AppThemeVariant.kalmar]) =>
+  static ThemeData dark([AppThemeVariant variant = AppThemeVariant.classic]) =>
       _AppTheme_dark_resplit2AstPart(variant);
 
-  static ThemeData light([AppThemeVariant variant = AppThemeVariant.kalmar]) =>
+  static ThemeData light([AppThemeVariant variant = AppThemeVariant.classic]) =>
       _AppTheme_light_resplit2AstPart(variant);
 
   static ColorScheme _kalmarDarkScheme() =>

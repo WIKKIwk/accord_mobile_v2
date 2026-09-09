@@ -17,8 +17,8 @@ class ThemeController extends ChangeNotifier {
   static const String prefsKey = 'app_theme_mode';
   static const String variantPrefsKey = 'app_theme_variant';
 
-  ThemeMode _themeMode = ThemeMode.dark;
-  AppThemeVariant _variant = AppThemeVariant.kalmar;
+  ThemeMode _themeMode = ThemeMode.light;
+  AppThemeVariant _variant = AppThemeVariant.classic;
 
   ThemeMode get themeMode => _themeMode;
   bool get isDark => _themeMode == ThemeMode.dark;
@@ -28,7 +28,7 @@ class ThemeController extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(prefsKey);
     final savedVariant = prefs.getString(variantPrefsKey);
-    _themeMode = saved == 'light' ? ThemeMode.light : ThemeMode.dark;
+    _themeMode = saved == 'dark' ? ThemeMode.dark : ThemeMode.light;
     _variant = _variantFromPrefs(savedVariant);
     notifyListeners();
   }
@@ -64,7 +64,7 @@ class ThemeController extends ChangeNotifier {
       'lavender' => AppThemeVariant.lavender,
       'bliss' => AppThemeVariant.bliss,
       'white' => AppThemeVariant.white,
-      _ => AppThemeVariant.kalmar,
+      _ => AppThemeVariant.classic,
     };
   }
 
