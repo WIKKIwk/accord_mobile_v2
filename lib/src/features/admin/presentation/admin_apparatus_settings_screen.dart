@@ -116,16 +116,25 @@ class _AdminApparatusSettingsScreenState
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
         bottom: AdminDock(
           activeTab: AdminDockTab.home,
-          primaryFabActions: _selectedModule == AdminApparatusModule.catalog
-              ? [
-                  AdminFabMenuAction(
-                    title: context.l10n.adminText('apparatus.add'),
-                    icon: Icons.precision_manufacturing_outlined,
-                    onTap: () => unawaited(_showEditor()),
-                    enabled: !_saving,
-                  ),
-                ]
-              : null,
+          primaryFabActions: switch (_selectedModule) {
+            AdminApparatusModule.catalog => [
+                AdminFabMenuAction(
+                  title: context.l10n.adminText('apparatus.add'),
+                  icon: Icons.precision_manufacturing_outlined,
+                  onTap: () => unawaited(_showEditor()),
+                  enabled: !_saving,
+                ),
+              ],
+            AdminApparatusModule.groups => [
+                AdminFabMenuAction(
+                  title: context.l10n.adminText('apparatus.group_add'),
+                  icon: Icons.create_new_folder_outlined,
+                  onTap: () => unawaited(_showCollectionEditor()),
+                  enabled: !_saving,
+                ),
+              ],
+            _ => null,
+          },
         ),
         contentPadding: EdgeInsets.zero,
         child: _loading

@@ -56,13 +56,6 @@ extension __AdminApparatusSettingsScreenStateAstPart03
               ],
             ),
           ),
-          const SizedBox(height: 10),
-          FilledButton.icon(
-            key: const ValueKey('add-custom-apparatus-collection'),
-            onPressed: _saving ? null : () => _showCollectionEditor(),
-            icon: const Icon(Icons.add_rounded),
-            label: Text(l10n.adminText('apparatus.group_add')),
-          ),
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
