@@ -3,6 +3,17 @@ part of 'admin_apparatus_settings_screen.dart';
 
 enum AdminApparatusSettingsTab { create, groups, queue, capacity }
 
+enum AdminApparatusModule { hub, catalog, groups, queue, capacity }
+
+AdminApparatusModule _moduleFromSettingsTab(AdminApparatusSettingsTab tab) {
+  return switch (tab) {
+    AdminApparatusSettingsTab.create => AdminApparatusModule.hub,
+    AdminApparatusSettingsTab.groups => AdminApparatusModule.groups,
+    AdminApparatusSettingsTab.queue => AdminApparatusModule.queue,
+    AdminApparatusSettingsTab.capacity => AdminApparatusModule.capacity,
+  };
+}
+
 int _apparatusSettingsTabIndex(AdminApparatusSettingsTab tab) {
   return switch (tab) {
     AdminApparatusSettingsTab.create => 0,
