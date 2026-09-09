@@ -8,47 +8,72 @@ extension __AdminApparatusSettingsScreenStateAstPart03
     final apparatusById = {
       for (final apparatus in _apparatus) apparatus.id: apparatus,
     };
+    final l10n = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return ColoredBox(
       color: AppTheme.shellStart(context),
       child: ListView(
         key: const ValueKey('canonical-apparatus-groups-list'),
         padding: EdgeInsets.fromLTRB(
           _adminApparatusPanelGap,
-          _adminApparatusPanelGap,
+          8,
           _adminApparatusPanelGap,
           bottomPadding,
         ),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.folder_copy_outlined),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      context.l10n.adminText(
-                        'apparatus.custom_groups_description',
-                      ),
+          AppSegmentSurfaceCard(
+            slot: M3SegmentVerticalSlot.standalone,
+            backgroundColor: scheme.surfaceContainerLowest,
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox.square(
+                  dimension: 30,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.folder_copy_outlined,
+                      size: 16,
+                      color: scheme.onSecondaryContainer,
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    l10n.adminText('apparatus.custom_groups_description'),
+                    style: textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.25,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           FilledButton.icon(
             key: const ValueKey('add-custom-apparatus-collection'),
             onPressed: _saving ? null : () => _showCollectionEditor(),
             icon: const Icon(Icons.add_rounded),
-            label: Text(context.l10n.adminText('apparatus.group_add')),
+            label: Text(l10n.adminText('apparatus.group_add')),
           ),
           const SizedBox(height: 16),
-          Text(
-            context.l10n.adminText('apparatus.saved_groups'),
-            style: Theme.of(context).textTheme.titleMedium,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              l10n.adminText('apparatus.saved_groups'),
+              style: textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
           ),
           const SizedBox(height: 8),
           if (_collections.isEmpty)
@@ -56,109 +81,79 @@ extension __AdminApparatusSettingsScreenStateAstPart03
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Center(
                 child: Text(
-                  context.l10n.adminText('apparatus.custom_groups_empty'),
+                  l10n.adminText('apparatus.custom_groups_empty'),
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             )
           else
-            for (final collection in _collections)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: ExpansionTile(
-                    key: ValueKey(
-                      'custom-apparatus-collection-${collection.id}',
+            M3SegmentSpacedColumn(
+              children: [
+                for (int index = 0; index < _collections.length; index++)
+                  _AdminApparatusCollectionGroupCard(
+                    collection: _collections[index],
+                    apparatusById: apparatusById,
+                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                      index,
+                      _collections.length,
                     ),
-                    leading: const Icon(Icons.folder_outlined),
-                    title: Text(collection.name),
-                    subtitle: Text(
-                      context.l10n.adminText(
-                        'apparatus.count',
-                        values: {
-                          'count': '${collection.apparatusIds.length}',
-                        },
-                      ),
+                    saving: _saving,
+                    onEdit: () => unawaited(
+                      _showCollectionEditor(_collections[index]),
                     ),
-                    trailing: PopupMenuButton<String>(
-                      enabled: !_saving,
-                      onSelected: (action) {
-                        if (action == 'edit') {
-                          unawaited(_showCollectionEditor(collection));
-                        } else if (action == 'delete') {
-                          unawaited(_deleteCollection(collection));
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Text(
-                            context.l10n.adminText('action.edit'),
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Text(
-                            context.l10n.adminText('action.delete'),
-                          ),
-                        ),
-                      ],
+                    onDelete: () => unawaited(
+                      _deleteCollection(_collections[index]),
                     ),
-                    children: [
-                      for (final apparatusId in collection.apparatusIds)
-                        Builder(
-                          builder: (context) {
-                            final apparatus = apparatusById[apparatusId];
-                            return ListTile(
-                              key: ValueKey(
-                                'custom-apparatus-collection-item-'
-                                '${collection.id}-$apparatusId',
-                              ),
-                              leading: Icon(
-                                apparatus == null
-                                    ? Icons.warning_amber_rounded
-                                    : _apparatusIcon(apparatus),
-                              ),
-                              title: Text(apparatus?.name ?? apparatusId),
-                              subtitle: apparatus == null
-                                  ? null
-                                  : SelectableText(apparatusId),
-                              trailing: apparatus == null
-                                  ? null
-                                  : const Icon(Icons.chevron_right_rounded),
-                              onTap: apparatus == null
-                                  ? null
-                                  : () => _showSettings(apparatus),
-                            );
-                          },
-                        ),
-                    ],
+                    onApparatusTap: (apparatus) => _showSettings(apparatus),
                   ),
-                ),
+              ],
+            ),
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              l10n.adminText('apparatus.automatic_groups'),
+              style: textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurfaceVariant,
               ),
-          const SizedBox(height: 16),
-          Text(
-            context.l10n.adminText('apparatus.automatic_groups'),
-            style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
           const SizedBox(height: 8),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.account_tree_outlined),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      context.l10n.adminText(
-                        'apparatus.groups_canonical_description',
-                      ),
+          AppSegmentSurfaceCard(
+            slot: M3SegmentVerticalSlot.standalone,
+            backgroundColor: scheme.surfaceContainerLowest,
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox.square(
+                  dimension: 30,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.account_tree_outlined,
+                      size: 16,
+                      color: scheme.onSecondaryContainer,
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    l10n.adminText('apparatus.groups_canonical_description'),
+                    style: textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.25,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 8),
@@ -167,47 +162,401 @@ extension __AdminApparatusSettingsScreenStateAstPart03
               padding: const EdgeInsets.symmetric(vertical: 32),
               child: Center(
                 child: Text(
-                  context.l10n.adminText('apparatus.groups_empty'),
+                  l10n.adminText('apparatus.groups_empty'),
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             )
           else
-            for (final group in groups)
+            M3SegmentSpacedColumn(
+              children: [
+                for (int index = 0; index < groups.length; index++)
+                  _AdminApparatusCanonicalGroupCard(
+                    group: groups[index],
+                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                      index,
+                      groups.length,
+                    ),
+                    onApparatusTap: (apparatus) => _showSettings(apparatus),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminApparatusCollectionGroupCard extends StatefulWidget {
+  const _AdminApparatusCollectionGroupCard({
+    required this.collection,
+    required this.apparatusById,
+    required this.slot,
+    required this.saving,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onApparatusTap,
+  });
+
+  final AdminApparatusCollection collection;
+  final Map<String, AdminApparatus> apparatusById;
+  final M3SegmentVerticalSlot slot;
+  final bool saving;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final ValueChanged<AdminApparatus> onApparatusTap;
+
+  @override
+  State<_AdminApparatusCollectionGroupCard> createState() =>
+      _AdminApparatusCollectionGroupCardState();
+}
+
+class _AdminApparatusCollectionGroupCardState
+    extends State<_AdminApparatusCollectionGroupCard> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final l10n = context.l10n;
+    final radius = M3SegmentedListGeometry.borderRadius(
+      widget.slot,
+      M3SegmentedListGeometry.cornerRadiusForSlot(widget.slot),
+    );
+
+    return Material(
+      color: scheme.surfaceContainerLowest,
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: ValueKey(
+            'custom-apparatus-collection-${widget.collection.id}',
+          ),
+          onExpansionChanged: (expanded) {
+            setState(() => _isExpanded = expanded);
+          },
+          tilePadding: const EdgeInsets.fromLTRB(14, 4, 8, 4),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+          leading: SizedBox.square(
+            dimension: 30,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.folder_outlined,
+                size: 16,
+                color: scheme.onSecondaryContainer,
+              ),
+            ),
+          ),
+          title: Text(
+            widget.collection.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          subtitle: Text(
+            l10n.adminText(
+              'apparatus.count',
+              values: {'count': '${widget.collection.apparatusIds.length}'},
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.05,
+            ),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PopupMenuButton<String>(
+                enabled: !widget.saving,
+                icon: Icon(
+                  Icons.more_horiz_rounded,
+                  size: 20,
+                  color: scheme.onSurfaceVariant,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onSelected: (action) {
+                  if (action == 'edit') {
+                    widget.onEdit();
+                  } else if (action == 'delete') {
+                    widget.onDelete();
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Text(l10n.adminText('action.edit')),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text(l10n.adminText('action.delete')),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 4),
+              AnimatedRotation(
+                turns: _isExpanded ? 0.5 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  Icons.expand_more_rounded,
+                  color: scheme.onSurfaceVariant,
+                  size: 22,
+                ),
+              ),
+            ],
+          ),
+          children: [
+            if (widget.collection.apparatusIds.isEmpty)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: ExpansionTile(
-                    key: ValueKey(
-                      'canonical-apparatus-group-${group.operation}',
-                    ),
-                    leading: Icon(_apparatusGroupIcon(group.operation)),
-                    title: Text(
-                      canonicalApparatusGroupLabel(group, context.l10n),
-                    ),
-                    subtitle: Text(
-                      context.l10n.adminText(
-                        'apparatus.count',
-                        values: {'count': '${group.apparatus.length}'},
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  l10n.adminText('apparatus.empty'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+            else
+              for (int i = 0;
+                  i < widget.collection.apparatusIds.length;
+                  i++) ...[
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    color: scheme.outlineVariant.withValues(alpha: 0.35),
+                  ),
+                Builder(
+                  builder: (context) {
+                    final apparatusId = widget.collection.apparatusIds[i];
+                    final apparatus = widget.apparatusById[apparatusId];
+                    return _GroupApparatusItemRow(
+                      key: ValueKey(
+                        'custom-apparatus-collection-item-'
+                        '${widget.collection.id}-$apparatusId',
                       ),
-                    ),
-                    children: [
-                      for (final apparatus in group.apparatus)
-                        ListTile(
-                          key: ValueKey(
-                            'canonical-apparatus-group-item-${apparatus.id}',
-                          ),
-                          leading: Icon(_apparatusIcon(apparatus)),
-                          title: Text(apparatus.name),
-                          subtitle: SelectableText(apparatus.id),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () => _showSettings(apparatus),
-                        ),
-                    ],
+                      apparatus: apparatus,
+                      fallbackId: apparatusId,
+                      onTap: apparatus == null
+                          ? null
+                          : () => widget.onApparatusTap(apparatus),
+                    );
+                  },
+                ),
+              ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminApparatusCanonicalGroupCard extends StatefulWidget {
+  const _AdminApparatusCanonicalGroupCard({
+    required this.group,
+    required this.slot,
+    required this.onApparatusTap,
+  });
+
+  final CanonicalApparatusGroup group;
+  final M3SegmentVerticalSlot slot;
+  final ValueChanged<AdminApparatus> onApparatusTap;
+
+  @override
+  State<_AdminApparatusCanonicalGroupCard> createState() =>
+      _AdminApparatusCanonicalGroupCardState();
+}
+
+class _AdminApparatusCanonicalGroupCardState
+    extends State<_AdminApparatusCanonicalGroupCard> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final l10n = context.l10n;
+    final radius = M3SegmentedListGeometry.borderRadius(
+      widget.slot,
+      M3SegmentedListGeometry.cornerRadiusForSlot(widget.slot),
+    );
+
+    return Material(
+      color: scheme.surfaceContainerLowest,
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: ValueKey(
+            'canonical-apparatus-group-${widget.group.operation}',
+          ),
+          onExpansionChanged: (expanded) {
+            setState(() => _isExpanded = expanded);
+          },
+          tilePadding: const EdgeInsets.fromLTRB(14, 4, 12, 4),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+          leading: SizedBox.square(
+            dimension: 30,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                _apparatusGroupIcon(widget.group.operation),
+                size: 16,
+                color: scheme.onSecondaryContainer,
+              ),
+            ),
+          ),
+          title: Text(
+            canonicalApparatusGroupLabel(widget.group, l10n),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          subtitle: Text(
+            l10n.adminText(
+              'apparatus.count',
+              values: {'count': '${widget.group.apparatus.length}'},
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.05,
+            ),
+          ),
+          trailing: AnimatedRotation(
+            turns: _isExpanded ? 0.5 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              Icons.expand_more_rounded,
+              color: scheme.onSurfaceVariant,
+              size: 22,
+            ),
+          ),
+          children: [
+            for (int i = 0; i < widget.group.apparatus.length; i++) ...[
+              if (i > 0)
+                Divider(
+                  height: 1,
+                  thickness: 0.5,
+                  color: scheme.outlineVariant.withValues(alpha: 0.35),
+                ),
+              _GroupApparatusItemRow(
+                key: ValueKey(
+                  'canonical-apparatus-group-item-${widget.group.apparatus[i].id}',
+                ),
+                apparatus: widget.group.apparatus[i],
+                onTap: () => widget.onApparatusTap(widget.group.apparatus[i]),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupApparatusItemRow extends StatelessWidget {
+  const _GroupApparatusItemRow({
+    super.key,
+    required this.apparatus,
+    required this.onTap,
+    this.fallbackId,
+  });
+
+  final AdminApparatus? apparatus;
+  final VoidCallback? onTap;
+  final String? fallbackId;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isMissing = apparatus == null;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+          child: Row(
+            children: [
+              SizedBox.square(
+                dimension: 28,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: isMissing
+                        ? scheme.errorContainer
+                        : scheme.secondaryContainer.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Icon(
+                    isMissing
+                        ? Icons.warning_amber_rounded
+                        : _apparatusIcon(apparatus!),
+                    size: 15,
+                    color: isMissing
+                        ? scheme.onErrorContainer
+                        : scheme.onSecondaryContainer,
                   ),
                 ),
               ),
-        ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      apparatus?.name ?? fallbackId ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    if (apparatus != null)
+                      Text(
+                        '${_apparatusOptionLabel(apparatus!.family, context.l10n)} · ${apparatus!.id}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.1,
+                            ),
+                      ),
+                  ],
+                ),
+              ),
+              if (onTap != null)
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
