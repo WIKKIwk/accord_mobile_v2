@@ -11,7 +11,6 @@ import 'widgets/admin_dock.dart';
 import 'widgets/admin_order_image_thumb.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
-import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
@@ -227,17 +226,10 @@ class _OrderRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
-  Widget _leading(BuildContext context) {
-    return AdminOrderImageThumb(
-      imageUrl: template.imageUrl,
-      displayName: _orderTitle(context.l10n, template),
-      heroTag: 'quick-order-image-${template.id}',
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final subtitle = [
       if (template.customer.trim().isNotEmpty) template.customer.trim(),
       if (template.product.trim().isNotEmpty) template.product.trim(),
@@ -247,31 +239,83 @@ class _OrderRow extends StatelessWidget {
             '${_fmt(template.wastePercent)}%',
     ].join(' • ');
 
-    return AdminSummaryCard(
+    final cornerRadius = M3SegmentedListGeometry.cornerRadiusForSlot(slot);
+
+    return M3SegmentFilledSurface(
       slot: slot,
-      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      cornerRadius: cornerRadius,
       backgroundColor: scheme.surfaceContainerLowest,
-      fixedHeight: 61,
-      padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
-      value: '',
-      showChevron: true,
       onTap: onTap,
-      leading: SizedBox.square(dimension: 30, child: _leading(context)),
-      title: _orderTitle(context.l10n, template),
-      subtitle: subtitle,
-      titleMaxLines: 1,
-      subtitleMaxLines: 1,
-      titleStyle: Theme.of(
-        context,
-      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.05,
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: kAdminOrderCoverWidth,
+            child: AdminOrderCoverThumb(
+              imageUrl: template.imageUrl,
+              displayName: _orderTitle(context.l10n, template),
+              heroTag: 'quick-order-image-${template.id}',
+            ),
           ),
-      trailing: IconButton(
-        tooltip: context.l10n.adminText('action.delete'),
-        onPressed: onDelete,
-        icon: const Icon(Icons.delete_outline_rounded),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              kAdminOrderCoverWidth + 12,
+              8,
+              8,
+              8,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 45),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _orderTitle(context.l10n, template),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.05,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: context.l10n.adminText('action.delete'),
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete_outline_rounded),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
