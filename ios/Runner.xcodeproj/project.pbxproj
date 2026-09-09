@@ -209,7 +209,9 @@
 					};
 					97C146ED1CF9000F007C117D = {
 						CreatedOnToolsVersion = 7.3.1;
+						DevelopmentTeam = G7WM6NZVD5;
 						LastSwiftMigration = 1100;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -300,7 +302,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"$PLATFORM_NAME\" != \"iphoneos\" ]; then\n  exit 0\nfi\nif [ \"$CODE_SIGNING_ALLOWED\" != \"YES\" ]; then\n  exit 0\nfi\nif [ -z \"$EXPANDED_CODE_SIGN_IDENTITY\" ]; then\n  exit 0\nfi\nFRAMEWORKS_DIR=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Frameworks\"\nif [ ! -d \"$FRAMEWORKS_DIR\" ]; then\n  exit 0\nfi\nfor framework in \"$FRAMEWORKS_DIR\"/*.framework; do\n  if [ ! -d \"$framework\" ]; then\n    continue\n  fi\n  info_plist=\"$framework/Info.plist\"\n  bundle_id=$(/usr/libexec/PlistBuddy -c \"Print :CFBundleIdentifier\" \"$info_plist\" 2>/dev/null || true)\n  case \"$bundle_id\" in\n    io.flutter.flutter.native-assets.*)\n      echo \"Re-signing native asset: $bundle_id\"\n      /usr/bin/codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --generate-entitlement-der \"$framework\"\n      ;;\n  esac\ndone\n";
+			shellScript = "if [ \"$PLATFORM_NAME\" != \"iphoneos\" ]; then\n  exit 0\nfi\nif [ \"$CODE_SIGNING_ALLOWED\" != \"YES\" ]; then\n  exit 0\nfi\nif [ -z \"$EXPANDED_CODE_SIGN_IDENTITY\" ]; then\n  exit 0\nfi\nFRAMEWORKS_DIR=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Frameworks\"\nif [ ! -d \"$FRAMEWORKS_DIR\" ]; then\n  exit 0\nfi\nfor framework in \"$FRAMEWORKS_DIR\"/*.framework; do\n  if [ ! -d \"$framework\" ]; then\n    continue\n  fi\n  info_plist=\"$framework/Info.plist\"\n  bundle_id=$(/usr/libexec/PlistBuddy -c \"Print :CFBundleIdentifier\" \"$info_plist\" 2>/dev/null || true)\n  case \"$bundle_id\" in\n    io.flutter.flutter.native-assets.*|com.user.Iroh)\n      echo \"Re-signing native asset: $bundle_id\"\n      /usr/bin/codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --generate-entitlement-der \"$framework\"\n      ;;\n  esac\ndone\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -417,7 +419,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = 9Y6YLG45N8;
+				DEVELOPMENT_TEAM = G7WM6NZVD5;
 				ENABLE_BITCODE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -620,7 +622,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = 9Y6YLG45N8;
+				DEVELOPMENT_TEAM = G7WM6NZVD5;
 				ENABLE_BITCODE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -662,7 +664,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = 9Y6YLG45N8;
+				DEVELOPMENT_TEAM = G7WM6NZVD5;
 				ENABLE_BITCODE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
