@@ -7,11 +7,19 @@ class AdminApparatusCapacityPanel extends StatefulWidget {
     required this.apparatus,
     required this.bottomPadding,
     this.showApparatusSelector = true,
+    this.padding,
+    this.shrinkWrap = false,
   });
 
   final List<AdminApparatus> apparatus;
   final double bottomPadding;
   final bool showApparatusSelector;
+
+  /// null bo'lsa standart panel padding ishlatiladi.
+  final EdgeInsetsGeometry? padding;
+
+  /// Detail page ichida tashqi scroll bilan birlashish uchun true.
+  final bool shrinkWrap;
 
   @override
   State<AdminApparatusCapacityPanel> createState() =>

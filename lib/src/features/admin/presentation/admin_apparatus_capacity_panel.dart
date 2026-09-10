@@ -116,7 +116,13 @@ class _AdminApparatusCapacityPanelState
     return ColoredBox(
       color: AppTheme.shellStart(context),
       child: ListView(
-        padding: EdgeInsets.fromLTRB(8, 8, 8, widget.bottomPadding),
+        shrinkWrap: widget.shrinkWrap,
+        physics: widget.shrinkWrap
+            ? const NeverScrollableScrollPhysics()
+            : null,
+        padding:
+            widget.padding ??
+            EdgeInsets.fromLTRB(8, 8, 8, widget.bottomPadding),
         children: [
           _sectionCard(
             child: Column(

@@ -16,7 +16,7 @@ import '../logic/canonical_apparatus_groups.dart';
 import '../logic/factory_map_mapping.dart';
 import '../logic/factory_map_bindings.dart';
 import 'admin_apparatus_capacity_panel.dart';
-import 'admin_factory_map_viewer.dart';
+import 'admin_apparatus_detail_screen.dart';
 import 'admin_queue_policy_screen.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
@@ -24,7 +24,6 @@ import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_top_notice.dart';
-import 'widgets/factory_map_unlink_dialog.dart';
 
 part 'admin_apparatus_settings_screen__AdminApparatusSettingsScreenState_methods_01.dart';
 part 'admin_apparatus_settings_screen__AdminApparatusSettingsScreenState_methods_02.dart';

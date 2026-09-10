@@ -33,10 +33,19 @@ class AdminQueuePolicyPanel extends StatefulWidget {
     super.key,
     required this.bottomPadding,
     this.apparatusId,
+    this.padding,
+    this.shrinkWrap = false,
   });
 
   final double bottomPadding;
   final String? apparatusId;
+
+  /// null bo'lsa standart panel padding ishlatiladi.
+  /// Detail page ichiga joylashda [EdgeInsets.zero] beriladi.
+  final EdgeInsetsGeometry? padding;
+
+  /// Detail page ichida tashqi scroll bilan birlashish uchun true.
+  final bool shrinkWrap;
 
   @override
   State<AdminQueuePolicyPanel> createState() => _AdminQueuePolicyPanelState();
@@ -210,12 +219,18 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
             .toList(growable: false);
     if (apparatus.isEmpty) {
       return ListView(
-        padding: EdgeInsets.fromLTRB(
-          _queuePolicyPanelGap,
-          _queuePolicyPanelTopGap,
-          _queuePolicyPanelGap,
-          widget.bottomPadding,
-        ),
+        shrinkWrap: widget.shrinkWrap,
+        physics: widget.shrinkWrap
+            ? const NeverScrollableScrollPhysics()
+            : null,
+        padding:
+            widget.padding ??
+            EdgeInsets.fromLTRB(
+              _queuePolicyPanelGap,
+              _queuePolicyPanelTopGap,
+              _queuePolicyPanelGap,
+              widget.bottomPadding,
+            ),
         children: [
           const _QueuePolicyIntro(),
           const SizedBox(height: 24),
@@ -224,12 +239,16 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
       );
     }
     return ListView(
-      padding: EdgeInsets.fromLTRB(
-        _queuePolicyPanelGap,
-        _queuePolicyPanelTopGap,
-        _queuePolicyPanelGap,
-        widget.bottomPadding,
-      ),
+      shrinkWrap: widget.shrinkWrap,
+      physics: widget.shrinkWrap ? const NeverScrollableScrollPhysics() : null,
+      padding:
+          widget.padding ??
+          EdgeInsets.fromLTRB(
+            _queuePolicyPanelGap,
+            _queuePolicyPanelTopGap,
+            _queuePolicyPanelGap,
+            widget.bottomPadding,
+          ),
       children: [
         const _QueuePolicyIntro(),
         const SizedBox(height: 10),

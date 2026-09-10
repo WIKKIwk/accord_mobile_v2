@@ -57,20 +57,19 @@ extension __AdminApparatusSettingsScreenStateAstPart02
   }
 
   Future<void> _showSettings(AdminApparatus apparatus) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: _CanonicalApparatusSettingsCard(
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AdminApparatusDetailScreen(
           apparatus: _latest(apparatus),
           currentApparatus: () => _latest(apparatus),
-          onClose: () => Navigator.of(dialogContext).pop(),
           onPlacementChanged: _savePlacement,
           onTrainingChanged: _saveTraining,
+          onEdit: (current) => _showEditor(current),
         ),
       ),
     );
+    if (!mounted) return;
+    unawaited(_load(showLoading: false));
   }
 
   Widget _buildCatalog(double bottomPadding) {
