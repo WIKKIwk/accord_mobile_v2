@@ -1004,7 +1004,7 @@ class _PreparationInputDialogState extends State<_PreparationInputDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
           insetPadding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           title: Text(widget.title),
           content: SizedBox(
               width: double.infinity,
