@@ -189,6 +189,10 @@ void main() {
       await tester.tap(find.text('Kley'));
       await tester.pumpAndSettle();
       expect(find.text('Kley — kirim'), findsOneWidget);
+      expect(
+        tester.getCenter(find.widgetWithText(FilledButton, 'Saqlash')).dy,
+        lessThan(tester.getCenter(find.text('Bekor qilish')).dy),
+      );
       await tester.enterText(find.byType(TextFormField), '12.5');
       await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
       await tester.pumpAndSettle();

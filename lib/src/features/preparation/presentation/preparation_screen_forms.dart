@@ -579,10 +579,6 @@ class _PreparationMaterialsScreenState
                           ),
                         ),
                       ),
-                      trailing: Icon(
-                        Icons.add_circle_outline,
-                        color: scheme.primary,
-                      ),
                       showChevron: false,
                       onTap: locked || warehouse == null
                           ? null
@@ -1033,15 +1029,21 @@ class _PreparationInputDialogState extends State<_PreparationInputDialog> {
                     }
                   })),
           actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Bekor qilish')),
-            FilledButton(
-                onPressed: () {
-                  if (_form.currentState!.validate()) {
-                    Navigator.pop(context, _controller.text.trim());
-                  }
-                },
-                child: const Text('Saqlash'))
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                  onPressed: () {
+                    if (_form.currentState!.validate()) {
+                      Navigator.pop(context, _controller.text.trim());
+                    }
+                  },
+                  child: const Text('Saqlash')),
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Bekor qilish')),
+            ),
           ]);
 }
