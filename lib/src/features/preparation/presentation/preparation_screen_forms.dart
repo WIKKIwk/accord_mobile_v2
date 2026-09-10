@@ -1006,30 +1006,32 @@ class _PreparationInputDialogState extends State<_PreparationInputDialog> {
           insetPadding:
               const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           title: Text(widget.title),
-          content: Form(
-              key: _form,
-              child: TextFormField(
-                  controller: _controller,
-                  autofocus: true,
-                  keyboardType: widget.quantity
-                      ? const TextInputType.numberWithOptions(decimal: true)
-                      : TextInputType.text,
-                  decoration: InputDecoration(labelText: widget.label),
-                  validator: (text) {
-                    if (!widget.quantity) {
-                      return (text ?? '').trim().isEmpty
-                          ? 'Nom kiriting'
-                          : (text!.trim().length > 160
-                              ? 'Nom juda uzun'
-                              : null);
-                    }
-                    try {
-                      preparationDecimal(text ?? '');
-                      return null;
-                    } on FormatException catch (e) {
-                      return e.message;
-                    }
-                  })),
+          content: SizedBox(
+              width: double.infinity,
+              child: Form(
+                  key: _form,
+                  child: TextFormField(
+                      controller: _controller,
+                      autofocus: true,
+                      keyboardType: widget.quantity
+                          ? const TextInputType.numberWithOptions(decimal: true)
+                          : TextInputType.text,
+                      decoration: InputDecoration(labelText: widget.label),
+                      validator: (text) {
+                        if (!widget.quantity) {
+                          return (text ?? '').trim().isEmpty
+                              ? 'Nom kiriting'
+                              : (text!.trim().length > 160
+                                  ? 'Nom juda uzun'
+                                  : null);
+                        }
+                        try {
+                          preparationDecimal(text ?? '');
+                          return null;
+                        } on FormatException catch (e) {
+                          return e.message;
+                        }
+                      }))),
           actions: [
             SizedBox(
               width: double.infinity,
