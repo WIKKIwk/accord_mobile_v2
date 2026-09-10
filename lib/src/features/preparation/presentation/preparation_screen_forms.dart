@@ -145,7 +145,6 @@ class PreparationWarehouseScreen extends StatefulWidget {
     required this.warehouses,
     required this.initialWarehouse,
     required this.materials,
-    required this.history,
     required this.locked,
     required this.onWarehouseSelected,
     required this.onReceive,
@@ -155,7 +154,6 @@ class PreparationWarehouseScreen extends StatefulWidget {
   final List<String> warehouses;
   final String? initialWarehouse;
   final List<PreparationMaterial> materials;
-  final List<dynamic> history;
   final bool locked;
   final void Function(String warehouse) onWarehouseSelected;
   final Future<void> Function(PreparationMaterial material) onReceive;
@@ -189,20 +187,6 @@ class _PreparationWarehouseScreenState
     return inWarehouse
         .where((m) => '${m.name} ${m.code}'.toLowerCase().contains(q))
         .toList();
-  }
-
-  List<PreparationMaterial> get _receiptMaterials {
-    final byCode = {for (final m in widget.materials) m.code: m};
-    final seen = <String>{};
-    final result = <PreparationMaterial>[];
-    for (final d in widget.history) {
-      if (d['kind'] != 'receipt' || d['warehouse'] != _warehouse) continue;
-      final code = (d['item_code'] as String? ?? '').trim();
-      if (code.isEmpty || !seen.add(code)) continue;
-      final material = byCode[code];
-      if (material != null) result.add(material);
-    }
-    return result;
   }
 
   void _selectWarehouse(String w) {
@@ -348,33 +332,6 @@ class _PreparationWarehouseScreenState
                       ),
                   ],
                 ),
-              if (_warehouse != null && _receiptMaterials.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Text(
-                    'Oxirgi kirimlar',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                M3SegmentSpacedColumn(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    for (var i = 0; i < _receiptMaterials.length; i++)
-                      _PreparationWarehouseStockRow(
-                        slot:
-                            M3SegmentedListGeometry.standaloneListSlotForIndex(
-                          i,
-                          _receiptMaterials.length,
-                        ),
-                        material: _receiptMaterials[i],
-                        warehouse: _warehouse!,
-                      ),
-                  ],
-                ),
-              ],
             ],
           ],
         ),

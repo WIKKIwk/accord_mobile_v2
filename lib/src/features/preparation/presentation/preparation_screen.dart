@@ -140,7 +140,6 @@ class _PreparationScreenState extends State<PreparationScreen> {
       warehouses: data.warehouses,
       initialWarehouse: _warehouse,
       materials: data.materials,
-      history: data.history,
       locked: _locked,
       onWarehouseSelected: (w) => _update(() => _warehouse = w),
       onReceive: _receive,
