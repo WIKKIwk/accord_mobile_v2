@@ -191,9 +191,19 @@ class _PreparationWarehouseScreenState
         .toList();
   }
 
-  List<dynamic> get _receipts => widget.history
-      .where((d) => d['kind'] == 'receipt' && d['warehouse'] == _warehouse)
-      .toList();
+  List<PreparationMaterial> get _receiptMaterials {
+    final byCode = {for (final m in widget.materials) m.code: m};
+    final seen = <String>{};
+    final result = <PreparationMaterial>[];
+    for (final d in widget.history) {
+      if (d['kind'] != 'receipt' || d['warehouse'] != _warehouse) continue;
+      final code = (d['item_code'] as String? ?? '').trim();
+      if (code.isEmpty || !seen.add(code)) continue;
+      final material = byCode[code];
+      if (material != null) result.add(material);
+    }
+    return result;
+  }
 
   void _selectWarehouse(String w) {
     setState(() => _warehouse = w);
@@ -338,7 +348,7 @@ class _PreparationWarehouseScreenState
                       ),
                   ],
                 ),
-              if (_warehouse != null && _receipts.isNotEmpty) ...[
+              if (_warehouse != null && _receiptMaterials.isNotEmpty) ...[
                 const SizedBox(height: 20),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -352,32 +362,15 @@ class _PreparationWarehouseScreenState
                 M3SegmentSpacedColumn(
                   padding: EdgeInsets.zero,
                   children: [
-                    for (var i = 0; i < _receipts.length; i++)
-                      AdminSummaryCard(
+                    for (var i = 0; i < _receiptMaterials.length; i++)
+                      _PreparationWarehouseStockRow(
                         slot:
                             M3SegmentedListGeometry.standaloneListSlotForIndex(
                           i,
-                          _receipts.length,
+                          _receiptMaterials.length,
                         ),
-                        cornerRadius:
-                            M3SegmentedListGeometry.cornerRadiusForSlot(
-                          M3SegmentedListGeometry.standaloneListSlotForIndex(
-                            i,
-                            _receipts.length,
-                          ),
-                        ),
-                        backgroundColor: scheme.surfaceContainerLowest,
-                        title: _receipts[i]['name'] as String? ?? 'Kirim',
-                        subtitle:
-                            '${_receipts[i]['warehouse']} • ${_formatDateTime(_receipts[i]['created_at'])}',
-                        value:
-                            '+${preparationDisplay(_receipts[i]['kg'] as String? ?? '0')} kg',
-                        leading: const Icon(
-                          Icons.check_circle_outline_rounded,
-                          color: Colors.green,
-                        ),
-                        showChevron: false,
-                        elevation: 0,
+                        material: _receiptMaterials[i],
+                        warehouse: _warehouse!,
                       ),
                   ],
                 ),
