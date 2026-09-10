@@ -344,6 +344,7 @@ void _testModeRecordCompletedQueueOrder({
   _testModeCompletedQueueOrders.removeWhere(
     (item) =>
         item.actorRef == normalizedActorRef &&
+        item.order.apparatus == apparatus.trim() &&
         item.order.orderId == normalizedOrderId,
   );
   _testModeCompletedQueueOrders.insert(

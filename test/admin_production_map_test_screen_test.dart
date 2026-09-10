@@ -61,6 +61,7 @@ part 'admin_production_map_worker_latency_test_part.dart';
 part 'admin_production_map_worker_notices_test_part.dart';
 part 'admin_production_map_worker_recovery_test_part.dart';
 part 'admin_production_map_worker_activity_test_part.dart';
+part 'admin_production_map_alternative_visibility_test_part.dart';
 part 'admin_production_map_order_image_zoom_test_part.dart';
 part 'admin_production_map_worker_wip_accuracy_test_part.dart';
 
@@ -112,6 +113,7 @@ void main() {
   });
 
   _registeradmin_production_map_test_screen_testCases01();
+  _registerAlternativeVisibilityTests();
 
   _registeradmin_production_map_test_screen_testCases02();
 

@@ -105,6 +105,9 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
   required Map<String, List<String>> visibleOrderIdsByApparatus,
   required Map<String, List<String>> sequenceByApparatus,
   required Map<String, Map<String, String>> queueStatesByApparatus,
+  required Map<String, Map<String, String>> stageStatesByOrderId,
+  required Map<String, Map<String, AdminApparatusQueueOrderActionControl>> queueActionControlsByApparatus,
+  required Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId,
   required bool workerMode,
   required String query,
 }) {
@@ -120,6 +123,22 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
   final queueOrders = visibleOrders.where(
     (order) {
       final orderId = order.map.id.trim();
+      final lifecycle = orderStatusesByOrderId[orderId]?.lifecycleStatus;
+      if (const {'production_completed', 'closed', 'cancelled'}.contains(lifecycle)) {
+        return false;
+      }
+      // Stage states describe shared operations; queue states describe this
+      // machine's actual work. Never manufacture a completion for an unused
+      // candidate, or hide a later occurrence of the same physical machine.
+      final occurrences = productionMapLinearWorkStages(order.map)
+          .where((stage) => stage.apparatusId == apparatus.id).toList();
+      final ownControl = queueActionControlsByApparatus[apparatus.id]?[orderId];
+      if (occurrences.isNotEmpty && occurrences.every((stage) =>
+          stageStatesByOrderId[orderId]?[stage.nodeId] == 'completed' ||
+          (ownControl?.stageNodeId == stage.nodeId &&
+              ownControl?.stageWork?.localCompleted == true))) {
+        return false;
+      }
       final state = apparatusQueueOrderStateFromRaw(states[orderId]);
       return state != ApparatusQueueOrderState.completed;
     },

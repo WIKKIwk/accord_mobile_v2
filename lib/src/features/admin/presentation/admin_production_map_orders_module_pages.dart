@@ -624,6 +624,8 @@ class _WorkerWatchBody extends StatelessWidget {
     required this.sequenceByApparatus,
     required this.visibleOrderIdsByApparatus,
     required this.queueStatesByApparatus,
+    required this.stageStatesByOrderId,
+    required this.queueActionControlsByApparatus,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
     required this.searchQuery,
@@ -643,6 +645,8 @@ class _WorkerWatchBody extends StatelessWidget {
   final Map<String, List<String>> sequenceByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, Map<String, String>> stageStatesByOrderId;
+  final Map<String, Map<String, AdminApparatusQueueOrderActionControl>> queueActionControlsByApparatus;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final String searchQuery;
@@ -671,6 +675,9 @@ class _WorkerWatchBody extends StatelessWidget {
       visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
       sequenceByApparatus: sequenceByApparatus,
       queueStatesByApparatus: queueStatesByApparatus,
+      stageStatesByOrderId: stageStatesByOrderId,
+      queueActionControlsByApparatus: queueActionControlsByApparatus,
+      orderStatusesByOrderId: orderStatusesByOrderId,
       workerMode: true,
       query: searchQuery,
     );
@@ -716,6 +723,7 @@ class _WorkerWatchBody extends StatelessWidget {
                       orders: orders,
                       completedOrders: completedOrders,
                       apparatus: apparatus,
+                      assignedApparatus: assignedApparatus,
                       query: searchQuery,
                     ),
                     bottomPadding: bottomPadding,

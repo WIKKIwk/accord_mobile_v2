@@ -4,12 +4,17 @@ List<_WorkerCompletedOrderEntry> _workerCompletedOrders({
   required List<ProductionMapSaved> orders,
   required List<AdminCompletedQueueOrder> completedOrders,
   required List<AdminApparatus> apparatus,
+  required List<String> assignedApparatus,
   required String query,
 }) {
   final byId = {for (final order in orders) order.map.id.trim(): order};
   final seen = <String>{};
   final entries = <_WorkerCompletedOrderEntry>[];
+  final assigned = assignedApparatus.map((id) => id.trim()).toSet();
   for (final completed in completedOrders) {
+    // Filter exact execution ownership before deduplicating orders. Another
+    // alternative's more recent event must neither appear here nor mask ours.
+    if (!assigned.contains(completed.apparatus.trim())) continue;
     final orderId = completed.orderId.trim();
     if (orderId.isEmpty || !seen.add(orderId)) {
       continue;

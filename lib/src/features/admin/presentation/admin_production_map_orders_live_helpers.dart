@@ -93,11 +93,11 @@ Future<List<AdminCompletedQueueOrder>>
     // Training is an optional overlay; production completed orders remain
     // available when the training workspace is unavailable.
   }
-  final seenOrderIds = <String>{};
+  final seenExecutions = <(String, String)>{};
   return [
     for (final order in [...productionOrders, ...trainingOrders])
       if (order.orderId.trim().isNotEmpty &&
-          seenOrderIds.add(order.orderId.trim()))
+          seenExecutions.add((order.orderId.trim(), order.apparatus.trim())))
         order,
   ];
 }

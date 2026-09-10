@@ -313,6 +313,8 @@ class _AdminProductionMapOrdersScreenState
                               visibleOrderIdsByApparatus:
                                   _visibleOrderIdsByApparatus,
                               queueStatesByApparatus: _queueStatesByApparatus,
+                              stageStatesByOrderId: _stageStatesByOrderId,
+                              queueActionControlsByApparatus: _queueActionControlsByApparatus,
                               workActivityByApparatus: _workActivityByApparatus,
                               workerRole: AppSession.instance.profile == null
                                   ? '' : userRoleToJson(AppSession.instance.profile!.role),
@@ -1367,6 +1369,9 @@ class _AdminProductionMapOrdersScreenState
       visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
       sequenceByApparatus: _sequenceByApparatus,
       queueStatesByApparatus: _queueStatesByApparatus,
+      stageStatesByOrderId: _stageStatesByOrderId,
+      queueActionControlsByApparatus: _queueActionControlsByApparatus,
+      orderStatusesByOrderId: _orderStatusesByOrderId,
       workerMode: widget.workerMode,
       query: _searchQuery,
     );

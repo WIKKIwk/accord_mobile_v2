@@ -17,9 +17,20 @@ void main() {
   });
   test('legacy or sessionless controls cannot request astatka', () {
     expect(AdminStageWorkControl.fromJson({}).needsReportPrompt, isFalse);
+    expect(AdminStageWorkControl.fromJson({}).localCompleted, isFalse);
     expect(const AdminStageWorkControl(upstreamClosed: true, astatkaAvailable: true,
         astatkaRequired: true).needsReportPrompt, isFalse);
     expect(AdminApparatusQueueOrderActionControl.fromJson({}).stageWork, isNull);
+  });
+  test('local completion is independent and participates in live equality', () {
+    const pending = AdminStageWorkControl();
+    final local = AdminStageWorkControl.fromJson({'local_completed': true});
+    expect(local.localCompleted, isTrue);
+    expect(local.completed, isFalse);
+    expect(local, isNot(pending));
+    expect(local, const AdminStageWorkControl(localCompleted: true));
+    expect(local.hashCode, const AdminStageWorkControl(localCompleted: true).hashCode);
+    expect(AdminStageWorkControl.fromJson({'local_completed': 'true'}).localCompleted, isFalse);
   });
   test('live equality includes report readiness and final machine', () {
     const first = AdminStageWorkControl(upstreamClosed: true, astatkaAvailable: true,

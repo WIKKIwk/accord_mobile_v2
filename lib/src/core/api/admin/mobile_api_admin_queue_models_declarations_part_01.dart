@@ -450,10 +450,12 @@ class AdminApparatusQueueOrderActionControl {
 }
 
 class AdminStageWorkControl {
-  const AdminStageWorkControl({this.completed = false, this.upstreamClosed = false,
+  const AdminStageWorkControl({this.completed = false, this.localCompleted = false, this.upstreamClosed = false,
     this.astatkaAvailable = false, this.astatkaRequired = false, this.reportSessionId = '',
     this.upstreamTitle = '', this.lastApparatus = '', this.lastWorkerRef = ''});
   final bool completed;
+  // This machine's reported execution, not completion of the shared operation.
+  final bool localCompleted;
   final bool upstreamClosed;
   final bool astatkaAvailable;
   final bool astatkaRequired;
@@ -463,7 +465,8 @@ class AdminStageWorkControl {
   final String lastWorkerRef;
 
   factory AdminStageWorkControl.fromJson(Map<String, dynamic> json) => AdminStageWorkControl(
-    completed: json['completed'] == true, upstreamClosed: json['upstream_closed'] == true,
+    completed: json['completed'] == true, localCompleted: json['local_completed'] == true,
+    upstreamClosed: json['upstream_closed'] == true,
     astatkaAvailable: json['astatka_available'] == true, astatkaRequired: json['astatka_required'] == true,
     reportSessionId: json['report_session_id']?.toString() ?? '', upstreamTitle: json['upstream_title']?.toString() ?? '',
     lastApparatus: json['last_apparatus']?.toString() ?? '', lastWorkerRef: json['last_worker_ref']?.toString() ?? '');
@@ -472,11 +475,12 @@ class AdminStageWorkControl {
 
   @override
   bool operator ==(Object other) => other is AdminStageWorkControl && completed == other.completed &&
+      localCompleted == other.localCompleted &&
       upstreamClosed == other.upstreamClosed && astatkaAvailable == other.astatkaAvailable &&
       astatkaRequired == other.astatkaRequired && reportSessionId == other.reportSessionId &&
       upstreamTitle == other.upstreamTitle && lastApparatus == other.lastApparatus && lastWorkerRef == other.lastWorkerRef;
   @override
-  int get hashCode => Object.hash(completed, upstreamClosed, astatkaAvailable, astatkaRequired,
+  int get hashCode => Object.hash(completed, localCompleted, upstreamClosed, astatkaAvailable, astatkaRequired,
       reportSessionId, upstreamTitle, lastApparatus, lastWorkerRef);
 }
 
