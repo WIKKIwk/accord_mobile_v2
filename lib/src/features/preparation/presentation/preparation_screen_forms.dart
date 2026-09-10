@@ -552,19 +552,32 @@ class _PreparationMaterialsScreenState
                 children: [
                   for (var i = 0; i < _materials.length; i++)
                     AdminSummaryCard(
-                      slot: _slotFor(i, _materials.length),
+                      slot: M3SegmentedListGeometry
+                          .standaloneListSlotForIndex(i, _materials.length),
                       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(
-                        _slotFor(i, _materials.length),
+                        M3SegmentedListGeometry.standaloneListSlotForIndex(
+                            i, _materials.length),
                       ),
                       backgroundColor: scheme.surfaceContainerLowest,
+                      fixedHeight: 61,
+                      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
                       title: _materials[i].name,
                       subtitle: 'Mavjud qoldiq',
                       value:
                           '${preparationDisplay(_materials[i].available(warehouse))} kg',
-                      leading: Icon(
-                        Icons.inventory_2_outlined,
-                        size: 23,
-                        color: scheme.onSurfaceVariant,
+                      leading: SizedBox.square(
+                        dimension: 30,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: scheme.secondaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.inventory_2_rounded,
+                            size: 16,
+                            color: scheme.onSecondaryContainer,
+                          ),
+                        ),
                       ),
                       trailing: Icon(
                         Icons.add_circle_outline,
@@ -574,7 +587,14 @@ class _PreparationMaterialsScreenState
                       onTap: locked || warehouse == null
                           ? null
                           : () => _handleReceive(_materials[i]),
-                      elevation: 4,
+                      titleMaxLines: 1,
+                      subtitleMaxLines: 1,
+                      titleStyle: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                      subtitleStyle: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.05,
+                      ),
                     ),
                 ],
               ),
