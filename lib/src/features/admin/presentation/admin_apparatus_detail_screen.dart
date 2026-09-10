@@ -129,7 +129,7 @@ class _AdminApparatusDetailScreenState
           padding: EdgeInsets.fromLTRB(4, 4, 4, bottomPadding),
           children: [
             _headerCard(context, scheme),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _sectionLabel(
               context,
               scheme,
@@ -143,7 +143,7 @@ class _AdminApparatusDetailScreenState
               padding: EdgeInsets.zero,
               shrinkWrap: true,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _sectionLabel(
               context,
               scheme,
@@ -158,7 +158,7 @@ class _AdminApparatusDetailScreenState
               padding: EdgeInsets.zero,
               shrinkWrap: true,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _sectionLabel(
               context,
               scheme,
@@ -166,7 +166,7 @@ class _AdminApparatusDetailScreenState
             ),
             const SizedBox(height: 8),
             _mapCard(context, scheme),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _sectionLabel(
               context,
               scheme,
@@ -200,6 +200,7 @@ class _AdminApparatusDetailScreenState
         : '${_apparatus.family} · ${_apparatus.id}';
     return AppSegmentSurfaceCard(
       backgroundColor: scheme.surfaceContainerLowest,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -207,15 +208,15 @@ class _AdminApparatusDetailScreenState
           Row(
             children: [
               SizedBox.square(
-                dimension: 40,
+                dimension: 36,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: scheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(9),
                   ),
                   child: Icon(
                     _detailApparatusIcon(_apparatus),
-                    size: 20,
+                    size: 18,
                     color: scheme.onSecondaryContainer,
                   ),
                 ),
@@ -253,7 +254,7 @@ class _AdminApparatusDetailScreenState
             ],
           ),
           if (_apparatus.capabilities.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               _apparatus.capabilities.join(' • '),
               style: Theme.of(
@@ -271,13 +272,14 @@ class _AdminApparatusDetailScreenState
     final objectId = _apparatus.factoryMapObjectId.trim();
     return AppSegmentSurfaceCard(
       backgroundColor: scheme.surfaceContainerLowest,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           if (objectId.isNotEmpty) ...[
             SelectableText(objectId),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
           ],
           FilledButton.icon(
             onPressed: _savingPlacement ? null : _choosePlacement,
@@ -305,8 +307,10 @@ class _AdminApparatusDetailScreenState
     final l10n = context.l10n;
     return AppSegmentSurfaceCard(
       backgroundColor: scheme.surfaceContainerLowest,
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
       child: SwitchListTile.adaptive(
         contentPadding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
         value: _apparatus.trainingEnabled,
         onChanged: _savingTraining ? null : _toggleTraining,
         title: Text(l10n.adminText('apparatus.training_switch')),
