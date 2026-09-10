@@ -82,6 +82,27 @@ ProductionMapDefinition _openingWipCutoverMap() {
 }
 
 void main() {
+  test('shared operation preserves representative edges for every candidate', () {
+    final map = ProductionMapDefinition(id: 'zakaz-shared', title: 'Shared', productCode: 'SHARED', nodes: [
+      _node('start', 'start', 'Start'),
+      _node('source', 'apparatus', 'Source', apparatusId: _printId),
+      const ProductionMapNode(id: 'a', kind: 'apparatus', title: 'A', apparatusId: _lamination1Id,
+        alternativeGroupId: 'shared', alternativeAssignedApparatusId: _lamination1Id),
+      const ProductionMapNode(id: 'b', kind: 'apparatus', title: 'B', apparatusId: _lamination2Id,
+        alternativeGroupId: 'shared', alternativeAssignedApparatusId: _lamination1Id),
+      _node('cut', 'apparatus', 'Cut', apparatusId: _cutId),
+      _node('end', 'end', 'End'),
+    ], edges: const [ProductionMapEdge(from: 'start', to: 'source'),
+      ProductionMapEdge(from: 'source', to: 'a'), ProductionMapEdge(from: 'a', to: 'cut'),
+      ProductionMapEdge(from: 'cut', to: 'end')]);
+    for (final candidate in [_lamination1Id, _lamination2Id]) {
+      expect(productionMapPreviousWorkStageStation(map: map, station: candidate), _printId);
+      expect(productionMapNextWorkStageStation(map: map, station: candidate), _cutId);
+    }
+    expect(productionMapLinearWorkStages(map).map((s) => s.apparatusId), containsAll([_lamination1Id, _lamination2Id]));
+    expect(productionMapNextWorkStagesForNode(map: map, stageNodeId: 'source')
+        .map((s) => s.apparatusId), [_lamination1Id, _lamination2Id]);
+  });
   test('Opening WIP keeps completed apparatus sources until order closes', () {
     final map = _openingWipCutoverMap();
 
@@ -531,7 +552,7 @@ void main() {
     );
   });
 
-  test('assigned alternative uses assigned canonical id', () {
+  test('historical alternative assignment does not replace candidate identity', () {
     const map = ProductionMapDefinition(
       id: 'zakaz-alt-chain',
       productCode: 'ALT',
@@ -564,11 +585,11 @@ void main() {
 
     expect(
       productionMapLinearWorkStages(map).map((stage) => stage.stageId).toList(),
-      const [_lamination1Id, _cutId],
+      const [_printId, _cutId],
     );
     expect(
-      productionMapStageDisplayTitle(map: map, station: _lamination1Id),
-      'Laminatsiya 1',
+      productionMapStageDisplayTitle(map: map, station: _printId),
+      'Flexo pechat',
     );
   });
 

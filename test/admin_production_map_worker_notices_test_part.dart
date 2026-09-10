@@ -3,6 +3,65 @@ part of 'admin_production_map_test_screen_test.dart';
 void _registerWorkerNoticeTests() {
   final l10n = AppLocalizations(const Locale('uz'));
 
+  for (final scenario in ['missing', 'reported', 'upstream-open']) {
+    testWidgets('stage astatka notification: $scenario', (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      const orderId = 'zakaz-stage-report';
+      AppSession.instance.profile = const SessionProfile(
+        role: UserRole.aparatchi, displayName: 'Bosmachi', legalName: '',
+        ref: 'stage-worker', phone: '', avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [_print7Id],
+      );
+      await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
+        id: orderId, title: 'Shared order', productCode: 'SHARED',
+        apparatusId: _print7Id, product: 'Shared product',
+      ));
+      await MobileApi.instance.adminSaveProductionMapSequence(apparatus: _print7Id, orderIds: const [orderId]);
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: _print7Id, orderId: orderId,
+        control: AdminApparatusQueueOrderActionControl(
+          state: 'pending', allowedActions: const {}, hasOnlyKnownActions: true,
+          interaction: _requeuedQueueControl(ready: false).interaction,
+          stageWork: AdminStageWorkControl(
+            upstreamClosed: scenario != 'upstream-open',
+            astatkaAvailable: true, astatkaRequired: scenario == 'missing',
+            reportSessionId: 'finished-run', upstreamTitle: 'Extruder 1',
+          ),
+        ),
+      );
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('uz'),
+        localizationsDelegates: const [AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate, GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(readOnly: true, workerMode: true),
+      ));
+      await tester.pumpAndSettle();
+      final title = l10n.productionText('worker.stage.astatka.title');
+      expect(find.text(title), scenario == 'missing' ? findsOneWidget : findsNothing);
+      if (scenario == 'missing') {
+        expect(find.textContaining('Extruder 1'), findsOneWidget);
+        expect(find.textContaining('7 ta rangli bosma aparat'), findsWidgets);
+        await tester.tap(find.text(l10n.productionText('worker.stage.astatka.later')));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.text('7 ta rangli bosma aparat'));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.byKey(const ValueKey('worker-order-$orderId')));
+      await tester.pumpAndSettle();
+      // A finished local execution can report while its scheduling state is
+      // pending, including when upstream has not closed yet.
+      expect(find.text('Astatka hisobotini topshirish'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, 'Jami chiqindi'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   AdminApparatusQueueOrderActionControl control({
     String state = 'pending',
     AdminQueueInteractionMode mode =

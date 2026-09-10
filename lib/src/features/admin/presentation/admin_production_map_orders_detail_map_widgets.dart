@@ -251,5 +251,5 @@ String _orderMapProgressSummary({
 
 String _orderMapNodeStationId(ProductionMapNode node) {
   final assignedId = node.alternativeAssignedApparatusId.trim();
-  return assignedId.isEmpty ? node.apparatusId.trim() : assignedId;
+  return node.alternativeGroupId.trim().isNotEmpty || assignedId.isEmpty ? node.apparatusId.trim() : assignedId;
 }

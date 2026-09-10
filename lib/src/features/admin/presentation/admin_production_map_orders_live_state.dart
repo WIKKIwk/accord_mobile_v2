@@ -581,6 +581,45 @@ extension _AdminProductionMapOrdersLiveState
     _orderStatusesByOrderId
       ..clear()
       ..addAll(snapshot.orderStatuses);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_showPendingStageAstatkaPrompt());
+    });
+  }
+
+  Future<void> _showPendingStageAstatkaPrompt() async {
+    if (!widget.workerMode || !_workerForeground || _stageAstatkaPromptOpen ||
+        ModalRoute.of(context)?.isCurrent != true) return;
+    for (final apparatus in _apparatus) {
+      if (!_isAssignedWatchApparatus(apparatus, assignedApparatus:
+          AppSession.instance.profile?.assignedApparatus ?? const <String>[])) continue;
+      for (final order in _orders) {
+        final id = order.map.id.trim();
+        final work = _queueActionControlsByApparatus[apparatus.id]?[id]?.stageWork;
+        if (work == null || !work.needsReportPrompt ||
+            _orderControlsByOrderId[id] == AdminOrderControlState.frozen) continue;
+        final key = '$id:${apparatus.id}:${work.reportSessionId}';
+        if (!_shownStageAstatkaSessions.add(key)) continue;
+        _stageAstatkaPromptOpen = true;
+        try {
+          final l10n = context.l10n;
+          final confirmed = await showM3ConfirmDialog(context: context,
+            title: l10n.productionText('worker.stage.astatka.title'),
+            message: l10n.productionText('worker.stage.astatka.upstream_closed', values: {
+              'source': work.upstreamTitle, 'target': apparatus.name, 'order': order.map.title,
+            }),
+            cancelLabel: l10n.productionText('worker.stage.astatka.later'),
+            confirmLabel: l10n.productionText('worker.stage.astatka.submit')) ?? false;
+          if (!mounted) return;
+          // Revalidate the live contract after the dialog; another worker or
+          // device may have already submitted the report in the meantime.
+          final current = _queueActionControlsByApparatus[apparatus.id]?[id]?.stageWork;
+          if (confirmed && current?.needsReportPrompt == true && current?.reportSessionId == work.reportSessionId) {
+            _showWatchOrderDetail(apparatus: apparatus, order: order, startAstatkaOnOpen: true);
+          }
+        } finally { _stageAstatkaPromptOpen = false; }
+        return;
+      }
+    }
   }
 
   Future<void> _refreshWorkerCompletedOrders() async {

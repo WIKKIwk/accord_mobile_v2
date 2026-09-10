@@ -18,7 +18,7 @@ String _canonicalNodeOperation(
 ) {
   if (node.kind != 'apparatus') return '';
   final assigned = node.alternativeAssignedApparatusId.trim();
-  final apparatusId = assigned.isEmpty ? node.apparatusId.trim() : assigned;
+  final apparatusId = node.alternativeGroupId.trim().isNotEmpty || assigned.isEmpty ? node.apparatusId.trim() : assigned;
   return _canonicalApparatusForId(apparatus, apparatusId)
           ?.operation
           .trim()

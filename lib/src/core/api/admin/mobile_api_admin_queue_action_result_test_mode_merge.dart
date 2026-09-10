@@ -308,6 +308,7 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
     _testModeQueueActionControlFixtures[storageKey]![normalizedOrderId] =
         AdminApparatusQueueOrderActionControl(
       workActivity: fixture.workActivity,
+      stageWork: fixture.stageWork,
       state: fixture.state,
       allowedActions: fixture.allowedActions,
       interaction: fixture.interaction,

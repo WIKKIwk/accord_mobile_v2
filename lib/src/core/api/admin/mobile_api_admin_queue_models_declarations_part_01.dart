@@ -144,6 +144,7 @@ class AdminRezkaActivePartialRoll {
 
 class AdminApparatusQueueOrderActionControl {
   const AdminApparatusQueueOrderActionControl({
+    this.stageWork,
     this.workActivity,
     this.state = '',
     this.allowedActions = const {},
@@ -165,6 +166,7 @@ class AdminApparatusQueueOrderActionControl {
   });
 
   final AdminQueueWorkActivity? workActivity;
+  final AdminStageWorkControl? stageWork;
   final String state;
   final Set<String> allowedActions;
   final AdminQueueWorkerInteraction? interaction;
@@ -432,6 +434,8 @@ class AdminApparatusQueueOrderActionControl {
       ),
       hasValidRezkaMergeState: hasValidRezkaMergeState,
       completeRequiresFullReport: json['complete_requires_full_report'] == true,
+      stageWork: json['stage_work'] is Map
+          ? AdminStageWorkControl.fromJson((json['stage_work'] as Map).cast<String, dynamic>()) : null,
       closingOutputBatchId: json['closing_output_batch_id'] is String
           ? (json['closing_output_batch_id'] as String).trim() : '',
       completeRequiresRezkaTotalWasteOnly:
@@ -443,6 +447,37 @@ class AdminApparatusQueueOrderActionControl {
           : null,
     );
   }
+}
+
+class AdminStageWorkControl {
+  const AdminStageWorkControl({this.completed = false, this.upstreamClosed = false,
+    this.astatkaAvailable = false, this.astatkaRequired = false, this.reportSessionId = '',
+    this.upstreamTitle = '', this.lastApparatus = '', this.lastWorkerRef = ''});
+  final bool completed;
+  final bool upstreamClosed;
+  final bool astatkaAvailable;
+  final bool astatkaRequired;
+  final String reportSessionId;
+  final String upstreamTitle;
+  final String lastApparatus;
+  final String lastWorkerRef;
+
+  factory AdminStageWorkControl.fromJson(Map<String, dynamic> json) => AdminStageWorkControl(
+    completed: json['completed'] == true, upstreamClosed: json['upstream_closed'] == true,
+    astatkaAvailable: json['astatka_available'] == true, astatkaRequired: json['astatka_required'] == true,
+    reportSessionId: json['report_session_id']?.toString() ?? '', upstreamTitle: json['upstream_title']?.toString() ?? '',
+    lastApparatus: json['last_apparatus']?.toString() ?? '', lastWorkerRef: json['last_worker_ref']?.toString() ?? '');
+
+  bool get needsReportPrompt => upstreamClosed && astatkaAvailable && astatkaRequired && reportSessionId.isNotEmpty;
+
+  @override
+  bool operator ==(Object other) => other is AdminStageWorkControl && completed == other.completed &&
+      upstreamClosed == other.upstreamClosed && astatkaAvailable == other.astatkaAvailable &&
+      astatkaRequired == other.astatkaRequired && reportSessionId == other.reportSessionId &&
+      upstreamTitle == other.upstreamTitle && lastApparatus == other.lastApparatus && lastWorkerRef == other.lastWorkerRef;
+  @override
+  int get hashCode => Object.hash(completed, upstreamClosed, astatkaAvailable, astatkaRequired,
+      reportSessionId, upstreamTitle, lastApparatus, lastWorkerRef);
 }
 
 bool _queueInteractionModeMatchesState(

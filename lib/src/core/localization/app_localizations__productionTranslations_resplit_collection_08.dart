@@ -210,6 +210,16 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
     'en': 'Order remainder recorded',
     'ru': 'Остаток по заказу зафиксирован',
   },
+  'worker.stage.astatka.title': {
+    'uz': 'Astatkani topshiring', 'en': 'Submit the remainder report', 'ru': 'Сдайте отчёт об остатках',
+  },
+  'worker.stage.astatka.upstream_closed': {
+    'uz': '{order}: oldingi bosqich ({source}) tugatildi, boshqa rulon chiqmaydi. {target} dagi ishingiz uchun astatkani topshiring.',
+    'en': '{order}: the previous stage ({source}) has finished; no more rolls will arrive. Submit the remainder report for your work at {target}.',
+    'ru': '{order}: предыдущий этап ({source}) завершён, новых рулонов не будет. Сдайте отчёт об остатках за вашу работу на {target}.',
+  },
+  'worker.stage.astatka.later': {'uz': 'Keyinroq', 'en': 'Later', 'ru': 'Позже'},
+  'worker.stage.astatka.submit': {'uz': 'Astatka topshirish', 'en': 'Submit report', 'ru': 'Сдать отчёт'},
   'worker.error.material_order_mismatch': {
     'uz': 'Bu homashyo zakazga mos emas',
     'en': 'This material does not belong to the order',

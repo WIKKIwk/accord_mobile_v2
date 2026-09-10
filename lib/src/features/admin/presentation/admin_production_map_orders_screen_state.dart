@@ -72,6 +72,8 @@ class _AdminProductionMapOrdersScreenState
   List<AdminCompletedQueueOrder> _completedWorkerOrders = const [];
   List<AdminCompletionRequestNotification> _completionRequests = const [];
   final Set<String> _shownCompletionDecisionIds = {};
+  final Set<String> _shownStageAstatkaSessions = {};
+  bool _stageAstatkaPromptOpen = false;
   List<AdminClosedProductionOrder> _closedOrders = const [];
 
   AdminProductionWorkflowAuditReport? _workflowAudit;
@@ -626,6 +628,7 @@ class _AdminProductionMapOrdersScreenState
         if (mounted && result == true) {
           unawaited(_refreshLive());
         }
+        if (mounted) unawaited(_showPendingStageAstatkaPrompt());
       }),
     );
   }
@@ -911,6 +914,12 @@ class _AdminProductionMapOrdersScreenState
     final state = apparatusQueueOrderStateFromRaw(
       queueStates[order.map.id.trim()],
     );
+    final stageWork = _queueActionControlForApparatus(apparatus: apparatus,
+        orderId: order.map.id.trim())?.stageWork;
+    if (stageWork?.astatkaAvailable == true) {
+      _showWatchOrderDetail(apparatus: apparatus, order: order, startAstatkaOnOpen: true);
+      return;
+    }
     if (isBosma) {
       final control = _queueActionControlForApparatus(apparatus: apparatus,
           orderId: order.map.id.trim());

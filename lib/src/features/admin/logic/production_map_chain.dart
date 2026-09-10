@@ -107,7 +107,9 @@ List<ProductionMapChainStage> productionMapNextWorkStagesForNode({
     if (node == null || node.kind == 'end') continue;
     final physicalStage = physicalByNode[nodeId.trim()];
     if (physicalStage != null) {
-      if (foundNodes.add(nodeId.trim())) result.add(physicalStage);
+      for (final candidate in _stagesForNode(map, node)) {
+        if (foundNodes.add(candidate.nodeId.trim())) result.add(candidate);
+      }
       continue;
     }
     queue.addAll(_routeSuccessors(map, nodeId));
@@ -214,7 +216,7 @@ ApparatusQueueOrderState? productionMapNodeQueueState({
     return apparatusQueueOrderStateFromRaw(stageState);
   }
   final assignedId = node.alternativeAssignedApparatusId.trim();
-  final stationId = assignedId.isEmpty ? node.apparatusId.trim() : assignedId;
+  final stationId = node.alternativeGroupId.trim().isNotEmpty || assignedId.isEmpty ? node.apparatusId.trim() : assignedId;
   if (stationId.isEmpty) {
     return null;
   }
@@ -357,9 +359,11 @@ void _collectPhysicalStageIds({
       continue;
     }
     if (node.kind == 'apparatus' && physicalNodeIds.contains(node.id)) {
-      final apparatusId = _canonicalApparatusIdentity(node);
-      if (apparatusId != null && seenIds.add(apparatusId)) {
-        found.add(apparatusId);
+      for (final candidate in _stagesForNode(map, node)) {
+        final apparatusId = candidate.apparatusId;
+        if (apparatusId != null && seenIds.add(apparatusId)) {
+          found.add(apparatusId);
+        }
       }
       continue;
     }
@@ -393,22 +397,34 @@ List<String> _reachableNodeIds(ProductionMapDefinition map) {
 List<String> _routeSuccessors(ProductionMapDefinition map, String nodeId) {
   final node = _nodeById(map, nodeId);
   if (node == null) return const [];
+  final operation = _operationNodeIds(map, node);
   return [
     for (final edge in map.edges)
-      if (edge.from == nodeId && _routeEdgeAllowed(node, edge)) edge.to,
+      if (operation.contains(edge.from) && !operation.contains(edge.to) &&
+          _routeEdgeAllowed(_nodeById(map, edge.from)!, edge)) edge.to,
   ];
 }
 
 List<String> _routePredecessors(ProductionMapDefinition map, String nodeId) {
+  final node = _nodeById(map, nodeId);
+  if (node == null) return const [];
+  final operation = _operationNodeIds(map, node);
   final result = <String>[];
   for (final edge in map.edges) {
-    if (edge.to != nodeId) continue;
+    if (!operation.contains(edge.to) || operation.contains(edge.from)) continue;
     final source = _nodeById(map, edge.from);
     if (source != null && _routeEdgeAllowed(source, edge)) {
       result.add(edge.from);
     }
   }
   return result;
+}
+
+Set<String> _operationNodeIds(ProductionMapDefinition map, ProductionMapNode node) {
+  final group = node.alternativeGroupId.trim();
+  if (node.kind != 'apparatus' || group.isEmpty) return {node.id};
+  return {for (final candidate in map.nodes)
+    if (candidate.kind == 'apparatus' && candidate.alternativeGroupId.trim() == group) candidate.id};
 }
 
 bool _routeEdgeAllowed(ProductionMapNode node, ProductionMapEdge edge) {
@@ -442,8 +458,7 @@ bool _isStationNode(ProductionMapNode node) {
 
 bool _isUnassignedAlternativeApparatus(ProductionMapNode node) {
   return node.kind == 'apparatus' &&
-      node.alternativeGroupId.trim().isNotEmpty &&
-      node.alternativeAssignedApparatusId.trim().isEmpty;
+      node.alternativeGroupId.trim().isNotEmpty;
 }
 
 List<ProductionMapChainStage> _stagesForNode(
@@ -468,7 +483,6 @@ List<ProductionMapChainStage> _stagesForNode(
     for (final candidate in map.nodes)
       if (candidate.kind == 'apparatus' &&
           candidate.alternativeGroupId.trim() == groupId &&
-          candidate.alternativeAssignedApparatusId.trim().isEmpty &&
           isCanonicalApparatusId(candidate.apparatusId))
         ProductionMapChainStage(
           nodeId: candidate.id,
@@ -489,13 +503,13 @@ String _stageIdentity(ProductionMapNode node) {
 String? _canonicalApparatusIdentity(ProductionMapNode node) {
   if (node.kind != 'apparatus') return null;
   final assignedId = node.alternativeAssignedApparatusId.trim();
-  final apparatusId = assignedId.isEmpty ? node.apparatusId.trim() : assignedId;
+  final apparatusId = node.alternativeGroupId.trim().isNotEmpty || assignedId.isEmpty ? node.apparatusId.trim() : assignedId;
   return isCanonicalApparatusId(apparatusId) ? apparatusId : null;
 }
 
 String _displayTitle(ProductionMapNode node) {
   final assignedTitle = node.alternativeAssignedTitle.trim();
-  if (node.kind == 'apparatus' && assignedTitle.isNotEmpty) {
+  if (node.kind == 'apparatus' && node.alternativeGroupId.trim().isEmpty && assignedTitle.isNotEmpty) {
     return assignedTitle;
   }
   return node.title.trim();
