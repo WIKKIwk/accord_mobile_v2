@@ -170,11 +170,13 @@ class _PreparationWarehouseScreenState
     extends State<PreparationWarehouseScreen> {
   late String? _warehouse = widget.initialWarehouse;
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   String _query = '';
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -235,10 +237,23 @@ class _PreparationWarehouseScreenState
         _warehouse == null ? const <PreparationMaterial>[] : _filtered;
 
     return AppShell(
-      title: 'Ombor',
-      subtitle: _warehouse ?? 'Ombor tanlang',
+      title: '',
+      subtitle: '',
       nativeTopBar: true,
+      automaticallyImplyNativeLeading: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      profileActionListenable: _searchFocusNode,
+      showProfileActionResolver: () => !_searchFocusNode.hasFocus,
+      titleWidget: AdminCatalogSearchField(
+        controller: _searchController,
+        focusNode: _searchFocusNode,
+        hintText: 'Qidirish',
+        onChanged: (v) => setState(() => _query = v),
+        onClear: () {
+          _searchController.clear();
+          setState(() => _query = '');
+        },
+      ),
       contentPadding: EdgeInsets.zero,
       bottom: PreparationDock(
         primaryFabActions: _warehouse == null
@@ -304,22 +319,6 @@ class _PreparationWarehouseScreenState
                   ],
                 ),
               if (widget.warehouses.length > 1) const SizedBox(height: 12),
-              SearchBar(
-                controller: _searchController,
-                hintText: 'Qidirish',
-                constraints: const BoxConstraints(minHeight: 58),
-                padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
-                  EdgeInsets.symmetric(horizontal: 18),
-                ),
-                leading: Icon(
-                  Icons.search_rounded,
-                  size: 26,
-                  color: scheme.onSurfaceVariant,
-                ),
-                elevation: const WidgetStatePropertyAll<double>(0),
-                onChanged: (v) => setState(() => _query = v),
-              ),
-              const SizedBox(height: 12),
               if (filtered.isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -343,9 +342,6 @@ class _PreparationWarehouseScreenState
                         ),
                         material: filtered[index],
                         warehouse: _warehouse!,
-                        onTap: widget.locked
-                            ? null
-                            : () => widget.onReceive(filtered[index]),
                       ),
                   ],
                 ),
@@ -460,13 +456,11 @@ class _PreparationWarehouseStockRow extends StatelessWidget {
     required this.slot,
     required this.material,
     required this.warehouse,
-    this.onTap,
   });
 
   final M3SegmentVerticalSlot slot;
   final PreparationMaterial material;
   final String warehouse;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -484,14 +478,8 @@ class _PreparationWarehouseStockRow extends StatelessWidget {
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
       value: '',
-      onTap: onTap,
+      onTap: null,
       showChevron: false,
-      trailing: onTap == null
-          ? null
-          : Icon(
-              Icons.add_circle_outline,
-              color: scheme.primary,
-            ),
       leading: SizedBox.square(
         dimension: 30,
         child: DecoratedBox(

@@ -168,7 +168,7 @@ void main() {
           await tester.tap(find.text('Tayyorlov ombori'));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
-          expect(find.text('Ombor'), findsOneWidget);
+          expect(find.text('Qidirish'), findsOneWidget);
           expect(find.text('Bu omborda hali kirim yo‘q.'), findsOneWidget);
           await tester.tap(
             find.byKey(const ValueKey('app-primary-navigation-button')),
