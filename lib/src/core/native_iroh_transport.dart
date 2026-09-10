@@ -34,6 +34,7 @@ class NativeIrohTransport {
   static String? _runtimeEndpointTicket;
   static bool _runtimeSupportsConnectionReuse = false;
   static int? _lastRequestTotalMs;
+  static final Map<String, String> _lastLoggedPaths = {};
   static int _nextLiveSubscriptionId = 1;
   static bool _callbackHandlerInstalled = false;
   static final Map<int, StreamController<Map<String, dynamic>>>
@@ -154,7 +155,11 @@ class NativeIrohTransport {
           throw MissingPluginException('Iroh transport is not supported');
         }
         final route = _route(uri);
-        unawaited(route.warmUp());
+        // Give discovery a bounded chance before committing this long-lived
+        // subscription to WSS; otherwise it never upgrades after warming.
+        await route
+            .warmUp()
+            .timeout(const Duration(seconds: 3), onTimeout: () {});
         final config = route.ready;
         if (config == null) {
           throw MissingPluginException('Iroh route is not ready');
@@ -240,6 +245,13 @@ class NativeIrohTransport {
   }
 
   static bool get hasEndpointTicket => autoConnectEnabled && !kIsWeb;
+
+  // A saved HTTPS endpoint is still authenticated by its own TLS origin and
+  // Iroh identity. Selecting it manually must not disable LAN acceleration.
+  static bool canUseFor(Uri uri) =>
+      hasEndpointTicket &&
+      (uri.scheme == 'https' || uri.scheme == 'wss') &&
+      uri.userInfo.isEmpty;
 
   static Future<http.Response> send({
     required String method,
@@ -394,6 +406,18 @@ class NativeIrohTransport {
     final totalMs = (map['totalMs'] as num?)?.round();
     if (totalMs != null && totalMs > 0) {
       _lastRequestTotalMs = totalMs;
+    }
+    final paths = map['pathInfo']?.toString().split(' | ') ?? const <String>[];
+    final selected = paths.where((path) => path.startsWith('* ')).firstOrNull;
+    final kind = selected?.contains('direct') == true
+        ? 'direct'
+        : selected?.contains('relay') == true
+            ? 'relay'
+            : null;
+    if (kind != null && _lastLoggedPaths[uri.origin] != kind) {
+      _lastLoggedPaths[uri.origin] = kind;
+      debugPrint(
+          '[accord-transport] Iroh $kind selected, request=${totalMs ?? 0}ms');
     }
     final responseBody = map['body'];
     List<int> bytes = responseBody is Uint8List

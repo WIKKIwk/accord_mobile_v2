@@ -1,4 +1,5 @@
 import '../api/mobile_api.dart';
+import '../native_iroh_transport.dart';
 import '../session/session.dart';
 import 'network_required_dialog.dart';
 import 'dart:async';
@@ -47,9 +48,17 @@ class _NetworkRequirementRuntimeState extends State<NetworkRequirementRuntime>
     }
     _checking = true;
     try {
-      final response = await http
-          .get(Uri.parse('${MobileApi.baseUrl}/healthz'))
-          .timeout(const Duration(seconds: 2));
+      final uri = Uri.parse('${MobileApi.baseUrl}/healthz');
+      if (NativeIrohTransport.canUseFor(uri)) {
+        // Warm off the action path. A healthy LAN must not be called offline
+        // just because the WAN/tunnel health request cannot reach the server.
+        await NativeIrohTransport.warmUp(uri)
+            .timeout(const Duration(seconds: 3), onTimeout: () {});
+      }
+      final response = await (NativeIrohTransport.canUseFor(uri)
+              ? NativeIrohTransport.send(method: 'GET', uri: uri)
+              : http.get(uri))
+          .timeout(const Duration(seconds: 3));
       if (response.statusCode == 200) {
         return;
       }

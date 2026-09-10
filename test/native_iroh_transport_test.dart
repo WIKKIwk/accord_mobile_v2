@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:accord_mobile_v2/src/core/native_iroh_transport.dart';
+import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -25,6 +26,32 @@ void main() {
 
   test('missing bridge reports unsupported', () async {
     expect(await NativeIrohTransport.isSupported(), isFalse);
+  });
+
+  test('saved HTTPS endpoint still permits its origin-scoped native route',
+      () async {
+    final store = ServerEndpointStore.instance;
+    await store.setBaseUrl('https://selected-erp.invalid');
+    try {
+      expect(store.isRuntimeOverride, isTrue);
+      expect(
+          NativeIrohTransport.canUseFor(
+              Uri.parse('${store.baseUrl}/v1/mobile/test')),
+          isTrue);
+      expect(
+          NativeIrohTransport.canUseFor(
+              Uri.parse('wss://selected-erp.invalid/v1/mobile/live')),
+          isTrue);
+      expect(
+          NativeIrohTransport.canUseFor(Uri.parse('http://192.168.1.4:18081')),
+          isFalse);
+      expect(
+          NativeIrohTransport.canUseFor(
+              Uri.parse('https://user:pass@selected-erp.invalid')),
+          isFalse);
+    } finally {
+      await store.clearOverride();
+    }
   });
 
   for (final method in ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE']) {

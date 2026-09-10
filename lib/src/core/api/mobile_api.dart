@@ -256,8 +256,7 @@ class MobileApi {
   }
 
   Future<http.Response> _get(Uri uri, {Map<String, String>? headers}) {
-    if (NativeIrohTransport.hasEndpointTicket &&
-        !ServerEndpointStore.instance.isRuntimeOverride) {
+    if (NativeIrohTransport.canUseFor(uri)) {
       return NativeIrohTransport.send(
         method: 'GET',
         fallbackClient: _httpClient,
@@ -273,8 +272,7 @@ class MobileApi {
     Map<String, String>? headers,
     Object? body,
   }) => _mutationRequest(() {
-    if (NativeIrohTransport.hasEndpointTicket &&
-        !ServerEndpointStore.instance.isRuntimeOverride) {
+    if (NativeIrohTransport.canUseFor(uri)) {
       return NativeIrohTransport.send(
         method: 'POST',
         fallbackClient: _httpClient,
@@ -293,8 +291,7 @@ class MobileApi {
     Map<String, String>? headers,
     Object? body,
   }) => _mutationRequest(() {
-    if (NativeIrohTransport.hasEndpointTicket &&
-        !ServerEndpointStore.instance.isRuntimeOverride) {
+    if (NativeIrohTransport.canUseFor(uri)) {
       return NativeIrohTransport.send(
         method: 'PUT',
         fallbackClient: _httpClient,
@@ -311,8 +308,7 @@ class MobileApi {
     Map<String, String>? headers,
     Object? body,
   }) => _mutationRequest(() {
-    if (NativeIrohTransport.hasEndpointTicket &&
-        !ServerEndpointStore.instance.isRuntimeOverride) {
+    if (NativeIrohTransport.canUseFor(uri)) {
       return NativeIrohTransport.send(
         method: 'PATCH',
         fallbackClient: _httpClient,
@@ -331,8 +327,7 @@ class MobileApi {
     Map<String, String>? headers,
     Object? body,
   }) => _mutationRequest(() {
-    if (NativeIrohTransport.hasEndpointTicket &&
-        !ServerEndpointStore.instance.isRuntimeOverride) {
+    if (NativeIrohTransport.canUseFor(uri)) {
       return NativeIrohTransport.send(
         method: 'DELETE',
         fallbackClient: _httpClient,
