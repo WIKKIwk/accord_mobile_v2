@@ -482,14 +482,17 @@ class PreparationMaterialsScreen extends StatelessWidget {
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
-      bottom: const PreparationDock(),
-      actions: [
-        IconButton(
-          tooltip: 'Yangilash',
-          icon: const Icon(Icons.refresh),
-          onPressed: locked ? null : onReload,
-        ),
-      ],
+      bottom: PreparationDock(
+        primaryFabActions: [
+          AdminFabMenuAction(
+            title: 'Homashyo qo‘shish',
+            icon: Icons.add_rounded,
+            onTap: () {
+              if (!locked) onCreateMaterial();
+            },
+          ),
+        ],
+      ),
       child: AppRefreshIndicator(
         onRefresh: onReload,
         allowRefreshOnShortContent: true,
@@ -498,22 +501,6 @@ class PreparationMaterialsScreen extends StatelessWidget {
           padding: EdgeInsets.only(bottom: bottomPadding),
           children: [
             const SizedBox(height: _adminHomePanelCardGap),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: _adminHomePanelCardGap,
-                vertical: 4,
-              ),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: FilledButton.icon(
-                  key: const Key('preparation-add-material'),
-                  onPressed: locked ? null : onCreateMaterial,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Homashyo qo‘shish'),
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
             if (materials.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(16),
