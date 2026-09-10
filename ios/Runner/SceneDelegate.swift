@@ -7,6 +7,8 @@ import UIKit
 class SceneDelegate: FlutterSceneDelegate {
   private var deviceInfoBridge: DeviceInfoChannelBridge?
   private var gscaleBonjourBridge: GScaleBonjourDiscoveryBridge?
+  private var erpBonjourBridge: GScaleBonjourDiscoveryBridge?
+  private var irohTransportBridge: IrohTransportChannelBridge?
   private var gscaleUdpDiscoveryBridge: GScaleUdpDiscoveryBridge?
   private var xprinterBluetoothChannel: XPrinterBluetoothChannel?
   private var secureAccountStorageBridge: SecureAccountStorageChannelBridge?
@@ -20,7 +22,10 @@ class SceneDelegate: FlutterSceneDelegate {
 
     if let window, let flutterViewController = window.rootViewController as? FlutterViewController {
       deviceInfoBridge = DeviceInfoChannelBridge(messenger: flutterViewController.binaryMessenger)
-      // Iroh is temporarily excluded from iOS builds; Dart uses HTTPS/WebSocket.
+      irohTransportBridge = IrohTransportChannelBridge(messenger: flutterViewController.binaryMessenger)
+      erpBonjourBridge = GScaleBonjourDiscoveryBridge(
+        messenger: flutterViewController.binaryMessenger, channelName: "accord/erp_discovery"
+      )
       gscaleBonjourBridge = GScaleBonjourDiscoveryBridge(
         messenger: flutterViewController.binaryMessenger
       )
@@ -176,6 +181,10 @@ final class NativeBackNavigationController: UINavigationController {
   private lazy var gscaleBonjourBridge = GScaleBonjourDiscoveryBridge(
     messenger: flutterBinaryMessenger
   )
+  private lazy var erpBonjourBridge = GScaleBonjourDiscoveryBridge(
+    messenger: flutterBinaryMessenger, channelName: "accord/erp_discovery"
+  )
+  private lazy var irohTransportBridge = IrohTransportChannelBridge(messenger: flutterBinaryMessenger)
   private lazy var gscaleUdpDiscoveryBridge = GScaleUdpDiscoveryBridge(
     messenger: flutterBinaryMessenger
   )
@@ -220,6 +229,8 @@ final class NativeBackNavigationController: UINavigationController {
     _ = backBridge
     _ = deviceInfoBridge
     _ = gscaleBonjourBridge
+    _ = erpBonjourBridge
+    _ = irohTransportBridge
     _ = gscaleUdpDiscoveryBridge
     navigationBar.prefersLargeTitles = false
     applyNavigationAppearance(isDark: true)
@@ -1000,9 +1011,9 @@ private final class GScaleBonjourDiscoveryBridge: NSObject, NetServiceBrowserDel
   private var services: [NetService] = []
   private var resolvedServices: [[String: Any]] = []
 
-  init(messenger: FlutterBinaryMessenger) {
+  init(messenger: FlutterBinaryMessenger, channelName: String = "gscale/bonjour") {
     self.channel = FlutterMethodChannel(
-      name: "gscale/bonjour",
+      name: channelName,
       binaryMessenger: messenger
     )
     super.init()
@@ -1103,6 +1114,7 @@ private final class GScaleBonjourDiscoveryBridge: NSObject, NetServiceBrowserDel
     let httpPort = Int(txt["http_port"] ?? "") ?? service.port
     return [
       "host": host,
+      "hosts": ipAddresses(from: service.addresses),
       "http_port": httpPort,
       "server_name": nonEmpty(txt["server_name"], fallback: service.name),
       "server_ref": nonEmpty(txt["server_ref"], fallback: ""),
@@ -1113,10 +1125,14 @@ private final class GScaleBonjourDiscoveryBridge: NSObject, NetServiceBrowserDel
   }
 
   private func firstIPAddress(from addresses: [Data]?) -> String? {
-    guard let addresses else {
-      return nil
-    }
+    ipAddresses(from: addresses).first
+  }
 
+  private func ipAddresses(from addresses: [Data]?) -> [String] {
+    guard let addresses else {
+      return []
+    }
+    var result: [String] = []
     for family in [AF_INET, AF_INET6] {
       for address in addresses {
         let host = address.withUnsafeBytes { buffer -> String? in
@@ -1143,12 +1159,12 @@ private final class GScaleBonjourDiscoveryBridge: NSObject, NetServiceBrowserDel
           return String(cString: hostBuffer)
         }
         if let host, !host.isEmpty {
-          return host
+          result.append(host)
         }
       }
     }
 
-    return nil
+    return result
   }
 
   private func decodeTXTRecord(_ data: Data?) -> [String: String] {

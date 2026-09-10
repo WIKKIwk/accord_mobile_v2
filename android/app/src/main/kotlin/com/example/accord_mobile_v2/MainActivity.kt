@@ -49,6 +49,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var bluetoothPrinterChannel: BluetoothPrinterChannel? = null
     private var irohTransportChannel: IrohTransportChannel? = null
     private var gscaleNsdDiscoveryBridge: GScaleNsdDiscoveryBridge? = null
+    private var erpNsdDiscoveryBridge: GScaleNsdDiscoveryBridge? = null
     private var appUpdateChannel: AppUpdateChannel? = null
     private var secureAccountStorageChannel: SecureAccountStorageChannel? = null
 
@@ -111,6 +112,11 @@ class MainActivity : FlutterFragmentActivity() {
             context = applicationContext,
             messenger = flutterEngine.dartExecutor.binaryMessenger,
         )
+        erpNsdDiscoveryBridge = GScaleNsdDiscoveryBridge(
+            context = applicationContext,
+            messenger = flutterEngine.dartExecutor.binaryMessenger,
+            channelName = "accord/erp_discovery",
+        )
         appUpdateChannel = AppUpdateChannel(
             activity = this,
             messenger = flutterEngine.dartExecutor.binaryMessenger,
@@ -165,8 +171,9 @@ class MainActivity : FlutterFragmentActivity() {
 private class GScaleNsdDiscoveryBridge(
     context: Context,
     messenger: BinaryMessenger,
+    channelName: String = "gscale/nsd",
 ) {
-    private val channel = MethodChannel(messenger, "gscale/nsd")
+    private val channel = MethodChannel(messenger, channelName)
     private val nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
     private val mainHandler = Handler(Looper.getMainLooper())
     private var activeSession: DiscoverySession? = null
@@ -281,6 +288,9 @@ private class GScaleNsdDiscoveryBridge(
             val key = "${txt["server_ref"].orEmpty()}|${serviceInfo.serviceName}|$host|$port"
             services[key] = mapOf(
                 "host" to host,
+                "hosts" to if (android.os.Build.VERSION.SDK_INT >= 34) {
+                    serviceInfo.hostAddresses.mapNotNull { it.hostAddress }
+                } else { listOf(host) },
                 "http_port" to port,
                 "server_name" to txtValue(txt, "server_name", serviceInfo.serviceName),
                 "server_ref" to txtValue(txt, "server_ref", ""),

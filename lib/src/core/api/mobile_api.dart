@@ -260,6 +260,7 @@ class MobileApi {
         !ServerEndpointStore.instance.isRuntimeOverride) {
       return NativeIrohTransport.send(
         method: 'GET',
+        fallbackClient: _httpClient,
         uri: uri,
         headers: headers,
       ).timeout(_requestTimeout);
@@ -276,6 +277,7 @@ class MobileApi {
         !ServerEndpointStore.instance.isRuntimeOverride) {
       return NativeIrohTransport.send(
         method: 'POST',
+        fallbackClient: _httpClient,
         uri: uri,
         headers: headers,
         body: body,
@@ -295,6 +297,7 @@ class MobileApi {
         !ServerEndpointStore.instance.isRuntimeOverride) {
       return NativeIrohTransport.send(
         method: 'PUT',
+        fallbackClient: _httpClient,
         uri: uri,
         headers: headers,
         body: body,
@@ -312,6 +315,7 @@ class MobileApi {
         !ServerEndpointStore.instance.isRuntimeOverride) {
       return NativeIrohTransport.send(
         method: 'PATCH',
+        fallbackClient: _httpClient,
         uri: uri,
         headers: headers,
         body: body,
@@ -331,6 +335,7 @@ class MobileApi {
         !ServerEndpointStore.instance.isRuntimeOverride) {
       return NativeIrohTransport.send(
         method: 'DELETE',
+        fallbackClient: _httpClient,
         uri: uri,
         headers: headers,
         body: body,

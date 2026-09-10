@@ -81,6 +81,10 @@ final class IrohTransportChannelBridge: NSObject {
           DispatchQueue.main.async {
             result(value)
           }
+        } catch is IrohNotSentError {
+          DispatchQueue.main.async {
+            result(FlutterError(code: "iroh_not_sent", message: "Iroh connection unavailable before sending", details: nil))
+          }
         } catch let error as IrohTicketError {
           DispatchQueue.main.async {
             result(FlutterError(code: "iroh_invalid_ticket", message: error.message, details: nil))
@@ -455,6 +459,7 @@ private func runHttpRequest(
   let endpointAddr = try decodeEndpointTicket(ticket).toEndpointAddr()
   let started = DispatchTime.now().uptimeNanoseconds
 
+  var writeStarted = false
   do {
     let connection: Connection
     if reuseConnection {
@@ -475,6 +480,8 @@ private func runHttpRequest(
     let send = bi.send()
     let recv = bi.recv()
 
+    // Set BEFORE writing: even a failed/partial write may commit.
+    writeStarted = true
     try await send.writeAll(buf: buildHttpRequest(method: method, path: path, headers: headers, body: body))
     try await send.finish()
 
@@ -496,6 +503,7 @@ private func runHttpRequest(
     if reuseConnection {
       await IrohEndpointStore.shared.resetConnection(ticket: ticket)
     }
+    if !writeStarted { throw IrohNotSentError() }
     throw error
   }
 }
@@ -506,48 +514,78 @@ private actor IrohEndpointStore {
   private var cachedEndpoint: Endpoint?
   private var cachedConnection: Connection?
   private var cachedConnectionTicket: String?
+  private var pendingEndpoint: (id: UUID, task: Task<Endpoint, Error>)?
+  private var pendingConnections: [String: (id: UUID, task: Task<Connection, Error>)] = [:]
 
   func endpoint() async throws -> Endpoint {
     if let cachedEndpoint {
       return cachedEndpoint
     }
-    let endpoint = try await Endpoint.bind(
-      options: EndpointOptions(
-        preset: presetN0(),
-        alpns: [IrohTransportWire.alpn]
-      )
-    )
-    cachedEndpoint = endpoint
-    return endpoint
+    if let pendingEndpoint { return try await pendingEndpoint.task.value }
+    let id = UUID()
+    let task = Task {
+      try await Endpoint.bind(options: EndpointOptions(
+        preset: presetN0(), alpns: [IrohTransportWire.alpn]
+      ))
+    }
+    pendingEndpoint = (id, task)
+    do {
+      let endpoint = try await task.value
+      guard pendingEndpoint?.id == id else {
+        try? await endpoint.close()
+        throw CancellationError()
+      }
+      cachedEndpoint = endpoint
+      pendingEndpoint = nil
+      return endpoint
+    } catch {
+      if pendingEndpoint?.id == id { pendingEndpoint = nil }
+      throw error
+    }
   }
 
   func connection(ticket: String, addr: EndpointAddr) async throws -> Connection {
     if let cachedConnection, cachedConnectionTicket == ticket {
       return cachedConnection
     }
-    let endpoint = try await endpoint()
-    let connection = try await endpoint.connect(addr: addr, alpn: IrohTransportWire.alpn)
-    cachedConnection = connection
-    cachedConnectionTicket = ticket
-    return connection
+    if let pending = pendingConnections[ticket] { return try await pending.task.value }
+    let id = UUID()
+    let task = Task {
+      let endpoint = try await self.endpoint()
+      return try await endpoint.connect(addr: addr, alpn: IrohTransportWire.alpn)
+    }
+    pendingConnections[ticket] = (id, task)
+    do {
+      let connection = try await task.value
+      if pendingConnections[ticket]?.id == id {
+        cachedConnection = connection
+        cachedConnectionTicket = ticket
+        pendingConnections[ticket] = nil
+      }
+      return connection
+    } catch {
+      if pendingConnections[ticket]?.id == id { pendingConnections[ticket] = nil }
+      throw error
+    }
   }
 
   func resetConnection(ticket: String) async {
+    pendingConnections[ticket] = nil
     guard cachedConnectionTicket == ticket else {
       return
     }
-    let connection = cachedConnection
+    // Do not close a shared connection from one failing stream: other
+    // worker mutations may still be waiting for their acknowledgement.
     cachedConnection = nil
     cachedConnectionTicket = nil
-    if let connection {
-      try? connection.close(errorCode: 0, reason: Data("reset".utf8))
-    }
   }
 
   func reset(_ endpoint: Endpoint) async {
     guard cachedEndpoint === endpoint else {
       return
     }
+    pendingEndpoint = nil
+    pendingConnections.removeAll()
     if let cachedConnection {
       try? cachedConnection.close(errorCode: 0, reason: Data("reset".utf8))
     }
@@ -558,6 +596,8 @@ private actor IrohEndpointStore {
   }
 
   func reset() async {
+    pendingEndpoint = nil
+    pendingConnections.removeAll()
     guard let cachedEndpoint else {
       return
     }
@@ -620,6 +660,8 @@ private struct IrohTicketError: Error {
 private struct IrohRequestError: Error {
   let message: String
 }
+
+private struct IrohNotSentError: Error {}
 
 private func decodeEndpointTicket(_ ticket: String) throws -> DecodedEndpointTicket {
   let data = try decodeBase64Url(ticket)

@@ -1,14 +1,25 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show chunkedCoding;
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'network/resilient_iroh_route.dart';
+export 'network/resilient_iroh_route.dart' show IrohEndpointConfig;
 
 class NativeIrohTransport {
   const NativeIrohTransport._();
 
   static const MethodChannel _channel = MethodChannel('accord/iroh_transport');
+  static const bool autoConnectEnabled = bool.fromEnvironment(
+    'IROH_AUTO_CONNECT',
+    defaultValue: true,
+  );
+  static final _routes = Expando<Map<String, ResilientIrohRoute>>();
+  static final _clients = Expando<http.Client>();
   static const String endpointTicketFromEnvironment = String.fromEnvironment(
     'IROH_ENDPOINT_TICKET',
     defaultValue: '',
@@ -27,8 +38,101 @@ class NativeIrohTransport {
   static bool _callbackHandlerInstalled = false;
   static final Map<int, StreamController<Map<String, dynamic>>>
       _liveControllers = {};
+  static final Map<int, Timer> _liveWatchdogs = {};
+  static final Map<int, ResilientIrohRoute> _liveRoutes = {};
 
   static int? get lastRequestTotalMs => _lastRequestTotalMs;
+
+  static Uri _httpOrigin(Uri uri) => Uri(
+        scheme: uri.scheme == 'wss'
+            ? 'https'
+            : uri.scheme == 'ws'
+                ? 'http'
+                : uri.scheme,
+        host: uri.host,
+        port: uri.hasPort ? uri.port : null,
+      );
+
+  static ResilientIrohRoute _route(Uri uri, [http.Client? fallbackClient]) {
+    final origin = _httpOrigin(uri);
+    final routes = _routes[Zone.current] ??= {};
+    return routes.putIfAbsent(origin.origin, () {
+      final client =
+          fallbackClient ?? (_clients[Zone.current] ??= http.Client());
+      final cacheKey = 'iroh_endpoint_v2:${origin.origin}';
+      return ResilientIrohRoute(
+        origin: origin,
+        httpClient: client,
+        isSupported: () async =>
+            !kIsWeb && origin.scheme == 'https' && await isSupported(),
+        loadCached: () async {
+          final prefs = await SharedPreferences.getInstance();
+          final value = prefs.getString(cacheKey);
+          if (value == null) return null;
+          final cached = IrohTicketDiscoveryResponse.fromBody(value);
+          return IrohEndpointConfig(
+              ticket: cached.ticket,
+              supportsConnectionReuse: cached.supportsConnectionReuse);
+        },
+        discoverTrusted: () async {
+          final configured = endpointTicketDiscoveryUrl.trim();
+          final discoveryUri = configured.isEmpty
+              ? origin.resolve('/v1/mobile/iroh-ticket')
+              : Uri.parse(configured);
+          // Never learn a new server identity from plaintext LAN discovery,
+          // a redirect, or a ticket endpoint belonging to another ERP origin.
+          if (discoveryUri.origin != origin.origin ||
+              discoveryUri.scheme != 'https') {
+            return null;
+          }
+          final request = http.Request('GET', discoveryUri)
+            ..followRedirects = false;
+          final response = await client
+              .send(request)
+              .then(http.Response.fromStream)
+              .timeout(const Duration(seconds: 2));
+          if (response.statusCode != 200) return null;
+          final payload = jsonDecode(response.body);
+          if (payload is! Map || payload['auto_connect'] != true) return null;
+          final discovered =
+              IrohTicketDiscoveryResponse.fromBody(response.body);
+          return IrohEndpointConfig(
+              ticket: discovered.ticket,
+              supportsConnectionReuse: discovered.supportsConnectionReuse);
+        },
+        discoverLocal: () async {
+          final method = defaultTargetPlatform == TargetPlatform.iOS
+              ? 'discoverBonjourServices'
+              : 'discoverServices';
+          final result = await const MethodChannel('accord/erp_discovery')
+              .invokeListMethod<dynamic>(method, {
+            'timeout_ms': 800,
+            'service_types': ['_accord-erp._udp.'],
+          });
+          return [
+            for (final item in result ?? const [])
+              if (item is Map) item.cast<String, dynamic>()
+          ];
+        },
+        saveCached: (config) async {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(
+              cacheKey,
+              jsonEncode({
+                'ticket': config.ticket,
+                'supports_connection_reuse': config.supportsConnectionReuse,
+              }));
+        },
+        sendNative: (config, method, uri, headers, body) => _sendNative(
+          config: config,
+          method: method,
+          uri: uri,
+          headers: headers,
+          bodyBytes: body,
+        ),
+      );
+    });
+  }
 
   static Stream<Map<String, dynamic>> liveEvents({
     required Uri uri,
@@ -37,19 +141,37 @@ class NativeIrohTransport {
     final controller = StreamController<Map<String, dynamic>>();
     final subscriptionId = _nextLiveSubscriptionId++;
     var started = false;
+    var cancelled = false;
+    var attempted = false;
 
     controller.onListen = () async {
       _ensureCallbackHandler();
       _liveControllers[subscriptionId] = controller;
       try {
-        final supported = await isSupported();
+        final supported = await isSupported()
+            .timeout(const Duration(milliseconds: 500), onTimeout: () => false);
         if (!supported) {
           throw MissingPluginException('Iroh transport is not supported');
         }
-        final config = await _resolveEndpointConfig();
-        if (config.ticket.isEmpty) {
-          throw MissingPluginException('Iroh endpoint ticket is empty');
+        final route = _route(uri);
+        unawaited(route.warmUp());
+        final config = route.ready;
+        if (config == null) {
+          throw MissingPluginException('Iroh route is not ready');
         }
+        if (cancelled) return;
+        attempted = true;
+        _liveRoutes[subscriptionId] = route;
+        // startLive acknowledges native task creation, not its handshake.
+        // A stalled native connect must not suppress the existing WSS path.
+        _liveWatchdogs[subscriptionId] = Timer(const Duration(seconds: 3), () {
+          route.nativeFailed();
+          if (!controller.isClosed) {
+            controller
+                .addError(TimeoutException('Iroh live handshake timed out'));
+            unawaited(controller.close());
+          }
+        });
         await _channel.invokeMethod<void>('startLive', {
           'id': subscriptionId,
           'ticket': config.ticket,
@@ -60,7 +182,13 @@ class NativeIrohTransport {
           'sendPings': sendPings,
         });
         started = true;
+        if (cancelled) {
+          await _channel.invokeMethod<void>('stopLive', {'id': subscriptionId});
+        }
       } catch (error, stackTrace) {
+        _liveWatchdogs.remove(subscriptionId)?.cancel();
+        _liveRoutes.remove(subscriptionId);
+        if (attempted) _route(uri).nativeFailed();
         _liveControllers.remove(subscriptionId);
         if (!controller.isClosed) {
           controller.addError(error, stackTrace);
@@ -70,6 +198,9 @@ class NativeIrohTransport {
     };
 
     controller.onCancel = () async {
+      cancelled = true;
+      _liveWatchdogs.remove(subscriptionId)?.cancel();
+      _liveRoutes.remove(subscriptionId);
       _liveControllers.remove(subscriptionId);
       if (started) {
         try {
@@ -108,67 +239,25 @@ class NativeIrohTransport {
     return IrohHealthCheckResult.fromMap(raw ?? const {});
   }
 
-  static bool get hasEndpointTicket =>
-      endpointTicketFromEnvironment.trim().isNotEmpty ||
-      endpointTicketDiscoveryUrl.trim().isNotEmpty;
+  static bool get hasEndpointTicket => autoConnectEnabled && !kIsWeb;
 
   static Future<http.Response> send({
     required String method,
     required Uri uri,
     Map<String, String>? headers,
     Object? body,
+    http.Client? fallbackClient,
   }) async {
-    final bodyBytes = _bodyBytes(body);
-    final supported = await isSupported();
-    if (!supported) {
-      return _directHttpRequest(
-        method: method,
-        uri: uri,
-        headers: headers,
-        bodyBytes: bodyBytes,
-      );
-    }
-
-    final config = await _resolveEndpointConfig();
-    if (config.ticket.isEmpty) {
-      return _directHttpRequest(
-        method: method,
-        uri: uri,
-        headers: headers,
-        bodyBytes: bodyBytes,
-      );
-    }
-
-    try {
-      return await _sendNative(
-        config: config,
-        method: method,
-        uri: uri,
-        headers: headers,
-        bodyBytes: bodyBytes,
-      );
-    } catch (_) {
-      // A transport failure does not prove a mutation failed to commit.
-      // Replaying POST/PUT/DELETE here can duplicate production output. Only
-      // reads may be transparently rediscovered and retried.
-      if (method != 'GET' && method != 'HEAD') rethrow;
-      await resetEndpoint();
-      var retryConfig = config;
-      try {
-        final refreshedConfig = await refreshEndpointConfig(force: true);
-        if (refreshedConfig.ticket.isNotEmpty) {
-          retryConfig = refreshedConfig;
-        }
-      } catch (_) {}
-      return _sendNative(
-        config: retryConfig,
-        method: method,
-        uri: uri,
-        headers: headers,
-        bodyBytes: bodyBytes,
-      );
-    }
+    return _route(uri, fallbackClient).send(
+      method: method,
+      uri: uri,
+      headers: headers,
+      body: _bodyBytes(body),
+    );
   }
+
+  static Future<void> warmUp(Uri uri, {http.Client? fallbackClient}) =>
+      _route(uri, fallbackClient).warmUp();
 
   static Future<String> refreshEndpointTicket({bool force = false}) async {
     return (await refreshEndpointConfig(force: force)).ticket;
@@ -223,40 +312,6 @@ class NativeIrohTransport {
     }
   }
 
-  static Future<IrohEndpointConfig> _resolveEndpointConfig() async {
-    final runtimeTicket = _runtimeEndpointTicket?.trim() ?? '';
-    if (runtimeTicket.isNotEmpty) {
-      return IrohEndpointConfig(
-        ticket: runtimeTicket,
-        supportsConnectionReuse: _runtimeSupportsConnectionReuse,
-      );
-    }
-
-    final discoveredConfig = await refreshEndpointConfig();
-    if (discoveredConfig.ticket.isNotEmpty) {
-      return discoveredConfig;
-    }
-
-    final preferences = await SharedPreferences.getInstance();
-    final storedTicket =
-        preferences.getString(_endpointTicketPreferenceKey)?.trim() ?? '';
-    if (storedTicket.isNotEmpty) {
-      _runtimeEndpointTicket = storedTicket;
-      _runtimeSupportsConnectionReuse =
-          preferences.getBool(_supportsConnectionReusePreferenceKey) ?? false;
-      return IrohEndpointConfig(
-        ticket: storedTicket,
-        supportsConnectionReuse: _runtimeSupportsConnectionReuse,
-      );
-    }
-    return _setRuntimeEndpointConfig(
-      const IrohEndpointConfig(
-        ticket: endpointTicketFromEnvironment,
-        supportsConnectionReuse: false,
-      ),
-    );
-  }
-
   static void _ensureCallbackHandler() {
     if (_callbackHandlerInstalled) {
       return;
@@ -285,10 +340,13 @@ class NativeIrohTransport {
         }
         final decoded = jsonDecode(text);
         if (decoded is Map<String, dynamic>) {
+          _liveWatchdogs.remove(id)?.cancel();
           controller.add(decoded);
         }
         break;
       case 'liveError':
+        _liveWatchdogs.remove(id)?.cancel();
+        _liveRoutes.remove(id)?.nativeFailed();
         _liveControllers.remove(id);
         if (!controller.isClosed) {
           controller.addError(
@@ -300,6 +358,8 @@ class NativeIrohTransport {
         }
         break;
       case 'liveClosed':
+        _liveWatchdogs.remove(id)?.cancel();
+        _liveRoutes.remove(id);
         _liveControllers.remove(id);
         if (!controller.isClosed) {
           await controller.close();
@@ -322,7 +382,12 @@ class NativeIrohTransport {
       'path': uri.hasQuery && uri.query.isNotEmpty
           ? '${uri.path}?${uri.query}'
           : uri.path,
-      'headers': headers ?? const <String, String>{},
+      'headers': {
+        for (final entry in (headers ?? const <String, String>{}).entries)
+          if (entry.key.toLowerCase() != 'accept-encoding')
+            entry.key: entry.value,
+        'accept-encoding': 'identity',
+      },
       'body': Uint8List.fromList(bodyBytes),
     });
     final map = raw ?? const <String, Object?>{};
@@ -331,7 +396,7 @@ class NativeIrohTransport {
       _lastRequestTotalMs = totalMs;
     }
     final responseBody = map['body'];
-    final bytes = responseBody is Uint8List
+    List<int> bytes = responseBody is Uint8List
         ? responseBody
         : responseBody is List<int>
             ? Uint8List.fromList(responseBody)
@@ -344,35 +409,32 @@ class NativeIrohTransport {
             entry.value.toString();
       }
     }
+    final status = (map['statusCode'] as num?)?.toInt() ?? 0;
+    if (status < 200 || status > 599) {
+      throw const FormatException('Invalid native HTTP response status');
+    }
+    final transfer = responseHeaders['transfer-encoding']?.trim().toLowerCase();
+    if (transfer != null && method != 'HEAD') {
+      if (transfer != 'chunked') {
+        throw const FormatException('Unsupported transfer coding');
+      }
+      bytes = chunkedCoding.decode(bytes);
+      responseHeaders.remove('transfer-encoding');
+      responseHeaders['content-length'] = bytes.length.toString();
+    }
+    final declaredLength =
+        int.tryParse(responseHeaders['content-length'] ?? '');
+    if (method != 'HEAD' &&
+        declaredLength != null &&
+        declaredLength != bytes.length) {
+      throw const FormatException('Incomplete native HTTP response');
+    }
     return http.Response.bytes(
       bytes,
-      (map['statusCode'] as num?)?.toInt() ?? 0,
+      status,
       headers: responseHeaders,
       request: http.Request(method, uri),
     );
-  }
-
-  static Future<http.Response> _directHttpRequest({
-    required String method,
-    required Uri uri,
-    required Map<String, String>? headers,
-    required List<int> bodyBytes,
-  }) {
-    switch (method.toUpperCase()) {
-      case 'GET':
-        return http.get(uri, headers: headers);
-      case 'POST':
-        return http.post(uri, headers: headers, body: bodyBytes);
-      case 'PUT':
-        return http.put(uri, headers: headers, body: bodyBytes);
-      case 'DELETE':
-        return http.delete(uri, headers: headers, body: bodyBytes);
-      default:
-        final request = http.Request(method, uri)
-          ..bodyBytes = bodyBytes
-          ..headers.addAll(headers ?? const <String, String>{});
-        return request.send().then(http.Response.fromStream);
-    }
   }
 
   static Future<IrohEndpointConfig> _setRuntimeEndpointConfig(
@@ -409,20 +471,6 @@ class NativeIrohTransport {
     throw ArgumentError(
         'Unsupported Iroh request body type: ${body.runtimeType}');
   }
-}
-
-class IrohEndpointConfig {
-  const IrohEndpointConfig({
-    required this.ticket,
-    required this.supportsConnectionReuse,
-  });
-
-  const IrohEndpointConfig.empty()
-      : ticket = '',
-        supportsConnectionReuse = false;
-
-  final String ticket;
-  final bool supportsConnectionReuse;
 }
 
 class IrohTicketDiscoveryResponse {

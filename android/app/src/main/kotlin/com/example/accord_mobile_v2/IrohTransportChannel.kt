@@ -99,6 +99,8 @@ class IrohTransportChannel(
             try {
                 val response = runHttpRequest(ticket, method, path, headers, body, reuseConnection)
                 postSuccess(result, response)
+            } catch (error: IrohNotSentException) {
+                postError(result, "iroh_not_sent", "Iroh connection unavailable before sending")
             } catch (error: IrohTicketException) {
                 postError(result, "iroh_invalid_ticket", error.message ?: "Invalid Iroh ticket")
             } catch (error: Throwable) {
@@ -209,6 +211,7 @@ class IrohTransportChannel(
         val endpointAddr = decodeEndpointTicket(ticket).toEndpointAddr()
         val startedNs = System.nanoTime()
 
+        var writeStarted = false
         try {
             val connection = if (reuseConnection) {
                 IrohEndpointStore.connection(ticket, endpointAddr)
@@ -220,6 +223,8 @@ class IrohTransportChannel(
                 val send = bi.send()
                 val recv = bi.recv()
 
+                // Set BEFORE writing: even a failed/partial write may commit.
+                writeStarted = true
                 send.writeAll(buildHttpRequest(method, path, headers, body))
                 send.finish()
 
@@ -253,6 +258,7 @@ class IrohTransportChannel(
             if (reuseConnection) {
                 IrohEndpointStore.resetConnection(ticket)
             }
+            if (!writeStarted) throw IrohNotSentException(error)
             throw error
         }
     }
@@ -508,6 +514,8 @@ private class WebSocketFrameBuffer {
     }
 }
 
+private class IrohNotSentException(cause: Throwable) : Exception(cause)
+
 private object IrohEndpointStore {
     private val endpointLock = Mutex()
     private val connectionLock = Mutex()
@@ -544,16 +552,14 @@ private object IrohEndpointStore {
     }
 
     suspend fun resetConnection(ticket: String) {
-        val connection = connectionLock.withLock {
+        connectionLock.withLock {
             if (cachedConnectionTicket != ticket) {
                 return
             }
-            cachedConnection.also {
-                cachedConnection = null
-                cachedConnectionTicket = null
-            }
+            // Retire for future requests, but do not abort other active streams.
+            cachedConnection = null
+            cachedConnectionTicket = null
         }
-        closeConnection(connection, "reset")
     }
 
     suspend fun reset(endpoint: Endpoint) {
