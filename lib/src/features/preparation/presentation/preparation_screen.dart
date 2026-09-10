@@ -110,6 +110,8 @@ class _PreparationScreenState extends State<PreparationScreen> {
   List<PreparationMaterial> _syncedMaterials() =>
       _snapshot?.materials ?? const [];
 
+  List<dynamic> _syncedHistory() => _snapshot?.history ?? const [];
+
   Future<void> _submit(String kind, Map<String, dynamic> payload) async {
     if (_saving) return;
     setState(() => _saving = true);
@@ -146,11 +148,14 @@ class _PreparationScreenState extends State<PreparationScreen> {
       warehouses: data.warehouses,
       initialWarehouse: _warehouse,
       materials: data.materials,
+      history: data.history,
       locked: _locked,
       onWarehouseSelected: (w) => _update(() => _warehouse = w),
       onReceive: _receive,
+      onCreateMaterial: _createMaterial,
       onReload: _reload,
       freshMaterials: _syncedMaterials,
+      freshHistory: _syncedHistory,
     ));
   }
 
@@ -183,11 +188,6 @@ class _PreparationScreenState extends State<PreparationScreen> {
           onTap: () => _startKirim(data),
         ),
         AdminFabMenuAction(
-          title: 'Homashyo',
-          icon: Icons.inventory_2_outlined,
-          onTap: () => _openMaterials(data),
-        ),
-        AdminFabMenuAction(
           title: 'Buyurtmalar',
           icon: Icons.list_alt_rounded,
           onTap: () => _openOrders(data),
@@ -198,18 +198,6 @@ class _PreparationScreenState extends State<PreparationScreen> {
           onTap: () => _openHistory(data),
         ),
       ];
-
-  void _openMaterials(PreparationSnapshot data) {
-    _openAndReload(PreparationMaterialsScreen(
-      warehouse: _warehouse,
-      materials: data.materials,
-      locked: _locked,
-      onCreateMaterial: _createMaterial,
-      onReceive: _receive,
-      onReload: _reload,
-      freshMaterials: _syncedMaterials,
-    ));
-  }
 
   void _openOrders(PreparationSnapshot data) {
     _openAndReload(PreparationOrdersScreen(
@@ -392,18 +380,6 @@ class _PreparationScreenState extends State<PreparationScreen> {
                             onTap: _locked ? null : () => _openWarehouse(data),
                             elevation: 4,
                           ),
-                        AdminSummaryCard(
-                          slot: M3SegmentVerticalSlot.middle,
-                          cornerRadius: M3SegmentedListGeometry.cornerMiddle,
-                          backgroundColor: scheme.surfaceContainerLowest,
-                          title: 'Homashyo',
-                          titleStyle: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          value: '${data.materials.length}',
-                          onTap: () => _openMaterials(data),
-                          elevation: 4,
-                        ),
                         AdminSummaryCard(
                           slot: M3SegmentVerticalSlot.middle,
                           cornerRadius: M3SegmentedListGeometry.cornerMiddle,

@@ -245,7 +245,7 @@ void main() {
             }));
   });
 
-  testWidgets('materials list refreshes automatically after kirim',
+  testWidgets('warehouse list and detail refresh automatically after kirim',
       (tester) async {
     tester.view.physicalSize = const Size(800, 1800);
     tester.view.devicePixelRatio = 1;
@@ -264,17 +264,27 @@ void main() {
           supportedLocales: AppLocalizations.supportedLocales,
           home: PreparationScreen()));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Homashyo'));
+      expect(find.text('Homashyo'), findsNothing);
+      await tester.tap(find.text('Tayyorlov ombori'));
       await tester.pumpAndSettle();
       expect(find.text('60 kg'), findsOneWidget);
       await tester.tap(find.text('Kley'));
+      await tester.pumpAndSettle();
+      expect(find.text('Kirimlar'), findsOneWidget);
+      expect(find.text('+10 kg'), findsOneWidget);
+      expect(find.text('Chiqimlar'), findsOneWidget);
+      expect(find.text('-30 kg'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('preparation-detail-kirim')));
       await tester.pumpAndSettle();
       expect(find.text('Kley — kirim'), findsOneWidget);
       await tester.enterText(find.byType(TextFormField), '10');
       await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
       await tester.pumpAndSettle();
-      expect(find.text('70 kg'), findsOneWidget);
+      expect(find.text('70 kg'), findsWidgets);
       expect(find.text('60 kg'), findsNothing);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.text('70 kg'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
     },
@@ -300,7 +310,32 @@ void main() {
                       }
                     ],
                     'orders': [],
-                    'history': [],
+                    'history': [
+                      {
+                        'kind': 'receipt',
+                        'warehouse': 'Tayyorlov ombori',
+                        'item_code': 'P1',
+                        'name': 'Kley',
+                        'kg': '10.000000',
+                        'created_at': '2026-09-08T10:54:36',
+                      },
+                      {
+                        'kind': 'consumption',
+                        'warehouse': 'Tayyorlov ombori',
+                        'order_code': '001',
+                        'order_title': 'Etiketka',
+                        'order_kg': '1000.000000',
+                        'created_at': '2026-09-08T11:00:00',
+                        'lines': [
+                          {
+                            'item_code': 'P1',
+                            'name': 'Kley',
+                            'percent': '3.000000',
+                            'kg': '30.000000',
+                          }
+                        ],
+                      },
+                    ],
                   }),
                   200,
                   headers: {'content-type': 'application/json; charset=utf-8'});

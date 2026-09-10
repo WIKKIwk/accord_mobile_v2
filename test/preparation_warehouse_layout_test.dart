@@ -133,7 +133,7 @@ void main() {
               findsOneWidget);
           expect(find.text('Ombor tanlang'), findsNothing);
           final label =
-              tester.renderObject<RenderParagraph>(find.text('Homashyo'));
+              tester.renderObject<RenderParagraph>(find.text('Buyurtmalar'));
           final boxes = label.getBoxesForSelection(
             const TextSelection(baseOffset: 0, extentOffset: 8),
           );
@@ -175,7 +175,7 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.text('Kirim'), findsOneWidget);
-          expect(find.text('Homashyo'), findsNothing);
+          expect(find.text('Homashyo qo‘shish'), findsOneWidget);
           expect(find.text('Buyurtmalar'), findsNothing);
           expect(find.text('Tarix'), findsNothing);
           await tester.pumpWidget(const SizedBox.shrink());

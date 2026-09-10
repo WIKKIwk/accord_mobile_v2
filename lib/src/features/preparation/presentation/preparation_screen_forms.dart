@@ -145,21 +145,27 @@ class PreparationWarehouseScreen extends StatefulWidget {
     required this.warehouses,
     required this.initialWarehouse,
     required this.materials,
+    required this.history,
     required this.locked,
     required this.onWarehouseSelected,
     required this.onReceive,
+    required this.onCreateMaterial,
     required this.onReload,
     required this.freshMaterials,
+    required this.freshHistory,
   });
 
   final List<String> warehouses;
   final String? initialWarehouse;
   final List<PreparationMaterial> materials;
+  final List<dynamic> history;
   final bool locked;
   final void Function(String warehouse) onWarehouseSelected;
   final Future<void> Function(PreparationMaterial material) onReceive;
+  final Future<void> Function() onCreateMaterial;
   final Future<void> Function() onReload;
   final List<PreparationMaterial> Function() freshMaterials;
+  final List<dynamic> Function() freshHistory;
 
   @override
   State<PreparationWarehouseScreen> createState() =>
@@ -227,6 +233,34 @@ class _PreparationWarehouseScreenState
     }
   }
 
+  Future<void> _doCreateMaterial() async {
+    if (widget.locked) return;
+    await widget.onCreateMaterial();
+    if (mounted) setState(() => _materials = widget.freshMaterials());
+  }
+
+  Future<void> _openDetail(PreparationMaterial material) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PreparationMaterialDetailScreen(
+          materialCode: material.code,
+          warehouse: _warehouse!,
+          materials: _materials,
+          history: widget.freshHistory(),
+          locked: widget.locked,
+          onReceive: widget.onReceive,
+          onReload: widget.onReload,
+          freshMaterials: widget.freshMaterials,
+          freshHistory: widget.freshHistory,
+        ),
+      ),
+    );
+    if (mounted) {
+      setState(() => _materials = widget.freshMaterials());
+      await widget.onReload();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -262,6 +296,11 @@ class _PreparationWarehouseScreenState
                   title: 'Kirim',
                   icon: Icons.add_circle_outline_rounded,
                   onTap: _doKirim,
+                ),
+                AdminFabMenuAction(
+                  title: 'Homashyo qo‘shish',
+                  icon: Icons.add_rounded,
+                  onTap: _doCreateMaterial,
                 ),
               ],
       ),
@@ -337,6 +376,7 @@ class _PreparationWarehouseScreenState
                         ),
                         material: filtered[index],
                         warehouse: _warehouse!,
+                        onTap: () => _openDetail(filtered[index]),
                       ),
                   ],
                 ),
@@ -407,20 +447,18 @@ class _PreparationWarehouseStockRow extends StatelessWidget {
     required this.slot,
     required this.material,
     required this.warehouse,
+    this.onTap,
   });
 
   final M3SegmentVerticalSlot slot;
   final PreparationMaterial material;
   final String warehouse;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final title = material.name.trim().isEmpty ? material.code : material.name;
-    final subtitle = <String>[
-      if (material.code.trim().isNotEmpty) material.code.trim(),
-      '${preparationDisplay(material.available(warehouse))} kg',
-    ].join(' • ');
 
     return AdminSummaryCard(
       slot: slot,
@@ -428,9 +466,9 @@ class _PreparationWarehouseStockRow extends StatelessWidget {
       backgroundColor: scheme.surfaceContainerLowest,
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
-      value: '',
-      onTap: null,
-      showChevron: false,
+      value: '${preparationDisplay(material.available(warehouse))} kg',
+      onTap: onTap,
+      showChevron: onTap != null,
       leading: SizedBox.square(
         dimension: 30,
         child: DecoratedBox(
@@ -446,7 +484,7 @@ class _PreparationWarehouseStockRow extends StatelessWidget {
         ),
       ),
       title: title,
-      subtitle: subtitle,
+      subtitle: 'Mavjud qoldiq',
       titleMaxLines: 1,
       subtitleMaxLines: 1,
       titleStyle: Theme.of(
@@ -460,73 +498,112 @@ class _PreparationWarehouseStockRow extends StatelessWidget {
   }
 }
 
-class PreparationMaterialsScreen extends StatefulWidget {
-  const PreparationMaterialsScreen({
+class PreparationMaterialDetailScreen extends StatefulWidget {
+  const PreparationMaterialDetailScreen({
     super.key,
+    required this.materialCode,
     required this.warehouse,
     required this.materials,
+    required this.history,
     required this.locked,
-    required this.onCreateMaterial,
     required this.onReceive,
     required this.onReload,
     required this.freshMaterials,
+    required this.freshHistory,
   });
 
-  final String? warehouse;
+  final String materialCode;
+  final String warehouse;
   final List<PreparationMaterial> materials;
+  final List<dynamic> history;
   final bool locked;
-  final Future<void> Function() onCreateMaterial;
-  final Future<void> Function(PreparationMaterial) onReceive;
+  final Future<void> Function(PreparationMaterial material) onReceive;
   final Future<void> Function() onReload;
   final List<PreparationMaterial> Function() freshMaterials;
+  final List<dynamic> Function() freshHistory;
 
   @override
-  State<PreparationMaterialsScreen> createState() =>
-      _PreparationMaterialsScreenState();
+  State<PreparationMaterialDetailScreen> createState() =>
+      _PreparationMaterialDetailScreenState();
 }
 
-class _PreparationMaterialsScreenState
-    extends State<PreparationMaterialsScreen> {
+class _PreparationMaterialDetailScreenState
+    extends State<PreparationMaterialDetailScreen> {
   late List<PreparationMaterial> _materials = widget.materials;
+  late List<dynamic> _history = widget.history;
 
-  Future<void> _handleCreate() async {
-    if (widget.locked) return;
-    await widget.onCreateMaterial();
-    if (mounted) setState(() => _materials = widget.freshMaterials());
+  PreparationMaterial? get _material {
+    for (final m in _materials) {
+      if (m.code == widget.materialCode) return m;
+    }
+    return null;
   }
 
-  Future<void> _handleReceive(PreparationMaterial material) async {
+  List<dynamic> get _receipts => _history
+      .where((d) =>
+          d['kind'] == 'receipt' &&
+          d['warehouse'] == widget.warehouse &&
+          (d['item_code'] as String? ?? '') == widget.materialCode)
+      .toList();
+
+  List<Map<String, dynamic>> get _consumptions {
+    final result = <Map<String, dynamic>>[];
+    for (final d in _history) {
+      if (d is! Map ||
+          d['kind'] != 'consumption' ||
+          d['warehouse'] != widget.warehouse) {
+        continue;
+      }
+      final lines = d['lines'];
+      if (lines is! List) continue;
+      for (final l in lines) {
+        if (l is Map &&
+            (l['item_code'] as String? ?? '') == widget.materialCode) {
+          result.add({
+            'doc': Map<String, dynamic>.from(d),
+            'line': Map<String, dynamic>.from(l),
+          });
+        }
+      }
+    }
+    return result;
+  }
+
+  Future<void> _sync() async {
+    if (!mounted) return;
+    setState(() {
+      _materials = widget.freshMaterials();
+      _history = widget.freshHistory();
+    });
+  }
+
+  Future<void> _doKirim() async {
+    final material = _material;
+    if (material == null || widget.locked) return;
     await widget.onReceive(material);
-    if (mounted) setState(() => _materials = widget.freshMaterials());
+    await _sync();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final material = _material;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-    final warehouse = widget.warehouse;
-    final locked = widget.locked;
+    final receipts = _receipts;
+    final consumptions = _consumptions;
 
     return AppShell(
-      title: 'Homashyo',
-      subtitle: warehouse ?? '',
+      title: material?.name ?? 'Homashyo',
+      subtitle: widget.warehouse,
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
-      bottom: PreparationDock(
-        primaryFabActions: [
-          AdminFabMenuAction(
-            title: 'Homashyo qo‘shish',
-            icon: Icons.add_rounded,
-            onTap: _handleCreate,
-          ),
-        ],
-      ),
+      bottom: const PreparationDock(),
       child: AppRefreshIndicator(
         onRefresh: () async {
           await widget.onReload();
-          if (mounted) setState(() => _materials = widget.freshMaterials());
+          await _sync();
         },
         allowRefreshOnShortContent: true,
         child: ListView(
@@ -534,76 +611,151 @@ class _PreparationMaterialsScreenState
           padding: EdgeInsets.only(bottom: bottomPadding),
           children: [
             const SizedBox(height: _adminHomePanelCardGap),
-            if (_materials.isEmpty)
+            if (material != null)
               Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Hali homashyo qo‘shilmagan.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: _adminHomePanelCardGap,
+                ),
+                child: AdminSummaryCard(
+                  slot: M3SegmentVerticalSlot.top,
+                  cornerRadius: M3SegmentedListGeometry.cornerLarge,
+                  borderRadiusOverride: BorderRadius.circular(
+                    M3SegmentedListGeometry.cornerLarge,
+                  ),
+                  backgroundColor: scheme.surfaceContainerLowest,
+                  title: material.name,
+                  subtitle: material.code,
+                  value:
+                      '${preparationDisplay(material.available(widget.warehouse))} kg',
+                  leading: SizedBox.square(
+                    dimension: 30,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: scheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.inventory_2_rounded,
+                        size: 16,
+                        color: scheme.onSecondaryContainer,
+                      ),
+                    ),
+                  ),
+                  showChevron: false,
+                  titleMaxLines: 1,
+                  subtitleMaxLines: 1,
+                  titleStyle: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                  subtitleStyle: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
+                    height: 1.05,
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  _adminHomePanelCardGap, 12, _adminHomePanelCardGap, 0),
+              child: FilledButton.icon(
+                key: const Key('preparation-detail-kirim'),
+                onPressed:
+                    material == null || widget.locked ? null : _doKirim,
+                icon: const Icon(Icons.add_circle_outline_rounded),
+                label: const Text('Kirim qilish'),
+              ),
+            ),
+            if (receipts.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  'Kirimlar',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              )
-            else
+              ),
               M3SegmentSpacedColumn(
                 padding: const EdgeInsets.symmetric(
                   horizontal: _adminHomePanelCardGap,
                 ),
                 children: [
-                  for (var i = 0; i < _materials.length; i++)
+                  for (var i = 0; i < receipts.length; i++)
                     AdminSummaryCard(
-                      slot: M3SegmentedListGeometry
-                          .standaloneListSlotForIndex(i, _materials.length),
-                      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(
-                        M3SegmentedListGeometry.standaloneListSlotForIndex(
-                            i, _materials.length),
+                      slot: _slotFor(i, receipts.length),
+                      cornerRadius:
+                          M3SegmentedListGeometry.cornerRadiusForSlot(
+                        _slotFor(i, receipts.length),
                       ),
                       backgroundColor: scheme.surfaceContainerLowest,
-                      fixedHeight: 61,
-                      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
-                      title: _materials[i].name,
-                      subtitle: 'Mavjud qoldiq',
-                      value:
-                          '${preparationDisplay(_materials[i].available(warehouse))} kg',
-                      leading: SizedBox.square(
-                        dimension: 30,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: scheme.secondaryContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.inventory_2_rounded,
-                            size: 16,
-                            color: scheme.onSecondaryContainer,
-                          ),
-                        ),
+                      title:
+                          '+${preparationDisplay(receipts[i]['kg'] as String? ?? '0')} kg',
+                      subtitle:
+                          '${receipts[i]['warehouse']} • ${_formatDateTime(receipts[i]['created_at'])}',
+                      value: '',
+                      leading: const Icon(
+                        Icons.check_circle_outline_rounded,
+                        color: Colors.green,
                       ),
                       showChevron: false,
-                      onTap: locked || warehouse == null
-                          ? null
-                          : () => _handleReceive(_materials[i]),
-                      titleMaxLines: 1,
-                      subtitleMaxLines: 1,
-                      titleStyle: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                      subtitleStyle: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        height: 1.05,
-                      ),
+                      elevation: 0,
                     ),
                 ],
               ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'Kirim qilish uchun homashyo nomini bosing. Qoldiq — sarflash mumkin bo‘lgan miqdor.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
+            ],
+            if (consumptions.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  'Chiqimlar',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
+              M3SegmentSpacedColumn(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: _adminHomePanelCardGap,
+                ),
+                children: [
+                  for (var i = 0; i < consumptions.length; i++)
+                    Builder(builder: (_) {
+                      final doc = consumptions[i]['doc']!;
+                      final line = consumptions[i]['line']!;
+                      return AdminSummaryCard(
+                        slot: _slotFor(i, consumptions.length),
+                        cornerRadius:
+                            M3SegmentedListGeometry.cornerRadiusForSlot(
+                          _slotFor(i, consumptions.length),
+                        ),
+                        backgroundColor: scheme.surfaceContainerLowest,
+                        title:
+                            '-${preparationDisplay(line['kg'] as String? ?? '0')} kg',
+                        subtitle:
+                            '${doc['order_code']} ${doc['order_title']} • ${preparationDisplay(line['percent'] as String? ?? '0')}% • ${_formatDateTime(doc['created_at'])}',
+                        value: '',
+                        leading: const Icon(
+                          Icons.remove_circle_outline_rounded,
+                          color: Colors.orange,
+                        ),
+                        showChevron: false,
+                        elevation: 0,
+                      );
+                    }),
+                ],
+              ),
+            ],
+            if (receipts.isEmpty && consumptions.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Bu homashyo bo‘yicha hali kirim yoki chiqim yo‘q.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
