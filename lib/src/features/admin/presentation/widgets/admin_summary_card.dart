@@ -108,16 +108,20 @@ class AdminSummaryCard extends StatelessWidget {
                 ),
                 if (showValue) ...[
                   const SizedBox(width: 16),
-                  Text(
-                    value,
-                    maxLines: valueMaxLines,
-                    overflow: TextOverflow.ellipsis,
-                    style: valueStyle ??
-                        Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontSize: 18.5,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.onSurface,
-                            ),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 140),
+                    child: Text(
+                      value,
+                      maxLines: valueMaxLines,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: valueStyle ??
+                          Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontSize: 18.5,
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onSurface,
+                              ),
+                    ),
                   ),
                 ],
                 if (trailing != null) ...[trailing!],

@@ -141,20 +141,25 @@ void main() {
           expect(boxes.map((box) => box.top).toSet(), hasLength(1));
           expect(label.didExceedMaxLines, isFalse);
 
-          await tester.tap(find.text('Order'));
+          await tester.tap(find.text('Buyurtmalar'));
           await tester.pumpAndSettle();
           expect(find.text('Order tanlang'), findsOneWidget);
+          await tester.tap(find.byType(BackButton));
+          await tester.pumpAndSettle();
           final history = find.text('Tarix');
           await tester.ensureVisible(history);
           await tester.pumpAndSettle();
           await tester.tap(history);
           await tester.pumpAndSettle();
           expect(find.text('Hali kirim yoki sarf yo‘q.'), findsOneWidget);
+          await tester.tap(find.byType(BackButton));
+          await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
 
           warehouses = ['Tayyorlov ombori'];
           await tester.tap(find.byTooltip('Yangilash'));
           await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
           expect(find.text('Tayyorlov ombori'), findsOneWidget);
           expect(find.textContaining('Sizga ombor biriktirilmagan.'),
               findsNothing);
@@ -162,8 +167,8 @@ void main() {
           await tester.pumpAndSettle();
           await tester.tap(find.text('Tayyorlov ombori'));
           await tester.pumpAndSettle();
-          expect(find.text('Ombor tanlang'), findsOneWidget);
           expect(tester.takeException(), isNull);
+          expect(find.text('Ombor tanlang'), findsOneWidget);
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.pumpAndSettle();
         },

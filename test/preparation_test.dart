@@ -173,6 +173,9 @@ void main() {
           supportedLocales: AppLocalizations.supportedLocales,
           home: PreparationScreen()));
       await tester.pumpAndSettle();
+      expect(find.text('Kirim'), findsOneWidget);
+      await tester.tap(find.text('Kirim'));
+      await tester.pumpAndSettle();
       expect(find.text('Kley'), findsOneWidget);
       expect(find.text('Mavjud: 60 kg'), findsOneWidget);
       await tester.tap(find.text('Kley'));
@@ -182,7 +185,9 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
       await tester.pumpAndSettle();
       expect(requests.single['kg'], '12.500000');
-      await tester.tap(find.text('Order'));
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Buyurtmalar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Order tanlang'));
       await tester.pumpAndSettle();
