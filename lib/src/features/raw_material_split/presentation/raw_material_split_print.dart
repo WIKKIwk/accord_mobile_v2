@@ -14,4 +14,7 @@ UsbRpsPrintRequest rawMaterialSplitPrintRequest(RawSplitRoll output) =>
       tareKg: double.parse(output.bobinaKg ?? '0'),
       unit: 'kg',
       labelKind: 'material_product',
+      progressQty:
+          output.lengthM == null ? null : double.tryParse(output.lengthM!),
+      progressUnit: output.lengthM == null ? '' : 'm',
     );

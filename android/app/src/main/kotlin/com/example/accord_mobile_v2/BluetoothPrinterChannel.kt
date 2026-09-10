@@ -976,7 +976,13 @@ class BluetoothPrinterChannel(
             } else {
                 listOf("NET VAZNI: $netWeight $unit")
             }
-            val weightLines = weights.flatMap {
+            val meterUnit = cleanLabelText(label.progressUnit.ifBlank { "m" })
+            val meterPart = if (label.progressQty != null && label.progressQty > 0) {
+                listOf("METRI: ${compactLabelQty(label.progressQty)} $meterUnit")
+            } else {
+                emptyList()
+            }
+            val weightLines = (weights + meterPart).flatMap {
                 wrapLabelText(cleanLabelText(it), MATERIAL_TITLE_WIDTH_CHARS)
             }
             return productLines + weightLines

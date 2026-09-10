@@ -165,6 +165,9 @@ extension MobileApiRawMaterialSplit on MobileApi {
       }
       // Validate the complete stock result before discarding the durable key.
       final result = RawSplitResult.fromJson(_rawSplitResponse(response));
+      if (result.issueId != pending['issue_id']) {
+        throw const FormatException('Muammo qaydi bilan saqlash tasdiqlanmadi');
+      }
       if (!await prefs.remove(key)) {
         throw StateError('Operatsiya natijasini qayta tekshiring');
       }

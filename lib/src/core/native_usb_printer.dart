@@ -260,11 +260,14 @@ class UsbRpsPrintRequest {
     final name = itemName.trim().isEmpty ? itemCode.trim() : itemName.trim();
     final normalizedUnit = unit.trim().isEmpty ? 'kg' : unit.trim();
     final net = _compactPrintQty(netQty);
+    final meterPart = (progressQty != null && progressQty! > 0)
+        ? ' Metri: ${_compactPrintQty(progressQty!)} ${progressUnit.trim().isEmpty ? 'm' : progressUnit.trim()}'
+        : '';
     if (tareEnabled) {
       return '$name  B:${_compactPrintQty(grossQty)} $normalizedUnit '
-          'N:$net $normalizedUnit';
+          'N:$net $normalizedUnit$meterPart';
     }
-    return '$name  $net $normalizedUnit';
+    return '$name  $net $normalizedUnit$meterPart';
   }
 
   String largeQrLabelFooter(String qrPayload) {

@@ -276,11 +276,23 @@ Uint8List _GodexRpsRenderer__renderQolipCodeTextGraphic_resplit2AstPart(
     }
   }
 
-  final nameLines =
-      GodexRpsRenderer._wrapTextForEzpl(name, width, 1, 18, 22).take(2);
+  List<String> nameLines;
+  if (name.contains('  ')) {
+    final parts = name.split(RegExp(r'\s{2,}'));
+    if (parts.length == 2 && parts[0].length <= 33 && parts[1].length <= 33) {
+      nameLines = parts;
+    } else {
+      nameLines =
+          GodexRpsRenderer._wrapTextForEzpl(name, width, 1, 18, 22).take(2).toList();
+    }
+  } else {
+    nameLines =
+        GodexRpsRenderer._wrapTextForEzpl(name, width, 1, 18, 22).take(2).toList();
+  }
   var lineIndex = 0;
   for (final line in nameLines) {
-    drawCentered(line, lineIndex * 28, scale: 3);
+    final scale = line.length > 22 ? 2 : 3;
+    drawCentered(line, lineIndex * 28, scale: scale);
     lineIndex++;
   }
   drawCentered(code, 352, scale: code.length > 33 ? 1 : 2);

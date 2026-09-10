@@ -171,8 +171,9 @@ class _AdminProductionMapOrdersScreenState
             : null);
     final isQolipchi = role == UserRole.qolipchi;
     final isMaterialTaminotchi = role == UserRole.materialTaminotchi;
+    final isTayyorlovMasteri = role == UserRole.tayyorlovMasteri;
     final canViewSupplyOrderInfo =
-        role == UserRole.qolipchi || isMaterialTaminotchi;
+        role == UserRole.qolipchi || isMaterialTaminotchi || isTayyorlovMasteri;
     final supplyDrawer = switch (role) {
       UserRole.qolipchi => QolipNavigationDrawer(
           selectedIndex: 0,
@@ -183,12 +184,18 @@ class _AdminProductionMapOrdersScreenState
           selectedRouteName: AppRoutes.supplySequence,
           onNavigate: _openDrawerRoute,
         ),
+      UserRole.tayyorlovMasteri => PreparationDrawer(
+          selectedRouteName: AppRoutes.supplySequence,
+          onNavigate: _openDrawerRoute,
+        ),
       _ => null,
     };
     final supplyDock = switch (role) {
       UserRole.qolipchi => const QolipDock(activeTab: null),
       UserRole.materialTaminotchi =>
         const MaterialTaminotchiDock(activeTab: null),
+      UserRole.tayyorlovMasteri =>
+        const PreparationDock(),
       _ => null,
     };
     return AppShell(

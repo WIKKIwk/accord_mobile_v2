@@ -225,8 +225,9 @@ class _RawMaterialSplitHistoryScreenState
                       Text('Sabab: ${issue.note}'),
                       Text('${issue.actorName} · ${issue.createdAt.toLocal()}',
                           style: Theme.of(context).textTheme.bodySmall),
-                      const Text(
-                          'Muammo qaydi. Ombor hisobi o‘zgartirilmagan.'),
+                      Text(history.any((result) => result.issueId == issue.id)
+                          ? 'Muammo bo‘yicha rulonlar saqlangan.'
+                          : 'Muammo sababi qayd etilgan.'),
                     ],
                   ),
                 ),

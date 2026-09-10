@@ -22,8 +22,9 @@ class _OutputDraft {
   final gross = TextEditingController();
   final bobina = TextEditingController();
   final width = TextEditingController();
+  final length = TextEditingController();
   bool get isEmpty =>
-      [width, gross, bobina].every((c) => c.text.trim().isEmpty);
+      [width, gross, bobina, length].every((c) => c.text.trim().isEmpty);
   BigInt get net {
     final value = rawSplitQuantity(gross.text) -
         rawSplitQuantity(bobina.text, allowZero: true);
@@ -46,6 +47,7 @@ class _OutputDraft {
     gross.dispose();
     bobina.dispose();
     width.dispose();
+    length.dispose();
   }
 }
 
@@ -56,6 +58,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
   final _issueKey = GlobalKey();
   bool _showIssue = false;
   bool _issueSaved = false;
+  String? _savedIssueId;
   String? _issueError;
   Map<String, dynamic>? _pendingIssue;
   final _outputs = <_OutputDraft>[];
@@ -143,6 +146,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
         _issueNote.clear();
         _showIssue = false;
         _issueSaved = false;
+        _savedIssueId = null;
         _issueError = null;
       });
     } catch (e) {
@@ -162,8 +166,12 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
         throw const FormatException(
             'Har bir rulonning og‘irligi va babina kg ini kiriting');
       }
+      if (o.length.text.trim().isEmpty) {
+        throw const FormatException('Har bir rulonning metrajini kiriting');
+      }
       final kg = o.net;
       final width = rawSplitQuantity(o.width.text);
+      final length = rawSplitQuantity(o.length.text);
       if (width > rawSplitQuantity(source.widthMm)) {
         throw const FormatException('Chiqish eni asl rulondan katta');
       }
@@ -174,16 +182,22 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
         'gross_kg': rawSplitDecimal(rawSplitQuantity(o.gross.text)),
         'bobina_kg':
             rawSplitDecimal(rawSplitQuantity(o.bobina.text, allowZero: true)),
+        'length_m': rawSplitDecimal(length),
       });
     }
     final check =
         RawSplitWasteCheck(rawSplitQuantity(source.kg), sum, _waste.text);
-    if (!issue && check.kind != null) throw _WasteInputError();
+    final useIssue =
+        !issue && check.kind != null && _issueSaved && _savedIssueId != null;
+    if (!issue && check.kind != null && (!useIssue || check.waste == null)) {
+      throw _WasteInputError();
+    }
     if (issue && check.kind == null) {
       throw StateError('Hisob teng, vazn xatosi yo‘q');
     }
     return {
       'request_id': newRawSplitRequestId(),
+      if (useIssue) 'issue_id': _savedIssueId,
       'source_barcode': source.barcode,
       'expected_revision': source.revision!,
       'expected_kg': source.kg,
@@ -274,12 +288,13 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
               'command': _payload(issue: true),
               'note': _issueNote.text.trim(),
             };
-      await MobileApi.instance.rawSplitReportIssue(payload);
+      final savedIssue = await MobileApi.instance.rawSplitReportIssue(payload);
       if (!mounted) return;
       _checkScope();
       setState(() {
         _pendingIssue = null;
         _issueSaved = true;
+        _savedIssueId = savedIssue.id;
       });
       if (_source == null) {
         ScaffoldMessenger.of(context)
@@ -320,7 +335,9 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
             Text(_issueError!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error)),
           if (_issueSaved)
-            const Text('Muammo saqlandi. Chop etish uchun hisobni to‘g‘rilang.')
+            Text(check.waste == null
+                ? 'Muammo saqlandi. Chop etish uchun atxot kg ni son bilan kiriting.'
+                : 'Muammo saqlandi. Endi chop etishingiz mumkin.')
           else
             OutlinedButton(
                 onPressed: _locked ? null : () => _saveIssue(),
@@ -395,6 +412,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _error = null;
+      _issueSaved = false;
       _outputs.add(_OutputDraft());
     });
   }
@@ -566,7 +584,8 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 4),
                 Text(
-                    '${rawSplitDisplay(_source!.kg)} kg · ${rawSplitDisplay(_source!.widthMm)} mm · ${rawSplitDisplay(_source!.micron)} mkm'),
+                    '${rawSplitDisplay(_source!.kg)} kg · ${rawSplitDisplay(_source!.widthMm)} mm · ${rawSplitDisplay(_source!.micron)} mkm'
+                    '${_source!.lengthM != null && _source!.lengthM!.isNotEmpty ? ' · ${rawSplitDisplay(_source!.lengthM!)} m' : ''}'),
                 Text('Ombor: ${_source!.warehouse}',
                     style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 16),
@@ -599,36 +618,34 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                     Expanded(child: _number(_outputs[i].gross, 'Og‘irlik (kg)'))
                   ]),
                   const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(
+                        child:
+                            _number(_outputs[i].bobina, 'Babina (kg)')),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child:
+                            _number(_outputs[i].length, 'Metraj (m)')),
+                  ]),
+                  const SizedBox(height: 12),
                   IntrinsicHeight(
                     child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(
-                              child:
-                                  _number(_outputs[i].bobina, 'Babina (kg)')),
+                              child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(_outputs[i].netLabel,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall))),
                           const SizedBox(width: 12),
                           Expanded(
-                              child:
-                                  i == _outputs.length - 1 && _widthPlan.canAdd
-                                      ? _addRollButton()
-                                      : Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: Text(_outputs[i].netLabel,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodySmall))),
+                              child: i == _outputs.length - 1 && _widthPlan.canAdd
+                                  ? _addRollButton()
+                                  : const SizedBox.shrink()),
                         ]),
                   ),
-                  if (i == _outputs.length - 1 && _widthPlan.canAdd) ...[
-                    const SizedBox(height: 6),
-                    Row(children: [
-                      const Expanded(child: SizedBox.shrink()),
-                      const SizedBox(width: 12),
-                      Expanded(
-                          child: Text(_outputs[i].netLabel,
-                              style: Theme.of(context).textTheme.bodySmall)),
-                    ]),
-                  ],
                   const SizedBox(height: 20),
                 ],
                 const Divider(height: 32),

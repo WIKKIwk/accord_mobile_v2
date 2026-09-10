@@ -134,7 +134,7 @@ const _app_router_AppRouter_resplit_class_AppRouter__routeCapabilities_resplit2V
     'admin.access',
     'production.map.manage',
   },
-  AppRoutes.supplySequence: {'qolip.manage', 'raw_material.assign'},
+  AppRoutes.supplySequence: {'qolip.manage', 'raw_material.assign', 'preparation.access'},
   AppRoutes.adminProgressQrScan: {
     'admin.access',
     'production.map.manage',

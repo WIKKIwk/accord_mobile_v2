@@ -57,6 +57,7 @@ final _result = <String, dynamic>{
       'kg': '39',
       'gross_kg': '40',
       'bobina_kg': '1',
+      'length_m': '1000',
       'width_mm': '400'
     },
     {
@@ -66,6 +67,7 @@ final _result = <String, dynamic>{
       'kg': '59',
       'gross_kg': '60',
       'bobina_kg': '1',
+      'length_m': '1500',
       'width_mm': '600'
     },
   ],
@@ -79,8 +81,20 @@ Map<String, dynamic> _payload() => {
       'expected_micron': '20',
       'waste_kg': '2',
       'outputs': [
-        {'kg': '39', 'width_mm': '400', 'gross_kg': '40', 'bobina_kg': '1'},
-        {'kg': '59', 'width_mm': '600', 'gross_kg': '60', 'bobina_kg': '1'}
+        {
+          'kg': '39',
+          'width_mm': '400',
+          'gross_kg': '40',
+          'bobina_kg': '1',
+          'length_m': '1000'
+        },
+        {
+          'kg': '59',
+          'width_mm': '600',
+          'gross_kg': '60',
+          'bobina_kg': '1',
+          'length_m': '1500'
+        }
       ]
     };
 http.Response _json(Object body, [int status = 200]) =>
@@ -199,14 +213,106 @@ void main() {
             }));
   });
 
+  test(
+      'issue completion preserves exact net, measured waste and signed discrepancy',
+      () {
+    final source = {..._source, 'kg': '68.25'};
+    final result = {
+      ..._result,
+      'source': source,
+      'source_kg': '68.25',
+      'output_kg': '63',
+      'waste_kg': '2',
+      'difference_kg': '3.250000',
+      'issue_id': 'raw-issue:test',
+      'issue_note': 'Sababi yozilgan',
+      'outputs': [
+        {
+          ...source,
+          'stock_id': 'child',
+          'barcode': 'child',
+          'kg': '63',
+          'gross_kg': '64',
+          'bobina_kg': '1',
+          'width_mm': '700'
+        }
+      ],
+    };
+    expect(RawSplitResult.fromJson(result).differenceLabel,
+        'Izohli kamomad: 3.25 kg');
+    expect(() => RawSplitResult.fromJson({...result, 'issue_id': null}),
+        throwsFormatException);
+    expect(() => RawSplitResult.fromJson({...result, 'issue_note': ''}),
+        throwsFormatException);
+    expect(() => RawSplitResult.fromJson({...result, 'difference_kg': '0'}),
+        throwsFormatException);
+    expect(
+        RawSplitResult.fromJson(
+            {...result, 'waste_kg': '0', 'difference_kg': '5.250000'}).wasteKg,
+        '0');
+    expect(
+        RawSplitResult.fromJson(
+                {...result, 'waste_kg': '6', 'difference_kg': '-0.750000'})
+            .differenceLabel,
+        'Izohli ortiqcha: 0.75 kg');
+  });
+
+  test(
+      'lost issue completion retries the same stock command including issue ID',
+      () async {
+    final payload = _payload()
+      ..['waste_kg'] = '1'
+      ..['issue_id'] = 'raw-issue:test';
+    final calls = <String>[];
+    await http.runWithClient(() async {
+      await expectLater(MobileApi.instance.rawSplitSave(payload),
+          throwsA(isA<http.ClientException>()));
+      final pending = (await MobileApi.instance.rawSplitPending())!;
+      expect(pending['issue_id'], 'raw-issue:test');
+      final saved = await MobileApi.instance.rawSplitSave(pending);
+      expect(saved.outputKg, '98');
+      expect(saved.wasteKg, '1');
+      expect(saved.differenceKg, '1.000000');
+      expect(await MobileApi.instance.rawSplitPending(), isNull);
+      expect(calls.length, 2);
+      expect(calls[0], calls[1]);
+    },
+        () => MockClient((request) async {
+              expect(request.url.path, '/v1/mobile/raw-material-split/split');
+              calls.add(request.body);
+              if (calls.length == 1) {
+                throw http.ClientException('lost response');
+              }
+              return _json({
+                ..._result,
+                'waste_kg': '1',
+                'difference_kg': '1.000000',
+                'issue_id': 'raw-issue:test',
+                'issue_note': 'Sababi yozilgan'
+              });
+            }));
+  });
+
   testWidgets(
-      'print exposes inline issue form; reporting saves only audit and appears in history',
+      'saved issue permits measured stock and printing; edited measurements need a new report',
       (tester) async {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     Map<String, dynamic>? report;
+    Map<String, dynamic>? stockResult;
+    const channel = MethodChannel('accord/bluetooth_printer');
+    final printed = <Map<Object?, Object?>>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel,
+        (call) async {
+      if (call.method == 'printLabel') {
+        printed.add(Map<Object?, Object?>.from(call.arguments as Map));
+      }
+      return {'ok': true, 'status': 'done'};
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null));
     final posts = <String>[];
     Widget app(Widget home) => MaterialApp(
           theme: AppTheme.light(),
@@ -223,6 +329,10 @@ void main() {
     Future<void> tap(String text) async {
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
+      if (find.text(text).evaluate().isEmpty) {
+        await tester.scrollUntilVisible(find.text(text), 150,
+            scrollable: find.byType(Scrollable).first);
+      }
       await tester.ensureVisible(find.text(text));
       await tester.tap(find.text(text));
       await tester.pumpAndSettle();
@@ -239,6 +349,8 @@ void main() {
           find.widgetWithText(TextField, 'Og‘irlik (kg)'), '99');
       await tester.enterText(
           find.widgetWithText(TextField, 'Babina (kg)'), '1');
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Metraj (m)'), '1000');
       final waste = find.widgetWithText(TextField, 'Atxot (kg) *');
       await tester.enterText(waste, '0');
       expect(find.widgetWithText(TextField, 'Farq sababi'), findsNothing);
@@ -258,30 +370,53 @@ void main() {
           find.widgetWithText(TextField, 'Farq sababi'), 'Tarozi tekshirilsin');
       await tap('Muammoni saqlash');
       expect(posts, ['/v1/mobile/raw-material-split/issues']);
-      expect(
-          find.text('Muammo saqlandi. Chop etish uchun hisobni to‘g‘rilang.'),
+      expect(find.text('Muammo saqlandi. Endi chop etishingiz mumkin.'),
           findsOneWidget);
       expect(tester.widget<TextField>(waste).controller!.text, '1');
+      // A previously saved reason cannot authorize changed measurements.
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Og‘irlik (kg)'), '98');
       await tap('Saqlash va chop etish');
-      expect(posts.length, 1); // Reporting never permits an invalid stock save.
+      expect(posts.length, 1);
       expect(find.byType(ServerPickerPage), findsNothing);
+      expect(printed, isEmpty);
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Og‘irlik (kg)'), '99');
       await tester.enterText(waste, '2');
       await tester.pumpAndSettle();
       expect(find.widgetWithText(TextField, 'Farq sababi'), findsNothing);
       expect(find.textContaining('Hisob teng ✓'), findsOneWidget);
       expect(tester.takeException(), isNull);
+      await tester.enterText(waste, '1');
+      await tap('Saqlash va chop etish');
+      await tap('Muammoni saqlash');
+      expect(posts.length, 2);
+      await tester.ensureVisible(find.byTooltip('Printer tanlash'));
+      await tester.tap(find.byTooltip('Printer tanlash'));
+      await tester.pumpAndSettle();
+      tester
+          .widget<ServerPickerPage>(find.byType(ServerPickerPage))
+          .onSelectBluetooth(const BluetoothPrinterProfile(
+              name: 'XP-P323B', address: '00:11:22:33:44:55'));
+      await tester.pumpAndSettle();
+      await tap('Saqlash va chop etish');
+      expect(posts.last, '/v1/mobile/raw-material-split/split');
+      expect(posts.length, 3);
+      expect(printed, hasLength(1));
+      expect(printed.single, containsPair('gross_qty', 99.0));
+      expect(printed.single, containsPair('tare_kg', 1.0));
+      expect(await MobileApi.instance.rawSplitPending(), isNull);
 
       await tester.pumpWidget(app(const RawMaterialSplitHistoryScreen()));
       await tester.pumpAndSettle();
       expect(find.text('Muammolar'), findsOneWidget);
-      await tester.tap(find.byType(ExpansionTile));
+      await tester.tap(find.byType(ExpansionTile).last);
       await tester.pumpAndSettle();
       expect(find.text('Sabab: Tarozi tekshirilsin'), findsOneWidget);
       expect(find.text('QR: parent'), findsOneWidget);
       expect(find.textContaining('Cutter ·'), findsOneWidget);
       expect(find.byTooltip('Shu rulonni qayta chop etish'), findsNothing);
-      expect(find.text('Muammo qaydi. Ombor hisobi o‘zgartirilmagan.'),
-          findsOneWidget);
+      expect(find.text('Muammo bo‘yicha rulonlar saqlangan.'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
@@ -289,6 +424,31 @@ void main() {
         () => MockClient((request) async {
               if (request.method == 'POST') {
                 posts.add(request.url.path);
+                if (request.url.path.endsWith('/split')) {
+                  final command = jsonDecode(request.body) as Map;
+                  expect(command['issue_id'], 'raw-issue:test');
+                  expect(command['waste_kg'], '1.000000');
+                  stockResult = {
+                    ..._result,
+                    'output_kg': '98',
+                    'waste_kg': '1',
+                    'issue_id': 'raw-issue:test',
+                    'issue_note': 'Tarozi tekshirilsin',
+                    'difference_kg': '1.000000',
+                    'outputs': [
+                      {
+                        ..._source,
+                        'stock_id': 'child1',
+                        'barcode': '300000000000000000000001',
+                        'width_mm': '700',
+                        'kg': '98',
+                        'gross_kg': '99',
+                        'bobina_kg': '1'
+                      }
+                    ],
+                  };
+                  return _json(stockResult!);
+                }
                 expect(
                     request.url.path, '/v1/mobile/raw-material-split/issues');
                 final body =
@@ -309,7 +469,7 @@ void main() {
               if (request.url.path.endsWith('/source')) return _json(_source);
               return _json({
                 'warehouses': ['Raw W'],
-                'history': [],
+                'history': [if (stockResult != null) stockResult],
                 'issues': [if (report != null) report]
               });
             }));
@@ -550,16 +710,21 @@ void main() {
       'kg': '3',
       'gross_kg': '3.5',
       'bobina_kg': '0.5',
+      'length_m': '1000',
     });
     final label = rawMaterialSplitPrintRequest(roll);
     expect(label.itemName, 'BOPP METAL 350/12');
     expect(label.grossQty, 3.5);
     expect(label.tareKg, 0.5);
     expect(label.netQty, 3);
+    expect(label.progressQty, 1000);
+    expect(label.progressUnit, 'm');
     expect(label.tareEnabled, isTrue);
+    expect(label.materialProductLabelTitle,
+        contains('B:3.5 kg N:3 kg Metri: 1000 m'));
     final zpl = utf8.decode(ZebraRpsRenderer.render(label));
     expect(zpl, contains('BOPP METAL 350/12'));
-    expect(zpl, contains('B:3.5 kg N:3 kg'));
+    expect(zpl, contains('B:3.5 kg N:3 kg Metri: 1000 m'));
     expect(zpl, isNot(contains('700/12')));
     final noCore = rawMaterialSplitPrintRequest(RawSplitRoll.fromJson({
       ..._source,
@@ -570,6 +735,7 @@ void main() {
     final legacy = rawMaterialSplitPrintRequest(RawSplitRoll.fromJson(_source));
     expect(legacy.tareEnabled, isFalse);
     expect(legacy.materialProductLabelTitle, isNot(contains('B:')));
+    expect(legacy.materialProductLabelTitle, isNot(contains('Metri:')));
     expect(
         () => RawSplitRoll.fromJson({
               ..._source,
@@ -657,6 +823,9 @@ void main() {
         await tester.enterText(
             find.widgetWithText(TextField, 'Babina (kg)').at(i),
             i == 0 ? '1' : '0.5');
+        await tester.enterText(
+            find.widgetWithText(TextField, 'Metraj (m)').at(i),
+            i == 0 ? '1000' : '1200');
       }
       await tester.enterText(
           find.widgetWithText(TextField, 'Atxot (kg) *'), '1');
@@ -857,6 +1026,10 @@ void main() {
       await tester.enterText(weights.at(1), '60');
       await tester.enterText(bobinas.at(0), '1');
       await tester.enterText(bobinas.at(1), '1');
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Metraj (m)').at(0), '1000');
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Metraj (m)').at(1), '1500');
       // Waste is required, and a balanced net total cannot make zero valid.
       expect(
           tester

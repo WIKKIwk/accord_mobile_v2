@@ -20,7 +20,21 @@ BigInt rawSplitQuantity(String raw, {bool allowZero = false}) {
 }
 
 String rawSplitDecimal(BigInt units) =>
-    '${units ~/ _scale}.${(units % _scale).toString().padLeft(6, '0')}';
+    '${units.isNegative ? '-' : ''}${units.abs() ~/ _scale}.${(units.abs() % _scale).toString().padLeft(6, '0')}';
+
+BigInt rawSplitDifference(String raw) {
+  if (!RegExp(r'^-?\d+(\.\d{1,6})?$').hasMatch(raw)) {
+    throw const FormatException('Farq miqdori noto‘g‘ri');
+  }
+  final parts = raw.replaceFirst('-', '').split('.');
+  final absolute = BigInt.parse(parts[0]) * _scale +
+      BigInt.parse(parts.length == 1 ? '0' : parts[1].padRight(6, '0'));
+  if (absolute > _maximum * BigInt.two) {
+    throw const FormatException('Farq chegaradan tashqarida');
+  }
+  return raw.startsWith('-') ? -absolute : absolute;
+}
+
 String rawSplitDisplay(String value) =>
     rawSplitDecimal(rawSplitQuantity(value, allowZero: true))
         .replaceFirst(RegExp(r'\.?0+$'), '');
@@ -48,11 +62,15 @@ class RawSplitRoll {
         kg = _required(json, 'kg'),
         grossKg = json['gross_kg'] as String?,
         bobinaKg = json['bobina_kg'] as String?,
+        lengthM = json['length_m'] as String?,
         widthMm = _required(json, 'width_mm'),
         micron = _required(json, 'micron') {
     rawSplitQuantity(kg);
     rawSplitQuantity(widthMm);
     rawSplitQuantity(micron);
+    if (lengthM != null && lengthM!.trim().isNotEmpty) {
+      rawSplitQuantity(lengthM!);
+    }
     if ((grossKg == null) != (bobinaKg == null) ||
         (grossKg != null &&
             rawSplitQuantity(grossKg!) -
@@ -62,7 +80,7 @@ class RawSplitRoll {
     }
   }
   final String? revision;
-  final String? grossKg, bobinaKg;
+  final String? grossKg, bobinaKg, lengthM;
   String get labelName {
     final base = itemName.trim().replaceFirst(
         RegExp(r'\s*\d+(?:[.,]\d+)?\s*/\s*\d+(?:[.,]\d+)?\s*$'), '');
@@ -88,6 +106,9 @@ class RawSplitResult {
         sourceKg = _required(json, 'source_kg'),
         outputKg = _required(json, 'output_kg'),
         wasteKg = _required(json, 'waste_kg'),
+        issueId = json['issue_id'] as String?,
+        issueNote = json['issue_note'] as String?,
+        differenceKg = json['difference_kg'] as String? ?? '0.000000',
         createdAt = json['created_at'] as String?,
         outputs = (json['outputs'] as List)
             .map((e) =>
@@ -100,8 +121,15 @@ class RawSplitResult {
         outputs.map((o) => o.stockId).toSet().length != outputs.length ||
         rawSplitQuantity(source.kg) != rawSplitQuantity(sourceKg) ||
         sum != rawSplitQuantity(outputKg) ||
-        sum + rawSplitQuantity(wasteKg, allowZero: true) !=
+        sum +
+                rawSplitQuantity(wasteKg, allowZero: true) +
+                rawSplitDifference(differenceKg) !=
             rawSplitQuantity(sourceKg) ||
+        (issueId == null && rawSplitDifference(differenceKg) != BigInt.zero) ||
+        (issueId != null &&
+            (issueId!.isEmpty ||
+                issueNote == null ||
+                issueNote!.trim().isEmpty)) ||
         outputs.any((o) =>
             o.stockId == source.stockId ||
             o.barcode == source.barcode ||
@@ -112,7 +140,17 @@ class RawSplitResult {
       throw const FormatException('Bo‘lish natijasining hisobi noto‘g‘ri');
     }
   }
-  final String id, sourceKg, outputKg, wasteKg;
+  final String id, sourceKg, outputKg, wasteKg, differenceKg;
+  final String? issueId, issueNote;
+  String get differenceLabel {
+    final difference = rawSplitDifference(differenceKg);
+    final kg =
+        rawSplitDecimal(difference.abs()).replaceFirst(RegExp(r'\.?0+$'), '');
+    return difference == BigInt.zero
+        ? 'Muammo izoh bilan qayd etilgan'
+        : '${difference.isNegative ? 'Izohli ortiqcha' : 'Izohli kamomad'}: $kg kg';
+  }
+
   final String? createdAt;
   final RawSplitRoll source;
   final List<RawSplitRoll> outputs;

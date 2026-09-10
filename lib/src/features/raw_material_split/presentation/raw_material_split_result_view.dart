@@ -33,11 +33,16 @@ class RawMaterialSplitResultView extends StatelessWidget {
           SelectableText(result.source.barcode),
           Text('Ombor: ${result.source.warehouse}'),
           if (result.createdAt != null) Text(result.createdAt!),
+          if (result.issueId != null) ...[
+            Text(result.differenceLabel),
+            Text('Sabab: ${result.issueNote}'),
+          ],
           for (final output in result.outputs)
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(
-                '${rawSplitDisplay(output.kg)} kg · ${rawSplitDisplay(output.widthMm)} mm · ${rawSplitDisplay(output.micron)} mkm',
+                '${rawSplitDisplay(output.kg)} kg · ${rawSplitDisplay(output.widthMm)} mm · ${rawSplitDisplay(output.micron)} mkm'
+                '${output.lengthM != null && output.lengthM!.isNotEmpty ? ' · ${rawSplitDisplay(output.lengthM!)} m' : ''}',
               ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,6 +51,8 @@ class RawMaterialSplitResultView extends StatelessWidget {
                   if (output.grossKg != null)
                     Text('Brutto: ${rawSplitDisplay(output.grossKg!)} kg · '
                         'Babina: ${rawSplitDisplay(output.bobinaKg!)} kg'),
+                  if (output.lengthM != null && output.lengthM!.isNotEmpty)
+                    Text('Metri: ${rawSplitDisplay(output.lengthM!)} m'),
                   SelectableText(output.barcode),
                 ],
               ),
