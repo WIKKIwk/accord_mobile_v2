@@ -266,13 +266,6 @@ class _PreparationWarehouseScreenState
                 ),
               ],
       ),
-      actions: [
-        IconButton(
-          tooltip: 'Yangilash',
-          icon: const Icon(Icons.refresh),
-          onPressed: widget.locked ? null : widget.onReload,
-        ),
-      ],
       child: AppRefreshIndicator(
         onRefresh: widget.onReload,
         allowRefreshOnShortContent: true,
