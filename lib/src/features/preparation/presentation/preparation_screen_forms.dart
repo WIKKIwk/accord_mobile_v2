@@ -149,6 +149,7 @@ class PreparationWarehouseScreen extends StatefulWidget {
     required this.onWarehouseSelected,
     required this.onReceive,
     required this.onReload,
+    required this.freshMaterials,
   });
 
   final List<String> warehouses;
@@ -158,6 +159,7 @@ class PreparationWarehouseScreen extends StatefulWidget {
   final void Function(String warehouse) onWarehouseSelected;
   final Future<void> Function(PreparationMaterial material) onReceive;
   final Future<void> Function() onReload;
+  final List<PreparationMaterial> Function() freshMaterials;
 
   @override
   State<PreparationWarehouseScreen> createState() =>
@@ -167,6 +169,7 @@ class PreparationWarehouseScreen extends StatefulWidget {
 class _PreparationWarehouseScreenState
     extends State<PreparationWarehouseScreen> {
   late String? _warehouse = widget.initialWarehouse;
+  late List<PreparationMaterial> _materials = widget.materials;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   String _query = '';
@@ -180,9 +183,8 @@ class _PreparationWarehouseScreenState
 
   List<PreparationMaterial> get _filtered {
     final q = _query.trim().toLowerCase();
-    final inWarehouse = widget.materials
-        .where((m) => m.balances.containsKey(_warehouse))
-        .toList();
+    final inWarehouse =
+        _materials.where((m) => m.balances.containsKey(_warehouse)).toList();
     if (q.isEmpty) return inWarehouse;
     return inWarehouse
         .where((m) => '${m.name} ${m.code}'.toLowerCase().contains(q))
@@ -219,7 +221,10 @@ class _PreparationWarehouseScreenState
         onSelected: (m) => Navigator.of(sheetContext).pop(m),
       ),
     );
-    if (material != null && mounted) await widget.onReceive(material);
+    if (material != null && mounted) {
+      await widget.onReceive(material);
+      if (mounted) setState(() => _materials = widget.freshMaterials());
+    }
   }
 
   @override
@@ -261,7 +266,10 @@ class _PreparationWarehouseScreenState
               ],
       ),
       child: AppRefreshIndicator(
-        onRefresh: widget.onReload,
+        onRefresh: () async {
+          await widget.onReload();
+          if (mounted) setState(() => _materials = widget.freshMaterials());
+        },
         allowRefreshOnShortContent: true,
         child: ListView(
           physics: const TopRefreshScrollPhysics(),
@@ -452,7 +460,7 @@ class _PreparationWarehouseStockRow extends StatelessWidget {
   }
 }
 
-class PreparationMaterialsScreen extends StatelessWidget {
+class PreparationMaterialsScreen extends StatefulWidget {
   const PreparationMaterialsScreen({
     super.key,
     required this.warehouse,
@@ -461,6 +469,7 @@ class PreparationMaterialsScreen extends StatelessWidget {
     required this.onCreateMaterial,
     required this.onReceive,
     required this.onReload,
+    required this.freshMaterials,
   });
 
   final String? warehouse;
@@ -469,12 +478,35 @@ class PreparationMaterialsScreen extends StatelessWidget {
   final Future<void> Function() onCreateMaterial;
   final Future<void> Function(PreparationMaterial) onReceive;
   final Future<void> Function() onReload;
+  final List<PreparationMaterial> Function() freshMaterials;
+
+  @override
+  State<PreparationMaterialsScreen> createState() =>
+      _PreparationMaterialsScreenState();
+}
+
+class _PreparationMaterialsScreenState
+    extends State<PreparationMaterialsScreen> {
+  late List<PreparationMaterial> _materials = widget.materials;
+
+  Future<void> _handleCreate() async {
+    if (widget.locked) return;
+    await widget.onCreateMaterial();
+    if (mounted) setState(() => _materials = widget.freshMaterials());
+  }
+
+  Future<void> _handleReceive(PreparationMaterial material) async {
+    await widget.onReceive(material);
+    if (mounted) setState(() => _materials = widget.freshMaterials());
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
+    final warehouse = widget.warehouse;
+    final locked = widget.locked;
 
     return AppShell(
       title: 'Homashyo',
@@ -487,21 +519,22 @@ class PreparationMaterialsScreen extends StatelessWidget {
           AdminFabMenuAction(
             title: 'Homashyo qo‘shish',
             icon: Icons.add_rounded,
-            onTap: () {
-              if (!locked) onCreateMaterial();
-            },
+            onTap: _handleCreate,
           ),
         ],
       ),
       child: AppRefreshIndicator(
-        onRefresh: onReload,
+        onRefresh: () async {
+          await widget.onReload();
+          if (mounted) setState(() => _materials = widget.freshMaterials());
+        },
         allowRefreshOnShortContent: true,
         child: ListView(
           physics: const TopRefreshScrollPhysics(),
           padding: EdgeInsets.only(bottom: bottomPadding),
           children: [
             const SizedBox(height: _adminHomePanelCardGap),
-            if (materials.isEmpty)
+            if (_materials.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
@@ -517,17 +550,17 @@ class PreparationMaterialsScreen extends StatelessWidget {
                   horizontal: _adminHomePanelCardGap,
                 ),
                 children: [
-                  for (var i = 0; i < materials.length; i++)
+                  for (var i = 0; i < _materials.length; i++)
                     AdminSummaryCard(
-                      slot: _slotFor(i, materials.length),
+                      slot: _slotFor(i, _materials.length),
                       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(
-                        _slotFor(i, materials.length),
+                        _slotFor(i, _materials.length),
                       ),
                       backgroundColor: scheme.surfaceContainerLowest,
-                      title: materials[i].name,
+                      title: _materials[i].name,
                       subtitle: 'Mavjud qoldiq',
                       value:
-                          '${preparationDisplay(materials[i].available(warehouse))} kg',
+                          '${preparationDisplay(_materials[i].available(warehouse))} kg',
                       leading: Icon(
                         Icons.inventory_2_outlined,
                         size: 23,
@@ -540,7 +573,7 @@ class PreparationMaterialsScreen extends StatelessWidget {
                       showChevron: false,
                       onTap: locked || warehouse == null
                           ? null
-                          : () => onReceive(materials[i]),
+                          : () => _handleReceive(_materials[i]),
                       elevation: 4,
                     ),
                 ],

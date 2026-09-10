@@ -104,6 +104,12 @@ class _PreparationScreenState extends State<PreparationScreen> {
     _percent.clear();
   }
 
+  /// Parent snapshot'dagi eng so'nggi material ro'yxati.
+  /// [_submit] ichida [_reload] bo'lgani uchun mutation'dan keyin chaqirilsa
+  /// yangi ma'lumot qaytaradi — qo'shimcha network so'rovsiz.
+  List<PreparationMaterial> _syncedMaterials() =>
+      _snapshot?.materials ?? const [];
+
   Future<void> _submit(String kind, Map<String, dynamic> payload) async {
     if (_saving) return;
     setState(() => _saving = true);
@@ -144,6 +150,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
       onWarehouseSelected: (w) => _update(() => _warehouse = w),
       onReceive: _receive,
       onReload: _reload,
+      freshMaterials: _syncedMaterials,
     ));
   }
 
@@ -200,6 +207,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
       onCreateMaterial: _createMaterial,
       onReceive: _receive,
       onReload: _reload,
+      freshMaterials: _syncedMaterials,
     ));
   }
 

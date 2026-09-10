@@ -241,6 +241,68 @@ void main() {
             }));
   });
 
+  testWidgets('materials list refreshes automatically after kirim',
+      (tester) async {
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var balance = 60.0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const MaterialApp(
+          locale: Locale('uz'),
+          localizationsDelegates: [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: PreparationScreen()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Homashyo'));
+      await tester.pumpAndSettle();
+      expect(find.text('60 kg'), findsOneWidget);
+      await tester.tap(find.text('Kley'));
+      await tester.pumpAndSettle();
+      expect(find.text('Kley — kirim'), findsOneWidget);
+      await tester.enterText(find.byType(TextFormField), '10');
+      await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
+      await tester.pumpAndSettle();
+      expect(find.text('70 kg'), findsOneWidget);
+      expect(find.text('60 kg'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+        () => MockClient((request) async {
+              if (request.method == 'POST') {
+                final body = jsonDecode(request.body) as Map<String, dynamic>;
+                balance += double.parse(body['kg'] as String);
+                return http.Response('{"id":"r1","kind":"receipt"}', 200);
+              }
+              return http.Response(
+                  jsonEncode({
+                    'warehouses': ['Tayyorlov ombori'],
+                    'materials': [
+                      {
+                        'item_code': 'P1',
+                        'name': 'Kley',
+                        'balances': [
+                          {
+                            'warehouse': 'Tayyorlov ombori',
+                            'kg': balance.toStringAsFixed(6)
+                          }
+                        ]
+                      }
+                    ],
+                    'orders': [],
+                    'history': [],
+                  }),
+                  200,
+                  headers: {'content-type': 'application/json; charset=utf-8'});
+            }));
+  });
+
   test('parallel client saves are blocked and auth errors preserve retry state',
       () async {
     final started = Completer<void>(), finish = Completer<void>();
