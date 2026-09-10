@@ -40,8 +40,10 @@ extension __AdminProductionMapTestGraphStateAstPart01
   }
 
   Future<void> _addApparatusGroup(CanonicalApparatusGroup group) async {
-    final compatible = group.apparatus
+    final candidates = group.apparatus
         .where((apparatus) => isCanonicalApparatusId(apparatus.id))
+        .toList(growable: false);
+    final compatible = candidates
         .where(_apparatusMatchesCurrentMap)
         .toList(growable: false);
     if (!mounted) {
@@ -60,8 +62,11 @@ extension __AdminProductionMapTestGraphStateAstPart01
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.32),
       sheetAnimationStyle: kM3PickerSheetAnimation,
-      builder: (context) =>
-          _ApparatusGroupPickerSheet(group: group, apparatus: compatible),
+      builder: (context) => _ApparatusGroupPickerSheet(
+        group: group,
+        apparatus: group.operation == 'laminate' ? candidates : compatible,
+        enabledApparatusIds: compatible.map((item) => item.id).toSet(),
+      ),
     );
     if (picked == null || !mounted) {
       return;
@@ -73,7 +78,10 @@ extension __AdminProductionMapTestGraphStateAstPart01
       return;
     }
     final selected = picked.apparatus;
-    if (selected == null) return;
+    if (selected == null ||
+        !compatible.any((item) => item.id == selected.id)) {
+      return;
+    }
     if (group.operation == 'cut') {
       await _addRezkaNode(selected);
       return;

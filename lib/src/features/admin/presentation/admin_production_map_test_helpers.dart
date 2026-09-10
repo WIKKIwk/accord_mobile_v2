@@ -1,6 +1,7 @@
 part of 'admin_production_map_test_screen.dart';
 
 const _maxLaminatsiyaRubberSizeMm = 1050;
+const _maxExtruderLaminatsiyaRubberSizeMm = 1300;
 const _laminatsiyaOversizeMessage =
     'Laminatsiya apparatga buyurtma kattalik qiladi, iltimos uni bo‘laklab oling';
 
@@ -173,7 +174,7 @@ bool productionMapApparatusMatchesOrder(
   ProductionMapOrderContext? orderContext,
 ) {
   if (apparatus.operation == 'laminate' &&
-      !_productionMapLaminatsiyaMatchesOrder(orderContext)) {
+      !_productionMapLaminatsiyaMatchesOrder(apparatus, orderContext)) {
     return false;
   }
   if (apparatus.operation != 'print') {
@@ -222,18 +223,20 @@ double? _productionMapOrderProfileWidth(ProductionMapOrderContext context) {
 }
 
 bool _productionMapLaminatsiyaMatchesOrder(
+  AdminApparatus apparatus,
   ProductionMapOrderContext? orderContext,
 ) {
   final widthMm = orderContext?.widthMm;
-  return _productionMapWidthFitsLaminatsiya(widthMm);
+  return _productionMapWidthFitsLaminatsiya(apparatus, widthMm);
 }
 
 bool _productionMapLaminatsiyaMatchesCurrentMap(
+  AdminApparatus apparatus,
   ProductionMapOrderContext? orderContext,
   Iterable<ProductionMapNode> nodes,
   Iterable<AdminApparatus> apparatusCatalog,
 ) {
-  if (_productionMapLaminatsiyaMatchesOrder(orderContext)) {
+  if (_productionMapLaminatsiyaMatchesOrder(apparatus, orderContext)) {
     return true;
   }
   final widthMm = orderContext?.widthMm;
@@ -249,7 +252,7 @@ bool _productionMapLaminatsiyaMatchesCurrentMap(
       continue;
     }
     if (node.rezkaFrameGroups.isEmpty) {
-      if (_productionMapWidthFitsLaminatsiya(widthMm / frameCount)) {
+      if (_productionMapWidthFitsLaminatsiya(apparatus, widthMm / frameCount)) {
         return true;
       }
       continue;
@@ -263,7 +266,7 @@ bool _productionMapLaminatsiyaMatchesCurrentMap(
     }
     final allGroupsFit = node.rezkaFrameGroups.every((group) {
       final groupWidth = widthMm * group / frameCount;
-      return _productionMapWidthFitsLaminatsiya(groupWidth);
+      return _productionMapWidthFitsLaminatsiya(apparatus, groupWidth);
     });
     if (allGroupsFit) {
       return true;
@@ -285,10 +288,15 @@ int _productionMapOrderFrameCount(ProductionMapOrderContext? orderContext) {
   return frameCount.round();
 }
 
-bool _productionMapWidthFitsLaminatsiya(double? widthMm) {
+bool _productionMapWidthFitsLaminatsiya(
+  AdminApparatus apparatus,
+  double? widthMm,
+) {
   if (widthMm == null || widthMm <= 0) {
     return true;
   }
-  return productionMapRubberSizeFromWidth(widthMm) <=
-      _maxLaminatsiyaRubberSizeMm;
+  final maximum = apparatus.technology == 'extrusion_lamination'
+      ? _maxExtruderLaminatsiyaRubberSizeMm
+      : _maxLaminatsiyaRubberSizeMm;
+  return productionMapRubberSizeFromWidth(widthMm) <= maximum;
 }

@@ -421,16 +421,17 @@ extension __AdminProductionMapTestGraphStateAstPart02
 
   bool _apparatusGroupBlocked(CanonicalApparatusGroup group) {
     return _apparatusGroupIsLaminatsiya(group) &&
-        !_productionMapLaminatsiyaMatchesCurrentMap(
-          widget.orderContext,
-          nodes,
-          _apparatusCatalog,
+        !group.apparatus.any(
+          (apparatus) =>
+              isCanonicalApparatusId(apparatus.id) &&
+              _apparatusMatchesCurrentMap(apparatus),
         );
   }
 
   bool _apparatusMatchesCurrentMap(AdminApparatus apparatus) {
     if (apparatus.operation == 'laminate') {
       return _productionMapLaminatsiyaMatchesCurrentMap(
+        apparatus,
         widget.orderContext,
         nodes,
         _apparatusCatalog,

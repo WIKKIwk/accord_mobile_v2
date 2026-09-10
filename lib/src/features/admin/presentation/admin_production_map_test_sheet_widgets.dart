@@ -130,10 +130,12 @@ class _ApparatusGroupPickerSheet extends StatelessWidget {
   const _ApparatusGroupPickerSheet({
     required this.group,
     required this.apparatus,
+    required this.enabledApparatusIds,
   });
 
   final CanonicalApparatusGroup group;
   final List<AdminApparatus> apparatus;
+  final Set<String> enabledApparatusIds;
 
   @override
   Widget build(BuildContext context) {
@@ -176,12 +178,15 @@ class _ApparatusGroupPickerSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: ListTile(
+                  enabled: enabledApparatusIds.contains(item.id),
                   leading: const Icon(Icons.precision_manufacturing_rounded),
                   title: Text(item.name),
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.of(
-                    context,
-                  ).pop(_ApparatusGroupPickResult(apparatus: item)),
+                  onTap: enabledApparatusIds.contains(item.id)
+                      ? () => Navigator.of(context).pop(
+                            _ApparatusGroupPickResult(apparatus: item),
+                          )
+                      : null,
                 ),
               ),
           ],
