@@ -79,7 +79,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
       child: ListView(
         padding: EdgeInsets.fromLTRB(
           _adminApparatusPanelGap,
-          8,
+          _adminApparatusPanelGap,
           _adminApparatusPanelGap,
           bottomPadding,
         ),

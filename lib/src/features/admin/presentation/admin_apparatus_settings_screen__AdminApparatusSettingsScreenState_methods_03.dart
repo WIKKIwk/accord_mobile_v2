@@ -18,7 +18,7 @@ extension __AdminApparatusSettingsScreenStateAstPart03
         key: const ValueKey('canonical-apparatus-groups-list'),
         padding: EdgeInsets.fromLTRB(
           _adminApparatusPanelGap,
-          8,
+          _adminApparatusPanelGap,
           _adminApparatusPanelGap,
           bottomPadding,
         ),

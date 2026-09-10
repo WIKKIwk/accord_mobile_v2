@@ -17,4 +17,4 @@ part 'admin_queue_policy_screen_widgets_part_01.dart';
 part 'admin_queue_policy_screen_declarations_part_02.dart';
 
 const double _queuePolicyPanelGap = 4;
-const double _queuePolicyPanelTopGap = 8;
+const double _queuePolicyPanelTopGap = 4;

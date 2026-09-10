@@ -168,7 +168,7 @@ class _AdminApparatusSettingsScreenState
       child: ListView(
         padding: EdgeInsets.fromLTRB(
           _adminApparatusPanelGap,
-          8,
+          _adminApparatusPanelGap,
           _adminApparatusPanelGap,
           bottomPadding,
         ),
