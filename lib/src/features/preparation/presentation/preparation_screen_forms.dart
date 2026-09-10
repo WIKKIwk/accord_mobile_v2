@@ -1002,52 +1002,77 @@ class _PreparationInputDialogState extends State<_PreparationInputDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-          insetPadding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          title: Text(widget.title),
-          content: SizedBox(
-              width: double.infinity,
-              child: Form(
-                  key: _form,
-                  child: TextFormField(
-                      controller: _controller,
-                      autofocus: true,
-                      keyboardType: widget.quantity
-                          ? const TextInputType.numberWithOptions(decimal: true)
-                          : TextInputType.text,
-                      decoration: InputDecoration(labelText: widget.label),
-                      validator: (text) {
-                        if (!widget.quantity) {
-                          return (text ?? '').trim().isEmpty
-                              ? 'Nom kiriting'
-                              : (text!.trim().length > 160
-                                  ? 'Nom juda uzun'
-                                  : null);
-                        }
-                        try {
-                          preparationDecimal(text ?? '');
-                          return null;
-                        } on FormatException catch (e) {
-                          return e.message;
-                        }
-                      }))),
-          actions: [
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                  onPressed: () {
-                    if (_form.currentState!.validate()) {
-                      Navigator.pop(context, _controller.text.trim());
-                    }
-                  },
-                  child: const Text('Saqlash')),
-            ),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Bekor qilish')),
-            ),
-          ]);
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    void submit() {
+      if (_form.currentState!.validate()) {
+        Navigator.pop(context, _controller.text.trim());
+      }
+    }
+
+    // Freym showM3ConfirmDialog bilan 1:1 (inset, fon, radius, border).
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      backgroundColor: scheme.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+        side: BorderSide(
+          color: scheme.outlineVariant.withValues(alpha: 0.65),
+        ),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(widget.title, style: theme.textTheme.headlineSmall),
+              const SizedBox(height: 10),
+              Form(
+                key: _form,
+                child: TextFormField(
+                    controller: _controller,
+                    autofocus: true,
+                    keyboardType: widget.quantity
+                        ? const TextInputType.numberWithOptions(decimal: true)
+                        : TextInputType.text,
+                    decoration: InputDecoration(labelText: widget.label),
+                    validator: (text) {
+                      if (!widget.quantity) {
+                        return (text ?? '').trim().isEmpty
+                            ? 'Nom kiriting'
+                            : (text!.trim().length > 160
+                                ? 'Nom juda uzun'
+                                : null);
+                      }
+                      try {
+                        preparationDecimal(text ?? '');
+                        return null;
+                      } on FormatException catch (e) {
+                        return e.message;
+                      }
+                    }),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                    onPressed: submit, child: const Text('Saqlash')),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Bekor qilish')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
