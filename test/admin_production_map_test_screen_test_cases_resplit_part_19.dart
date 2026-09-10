@@ -307,8 +307,13 @@ void _registeradmin_production_map_test_screen_testCases19() {
       find.byKey(const ValueKey('production-order-rezka-merge-state')),
       findsOneWidget,
     );
-    expect(find.text('Joriy WIP: wip-b'), findsOneWidget);
-    expect(find.text('WIP ketma-ketligi: wip-a → wip-b'), findsOneWidget);
+    expect(find.text('Ulangan rulonlar holati'), findsOneWidget);
+    expect(find.text('Joriy rulon: wip-b'), findsOneWidget);
+    expect(find.text('Rulonlar ketma-ketligi: wip-a → wip-b'), findsOneWidget);
+    expect(
+      find.text('Faol o‘ramlar: 1 ta · Manba: 2 ta rulon'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Merge'));
     await tester.pump();
@@ -446,5 +451,112 @@ void _registeradmin_production_map_test_screen_testCases19() {
       findsOneWidget,
     );
     expect(find.textContaining('Jami: 4 kadr'), findsOneWidget);
+  });
+
+  testWidgets('Rezka merge state formats real production batch IDs cleanly for workers', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await AppSession.instance.setSession(
+      token: 'worker-rezka-production-merge-token',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Rezka operatori',
+        legalName: '',
+        ref: 'worker-rezka-production',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [_rezkaId],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-0004',
+        title: 'Production merge order',
+        productCode: 'PRD-0004',
+        apparatusId: _rezkaId,
+        product: 'production merge mahsulot',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: _rezkaId,
+      orderIds: const ['zakaz-0004'],
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _rezkaId,
+      orderId: 'zakaz-0004',
+      control: _inProgressQueueControl(
+        allowMerge: true,
+        stageNodeId: 'apparatus',
+        rezkaInputLineage: const [
+          AdminRezkaInputLink(
+            inputBatchId:
+                'progress-batch:1789023942159851000:apparatus-default-asset-008:zakaz-0004:detach_roll',
+            sequenceNo: 1,
+            status: 'processed',
+          ),
+          AdminRezkaInputLink(
+            inputBatchId:
+                'progress-batch:1789024048223282000:apparatus-default-asset-007:zakaz-0004:complete',
+            sequenceNo: 2,
+            status: 'in_use',
+          ),
+        ],
+        rezkaActivePartialRolls: const [
+          AdminRezkaActivePartialRoll(
+            slotIndex: 1,
+            generation: 1,
+            containedKadrCount: 1,
+            sourceInputBatchIds: [
+              'progress-batch:1789023942159851000:apparatus-default-asset-008:zakaz-0004:detach_roll',
+              'progress-batch:1789024048223282000:apparatus-default-asset-007:zakaz-0004:complete',
+            ],
+          ),
+        ],
+      ),
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Rezka'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Production merge').first);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('production-order-rezka-merge-state')),
+      findsOneWidget,
+    );
+    expect(find.text('Ulangan rulonlar holati'), findsOneWidget);
+    expect(find.text('Joriy rulon: 2-rulon (Apparat 007)'), findsOneWidget);
+    expect(
+      find.text(
+        'Rulonlar ketma-ketligi: 1-rulon (Apparat 008) → 2-rulon (Apparat 007)',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Faol o‘ramlar: 1 ta · Manba: 2 ta rulon'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('progress-batch'), findsNothing);
   });
 }

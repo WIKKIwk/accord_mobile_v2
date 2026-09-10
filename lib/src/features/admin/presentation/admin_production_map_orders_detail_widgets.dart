@@ -158,6 +158,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
       inputLineage: uiState.rezkaInputLineage,
       activePartialRolls: uiState.rezkaActivePartialRolls,
       l10n: context.l10n,
+      apparatusCatalog: apparatusCatalog,
     );
     return DraggableScrollableSheet(
       expand: false,

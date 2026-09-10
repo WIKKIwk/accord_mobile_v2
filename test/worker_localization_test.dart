@@ -47,7 +47,25 @@ void main() {
         'worker.merge_state.current',
         values: const {'batch': 'wip-b'},
       ),
-      'Joriy WIP: wip-b',
+      'Joriy rulon: wip-b',
+    );
+    expect(
+      uzbek.productionText('worker.merge_state.title'),
+      'Ulangan rulonlar holati',
+    );
+    expect(
+      uzbek.productionText(
+        'worker.merge_state.lineage',
+        values: const {'lineage': 'wip-a → wip-b'},
+      ),
+      'Rulonlar ketma-ketligi: wip-a → wip-b',
+    );
+    expect(
+      uzbek.productionText(
+        'worker.merge_state.partial_rolls',
+        values: const {'rolls': 3, 'sources': 2},
+      ),
+      'Faol o‘ramlar: 3 ta · Manba: 2 ta rulon',
     );
     expect(
       uzbek.productionErrorMessage('merge_input_same'),
