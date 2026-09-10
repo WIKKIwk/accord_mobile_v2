@@ -4,36 +4,67 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/navigation/app_root_navigation.dart';
 import '../../../core/widgets/navigation/role_dock.dart';
 import '../../../core/widgets/navigation/role_navigation_drawer.dart';
+import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 
 class PreparationDock extends StatelessWidget {
-  const PreparationDock({super.key, this.profile = false});
+  const PreparationDock({
+    super.key,
+    this.profile = false,
+    this.showPrimaryFab = true,
+    this.primaryFabActions,
+  });
   final bool profile;
+  final bool showPrimaryFab;
+  final List<AdminFabMenuAction>? primaryFabActions;
+
   @override
-  Widget build(BuildContext context) => RoleDock(
-          compact: true,
-          tightToEdges: true,
-          selectionVisible: true,
-          selectedIndex: profile ? 1 : 0,
-          destinations: [
+  Widget build(BuildContext context) {
+    final hasActions =
+        showPrimaryFab && (primaryFabActions?.isNotEmpty ?? false);
+    return ValueListenableBuilder<bool>(
+      valueListenable: adminCreateHubMenuOpen,
+      builder: (context, menuOpen, _) => RoleDock(
+        compact: true,
+        tightToEdges: true,
+        selectionVisible: true,
+        selectedIndex: profile ? 2 : 0,
+        primaryVisible: !menuOpen && hasActions,
+        destinations: [
+          RoleDockDestination(
+              id: 'preparation-home',
+              label: 'Tayyorlov',
+              icon: Icons.science_outlined,
+              selectedIcon: Icons.science,
+              active: !profile,
+              routeName: AppRoutes.preparation,
+              onTap: () => AppRootNavigation.replaceRootRoute(
+                  context, AppRoutes.preparation)),
+          if (hasActions)
             RoleDockDestination(
-                id: 'preparation-home',
-                label: 'Tayyorlov',
-                icon: Icons.science_outlined,
-                selectedIcon: Icons.science,
-                active: !profile,
-                routeName: AppRoutes.preparation,
-                onTap: () => AppRootNavigation.replaceRootRoute(
-                    context, AppRoutes.preparation)),
-            RoleDockDestination(
-                id: 'preparation-profile',
-                label: 'Profil',
-                icon: Icons.person_outline,
-                selectedIcon: Icons.person,
-                active: profile,
-                routeName: AppRoutes.profile,
-                onTap: () => AppRootNavigation.replaceRootRoute(
-                    context, AppRoutes.profile)),
-          ]);
+              id: 'preparation-primary',
+              label: 'Amallar',
+              icon: Icons.add_rounded,
+              selectedIcon: Icons.add_rounded,
+              active: false,
+              primary: true,
+              onTap: () => showAdminCreateHubSheet(
+                context,
+                actions: primaryFabActions,
+              ),
+            ),
+          RoleDockDestination(
+              id: 'preparation-profile',
+              label: 'Profil',
+              icon: Icons.person_outline,
+              selectedIcon: Icons.person,
+              active: profile,
+              routeName: AppRoutes.profile,
+              onTap: () => AppRootNavigation.replaceRootRoute(
+                  context, AppRoutes.profile)),
+        ],
+      ),
+    );
+  }
 }
 
 class PreparationDrawer extends StatelessWidget {

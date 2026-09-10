@@ -27,15 +27,6 @@ extension _PreparationForms on _PreparationScreenState {
               itemSubtitle: subtitle,
               onSelected: (item) => Navigator.of(sheetContext).pop(item)));
 
-  Future<void> _pickWarehouse() async {
-    final value = await _pick<String>(
-        title: 'Ombor tanlang',
-        items: _snapshot!.warehouses,
-        label: (w) => w,
-        subtitle: (_) => '');
-    if (value != null && mounted) _update(() => _warehouse = value);
-  }
-
   Future<String?> _input(
           {required String title,
           required String label,
@@ -148,144 +139,217 @@ String _linesSummary(dynamic lines) {
   }).join('\n');
 }
 
-class PreparationKirimScreen extends StatelessWidget {
-  const PreparationKirimScreen({
+class PreparationWarehouseScreen extends StatefulWidget {
+  const PreparationWarehouseScreen({
     super.key,
-    required this.warehouse,
+    required this.warehouses,
+    required this.initialWarehouse,
     required this.materials,
     required this.history,
     required this.locked,
+    required this.onWarehouseSelected,
     required this.onReceive,
     required this.onReload,
   });
 
-  final String? warehouse;
+  final List<String> warehouses;
+  final String? initialWarehouse;
   final List<PreparationMaterial> materials;
   final List<dynamic> history;
   final bool locked;
-  final Future<void> Function(PreparationMaterial) onReceive;
+  final void Function(String warehouse) onWarehouseSelected;
+  final Future<void> Function(PreparationMaterial material) onReceive;
   final Future<void> Function() onReload;
+
+  @override
+  State<PreparationWarehouseScreen> createState() =>
+      _PreparationWarehouseScreenState();
+}
+
+class _PreparationWarehouseScreenState
+    extends State<PreparationWarehouseScreen> {
+  late String? _warehouse = widget.initialWarehouse;
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<PreparationMaterial> get _filtered {
+    final q = _query.trim().toLowerCase();
+    final inWarehouse = widget.materials
+        .where((m) => m.balances.containsKey(_warehouse))
+        .toList();
+    if (q.isEmpty) return inWarehouse;
+    return inWarehouse
+        .where((m) => '${m.name} ${m.code}'.toLowerCase().contains(q))
+        .toList();
+  }
+
+  List<dynamic> get _receipts => widget.history
+      .where((d) => d['kind'] == 'receipt' && d['warehouse'] == _warehouse)
+      .toList();
+
+  void _selectWarehouse(String w) {
+    setState(() => _warehouse = w);
+    widget.onWarehouseSelected(w);
+  }
+
+  Future<void> _doKirim() async {
+    if (_warehouse == null || widget.locked) return;
+    final material = await showModalBottomSheet<PreparationMaterial>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (sheetContext) => M3AsyncPickerSheet<PreparationMaterial>(
+        title: 'Homashyo tanlang',
+        hintText: 'Qidirish',
+        pageSize: 50,
+        loadPage: (query, offset, limit) async => _filtered
+            .where((m) => '${m.name} ${m.code}'
+                .toLowerCase()
+                .contains(query.trim().toLowerCase()))
+            .skip(offset)
+            .take(limit)
+            .toList(),
+        itemTitle: (m) => m.name,
+        itemSubtitle: (m) =>
+            'Mavjud: ${preparationDisplay(m.available(_warehouse))} kg',
+        onSelected: (m) => Navigator.of(sheetContext).pop(m),
+      ),
+    );
+    if (material != null && mounted) await widget.onReceive(material);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final receipts = history.where((d) => d['kind'] == 'receipt').toList();
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
+    final filtered =
+        _warehouse == null ? const <PreparationMaterial>[] : _filtered;
 
     return AppShell(
-      title: 'Kirim',
-      subtitle: warehouse ?? 'Ombor tanlanmagan',
+      title: 'Ombor',
+      subtitle: _warehouse ?? 'Ombor tanlang',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
-      bottom: const PreparationDock(),
+      bottom: PreparationDock(
+        primaryFabActions: _warehouse == null
+            ? null
+            : [
+                AdminFabMenuAction(
+                  title: 'Kirim',
+                  icon: Icons.add_circle_outline_rounded,
+                  onTap: _doKirim,
+                ),
+              ],
+      ),
       actions: [
         IconButton(
           tooltip: 'Yangilash',
           icon: const Icon(Icons.refresh),
-          onPressed: locked ? null : onReload,
+          onPressed: widget.locked ? null : widget.onReload,
         ),
       ],
       child: AppRefreshIndicator(
-        onRefresh: onReload,
+        onRefresh: widget.onReload,
         allowRefreshOnShortContent: true,
         child: ListView(
           physics: const TopRefreshScrollPhysics(),
-          padding: EdgeInsets.only(bottom: bottomPadding),
+          padding: EdgeInsets.fromLTRB(4, 12, 4, bottomPadding),
           children: [
-            const SizedBox(height: _adminHomePanelCardGap),
-            if (warehouse == null)
+            if (widget.warehouses.isEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: _adminHomePanelCardGap,
-                ),
-                child: Card.filled(
-                  margin: EdgeInsets.zero,
-                  color: scheme.tertiaryContainer,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                      M3SegmentedListGeometry.cornerLarge,
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      'Kirim qilish uchun avval bosh sahifada ombor tanlang.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: scheme.onTertiaryContainer,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            else ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Homashyoni tanlab, qabul qilingan miqdorni (kg) kiriting:',
+                  'Sizga ombor biriktirilmagan.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
-              ),
-              if (materials.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: _adminHomePanelCardGap,
-                  ),
-                  child: AdminSummaryCard(
-                    slot: M3SegmentVerticalSlot.top,
-                    cornerRadius: M3SegmentedListGeometry.cornerLarge,
-                    borderRadiusOverride: BorderRadius.circular(
-                      M3SegmentedListGeometry.cornerLarge,
+              )
+            else if (widget.warehouses.length > 1 && _warehouse == null) ...[
+              M3SegmentSpacedColumn(
+                padding: EdgeInsets.zero,
+                children: [
+                  for (var i = 0; i < widget.warehouses.length; i++)
+                    _PreparationWarehousePickerRow(
+                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                        i,
+                        widget.warehouses.length,
+                      ),
+                      title: widget.warehouses[i],
+                      onTap: () => _selectWarehouse(widget.warehouses[i]),
                     ),
-                    backgroundColor: scheme.surfaceContainerLowest,
-                    title: 'Homashyo mavjud emas',
-                    subtitle: 'Avval "Homashyo" bo‘limidan homashyo qo‘shing',
-                    value: '',
-                    leading: Icon(
-                      Icons.info_outline_rounded,
+                ],
+              ),
+            ] else ...[
+              if (widget.warehouses.length > 1)
+                M3SegmentSpacedColumn(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _PreparationWarehousePickerRow(
+                      slot: M3SegmentVerticalSlot.top,
+                      title: _warehouse!,
+                      subtitle: 'Omborni almashtirish',
+                      onTap: () => setState(() => _warehouse = null),
+                    ),
+                  ],
+                ),
+              if (widget.warehouses.length > 1) const SizedBox(height: 12),
+              SearchBar(
+                controller: _searchController,
+                hintText: 'Qidirish',
+                constraints: const BoxConstraints(minHeight: 58),
+                padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
+                  EdgeInsets.symmetric(horizontal: 18),
+                ),
+                leading: Icon(
+                  Icons.search_rounded,
+                  size: 26,
+                  color: scheme.onSurfaceVariant,
+                ),
+                elevation: const WidgetStatePropertyAll<double>(0),
+                onChanged: (v) => setState(() => _query = v),
+              ),
+              const SizedBox(height: 12),
+              if (filtered.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Bu omborda hali kirim yo‘q.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
-                    showChevron: false,
-                    elevation: 4,
                   ),
                 )
               else
                 M3SegmentSpacedColumn(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: _adminHomePanelCardGap,
-                  ),
+                  padding: EdgeInsets.zero,
                   children: [
-                    for (var i = 0; i < materials.length; i++)
-                      AdminSummaryCard(
-                        slot: _slotFor(i, materials.length),
-                        cornerRadius:
-                            M3SegmentedListGeometry.cornerRadiusForSlot(
-                          _slotFor(i, materials.length),
+                    for (var index = 0; index < filtered.length; index++)
+                      _PreparationWarehouseStockRow(
+                        slot:
+                            M3SegmentedListGeometry.standaloneListSlotForIndex(
+                          index,
+                          filtered.length,
                         ),
-                        backgroundColor: scheme.surfaceContainerLowest,
-                        title: materials[i].name,
-                        subtitle:
-                            'Mavjud: ${preparationDisplay(materials[i].available(warehouse))} kg',
-                        value: '',
-                        leading: Icon(
-                          Icons.add_business_outlined,
-                          size: 23,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                        trailing: Icon(
-                          Icons.add_circle_outline,
-                          color: scheme.primary,
-                        ),
-                        showChevron: false,
-                        onTap: locked ? null : () => onReceive(materials[i]),
-                        elevation: 4,
+                        material: filtered[index],
+                        warehouse: _warehouse!,
+                        onTap: widget.locked
+                            ? null
+                            : () => widget.onReceive(filtered[index]),
                       ),
                   ],
                 ),
-              if (receipts.isNotEmpty) ...[
+              if (_warehouse != null && _receipts.isNotEmpty) ...[
                 const SizedBox(height: 20),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -297,29 +361,34 @@ class PreparationKirimScreen extends StatelessWidget {
                   ),
                 ),
                 M3SegmentSpacedColumn(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: _adminHomePanelCardGap,
-                  ),
+                  padding: EdgeInsets.zero,
                   children: [
-                    for (var i = 0; i < receipts.length; i++)
+                    for (var i = 0; i < _receipts.length; i++)
                       AdminSummaryCard(
-                        slot: _slotFor(i, receipts.length),
+                        slot:
+                            M3SegmentedListGeometry.standaloneListSlotForIndex(
+                          i,
+                          _receipts.length,
+                        ),
                         cornerRadius:
                             M3SegmentedListGeometry.cornerRadiusForSlot(
-                          _slotFor(i, receipts.length),
+                          M3SegmentedListGeometry.standaloneListSlotForIndex(
+                            i,
+                            _receipts.length,
+                          ),
                         ),
                         backgroundColor: scheme.surfaceContainerLowest,
-                        title: receipts[i]['name'] as String? ?? 'Kirim',
+                        title: _receipts[i]['name'] as String? ?? 'Kirim',
                         subtitle:
-                            '${receipts[i]['warehouse']} • ${_formatDateTime(receipts[i]['created_at'])}',
+                            '${_receipts[i]['warehouse']} • ${_formatDateTime(_receipts[i]['created_at'])}',
                         value:
-                            '+${preparationDisplay(receipts[i]['kg'] as String? ?? '0')} kg',
+                            '+${preparationDisplay(_receipts[i]['kg'] as String? ?? '0')} kg',
                         leading: const Icon(
                           Icons.check_circle_outline_rounded,
                           color: Colors.green,
                         ),
                         showChevron: false,
-                        elevation: 4,
+                        elevation: 0,
                       ),
                   ],
                 ),
@@ -328,6 +397,126 @@ class PreparationKirimScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PreparationWarehousePickerRow extends StatelessWidget {
+  const _PreparationWarehousePickerRow({
+    required this.slot,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+  });
+
+  final M3SegmentVerticalSlot slot;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AdminSummaryCard(
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      backgroundColor: scheme.surfaceContainerLowest,
+      fixedHeight: 61,
+      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      value: '',
+      onTap: onTap,
+      showChevron: onTap != null,
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.warehouse_outlined,
+            size: 16,
+            color: scheme.onSecondaryContainer,
+          ),
+        ),
+      ),
+      title: title,
+      subtitle: subtitle ?? '',
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      titleStyle: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.05,
+          ),
+    );
+  }
+}
+
+class _PreparationWarehouseStockRow extends StatelessWidget {
+  const _PreparationWarehouseStockRow({
+    required this.slot,
+    required this.material,
+    required this.warehouse,
+    this.onTap,
+  });
+
+  final M3SegmentVerticalSlot slot;
+  final PreparationMaterial material;
+  final String warehouse;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final title = material.name.trim().isEmpty ? material.code : material.name;
+    final subtitle = <String>[
+      if (material.code.trim().isNotEmpty) material.code.trim(),
+      '${preparationDisplay(material.available(warehouse))} kg',
+    ].join(' • ');
+
+    return AdminSummaryCard(
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      backgroundColor: scheme.surfaceContainerLowest,
+      fixedHeight: 61,
+      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      value: '',
+      onTap: onTap,
+      showChevron: false,
+      trailing: onTap == null
+          ? null
+          : Icon(
+              Icons.add_circle_outline,
+              color: scheme.primary,
+            ),
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.inventory_2_rounded,
+            size: 16,
+            color: scheme.onSecondaryContainer,
+          ),
+        ),
+      ),
+      title: title,
+      subtitle: subtitle,
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      titleStyle: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.05,
+          ),
     );
   }
 }
@@ -413,8 +602,7 @@ class PreparationMaterialsScreen extends StatelessWidget {
                   for (var i = 0; i < materials.length; i++)
                     AdminSummaryCard(
                       slot: _slotFor(i, materials.length),
-                      cornerRadius:
-                          M3SegmentedListGeometry.cornerRadiusForSlot(
+                      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(
                         _slotFor(i, materials.length),
                       ),
                       backgroundColor: scheme.surfaceContainerLowest,
@@ -611,8 +799,7 @@ class _PreparationOrdersScreenState extends State<PreparationOrdersScreen> {
                                   child: Text(
                                     materials[entry.key]!.name,
                                     style: theme.textTheme.titleMedium
-                                        ?.copyWith(
-                                            fontWeight: FontWeight.w700),
+                                        ?.copyWith(fontWeight: FontWeight.w700),
                                   ),
                                 ),
                                 IconButton(
@@ -662,8 +849,7 @@ class _PreparationOrdersScreenState extends State<PreparationOrdersScreen> {
                                 try {
                                   return Text(
                                     'Sarf: ${preparationDisplay(preparationRequiredKg(_order!.kg, entry.value.text))} kg',
-                                    style:
-                                        theme.textTheme.bodyMedium?.copyWith(
+                                    style: theme.textTheme.bodyMedium?.copyWith(
                                       fontWeight: FontWeight.w600,
                                       color: scheme.primary,
                                     ),

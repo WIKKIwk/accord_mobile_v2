@@ -168,7 +168,16 @@ void main() {
           await tester.tap(find.text('Tayyorlov ombori'));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
-          expect(find.text('Ombor tanlang'), findsOneWidget);
+          expect(find.text('Ombor'), findsOneWidget);
+          expect(find.text('Bu omborda hali kirim yo‘q.'), findsOneWidget);
+          await tester.tap(
+            find.byKey(const ValueKey('app-primary-navigation-button')),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Kirim'), findsOneWidget);
+          expect(find.text('Homashyo'), findsNothing);
+          expect(find.text('Buyurtmalar'), findsNothing);
+          expect(find.text('Tarix'), findsNothing);
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.pumpAndSettle();
         },

@@ -6,6 +6,7 @@ import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
+import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_summary_card.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
@@ -27,7 +28,6 @@ M3SegmentVerticalSlot _slotFor(int index, int length) {
   }
   return M3SegmentVerticalSlot.middle;
 }
-
 
 class PreparationScreen extends StatefulWidget {
   const PreparationScreen({super.key});
@@ -134,16 +134,63 @@ class _PreparationScreenState extends State<PreparationScreen> {
     }
   }
 
-  void _openKirim(PreparationSnapshot data) {
-    _openAndReload(PreparationKirimScreen(
-      warehouse: _warehouse,
+  void _openWarehouse(PreparationSnapshot data) {
+    _openAndReload(PreparationWarehouseScreen(
+      warehouses: data.warehouses,
+      initialWarehouse: _warehouse,
       materials: data.materials,
       history: data.history,
       locked: _locked,
+      onWarehouseSelected: (w) => _update(() => _warehouse = w),
       onReceive: _receive,
       onReload: _reload,
     ));
   }
+
+  Future<void> _startKirim(PreparationSnapshot data) async {
+    if (_warehouse == null) {
+      _openWarehouse(data);
+      return;
+    }
+    final material = await _pick<PreparationMaterial>(
+      title: 'Homashyo tanlang',
+      items: data.materials
+          .where((m) => m.balances.containsKey(_warehouse))
+          .toList(),
+      label: (m) => m.name,
+      subtitle: (m) =>
+          'Mavjud: ${preparationDisplay(m.available(_warehouse))} kg',
+    );
+    if (material != null && mounted) await _receive(material);
+  }
+
+  List<AdminFabMenuAction> _fabActions(PreparationSnapshot data) => [
+        AdminFabMenuAction(
+          title: 'Ombor',
+          icon: Icons.warehouse_outlined,
+          onTap: () => _openWarehouse(data),
+        ),
+        AdminFabMenuAction(
+          title: 'Kirim',
+          icon: Icons.add_circle_outline_rounded,
+          onTap: () => _startKirim(data),
+        ),
+        AdminFabMenuAction(
+          title: 'Homashyo',
+          icon: Icons.inventory_2_outlined,
+          onTap: () => _openMaterials(data),
+        ),
+        AdminFabMenuAction(
+          title: 'Buyurtmalar',
+          icon: Icons.list_alt_rounded,
+          onTap: () => _openOrders(data),
+        ),
+        AdminFabMenuAction(
+          title: 'Tarix',
+          icon: Icons.history_outlined,
+          onTap: () => _openHistory(data),
+        ),
+      ];
 
   void _openMaterials(PreparationSnapshot data) {
     _openAndReload(PreparationMaterialsScreen(
@@ -197,7 +244,8 @@ class _PreparationScreenState extends State<PreparationScreen> {
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
       drawer: const PreparationDrawer(),
-      bottom: const PreparationDock(),
+      bottom: PreparationDock(
+          primaryFabActions: data == null ? null : _fabActions(data)),
       actions: [
         IconButton(
           tooltip: 'Yangilash',
@@ -333,25 +381,9 @@ class _PreparationScreenState extends State<PreparationScreen> {
                               fontWeight: FontWeight.w700,
                             ),
                             value: _warehouse ?? 'Ombor tanlang',
-                            onTap: _locked ? null : _pickWarehouse,
+                            onTap: _locked ? null : () => _openWarehouse(data),
                             elevation: 4,
                           ),
-                        AdminSummaryCard(
-                          slot: data.warehouses.isNotEmpty
-                              ? M3SegmentVerticalSlot.middle
-                              : M3SegmentVerticalSlot.top,
-                          cornerRadius: data.warehouses.isNotEmpty
-                              ? M3SegmentedListGeometry.cornerMiddle
-                              : M3SegmentedListGeometry.cornerLarge,
-                          backgroundColor: scheme.surfaceContainerLowest,
-                          title: 'Kirim',
-                          titleStyle: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          value: '',
-                          onTap: () => _openKirim(data),
-                          elevation: 4,
-                        ),
                         AdminSummaryCard(
                           slot: M3SegmentVerticalSlot.middle,
                           cornerRadius: M3SegmentedListGeometry.cornerMiddle,
