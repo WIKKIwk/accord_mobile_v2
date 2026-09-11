@@ -72,6 +72,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.allowMaterialUnlink,
     required this.onUnlinkMaterial,
     required this.unlinkingMaterialBarcode,
+    this.summaryOnlyMode = false,
   });
   final GlobalKey noticeAnchorKey;
   final VoidCallback onClose;
@@ -143,6 +144,10 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final bool allowMaterialUnlink;
   final void Function(AdminRawMaterialAssignment assignment)? onUnlinkMaterial;
   final String unlinkingMaterialBarcode;
+  // Faqat tayyorlov masteri uchun: bottom sheet'da faqat
+  // "Kutilayotgan buyurtma ko'rsatkichlari" ko'rinadi.
+  // Boshqa rollar uchun false bo'lib qoladi — ularga ta'sir qilmaydi.
+  final bool summaryOnlyMode;
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +185,16 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   24,
                 ),
                 children: [
-                  if (workerMode)
+                  if (summaryOnlyMode)
+                    _TayyorlovSummaryOrderHeader(
+                      map: map,
+                      orderImageBytes: orderImageBytes,
+                      orderImageLoading: orderImageLoading,
+                      onViewOrderImage: onViewOrderImage,
+                      customerName: customerName,
+                    ),
+                  if (summaryOnlyMode) const SizedBox(height: 10),
+                  if (!summaryOnlyMode && workerMode)
                     Padding(
                       padding: const EdgeInsets.only(left: 14, bottom: 10),
                       child: Row(
@@ -236,101 +250,103 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                         ],
                       ),
                     ),
-                  AnimatedSize(
-                    key:
-                        const ValueKey('production-order-quick-scanner-motion'),
-                    duration: AppMotion.medium,
-                    curve: AppMotion.standardDecelerate,
-                    alignment: Alignment.topCenter,
-                    // Unmount the camera immediately when its task ends;
-                    // an outgoing AnimatedSwitcher child keeps scanning.
-                    child: showQuickScanner
-                        ? Column(
-                            key: const ValueKey(
-                              'production-order-quick-scanner-visible',
-                            ),
-                            children: [
-                              ProductionQuickScannerPanel(
-                                statusText: quickScanStatus,
-                                busy: quickScanInFlight,
-                                allowConcurrentDetections:
-                                    allowConcurrentQuickScanner,
-                                allowManualEntry: !uiState.openingWipRequired,
-                                onCodeDetected: onQuickScan,
+                  if (!summaryOnlyMode)
+                    AnimatedSize(
+                      key: const ValueKey(
+                          'production-order-quick-scanner-motion'),
+                      duration: AppMotion.medium,
+                      curve: AppMotion.standardDecelerate,
+                      alignment: Alignment.topCenter,
+                      // Unmount the camera immediately when its task ends;
+                      // an outgoing AnimatedSwitcher child keeps scanning.
+                      child: showQuickScanner
+                          ? Column(
+                              key: const ValueKey(
+                                'production-order-quick-scanner-visible',
                               ),
-                              const SizedBox(height: 10),
-                            ],
-                          )
-                        : const SizedBox(
-                            key: ValueKey(
-                              'production-order-quick-scanner-hidden',
+                              children: [
+                                ProductionQuickScannerPanel(
+                                  statusText: quickScanStatus,
+                                  busy: quickScanInFlight,
+                                  allowConcurrentDetections:
+                                      allowConcurrentQuickScanner,
+                                  allowManualEntry: !uiState.openingWipRequired,
+                                  onCodeDetected: onQuickScan,
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                            )
+                          : const SizedBox(
+                              key: ValueKey(
+                                'production-order-quick-scanner-hidden',
+                              ),
                             ),
-                          ),
-                  ),
-                  _OrderStartUnifiedCard(
-                    uiState: uiState,
-                    apparatusCatalog: apparatusCatalog,
-                    orderCode: _openedOrderDisplayCode(map),
-                    orderImageBytes: orderImageBytes,
-                    orderImageLoading: orderImageLoading,
-                    onViewOrderImage: onViewOrderImage,
-                    productTitle: _openedOrderPrimaryTitle(
-                      map,
-                      l10n: context.l10n,
                     ),
-                    customerName: customerName,
-                    workerMode: workerMode,
-                    showContractWarning: showContractWarning,
-                    materialsLoading: materialsLoading,
-                    materialsError: materialsError,
-                    materialStartReady: materialStartReady,
-                    materialStartBlockingText: materialStartBlockingText,
-                    actionInFlight: actionInFlight,
-                    materialIntakeInFlight: materialIntakeInFlight,
-                    materialIntakeMode: materialIntakeMode,
-                    intakeCandidatesExpanded: intakeCandidatesExpanded,
-                    onToggleIntakeCandidatesExpanded:
-                        onToggleIntakeCandidatesExpanded,
-                    pauseLabel: pauseLabel,
-                    previousProgressBatch: previousProgressBatch,
-                    openingWipBatch: openingWipBatch,
-                    openingWipBatches: openingWipBatches,
-                    inputProgressBatches: inputProgressBatches,
-                    inputProgressLoading: inputProgressLoading,
-                    inputProgressError: inputProgressError,
-                    requiresQolipScan: requiresQolipScan,
-                    qolipScanned: qolipScanned,
-                    qolipCodes: qolipCodes,
-                    requiredQolips: requiredQolips,
-                    qolipRequirementsStatusText: qolipRequirementsStatusText,
-                    startMaterialsExpanded: startMaterialsExpanded,
-                    onToggleStartMaterialsExpanded:
-                        onToggleStartMaterialsExpanded,
-                    materialsExpanded: materialsExpanded,
-                    onToggleMaterialsExpanded: onToggleMaterialsExpanded,
-                    qolipsExpanded: qolipsExpanded,
-                    onToggleQolipsExpanded: onToggleQolipsExpanded,
-                    attachedQolips: attachedQolips,
-                    attachedQolipsLoading: attachedQolipsLoading,
-                    attachedQolipsError: attachedQolipsError,
-                    attachedQolipsExpanded: attachedQolipsExpanded,
-                    onToggleAttachedQolipsExpanded:
-                        onToggleAttachedQolipsExpanded,
-                    rezkaInstructionLines: rezkaInstructionLines,
-                    rezkaMergeStateLines: rezkaMergeStateLines,
-                    onMaterialIntake: onMaterialIntake,
-                    onStart: onStart,
-                    onPause: onPause,
-                    onMerge: onMerge,
-                    onRollComplete: onRollComplete,
-                    onComplete: onComplete,
-                    onResume: onResume,
-                    orderControlState: orderControlState,
-                    allowMaterialUnlink: allowMaterialUnlink,
-                    onUnlinkMaterial: onUnlinkMaterial,
-                    unlinkingMaterialBarcode: unlinkingMaterialBarcode,
-                  ),
-                  const SizedBox(height: 10),
+                  if (!summaryOnlyMode)
+                    _OrderStartUnifiedCard(
+                      uiState: uiState,
+                      apparatusCatalog: apparatusCatalog,
+                      orderCode: _openedOrderDisplayCode(map),
+                      orderImageBytes: orderImageBytes,
+                      orderImageLoading: orderImageLoading,
+                      onViewOrderImage: onViewOrderImage,
+                      productTitle: _openedOrderPrimaryTitle(
+                        map,
+                        l10n: context.l10n,
+                      ),
+                      customerName: customerName,
+                      workerMode: workerMode,
+                      showContractWarning: showContractWarning,
+                      materialsLoading: materialsLoading,
+                      materialsError: materialsError,
+                      materialStartReady: materialStartReady,
+                      materialStartBlockingText: materialStartBlockingText,
+                      actionInFlight: actionInFlight,
+                      materialIntakeInFlight: materialIntakeInFlight,
+                      materialIntakeMode: materialIntakeMode,
+                      intakeCandidatesExpanded: intakeCandidatesExpanded,
+                      onToggleIntakeCandidatesExpanded:
+                          onToggleIntakeCandidatesExpanded,
+                      pauseLabel: pauseLabel,
+                      previousProgressBatch: previousProgressBatch,
+                      openingWipBatch: openingWipBatch,
+                      openingWipBatches: openingWipBatches,
+                      inputProgressBatches: inputProgressBatches,
+                      inputProgressLoading: inputProgressLoading,
+                      inputProgressError: inputProgressError,
+                      requiresQolipScan: requiresQolipScan,
+                      qolipScanned: qolipScanned,
+                      qolipCodes: qolipCodes,
+                      requiredQolips: requiredQolips,
+                      qolipRequirementsStatusText: qolipRequirementsStatusText,
+                      startMaterialsExpanded: startMaterialsExpanded,
+                      onToggleStartMaterialsExpanded:
+                          onToggleStartMaterialsExpanded,
+                      materialsExpanded: materialsExpanded,
+                      onToggleMaterialsExpanded: onToggleMaterialsExpanded,
+                      qolipsExpanded: qolipsExpanded,
+                      onToggleQolipsExpanded: onToggleQolipsExpanded,
+                      attachedQolips: attachedQolips,
+                      attachedQolipsLoading: attachedQolipsLoading,
+                      attachedQolipsError: attachedQolipsError,
+                      attachedQolipsExpanded: attachedQolipsExpanded,
+                      onToggleAttachedQolipsExpanded:
+                          onToggleAttachedQolipsExpanded,
+                      rezkaInstructionLines: rezkaInstructionLines,
+                      rezkaMergeStateLines: rezkaMergeStateLines,
+                      onMaterialIntake: onMaterialIntake,
+                      onStart: onStart,
+                      onPause: onPause,
+                      onMerge: onMerge,
+                      onRollComplete: onRollComplete,
+                      onComplete: onComplete,
+                      onResume: onResume,
+                      orderControlState: orderControlState,
+                      allowMaterialUnlink: allowMaterialUnlink,
+                      onUnlinkMaterial: onUnlinkMaterial,
+                      unlinkingMaterialBarcode: unlinkingMaterialBarcode,
+                    ),
+                  if (!summaryOnlyMode) const SizedBox(height: 10),
                   _OrderSummaryCard(
                     map: map,
                     workerMode: workerMode,
@@ -339,22 +355,23 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     expanded: summaryExpanded,
                     onToggleExpanded: onToggleSummaryExpanded,
                   ),
-                  if (!workerMode || summaryExpanded)
+                  if (!summaryOnlyMode && (!workerMode || summaryExpanded))
                     const SizedBox(height: 10),
-                  _OrderMapProgressCard(
-                    workerMode: workerMode,
-                    steps: steps,
-                    apparatusCatalog: apparatusCatalog,
-                    orderId: uiState.orderId,
-                    currentStation: uiState.station,
-                    queueStates: queueStates,
-                    queueStatesByApparatus: queueStatesByApparatus,
-                    stageStates: stageStates,
-                    currentStageNodeId: uiState.stageNodeId,
-                    expanded: workerMode ? summaryExpanded : mapExpanded,
-                    onToggleExpanded: onToggleMapExpanded,
-                    onTapApparatus: onTapMapApparatus,
-                  ),
+                  if (!summaryOnlyMode)
+                    _OrderMapProgressCard(
+                      workerMode: workerMode,
+                      steps: steps,
+                      apparatusCatalog: apparatusCatalog,
+                      orderId: uiState.orderId,
+                      currentStation: uiState.station,
+                      queueStates: queueStates,
+                      queueStatesByApparatus: queueStatesByApparatus,
+                      stageStates: stageStates,
+                      currentStageNodeId: uiState.stageNodeId,
+                      expanded: workerMode ? summaryExpanded : mapExpanded,
+                      onToggleExpanded: onToggleMapExpanded,
+                      onTapApparatus: onTapMapApparatus,
+                    ),
                 ],
               ),
               if (!workerMode)
@@ -467,6 +484,86 @@ void _showProductionMapOrderImageDialog(
       );
     },
   );
+}
+
+/// Tayyorlov masteri summary-only rejimi uchun ixcham sarlavha:
+/// faqat zakaz kodi + mahsulot nomi. Qolgan bo'limlar yashiriladi.
+class _TayyorlovSummaryOrderHeader extends StatelessWidget {
+  const _TayyorlovSummaryOrderHeader({
+    required this.map,
+    required this.orderImageBytes,
+    required this.orderImageLoading,
+    required this.onViewOrderImage,
+    required this.customerName,
+  });
+  final ProductionMapDefinition map;
+  final List<int>? orderImageBytes;
+  final bool orderImageLoading;
+  final VoidCallback onViewOrderImage;
+  final String? customerName;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final customer = customerName?.trim() ?? '';
+    final product = _openedOrderPrimaryTitle(map, l10n: context.l10n).trim();
+    final orderProductLabel = customer.isEmpty
+        ? product
+        : product.isEmpty
+            ? customer
+            : '$customer • $product';
+    final orderCode = _openedOrderDisplayCode(map).trim();
+    return _orderDetailSurfaceCard(
+      context: context,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _productionMapOrderImageThumbnail(
+            context: context,
+            imageBytes: orderImageBytes,
+            loading: orderImageLoading,
+            onTap: onViewOrderImage,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.l10n.productionText('worker.order.code'),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  orderCode.isEmpty ? '-' : orderCode,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (orderProductLabel.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    orderProductLabel,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _OrderSummaryCard extends StatelessWidget {

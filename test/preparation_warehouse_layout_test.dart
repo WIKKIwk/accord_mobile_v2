@@ -126,6 +126,12 @@ void main() {
               child: child!,
             ),
             home: const PreparationScreen(),
+            routes: {
+              '/supply-sequence': (_) => Scaffold(
+                    appBar: AppBar(),
+                    body: const Text('Ketma-ketlik'),
+                  ),
+            },
           ));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
@@ -143,7 +149,8 @@ void main() {
 
           await tester.tap(find.text('Buyurtmalar'));
           await tester.pumpAndSettle();
-          expect(find.text('Order tanlang'), findsOneWidget);
+          expect(find.text('Ketma-ketlik'), findsOneWidget);
+          expect(find.text('Order tanlang'), findsNothing);
           await tester.tap(find.byType(BackButton));
           await tester.pumpAndSettle();
           final history = find.text('Tarix');

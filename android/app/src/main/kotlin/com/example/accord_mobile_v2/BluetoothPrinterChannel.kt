@@ -61,6 +61,12 @@ class BluetoothPrinterChannel(
         private const val PROGRESS_FIELD_GAP_DOTS = 4
         private const val PROGRESS_BOLD_OFFSET_DOTS = 1
         private const val PROGRESS_FIELD_WIDTH_CHARS = 24
+        // Homashyo split yorlig'i: kattaroq matn (FNT_24_32) va kattaroq QR.
+        // 16 char/en = 400 dot ichiga sig'adi, qator balandligi 36 dot.
+        private const val SPLIT_TEXT_CHAR_WIDTH_DOTS = 24
+        private const val SPLIT_TEXT_LINE_HEIGHT_DOTS = 36
+        private const val SPLIT_FIELD_WIDTH_CHARS = 16
+        private const val SPLIT_QR_BASE_Y = 250
         // FNT_12_20 is rendered slightly wider by XP-P323B than its name
         // suggests. Use a conservative width estimate for wrapping. The
         // actual field line is emitted as one string so the printer itself
@@ -353,6 +359,7 @@ class BluetoothPrinterChannel(
 
         when {
             label.isQolipCell -> printQolipCell(printer, label)
+            label.isMaterialSplit -> printMaterialSplitLabel(printer, label)
             label.isQolipCode || label.isMaterialProduct -> printLargeQr(printer, label)
             else -> printPackLabel(printer, label)
         }
@@ -577,6 +584,150 @@ class BluetoothPrinterChannel(
             PACK_EPC_Y,
             epcFont,
             epcText,
+        )
+    }
+
+    // Homashyo rezkachisi split chiqishi: katta matn (FNT_24_32 bold) va
+    // pastda kattaroq QR. Matn balandligiga qarab QR pastga suriladi, lekin
+    // EPC footer bilan birga yorliqdan chiqib ketmaydi. Faqat
+    // isMaterialSplit uchun ishlaydi, boshqa chop etishlarga tegmaydi.
+    private fun printMaterialSplitLabel(
+        printer: TSPLPrinter,
+        label: BluetoothLabelRequest,
+    ) {
+        val payload = requiredPayload(label.epc)
+        val product = cleanLabelText(
+            label.itemName.ifBlank { label.itemCode }.ifBlank { "-" },
+        )
+        val weightUnit = cleanLabelText(label.unit.ifBlank { "kg" })
+        val meterUnit = cleanLabelText(label.progressUnit.ifBlank { "m" })
+        val lengthM = label.progressQty?.takeIf { it.isFinite() && it > 0.0 }
+        var y = PROGRESS_TEXT_TOP_Y
+        y = printSplitField(printer, y, "HOMASHYO", product, maxLines = 3)
+        y = printSplitField(
+            printer,
+            y,
+            "BRUTTO",
+            "${formatLabelQty(label.grossQty)} $weightUnit",
+        )
+        y = printSplitField(
+            printer,
+            y,
+            "NETTO",
+            "${formatLabelQty(label.netQty)} $weightUnit",
+        )
+        // Tizimga kiritilgan metraj (lengthM) bo'lsa chiqar, bo'lmasa qatorni
+        // tashlab ket — QR baribir pastda katta qoladi.
+        if (lengthM != null) {
+            y = printSplitField(
+                printer,
+                y,
+                "METRAJ",
+                "${formatLabelQty(lengthM)} $meterUnit",
+            )
+        }
+
+        val qrCellSize = splitQrCellWidth(payload)
+        val qrSize = qrSymbolSizeDots(payload, qrCellSize)
+        val latestQrY = LABEL_HEIGHT_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS -
+            PROGRESS_PACK_EPC_GAP_DOTS - qrSize
+        val qrY = maxOf(SPLIT_QR_BASE_Y, minOf(y + 8, latestQrY))
+        val epcY = (qrY + qrSize + PROGRESS_PACK_EPC_GAP_DOTS)
+            .coerceAtMost(LABEL_HEIGHT_DOTS - 24)
+        sdkQr(
+            printer,
+            PROGRESS_PACK_QR_X,
+            qrY,
+            payload,
+            cellSize = qrCellSize,
+        )
+        val epcFont = if (payload.length <= 32) {
+            TSPLConst.FNT_12_20
+        } else {
+            TSPLConst.FNT_8_12
+        }
+        val epcText = fitLabelText(payload, if (epcFont == TSPLConst.FNT_12_20) 32 else 46)
+        sdkText(
+            printer,
+            centeredLabelX(epcText, if (epcFont == TSPLConst.FNT_12_20) 12 else 8),
+            epcY,
+            epcFont,
+            epcText,
+        )
+    }
+
+    private fun splitQrCellWidth(value: String): Int {
+        return (packQrCellSize(value) + 1).coerceAtMost(6)
+    }
+
+    private fun printSplitField(
+        printer: TSPLPrinter,
+        y: Int,
+        fieldLabel: String,
+        value: String,
+        maxLines: Int = 1,
+    ): Int {
+        val lines = splitFieldLines(fieldLabel, value, maxLines)
+        lines.forEachIndexed { index, line ->
+            sdkSplitLine(printer, y + index * SPLIT_TEXT_LINE_HEIGHT_DOTS, line)
+        }
+        return y + lines.size * SPLIT_TEXT_LINE_HEIGHT_DOTS + PROGRESS_FIELD_GAP_DOTS
+    }
+
+    private fun splitFieldLines(
+        fieldLabel: String,
+        value: String,
+        maxLines: Int,
+    ): List<String> {
+        return wrapLabelText(
+            "$fieldLabel: ${value.trim().ifBlank { "-" }}",
+            SPLIT_FIELD_WIDTH_CHARS,
+        ).take(maxLines.coerceAtLeast(1))
+    }
+
+    private fun sdkSplitLine(
+        printer: TSPLPrinter,
+        y: Int,
+        line: String,
+    ) {
+        val separator = line.indexOf(':')
+        if (separator < 0) {
+            sdkSplitBoldText(printer, LABEL_LEFT_MARGIN_DOTS, y, line)
+            return
+        }
+        val labelPart = line.take(separator + 1)
+        val valuePart = line.drop(separator + 1).trimStart()
+        sdkText(
+            printer,
+            LABEL_LEFT_MARGIN_DOTS,
+            y,
+            TSPLConst.FNT_24_32,
+            labelPart,
+        )
+        if (valuePart.isNotEmpty()) {
+            sdkSplitBoldText(
+                printer,
+                LABEL_LEFT_MARGIN_DOTS +
+                    (labelPart.length + 1) * SPLIT_TEXT_CHAR_WIDTH_DOTS,
+                y,
+                valuePart,
+            )
+        }
+    }
+
+    private fun sdkSplitBoldText(
+        printer: TSPLPrinter,
+        x: Int,
+        y: Int,
+        value: String,
+    ) {
+        sdkText(printer, x, y, TSPLConst.FNT_24_32, value)
+        sdkText(
+            printer,
+            x + PROGRESS_BOLD_OFFSET_DOTS,
+            y,
+            TSPLConst.FNT_24_32,
+            value,
         )
     }
 
@@ -1253,6 +1404,15 @@ private data class BluetoothLabelRequest(
 
     val isMaterialProduct: Boolean
         get() = labelKind == "material_product"
+
+    // Faqat homashyo rezkachisi split chiqishi (progressUnit='m' yoki
+    // HOMASHYO sarlavha): yangi zich tartib + WIP dagi kichik o'ng-past QR.
+    // Uzunliksiz generic material_product eski katta markaziy QR yo'lida
+    // qoladi.
+    val isMaterialSplit: Boolean
+        get() = isMaterialProduct &&
+            (progressUnit.equals("m", ignoreCase = true) ||
+                materialNameLines.firstOrNull()?.startsWith("HOMASHYO") == true)
 
     companion object {
         fun from(call: MethodCall): BluetoothLabelRequest? {

@@ -3,6 +3,7 @@ import '../../../core/security/state/security_controller.dart';
 import '../../../core/session/accounts/account_switch_runtime.dart';
 import '../../../core/session/accounts/saved_account_runtime.dart';
 import '../../../core/session/state/app_session.dart';
+import '../../../core/widgets/feedback/spring_bottom_sheet.dart';
 import 'account_switcher_sheet.dart';
 import 'login_screen.dart';
 import 'welcome_screen.dart';
@@ -20,15 +21,9 @@ Future<void> showAccountSwitcherSheet(BuildContext context) async {
   final rootNavigator = Navigator.of(context, rootNavigator: true);
   final switchController = createRuntimeAccountSwitchController();
 
-  await showModalBottomSheet<void>(
+  await showSpringBottomSheet<void>(
     context: context,
     useRootNavigator: true,
-    isScrollControlled: true,
-    showDragHandle: false,
-    backgroundColor: Theme.of(context).colorScheme.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    ),
     builder: (sheetContext) {
       return ConstrainedBox(
         constraints: BoxConstraints(

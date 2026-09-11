@@ -70,11 +70,26 @@ Map<String, Object> _bluetoothLabelPayload(UsbRpsPrintRequest request) {
   }
   if (request.isMaterialProductLabel) {
     final itemName = payload['item_name']?.toString() ?? '';
-    payload['material_name_lines'] = bluetoothMaterialProductNameLines(
-      itemName.isEmpty ? request.itemCode : itemName,
-    );
+    final sourceName = itemName.isEmpty ? request.itemCode : itemName;
+    // Faqat homashyo rezkachisi split chiqishlari (progressUnit='m')
+    // HOMASHYO tartibiga o'tadi. Uzunliksiz generic material_product
+    // (GScale/admin qayta chop etish, progressUnit='') eski MAHSULOT
+    // ko'rinishida qoladi.
+    final isSplit = request.progressUnit.trim().toLowerCase() == 'm';
+    payload['material_name_lines'] = isSplit
+        ? bluetoothMaterialSplitNameLines(sourceName)
+        : bluetoothMaterialProductNameLines(sourceName);
   }
   return payload;
+}
+
+List<String> bluetoothMaterialSplitNameLines(String itemName) {
+  const lineWidth = 24;
+  final productName = bluetoothPrinterText(itemName);
+  final title = bluetoothPrinterText(
+    'HOMASHYO: ${productName.isEmpty ? '-' : productName}',
+  );
+  return _wrapBluetoothLabelText(title, lineWidth);
 }
 
 List<String> bluetoothMaterialProductNameLines(String itemName) {

@@ -44,6 +44,12 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private static let progressFieldGapDots = 4
   private static let progressBoldOffsetDots = 1
   private static let progressFieldWidthChars = 24
+  // Homashyo split yorlig'i: kattaroq matn (kFNT_24_32) va kattaroq QR.
+  // 16 char/en = 400 dot ichiga sig'adi, qator balandligi 36 dot.
+  private static let splitTextCharWidthDots = 24
+  private static let splitTextLineHeightDots = 36
+  private static let splitFieldWidthChars = 16
+  private static let splitQrBaseY = 250
   // FNT_12_20 is rendered slightly wider by XP-P323B than its name
   // suggests. Use a conservative width estimate for wrapping. The
   // actual field line is emitted as one string so the printer itself
@@ -473,7 +479,13 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     case "qolip_cell", "qr_center":
       command = appendQolipCell(command, label: label)
     case "qolip_code", "paddon_code", "material_product":
-      command = appendLargeQr(command, label: label)
+      // Homashyo rezkachisi split chiqishi WIP uslubida (kichik o'ng-past
+      // QR). Uzunliksiz generic material_product eski katta markaziy QR da.
+      if label.isMaterialSplit {
+        command = appendMaterialSplitLabel(command, label: label)
+      } else {
+        command = appendLargeQr(command, label: label)
+      }
     default:
       command = appendPackLabel(command, label: label)
     }
@@ -708,6 +720,157 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       font: epcFont,
       value: epcText
     )
+    return result
+  }
+
+  // Homashyo rezkachisi split chiqishi: katta matn (kFNT_24_32 bold) va
+  // pastda kattaroq QR. Matn balandligiga qarab QR pastga suriladi, lekin
+  // EPC footer bilan birga yorliqdan chiqib ketmaydi. Faqat isMaterialSplit
+  // uchun ishlaydi, boshqa chop etishlarga tegmaydi.
+  private func appendMaterialSplitLabel(
+    _ command: XTSPLCommand?,
+    label: BluetoothLabelRequest
+  ) -> XTSPLCommand? {
+    let payload = requiredPayload(label.epc)
+    let product = cleanLabelText(
+      label.itemName.isEmpty
+        ? (label.itemCode.isEmpty ? "-" : label.itemCode)
+        : label.itemName
+    )
+    let weightUnit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
+    let meterUnit = cleanLabelText(label.progressUnit.isEmpty ? "m" : label.progressUnit)
+
+    var result = command
+    var y = Self.progressTextTopY
+    var lines = splitFieldLines("HOMASHYO", value: product, maxLines: 3)
+    result = appendSplitLines(result, lines: lines, y: y)
+    y += lines.count * Self.splitTextLineHeightDots + Self.progressFieldGapDots
+
+    lines = splitFieldLines(
+      "BRUTTO",
+      value: "\(formatLabelQty(label.grossQty)) \(weightUnit)",
+      maxLines: 1
+    )
+    result = appendSplitLines(result, lines: lines, y: y)
+    y += lines.count * Self.splitTextLineHeightDots + Self.progressFieldGapDots
+
+    lines = splitFieldLines(
+      "NETTO",
+      value: "\(formatLabelQty(label.netQty)) \(weightUnit)",
+      maxLines: 1
+    )
+    result = appendSplitLines(result, lines: lines, y: y)
+    y += lines.count * Self.splitTextLineHeightDots + Self.progressFieldGapDots
+
+    // Tizimga kiritilgan metraj (lengthM) bo'lsa chiqar, bo'lmasa qatorni
+    // tashlab ket — QR baribir pastda katta qoladi.
+    if let length = label.progressQty, length.isFinite, length > 0 {
+      lines = splitFieldLines(
+        "METRAJ",
+        value: "\(formatLabelQty(length)) \(meterUnit)",
+        maxLines: 1
+      )
+      result = appendSplitLines(result, lines: lines, y: y)
+      y += lines.count * Self.splitTextLineHeightDots + Self.progressFieldGapDots
+    }
+
+    let qrCellWidth = splitQrCellWidth(payload)
+    let qrSize = qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
+    let latestQrY = Self.labelHeightDots - Self.largeQrFooterHeightDots -
+      Self.progressPackEpcGapDots - qrSize
+    let qrY = max(Self.splitQrBaseY, min(y + 8, latestQrY))
+    let epcY = min(
+      Self.labelHeightDots - 24,
+      qrY + qrSize + Self.progressPackEpcGapDots
+    )
+    result = qr(
+      result,
+      x: Self.progressPackQrX,
+      y: qrY,
+      value: payload,
+      cellWidth: qrCellWidth
+    )
+    let epcIsLarge = payload.count <= 32
+    let epcFont = epcIsLarge ? kFNT_12_20 : kFNT_8_12
+    let epcText = fitLabelText(payload, maxLength: epcIsLarge ? 32 : 46)
+    result = text(
+      result,
+      x: centeredLabelX(epcText, charWidth: epcIsLarge ? 12 : 8),
+      y: epcY,
+      font: epcFont,
+      value: epcText
+    )
+    return result
+  }
+
+  private func splitQrCellWidth(_ value: String) -> Int {
+    min(packQrCellWidth(value) + 1, 6)
+  }
+
+  private func splitFieldLines(
+    _ fieldLabel: String,
+    value: String,
+    maxLines: Int
+  ) -> [String] {
+    Array(
+      wrapLabelText(
+        "\(fieldLabel): \(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "-" : value)",
+        width: Self.splitFieldWidthChars
+      ).prefix(max(1, maxLines))
+    )
+  }
+
+  private func appendSplitLines(
+    _ command: XTSPLCommand?,
+    lines: [String],
+    y: Int
+  ) -> XTSPLCommand? {
+    var result = command
+    for (index, line) in lines.enumerated() {
+      result = appendSplitStyledLine(
+        result,
+        line: line,
+        y: y + index * Self.splitTextLineHeightDots
+      )
+    }
+    return result
+  }
+
+  private func appendSplitStyledLine(
+    _ command: XTSPLCommand?,
+    line: String,
+    y: Int
+  ) -> XTSPLCommand? {
+    guard let separator = line.firstIndex(of: ":") else {
+      return appendBoldText(
+        command,
+        x: Self.labelLeftMarginDots,
+        y: y,
+        value: line,
+        font: kFNT_24_32
+      )
+    }
+    let labelEnd = line.index(after: separator)
+    let labelPart = String(line[..<labelEnd])
+    let valuePart = String(line[line.index(after: separator)...])
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    var result = text(
+      command,
+      x: Self.labelLeftMarginDots,
+      y: y,
+      font: kFNT_24_32,
+      value: labelPart
+    )
+    if !valuePart.isEmpty {
+      result = appendBoldText(
+        result,
+        x: Self.labelLeftMarginDots +
+          (labelPart.count + 1) * Self.splitTextCharWidthDots,
+        y: y,
+        value: valuePart,
+        font: kFNT_24_32
+      )
+    }
     return result
   }
 
@@ -1457,5 +1620,18 @@ private struct BluetoothLabelRequest {
 
   var isProgress: Bool {
     labelKind == "progress"
+  }
+
+  // Faqat homashyo rezkachisi split chiqishi (progressUnit='m' yoki HOMASHYO
+  // sarlavha): yangi zich tartib + WIP dagi kichik o'ng-past QR.
+  // Uzunliksiz generic material_product eski katta markaziy QR yo'lida qoladi.
+  var isMaterialSplit: Bool {
+    guard labelKind == "material_product" else {
+      return false
+    }
+    if progressUnit.lowercased() == "m" {
+      return true
+    }
+    return materialNameLines.first?.hasPrefix("HOMASHYO") == true
   }
 }

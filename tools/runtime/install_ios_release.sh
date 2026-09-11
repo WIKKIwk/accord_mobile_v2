@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DEVICE_ID="${DEVICE_ID:-00008030-000E09812150802E}"
 XCODE_DEVELOPER_DIR="${XCODE_DEVELOPER_DIR:-${DEVELOPER_DIR:-$(xcode-select -p 2>/dev/null || true)}}"
-BUNDLE_ID="${BUNDLE_ID:-com.example.accordMobileV2}"
+BUNDLE_ID="${BUNDLE_ID:-com.example.accordMobileV2.mirsaid.uzkingshark}"
 API_URL="${API_URL:-https://mini-rs-erp-test.wspace.sbs}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(date -u +%Y%m%d%H%M)}"
 

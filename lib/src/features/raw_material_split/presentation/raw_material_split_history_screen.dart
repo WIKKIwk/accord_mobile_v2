@@ -4,13 +4,14 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/print_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../gscale/gscale_mobile_app.dart';
 import '../models/raw_material_split_models.dart';
 import 'raw_material_split_navigation.dart';
-import 'raw_material_split_result_view.dart';
 import 'raw_material_split_print.dart';
+import 'raw_material_split_result_view.dart';
 
 class RawMaterialSplitHistoryScreen extends StatefulWidget {
   const RawMaterialSplitHistoryScreen({super.key});
@@ -103,6 +104,47 @@ class _RawMaterialSplitHistoryScreenState
     }
   }
 
+  Future<void> _showResultDetails(RawSplitResult result) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (sheetContext) => RawSplitDetailsSheet(
+        result: result,
+        printerLabel: _printer?.transport.apiValue,
+        showWifiSelector:
+            _printer != null && !_printer!.transport.isLocal,
+        wifiPrinter: _wifiPrinter,
+        onReprint: (output) => _reprint(result, only: output),
+        onReprintAll: () => _reprint(result),
+        onSelectPrinter: () async {
+          Navigator.of(sheetContext).pop();
+          await _selectPrinter();
+        },
+        onWifiChanged: (value) => setState(() => _wifiPrinter = value),
+      ),
+    );
+  }
+
+  Future<void> _showIssueDetails(
+    RawSplitIssue issue,
+    bool hasResult,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (_) => RawSplitIssueDetailsSheet(
+        issue: issue,
+        hasResult: hasResult,
+      ),
+    );
+  }
+
   void _goBack() {
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
@@ -116,6 +158,7 @@ class _RawMaterialSplitHistoryScreenState
   Widget build(BuildContext context) {
     final history = _snapshot?.history ?? const <RawSplitResult>[];
     final issues = _snapshot?.issues ?? const <RawSplitIssue>[];
+    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     return AppShell(
       leading: IconButton(
         tooltip: 'Orqaga',
@@ -127,6 +170,7 @@ class _RawMaterialSplitHistoryScreenState
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       drawer: const RawMaterialSplitDrawer(history: true),
+      preferNativeTitle: true,
       contentPadding: EdgeInsets.zero,
       appBarBottomLoading: _busy,
       actions: [
@@ -137,100 +181,93 @@ class _RawMaterialSplitHistoryScreenState
         ),
       ],
       bottom: const RawMaterialSplitDock(),
-      child: RefreshIndicator(
+      child: AppRefreshIndicator(
         onRefresh: _reload,
+        allowRefreshOnShortContent: true,
         child: ListView(
           physics: const TopRefreshScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 120),
+          padding: EdgeInsets.fromLTRB(0, 8, 0, bottomPadding),
           children: [
-            if (_error != null) ...[
-              Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              const SizedBox(height: 16),
-            ],
-            if (_snapshot == null && _busy)
-              const Padding(
-                padding: EdgeInsets.only(top: 24),
-                child: Center(child: CircularProgressIndicator()),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: RawSplitHistoryMessage(
+                  icon: Icons.error_outline_rounded,
+                  title: 'Tarix yuklanmadi',
+                  subtitle: _error,
+                  onTap: _busy ? null : _reload,
+                ),
               )
+            else if (_snapshot == null && _busy)
+              const RawSplitHistoryLoading()
             else if (history.isEmpty && issues.isEmpty)
               const Padding(
-                padding: EdgeInsets.only(top: 24),
-                child: Text('Hali bo‘lish tarixi yo‘q.'),
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: RawSplitHistoryMessage(
+                  icon: Icons.history_toggle_off_rounded,
+                  title: 'Hali bo‘lish tarixi yo‘q.',
+                ),
               )
             else ...[
-              if (_printer != null) ...[
-                Row(
-                  children: [
-                    const Icon(Icons.print_outlined, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Printer: ${_printer!.transport.apiValue}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                    if (!_printer!.transport.isLocal)
-                      DropdownButton<String>(
-                        value: _wifiPrinter,
-                        onChanged: _busy
-                            ? null
-                            : (value) => setState(
-                                  () => _wifiPrinter = value!,
-                                ),
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'godex', child: Text('GoDEX')),
-                          DropdownMenuItem(
-                              value: 'zebra', child: Text('Zebra')),
-                        ],
-                      ),
-                  ],
+              if (_printer != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: RawSplitHistoryMessage(
+                    icon: Icons.print_outlined,
+                    title: 'Printer: ${_printer!.transport.apiValue}',
+                    subtitle: _printer!.transport.isLocal
+                        ? null
+                        : 'Wi-Fi printer: $_wifiPrinter',
+                  ),
                 ),
-                const Divider(height: 32),
-              ],
-              for (final result in history)
-                RawMaterialSplitResultView(
-                  result: result,
-                  busy: _busy,
-                  onReprint: (output) => _reprint(result, only: output),
-                  onReprintAll: () => _reprint(result),
-                ),
-            ],
-            if (issues.isNotEmpty) ...[
-              const Divider(height: 32),
-              Text('Muammolar', style: Theme.of(context).textTheme.titleMedium),
-              for (final issue in issues)
-                Material(
-                  type: MaterialType.transparency,
-                  child: ExpansionTile(
-                    tilePadding: EdgeInsets.zero,
-                    title: Text(issue.source.itemName),
-                    subtitle: Text(issue.check.message),
-                    childrenPadding: const EdgeInsets.only(bottom: 16),
-                    expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+              if (history.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: M3SegmentSpacedColumn(
+                    padding: EdgeInsets.zero,
                     children: [
-                      Text('QR: ${issue.source.barcode}'),
-                      Text(
-                          'Asl: ${rawSplitDisplay(issue.source.kg)} kg · Atxot: ${issue.enteredWaste.isEmpty ? 'kiritilmagan' : issue.enteredWaste} kg'),
-                      for (var i = 0; i < issue.outputs.length; i++)
-                        Text(
-                            '${i + 1}-rulon: ${rawSplitDisplay(issue.outputs[i]['width_mm'] as String)} mm · '
-                            'Og‘irlik: ${rawSplitDisplay(issue.outputs[i]['gross_kg'] as String)} kg · '
-                            'Babina: ${rawSplitDisplay(issue.outputs[i]['bobina_kg'] as String)} kg · '
-                            'Netto: ${rawSplitDisplay(issue.outputs[i]['kg'] as String)} kg'),
-                      const SizedBox(height: 8),
-                      Text('Sabab: ${issue.note}'),
-                      Text('${issue.actorName} · ${issue.createdAt.toLocal()}',
-                          style: Theme.of(context).textTheme.bodySmall),
-                      Text(history.any((result) => result.issueId == issue.id)
-                          ? 'Muammo bo‘yicha rulonlar saqlangan.'
-                          : 'Muammo sababi qayd etilgan.'),
+                      for (var i = 0; i < history.length; i++)
+                        RawSplitHistoryCard(
+                          slot: M3SegmentedListGeometry
+                              .standaloneListSlotForIndex(i, history.length),
+                          result: history[i],
+                          onTap: () => _showResultDetails(history[i]),
+                        ),
                     ],
                   ),
                 ),
+            ],
+            if (issues.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                child: Text(
+                  'Muammolar',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: M3SegmentSpacedColumn(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    for (var i = 0; i < issues.length; i++)
+                      RawSplitIssueCard(
+                        slot: M3SegmentedListGeometry
+                            .standaloneListSlotForIndex(i, issues.length),
+                        issue: issues[i],
+                        hasResult: history.any(
+                          (result) => result.issueId == issues[i].id,
+                        ),
+                        onTap: () => _showIssueDetails(
+                          issues[i],
+                          history.any(
+                            (result) => result.issueId == issues[i].id,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ],
         ),

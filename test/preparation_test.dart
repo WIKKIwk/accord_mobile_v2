@@ -154,7 +154,7 @@ void main() {
     }, () => MockClient((_) async => throw http.ClientException('offline')));
   });
 
-  testWidgets('master can receive by material tap and enter recipe percentages',
+  testWidgets('master can receive by material tap and opens ketma-ketlik',
       (tester) async {
     tester.view.physicalSize = const Size(800, 1800);
     tester.view.devicePixelRatio = 1;
@@ -162,16 +162,20 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final requests = <Map<String, dynamic>>[];
     await http.runWithClient(() async {
-      await tester.pumpWidget(const MaterialApp(
-          locale: Locale('uz'),
-          localizationsDelegates: [
+      await tester.pumpWidget(MaterialApp(
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate
           ],
           supportedLocales: AppLocalizations.supportedLocales,
-          home: PreparationScreen()));
+          home: const PreparationScreen(),
+          routes: {
+            AppRoutes.supplySequence: (_) =>
+                const Scaffold(body: Text('Ketma-ketlik')),
+          }));
       await tester.pumpAndSettle();
       expect(find.text('Ombor'), findsOneWidget);
       expect(find.text('Kirim'), findsNothing);
@@ -197,41 +201,12 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
       await tester.pumpAndSettle();
       expect(requests.single['kg'], '12.500000');
+      // Tayyorlov masteri uchun eski generate qilingan Buyurtmalar sahifasi
+      // olib tashlandi — Buyurtmalar bosilganda mavjud Ketma-ketlik ochiladi.
       await tester.tap(find.text('Buyurtmalar'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Order tanlang'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('001 — Etiketka'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Homashyo tanlash'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Kley'));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-          find.byKey(const Key('preparation-percent-P1')), '3');
-      await tester.pump();
-      expect(find.text('Sarf: 30 kg'), findsOneWidget);
-      final save = find.byKey(const Key('preparation-save-recipe'));
-      expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
-      await tester.enterText(
-          find.byKey(const Key('preparation-percent-P1')), '7');
-      await tester.pump();
-      expect(find.text('Omborda yetarli homashyo yo‘q'), findsOneWidget);
-      expect(tester.widget<FilledButton>(save).onPressed, isNull);
-      await tester.enterText(
-          find.byKey(const Key('preparation-percent-P1')), '3');
-      FocusManager.instance.primaryFocus?.unfocus();
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(save);
-      await tester.tap(save);
-      await tester.pumpAndSettle();
-      await tester
-          .tap(find.widgetWithText(FilledButton, 'Saqlash va sarflash').last);
-      await tester.pumpAndSettle();
-      expect(requests.last['order_id'], 'O1');
-      expect(requests.last['expected_order_kg'], '1000.000000');
-      expect((requests.last['lines'] as List).single,
-          {'item_code': 'P1', 'percent': '3.000000'});
+      expect(find.text('Ketma-ketlik'), findsOneWidget);
+      expect(find.text('Order tanlang'), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
     },

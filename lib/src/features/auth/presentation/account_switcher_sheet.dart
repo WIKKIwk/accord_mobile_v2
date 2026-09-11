@@ -1,6 +1,8 @@
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/accounts/saved_account_store.dart';
+import '../../../core/widgets/feedback/spring_pressable.dart';
 import '../../../core/widgets/forms/pin_pad.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 
@@ -128,7 +130,10 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+        // X o'qi standart list bilan bir xil: tashqi 4px (admin list'dagi
+        // ListView fromLTRB(4,4,4,...) kabi). Title/tugma ichkaridan +16
+        // olib avvalgi 20px inset'da qoladi, card'lar esa to'liq enli.
+        padding: const EdgeInsets.fromLTRB(4, 14, 4, 20),
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
           child: target == null
@@ -149,47 +154,89 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SheetHandle(),
-        const SizedBox(height: 12),
-        Text(l10n.accountSwitchTitle, style: theme.textTheme.headlineSmall),
-        const SizedBox(height: 14),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: _SheetHandle(),
+        ),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            l10n.accountSwitchTitle,
+            style: theme.textTheme.headlineSmall,
+          ),
+        ),
+        const SizedBox(height: 16),
         Flexible(
-          child: ListView.separated(
+          child: ListView.builder(
             shrinkWrap: true,
+            padding: EdgeInsets.zero,
             itemCount: widget.accounts.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 6),
             itemBuilder: (context, index) {
               final account = widget.accounts[index];
               final isActive = account.id == widget.activeAccountId;
               final hasPin = widget.hasPinForProfile(account.profile);
-              return _SavedAccountTile(
-                key: ValueKey<String>('saved-account-${account.id}'),
-                account: account,
-                isActive: isActive,
-                hasPin: hasPin,
-                currentLabel: l10n.accountCurrent,
-                enabled: !_busy,
-                onTap: () => _select(account),
+              return Padding(
+                padding: EdgeInsets.only(
+                  top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
+                ),
+                child: _SavedAccountTile(
+                  key: ValueKey<String>('saved-account-${account.id}'),
+                  slot:
+                      M3SegmentedListGeometry.standaloneListSlotForIndex(
+                        index,
+                        widget.accounts.length,
+                      ),
+                  account: account,
+                  isActive: isActive,
+                  hasPin: hasPin,
+                  currentLabel: l10n.accountCurrent,
+                  enabled: !_busy,
+                  onTap: () => _select(account),
+                ),
               );
             },
           ),
         ),
         if (_errorText != null) ...[
           const SizedBox(height: 10),
-          Text(
-            _errorText!,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.error,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              _errorText!,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
             ),
           ),
         ],
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          key: const ValueKey<String>('add-saved-account'),
-          onPressed: _busy ? null : widget.onAddAccount,
-          icon: const Icon(Icons.person_add_alt_1_rounded),
-          label: Text(l10n.accountAdd),
+        const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: SpringPressable(
+            enabled: !_busy,
+            child: FilledButton.icon(
+              key: const ValueKey<String>('add-saved-account'),
+              onPressed: _busy ? null : widget.onAddAccount,
+              style: FilledButton.styleFrom(
+                // To'liq dumaloq, qirrasiz: StadiumBorder.
+                shape: const StadiumBorder(),
+                side: BorderSide.none,
+                minimumSize: const Size(double.infinity, 64),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 20,
+                  horizontal: 24,
+                ),
+                textStyle: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                iconSize: 22,
+              ),
+              icon: const Icon(Icons.person_add_alt_1_rounded),
+              label: Text(l10n.accountAdd),
+            ),
+          ),
         ),
       ],
     );
@@ -202,35 +249,40 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
     SavedAccount target,
   ) {
     final name = _displayName(target.profile);
-    return Column(
-      key: ValueKey<String>('account-pin-${target.id}'),
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _SheetHandle(),
-        const SizedBox(height: 6),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: IconButton(
-            onPressed: _busy ? null : _closePin,
-            icon: const Icon(Icons.arrow_back_rounded),
+    return Padding(
+      // Tashqi 4px standart enga o'tgani uchun PIN kontenti avvalgi
+      // 20px inset'da qoladi.
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        key: ValueKey<String>('account-pin-${target.id}'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _SheetHandle(),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              onPressed: _busy ? null : _closePin,
+              icon: const Icon(Icons.arrow_back_rounded),
+            ),
           ),
-        ),
-        Text(
-          l10n.accountPinPrompt(name),
-          textAlign: TextAlign.center,
-          style: theme.textTheme.titleLarge,
-        ),
-        const SizedBox(height: 22),
-        PinCodeEditor(
-          controller: _pinController,
-          onAction: _verifyAndSwitch,
-          actionLabel: _busy ? l10n.checking : l10n.unlock,
-          actionIcon: Icons.lock_open_rounded,
-          errorText: _errorText,
-          busy: _busy,
-        ),
-      ],
+          Text(
+            l10n.accountPinPrompt(name),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: 22),
+          PinCodeEditor(
+            controller: _pinController,
+            onAction: _verifyAndSwitch,
+            actionLabel: _busy ? l10n.checking : l10n.unlock,
+            actionIcon: Icons.lock_open_rounded,
+            errorText: _errorText,
+            busy: _busy,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -238,6 +290,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
 class _SavedAccountTile extends StatelessWidget {
   const _SavedAccountTile({
     super.key,
+    required this.slot,
     required this.account,
     required this.isActive,
     required this.hasPin,
@@ -246,6 +299,7 @@ class _SavedAccountTile extends StatelessWidget {
     required this.onTap,
   });
 
+  final M3SegmentVerticalSlot slot;
   final SavedAccount account;
   final bool isActive;
   final bool hasPin;
@@ -255,58 +309,97 @@ class _SavedAccountTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final name = _displayName(account.profile);
-    final initial = name.characters.first.toUpperCase();
+    final initial = name.isEmpty ? '?' : name.characters.first.toUpperCase();
+    // Admin user list (AdminSupplierListRow / _WorkerSettingsCard) bilan
+    // bir xil til: segmented radius + surfaceContainerLowest + elevation.
+    final radius = M3SegmentedListGeometry.borderRadius(
+      slot,
+      M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+    );
     return Material(
       color: isActive
-          ? scheme.primaryContainer.withValues(alpha: 0.58)
-          : scheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(18),
+          ? scheme.primaryContainer.withValues(alpha: 0.55)
+          : scheme.surfaceContainerLowest,
+      elevation: 2,
+      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: radius,
         onTap: enabled ? onTap : null,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: scheme.secondaryContainer,
-                foregroundColor: scheme.onSecondaryContainer,
-                child: Text(initial),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text(
-                      _accountSubtitle(account.profile),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
+          padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 45),
+            child: Row(
+              children: [
+                SizedBox.square(
+                  dimension: 30,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ],
-                ),
-              ),
-              if (hasPin)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Icon(
-                    Icons.lock_outline_rounded,
-                    size: 19,
-                    color: scheme.onSurfaceVariant,
+                    child: Center(
+                      child: Text(
+                        initial,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: scheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              if (isActive)
-                Chip(
-                  visualDensity: VisualDensity.compact,
-                  label: Text(currentLabel),
-                )
-              else
-                Icon(Icons.chevron_right_rounded, color: scheme.outline),
-            ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _accountSubtitle(account.profile),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (hasPin)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Icon(
+                      Icons.lock_outline_rounded,
+                      size: 19,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                if (isActive)
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(currentLabel),
+                  )
+                else
+                  Icon(Icons.chevron_right_rounded, color: scheme.outline),
+              ],
+            ),
           ),
         ),
       ),

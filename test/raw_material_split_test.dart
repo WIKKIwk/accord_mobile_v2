@@ -410,7 +410,7 @@ void main() {
       await tester.pumpWidget(app(const RawMaterialSplitHistoryScreen()));
       await tester.pumpAndSettle();
       expect(find.text('Muammolar'), findsOneWidget);
-      await tester.tap(find.byType(ExpansionTile).last);
+      await tester.tap(find.text('Film'));
       await tester.pumpAndSettle();
       expect(find.text('Sabab: Tarozi tekshirilsin'), findsOneWidget);
       expect(find.text('QR: parent'), findsOneWidget);
@@ -1192,13 +1192,15 @@ void main() {
         home: const RawMaterialSplitHistoryScreen(),
       ));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(ExpansionTile));
+      await tester.tap(find.text('100 → 98 kg'));
       await tester.pumpAndSettle();
       expect(find.text('child1'), findsOneWidget);
       expect(find.text('child2'), findsOneWidget);
       expect(find.byTooltip('Shu rulonni qayta chop etish'), findsNWidgets(2));
       expect(find.byType(Card), findsNothing);
       expect(tester.takeException(), isNull);
+      Navigator.of(tester.element(find.text('child1'))).pop();
+      await tester.pumpAndSettle();
 
       await tester.pumpWidget(MaterialApp(
         theme: AppTheme.light(),

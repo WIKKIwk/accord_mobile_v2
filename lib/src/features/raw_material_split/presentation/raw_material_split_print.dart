@@ -16,5 +16,8 @@ UsbRpsPrintRequest rawMaterialSplitPrintRequest(RawSplitRoll output) =>
       labelKind: 'material_product',
       progressQty:
           output.lengthM == null ? null : double.tryParse(output.lengthM!),
-      progressUnit: output.lengthM == null ? '' : 'm',
+      // Har doim 'm': Kotlin'dagi isMaterialSplit guard uzunliksiz eski
+      // splitlarni ham yangi kichik-QR tartibga o'tkazadi. Uzunlik bo'lmasa
+      // METRAJ qatori shunchaki chizilmaydi.
+      progressUnit: 'm',
     );

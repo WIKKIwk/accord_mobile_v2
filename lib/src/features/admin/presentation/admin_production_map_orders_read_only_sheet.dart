@@ -36,6 +36,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   AdminOpeningWipBatch? _startInputOpeningWipBatch;
   bool _actionInFlight = false;
   int _actionControlGeneration = 0;
+  int _actionControlLoads = 0;
   bool _lastQueueActionPrintFailed = false;
   bool _materialIntakeMode = false;
   bool _mergeScanMode = false;
@@ -76,6 +77,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   @override
   void initState() {
     super.initState();
+    if (AppSession.instance.profile?.role == UserRole.tayyorlovMasteri) {
+      // Tayyorlov masteri ko'rsatkichlarni darhol ko'radi (bosmasdan).
+      _summaryExpanded = true;
+    }
     _queueStates = Map<String, String>.from(widget.initialQueueStates);
     _stageStates = Map<String, String>.from(
       widget.stageStatesByOrderId[widget.order.map.id.trim()] ?? const {},
@@ -325,13 +330,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         orderImageLoading: _orderImageLoading,
         onViewOrderImage: _handleOrderImageTap,
         workerMode: widget.workerMode,
+        // Faqat tayyorlov masteri: sheet'da faqat
+        // "Kutilayotgan buyurtma ko'rsatkichlari" ko'rinadi.
+        summaryOnlyMode: !widget.workerMode &&
+            AppSession.instance.profile?.role == UserRole.tayyorlovMasteri,
         apparatusCatalog: widget.apparatusCatalog,
         baseMetraj: widget.baseMetraj,
         orderKg: widget.orderKg,
         customerName: widget.customerName,
         steps: steps,
         uiState: uiState,
-        showContractWarning: widget.workerMode && widget.canManageQueue,
+        showContractWarning: widget.workerMode &&
+            widget.canManageQueue &&
+            !_actionInFlight &&
+            _actionControlLoads == 0,
         pauseLabel: widget.workerMode
             ? context.l10n.productionText(
                 _queueActionControl?.interaction?.mode ==
@@ -843,6 +855,19 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   Future<AdminApparatusQueueOrderActionControl?>
       _loadCurrentQueueActionControl() async {
+    if (!mounted) return null;
+    // Missing controls are expected while refreshing. Only a settled invalid
+    // contract or failed refresh should produce the synchronization warning.
+    setState(() => _actionControlLoads++);
+    try {
+      return await _fetchCurrentQueueActionControl();
+    } finally {
+      if (mounted) setState(() => _actionControlLoads--);
+    }
+  }
+
+  Future<AdminApparatusQueueOrderActionControl?>
+      _fetchCurrentQueueActionControl() async {
     final generation = _actionControlGeneration;
     final apparatus = widget.apparatus?.id.trim() ?? '';
     final orderId = widget.order.map.id.trim();

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/navigation/app_root_navigation.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
@@ -190,7 +192,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
         AdminFabMenuAction(
           title: 'Buyurtmalar',
           icon: Icons.list_alt_rounded,
-          onTap: () => _openOrders(data),
+          onTap: () => _openOrders(),
         ),
         AdminFabMenuAction(
           title: 'Tarix',
@@ -199,24 +201,10 @@ class _PreparationScreenState extends State<PreparationScreen> {
         ),
       ];
 
-  void _openOrders(PreparationSnapshot data) {
-    _openAndReload(PreparationOrdersScreen(
-      warehouse: _warehouse,
-      order: _order,
-      orders: data.orders,
-      materials: data.materials,
-      percent: _percent,
-      locked: _locked,
-      saving: _saving,
-      onPickOrder: _pickOrder,
-      onAddMaterial: _addRecipeMaterial,
-      onRemoveMaterial: (code) =>
-          _update(() => _percent.remove(code)?.dispose()),
-      onSaveRecipe: _saveRecipe,
-      onReload: _reload,
-      update: _update,
-      lineError: _lineError,
-    ));
+  void _openOrders() {
+    // Tayyorlov masteri uchun alohida generate qilingan Buyurtmalar
+    // sahifasi olib tashlandi — o'rniga mavjud Ketma-ketlik sahifasi ochiladi.
+    AppRootNavigation.replaceRootRoute(context, AppRoutes.supplySequence);
   }
 
   void _openHistory(PreparationSnapshot data) {
@@ -389,7 +377,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
                             fontWeight: FontWeight.w700,
                           ),
                           value: '${data.orders.where((o) => !o.saved).length}',
-                          onTap: () => _openOrders(data),
+                          onTap: () => _openOrders(),
                           elevation: 4,
                         ),
                         AdminSummaryCard(
