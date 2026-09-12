@@ -259,7 +259,11 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
           padding: const EdgeInsets.symmetric(horizontal: 14),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: dragging ? theme.colorScheme.surfaceContainerHigh : null,
+            color: dragging
+                ? theme.colorScheme.surfaceContainerHigh
+                : selected
+                    ? theme.colorScheme.primary.withValues(alpha: 0.16)
+                    : null,
             boxShadow: dragging
                 ? [
                     BoxShadow(
@@ -276,7 +280,7 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
                     : selected
                         ? theme.colorScheme.primary
                         : Colors.transparent,
-                width: 2,
+                width: selected || hasMatch ? 3 : 2,
               ),
             ),
           ),
@@ -302,7 +306,8 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
                           : selected
                               ? theme.colorScheme.primary
                               : theme.colorScheme.onSurfaceVariant,
-                      fontWeight: hasMatch ? FontWeight.w700 : FontWeight.w400,
+                      fontWeight:
+                          hasMatch || selected ? FontWeight.w700 : FontWeight.w400,
                     ),
                   ),
                 ),

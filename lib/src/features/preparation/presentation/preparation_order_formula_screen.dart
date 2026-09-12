@@ -170,8 +170,25 @@ class _PreparationOrderFormulaScreenState
     }
   }
 
+  /// Bir xil seriya ikki marta tanlangan qatorlar kodlari.
+  /// Backend ham dublikatni rad etadi — Saqlash shunda inactive bo'ladi.
+  Set<String> get _duplicateCodes {
+    final counts = <String, int>{};
+    for (final row in _rows) {
+      final code = row.material?.code.trim() ?? '';
+      if (code.isEmpty) continue;
+      counts[code] = (counts[code] ?? 0) + 1;
+    }
+    return {for (final e in counts.entries) if (e.value > 1) e.key};
+  }
+
   String? _rowError(_FormulaRow row) {
     if (row.material == null) return 'Seriya tanlang';
+    final code = row.material!.code.trim();
+    if (code.isEmpty) return 'Seriya tanlang';
+    if (_duplicateCodes.contains(code)) {
+      return 'Bu seriya allaqachon tanlangan';
+    }
     try {
       final pct = preparationDecimal(row.percentController.text);
       if (pct > BigInt.from(100000000)) return 'Foiz 100 dan oshmasligi kerak';
