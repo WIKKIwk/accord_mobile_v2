@@ -24,6 +24,57 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
+  if (!NativeIrohTransport.autoConnectEnabled) {
+    for (final method in ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE']) {
+      test('default HTTPS $method bypasses even a healthy cached Iroh route',
+          () async {
+        SharedPreferences.setMockInitialValues(
+            {'iroh_endpoint_v2:https://test.invalid': cached});
+        var nativeCalls = 0;
+        var httpCalls = 0;
+        messenger.setMockMethodCallHandler(channel, (_) async {
+          nativeCalls++;
+          return true;
+        });
+        final uri = Uri.parse('https://test.invalid/v1/mobile/test');
+        await http.runWithClient(() async {
+          await NativeIrohTransport.warmUp(uri);
+          final response = await NativeIrohTransport.send(
+              method: method,
+              uri: uri,
+              headers: {'authorization': 'Bearer fixture'},
+              body: 'fixture');
+          expect(response.statusCode, 200);
+        },
+            () => MockClient((request) async {
+                  httpCalls++;
+                  expect(request.url, uri); // No discovery/probe requests.
+                  expect(request.method, method);
+                  expect(request.body, 'fixture');
+                  expect(request.headers['authorization'], 'Bearer fixture');
+                  return http.Response('{}', 200);
+                }));
+        expect(httpCalls, 1);
+        expect(nativeCalls, 0);
+      });
+    }
+    test('default live path never starts cached native transport', () async {
+      SharedPreferences.setMockInitialValues(
+          {'iroh_endpoint_v2:https://test.invalid': cached});
+      var nativeCalls = 0;
+      messenger.setMockMethodCallHandler(channel, (_) async {
+        nativeCalls++;
+        return true;
+      });
+      final uri = Uri.parse('wss://test.invalid/v1/mobile/live');
+      expect(NativeIrohTransport.canUseFor(uri), isFalse);
+      await expectLater(NativeIrohTransport.liveEvents(uri: uri),
+          emitsInOrder([emitsError(isA<MissingPluginException>()), emitsDone]));
+      expect(nativeCalls, 0);
+    });
+    return; // The existing opt-in suite is also run with --dart-define=IROH_AUTO_CONNECT=true.
+  }
+
   test('missing bridge reports unsupported', () async {
     expect(await NativeIrohTransport.isSupported(), isFalse);
   });

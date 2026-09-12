@@ -16,7 +16,7 @@ class NativeIrohTransport {
   static const MethodChannel _channel = MethodChannel('accord/iroh_transport');
   static const bool autoConnectEnabled = bool.fromEnvironment(
     'IROH_AUTO_CONNECT',
-    defaultValue: true,
+    defaultValue: false,
   );
   static final _routes = Expando<Map<String, ResilientIrohRoute>>();
   static final _clients = Expando<http.Client>();
@@ -64,8 +64,7 @@ class NativeIrohTransport {
       return ResilientIrohRoute(
         origin: origin,
         httpClient: client,
-        isSupported: () async =>
-            !kIsWeb && origin.scheme == 'https' && await isSupported(),
+        isSupported: () async => canUseFor(uri) && await isSupported(),
         loadCached: () async {
           final prefs = await SharedPreferences.getInstance();
           final value = prefs.getString(cacheKey);
@@ -149,6 +148,9 @@ class NativeIrohTransport {
       _ensureCallbackHandler();
       _liveControllers[subscriptionId] = controller;
       try {
+        if (!canUseFor(uri)) {
+          throw MissingPluginException('Automatic Iroh transport is disabled');
+        }
         final supported = await isSupported()
             .timeout(const Duration(milliseconds: 500), onTimeout: () => false);
         if (!supported) {
@@ -246,8 +248,9 @@ class NativeIrohTransport {
 
   static bool get hasEndpointTicket => autoConnectEnabled && !kIsWeb;
 
-  // A saved HTTPS endpoint is still authenticated by its own TLS origin and
-  // Iroh identity. Selecting it manually must not disable LAN acceleration.
+  // HTTPS/WSS is the default, including installations with a cached ticket.
+  // Iroh experiments require an explicit build-time opt-in; cache cannot
+  // override it for requests, warm-up, or live subscriptions.
   static bool canUseFor(Uri uri) =>
       hasEndpointTicket &&
       (uri.scheme == 'https' || uri.scheme == 'wss') &&
