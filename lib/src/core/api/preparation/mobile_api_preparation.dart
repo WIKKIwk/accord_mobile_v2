@@ -114,6 +114,47 @@ extension MobileApiPreparation on MobileApi {
       _preparationSending = false;
     }
   }
+
+  /// Tayyorlov formulasi: bitta tayyor mahsulot kodi uchun
+  /// seriya (homashyo) + foiz ro'yxati. Alifbo tartibi serverda saqlanadi.
+  Future<PreparationFormula> preparationFormula(String productCode) async {
+    final code = productCode.trim();
+    if (code.isEmpty) {
+      throw const MobileApiException(
+          code: 'preparation_invalid', message: 'Mahsulot kodi topilmadi');
+    }
+    final key = _preparationStorageKey();
+    final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formulas')
+        .replace(queryParameters: {'product_code': code});
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) {
+        throw StateError('Akkaunt o‘zgargan');
+      }
+      return _get(uri, headers: _headers(requireToken()));
+    });
+    if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+    return PreparationFormula.fromJson(_preparationResponse(response));
+  }
+
+  Future<PreparationFormula> preparationUpsertFormula(
+    String productCode,
+    List<Map<String, String>> lines,
+  ) async {
+    final key = _preparationStorageKey();
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) {
+        throw StateError('Akkaunt o‘zgargan');
+      }
+      return _post(
+          Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formulas'),
+          headers: _headers(requireToken())
+            ..['Content-Type'] = 'application/json',
+          body:
+              jsonEncode({'product_code': productCode.trim(), 'lines': lines}));
+    });
+    if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+    return PreparationFormula.fromJson(_preparationResponse(response));
+  }
 }
 
 Map<String, dynamic> _preparationResponse(http.Response response) {

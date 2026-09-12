@@ -102,3 +102,53 @@ class PreparationPendingCommand {
           requestId: json['request_id'] as String,
           payload: Map<String, dynamic>.from(json['payload'] as Map));
 }
+
+class PreparationFormulaLine {
+  const PreparationFormulaLine({
+    required this.itemCode,
+    required this.name,
+    required this.percent,
+  });
+  factory PreparationFormulaLine.fromJson(Map<String, dynamic> json) =>
+      PreparationFormulaLine(
+        itemCode: (json['item_code'] as String? ?? '').trim(),
+        name: (json['name'] as String? ?? '').trim(),
+        percent: (json['percent'] as String? ?? '').trim(),
+      );
+  Map<String, String> toJson() => {'item_code': itemCode, 'percent': percent};
+  final String itemCode;
+  final String name;
+  final String percent;
+}
+
+class PreparationFormula {
+  const PreparationFormula({
+    required this.productCode,
+    required this.lines,
+  });
+  factory PreparationFormula.fromJson(Map<String, dynamic> json) {
+    final raw = json['lines'];
+    final lines = raw is List
+        ? [
+            for (final e in raw)
+              if (e is Map)
+                PreparationFormulaLine.fromJson(
+                    Map<String, dynamic>.from(e)),
+          ]
+        : const <PreparationFormulaLine>[];
+    final sorted = [...lines]
+      ..sort((a, b) {
+        final byName =
+            a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        return byName != 0
+            ? byName
+            : a.itemCode.compareTo(b.itemCode);
+      });
+    return PreparationFormula(
+      productCode: (json['product_code'] as String? ?? '').trim(),
+      lines: List<PreparationFormulaLine>.unmodifiable(sorted),
+    );
+  }
+  final String productCode;
+  final List<PreparationFormulaLine> lines;
+}
