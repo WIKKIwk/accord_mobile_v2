@@ -601,6 +601,7 @@ class _TayyorlovFormulaButton extends StatelessWidget {
             PreparationOrderFormulaScreen.route(
               orderId: map.id.trim(),
               orderCode: _openedOrderDisplayCode(map).trim(),
+              productCode: map.productCode.trim(),
               productTitle:
                   _openedOrderPrimaryTitle(map, l10n: context.l10n).trim(),
               customerName: customerName,
