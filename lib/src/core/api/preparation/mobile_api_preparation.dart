@@ -180,6 +180,29 @@ extension MobileApiPreparation on MobileApi {
     if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
     _preparationResponse(response);
   }
+
+  /// Bola ombor ochish: ota ombor ostiga yangi ichki ombor.
+  /// Qaytgach snapshot yangilanadi — yangi ombor filtrda chiqadi.
+  Future<String> preparationCreateWarehouse({
+    required String name,
+    required String parent,
+  }) async {
+    final key = _preparationStorageKey();
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) {
+        throw StateError('Akkaunt o‘zgargan');
+      }
+      return _post(
+          Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/warehouses'),
+          headers: _headers(requireToken())
+            ..['Content-Type'] = 'application/json',
+          body: jsonEncode(
+              {'name': name.trim(), 'parent_warehouse': parent.trim()}));
+    });
+    if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+    final data = _preparationResponse(response);
+    return (data['warehouse'] as String? ?? '').trim();
+  }
 }
 
 Map<String, dynamic> _preparationResponse(http.Response response) {

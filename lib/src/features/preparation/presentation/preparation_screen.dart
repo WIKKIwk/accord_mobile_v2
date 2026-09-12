@@ -10,6 +10,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
+import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import '../../admin/presentation/widgets/admin_summary_card.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
@@ -112,6 +113,8 @@ class _PreparationScreenState extends State<PreparationScreen> {
   List<PreparationMaterial> _syncedMaterials() =>
       _snapshot?.materials ?? const [];
 
+  List<String> _syncedWarehouses() => _snapshot?.warehouses ?? const [];
+
   List<dynamic> _syncedHistory() => _snapshot?.history ?? const [];
 
   Future<void> _submit(String kind, Map<String, dynamic> payload) async {
@@ -158,6 +161,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
       onReload: _reload,
       freshMaterials: _syncedMaterials,
       freshHistory: _syncedHistory,
+      freshWarehouses: _syncedWarehouses,
     ));
   }
 

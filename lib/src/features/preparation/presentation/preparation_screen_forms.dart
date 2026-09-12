@@ -153,6 +153,7 @@ class PreparationWarehouseScreen extends StatefulWidget {
     required this.onReload,
     required this.freshMaterials,
     required this.freshHistory,
+    required this.freshWarehouses,
   });
 
   final List<String> warehouses;
@@ -166,6 +167,7 @@ class PreparationWarehouseScreen extends StatefulWidget {
   final Future<void> Function() onReload;
   final List<PreparationMaterial> Function() freshMaterials;
   final List<dynamic> Function() freshHistory;
+  final List<String> Function() freshWarehouses;
 
   @override
   State<PreparationWarehouseScreen> createState() =>
@@ -179,6 +181,10 @@ class _PreparationWarehouseScreenState
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   String _query = '';
+  bool _filterExpanded = false;
+
+  /// Yangi ochilgan bola omborlar bilan birga — har doim yangisi.
+  List<String> get _warehouses => widget.freshWarehouses();
 
   @override
   void dispose() {
@@ -241,6 +247,95 @@ class _PreparationWarehouseScreenState
     if (mounted) setState(() => _materials = widget.freshMaterials());
   }
 
+  Future<void> _createWarehouse() async {
+    if (widget.locked) return;
+    final warehouses = _warehouses;
+    if (warehouses.isEmpty) return;
+    final nameController = TextEditingController();
+    var parent = _warehouse != null && warehouses.contains(_warehouse)
+        ? _warehouse!
+        : warehouses.first;
+    try {
+      final created = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            title: const Text('Bola ombor ochish'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DropdownButtonFormField<String>(
+                  key: const ValueKey('preparation-warehouse-parent'),
+                  initialValue: parent,
+                  decoration: const InputDecoration(
+                    labelText: 'Ota ombor',
+                  ),
+                  items: [
+                    for (final w in warehouses)
+                      DropdownMenuItem(value: w, child: Text(w)),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setDialogState(() => parent = v);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const ValueKey('preparation-warehouse-name'),
+                  controller: nameController,
+                  autofocus: true,
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(
+                    labelText: 'Yangi ombor nomi',
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Bekor qilish'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final name = nameController.text.trim();
+                  if (name.isEmpty) return;
+                  Navigator.of(dialogContext).pop(name);
+                },
+                child: const Text('Saqlash'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (created == null || created.trim().isEmpty || !mounted) return;
+      final warehouse = await MobileApi.instance.preparationCreateWarehouse(
+        name: created,
+        parent: parent,
+      );
+      if (warehouse.isEmpty || !mounted) return;
+      await widget.onReload();
+      if (!mounted) return;
+      setState(() {
+        _warehouse = warehouse;
+        _materials = widget.freshMaterials();
+        _filterExpanded = false;
+      });
+      widget.onWarehouseSelected(warehouse);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ombor ochildi: $warehouse')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    } finally {
+      nameController.dispose();
+    }
+  }
+
   Future<void> _openDetail(PreparationMaterial material) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -291,19 +386,27 @@ class _PreparationWarehouseScreenState
       ),
       contentPadding: EdgeInsets.zero,
       bottom: PreparationDock(
-        primaryFabActions: _warehouse == null
+        primaryFabActions: _warehouses.isEmpty
             ? null
             : [
-                AdminFabMenuAction(
-                  title: 'Kirim',
-                  icon: Icons.add_circle_outline_rounded,
-                  onTap: _doKirim,
-                ),
-                AdminFabMenuAction(
-                  title: 'Homashyo qo‘shish',
-                  icon: Icons.add_rounded,
-                  onTap: _doCreateMaterial,
-                ),
+                if (_warehouse != null) ...[
+                  AdminFabMenuAction(
+                    title: 'Kirim',
+                    icon: Icons.add_circle_outline_rounded,
+                    onTap: _doKirim,
+                  ),
+                  AdminFabMenuAction(
+                    title: 'Homashyo qo‘shish',
+                    icon: Icons.add_rounded,
+                    onTap: _doCreateMaterial,
+                  ),
+                ],
+                if (!widget.locked)
+                  AdminFabMenuAction(
+                    title: 'Ombor qo‘shish',
+                    icon: Icons.warehouse_outlined,
+                    onTap: _createWarehouse,
+                  ),
               ],
       ),
       child: AppRefreshIndicator(
@@ -316,7 +419,7 @@ class _PreparationWarehouseScreenState
           physics: const TopRefreshScrollPhysics(),
           padding: EdgeInsets.fromLTRB(4, 12, 4, bottomPadding),
           children: [
-            if (widget.warehouses.isEmpty)
+            if (_warehouses.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
@@ -326,62 +429,87 @@ class _PreparationWarehouseScreenState
                   ),
                 ),
               )
-            else if (widget.warehouses.length > 1 && _warehouse == null) ...[
-              M3SegmentSpacedColumn(
-                padding: EdgeInsets.zero,
-                children: [
-                  for (var i = 0; i < widget.warehouses.length; i++)
-                    _PreparationWarehousePickerRow(
-                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                        i,
-                        widget.warehouses.length,
-                      ),
-                      title: widget.warehouses[i],
-                      onTap: () => _selectWarehouse(widget.warehouses[i]),
-                    ),
+            else ...[
+              AdminExpandableFilterChip<String>(
+                key: const ValueKey('preparation-warehouse-filter'),
+                label: 'Ombor',
+                emptyLabel: 'Tanlanmagan',
+                icon: Icons.warehouse_outlined,
+                selectedValue: _warehouse,
+                options: [
+                  for (final w in _warehouses)
+                    AdminFilterChipOption(value: w, label: w),
                 ],
-              ),
-            ] else ...[
-              if (widget.warehouses.length > 1)
-                M3SegmentSpacedColumn(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    _PreparationWarehousePickerRow(
-                      slot: M3SegmentVerticalSlot.top,
-                      title: _warehouse!,
-                      subtitle: 'Omborni almashtirish',
-                      onTap: () => setState(() => _warehouse = null),
-                    ),
-                  ],
+                expanded: _filterExpanded,
+                onToggle: () => setState(
+                  () => _filterExpanded = !_filterExpanded,
                 ),
-              if (widget.warehouses.length > 1) const SizedBox(height: 12),
-              if (filtered.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Bu omborda hali kirim yo‘q.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                )
-              else
+                onSelect: (w) {
+                  _selectWarehouse(w);
+                  setState(() => _filterExpanded = false);
+                },
+                chipKey: const ValueKey(
+                    'preparation-warehouse-filter-chip'),
+                optionKeyPrefix: 'preparation-warehouse-filter-option',
+              ),
+              if (_warehouses.length > 1 && _warehouse == null) ...[
                 M3SegmentSpacedColumn(
                   padding: EdgeInsets.zero,
                   children: [
-                    for (var index = 0; index < filtered.length; index++)
-                      _PreparationWarehouseStockRow(
+                    for (var i = 0; i < _warehouses.length; i++)
+                      _PreparationWarehousePickerRow(
                         slot:
                             M3SegmentedListGeometry.standaloneListSlotForIndex(
-                          index,
-                          filtered.length,
+                          i,
+                          _warehouses.length,
                         ),
-                        material: filtered[index],
-                        warehouse: _warehouse!,
-                        onTap: () => _openDetail(filtered[index]),
+                        title: _warehouses[i],
+                        onTap: () => _selectWarehouse(_warehouses[i]),
                       ),
                   ],
                 ),
+              ] else ...[
+                if (_warehouses.length > 1)
+                  M3SegmentSpacedColumn(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      _PreparationWarehousePickerRow(
+                        slot: M3SegmentVerticalSlot.top,
+                        title: _warehouse!,
+                        subtitle: 'Omborni almashtirish',
+                        onTap: () => setState(() => _warehouse = null),
+                      ),
+                    ],
+                  ),
+                if (_warehouses.length > 1) const SizedBox(height: 12),
+                if (filtered.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      'Bu omborda hali kirim yo‘q.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                else
+                  M3SegmentSpacedColumn(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      for (var index = 0; index < filtered.length; index++)
+                        _PreparationWarehouseStockRow(
+                          slot: M3SegmentedListGeometry
+                              .standaloneListSlotForIndex(
+                            index,
+                            filtered.length,
+                          ),
+                          material: filtered[index],
+                          warehouse: _warehouse!,
+                          onTap: () => _openDetail(filtered[index]),
+                        ),
+                    ],
+                  ),
+              ],
             ],
           ],
         ),
