@@ -226,7 +226,8 @@ class _PreparationOrderFormulaScreenState
             .take(limit)
             .toList(),
         itemTitle: (m) => m.name,
-        itemSubtitle: (m) => m.code,
+        // Ichki PREP- kodlar ko'rsatilmaydi — nom noyob va yetarli.
+        itemSubtitle: (_) => '',
         onSelected: (m) => Navigator.of(sheetContext).pop(m),
       ),
     );
@@ -762,7 +763,6 @@ class _SavedFormulaCard extends StatelessWidget {
                       : formula.lines[i].name,
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-                subtitle: Text(formula.lines[i].itemCode),
                 trailing: Text(
                   '${preparationDisplay(formula.lines[i].percent)}%',
                   style: theme.textTheme.titleMedium?.copyWith(
@@ -937,7 +937,7 @@ class _FormulaRowCard extends StatelessWidget {
                     ? 'Seriya tanlang'
                     : material.name.isEmpty
                         ? material.code
-                        : '${material.name} • ${material.code}',
+                        : material.name,
               ),
             ),
             if (material != null) ...[
