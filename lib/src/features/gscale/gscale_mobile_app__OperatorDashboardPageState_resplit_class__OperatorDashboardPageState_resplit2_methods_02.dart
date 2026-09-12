@@ -139,6 +139,27 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
         fontWeight: FontWeight.w800,
       ),
     );
+    // To'xtatish xavfli amal: qizil rangda ajratiladi.
+    final stopActionStyle = FilledButton.styleFrom(
+      minimumSize: const Size.fromHeight(52),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      visualDensity: const VisualDensity(horizontal: -1, vertical: 0),
+      textStyle: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w800,
+      ),
+      backgroundColor: scheme.error,
+      foregroundColor: scheme.onError,
+    );
+    // Katta dumaloq bubble action tugmalar (Saqlash / Boshlash).
+    // Ikkalasi bitta stil — bir xil ko'rinish va o'lcham.
+    final bubbleActionStyle = FilledButton.styleFrom(
+      minimumSize: const Size.fromHeight(64),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      shape: const StadiumBorder(),
+      textStyle: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w800,
+      ),
+    );
     final controlInputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
       borderSide: BorderSide(color: scheme.outlineVariant),
@@ -279,6 +300,8 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             quantitySource: activeBatch.quantitySource,
             babinaEnabled: activeBatch.tareEnabled,
             tareKg: activeBatch.tareKg,
+            // Faol batch'da edit bloklangan: _beginBatchContextEdit
+            // "Avval To'xtatish" xabarini ko'rsatadi.
             onEdit: _batchActionLoading || _manualPrintLoading
                 ? null
                 : _beginBatchContextEdit,
@@ -307,6 +330,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             label: 'Mahsulot tanlang',
             value: selectedProduct?.itemCode,
             subtitle: null,
+            emptyText: 'Homashyo',
             onTap: contextFieldsLocked ? null : _openItemPicker,
           ),
           const SizedBox(height: 8),
@@ -434,6 +458,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
+                style: bubbleActionStyle,
                 onPressed: batchContextSaveEnabled
                     ? () => unawaited(_saveBatchContextEdit())
                     : null,
@@ -519,6 +544,20 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                       errorBorder: controlErrorInputBorder,
                       focusedErrorBorder: controlFocusedErrorInputBorder,
                     ),
+                    onTap: _handleManualQtyTap,
+                    onEditingComplete: () {
+                      _restoreManualQtyTapIfEmpty();
+                      FocusManager.instance.primaryFocus?.unfocus();
+                    },
+                    onTapOutside: (_) {
+                      if (!_manualQtyTapCleared) {
+                        return;
+                      }
+                      _restoreManualQtyTapIfEmpty();
+                      if (mounted) {
+                        setState(() {});
+                      }
+                    },
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
@@ -571,7 +610,8 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                             selectedQuantitySource == 'manual' &&
                             manualPrintReady &&
                             !_manualPrintLoading &&
-                            !_batchActionLoading
+                            !_batchActionLoading &&
+                            !_batchContextEditing
                         ? _printManualBatch
                         : null,
                     icon: _manualPrintLoading
@@ -587,12 +627,12 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                 const SizedBox(width: 8),
                 Expanded(
                   child: FilledButton.tonalIcon(
-                    style: batchActionStyle,
+                    style: stopActionStyle,
                     onPressed: manualBatchStopEnabled
                         ? () => unawaited(_stopRsBatch())
                         : null,
                     icon: const Icon(Icons.stop_circle_outlined, size: 23),
-                    label: const Text('Batch stop'),
+                    label: const Text('To‘xtatish'),
                   ),
                 ),
               ],
@@ -600,15 +640,15 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
           else
             SizedBox(
               width: double.infinity,
-              child: FilledButton.tonalIcon(
-                style: batchActionStyle,
+              child: FilledButton.icon(
+                style: bubbleActionStyle,
                 onPressed: manualBatchStartEnabled
                     ? () => unawaited(
                           _startBatch(autoPrintStable: false),
                         )
                     : null,
-                icon: const Icon(Icons.play_circle_outline_rounded, size: 23),
-                label: const Text('Batch start'),
+                icon: const Icon(Icons.play_circle_outline_rounded, size: 24),
+                label: const Text('Boshlash'),
               ),
             ),
           if (!_snapshot.batchActive) ...[
@@ -623,7 +663,30 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                 const SizedBox(width: 5),
                 Expanded(
                   child: Text(
-                    'Avval Batch start, keyin Chop etish orqali print qiling.',
+                    'Avval Boshlash, keyin Chop etish orqali print qiling.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          // Bluetooth/tarozi tanlanmasa Boshlash o'lik qoladi, lekin Saqlash
+          // har doim active: sababini aniq ko'rsatish uchun.
+          if (!_snapshot.batchActive && !hasPrintDevice) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(
+                  Icons.bluetooth_disabled_rounded,
+                  size: 15,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    'Boshlash uchun avval Bluetooth printer yoki tarozini tanlang. Saqlash qurilmasiz ham ishlaydi.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -652,6 +715,10 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
+              backgroundColor:
+                  _snapshot.batchActive ? scheme.error : null,
+              foregroundColor:
+                  _snapshot.batchActive ? scheme.onError : null,
             ),
             onPressed: scaleBatchActionEnabled
                 ? (_snapshot.batchActive
