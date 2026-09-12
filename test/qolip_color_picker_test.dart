@@ -4,9 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('qolip has fifteen default color options including new colors', () {
-    expect(qolipDefaultColors, hasLength(15));
+    expect(qolipDefaultColors, hasLength(16));
     expect(qolipDefaultColors.map((option) => option.value).toSet(),
-        hasLength(15));
+        hasLength(16));
     expect(
       qolipDefaultColors,
       contains(const QolipColorOption(name: 'Oq', value: '#FFFFFF')),
@@ -18,6 +18,10 @@ void main() {
     expect(
       qolipDefaultColors,
       contains(const QolipColorOption(name: 'Matlak', value: '#B7BCC2')),
+    );
+    expect(
+      qolipDefaultColors,
+      contains(const QolipColorOption(name: 'Kumush', value: '#C7CDD3')),
     );
   });
 
@@ -85,6 +89,8 @@ void main() {
     expect(selected, '#D4A72C');
     await tester.tap(find.text('Matlak'));
     expect(selected, '#B7BCC2');
+    await tester.tap(find.text('Kumush'));
+    expect(selected, '#C7CDD3');
   });
 
   testWidgets('qolip color picker supports a limited multi-selection',

@@ -26,6 +26,7 @@ const qolipDefaultColors = <QolipColorOption>[
   QolipColorOption(name: 'Tilla', value: '#D4A72C'),
   QolipColorOption(name: 'Kulrang', value: '#757575'),
   QolipColorOption(name: 'Matlak', value: '#B7BCC2'),
+  QolipColorOption(name: 'Kumush', value: '#C7CDD3'),
   QolipColorOption(name: 'Qora', value: '#212121'),
   QolipColorOption(name: 'Oq', value: '#FFFFFF'),
 ];

@@ -355,6 +355,12 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     expanded: summaryExpanded,
                     onToggleExpanded: onToggleSummaryExpanded,
                   ),
+                  if (summaryOnlyMode) const SizedBox(height: 10),
+                  if (summaryOnlyMode)
+                    _TayyorlovFormulaButton(
+                      map: map,
+                      customerName: customerName,
+                    ),
                   if (!summaryOnlyMode && (!workerMode || summaryExpanded))
                     const SizedBox(height: 10),
                   if (!summaryOnlyMode)
@@ -561,6 +567,72 @@ class _TayyorlovSummaryOrderHeader extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Tayyorlov masteri bottom sheet'dagi ikki card tagidagi
+/// "Formulalar" tugmasi. Bosilganda alohida formula sahifasiga o'tadi.
+class _TayyorlovFormulaButton extends StatelessWidget {
+  const _TayyorlovFormulaButton({
+    required this.map,
+    required this.customerName,
+  });
+  final ProductionMapDefinition map;
+  final String? customerName;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Material(
+      color: scheme.surface,
+      elevation: 2,
+      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: const ValueKey('tayyorlov-formula-button'),
+        borderRadius: BorderRadius.circular(18),
+        onTap: () {
+          Navigator.of(context).push(
+            PreparationOrderFormulaScreen.route(
+              orderId: map.id.trim(),
+              orderCode: _openedOrderDisplayCode(map).trim(),
+              productTitle:
+                  _openedOrderPrimaryTitle(map, l10n: context.l10n).trim(),
+              customerName: customerName,
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          child: Row(
+            children: [
+              Icon(
+                Icons.functions_rounded,
+                color: scheme.primary,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Formulalar',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 18,
+                color: scheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

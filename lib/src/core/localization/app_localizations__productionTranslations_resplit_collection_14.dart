@@ -208,6 +208,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart14 = {
     'en': 'Silver',
     'ru': 'Серебристый',
   },
+  'qolip.color.kumush': {
+    'uz': 'Kumush',
+    'en': 'Kumush silver',
+    'ru': 'Серебро',
+  },
   'qolip.color.black': {
     'uz': 'Qora',
     'en': 'Black',

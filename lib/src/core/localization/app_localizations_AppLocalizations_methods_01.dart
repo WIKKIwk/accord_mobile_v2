@@ -462,6 +462,7 @@ extension AppLocalizationsAstPart01 on AppLocalizations {
       '#D4A72C' || 'TILLA' => 'qolip.color.gold',
       '#757575' || 'KULRANG' => 'qolip.color.gray',
       '#B7BCC2' || 'MATLAK' => 'qolip.color.silver',
+      '#C7CDD3' || 'KUMUSH' => 'qolip.color.kumush',
       '#212121' || 'QORA' => 'qolip.color.black',
       '#FFFFFF' || 'OQ' => 'qolip.color.white',
       _ => '',
