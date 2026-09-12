@@ -409,91 +409,98 @@ class _PreparationWarehouseScreenState
                   ),
               ],
       ),
-      child: AppRefreshIndicator(
-        onRefresh: () async {
-          await widget.onReload();
-          if (mounted) setState(() => _materials = widget.freshMaterials());
-        },
-        allowRefreshOnShortContent: true,
-        child: ListView(
-          physics: const TopRefreshScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(4, 12, 4, bottomPadding),
-          children: [
-            if (_warehouses.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Sizga ombor biriktirilmagan.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              )
-            else ...[
-              AdminExpandableFilterChip<String>(
-                key: const ValueKey('preparation-warehouse-filter'),
-                label: 'Ombor',
-                emptyLabel: 'Tanlanmagan',
-                icon: Icons.warehouse_outlined,
-                selectedValue: _warehouse,
-                options: [
-                  for (final w in _warehouses)
-                    AdminFilterChipOption(value: w, label: w),
-                ],
-                expanded: _filterExpanded,
-                onToggle: () => setState(
-                  () => _filterExpanded = !_filterExpanded,
-                ),
-                onSelect: (w) {
-                  _selectWarehouse(w);
-                  setState(() => _filterExpanded = false);
-                },
-                chipKey: const ValueKey(
-                    'preparation-warehouse-filter-chip'),
-                optionKeyPrefix: 'preparation-warehouse-filter-option',
-              ),
-              if (_warehouse == null) ...[
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Yuqoridagi filtrdan ombor tanlang.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ] else ...[
-                if (filtered.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      'Bu omborda hali kirim yo‘q.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                else
-                  M3SegmentSpacedColumn(
-                    padding: EdgeInsets.zero,
-                    children: [
-                      for (var index = 0; index < filtered.length; index++)
-                        _PreparationWarehouseStockRow(
-                          slot: M3SegmentedListGeometry
-                              .standaloneListSlotForIndex(
-                            index,
-                            filtered.length,
-                          ),
-                          material: filtered[index],
-                          warehouse: _warehouse!,
-                          onTap: () => _openDetail(filtered[index]),
-                        ),
-                    ],
-                  ),
+      child: Column(
+        children: [
+          if (_warehouses.isNotEmpty)
+            AdminExpandableFilterChip<String>(
+              key: const ValueKey('preparation-warehouse-filter'),
+              label: 'Ombor',
+              emptyLabel: 'Tanlanmagan',
+              icon: Icons.warehouse_outlined,
+              selectedValue: _warehouse,
+              options: [
+                for (final w in _warehouses)
+                  AdminFilterChipOption(value: w, label: w),
               ],
-            ],
-          ],
-        ),
+              expanded: _filterExpanded,
+              onToggle: () => setState(
+                () => _filterExpanded = !_filterExpanded,
+              ),
+              onSelect: (w) {
+                _selectWarehouse(w);
+                setState(() => _filterExpanded = false);
+              },
+              chipKey:
+                  const ValueKey('preparation-warehouse-filter-chip'),
+              optionKeyPrefix: 'preparation-warehouse-filter-option',
+            ),
+          Expanded(
+            child: AppRefreshIndicator(
+              onRefresh: () async {
+                await widget.onReload();
+                if (mounted) {
+                  setState(() => _materials = widget.freshMaterials());
+                }
+              },
+              allowRefreshOnShortContent: true,
+              child: ListView(
+                physics: const TopRefreshScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(4, 12, 4, bottomPadding),
+                children: [
+                  if (_warehouses.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'Sizga ombor biriktirilmagan.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  else if (_warehouse == null)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'Yuqoridagi filtrdan ombor tanlang.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  else if (filtered.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'Bu omborda hali kirim yo‘q.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  else
+                    M3SegmentSpacedColumn(
+                      padding: EdgeInsets.zero,
+                      children: [
+                        for (var index = 0;
+                            index < filtered.length;
+                            index++)
+                          _PreparationWarehouseStockRow(
+                            slot: M3SegmentedListGeometry
+                                .standaloneListSlotForIndex(
+                              index,
+                              filtered.length,
+                            ),
+                            material: filtered[index],
+                            warehouse: _warehouse!,
+                            onTap: () => _openDetail(filtered[index]),
+                          ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
