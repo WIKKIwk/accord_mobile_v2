@@ -130,6 +130,16 @@ class _MaterialGScaleControlScreenState
     });
   }
 
+  bool get _isPrintDeviceConnected {
+    if (_printTransport.isBluetooth) {
+      return _bluetoothPrinter != null;
+    }
+    if (_printTransport.isOffline) {
+      return _offlinePrinter != null;
+    }
+    return _selectedServer != null;
+  }
+
   Future<void> _openServerPicker() async {
     final selection = await showPrintDevicePicker(context);
     if (selection == null) {
@@ -162,7 +172,10 @@ class _MaterialGScaleControlScreenState
       actions: [
         IconButton(
           onPressed: () => _openServerPicker(),
-          icon: DevicePickerIcon(attention: _deviceNeedsAttention),
+          icon: DevicePickerIcon(
+            attention: _deviceNeedsAttention,
+            connected: _isPrintDeviceConnected,
+          ),
           tooltip: 'Printer yoki tarozi tanlash',
         ),
       ],

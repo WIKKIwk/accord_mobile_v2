@@ -147,13 +147,38 @@ class SavedPrintDevice {
 }
 
 class DevicePickerIcon extends StatelessWidget {
-  const DevicePickerIcon({required this.attention, super.key});
+  const DevicePickerIcon({
+    required this.attention,
+    this.connected,
+    super.key,
+  });
 
   final bool attention;
+
+  /// null bo'lsa eski ko'rinish (zanjir + qizil nuqta).
+  /// Biror bool berilsa: to'liq dumaloq — ulangan yashil, ulanmagan qizil.
+  final bool? connected;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final resolved = connected;
+    if (resolved != null) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: resolved ? const Color(0xFF2E7D32) : scheme.error,
+          shape: BoxShape.circle,
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(7),
+          child: Icon(
+            Icons.add_link_rounded,
+            size: 20,
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
     return Stack(
       clipBehavior: Clip.none,
       children: [

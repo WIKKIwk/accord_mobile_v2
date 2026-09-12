@@ -86,6 +86,16 @@ void _registergscale_material_receipt_print_testCases03() {
       expect(find.text('Mikron'), findsOneWidget);
       expect(find.text('Ombor tanlang'), findsOneWidget);
 
+      // Saqlash va Boshlash bir xil katta bubble ko'rinishda bo'lishi shart.
+      final saveSize = tester.getSize(
+        find.widgetWithText(FilledButton, 'Saqlash'),
+      );
+      final startSize = tester.getSize(
+        find.widgetWithText(FilledButton, 'Boshlash'),
+      );
+      expect(startSize.height, saveSize.height);
+      expect(startSize.width, saveSize.width);
+
       await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
       await tester.pumpAndSettle();
 
@@ -99,7 +109,7 @@ void _registergscale_material_receipt_print_testCases03() {
       expect(find.text('Mikron'), findsNothing);
       expect(find.text('Ombor tanlang'), findsNothing);
       expect(find.byTooltip('Batch ma’lumotini tahrirlash'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'Batch start'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Boshlash'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Batch ma’lumotini tahrirlash'));
       await tester.pump();
@@ -215,7 +225,7 @@ void _registergscale_material_receipt_print_testCases03() {
       expect(
         tester
             .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Batch start'),
+              find.widgetWithText(FilledButton, 'Boshlash'),
             )
             .onPressed,
         isNotNull,
@@ -313,7 +323,7 @@ void _registergscale_material_receipt_print_testCases03() {
       effectiveIconColor(Icons.print_rounded),
     );
     expect(
-      effectiveTextColor('Batch stop'),
+      effectiveTextColor('To‘xtatish'),
       effectiveIconColor(Icons.stop_circle_outlined),
     );
   });

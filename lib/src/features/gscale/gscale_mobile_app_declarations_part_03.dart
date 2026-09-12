@@ -36,6 +36,47 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
+// Saqlash va Boshlash uchun bitta umumiy katta bubble tugma.
+// Ikkala tugma shu widget'dan qurilgani uchun ko'rinishi har doim bir xil.
+class _BubbleActionButton extends StatelessWidget {
+  const _BubbleActionButton({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+    this.backgroundColor,
+    this.foregroundColor,
+  });
+
+  final VoidCallback? onPressed;
+  final Widget icon;
+  final String label;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: FilledButton.icon(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          backgroundColor: backgroundColor,
+          foregroundColor: foregroundColor,
+          textStyle: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        icon: icon,
+        label: Text(label),
+      ),
+    );
+  }
+}
+
 class _PickerField extends StatelessWidget {
   const _PickerField({
     required this.icon,
@@ -43,56 +84,61 @@ class _PickerField extends StatelessWidget {
     required this.onTap,
     this.value,
     this.subtitle,
+    this.emptyText = 'Tanlash uchun bosing',
   });
 
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
   final String? value;
   final String? subtitle;
-  final VoidCallback? onTap;
+  final String emptyText;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final hasValue = (value ?? '').trim().isNotEmpty;
+    const bubbleRadius = BorderRadius.all(Radius.circular(28));
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: bubbleRadius,
       child: InputDecorator(
         decoration: InputDecoration(
           isDense: true,
-          prefixIcon: Icon(icon, size: 20),
+          filled: true,
+          fillColor: scheme.surface,
+          prefixIcon: Icon(icon, size: 22),
           prefixIconConstraints: const BoxConstraints(
-            minWidth: 40,
-            minHeight: 40,
+            minWidth: 48,
+            minHeight: 56,
           ),
-          suffixIcon: const Icon(Icons.expand_more_rounded, size: 20),
+          suffixIcon: const Icon(Icons.expand_more_rounded, size: 22),
           suffixIconConstraints: const BoxConstraints(
-            minWidth: 40,
-            minHeight: 40,
+            minWidth: 48,
+            minHeight: 56,
           ),
           labelText: label,
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 9,
+            horizontal: 16,
+            vertical: 14,
           ),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          border: const OutlineInputBorder(borderRadius: bubbleRadius),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: bubbleRadius,
             borderSide: BorderSide(color: scheme.outlineVariant),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: scheme.primary, width: 1.4),
+            borderRadius: bubbleRadius,
+            borderSide: BorderSide(color: scheme.primary, width: 1.6),
           ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              hasValue ? value!.trim() : 'Tanlash uchun bosing',
+              hasValue ? value!.trim() : emptyText,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: hasValue ? scheme.onSurface : scheme.onSurfaceVariant,
                 fontWeight: hasValue ? FontWeight.w700 : FontWeight.w500,

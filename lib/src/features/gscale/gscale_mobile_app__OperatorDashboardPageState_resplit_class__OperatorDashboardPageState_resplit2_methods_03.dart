@@ -78,7 +78,14 @@ extension __OperatorDashboardPageStateAstPartResplit2_03
           actions: [
             IconButton(
               onPressed: () => unawaited(widget.onChangeServer()),
-              icon: DevicePickerIcon(attention: widget.deviceNeedsAttention),
+              icon: DevicePickerIcon(
+                attention: widget.deviceNeedsAttention,
+                connected: widget.printTransport.isBluetooth
+                    ? widget.bluetoothPrinter != null
+                    : widget.printTransport.isOffline
+                        ? widget.offlinePrinter != null
+                        : server != null,
+              ),
               tooltip: 'Printer yoki tarozi tanlash',
             ),
             Padding(

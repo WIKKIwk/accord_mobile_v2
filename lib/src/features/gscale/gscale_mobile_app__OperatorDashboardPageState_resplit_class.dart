@@ -57,6 +57,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   String _lastAutoBatchPrintKey = '';
   String _lastRsBatchErrorKey = '';
   bool _suspendControlPrefsSave = false;
+  // Qo'lda kg maydoni: bir marta bossada avtomatik tozalanadi.
+  // Hech narsa yozilmasa eski qiymat qaytariladi.
+  String _manualQtyTapBackup = '';
+  bool _manualQtyTapCleared = false;
 
   @override
   void initState() {

@@ -65,6 +65,34 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
     });
   }
 
+  /// Qo'lda kg maydoni: ustiga bir marta bossada avtomatik tozalanadi,
+  /// hech narsa yozilmasa eski qiymat qaytariladi.
+  void _handleManualQtyTap() {
+    if (_manualQtyTapCleared) {
+      return;
+    }
+    if (_manualQtyController.text.trim().isEmpty) {
+      return;
+    }
+    _manualQtyTapBackup = _manualQtyController.text;
+    _manualQtyTapCleared = true;
+    _manualQtyController.clear();
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _restoreManualQtyTapIfEmpty() {
+    if (!_manualQtyTapCleared) {
+      return;
+    }
+    _manualQtyTapCleared = false;
+    if (_manualQtyController.text.trim().isEmpty &&
+        _manualQtyTapBackup.trim().isNotEmpty) {
+      _manualQtyController.text = _manualQtyTapBackup;
+    }
+  }
+
   ButtonStyle _segmentStyle(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return ButtonStyle(

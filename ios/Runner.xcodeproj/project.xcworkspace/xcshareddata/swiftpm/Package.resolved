@@ -1,15 +1,6 @@
 {
   "pins" : [
     {
-      "identity" : "iroh-ffi",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/n0-computer/iroh-ffi.git",
-      "state" : {
-        "revision" : "afcb46d9f583eca81a592eddeae531efe91f3bd1",
-        "version" : "1.0.0"
-      }
-    },
-    {
       "identity" : "abseil-cpp-binary",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/google/abseil-cpp-binary.git",
@@ -133,6 +124,15 @@
       "state" : {
         "revision" : "040d087ac2267d2ddd4cca36c757d1c6a05fdbfe",
         "version" : "101.0.0"
+      }
+    },
+    {
+      "identity" : "iroh-ffi",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/n0-computer/iroh-ffi.git",
+      "state" : {
+        "revision" : "afcb46d9f583eca81a592eddeae531efe91f3bd1",
+        "version" : "1.0.0"
       }
     },
     {

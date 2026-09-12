@@ -11,6 +11,12 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
   ) {
     final hasScaleDevice = server != null;
     final hasPrintDevice = widget.printTransport.isLocal || hasScaleDevice;
+    // Homashyo kirimi (controlOnly): Printer sozlamalari faqat WiFi yoki
+    // USB orqali printer tanlanganda ko'rinadi. Bluetooth maxsus
+    // sozlanmaydi, tanlanmagan holatda ham sozlama yashiriladi.
+    final showPrinterSettings = !widget.controlOnly ||
+        (!widget.printTransport.isLocal && server != null) ||
+        (widget.printTransport.isOffline && widget.offlinePrinter != null);
     final activeBatch = _rpsBatchStateResolved &&
             _authoritativeRsBatch != null &&
             _authoritativeRsBatch!.active
@@ -150,16 +156,6 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
       backgroundColor: scheme.error,
       foregroundColor: scheme.onError,
     );
-    // Katta dumaloq bubble action tugmalar (Saqlash / Boshlash).
-    // Ikkalasi bitta stil — bir xil ko'rinish va o'lcham.
-    final bubbleActionStyle = FilledButton.styleFrom(
-      minimumSize: const Size.fromHeight(64),
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      shape: const StadiumBorder(),
-      textStyle: theme.textTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.w800,
-      ),
-    );
     final controlInputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
       borderSide: BorderSide(color: scheme.outlineVariant),
@@ -171,6 +167,21 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
       borderSide: BorderSide(color: scheme.error),
     );
     final controlFocusedErrorInputBorder = controlInputBorder.copyWith(
+      borderSide: BorderSide(color: scheme.error, width: 1.6),
+    );
+    // Katta oq bubble raqamli maydonlar (Eni/Mikron, Qo'lda kg/Duplicate).
+    const bubbleFieldRadius = BorderRadius.all(Radius.circular(28));
+    final bubbleInputBorder = OutlineInputBorder(
+      borderRadius: bubbleFieldRadius,
+      borderSide: BorderSide(color: scheme.outlineVariant),
+    );
+    final bubbleFocusedInputBorder = bubbleInputBorder.copyWith(
+      borderSide: BorderSide(color: scheme.primary, width: 1.6),
+    );
+    final bubbleErrorInputBorder = bubbleInputBorder.copyWith(
+      borderSide: BorderSide(color: scheme.error),
+    );
+    final bubbleFocusedErrorInputBorder = bubbleInputBorder.copyWith(
       borderSide: BorderSide(color: scheme.error, width: 1.6),
     );
     return Column(
@@ -325,6 +336,51 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
           const SizedBox(height: 8),
         ],
         if (showContextFields) ...[
+          // Ombor eng yuqorida: material rolida ombor mahsulotga bog'liq emas.
+          if (defaultMode) ...[
+            if (defaultWarehouse.isEmpty)
+              Text(
+                'Default ombor tanlanmagan.',
+                style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+              )
+            else
+              _MiniIconRow(
+                icon: Icons.flag_rounded,
+                text: 'Standart ombor: $defaultWarehouse',
+              ),
+          ] else if (selectedProduct == null &&
+              !_warehouseIndependentOfItem) ...[
+            _PickerField(
+              icon: Icons.warehouse_outlined,
+              label: 'Ombor tanlang',
+              value: null,
+              subtitle: null,
+              onTap: null,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Avval mahsulot tanlang, keyin ombor tanlash ochiladi.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ] else ...[
+            _PickerField(
+              icon: Icons.warehouse_outlined,
+              label: 'Ombor tanlang',
+              value: selectedWarehouse?.warehouse,
+              subtitle: null,
+              onTap: contextFieldsLocked ? null : _openWarehousePicker,
+            ),
+            if (_warehousesError.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                _warehousesError,
+                style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+              ),
+            ],
+          ],
+          const SizedBox(height: 8),
           _PickerField(
             icon: Icons.search_rounded,
             label: 'Mahsulot tanlang',
@@ -348,13 +404,19 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                     ],
                     decoration: InputDecoration(
                       isDense: true,
+                      filled: true,
+                      fillColor: scheme.surface,
                       labelText: 'Eni (mm)',
                       errorText: widthInvalid ? "To'g'ri eni kiriting" : null,
-                      border: controlInputBorder,
-                      enabledBorder: controlInputBorder,
-                      focusedBorder: controlFocusedInputBorder,
-                      errorBorder: controlErrorInputBorder,
-                      focusedErrorBorder: controlFocusedErrorInputBorder,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      border: bubbleInputBorder,
+                      enabledBorder: bubbleInputBorder,
+                      focusedBorder: bubbleFocusedInputBorder,
+                      errorBorder: bubbleErrorInputBorder,
+                      focusedErrorBorder: bubbleFocusedErrorInputBorder,
                     ),
                   ),
                 ),
@@ -370,14 +432,20 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                     ],
                     decoration: InputDecoration(
                       isDense: true,
+                      filled: true,
+                      fillColor: scheme.surface,
                       labelText: 'Mikron',
                       errorText:
                           micronInvalid ? "To'g'ri mikron kiriting" : null,
-                      border: controlInputBorder,
-                      enabledBorder: controlInputBorder,
-                      focusedBorder: controlFocusedInputBorder,
-                      errorBorder: controlErrorInputBorder,
-                      focusedErrorBorder: controlFocusedErrorInputBorder,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      border: bubbleInputBorder,
+                      enabledBorder: bubbleInputBorder,
+                      focusedBorder: bubbleFocusedInputBorder,
+                      errorBorder: bubbleErrorInputBorder,
+                      focusedErrorBorder: bubbleFocusedErrorInputBorder,
                     ),
                   ),
                 ),
@@ -385,42 +453,6 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             ),
             const SizedBox(height: 8),
           ],
-          if (defaultMode) ...[
-            if (defaultWarehouse.isEmpty)
-              Text(
-                'Default ombor tanlanmagan.',
-                style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
-              )
-            else
-              _MiniIconRow(
-                icon: Icons.flag_rounded,
-                text: 'Standart ombor: $defaultWarehouse',
-              ),
-          ] else if (selectedProduct == null) ...[
-            const SizedBox(height: 6),
-            Text(
-              'Avval mahsulot tanlang, keyin ombor chiqadi.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ] else ...[
-            _PickerField(
-              icon: Icons.warehouse_outlined,
-              label: 'Ombor tanlang',
-              value: selectedWarehouse?.warehouse,
-              subtitle: null,
-              onTap: contextFieldsLocked ? null : _openWarehousePicker,
-            ),
-            if (_warehousesError.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                _warehousesError,
-                style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
-              ),
-            ],
-          ],
-          const SizedBox(height: 8),
           _ContextSwitchRow(
             label: 'Miqdor (kg)',
             valueText: selectedQuantitySource == 'manual'
@@ -454,23 +486,19 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                   },
           ),
           if (showContextFields) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                style: bubbleActionStyle,
-                onPressed: batchContextSaveEnabled
-                    ? () => unawaited(_saveBatchContextEdit())
-                    : null,
-                icon: _batchActionLoading
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_outlined),
-                label: const Text('Saqlash'),
-              ),
+            const SizedBox(height: 2),
+            _BubbleActionButton(
+              onPressed: batchContextSaveEnabled
+                  ? () => unawaited(_saveBatchContextEdit())
+                  : null,
+              icon: _batchActionLoading
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_outlined),
+              label: 'Saqlash',
             ),
           ],
         ],
@@ -509,14 +537,14 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             ),
           ),
         ],
-        const SizedBox(height: 8),
+        const SizedBox(height: 2),
         if (selectedQuantitySource == 'manual') ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 2),
           Row(
             children: [
               Expanded(
                 child: SizedBox(
-                  height: manualQtyInvalid ? 72 : 50,
+                  height: manualQtyInvalid ? 84 : 60,
                   child: TextField(
                     controller: _manualQtyController,
                     enabled: !_batchActionLoading && !_manualPrintLoading,
@@ -529,20 +557,22 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                     textAlignVertical: TextAlignVertical.center,
                     decoration: InputDecoration(
                       isDense: true,
+                      filled: true,
+                      fillColor: scheme.surface,
                       labelText: 'Qo‘lda brutto kg',
                       suffixText: 'kg',
                       hintText: '5',
                       errorText:
                           manualQtyInvalid ? 'Masalan: 5 yoki 4.22' : null,
                       contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                        horizontal: 20,
+                        vertical: 14,
                       ),
-                      border: controlInputBorder,
-                      enabledBorder: controlInputBorder,
-                      focusedBorder: controlFocusedInputBorder,
-                      errorBorder: controlErrorInputBorder,
-                      focusedErrorBorder: controlFocusedErrorInputBorder,
+                      border: bubbleInputBorder,
+                      enabledBorder: bubbleInputBorder,
+                      focusedBorder: bubbleFocusedInputBorder,
+                      errorBorder: bubbleErrorInputBorder,
+                      focusedErrorBorder: bubbleFocusedErrorInputBorder,
                     ),
                     onTap: _handleManualQtyTap,
                     onEditingComplete: () {
@@ -566,7 +596,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                 child: Padding(
                   padding: const EdgeInsets.only(left: 8),
                   child: SizedBox(
-                    height: duplicateInvalid ? 72 : 50,
+                    height: duplicateInvalid ? 84 : 60,
                     child: TextField(
                       controller: _manualDuplicateController,
                       enabled: !_batchActionLoading && !_manualPrintLoading,
@@ -577,20 +607,22 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                       textAlignVertical: TextAlignVertical.center,
                       decoration: InputDecoration(
                         isDense: true,
+                        filled: true,
+                        fillColor: scheme.surface,
                         labelText: 'Duplicate soni',
                         suffixText: 'ta',
                         hintText: '1',
                         errorText:
                             duplicateInvalid ? 'Masalan: 1 yoki 5' : null,
                         contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
+                          horizontal: 20,
+                          vertical: 14,
                         ),
-                        border: controlInputBorder,
-                        enabledBorder: controlInputBorder,
-                        focusedBorder: controlFocusedInputBorder,
-                        errorBorder: controlErrorInputBorder,
-                        focusedErrorBorder: controlFocusedErrorInputBorder,
+                        border: bubbleInputBorder,
+                        enabledBorder: bubbleInputBorder,
+                        focusedBorder: bubbleFocusedInputBorder,
+                        errorBorder: bubbleErrorInputBorder,
+                        focusedErrorBorder: bubbleFocusedErrorInputBorder,
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
@@ -599,7 +631,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 2),
           if (_snapshot.batchActive)
             Row(
               children: [
@@ -638,18 +670,14 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               ],
             )
           else
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                style: bubbleActionStyle,
-                onPressed: manualBatchStartEnabled
-                    ? () => unawaited(
-                          _startBatch(autoPrintStable: false),
-                        )
-                    : null,
-                icon: const Icon(Icons.play_circle_outline_rounded, size: 24),
-                label: const Text('Boshlash'),
-              ),
+            _BubbleActionButton(
+              onPressed: manualBatchStartEnabled
+                  ? () => unawaited(
+                        _startBatch(autoPrintStable: false),
+                      )
+                  : null,
+              icon: const Icon(Icons.play_circle_outline_rounded, size: 24),
+              label: 'Boshlash',
             ),
           if (!_snapshot.batchActive) ...[
             const SizedBox(height: 4),
@@ -704,22 +732,11 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               ),
             ),
           ],
-          const SizedBox(height: 8),
+          const SizedBox(height: 2),
         ],
         if (selectedQuantitySource == 'scale') ...[
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              backgroundColor:
-                  _snapshot.batchActive ? scheme.error : null,
-              foregroundColor:
-                  _snapshot.batchActive ? scheme.onError : null,
-            ),
+          const SizedBox(height: 2),
+          _BubbleActionButton(
             onPressed: scaleBatchActionEnabled
                 ? (_snapshot.batchActive
                     ? () => unawaited(_stopRsBatch())
@@ -736,12 +753,14 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                         ? Icons.stop_circle_outlined
                         : Icons.play_arrow_rounded,
                   ),
-            label: Text(
-              scaleBatchActionLabel(
-                loading: _batchActionLoading,
-                batchActive: _snapshot.batchActive,
-              ),
+            label: scaleBatchActionLabel(
+              loading: _batchActionLoading,
+              batchActive: _snapshot.batchActive,
             ),
+            backgroundColor:
+                _snapshot.batchActive ? scheme.error : null,
+            foregroundColor:
+                _snapshot.batchActive ? scheme.onError : null,
           ),
           if (_snapshot.batchActive) ...[
             const SizedBox(height: 4),
@@ -764,11 +783,13 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
           ],
           const SizedBox(height: 8),
         ],
-        if (_batchPrints.isNotEmpty) ...[
+        // Batch QR ro'yxati Homashyo kirimi sahifasida ko'rsatilmaydi.
+        if (!widget.controlOnly && _batchPrints.isNotEmpty) ...[
           _buildCurrentBatchPrints(theme, scheme),
           const SizedBox(height: 8),
         ],
-        ExpansionTile(
+        if (showPrinterSettings)
+          ExpansionTile(
           key: const PageStorageKey<String>('batch_actions_tile'),
           initiallyExpanded: false,
           maintainState: true,

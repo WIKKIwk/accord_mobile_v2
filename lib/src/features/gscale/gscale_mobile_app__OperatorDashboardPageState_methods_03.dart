@@ -43,6 +43,11 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
+      // Bo'sh ro'yxat tarmoq/assignment hali yuklanmaganini bildiradi:
+      // tanlangan omborni o'chirib Saqlash'ni o'lik qilish mumkin emas.
+      if (warehouses.isEmpty) {
+        return;
+      }
       if (warehouses.every(
         (warehouse) => warehouse.warehouse != selectedWarehouse.warehouse,
       )) {
@@ -229,9 +234,11 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
 
   Future<void> _openWarehousePicker() async {
     final selectedItem = _selectedItem;
-    if (selectedItem == null) {
+    // Material rolida ombor mahsulotga bog'liq emas: mahsulotsiz ham ochiladi.
+    if (selectedItem == null && !_warehouseIndependentOfItem) {
       return;
     }
+    final itemCode = selectedItem?.itemCode ?? '';
     final warehouse = await showModalBottomSheet<MobileWarehouse>(
       context: context,
       isDismissible: true,
@@ -249,7 +256,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
           final warehouses = _warehouseIndependentOfItem
               ? await _fetchAllWarehouses(query: query)
               : await _fetchWarehouses(
-                  itemCode: selectedItem.itemCode,
+                  itemCode: itemCode,
                   query: query,
                 );
           return warehouses.skip(offset).take(limit).toList(growable: false);

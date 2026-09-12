@@ -131,7 +131,7 @@ void _registergscale_material_receipt_print_testCases05() {
     );
     expect(
       scaleBatchActionLabel(loading: false, batchActive: false),
-      'Batch start',
+      'Boshlash',
     );
     expect(
       canPressScaleBatchAction(
@@ -144,7 +144,7 @@ void _registergscale_material_receipt_print_testCases05() {
     );
     expect(
       scaleBatchActionLabel(loading: false, batchActive: true),
-      'Batch stop',
+      'To‘xtatish',
     );
     expect(
       canPressScaleBatchAction(

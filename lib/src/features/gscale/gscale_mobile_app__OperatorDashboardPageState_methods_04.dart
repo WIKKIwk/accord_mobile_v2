@@ -87,6 +87,15 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
     if (_manualPrintLoading || _batchActionLoading || _requestInFlight) {
       return;
     }
+    // Saqlash bosilmasdan Boshlash bosilsa: avtomatik saqlab keyin boshlaydi.
+    final pendingBatch = _authoritativeRsBatch;
+    final pendingInactive = pendingBatch == null || !pendingBatch.active;
+    if (pendingInactive && (_batchContextEditing || !_draftContextSaved)) {
+      await _saveBatchContextEdit();
+      if (!mounted || _batchContextEditing || !_draftContextSaved) {
+        return;
+      }
+    }
     setState(() {
       _batchActionLoading = true;
       _errorText = '';
@@ -277,10 +286,24 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
     if (_manualPrintLoading || _batchActionLoading || _requestInFlight) {
       return;
     }
+    if (_batchContextEditing) {
+      setState(() {
+        _errorText = 'Avval Saqlash tugmasini bosing.';
+      });
+      return;
+    }
+    // Bir marta bosib tozalangan, lekin yangisi yozilmagan bo'lsa:
+    // eski qiymat bilan chop etiladi.
+    if (_manualQtyController.text.trim().isEmpty &&
+        _manualQtyTapCleared &&
+        _manualQtyTapBackup.trim().isNotEmpty) {
+      _manualQtyController.text = _manualQtyTapBackup;
+      _manualQtyTapCleared = false;
+    }
     if (!_snapshot.batchActive ||
         normalizeQuantitySource(_snapshot.batchQuantitySource) != 'manual') {
       setState(() {
-        _errorText = "Avval qo‘lda print uchun Batch start ni bosing";
+        _errorText = "Avval qo‘lda print uchun Boshlash ni bosing";
       });
       return;
     }

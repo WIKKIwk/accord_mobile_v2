@@ -49,7 +49,7 @@ String scaleBatchActionLabel({
   if (loading) {
     return 'Kutilmoqda...';
   }
-  return batchActive ? 'Batch stop' : 'Batch start';
+  return batchActive ? 'To‘xtatish' : 'Boshlash';
 }
 
 bool canTriggerManualPrint({

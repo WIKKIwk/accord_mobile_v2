@@ -260,98 +260,29 @@ void _registergscale_material_receipt_print_testCases02() {
       expect(
         tester
             .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Batch stop'),
+              find.widgetWithText(FilledButton, 'To‘xtatish'),
             )
             .onPressed,
         isNotNull,
       );
       expect(
-        find.widgetWithText(FilledButton, 'Batch start'),
+        find.widgetWithText(FilledButton, 'Boshlash'),
         findsNothing,
       );
 
       await tester.tap(find.byTooltip('Batch ma’lumotini tahrirlash'));
       await tester.pump();
 
-      expect(find.text('Batch ma’lumoti'), findsNothing);
-      expect(find.text('Mahsulot tanlang'), findsOneWidget);
-      expect(find.text('Eni (mm)'), findsOneWidget);
-      expect(find.text('Mikron'), findsOneWidget);
-      expect(find.text('Ombor tanlang'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'Saqlash'), findsOneWidget);
-      expect(find.text('Miqdor (kg)'), findsOneWidget);
-      expect(find.text('Babina'), findsOneWidget);
-      expect(find.byType(Switch), findsNWidgets(2));
-
-      await tester.tap(find.byType(Switch).at(0));
-      await tester.pump();
-      await tester.tap(find.byType(Switch).at(0));
-      await tester.pump();
-      await tester.tap(find.byType(Switch).at(1));
-      await tester.pump();
+      // Faol batch'da edit bloklangan: stop qilmasdan o'zgartirib bo'lmaydi.
       expect(
-        tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Saqlash'),
-            )
-            .onPressed,
-        isNotNull,
-      );
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Babina og‘irligi'),
-        '0.78',
-      );
-
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Eni (mm)'),
-        '800',
-      );
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Mikron'),
-        '20',
-      );
-      await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
-      await tester.pumpAndSettle();
-
-      expect(capturedUpdate?.batchId, 'batch-active-1');
-      expect(capturedUpdate?.expectedRevision, 1);
-      expect(capturedUpdate?.itemCode, 'ITEM-1');
-      expect(capturedUpdate?.warehouse, 'Kalidor');
-      expect(capturedUpdate?.widthMm, 800);
-      expect(capturedUpdate?.micron, 20);
-      expect(capturedUpdate?.quantitySource, 'manual');
-      expect(capturedUpdate?.tareEnabled, isTrue);
-      expect(capturedUpdate?.tareKg, 0.78);
-      expect(find.text('Batch ma’lumoti'), findsNothing);
-      expect(find.text('Green Tea • 800 mm • 20 mikron'), findsOneWidget);
-      expect(
-        find.text('Ombor: Kalidor • Qo‘lda kg • Babina: 0.78 kg'),
+        find.text(
+          'Avval To‘xtatish tugmasini bosing, keyin homashyoni o‘zgartiring.',
+        ),
         findsOneWidget,
       );
       expect(find.text('Mahsulot tanlang'), findsNothing);
-      final babinaField = tester.widget<TextField>(
-        find.widgetWithText(TextField, 'Babina og‘irligi'),
-      );
-      expect(babinaField.enabled, isTrue);
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Babina og‘irligi'),
-        '0.80',
-      );
-
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Qo‘lda brutto kg'),
-        '23',
-      );
-      await tester.pump();
-
-      expect(
-        tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Chop etish'),
-            )
-            .onPressed,
-        isNotNull,
-      );
+      expect(find.widgetWithText(FilledButton, 'Saqlash'), findsNothing);
+      expect(capturedUpdate, isNull);
     },
   );
 }

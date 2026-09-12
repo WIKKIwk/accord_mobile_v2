@@ -50,6 +50,13 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
     if (_batchActionLoading) {
       return;
     }
+    if (batch != null && batch.active) {
+      setState(() {
+        _errorText =
+            'Avval To‘xtatish tugmasini bosing, keyin homashyoni o‘zgartiring.';
+      });
+      return;
+    }
     if (batch == null || !batch.active) {
       if (!_draftContextSaved) {
         return;
@@ -62,26 +69,10 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       _scheduleSaveControlPrefs();
       return;
     }
-    setState(() {
-      _selectedItem = MobileItem(
-        itemCode: batch.itemCode,
-        itemName: batch.itemName,
-        requiresDimensions: batch.widthMm != null || batch.micron != null,
-      );
-      _selectedWarehouse = MobileWarehouse(warehouse: batch.warehouse);
-      _warehouseMode = 'manual';
-      _quantitySource = normalizeQuantitySource(batch.quantitySource);
-      _babinaEnabled = batch.tareEnabled;
-      _babinaWeightController.text = batch.tareEnabled && batch.tareKg > 0
-          ? formatCompactKg(batch.tareKg)
-          : '';
-      _widthController.text =
-          batch.widthMm == null ? '' : formatCompactKg(batch.widthMm!);
-      _micronController.text =
-          batch.micron == null ? '' : formatCompactKg(batch.micron!);
-      _batchContextEditing = true;
-      _errorText = '';
-    });
+    // Faol batch'da context edit taqiqlangan: yuqorida return bo'lgan.
+    // Eski qiymat bilan chop etishning oldini olish uchun bu yerga
+    // yetib kelmasligi kerak.
+    return;
   }
 
   Future<void> _saveBatchContextEdit() async {
@@ -94,12 +85,13 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
         _requestInFlight) {
       return;
     }
-    if (!savingDraft &&
-        (!_rpsBatchStateResolved ||
-            !batch.active ||
-            !hasExactRpsBatchContext(batch))) {
+    // Faol batch'da joyida update taqiqlangan: eski qiymat bilan chop
+    // etishning oldini olish uchun avval To'xtatish, keyin edit, keyin
+    // Boshlash talab qilinadi.
+    if (!savingDraft) {
       setState(() {
-        _errorText = 'Faol batch holati tasdiqlanmagan. Qayta yuklang.';
+        _errorText =
+            'Avval To‘xtatish tugmasini bosing, keyin homashyoni o‘zgartiring.';
       });
       return;
     }
