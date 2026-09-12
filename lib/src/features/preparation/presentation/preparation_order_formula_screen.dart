@@ -75,7 +75,6 @@ class _PreparationOrderFormulaScreenState
   bool _deleting = false;
   bool _editing = false;
   String? _editingName;
-  final TextEditingController _nameController = TextEditingController();
   final List<_FormulaRow> _rows = [];
 
   @override
@@ -86,7 +85,6 @@ class _PreparationOrderFormulaScreenState
 
   @override
   void dispose() {
-    _nameController.dispose();
     for (final row in _rows) {
       row.dispose();
     }
@@ -141,11 +139,34 @@ class _PreparationOrderFormulaScreenState
     }
   }
 
+  /// Keyingi bo'sh harfli nom: A, B, ... Z, AA, AB, ...
+  /// Formula nomini tizim avtomatik beradi — qo'lda kiritilmaydi.
+  String _nextAutoName() {
+    final used = {
+      for (final f in _formulas) f.name.trim().toUpperCase(),
+    };
+    var i = 0;
+    while (true) {
+      final candidate = _lettersFor(i);
+      if (!used.contains(candidate)) return candidate;
+      i++;
+    }
+  }
+
+  String _lettersFor(int index) {
+    var result = '';
+    var n = index;
+    do {
+      result = String.fromCharCode(65 + (n % 26)) + result;
+      n = n ~/ 26 - 1;
+    } while (n >= 0);
+    return result;
+  }
+
   void _openEditor({PreparationFormula? existing}) {
     setState(() {
       _editing = true;
       _editingName = existing?.name;
-      _nameController.text = existing?.name ?? '';
       final saved = existing?.lines ?? const <PreparationFormulaLine>[];
       if (saved.isEmpty) {
         if (_rows.isEmpty) _rows.add(_FormulaRow());
@@ -179,7 +200,6 @@ class _PreparationOrderFormulaScreenState
     setState(() {
       _editing = false;
       _editingName = null;
-      _nameController.clear();
       for (final row in _rows) {
         row.dispose();
       }
@@ -249,22 +269,11 @@ class _PreparationOrderFormulaScreenState
   }
 
   /// Bitta jamlovchi xatolik — Saqlash tugmasi tepasida chiqadi.
-  /// Xavfsizlik qoidalari: nom shart (yangi cardda), seriya tanlanishi shart,
-  /// dublikat taqiqlanadi, har bir foiz 0–100 oralig'ida,
-  /// jami aniq 100% bo'lishi shart.
+  /// Xavfsizlik qoidalari: seriya tanlanishi shart, dublikat taqiqlanadi,
+  /// har bir foiz 0–100 oralig'ida, jami aniq 100% bo'lishi shart.
+  /// Nom tizim tomonidan avtomatik beriladi (A, B, C...).
   String? get _editorError {
     if (_rows.isEmpty) return null;
-    if (_editingName == null) {
-      final name = _nameController.text.trim();
-      if (name.isEmpty) return 'Formula nomini kiriting';
-      if (name.runes.length > 80) {
-        return 'Formula nomi 80 belgidan oshmasligi kerak';
-      }
-      if (_formulas.any(
-          (f) => f.name.toLowerCase() == name.toLowerCase())) {
-        return 'Bu nomli formula allaqachon bor';
-      }
-    }
     for (var i = 0; i < _rows.length; i++) {
       final row = _rows[i];
       final code = row.material?.code.trim() ?? '';
@@ -319,7 +328,7 @@ class _PreparationOrderFormulaScreenState
             ),
           },
       ];
-      final name = _editingName ?? _nameController.text.trim();
+      final name = _editingName ?? _nextAutoName();
       await MobileApi.instance.preparationUpsertFormula(
         widget.productCode,
         lines,
@@ -511,23 +520,10 @@ class _PreparationOrderFormulaScreenState
                               ],
                             ),
                             const SizedBox(height: 12),
-                            if (_editingName == null)
-                              TextField(
-                                key: const ValueKey(
-                                    'preparation-formula-name'),
-                                controller: _nameController,
-                                enabled: !_saving,
-                                maxLength: 80,
-                                textInputAction: TextInputAction.next,
-                                onChanged: (_) => setState(() {}),
-                                decoration: const InputDecoration(
-                                  labelText: 'Formula nomi',
-                                  hintText: 'Masalan: Asosiy',
-                                  counterText: '',
-                                ),
-                              )
-                            else
-                              _FormulaNameBanner(name: _editingName!),
+                            _FormulaNameBanner(
+                              name: _editingName ?? _nextAutoName(),
+                              auto: _editingName == null,
+                            ),
                             const SizedBox(height: 12),
                             for (var i = 0; i < _rows.length; i++) ...[
                               if (i > 0) const SizedBox(height: 12),
@@ -622,10 +618,12 @@ class _PreparationOrderFormulaScreenState
   }
 }
 
-/// Tahrirlanayotgan formula nomi (o'zgarmas — nom card kaliti).
+/// Formula nomi banneri. Yangi formulada nom avtomatik (A, B, C...),
+/// tahrirlashda — card kaliti sifatida o'zgarmas.
 class _FormulaNameBanner extends StatelessWidget {
-  const _FormulaNameBanner({required this.name});
+  const _FormulaNameBanner({required this.name, this.auto = false});
   final String name;
+  final bool auto;
 
   @override
   Widget build(BuildContext context) {
@@ -647,12 +645,25 @@ class _FormulaNameBanner extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                name,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: scheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w800,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Formula: $name',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: scheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (auto)
+                    Text(
+                      'Nom avtomatik beriladi',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
