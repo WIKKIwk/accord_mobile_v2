@@ -128,7 +128,31 @@ class _PreparationOrderFormulaScreenState
   void _openEditor() {
     setState(() {
       _editing = true;
-      if (_rows.isEmpty) _rows.add(_FormulaRow());
+      if (_rows.isEmpty) {
+        // Saqlangan formula bo'lsa — qatorlarni muharrirga yuklab olamiz
+        // (alifbo tartibida, API shunday qaytaradi). Yangi seriya eskilar
+        // ustiga qo'shiladi, aks holda saqlash eskilarini o'chirib yuborardi.
+        final saved = _formula?.lines ?? const <PreparationFormulaLine>[];
+        if (saved.isEmpty) {
+          _rows.add(_FormulaRow());
+        } else {
+          for (final line in saved) {
+            final material = _materials
+                .where((m) => m.code.trim() == line.itemCode.trim())
+                .firstOrNull;
+            final row = _FormulaRow(
+              percent: preparationDisplay(line.percent),
+            );
+            row.material = material ??
+                PreparationMaterial.fromJson({
+                  'item_code': line.itemCode,
+                  'name': line.name,
+                  'balances': const [],
+                });
+            _rows.add(row);
+          }
+        }
+      }
     });
   }
 
