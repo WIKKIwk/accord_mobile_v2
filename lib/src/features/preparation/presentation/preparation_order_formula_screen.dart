@@ -182,31 +182,71 @@ class _PreparationOrderFormulaScreenState
     return {for (final e in counts.entries) if (e.value > 1) e.key};
   }
 
-  String? _rowError(_FormulaRow row) {
-    if (row.material == null) return 'Seriya tanlang';
-    final code = row.material!.code.trim();
-    if (code.isEmpty) return 'Seriya tanlang';
-    if (_duplicateCodes.contains(code)) {
-      return 'Bu seriya allaqachon tanlangan';
-    }
+  BigInt? _parsePercent(_FormulaRow row) {
     try {
       final pct = preparationDecimal(row.percentController.text);
-      if (pct > BigInt.from(100000000)) return 'Foiz 100 dan oshmasligi kerak';
-    } on FormatException catch (e) {
-      return e.message;
+      if (pct > BigInt.from(100000000)) return null;
+      return pct;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// Hamma pars bo'lganda jami foiz (mikro-foizda), aks holda null.
+  BigInt? get _totalPercent {
+    var sum = BigInt.zero;
+    for (final row in _rows) {
+      final pct = _parsePercent(row);
+      if (pct == null) return null;
+      sum += pct;
+    }
+    return sum;
+  }
+
+  /// Bitta jamlovchi xatolik — Saqlash tugmasi tepasida chiqadi.
+  /// Xavfsizlik qoidalari: seriya tanlanishi shart, dublikat taqiqlanadi,
+  /// har bir foiz 0–100 oralig'ida, jami aniq 100% bo'lishi shart.
+  String? get _editorError {
+    if (_rows.isEmpty) return null;
+    for (var i = 0; i < _rows.length; i++) {
+      final row = _rows[i];
+      final code = row.material?.code.trim() ?? '';
+      if (row.material == null || code.isEmpty) {
+        return '${i + 1}-seriyada seriya tanlanmagan';
+      }
+    }
+    final duplicates = _duplicateCodes;
+    if (duplicates.isNotEmpty) {
+      final name = _rows
+          .firstWhere(
+              (r) => duplicates.contains(r.material!.code.trim()))
+          .material!
+          .name
+          .trim();
+      final label = name.isEmpty ? 'Bu seriya' : '«$name»';
+      return '$label takrorlangan — har bir seriya 1 marta bo‘lishi kerak';
+    }
+    for (var i = 0; i < _rows.length; i++) {
+      if (_parsePercent(_rows[i]) == null) {
+        return '${i + 1}-seriya foizini to‘g‘ri kiriting (0–100, masalan 25)';
+      }
+    }
+    final total = _totalPercent;
+    if (total == null) return null;
+    final hundred = BigInt.from(100000000);
+    final display = preparationDisplay(preparationDecimalText(total));
+    if (total > hundred) {
+      return 'Jami foiz 100 dan oshib ketdi (hozir $display%). Kamaytiring.';
+    }
+    if (total != hundred) {
+      return 'Jami foiz 100% bo‘lishi kerak (hozir $display%). Saqlash uchun to‘ldiring.';
     }
     return null;
   }
 
   bool get _canSave {
     if (_rows.isEmpty || _saving) return false;
-    final seen = <String>{};
-    for (final row in _rows) {
-      if (_rowError(row) != null) return false;
-      final code = row.material!.code.trim();
-      if (code.isEmpty || !seen.add(code)) return false;
-    }
-    return true;
+    return _editorError == null;
   }
 
   Future<void> _save() async {
@@ -382,7 +422,6 @@ class _PreparationOrderFormulaScreenState
                               _FormulaRowCard(
                                 index: i,
                                 row: _rows[i],
-                                error: _rowError(_rows[i]),
                                 saving: _saving,
                                 onPick: () => _pickSeriya(i),
                                 onChanged: (_) => setState(() {}),
@@ -405,6 +444,12 @@ class _PreparationOrderFormulaScreenState
                               icon: const Icon(Icons.add_rounded),
                               label: const Text('Seriya qo‘shish'),
                             ),
+                            const SizedBox(height: 8),
+                            _FormulaTotalBar(total: _totalPercent),
+                            if (_editorError != null) ...[
+                              const SizedBox(height: 8),
+                              _FormulaEditorError(message: _editorError!),
+                            ],
                             const SizedBox(height: 8),
                             FilledButton(
                               key: const ValueKey(
@@ -492,11 +537,108 @@ class _PreparationOrderFormulaScreenState
   }
 }
 
+/// Jami foiz indikatori — Saqlash tugmasi tepasida doim ko'rinadi.
+class _FormulaTotalBar extends StatelessWidget {
+  const _FormulaTotalBar({required this.total});
+  final BigInt? total;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final ok = total == BigInt.from(100000000);
+    final text = total == null
+        ? 'Jami: —'
+        : 'Jami: ${preparationDisplay(preparationDecimalText(total!))}%';
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: ok
+            ? Colors.green.withValues(alpha: 0.12)
+            : scheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ok ? Colors.green : scheme.outlineVariant,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              ok ? Icons.check_circle_rounded : Icons.pie_chart_outline_rounded,
+              size: 20,
+              color: ok ? Colors.green : scheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: ok ? Colors.green : scheme.onSurface,
+                ),
+              ),
+            ),
+            Text(
+              '100% shart',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Validatsiya xatosi — fieldlar tagida emas, Saqlash tugmasi tepasida.
+class _FormulaEditorError extends StatelessWidget {
+  const _FormulaEditorError({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return DecoratedBox(
+      key: const ValueKey('preparation-formula-error'),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 20,
+              color: scheme.onErrorContainer,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onErrorContainer,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _FormulaRowCard extends StatelessWidget {
   const _FormulaRowCard({
     required this.index,
     required this.row,
-    required this.error,
     required this.saving,
     required this.onPick,
     required this.onChanged,
@@ -505,7 +647,6 @@ class _FormulaRowCard extends StatelessWidget {
 
   final int index;
   final _FormulaRow row;
-  final String? error;
   final bool saving;
   final VoidCallback onPick;
   final ValueChanged<String> onChanged;
@@ -568,11 +709,8 @@ class _FormulaRowCard extends StatelessWidget {
                   decimal: true,
                 ),
                 onChanged: onChanged,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Foiz (%)',
-                  errorText: row.percentController.text.isEmpty
-                      ? null
-                      : error,
                 ),
               ),
             ],
