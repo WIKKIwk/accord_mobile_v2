@@ -445,7 +445,7 @@ class _PreparationWarehouseScreenState
               allowRefreshOnShortContent: true,
               child: ListView(
                 physics: const TopRefreshScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(4, 12, 4, bottomPadding),
+                padding: EdgeInsets.fromLTRB(4, 4, 4, bottomPadding),
                 children: [
                   if (_warehouses.isEmpty)
                     Padding(
