@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
@@ -66,12 +67,15 @@ class _FormulaRow {
 
 class _PreparationOrderFormulaScreenState
     extends State<PreparationOrderFormulaScreen> {
-  PreparationFormula? _formula;
+  List<PreparationFormula> _formulas = const [];
   List<PreparationMaterial> _materials = const [];
   String? _error;
   bool _loading = true;
   bool _saving = false;
+  bool _deleting = false;
   bool _editing = false;
+  String? _editingName;
+  final TextEditingController _nameController = TextEditingController();
   final List<_FormulaRow> _rows = [];
 
   @override
@@ -82,6 +86,7 @@ class _PreparationOrderFormulaScreenState
 
   @override
   void dispose() {
+    _nameController.dispose();
     for (final row in _rows) {
       row.dispose();
     }
@@ -97,13 +102,10 @@ class _PreparationOrderFormulaScreenState
     }
     try {
       final snapshot = await MobileApi.instance.preparationSnapshot();
-      PreparationFormula formula = PreparationFormula(
-        productCode: widget.productCode.trim(),
-        lines: const [],
-      );
+      List<PreparationFormula> formulas = const [];
       try {
-        formula =
-            await MobileApi.instance.preparationFormula(widget.productCode);
+        formulas =
+            await MobileApi.instance.preparationFormulas(widget.productCode);
       } catch (_) {
         // Formula yo'q bo'lsa bo'sh ro'yxat — xatolik emas.
       }
@@ -116,7 +118,7 @@ class _PreparationOrderFormulaScreenState
         });
       setState(() {
         _materials = materials;
-        _formula = formula;
+        _formulas = formulas;
       });
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -125,32 +127,49 @@ class _PreparationOrderFormulaScreenState
     }
   }
 
-  void _openEditor() {
+  Future<void> _refreshFormulas() async {
+    try {
+      final formulas =
+          await MobileApi.instance.preparationFormulas(widget.productCode);
+      if (mounted) setState(() => _formulas = formulas);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
+  void _openEditor({PreparationFormula? existing}) {
     setState(() {
       _editing = true;
-      if (_rows.isEmpty) {
-        // Saqlangan formula bo'lsa — qatorlarni muharrirga yuklab olamiz
-        // (alifbo tartibida, API shunday qaytaradi). Yangi seriya eskilar
-        // ustiga qo'shiladi, aks holda saqlash eskilarini o'chirib yuborardi.
-        final saved = _formula?.lines ?? const <PreparationFormulaLine>[];
-        if (saved.isEmpty) {
-          _rows.add(_FormulaRow());
-        } else {
-          for (final line in saved) {
-            final material = _materials
-                .where((m) => m.code.trim() == line.itemCode.trim())
-                .firstOrNull;
-            final row = _FormulaRow(
-              percent: preparationDisplay(line.percent),
-            );
-            row.material = material ??
-                PreparationMaterial.fromJson({
-                  'item_code': line.itemCode,
-                  'name': line.name,
-                  'balances': const [],
-                });
-            _rows.add(row);
-          }
+      _editingName = existing?.name;
+      _nameController.text = existing?.name ?? '';
+      final saved = existing?.lines ?? const <PreparationFormulaLine>[];
+      if (saved.isEmpty) {
+        if (_rows.isEmpty) _rows.add(_FormulaRow());
+      } else {
+        for (final row in _rows) {
+          row.dispose();
+        }
+        _rows.clear();
+        // Saqlangan qatorlar muharrirga yuklanadi (alifbo tartibida,
+        // API shunday qaytaradi). Yangi seriya eskilar ustiga qo'shiladi.
+        for (final line in saved) {
+          final material = _materials
+              .where((m) => m.code.trim() == line.itemCode.trim())
+              .firstOrNull;
+          final row = _FormulaRow(
+            percent: preparationDisplay(line.percent),
+          );
+          row.material = material ??
+              PreparationMaterial.fromJson({
+                'item_code': line.itemCode,
+                'name': line.name,
+                'balances': const [],
+              });
+          _rows.add(row);
         }
       }
     });
@@ -159,6 +178,8 @@ class _PreparationOrderFormulaScreenState
   void _closeEditor() {
     setState(() {
       _editing = false;
+      _editingName = null;
+      _nameController.clear();
       for (final row in _rows) {
         row.dispose();
       }
@@ -228,10 +249,22 @@ class _PreparationOrderFormulaScreenState
   }
 
   /// Bitta jamlovchi xatolik — Saqlash tugmasi tepasida chiqadi.
-  /// Xavfsizlik qoidalari: seriya tanlanishi shart, dublikat taqiqlanadi,
-  /// har bir foiz 0–100 oralig'ida, jami aniq 100% bo'lishi shart.
+  /// Xavfsizlik qoidalari: nom shart (yangi cardda), seriya tanlanishi shart,
+  /// dublikat taqiqlanadi, har bir foiz 0–100 oralig'ida,
+  /// jami aniq 100% bo'lishi shart.
   String? get _editorError {
     if (_rows.isEmpty) return null;
+    if (_editingName == null) {
+      final name = _nameController.text.trim();
+      if (name.isEmpty) return 'Formula nomini kiriting';
+      if (name.runes.length > 80) {
+        return 'Formula nomi 80 belgidan oshmasligi kerak';
+      }
+      if (_formulas.any(
+          (f) => f.name.toLowerCase() == name.toLowerCase())) {
+        return 'Bu nomli formula allaqachon bor';
+      }
+    }
     for (var i = 0; i < _rows.length; i++) {
       final row = _rows[i];
       final code = row.material?.code.trim() ?? '';
@@ -286,31 +319,58 @@ class _PreparationOrderFormulaScreenState
             ),
           },
       ];
-      final saved = await MobileApi.instance.preparationUpsertFormula(
+      final name = _editingName ?? _nameController.text.trim();
+      await MobileApi.instance.preparationUpsertFormula(
         widget.productCode,
         lines,
+        name: name,
       );
       if (!mounted) return;
-      // Serverdagi haqiqatni qayta o'qib olamiz — ekrandagi ro'yxat
-      // saqlangan bilan 1:1 mos bo'lishi uchun (upsert javobiga ishonmaymiz).
-      PreparationFormula fresh = saved;
-      try {
-        fresh = await MobileApi.instance.preparationFormula(widget.productCode);
-      } catch (_) {
-        // GET xatosi bo'lsa upsert javobini ko'rsatamiz.
-      }
-      if (!mounted) return;
-      setState(() {
-        _formula = fresh;
-        _saving = false;
-      });
+      setState(() => _saving = false);
       _closeEditor();
+      await _refreshFormulas();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Formula saqlandi')),
       );
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteFormula(PreparationFormula formula) async {
+    if (_deleting) return;
+    final confirmed = await showM3ConfirmDialog(
+          context: context,
+          title: 'Formulani o‘chirish',
+          message: '«${formula.name}» formulasi o‘chirilsinmi?',
+          cancelLabel: 'Bekor qilish',
+          confirmLabel: 'O‘chirish',
+          destructive: true,
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+    setState(() => _deleting = true);
+    try {
+      await MobileApi.instance.preparationDeleteFormula(
+        widget.productCode,
+        formula.name,
+      );
+      if (!mounted) return;
+      setState(() => _deleting = false);
+      await _refreshFormulas();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Formula o‘chirildi')),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _deleting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString())),
         );
@@ -329,7 +389,6 @@ class _PreparationOrderFormulaScreenState
             ? customer
             : '$customer • ${widget.productTitle}';
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-    final lines = _formula?.lines ?? const <PreparationFormulaLine>[];
 
     return AppShell(
       title: 'Formulalar',
@@ -435,7 +494,9 @@ class _PreparationOrderFormulaScreenState
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Yangi formula',
+                                    _editingName == null
+                                        ? 'Yangi formula'
+                                        : '«$_editingName»',
                                     style: theme.textTheme.titleMedium
                                         ?.copyWith(
                                             fontWeight: FontWeight.w800),
@@ -449,6 +510,24 @@ class _PreparationOrderFormulaScreenState
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 12),
+                            if (_editingName == null)
+                              TextField(
+                                key: const ValueKey(
+                                    'preparation-formula-name'),
+                                controller: _nameController,
+                                enabled: !_saving,
+                                maxLength: 80,
+                                textInputAction: TextInputAction.next,
+                                onChanged: (_) => setState(() {}),
+                                decoration: const InputDecoration(
+                                  labelText: 'Formula nomi',
+                                  hintText: 'Masalan: Asosiy',
+                                  counterText: '',
+                                ),
+                              )
+                            else
+                              _FormulaNameBanner(name: _editingName!),
                             const SizedBox(height: 12),
                             for (var i = 0; i < _rows.length; i++) ...[
                               if (i > 0) const SizedBox(height: 12),
@@ -502,13 +581,13 @@ class _PreparationOrderFormulaScreenState
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Text(
-                    'Saqlangan formula',
+                    'Saqlangan formulalar (${_formulas.length})',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                if (lines.isEmpty)
+                if (_formulas.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Card(
@@ -528,44 +607,162 @@ class _PreparationOrderFormulaScreenState
                     ),
                   )
                 else
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Card(
-                      margin: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
+                  for (var f = 0; f < _formulas.length; f++) ...[
+                    if (f > 0) const SizedBox(height: 12),
+                    _SavedFormulaCard(
+                      formula: _formulas[f],
+                      deleting: _deleting,
+                      onEdit: () => _openEditor(existing: _formulas[f]),
+                      onDelete: () => _deleteFormula(_formulas[f]),
+                    ),
+                  ],
+              ],
+            ),
+    );
+  }
+}
+
+/// Tahrirlanayotgan formula nomi (o'zgarmas — nom card kaliti).
+class _FormulaNameBanner extends StatelessWidget {
+  const _FormulaNameBanner({required this.name});
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              Icons.label_outline_rounded,
+              size: 20,
+              color: scheme.onPrimaryContainer,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                name,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: scheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Saqlangan bitta formula cardi: nomi yozilgan sarlavha + seriyalar.
+/// Cardlar nom bo'yicha alifboda (API shunday qaytaradi).
+class _SavedFormulaCard extends StatelessWidget {
+  const _SavedFormulaCard({
+    required this.formula,
+    required this.deleting,
+    required this.onEdit,
+    required this.onDelete,
+  });
+  final PreparationFormula formula;
+  final bool deleting;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Card(
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              key: ValueKey('preparation-formula-card-${formula.name}'),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              onTap: onEdit,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 8, 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.functions_rounded,
+                      color: scheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          for (var i = 0; i < lines.length; i++)
-                            ListTile(
-                              key: ValueKey(
-                                  'preparation-formula-line-${lines[i].itemCode}'),
-                              leading: CircleAvatar(
-                                child: Text('${i + 1}'),
-                              ),
-                              title: Text(
-                                lines[i].name.isEmpty
-                                    ? lines[i].itemCode
-                                    : lines[i].name,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700),
-                              ),
-                              subtitle: Text(lines[i].itemCode),
-                              trailing: Text(
-                                '${preparationDisplay(lines[i].percent)}%',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: scheme.primary,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
+                          Text(
+                            formula.name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
                             ),
+                          ),
+                          Text(
+                            '${formula.lines.length} ta seriya • tahrirlash uchun bosing',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  ),
-              ],
+                    IconButton(
+                      tooltip: 'O‘chirish',
+                      onPressed: deleting ? null : onDelete,
+                      icon: Icon(
+                        Icons.delete_outline_rounded,
+                        color: scheme.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
+            const Divider(height: 1),
+            for (var i = 0; i < formula.lines.length; i++)
+              ListTile(
+                key: ValueKey(
+                    'preparation-formula-line-${formula.name}-${formula.lines[i].itemCode}'),
+                leading: CircleAvatar(
+                  child: Text('${i + 1}'),
+                ),
+                title: Text(
+                  formula.lines[i].name.isEmpty
+                      ? formula.lines[i].itemCode
+                      : formula.lines[i].name,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(formula.lines[i].itemCode),
+                trailing: Text(
+                  '${preparationDisplay(formula.lines[i].percent)}%',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

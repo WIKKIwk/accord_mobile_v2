@@ -124,6 +124,7 @@ class PreparationFormulaLine {
 class PreparationFormula {
   const PreparationFormula({
     required this.productCode,
+    required this.name,
     required this.lines,
   });
   factory PreparationFormula.fromJson(Map<String, dynamic> json) {
@@ -144,11 +145,38 @@ class PreparationFormula {
             ? byName
             : a.itemCode.compareTo(b.itemCode);
       });
+    final rawName = json['name'] as String?;
     return PreparationFormula(
       productCode: (json['product_code'] as String? ?? '').trim(),
+      name: (rawName == null || rawName.trim().isEmpty)
+          ? 'Asosiy'
+          : rawName.trim(),
       lines: List<PreparationFormulaLine>.unmodifiable(sorted),
     );
   }
+
+  /// GET /formulas javobi: {"product_code":..., "formulas":[...]}.
+  /// Nom bo'yicha alifbo tartibida saralanadi.
+  static List<PreparationFormula> listFromJson(Map<String, dynamic> json) {
+    final productCode = (json['product_code'] as String? ?? '').trim();
+    final raw = json['formulas'];
+    if (raw is! List) return const [];
+    final formulas = [
+      for (final e in raw)
+        if (e is Map)
+          PreparationFormula.fromJson({
+            'product_code': productCode,
+            ...Map<String, dynamic>.from(e),
+          }),
+    ]..sort((a, b) {
+        final byName =
+            a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        return byName != 0 ? byName : a.name.compareTo(b.name);
+      });
+    return List<PreparationFormula>.unmodifiable(formulas);
+  }
+
   final String productCode;
+  final String name;
   final List<PreparationFormulaLine> lines;
 }

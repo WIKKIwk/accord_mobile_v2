@@ -115,9 +115,10 @@ extension MobileApiPreparation on MobileApi {
     }
   }
 
-  /// Tayyorlov formulasi: bitta tayyor mahsulot kodi uchun
-  /// seriya (homashyo) + foiz ro'yxati. Alifbo tartibi serverda saqlanadi.
-  Future<PreparationFormula> preparationFormula(String productCode) async {
+  /// Tayyorlov formula cardlari: bitta tayyor mahsulot kodi uchun
+  /// bir nechta nomli formula. Cardlar nom bo'yicha alifboda.
+  Future<List<PreparationFormula>> preparationFormulas(
+      String productCode) async {
     final code = productCode.trim();
     if (code.isEmpty) {
       throw const MobileApiException(
@@ -133,13 +134,14 @@ extension MobileApiPreparation on MobileApi {
       return _get(uri, headers: _headers(requireToken()));
     });
     if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
-    return PreparationFormula.fromJson(_preparationResponse(response));
+    return PreparationFormula.listFromJson(_preparationResponse(response));
   }
 
   Future<PreparationFormula> preparationUpsertFormula(
     String productCode,
-    List<Map<String, String>> lines,
-  ) async {
+    List<Map<String, String>> lines, {
+    String? name,
+  }) async {
     final key = _preparationStorageKey();
     final response = await _sendAuthorized(() {
       if (_preparationStorageKey() != key) {
@@ -149,11 +151,34 @@ extension MobileApiPreparation on MobileApi {
           Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formulas'),
           headers: _headers(requireToken())
             ..['Content-Type'] = 'application/json',
-          body:
-              jsonEncode({'product_code': productCode.trim(), 'lines': lines}));
+          body: jsonEncode({
+            'product_code': productCode.trim(),
+            if (name != null) 'name': name.trim(),
+            'lines': lines,
+          }));
     });
     if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
     return PreparationFormula.fromJson(_preparationResponse(response));
+  }
+
+  Future<void> preparationDeleteFormula(
+    String productCode,
+    String name,
+  ) async {
+    final key = _preparationStorageKey();
+    final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formulas')
+        .replace(queryParameters: {
+      'product_code': productCode.trim(),
+      'name': name.trim(),
+    });
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) {
+        throw StateError('Akkaunt o‘zgargan');
+      }
+      return _delete(uri, headers: _headers(requireToken()));
+    });
+    if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+    _preparationResponse(response);
   }
 }
 
