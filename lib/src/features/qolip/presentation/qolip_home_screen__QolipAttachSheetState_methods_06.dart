@@ -98,11 +98,19 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
               ? null
               : 'qolip:products',
           loadPage: (query, offset, limit) async {
-            if (!isCellPlacement && query.trim().isEmpty) {
+            if (!isCellPlacement) {
+              // Admin'dagi kabi server-side qidiruvni reuse qilamiz:
+              // backend `q` bo'yicha LIKE filtrlaydi, telefon 20k yuklab
+              // lokal fuzzy qilmaydi. Backend'da offset yo'q, shuning
+              // uchun keyingi sahifalar bo'sh qaytadi (avvalgi bo'sh
+              // query yo'li bilan bir xil).
               if (offset > 0) {
                 return const <QolipProduct>[];
               }
-              return MobileApi.instance.qolipProducts(limit: limit);
+              return MobileApi.instance.qolipProducts(
+                query: query,
+                limit: limit,
+              );
             }
             final products = await _loadProducts();
             final available = isCellPlacement
