@@ -291,8 +291,17 @@ class _PreparationOrderFormulaScreenState
         lines,
       );
       if (!mounted) return;
+      // Serverdagi haqiqatni qayta o'qib olamiz — ekrandagi ro'yxat
+      // saqlangan bilan 1:1 mos bo'lishi uchun (upsert javobiga ishonmaymiz).
+      PreparationFormula fresh = saved;
+      try {
+        fresh = await MobileApi.instance.preparationFormula(widget.productCode);
+      } catch (_) {
+        // GET xatosi bo'lsa upsert javobini ko'rsatamiz.
+      }
+      if (!mounted) return;
       setState(() {
-        _formula = saved;
+        _formula = fresh;
         _saving = false;
       });
       _closeEditor();
