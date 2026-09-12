@@ -452,36 +452,17 @@ class _PreparationWarehouseScreenState
                     'preparation-warehouse-filter-chip'),
                 optionKeyPrefix: 'preparation-warehouse-filter-option',
               ),
-              if (_warehouses.length > 1 && _warehouse == null) ...[
-                M3SegmentSpacedColumn(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    for (var i = 0; i < _warehouses.length; i++)
-                      _PreparationWarehousePickerRow(
-                        slot:
-                            M3SegmentedListGeometry.standaloneListSlotForIndex(
-                          i,
-                          _warehouses.length,
-                        ),
-                        title: _warehouses[i],
-                        onTap: () => _selectWarehouse(_warehouses[i]),
-                      ),
-                  ],
+              if (_warehouse == null) ...[
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Yuqoridagi filtrdan ombor tanlang.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
               ] else ...[
-                if (_warehouses.length > 1)
-                  M3SegmentSpacedColumn(
-                    padding: EdgeInsets.zero,
-                    children: [
-                      _PreparationWarehousePickerRow(
-                        slot: M3SegmentVerticalSlot.top,
-                        title: _warehouse!,
-                        subtitle: 'Omborni almashtirish',
-                        onTap: () => setState(() => _warehouse = null),
-                      ),
-                    ],
-                  ),
-                if (_warehouses.length > 1) const SizedBox(height: 12),
                 if (filtered.isEmpty)
                   Padding(
                     padding: const EdgeInsets.all(16),
@@ -514,60 +495,6 @@ class _PreparationWarehouseScreenState
           ],
         ),
       ),
-    );
-  }
-}
-
-class _PreparationWarehousePickerRow extends StatelessWidget {
-  const _PreparationWarehousePickerRow({
-    required this.slot,
-    required this.title,
-    this.subtitle,
-    this.onTap,
-  });
-
-  final M3SegmentVerticalSlot slot;
-  final String title;
-  final String? subtitle;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return AdminSummaryCard(
-      slot: slot,
-      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      backgroundColor: scheme.surfaceContainerLowest,
-      fixedHeight: 61,
-      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
-      value: '',
-      onTap: onTap,
-      showChevron: onTap != null,
-      leading: SizedBox.square(
-        dimension: 30,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: scheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.warehouse_outlined,
-            size: 16,
-            color: scheme.onSecondaryContainer,
-          ),
-        ),
-      ),
-      title: title,
-      subtitle: subtitle ?? '',
-      titleMaxLines: 1,
-      subtitleMaxLines: 1,
-      titleStyle: Theme.of(
-        context,
-      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.05,
-          ),
     );
   }
 }
