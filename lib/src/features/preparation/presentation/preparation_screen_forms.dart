@@ -189,10 +189,12 @@ class _PreparationWarehouseScreenState
 
   List<PreparationMaterial> get _filtered {
     final q = _query.trim().toLowerCase();
-    final inWarehouse =
-        _materials.where((m) => m.balances.containsKey(_warehouse)).toList();
-    if (q.isEmpty) return inWarehouse;
-    return inWarehouse
+    // Barcha homashyolar ko'rinadi — yangi (qoldiqsiz) material ham.
+    // Qoldiq bo'lmasa available() '0' qaytaradi. Balans bo'yicha filtrlab
+    // qo'ysak, yangi material hech qayerda ko'rinmay qoladi va unga birinchi
+    // kirimni ham qilib bo'lmaydi.
+    if (q.isEmpty) return _materials;
+    return _materials
         .where((m) => '${m.name} ${m.code}'.toLowerCase().contains(q))
         .toList();
   }

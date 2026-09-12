@@ -168,9 +168,9 @@ class _PreparationScreenState extends State<PreparationScreen> {
     }
     final material = await _pick<PreparationMaterial>(
       title: 'Homashyo tanlang',
-      items: data.materials
-          .where((m) => m.balances.containsKey(_warehouse))
-          .toList(),
+      // Barcha homashyolar: yangi (qoldiqsiz) materialga ham birinchi
+      // kirim shu yerdan qilinadi. Balans filtri uni yashirib qo'yardi.
+      items: data.materials.toList(),
       label: (m) => m.name,
       subtitle: (m) =>
           'Mavjud: ${preparationDisplay(m.available(_warehouse))} kg',
