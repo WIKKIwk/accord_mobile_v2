@@ -16,7 +16,8 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     final displayName = profile?.displayName.trim().toLowerCase() ?? '';
     return assignments
         .where((assignment) =>
-            assignment.principalRole == UserRole.materialTaminotchi)
+            assignment.principalRole == UserRole.materialTaminotchi ||
+            assignment.principalRole == UserRole.tayyorlovMasteri)
         .where((assignment) {
           final ref = assignment.principalRef.trim().toLowerCase();
           final name = assignment.displayName.trim().toLowerCase();
@@ -366,7 +367,9 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
   }
 
   Future<bool> _materialWarehouseAllowed(String warehouse) async {
-    if (AppSession.instance.profile?.role != UserRole.materialTaminotchi) {
+    final role = AppSession.instance.profile?.role;
+    if (role != UserRole.materialTaminotchi &&
+        role != UserRole.tayyorlovMasteri) {
       return true;
     }
     final allowed = await _materialAssignedWarehouseNames();

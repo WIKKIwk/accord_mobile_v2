@@ -198,6 +198,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
         _batchActionLoading = false;
       });
       _showPrintSuccess(response);
+      _notifyPrintSucceeded(response);
       unawaited(_refresh());
     } catch (error) {
       if (!mounted) {
@@ -208,6 +209,19 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
         _errorText = rpsBatchActionErrorMessage(error);
       });
     }
+  }
+
+  /// Chop muvaffaqiyatli bo'lsa va order konteksti berilgan bo'lsa —
+  /// wrapper'ga xabar (masalan orderga avtomatik ulash uchun).
+  /// Callback yo'q bo'lsa hech narsa qilinmaydi (eski xulq).
+  void _notifyPrintSucceeded(GScaleMaterialReceiptPrintResponse response) {
+    final callback = widget.onPrintSucceeded;
+    if (callback == null || widget.linkedOrderId.trim().isEmpty) {
+      return;
+    }
+    unawaited(
+      Future<void>.microtask(() => callback(response)).catchError((_) {}),
+    );
   }
 
   void _showPrintSuccess(GScaleMaterialReceiptPrintResponse response) {
@@ -338,6 +352,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
         return;
       }
       _showPrintSuccess(response);
+      _notifyPrintSucceeded(response);
       _scheduleSaveControlPrefs();
       unawaited(_refresh());
     } catch (error) {

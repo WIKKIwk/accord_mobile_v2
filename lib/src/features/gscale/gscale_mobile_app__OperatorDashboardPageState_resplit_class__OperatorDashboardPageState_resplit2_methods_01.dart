@@ -12,6 +12,8 @@ extension __OperatorDashboardPageStateAstPartResplit2_01
   }
 
   bool get _warehouseIndependentOfItem {
-    return AppSession.instance.profile?.role == UserRole.materialTaminotchi;
+    final role = AppSession.instance.profile?.role;
+    return role == UserRole.materialTaminotchi ||
+        role == UserRole.tayyorlovMasteri;
   }
 }

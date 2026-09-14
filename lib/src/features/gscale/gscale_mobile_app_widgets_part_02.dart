@@ -380,6 +380,8 @@ class OperatorDashboardPage extends StatefulWidget {
     this.rpsBatchStateLoader,
     this.rpsBatchHistoryLoader,
     this.rpsBatchUpdater,
+    this.linkedOrderId = '',
+    this.onPrintSucceeded,
     super.key,
   });
 
@@ -396,6 +398,12 @@ class OperatorDashboardPage extends StatefulWidget {
   final Future<List<GScaleRpsBatchSession>> Function()? rpsBatchHistoryLoader;
   final Future<GScaleRpsBatchResponse> Function(GScaleRpsBatchUpdateRequest)?
       rpsBatchUpdater;
+
+  /// Chop etilgan homashyoni shu orderga ulash uchun kontekst.
+  /// Bo'sh bo'lsa yoki callback yo'q bo'lsa — eski xulq (hech narsa qilinmaydi).
+  final String linkedOrderId;
+  final Future<void> Function(GScaleMaterialReceiptPrintResponse)?
+      onPrintSucceeded;
 
   @override
   State<OperatorDashboardPage> createState() => _OperatorDashboardPageState();

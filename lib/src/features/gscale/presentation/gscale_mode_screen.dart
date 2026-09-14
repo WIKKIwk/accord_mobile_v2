@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../gscale_mobile_app.dart';
 import '../../../app/app_router.dart';
+import '../../../core/api/mobile_api.dart';
 import '../../../core/session/session.dart';
 import '../../../core/native_bluetooth_printer.dart';
 import '../../../core/native_usb_printer.dart';
@@ -41,7 +42,7 @@ class GScaleModeScreen extends StatelessWidget {
           onNavigate: _replaceDrawerRoute(context),
         ),
         bottom: const PreparationDock(),
-        header: const PreparationKirimOrderSection(),
+        linkPrintsToOrder: true,
       );
     }
     return GScaleMobileApp(
@@ -71,12 +72,15 @@ class _MaterialGScaleControlScreen extends StatefulWidget {
   const _MaterialGScaleControlScreen({
     required this.drawer,
     required this.bottom,
-    this.header,
+    this.linkPrintsToOrder = false,
   });
 
   final Widget drawer;
   final Widget bottom;
-  final Widget? header;
+
+  /// true bo'lsa chop etilgan har bir homashyo tanlangan orderga
+  /// avtomatik ulanadi (tayyorlov kirimi). Material oqimida false.
+  final bool linkPrintsToOrder;
 
   @override
   State<_MaterialGScaleControlScreen> createState() =>
@@ -90,6 +94,7 @@ class _MaterialGScaleControlScreenState
   BluetoothPrinterProfile? _bluetoothPrinter;
   PrintTransport _printTransport = PrintTransport.wifi;
   bool _deviceNeedsAttention = false;
+  String? _linkedOrderId;
 
   @override
   void initState() {
@@ -186,9 +191,58 @@ class _MaterialGScaleControlScreenState
     await _applyDeviceSelection(selection);
   }
 
+  /// Chop etilgan homashyoni tanlangan orderga avtomatik ulash
+  /// (faqat linkPrintsToOrder rejimida).
+  Future<void> _linkPrintToOrder(
+    GScaleMaterialReceiptPrintResponse response,
+  ) async {
+    final orderId = _linkedOrderId?.trim() ?? '';
+    final barcode = response.epc.trim();
+    if (orderId.isEmpty || barcode.isEmpty || !mounted) {
+      return;
+    }
+    try {
+      await MobileApi.instance.adminAssignRawMaterialToOrder(
+        orderId: orderId,
+        barcode: barcode,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Homashyo orderga ulandi')),
+      );
+    } on MobileApiException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      if (e.code.contains('already_assigned')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bu homashyo allaqachon orderga ulangan'),
+          ),
+        );
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final header = widget.header;
+    final header = widget.linkPrintsToOrder
+        ? PreparationKirimOrderSection(
+            onOrderChanged: (id) => setState(() => _linkedOrderId = id),
+          )
+        : null;
     return AppShell(
       title: 'Homashyo kirimi',
       subtitle: '',
@@ -218,6 +272,11 @@ class _MaterialGScaleControlScreenState
               offlinePrinter: _offlinePrinter,
               bluetoothPrinter: _bluetoothPrinter,
               deviceNeedsAttention: _deviceNeedsAttention,
+              linkedOrderId:
+                  widget.linkPrintsToOrder ? (_linkedOrderId ?? '') : '',
+              onPrintSucceeded: widget.linkPrintsToOrder
+                  ? (response) => _linkPrintToOrder(response)
+                  : null,
               onExitMode: () async {
                 if (Navigator.of(context).canPop()) {
                   Navigator.of(context).pop();

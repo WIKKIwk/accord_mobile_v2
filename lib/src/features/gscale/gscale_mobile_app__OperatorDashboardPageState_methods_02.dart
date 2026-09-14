@@ -396,7 +396,9 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
   Future<List<MobileWarehouse>> _filterMaterialWarehouses(
     List<MobileWarehouse> warehouses,
   ) async {
-    if (AppSession.instance.profile?.role != UserRole.materialTaminotchi) {
+    final role = AppSession.instance.profile?.role;
+    if (role != UserRole.materialTaminotchi &&
+        role != UserRole.tayyorlovMasteri) {
       return warehouses;
     }
     final allowed = await _materialAssignedWarehouseNames();
