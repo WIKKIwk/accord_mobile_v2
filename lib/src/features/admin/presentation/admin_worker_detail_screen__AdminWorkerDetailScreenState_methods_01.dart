@@ -88,8 +88,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
     }
   }
 
-  Future<List<String>> _loadAssignedWarehouses() async {
-    final loadAssignments = widget.warehouseAssignmentsLoader;
+    Future<List<String>> _loadAssignedWarehouses() async {    final loadAssignments = widget.warehouseAssignmentsLoader;
     final assignments = loadAssignments == null
         ? await MobileApi.instance.adminWarehouseAssignments()
         : await loadAssignments();
@@ -103,6 +102,10 @@ extension __AdminWorkerDetailScreenStateAstPart01
           )
           .map((assignment) => assignment.warehouse),
     );
+  }
+
+  Future<List<PreparationResponsibility>> _loadAssignedResponsibilities() {
+    return MobileApi.instance.preparationResponsibilities(_workerId);
   }
 
   Future<void> _reload() async {
@@ -124,6 +127,13 @@ extension __AdminWorkerDetailScreenStateAstPart01
               onTimeout: () => throw Exception('Omborlar yuklash vaqti tugadi'),
             )
           : const <String>[];
+      final assignedResponsibilities = _isTayyorlovMasteri
+          ? await _loadAssignedResponsibilities().timeout(
+              const Duration(seconds: 15),
+              onTimeout: () =>
+                  throw Exception('Homashyolar yuklash vaqti tugadi'),
+            )
+          : const <PreparationResponsibility>[];
       if (!mounted) {
         return;
       }
@@ -131,6 +141,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
       setState(() {
         _detail = detail;
         _assignedWarehouses = assignedWarehouses;
+        _assignedResponsibilities = assignedResponsibilities;
         _loadError = null;
         _loading = false;
       });

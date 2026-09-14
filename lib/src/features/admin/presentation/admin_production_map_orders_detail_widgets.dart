@@ -573,7 +573,9 @@ class _TayyorlovSummaryOrderHeader extends StatelessWidget {
 }
 
 /// Tayyorlov masteri bottom sheet'dagi ikki card tagidagi
-/// "Formulalar" tugmasi. Bosilganda alohida formula sahifasiga o'tadi.
+/// "Formulalar" tugmasi. Avval bu orderning qaysi homashyosi so'raladi
+/// (user'ga biriktirilganlar ichidan), keyin shu homashyo formulasi
+/// sahifasi ochiladi. Formula shu (mahsulot, homashyo) scope'ga saqlanadi.
 class _TayyorlovFormulaButton extends StatelessWidget {
   const _TayyorlovFormulaButton({
     required this.map,
@@ -581,6 +583,63 @@ class _TayyorlovFormulaButton extends StatelessWidget {
   });
   final ProductionMapDefinition map;
   final String? customerName;
+
+  Future<void> _openForOrder(BuildContext context) async {
+    final orderId = map.id.trim();
+    if (orderId.isEmpty) {
+      return;
+    }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    List<PreparationResponsibility> materials = const [];
+    Object? loadError;
+    try {
+      materials = await MobileApi.instance.preparationOrderMaterials(orderId);
+    } catch (e) {
+      loadError = e;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    Navigator.of(context, rootNavigator: true).pop();
+    if (loadError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loadError.toString())),
+      );
+      return;
+    }
+    if (materials.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Bu orderda sizga biriktirilgan homashyo topilmadi.'),
+        ),
+      );
+      return;
+    }
+    final picked = await _pickOrderHomashyo(context, materials);
+    if (picked == null || !context.mounted) {
+      return;
+    }
+    final materialName = picked.materialName.trim().isEmpty
+        ? picked.materialId.trim()
+        : picked.materialName.trim();
+    await Navigator.of(context).push(
+      PreparationOrderFormulaScreen.route(
+        orderId: orderId,
+        orderCode: _openedOrderDisplayCode(map).trim(),
+        productCode: map.productCode.trim(),
+        productTitle:
+            _openedOrderPrimaryTitle(map, l10n: context.l10n).trim(),
+        materialId: picked.materialId,
+        materialName: materialName,
+        customerName: customerName,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -596,18 +655,7 @@ class _TayyorlovFormulaButton extends StatelessWidget {
       child: InkWell(
         key: const ValueKey('tayyorlov-formula-button'),
         borderRadius: BorderRadius.circular(18),
-        onTap: () {
-          Navigator.of(context).push(
-            PreparationOrderFormulaScreen.route(
-              orderId: map.id.trim(),
-              orderCode: _openedOrderDisplayCode(map).trim(),
-              productCode: map.productCode.trim(),
-              productTitle:
-                  _openedOrderPrimaryTitle(map, l10n: context.l10n).trim(),
-              customerName: customerName,
-            ),
-          );
-        },
+        onTap: () => _openForOrder(context),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
           child: Row(
@@ -633,6 +681,139 @@ class _TayyorlovFormulaButton extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Homashyo tanlash ro'yxati — admin user list'ning o'zi
+/// ([AdminSupplierListRow]) reuse qilinadi, alohida style yozilmaydi.
+/// Bitta homashyo bo'lsa ham ro'yxat ko'rsatiladi.
+Future<PreparationResponsibility?> _pickOrderHomashyo(
+  BuildContext context,
+  List<PreparationResponsibility> materials,
+) {
+  return showModalBottomSheet<PreparationResponsibility>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    sheetAnimationStyle: kM3PickerSheetAnimation,
+    builder: (sheetContext) =>
+        _OrderHomashyoPickerSheet(materials: materials),
+  );
+}
+
+class _OrderHomashyoPickerSheet extends StatefulWidget {
+  const _OrderHomashyoPickerSheet({required this.materials});
+  final List<PreparationResponsibility> materials;
+
+  @override
+  State<_OrderHomashyoPickerSheet> createState() =>
+      _OrderHomashyoPickerSheetState();
+}
+
+class _OrderHomashyoPickerSheetState
+    extends State<_OrderHomashyoPickerSheet> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final query = _query.trim().toLowerCase();
+    final filtered = query.isEmpty
+        ? widget.materials
+        : widget.materials
+            .where((item) =>
+                '${item.materialName} ${item.materialId}'
+                    .toLowerCase()
+                    .contains(query))
+            .toList(growable: false);
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      builder: (_, scrollController) => Container(
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text(
+                'Qaysi homashyo formulasi?',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _query = value),
+                decoration: const InputDecoration(
+                  hintText: 'Qidirish',
+                  prefixIcon: Icon(Icons.search_rounded),
+                ),
+              ),
+            ),
+            Expanded(
+              child: filtered.isEmpty
+                  ? const Center(
+                      child: Text('Topilmadi'),
+                    )
+                  : ListView.builder(
+                      controller: scrollController,
+                      padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
+                      itemCount: filtered.length,
+                      itemBuilder: (_, index) {
+                        final item = filtered[index];
+                        final name = item.materialName.trim().isEmpty
+                            ? item.materialId.trim()
+                            : item.materialName.trim();
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            top: index == 0
+                                ? 0
+                                : M3SegmentedListGeometry.gap,
+                          ),
+                          child: AdminSupplierListRow(
+                            key: ValueKey(
+                                'order-homashyo-${item.materialId}'),
+                            slot: M3SegmentedListGeometry
+                                .standaloneListSlotForIndex(
+                              index,
+                              filtered.length,
+                            ),
+                            item: AdminUserListEntry(
+                              id: item.materialId,
+                              name: name,
+                              phone: '',
+                              kind: AdminUserKind.supplier,
+                              roleLabelOverride: 'Homashyo formulasi',
+                            ),
+                            onTap: () =>
+                                Navigator.of(context).pop(item),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
       ),
     );

@@ -10,14 +10,11 @@ import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
 import 'preparation_navigation.dart';
 
-/// Tayyorlov masteri uchun formula sahifasi.
+/// Tayyorlov masteri uchun formula sahifasi — bitta homashyo scope'ida.
 ///
-/// - FAB da faqat "Formula qo'shish" turadi.
-/// - Uni bosganda markaziy card ochiladi: "Seriya tanlang" -> foiz maydoni.
-/// - Card dagi "Seriya qo'shish" yana bir qator qo'shadi.
-/// - Seriya tanlash bottom sheet da seriyalar ro'yxatini ko'rsatadi.
-/// - "Saqlash" formula chizig'ini [productCode] ga bog'lab ERP ga yozadi
-///   (alifbo tartibida). Keyingi safar shu mahsulot ochilganda ro'yxat chiqadi.
+/// Ochilishdan oldin qaysi homashyo so'raladi (user'ga biriktirilganlar ichidan),
+/// sahifa faqat shu (productCode, materialId) formulalarini ko'rsatadi va
+/// saqlash ham shu scope'ga yoziladi.
 class PreparationOrderFormulaScreen extends StatefulWidget {
   const PreparationOrderFormulaScreen({
     super.key,
@@ -25,6 +22,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
     required this.orderCode,
     required this.productCode,
     required this.productTitle,
+    required this.materialId,
+    required this.materialName,
     this.customerName,
   });
 
@@ -32,6 +31,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
   final String orderCode;
   final String productCode;
   final String productTitle;
+  final String materialId;
+  final String materialName;
   final String? customerName;
 
   static Route<void> route({
@@ -39,6 +40,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
     required String orderCode,
     required String productCode,
     required String productTitle,
+    required String materialId,
+    required String materialName,
     String? customerName,
   }) {
     return PreparationOrderFormulaRoute(
@@ -47,6 +50,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
         orderCode: orderCode,
         productCode: productCode,
         productTitle: productTitle,
+        materialId: materialId,
+        materialName: materialName,
         customerName: customerName,
       ),
     );
@@ -102,8 +107,10 @@ class _PreparationOrderFormulaScreenState
       final snapshot = await MobileApi.instance.preparationSnapshot();
       List<PreparationFormula> formulas = const [];
       try {
-        formulas =
-            await MobileApi.instance.preparationFormulas(widget.productCode);
+        formulas = await MobileApi.instance.preparationFormulas(
+          widget.productCode,
+          materialId: widget.materialId,
+        );
       } catch (_) {
         // Formula yo'q bo'lsa bo'sh ro'yxat — xatolik emas.
       }
@@ -127,8 +134,10 @@ class _PreparationOrderFormulaScreenState
 
   Future<void> _refreshFormulas() async {
     try {
-      final formulas =
-          await MobileApi.instance.preparationFormulas(widget.productCode);
+      final formulas = await MobileApi.instance.preparationFormulas(
+        widget.productCode,
+        materialId: widget.materialId,
+      );
       if (mounted) setState(() => _formulas = formulas);
     } catch (e) {
       if (mounted) {
@@ -334,6 +343,7 @@ class _PreparationOrderFormulaScreenState
         widget.productCode,
         lines,
         name: name,
+        materialId: widget.materialId,
       );
       if (!mounted) return;
       setState(() => _saving = false);
@@ -370,6 +380,7 @@ class _PreparationOrderFormulaScreenState
       await MobileApi.instance.preparationDeleteFormula(
         widget.productCode,
         formula.name,
+        materialId: widget.materialId,
       );
       if (!mounted) return;
       setState(() => _deleting = false);
@@ -399,10 +410,18 @@ class _PreparationOrderFormulaScreenState
             ? customer
             : '$customer • ${widget.productTitle}';
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
+    final materialLabel = widget.materialName.trim().isEmpty
+        ? widget.materialId.trim()
+        : widget.materialName.trim();
+    final codeLabel = widget.orderCode.isEmpty ? '' : widget.orderCode;
 
     return AppShell(
       title: 'Formulalar',
-      subtitle: widget.orderCode.isEmpty ? '' : widget.orderCode,
+      subtitle: codeLabel.isEmpty
+          ? materialLabel
+          : materialLabel.isEmpty
+              ? codeLabel
+              : '$materialLabel • $codeLabel',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
@@ -696,6 +715,8 @@ class _SavedFormulaCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Card(
         margin: EdgeInsets.zero,
+        elevation: 0,
+        color: scheme.surfaceContainerLowest,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
         ),

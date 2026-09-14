@@ -82,11 +82,32 @@ class PreparationSnapshot {
             .toList(),
         history = (json['history'] as List)
             .map((m) => Map<String, dynamic>.from(m as Map))
+            .toList(),
+        responsibilities = (json['responsibilities'] as List? ?? const [])
+            .map((m) => PreparationResponsibility.fromJson(
+                Map<String, dynamic>.from(m as Map)))
             .toList();
   final List<String> warehouses;
   final List<PreparationMaterial> materials;
   final List<PreparationOrder> orders;
   final List<Map<String, dynamic>> history;
+  final List<PreparationResponsibility> responsibilities;
+}
+
+class PreparationResponsibility {
+  const PreparationResponsibility({
+    required this.materialId,
+    required this.materialName,
+  });
+  factory PreparationResponsibility.fromJson(Map<String, dynamic> json) =>
+      PreparationResponsibility(
+        materialId: (json['material_id'] as String? ?? '').trim(),
+        materialName: (json['material_name'] as String? ?? '').trim(),
+      );
+  Map<String, String> toJson() =>
+      {'material_id': materialId, 'material_name': materialName};
+  final String materialId;
+  final String materialName;
 }
 
 class PreparationPendingCommand {

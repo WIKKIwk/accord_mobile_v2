@@ -88,6 +88,7 @@ enum UserRole {
 | `customer` | `/customer-home` | Yetkazmani ko'rish, tasdiqlash yoki rad etish. |
 | `aparatchi` | `/apparatus-queue` | Biriktirilgan apparat queue'sida ishlab chiqarish amallari. |
 | `qolipchi` | `/qolip` | Qolip bloklari, yacheyka, checkout, return va ko'chirish. |
+| `tayyorlov_masteri` | `/preparation` | Biriktirilgan homashyo oilalari bo'yicha ichki homashyo kirim/sarf; faqat tegishli orderlar ko'rinadi. |
 | `material_taminotchi` | `/material-home` | Homashyo biriktirish, ombor va harakatlar tarixi. |
 | `admin` | `/admin-home` | Katalog, user, role, order, production map, WIP va monitoring. |
 
@@ -575,6 +576,14 @@ QR validity, duplicate dispatch va stock movement backend-owned.
 - cell va Qolip QR;
 - issue checkout, return va move;
 - printer tanlash va QR chop etish.
+
+### Tayyorlov masteri
+
+- `preparation.access` capability bilan `/preparation` workspace;
+- admin user-detail'da biriktirilgan homashyo oilalari (calculate-material, micronsiz);
+- snapshot va `Ketma-ketlik` (`/supply-sequence`) faqat shu homashyolari bor orderlarni ko'rsatadi — biriktirilmagan master bo'sh ko'radi;
+- order bottom sheet'dagi `Formulalar` avval shu orderdagi o'z homashyosini so'raydi, formula shu (mahsulot, homashyo) ga saqlanadi;
+- kirim, formula va order'ga sarf (Order KG × foiz, FIFO).
 
 ### Rezka
 

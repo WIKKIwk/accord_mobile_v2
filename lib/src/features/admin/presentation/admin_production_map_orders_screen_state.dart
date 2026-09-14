@@ -40,6 +40,13 @@ class _AdminProductionMapOrdersScreenState
   int _liveReconnectAttempt = 0;
   String _searchQuery = '';
 
+  /// Tayyorlov masteri supply-viewer filtri: backend snapshot'dagi order id'lar.
+  /// null = hali yuklanmagan (fail-closed: bo'sh ko'rsatiladi).
+  /// Faqat supplyViewerMode + tayyorlovMasteri'da ishlatiladi, boshqa rollarga tegmaydi.
+  Set<String>? _tayyorlovAllowedOrderIds;
+  List<PreparationResponsibility> _tayyorlovResponsibilities = const [];
+  Object? _tayyorlovFilterError;
+
   _OpenedOrderModule _module = _OpenedOrderModule.sequence;
 
   AdminApparatus? _selectedApparatus;
@@ -108,6 +115,10 @@ class _AdminProductionMapOrdersScreenState
       unawaited(_restoreSavedSequenceApparatusPreference());
       unawaited(_startAdminLive());
     }
+    if (widget.supplyViewerMode &&
+        AppSession.instance.profile?.role == UserRole.tayyorlovMasteri) {
+      unawaited(_refreshTayyorlovOrderFilter());
+    }
   }
 
   @override
@@ -149,6 +160,52 @@ class _AdminProductionMapOrdersScreenState
     return widget.workerMode || widget.supplyViewerMode
         ? const [_OpenedOrderModule.sequence]
         : _OpenedOrderModule.values;
+  }
+
+  bool get _tayyorlovOrderFilterActive =>
+      widget.supplyViewerMode &&
+      AppSession.instance.profile?.role == UserRole.tayyorlovMasteri;
+
+  Future<void> _refreshTayyorlovOrderFilter() async {
+    if (!_tayyorlovOrderFilterActive) {
+      return;
+    }
+    try {
+      final snapshot = await MobileApi.instance.preparationSnapshot();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _tayyorlovAllowedOrderIds = {
+          for (final order in snapshot.orders) order.id.trim(),
+        };
+        _tayyorlovResponsibilities =
+            List<PreparationResponsibility>.unmodifiable(snapshot.responsibilities);
+        _tayyorlovFilterError = null;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _tayyorlovAllowedOrderIds = const {};
+        _tayyorlovResponsibilities = const [];
+        _tayyorlovFilterError = error;
+      });
+    }
+  }
+
+  List<ProductionMapSaved> get _supplyFilteredOrders {
+    if (!_tayyorlovOrderFilterActive) {
+      return _orders;
+    }
+    final allowed = _tayyorlovAllowedOrderIds;
+    if (allowed == null || allowed.isEmpty) {
+      return const [];
+    }
+    return _orders
+        .where((order) => allowed.contains(order.map.id.trim()))
+        .toList(growable: false);
   }
 
   @override
@@ -290,6 +347,31 @@ class _AdminProductionMapOrdersScreenState
                             context.l10n.productionText('worker.error.sync'),
                         onRetry: _refreshQueueSnapshot,
                       ),
+                    if (_tayyorlovOrderFilterActive &&
+                        _tayyorlovFilterError != null)
+                      _QueueSnapshotWarningBanner(
+                        message: _tayyorlovFilterError.toString(),
+                        onRetry: _refreshTayyorlovOrderFilter,
+                      ),
+                    if (_tayyorlovOrderFilterActive &&
+                        _tayyorlovFilterError == null &&
+                        _tayyorlovAllowedOrderIds != null &&
+                        _tayyorlovResponsibilities.isEmpty)
+                      _QueueSnapshotWarningBanner(
+                        message:
+                            'Sizga homashyo biriktirilmagan. Admin javobgar homashyoni biriktirgach buyurtmalar ko‘rinadi.',
+                        onRetry: _refreshTayyorlovOrderFilter,
+                      ),
+                    if (_tayyorlovOrderFilterActive &&
+                        _tayyorlovFilterError == null &&
+                        _tayyorlovAllowedOrderIds != null &&
+                        _tayyorlovResponsibilities.isNotEmpty &&
+                        _tayyorlovAllowedOrderIds!.isEmpty)
+                      _QueueSnapshotWarningBanner(
+                        message:
+                            'Biriktirilgan (${_tayyorlovResponsibilities.map((item) => item.materialName.isEmpty ? item.materialId : item.materialName).join(', ')}) bo‘yicha faol buyurtma topilmadi.',
+                        onRetry: _refreshTayyorlovOrderFilter,
+                      ),
                     if (widget.workerMode && _workerCompletedHistoryError)
                       _QueueSnapshotWarningBanner(
                         message: _workerCompletedHistoryErrorMessage ??
@@ -340,7 +422,7 @@ class _AdminProductionMapOrdersScreenState
                               currentModule: _module,
                               tabController: _tabController,
                               bottomPadding: bottomPadding,
-                              orders: _orders,
+                              orders: _supplyFilteredOrders,
                               searchQuery: _searchQuery,
                               apparatus: _apparatus,
                               selectedApparatus: _selectedApparatus,
@@ -1371,7 +1453,7 @@ class _AdminProductionMapOrdersScreenState
 
   List<ProductionMapSaved> _ordersForApparatus(AdminApparatus apparatus) {
     return _productionMapOrdersForApparatus(
-      orders: _orders,
+      orders: _supplyFilteredOrders,
       apparatus: apparatus,
       visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
       sequenceByApparatus: _sequenceByApparatus,

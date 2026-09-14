@@ -17,6 +17,8 @@ import '../../shared/models/app_models.dart';
 import '../../shared/presentation/widgets/profile_info_chip.dart';
 import '../../chat/models/chat_models.dart';
 import '../../chat/presentation/widgets/chat_profile_action_button.dart';
+import '../../preparation/models/preparation_models.dart';
+import 'widgets/admin_preparation_responsibility_editor.dart';
 import '../logic/canonical_apparatus_display.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_profile_avatar.dart';
@@ -42,6 +44,8 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
   bool _adminPanelExpanded = false;
   bool _changed = false;
   List<String> _assignedWarehouses = const <String>[];
+  List<PreparationResponsibility> _assignedResponsibilities =
+      const <PreparationResponsibility>[];
   late final RetryAfterCountdown _retryAfter;
   int get _retryAfterSec => _retryAfter.seconds;
 
@@ -53,6 +57,11 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
       widget.entry.kind == AdminUserKind.qolipchi ||
       widget.entry.kind == AdminUserKind.boyoqchi || widget.entry.kind == AdminUserKind.tayyorlovMasteri || widget.entry.kind == AdminUserKind.homashyoRezkachi;
   bool get _warehouseManagementEnabled => (_isQolipchi || widget.entry.kind == AdminUserKind.tayyorlovMasteri || widget.entry.kind == AdminUserKind.homashyoRezkachi) && !widget.readOnly;
+  bool get _isTayyorlovMasteri =>
+      widget.entry.kind == AdminUserKind.tayyorlovMasteri ||
+      widget.entry.principalRole == UserRole.tayyorlovMasteri;
+  bool get _responsibilityManagementEnabled =>
+      _isTayyorlovMasteri && !widget.readOnly;
   UserRole get _warehousePrincipalRole => widget.entry.kind == AdminUserKind.homashyoRezkachi ? UserRole.homashyoRezkachi : _isQolipchi ? UserRole.qolipchi : UserRole.tayyorlovMasteri;
 
   @override
@@ -157,6 +166,60 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                   onCopyCode: _copyCode,
                 ),
               ),
+              if (_isTayyorlovMasteri) ...[
+                const SizedBox(height: 12),
+                AppSegmentSurfaceCard(
+                  padding: const EdgeInsets.all(16),
+                  child: _responsibilityManagementEnabled
+                      ? AdminPreparationResponsibilityEditor(
+                          assigned: _assignedResponsibilities,
+                          principalRef: _workerId,
+                          displayName: detail.name,
+                          reloadAssigned: _loadAssignedResponsibilities,
+                          onChanged: (items) {
+                            _changed = true;
+                            if (mounted) {
+                              setState(
+                                  () => _assignedResponsibilities = items);
+                            }
+                          },
+                          buttonRadius: _workerDetailFieldRadius,
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Javobgar homashyolar',
+                              style:
+                                  Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                for (final item
+                                    in _assignedResponsibilities)
+                                  Chip(
+                                    key: ValueKey(
+                                        'admin-prep-resp-read-${item.materialId}'),
+                                    avatar: const Icon(
+                                        Icons.inventory_2_outlined,
+                                        size: 17),
+                                    label: Text(
+                                        item.materialName.isEmpty
+                                            ? item.materialId
+                                            : item.materialName),
+                                  ),
+                                if (_assignedResponsibilities.isEmpty)
+                                  const Text(
+                                      'Hech qanday homashyo biriktirilmagan.'),
+                              ],
+                            ),
+                          ],
+                        ),
+                ),
+              ],
               if (!_isSystemUser) ...[
                 const SizedBox(height: 12),
                 _WorkerAssignmentSummaryCard(

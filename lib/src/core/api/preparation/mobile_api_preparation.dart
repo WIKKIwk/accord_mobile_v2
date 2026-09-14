@@ -115,18 +115,29 @@ extension MobileApiPreparation on MobileApi {
     }
   }
 
-  /// Tayyorlov formula cardlari: bitta tayyor mahsulot kodi uchun
-  /// bir nechta nomli formula. Cardlar nom bo'yicha alifboda.
+  /// Tayyorlov formula cardlari: bitta tayyor mahsulot kodi + bitta
+  /// homashyo (calculate-material oilasi) uchun bir nechta nomli formula.
+  /// Cardlar nom bo'yicha alifboda. Homashyo majburiy scope.
   Future<List<PreparationFormula>> preparationFormulas(
-      String productCode) async {
+    String productCode, {
+    required String materialId,
+  }) async {
     final code = productCode.trim();
+    final material = materialId.trim();
     if (code.isEmpty) {
       throw const MobileApiException(
           code: 'preparation_invalid', message: 'Mahsulot kodi topilmadi');
     }
+    if (material.isEmpty) {
+      throw const MobileApiException(
+          code: 'preparation_invalid', message: 'Homashyo tanlanmadi');
+    }
     final key = _preparationStorageKey();
     final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formulas')
-        .replace(queryParameters: {'product_code': code});
+        .replace(queryParameters: {
+      'product_code': code,
+      'material_id': material,
+    });
     final response = await _sendAuthorized(() {
       if (_preparationStorageKey() != key) {
         throw StateError('Akkaunt o‘zgargan');
@@ -141,6 +152,7 @@ extension MobileApiPreparation on MobileApi {
     String productCode,
     List<Map<String, String>> lines, {
     String? name,
+    required String materialId,
   }) async {
     final key = _preparationStorageKey();
     final response = await _sendAuthorized(() {
@@ -153,6 +165,7 @@ extension MobileApiPreparation on MobileApi {
             ..['Content-Type'] = 'application/json',
           body: jsonEncode({
             'product_code': productCode.trim(),
+            'material_id': materialId.trim(),
             if (name != null) 'name': name.trim(),
             'lines': lines,
           }));
@@ -163,13 +176,15 @@ extension MobileApiPreparation on MobileApi {
 
   Future<void> preparationDeleteFormula(
     String productCode,
-    String name,
-  ) async {
+    String name, {
+    required String materialId,
+  }) async {
     final key = _preparationStorageKey();
     final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formulas')
         .replace(queryParameters: {
       'product_code': productCode.trim(),
       'name': name.trim(),
+      'material_id': materialId.trim(),
     });
     final response = await _sendAuthorized(() {
       if (_preparationStorageKey() != key) {
@@ -179,6 +194,38 @@ extension MobileApiPreparation on MobileApi {
     });
     if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
     _preparationResponse(response);
+  }
+
+  /// Order qatlamlaridagi homashyolar — faqat o'ziga biriktirilganlari qaytadi.
+  /// Formula tugmasi uchun: bu orderning qaysi homashyosi so'raladi.
+  Future<List<PreparationResponsibility>> preparationOrderMaterials(
+    String orderId,
+  ) async {
+    final id = orderId.trim();
+    if (id.isEmpty) {
+      throw const MobileApiException(
+          code: 'preparation_invalid', message: 'Order topilmadi');
+    }
+    final key = _preparationStorageKey();
+    final uri = Uri.parse(
+            '${MobileApi.baseUrl}/v1/mobile/preparation/order-materials')
+        .replace(queryParameters: {'order_id': id});
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) {
+        throw StateError('Akkaunt o‘zgargan');
+      }
+      return _get(uri, headers: _headers(requireToken()));
+    });
+    if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+    final data = _preparationResponse(response);
+    final raw = data['materials'];
+    if (raw is! List) return const [];
+    return [
+      for (final e in raw)
+        if (e is Map)
+          PreparationResponsibility.fromJson(
+              Map<String, dynamic>.from(e)),
+    ];
   }
 
   /// Bola ombor ochish: ota ombor ostiga yangi ichki ombor.
@@ -202,6 +249,69 @@ extension MobileApiPreparation on MobileApi {
     if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
     final data = _preparationResponse(response);
     return (data['warehouse'] as String? ?? '').trim();
+  }
+
+  /// Admin: tayyorlov masterining javobgar homashyolari ro'yxati.
+  /// Faqat admin roliga — tayyorlov masteri o'z snapshot'idan ko'radi.
+  Future<List<PreparationResponsibility>> preparationResponsibilities(
+    String principalRef,
+  ) async {
+    final ref = principalRef.trim();
+    if (ref.isEmpty) {
+      throw const MobileApiException(
+          code: 'preparation_invalid', message: 'Foydalanuvchi topilmadi');
+    }
+    final response = await _sendAuthorized(() => _get(
+        Uri.parse(
+                '${MobileApi.baseUrl}/v1/mobile/admin/preparation/responsibilities')
+            .replace(queryParameters: {'principal_ref': ref}),
+        headers: _headers(requireToken())));
+    final data = _preparationResponse(response);
+    final raw = data['materials'];
+    if (raw is! List) return const [];
+    return [
+      for (final e in raw)
+        if (e is Map)
+          PreparationResponsibility.fromJson(
+              Map<String, dynamic>.from(e)),
+    ];
+  }
+
+  /// Admin: tayyorlov masteriga homashyo (calculate-material id) biriktirish.
+  Future<PreparationResponsibility> preparationAssignResponsibility({
+    required String principalRef,
+    required String materialId,
+  }) async {
+    final response = await _sendAuthorized(() => _post(
+        Uri.parse(
+            '${MobileApi.baseUrl}/v1/mobile/admin/preparation/responsibilities'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'principal_ref': principalRef.trim(),
+          'material_id': materialId.trim(),
+        })));
+    final data = _preparationResponse(response);
+    return PreparationResponsibility(
+      materialId: (data['material_id'] as String? ?? '').trim(),
+      materialName: (data['material_name'] as String? ?? '').trim(),
+    );
+  }
+
+  /// Admin: tayyorlov masteridan homashyo biriktirishni olib tashlash.
+  Future<void> preparationUnassignResponsibility({
+    required String principalRef,
+    required String materialId,
+  }) async {
+    final response = await _sendAuthorized(() => _delete(
+        Uri.parse(
+                '${MobileApi.baseUrl}/v1/mobile/admin/preparation/responsibilities')
+            .replace(queryParameters: {
+          'principal_ref': principalRef.trim(),
+          'material_id': materialId.trim(),
+        }),
+        headers: _headers(requireToken())));
+    _preparationResponse(response);
   }
 }
 
