@@ -164,26 +164,21 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
       );
     }
 
-    final results = await Future.wait<Object>([
-      MobileApi.instance.adminProgressQrHistory(limit: 200),
-      MobileApi.instance.adminOpeningWipRecords(
-        orderId: orderId,
-        status: 'all',
-        limit: 500,
-      ),
-    ]);
+    // Own history is scoped to the authenticated worker by the server.
+    // Opening WIP is admin-managed stock, not this worker's output, and its
+    // admin-only endpoint must not prevent workers from viewing their batches.
+    final batches = await MobileApi.instance.adminProgressQrHistory(limit: 200);
     return _mergeWorkerWipBatches(
-      (results[0] as List<AdminProgressBatch>)
-          .where((batch) => batch.orderId.trim() == orderId),
-      _openingWipBatchesProducedByApparatus(
-        results[1] as List<AdminOpeningWipRecord>,
-        order: widget.order,
-      ),
+      batches.where((batch) => batch.orderId.trim() == orderId),
+      const <AdminProgressBatch>[],
     );
   }
 
   void _retry() {
-    setState(() => _future = _load());
+    final future = _load();
+    setState(() {
+      _future = future;
+    });
   }
 
   Future<void> _showWipDetails(AdminProgressBatch batch) async {

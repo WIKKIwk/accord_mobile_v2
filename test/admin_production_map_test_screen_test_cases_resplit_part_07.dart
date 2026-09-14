@@ -187,6 +187,9 @@ void _registeradmin_production_map_test_screen_testCases07() {
       );
       await tester.pumpAndSettle();
 
+      await tester.tap(find.text('Buyurtmalar'));
+      await tester.pumpAndSettle();
+
       await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Mapni ko‘rish'));

@@ -64,6 +64,7 @@ part 'admin_production_map_worker_activity_test_part.dart';
 part 'admin_production_map_alternative_visibility_test_part.dart';
 part 'admin_production_map_order_image_zoom_test_part.dart';
 part 'admin_production_map_worker_wip_accuracy_test_part.dart';
+part 'admin_production_map_worker_completed_wip_test_part.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
 const _print7Id = 'apparatus:default:bosma_7';
@@ -165,4 +166,5 @@ void main() {
   _registerWorkerActivityTests();
   _registerOrderImageZoomTests();
   _registerWorkerWipAccuracyTests();
+  _registerWorkerCompletedWipTests();
 }
