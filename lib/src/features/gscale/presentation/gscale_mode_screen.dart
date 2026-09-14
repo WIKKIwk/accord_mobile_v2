@@ -95,6 +95,7 @@ class _MaterialGScaleControlScreenState
   PrintTransport _printTransport = PrintTransport.wifi;
   bool _deviceNeedsAttention = false;
   String? _linkedOrderId;
+  double? _linkedOrderWidthMm;
 
   @override
   void initState() {
@@ -254,7 +255,12 @@ class _MaterialGScaleControlScreenState
   Widget build(BuildContext context) {
     final header = widget.linkPrintsToOrder
         ? PreparationKirimOrderSection(
-            onOrderChanged: (id) => setState(() => _linkedOrderId = id),
+            onOrderChanged: (order) => setState(() {
+              _linkedOrderId = order?.id;
+              final width = order?.widthMm;
+              _linkedOrderWidthMm =
+                  width != null && width.isFinite && width > 0 ? width : null;
+            }),
           )
         : null;
     return AppShell(
@@ -288,6 +294,8 @@ class _MaterialGScaleControlScreenState
               deviceNeedsAttention: _deviceNeedsAttention,
               linkedOrderId:
                   widget.linkPrintsToOrder ? (_linkedOrderId ?? '') : '',
+              linkedOrderWidthMm:
+                  widget.linkPrintsToOrder ? _linkedOrderWidthMm : null,
               onPrintSucceeded: widget.linkPrintsToOrder
                   ? (response) => _linkPrintToOrder(response)
                   : null,

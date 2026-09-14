@@ -18,7 +18,7 @@ class PreparationKirimOrderSection extends StatefulWidget {
     this.onOrderChanged,
   });
 
-  final ValueChanged<String?>? onOrderChanged;
+  final ValueChanged<PreparationOrder?>? onOrderChanged;
 
   @override
   State<PreparationKirimOrderSection> createState() =>
@@ -54,8 +54,9 @@ class _PreparationKirimOrderSectionState
         _orders = snapshot.orders
             .where((order) => !order.saved)
             .toList(growable: false);
-        if (_selectedOrderId != null &&
-            _orders.every((order) => order.id != _selectedOrderId)) {
+        final stillThere = _selectedOrderId != null &&
+            _orders.any((order) => order.id == _selectedOrderId);
+        if (!stillThere) {
           _selectedOrderId = null;
           widget.onOrderChanged?.call(null);
         }
@@ -151,7 +152,7 @@ class _PreparationKirimOrderSectionState
       return;
     }
     setState(() => _selectedOrderId = picked.id);
-    widget.onOrderChanged?.call(picked.id);
+    widget.onOrderChanged?.call(picked);
   }
 
   @override

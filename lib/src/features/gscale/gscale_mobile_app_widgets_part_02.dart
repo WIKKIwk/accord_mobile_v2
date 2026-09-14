@@ -382,6 +382,7 @@ class OperatorDashboardPage extends StatefulWidget {
     this.rpsBatchUpdater,
     this.linkedOrderId = '',
     this.onPrintSucceeded,
+    this.linkedOrderWidthMm,
     super.key,
   });
 
@@ -404,6 +405,10 @@ class OperatorDashboardPage extends StatefulWidget {
   final String linkedOrderId;
   final Future<void> Function(GScaleMaterialReceiptPrintResponse)?
       onPrintSucceeded;
+
+  /// Bog'langan order eni (mm). Berilgan bo'lsa, eni field'i diapazondan
+  /// chiqsa qizil bo'ladi: [order, order + 30].
+  final double? linkedOrderWidthMm;
 
   @override
   State<OperatorDashboardPage> createState() => _OperatorDashboardPageState();
