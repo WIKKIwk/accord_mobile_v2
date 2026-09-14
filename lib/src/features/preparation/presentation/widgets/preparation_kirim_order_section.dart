@@ -96,10 +96,9 @@ class _PreparationKirimOrderSectionState
     return null;
   }
 
-  /// Rulon eni diapazoni (backend qoidasi bilan bir xil):
-  /// rulon >= order eni, ortiqcha: bosma +20 mm / laminatsiya +30 mm.
-  /// Apparat operatsiyasi kirimda noma'lum — maksimal (+30) ko'rsatiladi,
-  /// aniq tekshiruv ulashda backend'da bo'ladi.
+  /// Order eni ma'lumot sifatida ko'rsatiladi. Tayyorlov masteri ishlab
+  /// chiqargan rulon eni order enidan katta bo'lishi mumkin — u Rezka'da
+  /// keyin kesiladi.
   String? get _widthRangeText {
     final width = _selectedOrder?.widthMm;
     if (width == null || !width.isFinite || width <= 0) {
@@ -108,8 +107,7 @@ class _PreparationKirimOrderSectionState
     String fmt(double value) => value == value.roundToDouble()
         ? '${value.round()}'
         : '$value';
-    return 'Rulon eni: ${fmt(width)}–${fmt(width + 30)} mm '
-        '(order eni ${fmt(width)} mm)';
+    return 'Order eni: ${fmt(width)} mm';
   }
 
   Future<void> _openOrderPicker() async {

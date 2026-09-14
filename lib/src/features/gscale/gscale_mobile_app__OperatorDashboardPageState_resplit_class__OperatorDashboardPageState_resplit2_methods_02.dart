@@ -86,6 +86,9 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
         widthMm == null;
     final linkedWidth = widget.linkedOrderWidthMm;
     String? widthRangeError() {
+      if (AppSession.instance.profile?.role == UserRole.tayyorlovMasteri) {
+        return null;
+      }
       final orderWidth = linkedWidth;
       if (widthMm == null ||
           orderWidth == null ||
