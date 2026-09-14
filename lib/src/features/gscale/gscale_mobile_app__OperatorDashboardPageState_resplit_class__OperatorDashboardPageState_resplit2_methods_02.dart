@@ -98,6 +98,8 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
       }
       return 'Diapazondan chiqdi (${_formatMm(orderWidth)}–${_formatMm(orderWidth + 30)} mm)';
     }
+
+    final rangeError = widthRangeError();
     final micronInvalid = selectedProduct?.requiresDimensions == true &&
         _micronController.text.trim().isNotEmpty &&
         micron == null;
@@ -424,16 +426,18 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                       filled: true,
                       fillColor: scheme.surface,
                       labelText: 'Eni (mm)',
-                      errorText: widthInvalid
-                          ? "To'g'ri eni kiriting"
-                          : widthRangeError(),
+                      errorText: widthInvalid ? "To'g'ri eni kiriting" : null,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 14,
                       ),
                       border: bubbleInputBorder,
-                      enabledBorder: bubbleInputBorder,
-                      focusedBorder: bubbleFocusedInputBorder,
+                      enabledBorder: rangeError != null
+                          ? bubbleErrorInputBorder
+                          : bubbleInputBorder,
+                      focusedBorder: rangeError != null
+                          ? bubbleFocusedErrorInputBorder
+                          : bubbleFocusedInputBorder,
                       errorBorder: bubbleErrorInputBorder,
                       focusedErrorBorder: bubbleFocusedErrorInputBorder,
                     ),
@@ -470,6 +474,17 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                 ),
               ],
             ),
+            if (rangeError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6, left: 4, right: 4),
+                child: Text(
+                  rangeError,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             const SizedBox(height: 8),
           ],
           _ContextSwitchRow(
