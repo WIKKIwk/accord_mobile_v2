@@ -102,6 +102,23 @@ void main() {
     );
   });
 
+  test('tayyorlov masteri always uses responsibility-scoped catalog', () {
+    const profile = SessionProfile(
+      role: UserRole.tayyorlovMasteri,
+      displayName: 'Tayyorlov masteri',
+      legalName: '',
+      ref: 'PREP-001',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['catalog.item.read', 'gscale.catalog.read'],
+    );
+
+    expect(
+      gscaleCatalogItemSourceForProfile(profile),
+      GScaleCatalogItemSource.gscaleItems,
+    );
+  });
+
   test('admin item warehouses include mini erp warehouses', () {
     final warehouses = mergeGScaleCatalogWarehouses(
       const [

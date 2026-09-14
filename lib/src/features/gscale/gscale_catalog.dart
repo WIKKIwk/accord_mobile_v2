@@ -19,7 +19,8 @@ enum GScaleCatalogItemSource { adminItems, gscaleItems }
 GScaleCatalogItemSource gscaleCatalogItemSourceForProfile(
   SessionProfile? profile,
 ) {
-  if (profile?.role == UserRole.materialTaminotchi) {
+  if (profile?.role == UserRole.materialTaminotchi ||
+      profile?.role == UserRole.tayyorlovMasteri) {
     return GScaleCatalogItemSource.gscaleItems;
   }
   if (profile?.hasCapability('catalog.item.read') == true) {
