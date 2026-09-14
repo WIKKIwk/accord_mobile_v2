@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/forms/forms.dart';
+
 class AdminPickerField extends StatelessWidget {
   const AdminPickerField({
     super.key,
@@ -67,6 +69,54 @@ class AdminPickerField extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Bottom sheet ochadigan order tanlash field'i.
+/// Material biriktirishdagi order field bilan bir xil ko'rinish
+/// (InputDecorator + dropdown icon); yangi style yozilmasdan reuse qilinadi.
+class AdminOrderPickerField extends StatelessWidget {
+  const AdminOrderPickerField({
+    super.key,
+    required this.labelText,
+    required this.valueText,
+    required this.emptyText,
+    required this.selectText,
+    required this.hasOptions,
+    required this.onPick,
+    this.disabled = false,
+  });
+
+  final String labelText;
+  final String valueText;
+  final String emptyText;
+  final String selectText;
+  final bool hasOptions;
+  final bool disabled;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final empty = valueText.trim().isEmpty;
+    return InkWell(
+      onTap: disabled || !hasOptions ? null : onPick,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: appSurfaceInputDecoration(
+          context,
+          labelText: labelText,
+        ).copyWith(
+          suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
+        ),
+        isEmpty: empty,
+        child: Text(
+          empty ? (hasOptions ? selectText : emptyText) : valueText,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
+      ),
     );
   }
 }

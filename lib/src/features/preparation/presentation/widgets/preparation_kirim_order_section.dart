@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/api/mobile_api.dart';
+import '../../../../core/search/search_normalizer.dart';
 import '../../../admin/presentation/raw_material_scan_dialog.dart';
-import '../../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
+import '../../../admin/presentation/widgets/admin_picker_field.dart';
+import '../../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../../models/preparation_models.dart';
 
 /// Tayyorlov kirim ekranidagi order tanlash + homashyo ulash qatori.
@@ -22,7 +24,6 @@ class _PreparationKirimOrderSectionState
     extends State<PreparationKirimOrderSection> {
   List<PreparationOrder> _orders = const [];
   String? _selectedOrderId;
-  bool _ordersExpanded = false;
   bool _loadingOrders = true;
   Object? _ordersError;
   final _barcodeController = TextEditingController();
@@ -76,6 +77,58 @@ class _PreparationKirimOrderSectionState
     final code = order.code.trim().isEmpty ? order.id : order.code;
     final title = order.title.trim();
     return title.isEmpty ? code : '$code — $title';
+  }
+
+  String get _selectedOrderLabel {
+    for (final order in _orders) {
+      if (order.id == _selectedOrderId) {
+        return _orderLabel(order);
+      }
+    }
+    return _selectedOrderId ?? '';
+  }
+
+  Future<void> _openOrderPicker() async {
+    if (_linking || _orders.isEmpty) {
+      return;
+    }
+    final picked = await showModalBottomSheet<PreparationOrder>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (sheetContext) => M3AsyncPickerSheet<PreparationOrder>(
+        title: 'Order tanlang',
+        hintText: 'Qidirish',
+        pageSize: 50,
+        loadPage: (query, offset, limit) async {
+          final normalizedQuery = query.trim().toLowerCase();
+          final filtered = normalizedQuery.isEmpty
+              ? _orders
+              : _orders
+                  .where((order) => searchMatches(normalizedQuery, [
+                        order.id,
+                        order.code,
+                        order.title,
+                        _orderLabel(order),
+                      ]))
+                  .toList(growable: false);
+          return filtered.skip(offset).take(limit).toList(growable: false);
+        },
+        itemTitle: _orderLabel,
+        itemSubtitle: (order) =>
+            '${preparationDisplay(order.kg)} kg',
+        onSelected: (order) => Navigator.of(sheetContext).pop(order),
+      ),
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() => _selectedOrderId = picked.id);
   }
 
   Future<void> _scanBarcode() async {
@@ -167,27 +220,18 @@ class _PreparationKirimOrderSectionState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AdminExpandableFilterChip<String>(
-          key: const ValueKey('preparation-kirim-order-filter'),
-          label: 'Order',
-          emptyLabel: 'Tanlanmagan',
-          icon: Icons.list_alt_rounded,
-          selectedValue: _selectedOrderId,
-          options: [
-            for (final order in _orders)
-              AdminFilterChipOption(
-                  value: order.id, label: _orderLabel(order)),
-          ],
-          expanded: _ordersExpanded,
-          onToggle: () =>
-              setState(() => _ordersExpanded = !_ordersExpanded),
-          onSelect: (id) => setState(() {
-            _selectedOrderId = id;
-            _ordersExpanded = false;
-          }),
-          chipKey:
-              const ValueKey('preparation-kirim-order-filter-chip'),
-          optionKeyPrefix: 'preparation-kirim-order-filter-option',
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: AdminOrderPickerField(
+            key: const ValueKey('preparation-kirim-order-field'),
+            labelText: 'Order',
+            valueText: _selectedOrderLabel,
+            emptyText: 'Buyurtma topilmadi',
+            selectText: 'Order tanlang',
+            hasOptions: _orders.isNotEmpty,
+            disabled: _linking,
+            onPick: _openOrderPicker,
+          ),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),

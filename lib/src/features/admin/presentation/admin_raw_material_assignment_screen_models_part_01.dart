@@ -170,28 +170,14 @@ class _AssignmentOrderPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: disabled || orders.isEmpty ? null : onPickOrder,
-      borderRadius: BorderRadius.circular(12),
-      child: InputDecorator(
-        decoration: appSurfaceInputDecoration(
-          context,
-          labelText: context.l10n.adminText('raw_material.order_label'),
-        ).copyWith(
-          suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
-        ),
-        isEmpty: selectedOrderLabel.trim().isEmpty,
-        child: Text(
-          selectedOrderLabel.trim().isEmpty
-              ? (orders.isEmpty
-                  ? context.l10n.adminText('raw_material.not_found')
-                  : context.l10n.adminText('raw_material.select'))
-              : selectedOrderLabel,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-      ),
+    return AdminOrderPickerField(
+      labelText: context.l10n.adminText('raw_material.order_label'),
+      valueText: selectedOrderLabel,
+      emptyText: context.l10n.adminText('raw_material.not_found'),
+      selectText: context.l10n.adminText('raw_material.select'),
+      hasOptions: orders.isNotEmpty,
+      disabled: disabled,
+      onPick: onPickOrder,
     );
   }
 }
