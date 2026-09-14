@@ -62,15 +62,22 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   String _manualQtyTapBackup = '';
   bool _manualQtyTapCleared = false;
 
+  /// Eni yozilganda diapazon xatosi real-time yangilanishi uchun.
+  void _refreshWidthRangeValidation() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   @override
-  void initState() {
-    super.initState();
+  void initState() {    super.initState();
     _controlTabController = TabController(length: 2, vsync: this)
       ..addListener(_handleControlTabChanged);
     _manualQtyController.addListener(_scheduleSaveControlPrefs);
     _manualDuplicateController.addListener(_scheduleSaveControlPrefs);
     _babinaWeightController.addListener(_scheduleSaveControlPrefs);
     _widthController.addListener(_scheduleSaveControlPrefs);
+    _widthController.addListener(_refreshWidthRangeValidation);
     _micronController.addListener(_scheduleSaveControlPrefs);
     final server = widget.server;
     if (server != null) {
