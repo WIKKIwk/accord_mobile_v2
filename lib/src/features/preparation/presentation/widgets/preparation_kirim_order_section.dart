@@ -86,6 +86,31 @@ class _PreparationKirimOrderSectionState
     return _selectedOrderId ?? '';
   }
 
+  PreparationOrder? get _selectedOrder {
+    for (final order in _orders) {
+      if (order.id == _selectedOrderId) {
+        return order;
+      }
+    }
+    return null;
+  }
+
+  /// Rulon eni diapazoni (backend qoidasi bilan bir xil):
+  /// rulon >= order eni, ortiqcha: bosma +20 mm / laminatsiya +30 mm.
+  /// Apparat operatsiyasi kirimda noma'lum — maksimal (+30) ko'rsatiladi,
+  /// aniq tekshiruv ulashda backend'da bo'ladi.
+  String? get _widthRangeText {
+    final width = _selectedOrder?.widthMm;
+    if (width == null || !width.isFinite || width <= 0) {
+      return null;
+    }
+    String fmt(double value) => value == value.roundToDouble()
+        ? '${value.round()}'
+        : '$value';
+    return 'Rulon eni: ${fmt(width)}–${fmt(width + 30)} mm '
+        '(order eni ${fmt(width)} mm)';
+  }
+
   Future<void> _openOrderPicker() async {
     if (_orders.isEmpty) {
       return;
@@ -168,14 +193,42 @@ class _PreparationKirimOrderSectionState
     }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: AdminOrderPickerField(
-        key: const ValueKey('preparation-kirim-order-field'),
-        labelText: 'Order',
-        valueText: _selectedOrderLabel,
-        emptyText: 'Buyurtma topilmadi',
-        selectText: 'Order tanlang',
-        hasOptions: _orders.isNotEmpty,
-        onPick: _openOrderPicker,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AdminOrderPickerField(
+            key: const ValueKey('preparation-kirim-order-field'),
+            labelText: 'Order',
+            valueText: _selectedOrderLabel,
+            emptyText: 'Buyurtma topilmadi',
+            selectText: 'Order tanlang',
+            hasOptions: _orders.isNotEmpty,
+            onPick: _openOrderPicker,
+          ),
+          if (_widthRangeText != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.straighten_rounded,
+                    size: 16,
+                    color: scheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _widthRangeText!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

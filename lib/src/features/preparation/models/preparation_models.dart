@@ -63,8 +63,10 @@ class PreparationOrder {
         code = json['code'] as String? ?? '',
         title = json['title'] as String? ?? '',
         kg = json['order_kg'] as String,
+        widthMm = double.tryParse(json['width_mm']?.toString() ?? ''),
         saved = json['saved'] == true;
   final String id, code, title, kg;
+  final double? widthMm;
   final bool saved;
   String get label => '${code.isEmpty ? id : code} — $title';
 }
