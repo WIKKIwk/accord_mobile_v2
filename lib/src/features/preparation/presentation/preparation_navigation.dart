@@ -103,6 +103,14 @@ class PreparationDrawer extends StatelessWidget {
           routeName: AppRoutes.supplySequence,
           push: true,
         ),
+        if (AppRouter.canOpenRoute(AppRoutes.gscaleMode))
+          const RoleNavigationDrawerDestination(
+            icon: Icons.scale_outlined,
+            selectedIcon: Icons.scale_rounded,
+            label: 'Kirim',
+            routeName: AppRoutes.gscaleMode,
+            push: true,
+          ),
         const RoleNavigationDrawerDestination(
           icon: Icons.chat_bubble_outline_rounded,
           selectedIcon: Icons.chat_bubble_rounded,

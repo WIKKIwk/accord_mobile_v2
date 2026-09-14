@@ -12,6 +12,8 @@ import '../../../core/widgets/feedback/logout_prompt.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
+import '../../preparation/presentation/preparation_navigation.dart';
+import '../../preparation/presentation/widgets/preparation_kirim_order_section.dart';
 import '../../shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 
@@ -20,8 +22,27 @@ class GScaleModeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (AppSession.instance.profile?.role == UserRole.materialTaminotchi) {
-      return const _MaterialGScaleControlScreen();
+    final role = AppSession.instance.profile?.role;
+    if (role == UserRole.materialTaminotchi) {
+      return _MaterialGScaleControlScreen(
+        drawer: MaterialTaminotchiNavigationDrawer(
+          selectedRouteName: AppRoutes.gscaleMode,
+          onNavigate: _replaceDrawerRoute(context),
+        ),
+        bottom: const MaterialTaminotchiDock(
+          activeTab: MaterialTaminotchiDockTab.scale,
+        ),
+      );
+    }
+    if (role == UserRole.tayyorlovMasteri) {
+      return _MaterialGScaleControlScreen(
+        drawer: PreparationDrawer(
+          selectedRouteName: AppRoutes.gscaleMode,
+          onNavigate: _replaceDrawerRoute(context),
+        ),
+        bottom: const PreparationDock(),
+        header: const PreparationKirimOrderSection(),
+      );
     }
     return GScaleMobileApp(
       embedded: true,
@@ -37,8 +58,25 @@ class GScaleModeScreen extends StatelessWidget {
   }
 }
 
+ValueChanged<String> _replaceDrawerRoute(BuildContext context) {
+  return (route) {
+    if (ModalRoute.of(context)?.settings.name == route) {
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed(route);
+  };
+}
+
 class _MaterialGScaleControlScreen extends StatefulWidget {
-  const _MaterialGScaleControlScreen();
+  const _MaterialGScaleControlScreen({
+    required this.drawer,
+    required this.bottom,
+    this.header,
+  });
+
+  final Widget drawer;
+  final Widget bottom;
+  final Widget? header;
 
   @override
   State<_MaterialGScaleControlScreen> createState() =>
@@ -148,25 +186,15 @@ class _MaterialGScaleControlScreenState
     await _applyDeviceSelection(selection);
   }
 
-  void _openDrawerRoute(String route) {
-    final current = ModalRoute.of(context)?.settings.name;
-    if (current == route) {
-      return;
-    }
-    Navigator.of(context).pushReplacementNamed(route);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final header = widget.header;
     return AppShell(
       title: 'Homashyo kirimi',
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      drawer: MaterialTaminotchiNavigationDrawer(
-        selectedRouteName: AppRoutes.gscaleMode,
-        onNavigate: _openDrawerRoute,
-      ),
+      drawer: widget.drawer,
       preferNativeTitle: true,
       contentPadding: EdgeInsets.zero,
       actions: [
@@ -179,23 +207,28 @@ class _MaterialGScaleControlScreenState
           tooltip: 'Printer yoki tarozi tanlash',
         ),
       ],
-      bottom: const MaterialTaminotchiDock(
-        activeTab: MaterialTaminotchiDockTab.scale,
-      ),
-      child: OperatorDashboardPage(
-        server: _selectedServer,
-        printTransport: _printTransport,
-        offlinePrinter: _offlinePrinter,
-        bluetoothPrinter: _bluetoothPrinter,
-        deviceNeedsAttention: _deviceNeedsAttention,
-        onExitMode: () async {
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
-        },
-        onChangeServer: _openServerPicker,
-        onServerUnavailable: _clearSelectedServer,
-        controlOnly: true,
+      bottom: widget.bottom,
+      child: Column(
+        children: [
+          if (header != null) header,
+          Expanded(
+            child: OperatorDashboardPage(
+              server: _selectedServer,
+              printTransport: _printTransport,
+              offlinePrinter: _offlinePrinter,
+              bluetoothPrinter: _bluetoothPrinter,
+              deviceNeedsAttention: _deviceNeedsAttention,
+              onExitMode: () async {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                }
+              },
+              onChangeServer: _openServerPicker,
+              onServerUnavailable: _clearSelectedServer,
+              controlOnly: true,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -583,6 +583,7 @@ QR validity, duplicate dispatch va stock movement backend-owned.
 - admin user-detail'da biriktirilgan homashyo oilalari (calculate-material, micronsiz);
 - snapshot va `Ketma-ketlik` (`/supply-sequence`) faqat shu homashyolari bor orderlarni ko'rsatadi — biriktirilmagan master bo'sh ko'radi;
 - order bottom sheet'dagi `Formulalar` avval shu orderdagi o'z homashyosini so'raydi, formula shu (mahsulot, homashyo) ga saqlanadi;
+- `Tarozi kirimi` (`/gscale-mode`) — tarozi kirim sahifasining aynan o'zi: order tanlash (filtrangan) + shtrix-kod skanerlash + orderga ulash.
 - kirim, formula va order'ga sarf (Order KG × foiz, FIFO).
 
 ### Rezka

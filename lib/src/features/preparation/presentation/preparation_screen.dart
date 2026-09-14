@@ -188,6 +188,13 @@ class _PreparationScreenState extends State<PreparationScreen> {
           icon: Icons.warehouse_outlined,
           onTap: () => _openWarehouse(data),
         ),
+        if (AppRouter.canOpenRoute(AppRoutes.gscaleMode))
+          AdminFabMenuAction(
+            title: 'Tarozi kirimi',
+            icon: Icons.scale_outlined,
+            onTap: () => AppRootNavigation.replaceRootRoute(
+                context, AppRoutes.gscaleMode),
+          ),
         AdminFabMenuAction(
           title: 'Kirim',
           icon: Icons.add_circle_outline_rounded,
