@@ -100,6 +100,20 @@ class _MaterialGScaleControlScreenState
   void initState() {
     super.initState();
     unawaited(_restoreLastPrintDevice());
+    // Backend yangilangandan keyin eski sessiyada capability/omborlar
+    // eskirgan bo'lishi mumkin — kirim ochilganda yangilab olamiz.
+    unawaited(_refreshProfileScope());
+  }
+
+  Future<void> _refreshProfileScope() async {
+    try {
+      await MobileApi.instance.profile();
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (_) {
+      // Sessiya yaroqli bo'lsa ham eski profil bilan davom etiladi.
+    }
   }
 
   Future<void> _restoreLastPrintDevice() async {
