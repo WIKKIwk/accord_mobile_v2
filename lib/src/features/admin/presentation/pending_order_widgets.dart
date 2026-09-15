@@ -1,8 +1,10 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import 'admin_calculate_screen.dart';
+import 'widgets/admin_order_image_thumb.dart';
 
 class PendingOrderCard extends StatelessWidget {
   const PendingOrderCard({
@@ -17,25 +19,98 @@ class PendingOrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final template = order.template;
+    final imageUrl = Uri.parse(
+      '${MobileApi.baseUrl}/v1/mobile/admin/pending-orders/image',
+    ).replace(queryParameters: {
+      'id': order.id,
+      if (template.imageId.trim().isNotEmpty) 'image_id': template.imageId.trim(),
+    }).toString();
     final subtitle =
-        '${order.template.customer} · ${order.template.kg} kg · Chala buyurtma';
+        '${template.customer} · ${template.kg} kg · Chala buyurtma';
+    final codeStyle = theme.textTheme.labelMedium?.copyWith(
+      color: scheme.onSurfaceVariant,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 0.2,
+    );
     return M3SegmentFilledSurface(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      backgroundColor: theme.brightness == Brightness.dark
+          ? const Color(0xFF3D2859)
+          : const Color(0xFFEDE0FF),
       onTap: onTap,
-      child: ListTile(
-        leading: Icon(
-          Icons.pending_actions_rounded,
-          color: scheme.onSurfaceVariant,
-        ),
-        title:
-            Text('№${order.template.orderNumber} · ${order.template.product}'),
-        subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-        trailing: Icon(
-          Icons.info_outline_rounded,
-          color: scheme.onSurfaceVariant,
-        ),
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: kAdminOrderCoverWidth,
+            child: AdminOrderCoverThumb(
+              imageUrl: imageUrl,
+              displayName: template.product,
+              heroTag: 'pending-order-cover-${order.id}',
+            ),
+          ),
+          Padding(
+            padding:
+                const EdgeInsets.fromLTRB(kAdminOrderCoverWidth + 12, 8, 4, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text.rich(
+                        TextSpan(children: [
+                          TextSpan(text: template.orderNumber, style: codeStyle),
+                          TextSpan(
+                            text: ' • ',
+                            style: codeStyle?.copyWith(
+                              color: scheme.outline,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          TextSpan(
+                            text: template.product,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.05,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: context.l10n.productionText('worker.order.info'),
+                  onPressed: onTap,
+                  icon: Icon(
+                    Icons.info_outline_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
