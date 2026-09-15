@@ -98,6 +98,20 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   @override
   void didUpdateWidget(covariant OperatorDashboardPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final previousLinkedOrderId = oldWidget.linkedOrderId.trim();
+    final nextLinkedOrderId = widget.linkedOrderId.trim();
+    if (previousLinkedOrderId != nextLinkedOrderId &&
+        _authoritativeRsBatch?.active != true) {
+      setState(() {
+        _selectedItem = null;
+        _selectedWarehouse = null;
+        _draftContextSaved = false;
+        _batchContextEditing = false;
+        _errorText = '';
+        _warehousesError = '';
+      });
+      _scheduleSaveControlPrefs();
+    }
     final previous = oldWidget.server?.endpoint.baseUrl;
     final next = widget.server?.endpoint.baseUrl;
     if (previous == next && oldWidget.printTransport == widget.printTransport) {

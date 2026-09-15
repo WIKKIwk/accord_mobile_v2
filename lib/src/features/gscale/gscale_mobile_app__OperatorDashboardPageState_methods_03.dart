@@ -178,6 +178,13 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       );
       return;
     }
+    if (AppSession.instance.profile?.role == UserRole.tayyorlovMasteri &&
+        widget.linkedOrderId.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Avval order tanlang.')),
+      );
+      return;
+    }
     final option = await showModalBottomSheet<SupplierItem>(
       context: context,
       isDismissible: true,
@@ -227,6 +234,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       case GScaleCatalogItemSource.gscaleItems:
         return MobileApi.instance.gscaleItemsPage(
           query: query,
+          orderId: widget.linkedOrderId,
           offset: offset,
           limit: limit,
         );

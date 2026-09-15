@@ -5,6 +5,7 @@ extension MobileApiGScale on MobileApi {
   Future<List<SupplierItem>> gscaleItemsPage({
     String query = '',
     String group = '',
+    String orderId = '',
     int limit = 80,
     int offset = 0,
   }) async {
@@ -22,6 +23,7 @@ extension MobileApiGScale on MobileApi {
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
             if (group.trim().isNotEmpty) 'group': group.trim(),
+            if (orderId.trim().isNotEmpty) 'order_id': orderId.trim(),
             if (limit > 0) 'limit': '$limit',
             if (offset > 0) 'offset': '$offset',
           },
