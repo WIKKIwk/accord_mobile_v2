@@ -27,6 +27,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_03
                 ],
               ),
             ),
+            if (widget.orderSection != null) widget.orderSection!,
             Expanded(
               child: TabBarView(
                 controller: _controlTabController,

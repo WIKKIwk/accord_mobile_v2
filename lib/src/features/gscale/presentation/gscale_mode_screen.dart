@@ -253,7 +253,7 @@ class _MaterialGScaleControlScreenState
 
   @override
   Widget build(BuildContext context) {
-    final header = widget.linkPrintsToOrder
+    final orderSection = widget.linkPrintsToOrder
         ? PreparationKirimOrderSection(
             onOrderChanged: (order) => setState(() {
               _linkedOrderId = order?.id;
@@ -284,9 +284,9 @@ class _MaterialGScaleControlScreenState
       bottom: widget.bottom,
       child: Column(
         children: [
-          if (header != null) header,
           Expanded(
             child: OperatorDashboardPage(
+              orderSection: orderSection,
               server: _selectedServer,
               printTransport: _printTransport,
               offlinePrinter: _offlinePrinter,

@@ -383,6 +383,7 @@ class OperatorDashboardPage extends StatefulWidget {
     this.linkedOrderId = '',
     this.onPrintSucceeded,
     this.linkedOrderWidthMm,
+    this.orderSection,
     super.key,
   });
 
@@ -405,6 +406,7 @@ class OperatorDashboardPage extends StatefulWidget {
   final String linkedOrderId;
   final Future<void> Function(GScaleMaterialReceiptPrintResponse)?
       onPrintSucceeded;
+  final Widget? orderSection;
 
   /// Bog'langan order eni (mm). Berilgan bo'lsa, eni field'i diapazondan
   /// chiqsa qizil bo'ladi: [order, order + 30].
