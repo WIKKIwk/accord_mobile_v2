@@ -99,9 +99,14 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
       if (!mounted) {
         return;
       }
-      await showDialog<void>(
+      await showModalBottomSheet<void>(
         context: context,
-        builder: (_) => TelegramInviteQrDialog(invite: invite),
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.32),
+        builder: (_) => TelegramInviteQrSheet(invite: invite),
       );
     } catch (_) {
       if (mounted) {

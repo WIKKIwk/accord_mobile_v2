@@ -4,8 +4,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../models/telegram_models.dart';
 
-class TelegramInviteQrDialog extends StatelessWidget {
-  const TelegramInviteQrDialog({
+class TelegramInviteQrSheet extends StatelessWidget {
+  const TelegramInviteQrSheet({
     super.key,
     required this.invite,
   });
@@ -21,14 +21,18 @@ class TelegramInviteQrDialog extends StatelessWidget {
       salesManagerLabel: context.l10n.adminTelegramSalesManagerRoleTitle,
     );
 
-    return Dialog(
-      backgroundColor: scheme.surfaceContainerLowest,
+    return Material(
+      color: scheme.surfaceContainerLowest,
+      elevation: 8,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(28),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: SafeArea(
+        top: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 22, 24, 12),
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
