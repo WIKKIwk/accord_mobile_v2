@@ -2,6 +2,42 @@
 part of 'app_localizations.dart';
 
 extension AppLocalizationsAstPartResplit2_03 on AppLocalizations {
+  String get adminTelegramQrTitle => _t(
+        'Telegram userbot QR ulash',
+        'Connect Telegram userbot with QR',
+        'Подключить Telegram userbot по QR',
+      );
+
+  String get adminTelegramQrScanInstruction => _t(
+        'Telegram ilovasida QR kodni scan qiling.',
+        'Scan this QR code from the Telegram app.',
+        'Отсканируйте этот QR-код в приложении Telegram.',
+      );
+
+  String get adminTelegramQrConnected => _t(
+        'Telegram userbot ulandi.',
+        'Telegram userbot connected.',
+        'Telegram userbot подключен.',
+      );
+
+  String get adminTelegramQrFailed => _t(
+        'QR login boshlanmadi yoki bekor qilindi.',
+        'QR login could not be started or was cancelled.',
+        'Не удалось начать QR-вход или вход был отменен.',
+      );
+
+  String get adminTelegramQrRetry => _t(
+        'Qayta urinish',
+        'Retry',
+        'Повторить',
+      );
+
+  String get adminTelegramQrCancel => _t(
+        'Bekor qilish',
+        'Cancel',
+        'Отмена',
+      );
+
   String get adminTelegramUserProfileNotConnected => _t(
         'User profile ulanmagan',
         'User profile not connected',

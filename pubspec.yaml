@@ -38,6 +38,7 @@ dependencies:
   full_screen_back_gesture: ^0.0.2
   gal: ^2.3.2
   mobile_scanner: ^7.4.0
+  qr_flutter: ^4.1.0
   pdfx: ^2.9.2
   share_plus: ^12.0.2
   model_viewer_plus: ^1.10.0

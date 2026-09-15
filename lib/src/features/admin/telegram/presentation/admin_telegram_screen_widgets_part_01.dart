@@ -93,6 +93,25 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
     }
   }
 
+  Future<void> _openUserProfileQr(TelegramUserAccount user) async {
+    final authorized = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => TelegramQrLoginDialog(user: user),
+    );
+    if (authorized != true || !mounted) {
+      return;
+    }
+    await _reload();
+    if (mounted) {
+      showAdminTopNotice(
+        context,
+        context.l10n.adminTelegramQrConnected,
+        icon: Icons.verified_rounded,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
@@ -159,6 +178,7 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
                   users: data.users
                       .where((user) => user.role == TelegramInviteRole.admin)
                       .toList(growable: false),
+                  onQrTap: _openUserProfileQr,
                 ),
                 _TelegramUserGroup(
                   title: context.l10n.adminTelegramSalesManagerRoleTitle,
@@ -167,6 +187,7 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
                         (user) => user.role == TelegramInviteRole.salesManager,
                       )
                       .toList(growable: false),
+                  onQrTap: _openUserProfileQr,
                 ),
               ],
             ],
