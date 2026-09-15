@@ -128,6 +128,7 @@ extension _AdminProductionMapTestDefinitionState
         final result = await MobileApi.instance.adminSaveProductionMapWithOrder(
           map: templateDefinition,
           template: draft,
+          pendingOrderId: widget.orderContext?.pendingOrderId ?? '',
         );
         if (!mounted) {
           return;
@@ -143,6 +144,10 @@ extension _AdminProductionMapTestDefinitionState
           _orderNumber = result.saved.map.orderNumber.trim();
         }
         showAdminTopNotice(context, 'Production map va zakaz saqlandi');
+        if (widget.orderContext?.pendingOrderId.isNotEmpty ?? false) {
+          Navigator.of(context).pop(savedTemplate);
+          return;
+        }
       } else {
         final saved = await MobileApi.instance.adminSaveProductionMap(
           definition,

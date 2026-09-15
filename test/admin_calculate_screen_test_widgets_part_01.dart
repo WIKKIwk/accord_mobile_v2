@@ -4,6 +4,7 @@ part of 'admin_calculate_screen_test.dart';
 Future<void> _pumpCalculateScreen(
   WidgetTester tester, {
   CalculateOrderTemplate? template,
+  String pendingOrderId = '',
   ValueChanged<Object?>? onProductionMapArguments,
 }) async {
   tester.view.devicePixelRatio = 1;
@@ -22,7 +23,8 @@ Future<void> _pumpCalculateScreen(
         GlobalWidgetsLocalizations.delegate,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
-      home: AdminCalculateScreen(template: template),
+      home: AdminCalculateScreen(
+          template: template, pendingOrderId: pendingOrderId),
       onGenerateRoute: (settings) {
         if (settings.name == AppRoutes.adminProductionMapTest &&
             (settings.arguments is ProductionMapOrderContext ||

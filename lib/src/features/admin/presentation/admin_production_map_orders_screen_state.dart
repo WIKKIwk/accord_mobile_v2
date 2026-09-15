@@ -60,6 +60,54 @@ class _AdminProductionMapOrdersScreenState
 
   AdminApparatus? _draggingMoveSource;
   List<ProductionMapSaved> _orders = const [];
+  List<PendingOrder> _pendingOrders = const [];
+  Timer? _pendingOrderTimer;
+  bool _pendingOrdersLoading = false;
+  int _pendingOrdersGeneration = 0;
+  String? _pendingOrdersError;
+
+  Future<void> _refreshPendingOrders({bool force = false}) async {
+    if ((_pendingOrdersLoading && !force) ||
+        widget.workerMode ||
+        widget.supplyViewerMode ||
+        widget.readOnly) {
+      return;
+    }
+    _pendingOrdersLoading = true;
+    final generation = ++_pendingOrdersGeneration;
+    try {
+      final orders = await MobileApi.instance.pendingOrders();
+      if (mounted && generation == _pendingOrdersGeneration) {
+        setState(() {
+          _pendingOrders = orders;
+          _pendingOrdersError = null;
+        });
+      }
+    } catch (error) {
+      if (mounted && generation == _pendingOrdersGeneration) {
+        setState(() => _pendingOrdersError = 'Chala buyurtmalar yuklanmadi');
+      }
+    } finally {
+      if (generation == _pendingOrdersGeneration) _pendingOrdersLoading = false;
+    }
+  }
+
+  Future<void> _showPendingOrder(PendingOrder order) async {
+    final completed = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        shape: _orderDetailSheetShape,
+        clipBehavior: Clip.antiAlias,
+        builder: (_) => PendingOrderDetailSheet(order: order));
+    if (!mounted) return;
+    if (completed == true) {
+      setState(() => _pendingOrders = _pendingOrders.where((p) => p.id != order.id).toList());
+    }
+    await _refreshPendingOrders(force: completed == true);
+    if (completed == true && mounted) await _refreshLive();
+  }
+
   List<AdminApparatus> _apparatus = const [];
   final Map<String, List<String>> _sequenceByApparatus = {};
   final Map<String, List<String>> _visibleOrderIdsByApparatus = {};
@@ -95,6 +143,11 @@ class _AdminProductionMapOrdersScreenState
   @override
   void initState() {
     super.initState();
+    if (!widget.workerMode && !widget.supplyViewerMode && !widget.readOnly) {
+      unawaited(_refreshPendingOrders());
+      _pendingOrderTimer = Timer.periodic(
+          const Duration(seconds: 10), (_) => _refreshPendingOrders());
+    }
     if (widget.supplyViewerMode) {
       _module = _OpenedOrderModule.sequence;
     }
@@ -123,6 +176,7 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void dispose() {
+    _pendingOrderTimer?.cancel();
     _workerRecoveryTimer?.cancel();
     if (widget.workerMode) {
       WidgetsBinding.instance.removeObserver(this);
@@ -418,6 +472,10 @@ class _AdminProductionMapOrdersScreenState
                               onLongPressWatchOrder: _showWatchOrderLongPress,
                             )
                           : _AdminModulesBody(
+                              pendingOrders: _pendingOrders,
+                              pendingOrdersError: _pendingOrdersError,
+                              onPendingOrder: _showPendingOrder,
+                              onRetryPendingOrders: _refreshPendingOrders,
                               modules: _modules,
                               currentModule: _module,
                               tabController: _tabController,

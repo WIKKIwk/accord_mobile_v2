@@ -117,7 +117,9 @@ class _AdminProductionMapTestScreenState
             ? _orderFlowEdges()
             : _defaultTestEdges();
     _syncNextNodeIndexFromExistingNodes();
-    _orderNumber = savedMap?.orderNumber.trim() ?? '';
+    _orderNumber = (widget.orderContext?.pendingOrderId.isNotEmpty ?? false)
+        ? widget.orderContext!.templateDraft!.orderNumber
+        : savedMap?.orderNumber.trim() ?? '';
     _savedOrderMapId = savedMap?.id.trim() ?? '';
     _templateDraft = widget.orderContext?.templateDraft;
     unawaited(_loadCanonicalApparatusCatalog());

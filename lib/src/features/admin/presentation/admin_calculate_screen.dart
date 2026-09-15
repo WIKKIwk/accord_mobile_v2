@@ -34,6 +34,7 @@ part 'admin_calculate_screen_widgets_part_02.dart';
 part 'admin_calculate_screen_declarations_part_03.dart';
 part 'admin_calculate_screen_models_part_04.dart';
 part 'admin_calculate_screen_declarations_part_05.dart';
+part 'admin_calculate_pending_order.dart';
 
 const _calculateOrderTypeOptions = <String>['Paket', 'Rulon', 'Flexo'];
 
@@ -53,6 +54,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _rollCount = TextEditingController();
   final List<_LayerControllers> _layers = [_LayerControllers()];
   final _note = TextEditingController();
+  final _color = TextEditingController();
   List<CalculateMaterial> _materialCatalog = const <CalculateMaterial>[];
   bool _loadingMaterialCatalog = false;
 
@@ -100,6 +102,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     _calculationListenersAttached = false;
     _customer.dispose();
     _product.dispose();
+    _color.dispose();
     _kg.dispose();
     _frameProductSizeMm.dispose();
     _frameCount.dispose();
@@ -146,9 +149,11 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-    final children = _editingAllFields
-        ? _fullEditChildren(l10n)
-        : _compactTemplateChildren(l10n);
+    final children = widget.pendingOrderId.isNotEmpty
+        ? _pendingOrderChildren(l10n)
+        : _editingAllFields
+            ? _fullEditChildren(l10n)
+            : _compactTemplateChildren(l10n);
     final resolvedName = _resolvedOrderName().trim();
     final pageTitle = resolvedName.isEmpty || resolvedName == 'Zakaz'
         ? l10n.adminText('calculate.create_title')
@@ -176,7 +181,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             onTap: _openOrders,
           ),
         ),
-        if (!_editingAllFields)
+        if (!_editingAllFields && widget.pendingOrderId.isEmpty)
           AppShellIconAction(icon: Icons.edit_outlined, onTap: _enableFullEdit),
       ],
       bottom: const AdminDock(activeTab: AdminDockTab.home),

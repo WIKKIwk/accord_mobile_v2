@@ -2,6 +2,10 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _OrdersModulePage extends StatelessWidget {
   const _OrdersModulePage({
+    this.pendingOrders = const [],
+    this.pendingOrdersError,
+    this.onPendingOrder,
+    this.onRetryPendingOrders,
     required this.bottomPadding,
     required this.orders,
     required this.apparatusCatalog,
@@ -15,6 +19,10 @@ class _OrdersModulePage extends StatelessWidget {
     required this.onLongPressOrder,
   });
   final double bottomPadding;
+  final List<PendingOrder> pendingOrders;
+  final String? pendingOrdersError;
+  final ValueChanged<PendingOrder>? onPendingOrder;
+  final VoidCallback? onRetryPendingOrders;
   final List<ProductionMapSaved> orders;
   final List<AdminApparatus> apparatusCatalog;
   final List<ProductionMapSaved> visibleOrders;
@@ -36,11 +44,22 @@ class _OrdersModulePage extends StatelessWidget {
         bottomPadding,
       ),
       children: [
-        if (orders.isEmpty)
+        if (pendingOrdersError != null)
+          ListTile(
+              title: Text(pendingOrdersError!),
+              trailing: IconButton(
+                  onPressed: onRetryPendingOrders,
+                  icon: const Icon(Icons.refresh))),
+        for (final pending in pendingOrders)
+          PendingOrderCard(
+              key: ValueKey('pending-order-${pending.id}'),
+              order: pending,
+              onTap: () => onPendingOrder?.call(pending)),
+        if (orders.isEmpty && pendingOrders.isEmpty)
           _EmptyOpenedOrders(
             message: context.l10n.adminText('production.open_empty'),
           )
-        else if (visibleOrders.isEmpty)
+        else if (visibleOrders.isEmpty && pendingOrders.isEmpty)
           _EmptyOpenedOrders(
             message: context.l10n.adminText('production.search_empty'),
           )
@@ -63,6 +82,10 @@ class _OrdersModulePage extends StatelessWidget {
 
 class _AdminModulesBody extends StatelessWidget {
   const _AdminModulesBody({
+    this.pendingOrders = const [],
+    this.pendingOrdersError,
+    this.onPendingOrder,
+    this.onRetryPendingOrders,
     required this.modules,
     required this.currentModule,
     required this.tabController,
@@ -107,6 +130,10 @@ class _AdminModulesBody extends StatelessWidget {
     required this.onLongPressOrder,
   });
   final List<_OpenedOrderModule> modules;
+  final List<PendingOrder> pendingOrders;
+  final String? pendingOrdersError;
+  final ValueChanged<PendingOrder>? onPendingOrder;
+  final VoidCallback? onRetryPendingOrders;
   final _OpenedOrderModule currentModule;
   final TabController tabController;
   final double bottomPadding;
@@ -234,6 +261,12 @@ class _AdminModulesBody extends StatelessWidget {
                       onLongPressOrder: onLongPressOrder,
                     ),
                   _OpenedOrderModule.orders => _OrdersModulePage(
+                      pendingOrders: pendingOrders
+                          .where((o) => o.matches(searchQuery))
+                          .toList(),
+                      pendingOrdersError: pendingOrdersError,
+                      onPendingOrder: onPendingOrder,
+                      onRetryPendingOrders: onRetryPendingOrders,
                       bottomPadding: bottomPadding,
                       orders: activeOrders,
                       apparatusCatalog: apparatus,

@@ -200,6 +200,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
   Future<ProductionMapSaveWithOrderResult> adminSaveProductionMapWithOrder({
     required ProductionMapDefinition map,
     required CalculateOrderTemplate template,
+    String pendingOrderId = '',
   }) async {
     _requireCanonicalProductionMapApparatusIds(map);
     if (await TestModeController.instance.isEnabled()) {
@@ -295,7 +296,11 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
             '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/with-order'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({'map': map.toJson(), 'template': template.toJson()}),
+        body: jsonEncode({
+          'map': map.toJson(),
+          'template': template.toJson(),
+          if (pendingOrderId.isNotEmpty) 'pending_order_id': pendingOrderId
+        }),
       ),
     );
     if (response.statusCode != 200) {

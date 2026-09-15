@@ -3,6 +3,7 @@ part of 'admin_calculate_screen.dart';
 
 class AdminCalculateArgs {
   const AdminCalculateArgs({
+    this.pendingOrderId = '',
     this.template,
     this.trainingMode = false,
     this.trainingApparatus = '',
@@ -10,6 +11,7 @@ class AdminCalculateArgs {
   });
 
   final CalculateOrderTemplate? template;
+  final String pendingOrderId;
   final bool trainingMode;
   final String trainingApparatus;
   final String trainingApparatusId;
@@ -36,6 +38,7 @@ bool _sameCalculateOrderType(String left, String right) {
 
 class AdminCalculateScreen extends StatefulWidget {
   const AdminCalculateScreen({
+    this.pendingOrderId = '',
     super.key,
     this.template,
     this.trainingMode = false,
@@ -44,6 +47,7 @@ class AdminCalculateScreen extends StatefulWidget {
   });
 
   final CalculateOrderTemplate? template;
+  final String pendingOrderId;
   final bool trainingMode;
   final String trainingApparatus;
   final String trainingApparatusId;

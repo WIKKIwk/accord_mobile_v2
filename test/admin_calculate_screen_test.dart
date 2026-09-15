@@ -20,6 +20,7 @@ part 'admin_calculate_screen_test_cases_resplit_part_02.dart';
 part 'admin_calculate_screen_print_val_tests.dart';
 part 'admin_calculate_screen_flexo_tests.dart';
 part 'admin_calculate_screen_waste_tests.dart';
+part 'admin_calculate_screen_pending_order_tests.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -49,4 +50,5 @@ void main() {
   _registerPrintValTests();
   _registerFlexoTests();
   _registerWasteTests();
+  _registerPendingOrderTests();
 }

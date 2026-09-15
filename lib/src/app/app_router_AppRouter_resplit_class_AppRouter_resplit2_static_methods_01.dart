@@ -248,6 +248,7 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
       return AppRouter._buildRoute(
         settings,
         AdminCalculateScreen(
+          pendingOrderId: calculateArgs?.pendingOrderId ?? '',
           template: template,
           trainingMode: calculateArgs?.trainingMode ?? false,
           trainingApparatus: calculateArgs?.trainingApparatus ?? '',

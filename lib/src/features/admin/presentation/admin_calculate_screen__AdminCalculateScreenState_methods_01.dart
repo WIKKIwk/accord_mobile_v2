@@ -85,7 +85,12 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       _imageSizeBytes = template.imageSizeBytes;
       _imageUrl = template.imageUrl;
       _imageLocalPath = '';
-      _kg.clear();
+      if (widget.pendingOrderId.isNotEmpty) {
+        _kg.text = _fmtInput(template.kg);
+      } else {
+        _kg.clear();
+      }
+      _color.text = template.color;
       _frameProductSizeMm.text = _fmtInput(template.frameProductSizeMm);
       _frameCount.text = _fmtInput(template.frameCount);
       _edgeAllowanceMm.text =
@@ -300,6 +305,10 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
     if (!mounted || saved is! CalculateOrderTemplate) {
       return;
     }
+    if (widget.pendingOrderId.isNotEmpty) {
+      Navigator.of(context).pop(true);
+      return;
+    }
     setState(() {
       _applyTemplate(saved);
       _editingAllFields = false;
@@ -344,6 +353,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
 
   ProductionMapOrderContext _buildProductionMapOrderContext() {
     return ProductionMapOrderContext(
+      pendingOrderId: widget.pendingOrderId,
       templateId: _templateId,
       orderCode: _orderCode,
       orderName: _resolvedOrderName(),

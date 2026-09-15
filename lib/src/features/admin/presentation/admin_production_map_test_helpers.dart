@@ -23,6 +23,7 @@ class ProductionMapTestArgs {
 
 class ProductionMapOrderContext {
   const ProductionMapOrderContext({
+    this.pendingOrderId = '',
     this.templateId = '',
     this.orderCode = '',
     required this.orderName,
@@ -37,6 +38,7 @@ class ProductionMapOrderContext {
   });
 
   final String templateId;
+  final String pendingOrderId;
   final String orderCode;
   final String orderName;
   final String productName;
