@@ -41,12 +41,14 @@ class AdminCalculateScreen extends StatefulWidget {
     this.pendingOrderId = '',
     super.key,
     this.template,
+    this.openedOrder,
     this.trainingMode = false,
     this.trainingApparatus = '',
     this.trainingApparatusId = '',
   });
 
   final CalculateOrderTemplate? template;
+  final OpenedOrderEditSource? openedOrder;
   final String pendingOrderId;
   final bool trainingMode;
   final String trainingApparatus;

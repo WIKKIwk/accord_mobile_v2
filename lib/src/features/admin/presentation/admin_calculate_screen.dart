@@ -66,6 +66,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   int _productCustomerGeneration = 0;
   bool _calculating = false;
   bool _openingSavedOrder = false;
+  bool _savingOpenedOrder = false;
   bool _openingTrainingOrder = false;
   bool _uploadingImage = false;
   bool _editingAllFields = true;
@@ -84,9 +85,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   @override
   void initState() {
     super.initState();
-    _editingAllFields =
-        widget.template == null || widget.pendingOrderId.isNotEmpty;
-    _applyTemplate(widget.template);
+    _editingAllFields = widget.template == null ||
+        widget.pendingOrderId.isNotEmpty ||
+        widget.openedOrder != null;
+    _applyTemplate(widget.openedOrder?.template ?? widget.template);
     for (final controller in _calculationInputControllers) {
       controller.addListener(_handleCalculationInputChanged);
     }
@@ -146,6 +148,42 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   bool get _hasFreshCalculation =>
       _result != null && _lastCalculatedSignature == _calculationSignature();
 
+  Future<void> _saveOpenedOrder() async {
+    final source = widget.openedOrder;
+    if (source == null ||
+        _savingOpenedOrder ||
+        !_hasFreshCalculation ||
+        !(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    setState(() {
+      _savingOpenedOrder = true;
+      _error = '';
+    });
+    try {
+      await MobileApi.instance.adminSaveOpenedOrderEdit(
+        source: source,
+        template: _buildTemplateDraft(),
+      );
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error is MobileApiException
+              ? error.message
+              : 'Buyurtma saqlanmadi';
+        });
+        showAdminTopNotice(context, _error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _savingOpenedOrder = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -166,20 +204,22 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       title: widget.trainingMode
           ? l10n.adminText('calculate.training_title')
           : pageTitle,
-      subtitle:
-          widget.trainingMode ? l10n.adminText('calculate.test_mode') : '',
+      subtitle: widget.openedOrder != null
+          ? '№${widget.openedOrder!.template.orderNumber} · Buyurtmani tahrirlash'
+          : widget.trainingMode ? l10n.adminText('calculate.test_mode') : '',
       nativeTopBar: true,
       resizeToAvoidBottomInset: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       actions: [
-        Padding(
-          padding: const EdgeInsetsDirectional.only(end: 8),
-          child: AppShellIconAction(
-            icon: Icons.list_alt_rounded,
-            size: 38,
-            onTap: _openOrders,
+        if (widget.openedOrder == null)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: 8),
+            child: AppShellIconAction(
+              icon: Icons.list_alt_rounded,
+              size: 38,
+              onTap: _openOrders,
+            ),
           ),
-        ),
         if (!_editingAllFields && widget.pendingOrderId.isEmpty)
           AppShellIconAction(icon: Icons.edit_outlined, onTap: _enableFullEdit),
       ],

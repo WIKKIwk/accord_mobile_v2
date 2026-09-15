@@ -86,7 +86,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       _imageSizeBytes = template.imageSizeBytes;
       _imageUrl = template.imageUrl;
       _imageLocalPath = '';
-      if (widget.pendingOrderId.isNotEmpty) {
+      if (widget.pendingOrderId.isNotEmpty || widget.openedOrder != null) {
         _kg.text = _fmtInput(template.kg);
       } else {
         _kg.clear();
@@ -113,7 +113,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
   }
 
   Future<void> _warmQuickOrderTemplates() async {
-    if (widget.trainingMode) {
+    if (widget.trainingMode || widget.openedOrder != null) {
       return;
     }
     try {

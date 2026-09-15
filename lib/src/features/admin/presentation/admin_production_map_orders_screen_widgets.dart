@@ -8,6 +8,7 @@ enum _OrderLongPressAction {
   unfreeze,
   delete,
   editMap,
+  editOrder,
 }
 
 Future<void> showAdminProductionMapOrderReadOnlyDetail(

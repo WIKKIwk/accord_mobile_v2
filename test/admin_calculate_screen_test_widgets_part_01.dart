@@ -5,6 +5,7 @@ Future<void> _pumpCalculateScreen(
   WidgetTester tester, {
   CalculateOrderTemplate? template,
   String pendingOrderId = '',
+  OpenedOrderEditSource? openedOrder,
   ValueChanged<Object?>? onProductionMapArguments,
 }) async {
   tester.view.devicePixelRatio = 1;
@@ -24,7 +25,7 @@ Future<void> _pumpCalculateScreen(
       ],
       supportedLocales: AppLocalizations.supportedLocales,
       home: AdminCalculateScreen(
-          template: template, pendingOrderId: pendingOrderId),
+          template: template, pendingOrderId: pendingOrderId, openedOrder: openedOrder),
       onGenerateRoute: (settings) {
         if (settings.name == AppRoutes.adminProductionMapTest &&
             (settings.arguments is ProductionMapOrderContext ||

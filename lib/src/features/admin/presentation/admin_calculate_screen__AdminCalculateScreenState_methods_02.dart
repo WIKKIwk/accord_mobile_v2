@@ -275,7 +275,8 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       name: _resolvedOrderName(),
       savedAt: DateTime.now().toUtc(),
       orderNumber:
-          widget.pendingOrderId.isNotEmpty ? widget.template!.orderNumber : '',
+          widget.openedOrder?.template.orderNumber ??
+          (widget.pendingOrderId.isNotEmpty ? widget.template!.orderNumber : ''),
       customerRef: _customerRef,
       customer: _customer.text.trim(),
       itemCode: _itemCode,

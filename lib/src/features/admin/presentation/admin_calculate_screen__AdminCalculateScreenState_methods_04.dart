@@ -7,7 +7,7 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
     return [
       const SizedBox(height: 22),
       FilledButton.icon(
-        onPressed: _calculating ? null : _calculate,
+        onPressed: _calculating || _savingOpenedOrder ? null : _calculate,
         icon: const Icon(Icons.calculate_outlined),
         label: Text(
           _calculating
@@ -26,9 +26,23 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
           response: freshResult,
           rollCount: _parseOptionalDouble(_rollCount.text),
           widthMm: _activePrintValSizeMm ?? _derivedWidthMm(),
-          onViewMap: _sourceMapId.trim().isEmpty ? null : _viewProductionMap,
+          onViewMap: widget.openedOrder != null || _sourceMapId.trim().isEmpty
+              ? null
+              : _viewProductionMap,
         ),
-        if (widget.trainingMode) ...[
+        if (widget.openedOrder != null) ...[
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed:
+                _savingOpenedOrder || _calculating ? null : _saveOpenedOrder,
+            icon: const Icon(Icons.save_outlined),
+            label: Text(
+              _savingOpenedOrder ? 'Saqlanmoqda…' : 'O‘zgarishlarni saqlash',
+            ),
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+          ),
+        ],
+        if (widget.trainingMode && widget.openedOrder == null) ...[
           const SizedBox(height: 18),
           FilledButton.icon(
             onPressed: _openingTrainingOrder ? null : _openTrainingOrder,
@@ -47,7 +61,7 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
             ),
           ),
         ],
-        if (_sourceMapId.trim().isNotEmpty) ...[
+        if (widget.openedOrder == null && _sourceMapId.trim().isNotEmpty) ...[
           const SizedBox(height: 18),
           FilledButton.icon(
             onPressed: _openingSavedOrder ? null : _openOrderFromSavedMap,
@@ -66,7 +80,9 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
             ),
           ),
         ],
-        if (_editingAllFields && !widget.trainingMode) ...[
+        if (widget.openedOrder == null &&
+            _editingAllFields &&
+            !widget.trainingMode) ...[
           const SizedBox(height: 18),
           OutlinedButton.icon(
             onPressed: _openProductionMap,

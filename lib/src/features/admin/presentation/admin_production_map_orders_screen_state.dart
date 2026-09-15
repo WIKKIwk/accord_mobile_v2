@@ -1315,11 +1315,43 @@ class _AdminProductionMapOrdersScreenState
                 _OrderLongPressAction.editMap,
               ),
             ),
+            ListTile(
+              leading: const Icon(Icons.edit_note_rounded),
+              title: const Text('Buyurtmani tahrirlash'),
+              onTap: () => Navigator.pop(context, _OrderLongPressAction.editOrder),
+            ),
           ],
         ),
       ),
     );
     if (!mounted || action == null) return;
+    if (action == _OrderLongPressAction.editOrder) {
+      _orderControlActionsInFlight.add(orderId);
+      try {
+        final source =
+            await MobileApi.instance.adminOpenedOrderEditSource(orderId);
+        if (!mounted) return;
+        final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
+          builder: (_) => AdminCalculateScreen(openedOrder: source),
+        ));
+        if (mounted && saved == true) {
+          showAdminTopNotice(context, 'Buyurtma o‘zgarishlari saqlandi');
+          await _refreshLive();
+        }
+      } catch (error) {
+        if (mounted) {
+          showAdminTopNotice(
+            context,
+            error is MobileApiException
+                ? error.message
+                : 'Buyurtmani tahrirlash ochilmadi',
+          );
+        }
+      } finally {
+        _orderControlActionsInFlight.remove(orderId);
+      }
+      return;
+    }
     if (action == _OrderLongPressAction.editMap) {
       await _openOrderProductionMapEditor(order);
       return;
@@ -1330,7 +1362,7 @@ class _AdminProductionMapOrdersScreenState
         AdminOrderControlAction.cancelFreeze,
       _OrderLongPressAction.unfreeze => AdminOrderControlAction.unfreeze,
       _OrderLongPressAction.delete => AdminOrderControlAction.delete,
-      _OrderLongPressAction.editMap => null,
+      _OrderLongPressAction.editMap || _OrderLongPressAction.editOrder => null,
     };
     if (controlAction == null) {
       return;

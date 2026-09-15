@@ -44,7 +44,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
     if (picked == null || !mounted) {
       return;
     }
-    if (_hasExistingQuickOrderForProduct(picked)) {
+    if (widget.openedOrder == null && _hasExistingQuickOrderForProduct(picked)) {
       if (!mounted) {
         return;
       }
