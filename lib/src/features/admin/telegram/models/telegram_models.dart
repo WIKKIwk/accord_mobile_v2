@@ -190,28 +190,3 @@ class TelegramInvite {
     );
   }
 }
-
-class TelegramQrLogin {
-  const TelegramQrLogin({
-    required this.challengeId,
-    required this.status,
-    required this.qrUrl,
-    required this.expiresAtUnix,
-  });
-
-  final String challengeId;
-  final String status;
-  final String? qrUrl;
-  final int expiresAtUnix;
-
-  bool get isAuthorized => status == 'authorized';
-
-  factory TelegramQrLogin.fromJson(Map<String, dynamic> json) {
-    return TelegramQrLogin(
-      challengeId: json['challenge_id']?.toString() ?? '',
-      status: json['status']?.toString().trim().toLowerCase() ?? '',
-      qrUrl: json['qr_url']?.toString(),
-      expiresAtUnix: (json['expires_at_unix'] as num?)?.toInt() ?? 0,
-    );
-  }
-}

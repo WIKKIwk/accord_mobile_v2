@@ -9,7 +9,7 @@ import '../../presentation/widgets/admin_shell.dart';
 import '../../presentation/widgets/admin_top_notice.dart';
 import '../models/telegram_models.dart';
 import 'telegram_bot_settings_sheet.dart';
-import 'telegram_qr_login_dialog.dart';
+import 'telegram_invite_qr_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 

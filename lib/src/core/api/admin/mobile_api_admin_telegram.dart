@@ -59,43 +59,4 @@ extension MobileApiAdminTelegram on MobileApi {
     );
   }
 
-  Future<TelegramQrLogin> startTelegramUserProfileQr({
-    required String telegramUserId,
-  }) async {
-    final response = await _sendAuthorized(
-      () => _post(
-        Uri.parse(
-          '${MobileApi.baseUrl}/v1/mobile/admin/telegram/user-profile/qr',
-        ),
-        headers: _headers(requireToken())
-          ..['Content-Type'] = 'application/json',
-        body: jsonEncode({'telegram_user_id': telegramUserId}),
-      ),
-    );
-    if (response.statusCode != 200) {
-      throw Exception('Telegram QR login failed to start');
-    }
-    return TelegramQrLogin.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-    );
-  }
-
-  Future<TelegramQrLogin> telegramUserProfileQrStatus(
-    String challengeId,
-  ) async {
-    final response = await _sendAuthorized(
-      () => _get(
-        Uri.parse(
-          '${MobileApi.baseUrl}/v1/mobile/admin/telegram/user-profile/qr/$challengeId',
-        ),
-        headers: _headers(requireToken()),
-      ),
-    );
-    if (response.statusCode != 200) {
-      throw Exception('Telegram QR login status failed');
-    }
-    return TelegramQrLogin.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-    );
-  }
 }

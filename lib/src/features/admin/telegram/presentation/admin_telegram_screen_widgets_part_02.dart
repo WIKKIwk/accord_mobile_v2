@@ -2,10 +2,9 @@
 part of 'admin_telegram_screen.dart';
 
 class _TelegramUserCard extends StatelessWidget {
-  const _TelegramUserCard({required this.user, this.onQrTap});
+  const _TelegramUserCard({required this.user});
 
   final TelegramUserAccount user;
-  final VoidCallback? onQrTap;
 
   @override
   Widget build(BuildContext context) {
@@ -92,15 +91,6 @@ class _TelegramUserCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (onQrTap != null) ...[
-              IconButton(
-                onPressed: onQrTap,
-                tooltip: context.l10n.adminTelegramQrTitle,
-                icon: const Icon(Icons.qr_code_2_rounded),
-                color: scheme.primary,
-              ),
-              const SizedBox(width: 2),
-            ],
             Text(
               user.role.label(
                 adminLabel: context.l10n.adminTelegramAdminRoleTitle,
@@ -155,12 +145,10 @@ class _TelegramUserGroup extends StatelessWidget {
   const _TelegramUserGroup({
     required this.title,
     required this.users,
-    required this.onQrTap,
   });
 
   final String title;
   final List<TelegramUserAccount> users;
-  final Future<void> Function(TelegramUserAccount) onQrTap;
 
   @override
   Widget build(BuildContext context) {
@@ -188,9 +176,6 @@ class _TelegramUserGroup extends StatelessWidget {
               ),
               child: _TelegramUserCard(
                 user: users[index],
-                onQrTap: users[index].role == TelegramInviteRole.salesManager
-                    ? () => onQrTap(users[index])
-                    : null,
               ),
             ),
         ],

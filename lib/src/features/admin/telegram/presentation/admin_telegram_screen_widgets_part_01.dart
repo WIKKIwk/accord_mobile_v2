@@ -93,22 +93,24 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
     }
   }
 
-  Future<void> _openUserProfileQr(TelegramUserAccount user) async {
-    final authorized = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => TelegramQrLoginDialog(user: user),
-    );
-    if (authorized != true || !mounted) {
-      return;
-    }
-    await _reload();
-    if (mounted) {
-      showAdminTopNotice(
-        context,
-        context.l10n.adminTelegramQrConnected,
-        icon: Icons.verified_rounded,
+  Future<void> _showInviteQr(TelegramInviteRole role) async {
+    try {
+      final invite = await MobileApi.instance.createTelegramInvite(role);
+      if (!mounted) {
+        return;
+      }
+      await showDialog<void>(
+        context: context,
+        builder: (_) => TelegramInviteQrDialog(invite: invite),
       );
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          context.l10n.adminTelegramInviteFailed,
+          icon: Icons.error_outline_rounded,
+        );
+      }
     }
   }
 
@@ -158,11 +160,13 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
               _TelegramRoleCard(
                 role: TelegramInviteRole.admin,
                 onShare: () => _shareInvite(TelegramInviteRole.admin),
+                onQr: () => _showInviteQr(TelegramInviteRole.admin),
               ),
               const SizedBox(height: 4),
               _TelegramRoleCard(
                 role: TelegramInviteRole.salesManager,
                 onShare: () => _shareInvite(TelegramInviteRole.salesManager),
+                onQr: () => _showInviteQr(TelegramInviteRole.salesManager),
               ),
               const SizedBox(height: 20),
               Text(
@@ -178,7 +182,6 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
                   users: data.users
                       .where((user) => user.role == TelegramInviteRole.admin)
                       .toList(growable: false),
-                  onQrTap: _openUserProfileQr,
                 ),
                 _TelegramUserGroup(
                   title: context.l10n.adminTelegramSalesManagerRoleTitle,
@@ -187,7 +190,6 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
                         (user) => user.role == TelegramInviteRole.salesManager,
                       )
                       .toList(growable: false),
-                  onQrTap: _openUserProfileQr,
                 ),
               ],
             ],
@@ -347,10 +349,12 @@ class _TelegramRoleCard extends StatelessWidget {
   const _TelegramRoleCard({
     required this.role,
     required this.onShare,
+    required this.onQr,
   });
 
   final TelegramInviteRole role;
   final VoidCallback onShare;
+  final VoidCallback onQr;
 
   @override
   Widget build(BuildContext context) {
@@ -397,6 +401,11 @@ class _TelegramRoleCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+            IconButton(
+              onPressed: onQr,
+              tooltip: context.l10n.adminTelegramQrTitle,
+              icon: const Icon(Icons.qr_code_2_rounded),
             ),
             IconButton(
               onPressed: onShare,
