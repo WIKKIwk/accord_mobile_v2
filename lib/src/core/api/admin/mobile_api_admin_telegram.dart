@@ -59,4 +59,57 @@ extension MobileApiAdminTelegram on MobileApi {
     );
   }
 
+  Future<TelegramQrLogin> startTelegramQrLogin(TelegramInviteRole role) async {
+    final response = await _sendAuthorized(() => _post(
+          Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/telegram/qr-logins'),
+          headers: _headers(requireToken())
+            ..['Content-Type'] = 'application/json',
+          body: jsonEncode({'role': role.jsonName}),
+        ));
+    return _telegramQrResponse(response);
+  }
+
+  Future<TelegramQrLogin> pollTelegramQrLogin(String id) async {
+    final response = await _sendAuthorized(() => _get(
+          Uri.parse(
+              '${MobileApi.baseUrl}/v1/mobile/admin/telegram/qr-logins/${Uri.encodeComponent(id)}'),
+          headers: _headers(requireToken()),
+        ));
+    return _telegramQrResponse(response);
+  }
+
+  Future<TelegramQrLogin> submitTelegramQrPassword(
+      String id, String password) async {
+    final response = await _sendAuthorized(() => _post(
+          Uri.parse(
+              '${MobileApi.baseUrl}/v1/mobile/admin/telegram/qr-logins/${Uri.encodeComponent(id)}'),
+          headers: _headers(requireToken())
+            ..['Content-Type'] = 'application/json',
+          body: jsonEncode({'password': password}),
+        ));
+    return _telegramQrResponse(response);
+  }
+
+  Future<void> cancelTelegramQrLogin(String id) async {
+    await _sendAuthorized(() => _delete(
+          Uri.parse(
+              '${MobileApi.baseUrl}/v1/mobile/admin/telegram/qr-logins/${Uri.encodeComponent(id)}'),
+          headers: _headers(requireToken()),
+        ));
+  }
+
+  TelegramQrLogin _telegramQrResponse(http.Response response) {
+    if (response.statusCode != 200) {
+      String code = 'transport_failed';
+      try {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        code = (json['error'] ?? json['message']) as String? ?? code;
+      } catch (_) {
+        /* Non-JSON proxy errors use the generic connection message. */
+      }
+      throw TelegramQrException(code);
+    }
+    return TelegramQrLogin.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>);
+  }
 }

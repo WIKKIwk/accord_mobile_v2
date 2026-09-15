@@ -95,19 +95,22 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
 
   Future<void> _showInviteQr(TelegramInviteRole role) async {
     try {
-      final invite = await MobileApi.instance.createTelegramInvite(role);
-      if (!mounted) {
-        return;
-      }
-      await showModalBottomSheet<void>(
+      final connected = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
         showDragHandle: true,
         backgroundColor: Colors.transparent,
         barrierColor: Colors.black.withValues(alpha: 0.32),
-        builder: (_) => TelegramInviteQrSheet(invite: invite),
+        builder: (_) => TelegramInviteQrSheet(
+          role: role,
+          start: () => MobileApi.instance.startTelegramQrLogin(role),
+          poll: MobileApi.instance.pollTelegramQrLogin,
+          submitPassword: MobileApi.instance.submitTelegramQrPassword,
+          cancel: MobileApi.instance.cancelTelegramQrLogin,
+        ),
       );
+      if (connected == true && mounted) await _reload();
     } catch (_) {
       if (mounted) {
         showAdminTopNotice(

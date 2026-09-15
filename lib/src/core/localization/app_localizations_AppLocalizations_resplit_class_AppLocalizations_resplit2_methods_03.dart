@@ -9,10 +9,28 @@ extension AppLocalizationsAstPartResplit2_03 on AppLocalizations {
       );
 
   String get adminTelegramQrScanInstruction => _t(
-        'Telefon kamerasi bilan QR kodni scan qiling. Ochilgan Telegram botida Start bosing.',
-        'Scan the QR code with your phone camera, then press Start in the opened Telegram bot.',
-        'Отсканируйте QR-код камерой телефона, затем нажмите Start в открывшемся боте Telegram.',
+        'Telegram → Sozlamalar → Qurilmalar → QR kodni skanerlash. Skan qilib, ulanishni tasdiqlang. Akkauntingiz Mini RS ERP userbotiga ulanadi.',
+        'Telegram → Settings → Devices → Scan QR Code. Scan and confirm to connect your account to the Mini RS ERP userbot.',
+        'Telegram → Настройки → Устройства → Сканировать QR-код. Отсканируйте и подтвердите подключение аккаунта к юзерботу Mini RS ERP.',
       );
+
+  String get adminTelegramQrPasswordInstruction => _t(
+        'Telegram akkauntingizda ikki bosqichli himoya yoqilgan. Ulanishni tugatish uchun Telegram parolini kiriting.',
+        'Two-step verification is enabled. Enter your Telegram password to finish connecting.',
+        'Включена двухэтапная аутентификация. Введите пароль Telegram для завершения подключения.',
+      );
+
+  String get adminTelegramQrPasswordLabel => _t('Telegram paroli', 'Telegram password', 'Пароль Telegram');
+
+  String adminTelegramQrError(String code) => switch (code) {
+        'not_configured' => _t('Serverda TELEGRAM_API_ID va TELEGRAM_API_HASH sozlanmagan.', 'TELEGRAM_API_ID and TELEGRAM_API_HASH are not configured on the server.', 'На сервере не настроены TELEGRAM_API_ID и TELEGRAM_API_HASH.'),
+        'already_registered' => _t('Bu Telegram user allaqachon ro‘yxatda. QR yangi user qo‘shish uchun.', 'This Telegram user is already registered. Use QR to add a new user.', 'Этот пользователь уже в списке. QR предназначен для нового пользователя.'),
+        'invalid_password' => _t('Telegram paroli noto‘g‘ri. Qayta kiriting.', 'Incorrect Telegram password. Try again.', 'Неверный пароль Telegram. Повторите ввод.'),
+        'expired' => _t('QR ulanish muddati tugadi. Qayta urining.', 'QR login expired. Try again.', 'Время входа по QR истекло. Повторите попытку.'),
+        'flood_wait' => _t('Telegram vaqtincha chekladi. Birozdan keyin qayta urining.', 'Telegram rate limit. Please try again later.', 'Ограничение Telegram. Повторите попытку позже.'),
+        'login_pending' => _t('Boshqa QR ulanish ochiq. Uni yoping yoki 5 daqiqadan keyin qayta urining.', 'Another QR login is open. Close it or retry in 5 minutes.', 'Другой вход по QR уже открыт. Закройте его или повторите через 5 минут.'),
+        _ => _t('Telegramga ulanish amalga oshmadi. Qayta urining.', 'Could not connect to Telegram. Try again.', 'Не удалось подключиться к Telegram. Повторите попытку.'),
+      };
 
   String get adminTelegramQrCancel => _t(
         'Yopish',

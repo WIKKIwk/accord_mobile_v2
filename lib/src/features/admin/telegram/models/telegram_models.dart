@@ -190,3 +190,54 @@ class TelegramInvite {
     );
   }
 }
+
+class TelegramQrLogin {
+  const TelegramQrLogin(
+      {required this.loginId,
+      required this.status,
+      this.qrUrl,
+      this.expiresAtUnix,
+      this.passwordHint,
+      this.errorCode});
+  final String loginId;
+  final String status;
+  final String? qrUrl;
+  final int? expiresAtUnix;
+  final String? passwordHint;
+  final String? errorCode;
+
+  factory TelegramQrLogin.fromJson(Map<String, dynamic> json) {
+    final id = json['login_id'] as String? ?? '';
+    final status = json['status'] as String? ?? '';
+    final qrUrl = json['qr_url'] as String?;
+    final expires = (json['expires_at_unix'] as num?)?.toInt();
+    if (id.isEmpty ||
+        !const [
+          'loading',
+          'waiting',
+          'password_required',
+          'authorized',
+          'failed'
+        ].contains(status)) {
+      throw const TelegramQrException('invalid_response');
+    }
+    if (status == 'waiting' &&
+        (qrUrl == null ||
+            !RegExp(r'^tg://login\?token=[A-Za-z0-9_-]+$').hasMatch(qrUrl) ||
+            expires == null)) {
+      throw const TelegramQrException('invalid_response');
+    }
+    return TelegramQrLogin(
+        loginId: id,
+        status: status,
+        qrUrl: qrUrl,
+        expiresAtUnix: expires,
+        passwordHint: json['password_hint'] as String?,
+        errorCode: json['error_code'] as String?);
+  }
+}
+
+class TelegramQrException implements Exception {
+  const TelegramQrException(this.code);
+  final String code;
+}
