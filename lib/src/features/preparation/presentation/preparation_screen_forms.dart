@@ -218,12 +218,13 @@ class _PreparationWarehouseScreenState
 
   List<PreparationMaterial> get _filtered {
     final q = _query.trim().toLowerCase();
-    // Barcha homashyolar ko'rinadi — yangi (qoldiqsiz) material ham.
-    // Qoldiq bo'lmasa available() '0' qaytaradi. Balans bo'yicha filtrlab
-    // qo'ysak, yangi material hech qayerda ko'rinmay qoladi va unga birinchi
-    // kirimni ham qilib bo'lmaydi.
-    if (q.isEmpty) return _materials;
-    return _materials
+    final visible = _warehouse == null
+        ? const <PreparationMaterial>[]
+        : _materials.where((m) => m.visibleIn(_warehouse));
+    // Server bergan ombor scope ichidagi barcha homashyolar ko'rinadi — yangi
+    // (qoldiqsiz) material ham. Qoldiq bo'lmasa available() '0' qaytaradi.
+    if (q.isEmpty) return visible.toList();
+    return visible
         .where((m) => '${m.name} ${m.code}'.toLowerCase().contains(q))
         .toList();
   }

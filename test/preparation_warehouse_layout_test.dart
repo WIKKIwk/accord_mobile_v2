@@ -305,4 +305,70 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('warehouse list applies each warehouse material scope',
+      (tester) async {
+    final materials = [
+      PreparationMaterial.fromJson({
+        'item_code': 'SERIYO-1',
+        'name': 'Seriyo own',
+        'can_receive': true,
+        'visible_warehouses': ['Own ombor'],
+        'balances': [
+          {'warehouse': 'Own ombor', 'kg': '12'},
+        ],
+      }),
+      PreparationMaterial.fromJson({
+        'item_code': 'RULON-1',
+        'name': 'Rulon other role',
+        'can_receive': false,
+        'visible_warehouses': ['Shared ombor'],
+        'balances': [
+          {'warehouse': 'Shared ombor', 'kg': '25'},
+        ],
+      }),
+    ];
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.light(),
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: PreparationWarehouseScreen(
+        warehouses: const ['Own ombor', 'Shared ombor'],
+        assignedWarehouses: const ['Own ombor', 'Shared ombor'],
+        materialWarehouses: const ['Own ombor'],
+        initialWarehouse: 'Own ombor',
+        materials: materials,
+        history: const [],
+        locked: false,
+        onWarehouseSelected: (_) {},
+        onReceive: (_) async {},
+        onCreateMaterial: (_) async {},
+        onReload: () async {},
+        freshMaterials: () => materials,
+        freshHistory: () => const [],
+        freshWarehouses: () => const ['Own ombor', 'Shared ombor'],
+        freshAssignedWarehouses: () => const ['Own ombor', 'Shared ombor'],
+        freshMaterialWarehouses: () => const ['Own ombor'],
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Seriyo own'), findsOneWidget);
+    expect(find.text('Rulon other role'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey('preparation-warehouse-filter-chip')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(
+        const ValueKey('preparation-warehouse-filter-option-Shared ombor')));
+    await tester.pumpAndSettle();
+    expect(find.text('Seriyo own'), findsNothing);
+    expect(find.text('Rulon other role'), findsOneWidget);
+  });
 }

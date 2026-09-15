@@ -197,7 +197,9 @@ class _PreparationScreenState extends State<PreparationScreen> {
       title: 'Homashyo tanlang',
       // Faqat Tayyorlovga tegishli materiallar kirim picker'iga kiradi.
       // Umumiy ERP homashyo katalogi ombor ko'rinishida read-only ko'rinadi.
-      items: data.materials.where((m) => m.canReceive).toList(),
+      items: data.materials
+          .where((m) => m.canReceive && m.visibleIn(_warehouse))
+          .toList(),
       label: (m) => m.name,
       subtitle: (m) =>
           'Mavjud: ${preparationDisplay(m.available(_warehouse))} kg',

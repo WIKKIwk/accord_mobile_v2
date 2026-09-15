@@ -49,14 +49,30 @@ class PreparationMaterial {
       : code = json['item_code'] as String,
         name = json['name'] as String,
         canReceive = json['can_receive'] != false,
+        visibleWarehouses = json.containsKey('visible_warehouses')
+            ? ((json['visible_warehouses'] is List)
+                ? (json['visible_warehouses'] as List)
+                    .whereType<String>()
+                    .map((w) => w.trim().toLowerCase())
+                    .where((w) => w.isNotEmpty)
+                    .toSet()
+                : <String>{})
+            : null,
         balances = {
           for (final b in json['balances'] as List? ?? [])
             b['warehouse'] as String: b['kg'] as String
         };
   final String code, name;
   final bool canReceive;
+  final Set<String>? visibleWarehouses;
   final Map<String, String> balances;
   String available(String? warehouse) => balances[warehouse] ?? '0';
+  bool visibleIn(String? warehouse) {
+    final key = warehouse?.trim().toLowerCase();
+    if (key == null || key.isEmpty) return false;
+    final scope = visibleWarehouses;
+    return scope == null || scope.contains(key);
+  }
 }
 
 class PreparationOrder {
