@@ -43,6 +43,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _customer = TextEditingController();
   final _product = TextEditingController();
   String _orderType = '';
+  CalculateOrderProductionOptions? _productionOptions;
   final _kg = TextEditingController();
   final _frameProductSizeMm = TextEditingController();
   final _frameCount = TextEditingController();

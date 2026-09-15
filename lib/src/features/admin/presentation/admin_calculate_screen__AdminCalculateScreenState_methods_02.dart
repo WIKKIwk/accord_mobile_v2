@@ -269,6 +269,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     final secondLayer = _legacyLayer(1);
     final thirdLayer = _legacyLayer(2);
     return CalculateOrderTemplate(
+      productionOptions: _productionOptions,
       id: _templateId,
       code: _orderCode,
       name: _resolvedOrderName(),

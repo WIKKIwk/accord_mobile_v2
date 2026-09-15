@@ -23,6 +23,11 @@ void main() {
     'customer': 'Mijoz',
     'product': 'Mahsulot',
     'status': 'rulon',
+    'production_options': {
+      'print_method': 'flexo',
+      'cold_glue': true,
+      'diameter_mm': 45.5,
+    },
     'frame_product_size_mm': 300,
     'frame_count': 2,
     'layers': [
@@ -38,6 +43,10 @@ void main() {
       final orders = await MobileApi.instance.pendingOrders();
       expect(orders, hasLength(1));
       expect(orders.single.template.kg, 500);
+      expect(orders.single.template.productionOptions!.printMethod, 'flexo');
+      expect(
+          orders.single.template.copyWith(kg: 600).productionOptions!.coldGlue,
+          isTrue);
       expect(orders.single.matches('9011'), isTrue);
       expect(orders.single.matches('mijoz'), isTrue);
       expect(orders.single.completed, isFalse);
@@ -81,6 +90,8 @@ void main() {
               expect(input['pending_order_id'], 'zakaz-9011');
               expect(input['template']['kg'], 500);
               expect(input['template']['order_number'], '9011');
+              expect(input['template']['production_options'],
+                  template['production_options']);
               return http.Response(
                   jsonEncode({
                     'ok': true,

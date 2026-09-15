@@ -171,6 +171,20 @@ class _PendingOrderDetailSheetState extends State<PendingOrderDetailSheet> {
                   ('Mijoz', t.customer),
                   ('Mahsulot', t.product),
                   ('Holat', t.status),
+                  if (t.productionOptions != null) ...[
+                    (
+                      'Bosma',
+                      t.productionOptions!.printMethod == 'flexo'
+                          ? 'Flexo'
+                          : 'Temir'
+                    ),
+                    (
+                      'Holodniy kley',
+                      t.productionOptions!.coldGlue ? 'Ha' : 'Yo‘q'
+                    ),
+                    if (t.productionOptions!.diameterMm != null)
+                      ('Diametr', '${t.productionOptions!.diameterMm} mm'),
+                  ],
                   ('Tiraj', '${t.kg} kg'),
                   ('1 kadrdagi o‘lcham', '${t.frameProductSizeMm} mm'),
                   ('Kadr soni', '${t.frameCount} ta'),

@@ -1,6 +1,39 @@
 part of 'admin_calculate_screen_test.dart';
 
 void _registerPendingOrderTests() {
+  testWidgets(
+      'Telegram Paket Flexo keeps product form, allowance and routing through normal editor',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    resetMobileApiTestModeData();
+    final template = _flexoTemplate().copyWith(
+      status: 'paket',
+      orderNumber: '9011',
+      kg: 500,
+      productionOptions: const CalculateOrderProductionOptions(
+          printMethod: 'flexo', coldGlue: true, diameterMm: 45.5),
+    );
+    Object? args;
+    await _pumpCalculateScreen(tester,
+        template: template,
+        pendingOrderId: 'zakaz-9011',
+        onProductionMapArguments: (value) => args = value);
+    tester.view.physicalSize = const Size(430, 3000);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextFormField>(_flexoField()).controller!.text, '40');
+    await _calculateFlexo(tester);
+    await tester.ensureVisible(find.text('Mapni ulash'));
+    await tester.tap(find.text('Mapni ulash'));
+    await tester.pumpAndSettle();
+    final draft = (args as ProductionMapTestArgs).orderContext!.templateDraft!;
+    expect(draft.status, 'paket');
+    expect(draft.edgeAllowanceMm, 40);
+    expect(draft.productionOptions!.toJson(),
+        template.productionOptions!.toJson());
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   for (final form in ['rulon', 'paket', 'flexo']) {
     testWidgets(
         'pending $form completion preserves Telegram fields and order number',

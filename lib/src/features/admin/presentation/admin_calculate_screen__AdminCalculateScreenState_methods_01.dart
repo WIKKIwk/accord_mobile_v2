@@ -79,6 +79,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       _itemCode = template.itemCode;
       _product.text = template.product;
       _orderType = template.status;
+      _productionOptions = template.productionOptions;
       _imageId = template.imageId;
       _imageName = template.imageName;
       _imageMime = template.imageMime;

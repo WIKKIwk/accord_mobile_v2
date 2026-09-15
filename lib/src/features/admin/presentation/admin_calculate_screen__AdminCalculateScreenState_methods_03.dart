@@ -117,7 +117,9 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         _activeEdgeAllowanceMm;
   }
 
-  bool get _isFlexo => _orderType.trim().toLowerCase() == 'flexo';
+  bool get _isFlexo =>
+      _productionOptions?.printMethod == 'flexo' ||
+      _orderType.trim().toLowerCase() == 'flexo';
 
   double get _activeEdgeAllowanceMm => _isFlexo
       ? _parseRequiredDouble(_edgeAllowanceMm.text)
