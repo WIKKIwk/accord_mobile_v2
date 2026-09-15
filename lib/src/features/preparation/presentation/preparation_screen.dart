@@ -20,6 +20,14 @@ part 'preparation_screen_forms.dart';
 
 const double _adminHomePanelCardGap = 4;
 
+Future<void> _openPreparationScaleReceipt(
+    BuildContext context, String? warehouse) async {
+  await Navigator.of(context).pushNamed(
+    AppRoutes.gscaleMode,
+    arguments: warehouse,
+  );
+}
+
 M3SegmentVerticalSlot _slotFor(int index, int length) {
   if (length <= 1) {
     return M3SegmentVerticalSlot.top;
@@ -180,6 +188,11 @@ class _PreparationScreenState extends State<PreparationScreen> {
       _openWarehouse(data);
       return;
     }
+    if (!data.materialWarehouses.contains(_warehouse)) {
+      await _openPreparationScaleReceipt(context, _warehouse);
+      if (mounted) await _reload();
+      return;
+    }
     final material = await _pick<PreparationMaterial>(
       title: 'Homashyo tanlang',
       // Faqat Tayyorlovga tegishli materiallar kirim picker'iga kiradi.
@@ -202,14 +215,17 @@ class _PreparationScreenState extends State<PreparationScreen> {
           AdminFabMenuAction(
             title: 'Tarozi kirimi',
             icon: Icons.scale_outlined,
-            onTap: () => AppRootNavigation.replaceRootRoute(
-                context, AppRoutes.gscaleMode),
+            onTap: () async {
+              await _openPreparationScaleReceipt(context, _warehouse);
+              if (mounted) await _reload();
+            },
           ),
-        AdminFabMenuAction(
-          title: 'Kirim',
-          icon: Icons.add_circle_outline_rounded,
-          onTap: () => _startKirim(data),
-        ),
+        if (_warehouse == null || data.materialWarehouses.contains(_warehouse))
+          AdminFabMenuAction(
+            title: 'Kirim',
+            icon: Icons.add_circle_outline_rounded,
+            onTap: () => _startKirim(data),
+          ),
         AdminFabMenuAction(
           title: 'Buyurtmalar',
           icon: Icons.list_alt_rounded,

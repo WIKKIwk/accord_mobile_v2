@@ -39,7 +39,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     });
     try {
       final warehouses = _warehouseIndependentOfItem
-          ? await _fetchAllWarehouses()
+          ? await _fetchAllWarehouses(query: selectedWarehouse.warehouse)
           : await _fetchWarehouses(itemCode: itemCode);
       if (!mounted) {
         return;
@@ -381,8 +381,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
 
   Future<bool> _materialWarehouseAllowed(String warehouse) async {
     final role = AppSession.instance.profile?.role;
-    if (role != UserRole.materialTaminotchi &&
-        role != UserRole.tayyorlovMasteri) {
+    if (role != UserRole.materialTaminotchi) {
       return true;
     }
     final allowed = await _materialAssignedWarehouseNames();

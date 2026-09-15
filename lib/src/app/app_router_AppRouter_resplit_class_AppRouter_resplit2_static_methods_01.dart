@@ -539,7 +539,11 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
         AdminWerkaScreen(chatTarget: _adminChatTarget(entry)),
       );
     case AppRoutes.gscaleMode:
-      return AppRouter._buildRoute(settings, const GScaleModeScreen());
+      return AppRouter._buildRoute(settings, GScaleModeScreen(
+        initialWarehouse: settings.arguments is String
+            ? settings.arguments as String
+            : null,
+      ));
     case AppRoutes.qolipHome:
       return AppRouter._buildRoute(settings, const QolipHomeScreen());
     case AppRoutes.qolipBlocks:

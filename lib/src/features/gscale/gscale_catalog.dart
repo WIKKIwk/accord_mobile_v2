@@ -193,6 +193,14 @@ Future<List<GScaleCatalogWarehouse>> fetchGScaleDefaultWarehouses({
 }) async {
   final client = api ?? MobileApi.instance;
   final profile = AppSession.instance.profile;
+  if ((role ?? profile?.role) == UserRole.tayyorlovMasteri) {
+    // Match the preparation selector, including other people's warehouses.
+    // Item defaults and assignedWarehouses are not the receipt destination list.
+    final snapshot = await client.preparationSnapshot();
+    return _uniqueWarehouses(snapshot.warehouses, query: query)
+        .take(limit)
+        .toList(growable: false);
+  }
   final canReadAdminWarehouses = gscaleUsesScopedAdminWarehousesForProfile(
     profile,
     role: role,

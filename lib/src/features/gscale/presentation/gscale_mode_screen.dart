@@ -19,7 +19,9 @@ import '../../shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 
 class GScaleModeScreen extends StatelessWidget {
-  const GScaleModeScreen({super.key});
+  const GScaleModeScreen({super.key, this.initialWarehouse});
+
+  final String? initialWarehouse;
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +45,7 @@ class GScaleModeScreen extends StatelessWidget {
         ),
         bottom: const PreparationDock(),
         linkPrintsToOrder: true,
+        initialWarehouse: initialWarehouse,
       );
     }
     return GScaleMobileApp(
@@ -73,6 +76,7 @@ class _MaterialGScaleControlScreen extends StatefulWidget {
     required this.drawer,
     required this.bottom,
     this.linkPrintsToOrder = false,
+    this.initialWarehouse,
   });
 
   final Widget drawer;
@@ -81,6 +85,7 @@ class _MaterialGScaleControlScreen extends StatefulWidget {
   /// true bo'lsa chop etilgan har bir homashyo tanlangan orderga
   /// avtomatik ulanadi (tayyorlov kirimi). Material oqimida false.
   final bool linkPrintsToOrder;
+  final String? initialWarehouse;
 
   @override
   State<_MaterialGScaleControlScreen> createState() =>
@@ -286,6 +291,7 @@ class _MaterialGScaleControlScreenState
         children: [
           Expanded(
             child: OperatorDashboardPage(
+              initialWarehouse: widget.initialWarehouse,
               orderSection: orderSection,
               server: _selectedServer,
               printTransport: _printTransport,

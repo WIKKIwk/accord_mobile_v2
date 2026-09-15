@@ -165,6 +165,15 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
             draft.warehouseMode == 'default' ? 'default' : 'manual';
         _defaultWarehouse = draft.defaultWarehouse;
         _defaultWarehouseController.text = draft.defaultWarehouse;
+        // An explicit preparation destination takes precedence over a saved
+        // draft. An already active batch keeps its server-owned destination.
+        final initialWarehouse = widget.initialWarehouse?.trim() ?? '';
+        if (initialWarehouse.isNotEmpty &&
+            _authoritativeRsBatch?.active != true) {
+          _selectedWarehouse = MobileWarehouse(warehouse: initialWarehouse);
+          _warehouseMode = 'manual';
+          _draftContextSaved = false;
+        }
       });
     });
 

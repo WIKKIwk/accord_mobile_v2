@@ -384,6 +384,7 @@ class OperatorDashboardPage extends StatefulWidget {
     this.onPrintSucceeded,
     this.linkedOrderWidthMm,
     this.orderSection,
+    this.initialWarehouse,
     super.key,
   });
 
@@ -407,6 +408,7 @@ class OperatorDashboardPage extends StatefulWidget {
   final Future<void> Function(GScaleMaterialReceiptPrintResponse)?
       onPrintSucceeded;
   final Widget? orderSection;
+  final String? initialWarehouse;
 
   /// Bog'langan order eni (mm). Berilgan bo'lsa, eni field'i diapazondan
   /// chiqsa qizil bo'ladi: [order, order + 30].

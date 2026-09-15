@@ -45,6 +45,11 @@ extension _PreparationForms on _PreparationScreenState {
 
   Future<void> _receive(PreparationMaterial material) async {
     final warehouse = _warehouse!;
+    if (!_syncedMaterialWarehouses().contains(warehouse)) {
+      await _openPreparationScaleReceipt(context, warehouse);
+      if (mounted) await _reload();
+      return;
+    }
     final kg = await _input(
         title: '${material.name} — kirim', label: 'Kirim (kg)', quantity: true);
     if (kg != null && mounted) {
@@ -230,6 +235,12 @@ class _PreparationWarehouseScreenState
 
   Future<void> _doKirim() async {
     if (_warehouse == null || widget.locked) return;
+    if (!_canCreateMaterial) {
+      await _openPreparationScaleReceipt(context, _warehouse);
+      await widget.onReload();
+      if (mounted) setState(() => _materials = widget.freshMaterials());
+      return;
+    }
     final material = await showModalBottomSheet<PreparationMaterial>(
       context: context,
       isScrollControlled: true,
@@ -369,6 +380,7 @@ class _PreparationWarehouseScreenState
           onReload: widget.onReload,
           freshMaterials: widget.freshMaterials,
           freshHistory: widget.freshHistory,
+          freshMaterialWarehouses: widget.freshMaterialWarehouses,
         ),
       ),
     );
@@ -409,10 +421,12 @@ class _PreparationWarehouseScreenState
         primaryFabActions: _warehouses.isEmpty
             ? null
             : [
-                if (_warehouse != null) ...[
+                if (_warehouse != null && !widget.locked) ...[
                   AdminFabMenuAction(
-                    title: 'Kirim',
-                    icon: Icons.add_circle_outline_rounded,
+                    title: _canCreateMaterial ? 'Kirim' : 'Tarozi kirimi',
+                    icon: _canCreateMaterial
+                        ? Icons.add_circle_outline_rounded
+                        : Icons.scale_outlined,
                     onTap: _doKirim,
                   ),
                   if (_canCreateMaterial)
@@ -595,6 +609,7 @@ class PreparationMaterialDetailScreen extends StatefulWidget {
     required this.onReload,
     required this.freshMaterials,
     required this.freshHistory,
+    required this.freshMaterialWarehouses,
   });
 
   final String materialCode;
@@ -606,6 +621,7 @@ class PreparationMaterialDetailScreen extends StatefulWidget {
   final Future<void> Function() onReload;
   final List<PreparationMaterial> Function() freshMaterials;
   final List<dynamic> Function() freshHistory;
+  final List<String> Function() freshMaterialWarehouses;
 
   @override
   State<PreparationMaterialDetailScreen> createState() =>
@@ -662,9 +678,19 @@ class _PreparationMaterialDetailScreenState
     });
   }
 
+  bool get _canReceiveManually =>
+      widget.freshMaterialWarehouses().contains(widget.warehouse);
+
   Future<void> _doKirim() async {
     final material = _material;
-    if (material == null || widget.locked || !material.canReceive) return;
+    if (material == null || widget.locked) return;
+    if (!_canReceiveManually) {
+      await _openPreparationScaleReceipt(context, widget.warehouse);
+      await widget.onReload();
+      await _sync();
+      return;
+    }
+    if (!material.canReceive) return;
     await widget.onReceive(material);
     await _sync();
   }
@@ -743,11 +769,14 @@ class _PreparationMaterialDetailScreenState
                   _adminHomePanelCardGap, 12, _adminHomePanelCardGap, 0),
               child: FilledButton.icon(
                 key: const Key('preparation-detail-kirim'),
-                onPressed: material == null || widget.locked || !material.canReceive
+                onPressed: material == null || widget.locked ||
+                        (_canReceiveManually && !material.canReceive)
                     ? null
                     : _doKirim,
-                icon: const Icon(Icons.add_circle_outline_rounded),
-                label: const Text('Kirim qilish'),
+                icon: Icon(_canReceiveManually
+                    ? Icons.add_circle_outline_rounded
+                    : Icons.scale_outlined),
+                label: Text(_canReceiveManually ? 'Kirim qilish' : 'Tarozi kirimi'),
               ),
             ),
             if (receipts.isNotEmpty) ...[

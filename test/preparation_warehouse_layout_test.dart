@@ -1,11 +1,13 @@
 import 'dart:convert';
 
+import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_screen.dart';
+import 'package:accord_mobile_v2/src/features/preparation/models/preparation_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -208,43 +210,99 @@ void main() {
     }
   }
 
-  testWidgets('other warehouse keeps Kirim but hides new material action',
-      (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      theme: AppTheme.light(),
-      locale: const Locale('uz'),
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ],
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: PreparationWarehouseScreen(
-        warehouses: const ['Tayyorlov ombori', 'Omborchi ombori'],
-        assignedWarehouses: const ['Tayyorlov ombori'],
-        materialWarehouses: const ['Tayyorlov ombori'],
-        initialWarehouse: 'Omborchi ombori',
-        materials: const [],
-        history: const [],
-        locked: false,
-        onWarehouseSelected: (_) {},
-        onReceive: (_) async {},
-        onCreateMaterial: (_) async {},
-        onReload: () async {},
-        freshMaterials: () => const [],
-        freshHistory: () => const [],
-        freshWarehouses: () => const ['Tayyorlov ombori', 'Omborchi ombori'],
-        freshAssignedWarehouses: () => const ['Tayyorlov ombori'],
-        freshMaterialWarehouses: () => const ['Tayyorlov ombori'],
-      ),
-    ));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('app-primary-navigation-button')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Kirim'), findsOneWidget);
-    expect(find.text('Homashyo qo‘shish'), findsNothing);
-  });
+  for (final shared in [false, true]) {
+    testWidgets('shared=$shared warehouse requires scale from FAB and detail',
+        (tester) async {
+      var manualReceipts = 0;
+      var scaleEntries = 0;
+      final assigned = ['Tayyorlov ombori', if (shared) 'Omborchi ombori'];
+      final materials = [
+        PreparationMaterial.fromJson({
+          'item_code': 'RAW-1',
+          'name': 'Kley',
+          'can_receive': false,
+          'balances': [
+            {'warehouse': 'Omborchi ombori', 'kg': '25'}
+          ],
+        })
+      ];
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.light(),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        routes: {
+          AppRoutes.gscaleMode: (context) {
+            expect(
+                ModalRoute.of(context)!.settings.arguments, 'Omborchi ombori');
+            scaleEntries++;
+            return Scaffold(appBar: AppBar(), body: const Text('QR kirim'));
+          }
+        },
+        home: PreparationWarehouseScreen(
+          warehouses: const ['Tayyorlov ombori', 'Omborchi ombori'],
+          assignedWarehouses: assigned,
+          materialWarehouses: const ['Tayyorlov ombori'],
+          initialWarehouse: 'Omborchi ombori',
+          materials: materials,
+          history: const [],
+          locked: false,
+          onWarehouseSelected: (_) {},
+          onReceive: (_) async {
+            manualReceipts++;
+          },
+          onCreateMaterial: (_) async {},
+          onReload: () async {},
+          freshMaterials: () => materials,
+          freshHistory: () => const [],
+          freshWarehouses: () => const ['Tayyorlov ombori', 'Omborchi ombori'],
+          freshAssignedWarehouses: () => assigned,
+          freshMaterialWarehouses: () => const ['Tayyorlov ombori'],
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('app-primary-navigation-button')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Kirim'), findsNothing);
+      expect(find.text('Homashyo qo‘shish'), findsNothing);
+      expect(find.text('Tarozi kirimi'), findsOneWidget);
+      await tester.tap(find.text('Tarozi kirimi'));
+      await tester.pumpAndSettle();
+      expect(find.text('QR kirim'), findsOneWidget);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Kley'));
+      await tester.pumpAndSettle();
+      expect(find.text('Kirim qilish'), findsNothing);
+      await tester.tap(find.byKey(const Key('preparation-detail-kirim')));
+      await tester.pumpAndSettle();
+      expect(find.text('QR kirim'), findsOneWidget);
+      expect(scaleEntries, 2);
+      expect(manualReceipts, 0);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      Navigator.of(tester.element(find.byKey(const Key('preparation-detail-kirim')))).pop();
+      await tester.pumpAndSettle();
+      await tester
+          .tap(find.byKey(const ValueKey('preparation-warehouse-filter-chip')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey(
+          'preparation-warehouse-filter-option-Tayyorlov ombori')));
+      await tester.pumpAndSettle();
+      await tester
+          .tap(find.byKey(const ValueKey('app-primary-navigation-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Kirim'), findsOneWidget);
+      expect(find.text('Homashyo qo‘shish'), findsOneWidget);
+      expect(find.text('Tarozi kirimi'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

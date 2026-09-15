@@ -400,31 +400,14 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
           ),
         )
         .toList(growable: false);
-    final filtered = await _filterMaterialWarehouses(mapped);
-    // Tayyorlov: katalog bo'sh bo'lsa ham biriktirilgan omborlar ko'rinsin.
-    if (filtered.isNotEmpty ||
-        AppSession.instance.profile?.role !=
-            UserRole.tayyorlovMasteri) {
-      return filtered;
-    }
-    final queryLower = query.trim().toLowerCase();
-    return (AppSession.instance.profile?.assignedWarehouses ??
-            const <String>[])
-        .map((warehouse) => warehouse.trim())
-        .where((warehouse) =>
-            warehouse.isNotEmpty &&
-            warehouse.toLowerCase().contains(queryLower))
-        .toSet()
-        .map((warehouse) => MobileWarehouse(warehouse: warehouse))
-        .toList(growable: false);
+    return _filterMaterialWarehouses(mapped);
   }
 
   Future<List<MobileWarehouse>> _filterMaterialWarehouses(
     List<MobileWarehouse> warehouses,
   ) async {
     final role = AppSession.instance.profile?.role;
-    if (role != UserRole.materialTaminotchi &&
-        role != UserRole.tayyorlovMasteri) {
+    if (role != UserRole.materialTaminotchi) {
       return warehouses;
     }
     final allowed = await _materialAssignedWarehouseNames();
