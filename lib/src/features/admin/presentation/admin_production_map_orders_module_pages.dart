@@ -50,11 +50,6 @@ class _OrdersModulePage extends StatelessWidget {
               trailing: IconButton(
                   onPressed: onRetryPendingOrders,
                   icon: const Icon(Icons.refresh))),
-        for (final pending in pendingOrders)
-          PendingOrderCard(
-              key: ValueKey('pending-order-${pending.id}'),
-              order: pending,
-              onTap: () => onPendingOrder?.call(pending)),
         if (orders.isEmpty && pendingOrders.isEmpty)
           _EmptyOpenedOrders(
             message: context.l10n.adminText('production.open_empty'),
@@ -65,6 +60,8 @@ class _OrdersModulePage extends StatelessWidget {
           )
         else
           _OpenedOrderList(
+            pendingOrders: pendingOrders,
+            onPendingOrder: onPendingOrder,
             orders: visibleOrders,
             apparatusCatalog: apparatusCatalog,
             customerNameByMapId: customerNameByMapId,

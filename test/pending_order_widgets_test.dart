@@ -6,6 +6,7 @@ import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_calculate_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/pending_order_widgets.dart';
+import 'package:accord_mobile_v2/src/core/widgets/lists/m3_segmented_list.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -58,7 +59,7 @@ void main() {
     testWidgets(
         worker
             ? 'worker list never requests or renders incomplete orders'
-            : 'admin purple order opens detail and missing-fields completion',
+            : 'admin pending order opens detail and missing-fields completion',
         (tester) async {
       tester.view.physicalSize = const Size(430, 1000);
       tester.view.devicePixelRatio = 1;
@@ -105,9 +106,10 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byKey(const ValueKey('pending-order-zakaz-9011')),
               findsOneWidget);
-          final card = tester.widget<Card>(find.descendant(
-              of: find.byType(PendingOrderCard), matching: find.byType(Card)));
-          expect(card.color, const Color(0xFFEDE0FF));
+          final card = tester.widget<M3SegmentFilledSurface>(find.descendant(
+              of: find.byType(PendingOrderCard),
+              matching: find.byType(M3SegmentFilledSurface)));
+          expect(card, isNotNull);
           await tester
               .tap(find.byKey(const ValueKey('pending-order-zakaz-9011')));
           await tester.pumpAndSettle();

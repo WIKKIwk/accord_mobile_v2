@@ -10,6 +10,8 @@ const _watermarkStampSafetyPadding = 8.0;
 
 class _OpenedOrderList extends StatelessWidget {
   const _OpenedOrderList({
+    this.pendingOrders = const [],
+    this.onPendingOrder,
     required this.orders,
     required this.apparatusCatalog,
     required this.customerNameByMapId,
@@ -20,6 +22,8 @@ class _OpenedOrderList extends StatelessWidget {
     required this.onInfoOrder,
     required this.onLongPressOrder,
   });
+  final List<PendingOrder> pendingOrders;
+  final ValueChanged<PendingOrder>? onPendingOrder;
   final List<ProductionMapSaved> orders;
   final List<AdminApparatus> apparatusCatalog;
   final Map<String, String> customerNameByMapId;
@@ -32,6 +36,7 @@ class _OpenedOrderList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final totalCount = pendingOrders.length + orders.length;
     final orderActivityStates = queueActivityStatesForOrders(
       orderIds: orders.map((order) => order.map.id),
       queueStatesByApparatus: queueStatesByApparatus,
@@ -39,6 +44,20 @@ class _OpenedOrderList extends StatelessWidget {
     );
     final l10n = context.l10n;
     final children = <Widget>[];
+    for (var index = 0; index < pendingOrders.length; index++) {
+      final pending = pendingOrders[index];
+      children.add(
+        PendingOrderCard(
+          key: ValueKey('pending-order-${pending.id}'),
+          order: pending,
+          slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+            index,
+            totalCount,
+          ),
+          onTap: () => onPendingOrder?.call(pending),
+        ),
+      );
+    }
     for (var index = 0; index < orders.length; index++) {
       final order = orders[index];
       final orderId = order.map.id.trim();
@@ -54,8 +73,8 @@ class _OpenedOrderList extends StatelessWidget {
         _OpenedOrderRow(
           key: ValueKey('opened-order-$orderId'),
           slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-            index,
-            orders.length,
+            pendingOrders.length + index,
+            totalCount,
           ),
           order: order,
           // Canonical customer authority: snapshot first, map fallback

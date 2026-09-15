@@ -1,28 +1,41 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
 import 'admin_calculate_screen.dart';
 
 class PendingOrderCard extends StatelessWidget {
-  const PendingOrderCard({super.key, required this.order, required this.onTap});
+  const PendingOrderCard({
+    super.key,
+    required this.order,
+    required this.onTap,
+    this.slot = M3SegmentVerticalSlot.top,
+  });
   final PendingOrder order;
   final VoidCallback onTap;
+  final M3SegmentVerticalSlot slot;
+
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return Card(
-      color: dark ? const Color(0xFF3D2859) : const Color(0xFFEDE0FF),
-      clipBehavior: Clip.antiAlias,
-      margin: const EdgeInsets.only(bottom: 4),
+    final scheme = Theme.of(context).colorScheme;
+    final subtitle =
+        '${order.template.customer} · ${order.template.kg} kg · Chala buyurtma';
+    return M3SegmentFilledSurface(
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      onTap: onTap,
       child: ListTile(
-        onTap: onTap,
-        leading:
-            const Icon(Icons.pending_actions_rounded, color: Color(0xFF9966CC)),
+        leading: Icon(
+          Icons.pending_actions_rounded,
+          color: scheme.onSurfaceVariant,
+        ),
         title:
             Text('№${order.template.orderNumber} · ${order.template.product}'),
-        subtitle: Text(
-            '${order.template.customer} · ${order.template.kg} kg\nChala buyurtma'),
-        trailing: const Icon(Icons.info_outline_rounded),
+        subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: Icon(
+          Icons.info_outline_rounded,
+          color: scheme.onSurfaceVariant,
+        ),
       ),
     );
   }
