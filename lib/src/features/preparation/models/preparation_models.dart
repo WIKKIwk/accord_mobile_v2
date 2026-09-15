@@ -48,11 +48,13 @@ class PreparationMaterial {
   PreparationMaterial.fromJson(Map<String, dynamic> json)
       : code = json['item_code'] as String,
         name = json['name'] as String,
+        canReceive = json['can_receive'] != false,
         balances = {
           for (final b in json['balances'] as List? ?? [])
             b['warehouse'] as String: b['kg'] as String
         };
   final String code, name;
+  final bool canReceive;
   final Map<String, String> balances;
   String available(String? warehouse) => balances[warehouse] ?? '0';
 }

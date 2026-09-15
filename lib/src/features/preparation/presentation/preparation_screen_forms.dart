@@ -75,7 +75,7 @@ extension _PreparationForms on _PreparationScreenState {
     final material = await _pick<PreparationMaterial>(
         title: 'Homashyo tanlang',
         items: _snapshot!.materials
-            .where((m) => !_percent.containsKey(m.code))
+            .where((m) => m.canReceive && !_percent.containsKey(m.code))
             .toList(),
         label: (m) => m.name,
         subtitle: (m) =>
@@ -241,6 +241,7 @@ class _PreparationWarehouseScreenState
         hintText: 'Qidirish',
         pageSize: 50,
         loadPage: (query, offset, limit) async => _filtered
+            .where((m) => m.canReceive)
             .where((m) => '${m.name} ${m.code}'
                 .toLowerCase()
                 .contains(query.trim().toLowerCase()))
@@ -663,7 +664,7 @@ class _PreparationMaterialDetailScreenState
 
   Future<void> _doKirim() async {
     final material = _material;
-    if (material == null || widget.locked) return;
+    if (material == null || widget.locked || !material.canReceive) return;
     await widget.onReceive(material);
     await _sync();
   }
@@ -742,8 +743,9 @@ class _PreparationMaterialDetailScreenState
                   _adminHomePanelCardGap, 12, _adminHomePanelCardGap, 0),
               child: FilledButton.icon(
                 key: const Key('preparation-detail-kirim'),
-                onPressed:
-                    material == null || widget.locked ? null : _doKirim,
+                onPressed: material == null || widget.locked || !material.canReceive
+                    ? null
+                    : _doKirim,
                 icon: const Icon(Icons.add_circle_outline_rounded),
                 label: const Text('Kirim qilish'),
               ),

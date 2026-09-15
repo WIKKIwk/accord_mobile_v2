@@ -182,9 +182,9 @@ class _PreparationScreenState extends State<PreparationScreen> {
     }
     final material = await _pick<PreparationMaterial>(
       title: 'Homashyo tanlang',
-      // Barcha homashyolar: yangi (qoldiqsiz) materialga ham birinchi
-      // kirim shu yerdan qilinadi. Balans filtri uni yashirib qo'yardi.
-      items: data.materials.toList(),
+      // Faqat Tayyorlovga tegishli materiallar kirim picker'iga kiradi.
+      // Umumiy ERP homashyo katalogi ombor ko'rinishida read-only ko'rinadi.
+      items: data.materials.where((m) => m.canReceive).toList(),
       label: (m) => m.name,
       subtitle: (m) =>
           'Mavjud: ${preparationDisplay(m.available(_warehouse))} kg',

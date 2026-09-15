@@ -228,6 +228,7 @@ class _PreparationOrderFormulaScreenState
         hintText: 'Qidirish',
         pageSize: 50,
         loadPage: (query, offset, limit) async => _materials
+            .where((m) => m.canReceive)
             .where((m) => '${m.name} ${m.code}'
                 .toLowerCase()
                 .contains(query.trim().toLowerCase()))
