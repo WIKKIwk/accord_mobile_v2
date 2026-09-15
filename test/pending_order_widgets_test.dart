@@ -158,7 +158,12 @@ void main() {
           await tester.tap(find.text('Order ochishni tugallash'));
           await tester.pumpAndSettle();
           expect(find.byType(AdminCalculateScreen), findsOneWidget);
-          expect(find.widgetWithText(TextFormField, 'KG'), findsNothing);
+          expect(
+              tester
+                  .widget<TextFormField>(find.widgetWithText(TextFormField, 'KG'))
+                  .controller!
+                  .text,
+              '500');
         }
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());

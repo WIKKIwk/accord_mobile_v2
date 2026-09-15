@@ -34,7 +34,6 @@ part 'admin_calculate_screen_widgets_part_02.dart';
 part 'admin_calculate_screen_declarations_part_03.dart';
 part 'admin_calculate_screen_models_part_04.dart';
 part 'admin_calculate_screen_declarations_part_05.dart';
-part 'admin_calculate_pending_order.dart';
 
 const _calculateOrderTypeOptions = <String>['Paket', 'Rulon', 'Flexo'];
 
@@ -84,7 +83,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   @override
   void initState() {
     super.initState();
-    _editingAllFields = widget.template == null;
+    _editingAllFields =
+        widget.template == null || widget.pendingOrderId.isNotEmpty;
     _applyTemplate(widget.template);
     for (final controller in _calculationInputControllers) {
       controller.addListener(_handleCalculationInputChanged);
@@ -149,11 +149,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-    final children = widget.pendingOrderId.isNotEmpty
-        ? _pendingOrderChildren(l10n)
-        : _editingAllFields
-            ? _fullEditChildren(l10n)
-            : _compactTemplateChildren(l10n);
+    final children = _editingAllFields
+        ? _fullEditChildren(l10n)
+        : _compactTemplateChildren(l10n);
     final resolvedName = _resolvedOrderName().trim();
     final pageTitle = resolvedName.isEmpty || resolvedName == 'Zakaz'
         ? l10n.adminText('calculate.create_title')

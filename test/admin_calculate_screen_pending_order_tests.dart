@@ -1,7 +1,7 @@
 part of 'admin_calculate_screen_test.dart';
 
 void _registerPendingOrderTests() {
-  for (final form in ['rulon', 'paket']) {
+  for (final form in ['rulon', 'paket', 'flexo']) {
     testWidgets(
         'pending $form completion preserves Telegram fields and order number',
         (tester) async {
@@ -17,6 +17,7 @@ void _registerPendingOrderTests() {
         'kg': 500,
         'frame_product_size_mm': 300,
         'frame_count': 2,
+        'edge_allowance_mm': form == 'flexo' ? 40 : 15,
         'waste_percent': 5,
         'layers': [
           {'material': 'pet', 'micron': '12'}
@@ -27,19 +28,42 @@ void _registerPendingOrderTests() {
           template: template,
           pendingOrderId: 'zakaz-9011',
           onProductionMapArguments: (value) => arguments = value);
-      expect(find.text('№9011 · Order ochishni tugallash'), findsOneWidget);
-      expect(find.widgetWithText(TextFormField, 'KG'), findsNothing);
-      expect(find.text('Ma’lumotlarni tahrirlash'), findsNothing);
-      final fields =
-          tester.widgetList<TextFormField>(find.byType(TextFormField));
-      expect(
-          fields.any((field) => ['500', '300', '2', 'Mahsulot', 'Mijoz']
-              .contains(field.controller?.text)),
-          isFalse);
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'Rang (ixtiyoriy)'), 'Qizil');
-      await tester.ensureVisible(find.text('Davom etish'));
-      await tester.tap(find.text('Davom etish'));
+      tester.view.physicalSize = const Size(430, 3000);
+      await tester.pumpAndSettle();
+      expect(find.text('№9011 · Order ochishni tugallash'), findsNothing);
+      expect(find.text('Buyurtma turi'), findsOneWidget);
+      expect(find.text('Mijoz'), findsWidgets);
+      expect(find.text('Mahsulot'), findsWidgets);
+      expect(find.text('Davom etish'), findsNothing);
+      expect(find.text('Rang (ixtiyoriy)'), findsNothing);
+      final kgField = find.widgetWithText(TextFormField, 'KG');
+      expect(tester.widget<TextFormField>(kgField).controller!.text, '500');
+      final fields = tester.widgetList<TextFormField>(find.byType(TextFormField));
+      for (final value in ['300', '2', '12']) {
+        expect(fields.any((field) => field.controller?.text == value), isTrue);
+      }
+      if (form == 'flexo') {
+        expect(tester.widget<TextFormField>(_flexoField()).controller!.text, '40');
+        await tester.enterText(_flexoField(), '');
+        await tester.tap(find.text('Hisoblash'));
+        await tester.pumpAndSettle();
+        expect(find.text('Majburiy'), findsWidgets);
+        expect(find.text('Mapni ulash'), findsNothing);
+        expect(arguments, isNull);
+        await tester.enterText(_flexoField(), '55');
+      } else {
+        expect(_flexoField(), findsNothing);
+      }
+      await tester.enterText(kgField, '600');
+      expect(find.text('Mapni ulash'), findsNothing);
+      await tester.ensureVisible(find.text('Hisoblash'));
+      await tester.tap(find.text('Hisoblash'));
+      await tester.pumpAndSettle();
+      expect(arguments, isNull,
+          reason: 'calculation must show the normal result first');
+      expect(find.text('Tayyor mahsulot GSM'), findsOneWidget);
+      await tester.ensureVisible(find.text('Mapni ulash'));
+      await tester.tap(find.text('Mapni ulash'));
       await tester.pumpAndSettle();
       expect(find.text('MAP OPENED'), findsOneWidget);
       final context = arguments is ProductionMapTestArgs
@@ -47,11 +71,13 @@ void _registerPendingOrderTests() {
           : arguments as ProductionMapOrderContext;
       expect(context.pendingOrderId, 'zakaz-9011');
       expect(context.templateDraft!.orderNumber, '9011');
-      expect(context.templateDraft!.kg, 500);
+      expect(context.templateDraft!.kg, 600);
       expect(context.templateDraft!.frameProductSizeMm, 300);
       expect(context.templateDraft!.frameCount, 2);
       expect(context.templateDraft!.status, form);
-      expect(context.templateDraft!.color, 'Qizil');
+      expect(context.templateDraft!.color, isEmpty);
+      expect(context.templateDraft!.edgeAllowanceMm, form == 'flexo' ? 55 : 15);
+      expect(context.widthMm, form == 'flexo' ? 655 : 615);
       expect(context.templateDraft!.effectiveLayers.single.material, 'pet');
       expect(tester.takeException(), isNull);
       await tester.pump(const Duration(seconds: 6));
