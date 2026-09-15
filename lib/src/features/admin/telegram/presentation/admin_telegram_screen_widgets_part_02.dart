@@ -2,9 +2,10 @@
 part of 'admin_telegram_screen.dart';
 
 class _TelegramUserCard extends StatelessWidget {
-  const _TelegramUserCard({required this.user});
+  const _TelegramUserCard({required this.user, required this.onDelete});
 
   final TelegramUserAccount user;
+  final ValueChanged<TelegramUserAccount> onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -91,16 +92,44 @@ class _TelegramUserCard extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              user.role.label(
-                adminLabel: context.l10n.adminTelegramAdminRoleTitle,
-                salesManagerLabel:
-                    context.l10n.adminTelegramSalesManagerRoleTitle,
-              ),
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: scheme.primary,
-                fontWeight: FontWeight.w700,
-              ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  user.role.label(
+                    adminLabel: context.l10n.adminTelegramAdminRoleTitle,
+                    salesManagerLabel:
+                        context.l10n.adminTelegramSalesManagerRoleTitle,
+                  ),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: context.l10n.adminTelegramDeleteUser,
+                  padding: EdgeInsets.zero,
+                  icon: Icon(Icons.more_horiz_rounded,
+                      color: scheme.onSurfaceVariant),
+                  onSelected: (value) {
+                    if (value == 'delete') onDelete(user);
+                  },
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline_rounded,
+                              color: scheme.error),
+                          const SizedBox(width: 8),
+                          Text(context.l10n.adminTelegramDeleteUser),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -145,10 +174,12 @@ class _TelegramUserGroup extends StatelessWidget {
   const _TelegramUserGroup({
     required this.title,
     required this.users,
+    required this.onDelete,
   });
 
   final String title;
   final List<TelegramUserAccount> users;
+  final ValueChanged<TelegramUserAccount> onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -176,6 +207,7 @@ class _TelegramUserGroup extends StatelessWidget {
               ),
               child: _TelegramUserCard(
                 user: users[index],
+                onDelete: onDelete,
               ),
             ),
         ],

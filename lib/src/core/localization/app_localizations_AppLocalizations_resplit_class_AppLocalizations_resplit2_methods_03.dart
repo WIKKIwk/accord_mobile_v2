@@ -20,22 +20,68 @@ extension AppLocalizationsAstPartResplit2_03 on AppLocalizations {
         'Включена двухэтапная аутентификация. Введите пароль Telegram для завершения подключения.',
       );
 
-  String get adminTelegramQrPasswordLabel => _t('Telegram paroli', 'Telegram password', 'Пароль Telegram');
+  String get adminTelegramQrPasswordLabel =>
+      _t('Telegram paroli', 'Telegram password', 'Пароль Telegram');
 
   String adminTelegramQrError(String code) => switch (code) {
-        'not_configured' => _t('Serverda TELEGRAM_API_ID va TELEGRAM_API_HASH sozlanmagan.', 'TELEGRAM_API_ID and TELEGRAM_API_HASH are not configured on the server.', 'На сервере не настроены TELEGRAM_API_ID и TELEGRAM_API_HASH.'),
-        'already_registered' => _t('Bu Telegram user allaqachon ro‘yxatda. QR yangi user qo‘shish uchun.', 'This Telegram user is already registered. Use QR to add a new user.', 'Этот пользователь уже в списке. QR предназначен для нового пользователя.'),
-        'invalid_password' => _t('Telegram paroli noto‘g‘ri. Qayta kiriting.', 'Incorrect Telegram password. Try again.', 'Неверный пароль Telegram. Повторите ввод.'),
-        'expired' => _t('QR ulanish muddati tugadi. Qayta urining.', 'QR login expired. Try again.', 'Время входа по QR истекло. Повторите попытку.'),
-        'flood_wait' => _t('Telegram vaqtincha chekladi. Birozdan keyin qayta urining.', 'Telegram rate limit. Please try again later.', 'Ограничение Telegram. Повторите попытку позже.'),
-        'login_pending' => _t('Boshqa QR ulanish ochiq. Uni yoping yoki 5 daqiqadan keyin qayta urining.', 'Another QR login is open. Close it or retry in 5 minutes.', 'Другой вход по QR уже открыт. Закройте его или повторите через 5 минут.'),
-        _ => _t('Telegramga ulanish amalga oshmadi. Qayta urining.', 'Could not connect to Telegram. Try again.', 'Не удалось подключиться к Telegram. Повторите попытку.'),
+        'not_configured' => _t(
+            'Serverda TELEGRAM_API_ID va TELEGRAM_API_HASH sozlanmagan.',
+            'TELEGRAM_API_ID and TELEGRAM_API_HASH are not configured on the server.',
+            'На сервере не настроены TELEGRAM_API_ID и TELEGRAM_API_HASH.'),
+        'already_registered' => _t(
+            'Bu Telegram user allaqachon ro‘yxatda. QR yangi user qo‘shish uchun.',
+            'This Telegram user is already registered. Use QR to add a new user.',
+            'Этот пользователь уже в списке. QR предназначен для нового пользователя.'),
+        'invalid_password' => _t(
+            'Telegram paroli noto‘g‘ri. Qayta kiriting.',
+            'Incorrect Telegram password. Try again.',
+            'Неверный пароль Telegram. Повторите ввод.'),
+        'expired' => _t(
+            'QR ulanish muddati tugadi. Qayta urining.',
+            'QR login expired. Try again.',
+            'Время входа по QR истекло. Повторите попытку.'),
+        'flood_wait' => _t(
+            'Telegram vaqtincha chekladi. Birozdan keyin qayta urining.',
+            'Telegram rate limit. Please try again later.',
+            'Ограничение Telegram. Повторите попытку позже.'),
+        'login_pending' => _t(
+            'Boshqa QR ulanish ochiq. Uni yoping yoki 5 daqiqadan keyin qayta urining.',
+            'Another QR login is open. Close it or retry in 5 minutes.',
+            'Другой вход по QR уже открыт. Закройте его или повторите через 5 минут.'),
+        _ => _t(
+            'Telegramga ulanish amalga oshmadi. Qayta urining.',
+            'Could not connect to Telegram. Try again.',
+            'Не удалось подключиться к Telegram. Повторите попытку.'),
       };
 
   String get adminTelegramQrCancel => _t(
         'Yopish',
         'Close',
         'Закрыть',
+      );
+
+  String get adminTelegramDeleteUser => _t(
+        'Userni o‘chirish',
+        'Delete user',
+        'Удалить пользователя',
+      );
+
+  String adminTelegramDeleteUserConfirmation(String name) => _t(
+        '$name ni Telegram userlar ro‘yxatidan o‘chirasizmi? Userbot sessiyasi ham tozalanadi.',
+        'Remove $name from Telegram users? The userbot session will also be cleared.',
+        'Удалить $name из пользователей Telegram? Сессия юзербота также будет очищена.',
+      );
+
+  String get adminTelegramUserDeleted => _t(
+        'Telegram user o‘chirildi',
+        'Telegram user deleted',
+        'Пользователь Telegram удалён',
+      );
+
+  String get adminTelegramDeleteUserFailed => _t(
+        'Telegram userni o‘chirib bo‘lmadi',
+        'Could not delete Telegram user',
+        'Не удалось удалить пользователя Telegram',
       );
 
   String get adminTelegramUserProfileNotConnected => _t(

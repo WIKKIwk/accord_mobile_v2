@@ -28,6 +28,51 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
     await _future;
   }
 
+  Future<void> _deleteTelegramUser(TelegramUserAccount user) async {
+    final name = user.displayName.trim().isEmpty
+        ? context.l10n.adminTelegramUnknownUser
+        : user.displayName.trim();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.adminTelegramDeleteUser),
+        content: Text(context.l10n.adminTelegramDeleteUserConfirmation(name)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(context.l10n.appUpdateCancel),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(context.l10n.adminTelegramDeleteUser),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await MobileApi.instance.deleteTelegramUser(user.telegramUserId);
+      if (mounted) {
+        await _reload();
+        if (mounted) {
+          showAdminTopNotice(
+            context,
+            context.l10n.adminTelegramUserDeleted,
+            icon: Icons.delete_outline_rounded,
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          context.l10n.adminTelegramDeleteUserFailed,
+          icon: Icons.error_outline_rounded,
+        );
+      }
+    }
+  }
+
   Future<void> _openBotSettings(TelegramAdminOverview data) async {
     final input = await showModalBottomSheet<TelegramBotSettingsInput>(
       context: context,
@@ -187,12 +232,14 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
               else ...[
                 _TelegramUserGroup(
                   title: context.l10n.adminTelegramAdminRoleTitle,
+                  onDelete: _deleteTelegramUser,
                   users: data.users
                       .where((user) => user.role == TelegramInviteRole.admin)
                       .toList(growable: false),
                 ),
                 _TelegramUserGroup(
                   title: context.l10n.adminTelegramSalesManagerRoleTitle,
+                  onDelete: _deleteTelegramUser,
                   users: data.users
                       .where(
                         (user) => user.role == TelegramInviteRole.salesManager,

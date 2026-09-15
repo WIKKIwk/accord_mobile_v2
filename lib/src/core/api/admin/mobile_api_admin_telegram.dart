@@ -98,6 +98,17 @@ extension MobileApiAdminTelegram on MobileApi {
         ));
   }
 
+  Future<void> deleteTelegramUser(String telegramUserId) async {
+    final response = await _sendAuthorized(() => _delete(
+          Uri.parse(
+              '${MobileApi.baseUrl}/v1/mobile/admin/telegram/users/${Uri.encodeComponent(telegramUserId)}'),
+          headers: _headers(requireToken()),
+        ));
+    if (response.statusCode != 200) {
+      throw Exception('Telegram user deletion failed');
+    }
+  }
+
   TelegramQrLogin _telegramQrResponse(http.Response response) {
     if (response.statusCode != 200) {
       String code = 'transport_failed';
