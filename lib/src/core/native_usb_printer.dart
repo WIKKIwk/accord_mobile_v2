@@ -191,6 +191,13 @@ class UsbRpsPrintRequest {
     final grossQty = (json['gross_qty'] as num?)?.toDouble() ??
         (json['qty'] as num?)?.toDouble() ??
         0;
+    final labelKind = json['label_kind']?.toString() ?? '';
+    final normalizedLabelKind = labelKind.trim().toLowerCase();
+    final progressQty = (json['progress_qty'] as num?)?.toDouble() ??
+        (normalizedLabelKind == 'progress' ||
+                normalizedLabelKind == 'opening_wip'
+            ? (json['qty'] as num?)?.toDouble()
+            : null);
     return UsbRpsPrintRequest(
       epc: (json['epc'] ?? json['qr_payload'])?.toString() ?? '',
       itemCode: json['item_code']?.toString() ?? '',
@@ -207,12 +214,11 @@ class UsbRpsPrintRequest {
       tareEnabled: json['tare_enabled'] == true || json['tare'] == true,
       tareKg: (json['tare_kg'] as num?)?.toDouble() ?? 0,
       printCount: (json['print_count'] as num?)?.toInt() ?? 1,
-      labelKind: json['label_kind']?.toString() ?? '',
+      labelKind: labelKind,
       executorName: executorName,
       customerName: json['customer_name']?.toString() ?? '',
       qolipColor: json['qolip_color']?.toString() ?? '',
-      progressQty: (json['progress_qty'] as num?)?.toDouble() ??
-          (json['qty'] as num?)?.toDouble(),
+      progressQty: progressQty,
       progressUnit: json['progress_unit']?.toString() ?? '',
     );
   }
@@ -263,7 +269,11 @@ class UsbRpsPrintRequest {
     final meterPart = (progressQty != null && progressQty! > 0)
         ? ' Metri: ${_compactPrintQty(progressQty!)} ${progressUnit.trim().isEmpty ? 'm' : progressUnit.trim()}'
         : '';
-    if (tareEnabled) {
+    final hasMaterialMeter = progressQty != null &&
+        progressQty!.isFinite &&
+        progressQty! > 0 &&
+        progressUnit.trim().isNotEmpty;
+    if (tareEnabled || hasMaterialMeter) {
       return '$name  B:${_compactPrintQty(grossQty)} $normalizedUnit '
           'N:$net $normalizedUnit$meterPart';
     }

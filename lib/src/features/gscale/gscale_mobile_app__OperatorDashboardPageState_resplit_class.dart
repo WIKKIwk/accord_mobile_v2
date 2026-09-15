@@ -10,6 +10,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   final TextEditingController _babinaWeightController = TextEditingController();
   final TextEditingController _widthController = TextEditingController();
   final TextEditingController _micronController = TextEditingController();
+  final TextEditingController _lengthController = TextEditingController();
   final TextEditingController _manualQtyController = TextEditingController();
   final TextEditingController _manualDuplicateController =
       TextEditingController();
@@ -79,6 +80,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     _widthController.addListener(_scheduleSaveControlPrefs);
     _widthController.addListener(_refreshWidthRangeValidation);
     _micronController.addListener(_scheduleSaveControlPrefs);
+    _lengthController.addListener(_scheduleSaveControlPrefs);
     final server = widget.server;
     if (server != null) {
       _snapshot = MonitorSnapshot.empty().copyWithLatency(server.latencyMs);
@@ -151,6 +153,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     _babinaWeightController.dispose();
     _widthController.dispose();
     _micronController.dispose();
+    _lengthController.dispose();
     _manualQtyController.dispose();
     _manualDuplicateController.dispose();
     _controlTabController

@@ -281,6 +281,7 @@ class GScaleRpsBatchUpdateRequest {
     required this.warehouse,
     this.widthMm,
     this.micron,
+    this.lengthM,
     this.quantitySource = 'scale',
     this.tareEnabled = false,
     this.tareKg = 0,
@@ -293,6 +294,7 @@ class GScaleRpsBatchUpdateRequest {
   final String warehouse;
   final double? widthMm;
   final double? micron;
+  final double? lengthM;
   final String quantitySource;
   final bool tareEnabled;
   final double tareKg;
@@ -306,6 +308,7 @@ class GScaleRpsBatchUpdateRequest {
       'warehouse': warehouse.trim(),
       if (widthMm != null) 'width_mm': widthMm,
       if (micron != null) 'micron': micron,
+      if (lengthM != null) 'length_m': lengthM,
       'quantity_source':
           quantitySource.trim().toLowerCase() == 'manual' ? 'manual' : 'scale',
       'tare_enabled': tareEnabled,
@@ -353,6 +356,7 @@ class GScaleRpsBatchStartRequest {
     this.tareKg = 0,
     this.widthMm,
     this.micron,
+    this.lengthM,
   });
 
   final String clientBatchId;
@@ -368,6 +372,7 @@ class GScaleRpsBatchStartRequest {
   final double tareKg;
   final double? widthMm;
   final double? micron;
+  final double? lengthM;
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -384,6 +389,7 @@ class GScaleRpsBatchStartRequest {
       'tare_kg': tareKg,
       if (widthMm != null) 'width_mm': widthMm,
       if (micron != null) 'micron': micron,
+      if (lengthM != null) 'length_m': lengthM,
     };
   }
 }

@@ -166,6 +166,7 @@ class _BatchContextSummary extends StatelessWidget {
     required this.warehouse,
     required this.widthMm,
     required this.micron,
+    required this.lengthM,
     required this.quantitySource,
     required this.babinaEnabled,
     required this.tareKg,
@@ -176,6 +177,7 @@ class _BatchContextSummary extends StatelessWidget {
   final String warehouse;
   final double? widthMm;
   final double? micron;
+  final double? lengthM;
   final String quantitySource;
   final bool babinaEnabled;
   final double tareKg;
@@ -189,6 +191,7 @@ class _BatchContextSummary extends StatelessWidget {
       itemName,
       if (widthMm != null) '${formatCompactKg(widthMm!)} mm',
       if (micron != null) '${formatCompactKg(micron!)} mikron',
+      if (lengthM != null) '${formatCompactKg(lengthM!)} m',
     ].join(' • ');
     final quantityText = normalizeQuantitySource(quantitySource) == 'manual'
         ? 'Qo‘lda kg'

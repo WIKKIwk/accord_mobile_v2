@@ -79,8 +79,10 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
     final scaleQtyKg = parseScaleDisplayKg(_snapshot.scaleValue);
     final widthMm = parsePositiveKg(_widthController.text);
     final micron = parsePositiveKg(_micronController.text);
+    final lengthM = parsePositiveKg(_lengthController.text);
     final dimensionsReady = selectedProduct?.requiresDimensions != true ||
         (widthMm != null && micron != null);
+    final lengthReady = selectedProduct != null && lengthM != null;
     final widthInvalid = selectedProduct?.requiresDimensions == true &&
         _widthController.text.trim().isNotEmpty &&
         widthMm == null;
@@ -106,11 +108,15 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
     final micronInvalid = selectedProduct?.requiresDimensions == true &&
         _micronController.text.trim().isNotEmpty &&
         micron == null;
+    final lengthInvalid = selectedProduct != null &&
+        _lengthController.text.trim().isNotEmpty &&
+        lengthM == null;
     final hasPrintSelection = selectedProduct != null &&
         (defaultMode
             ? defaultWarehouse.isNotEmpty
             : selectedWarehouse != null) &&
-        dimensionsReady;
+        dimensionsReady &&
+        lengthReady;
     final batchContextSaveEnabled = showContextFields &&
         (activeBatch == null || batchContextReady) &&
         hasPrintSelection &&
@@ -330,6 +336,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             warehouse: activeBatch.warehouse,
             widthMm: activeBatch.widthMm,
             micron: activeBatch.micron,
+            lengthM: activeBatch.lengthM,
             quantitySource: activeBatch.quantitySource,
             babinaEnabled: activeBatch.tareEnabled,
             tareKg: activeBatch.tareKg,
@@ -348,6 +355,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             warehouse: _selectedPrintWarehouse() ?? '',
             widthMm: parsePositiveKg(_widthController.text),
             micron: parsePositiveKg(_micronController.text),
+            lengthM: parsePositiveKg(_lengthController.text),
             quantitySource: _quantitySource,
             babinaEnabled: _babinaEnabled,
             tareKg: parsePositiveKg(_babinaWeightController.text) ?? 0,
@@ -488,6 +496,37 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                   ),
                 ),
               ),
+            const SizedBox(height: 8),
+          ],
+          if (selectedProduct != null) ...[
+            TextField(
+              controller: _lengthController,
+              enabled: !contextFieldsLocked,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+              ],
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true,
+                fillColor: scheme.surface,
+                labelText: 'Metraj (m)',
+                suffixText: 'm',
+                hintText: '125',
+                errorText: lengthInvalid ? "To'g'ri metraj kiriting" : null,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
+                border: bubbleInputBorder,
+                enabledBorder: bubbleInputBorder,
+                focusedBorder: bubbleFocusedInputBorder,
+                errorBorder: bubbleErrorInputBorder,
+                focusedErrorBorder: bubbleFocusedErrorInputBorder,
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
             const SizedBox(height: 8),
           ],
           _ContextSwitchRow(

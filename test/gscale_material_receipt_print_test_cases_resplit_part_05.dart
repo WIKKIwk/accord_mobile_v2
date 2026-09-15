@@ -17,6 +17,7 @@ void _registergscale_material_receipt_print_testCases05() {
       manualQtyKg: 0,
       tareEnabled: false,
       tareKg: 0,
+      lengthM: 125,
     );
     final request = buildGScaleRpsBatchPrintRequest(
       batch: batch,
@@ -40,10 +41,30 @@ void _registergscale_material_receipt_print_testCases05() {
       'expected_revision': 7,
     });
     expect(hasExactRpsBatchContext(batch), isTrue);
+    expect(hasCompleteRpsBatchPrintContext(batch), isTrue);
     expect(
       hasExactRpsBatchContext(
         const GScaleRpsBatchSession(
           id: 'batch-without-revision',
+          active: true,
+          driverUrl: 'usb://local',
+          itemCode: 'ITEM-1',
+          itemName: 'Green Tea',
+          warehouse: 'Stores - A',
+          printer: 'godex',
+          printMode: 'label',
+          quantitySource: 'manual',
+          manualQtyKg: 0,
+          tareEnabled: false,
+          tareKg: 0,
+        ),
+      ),
+      isFalse,
+    );
+    expect(
+      hasCompleteRpsBatchPrintContext(
+        const GScaleRpsBatchSession(
+          id: 'batch-without-length',
           active: true,
           driverUrl: 'usb://local',
           itemCode: 'ITEM-1',
@@ -71,6 +92,12 @@ void _registergscale_material_receipt_print_testCases05() {
       expect(parseManualDuplicateCount('101'), isNull);
     },
   );
+
+  test('positive material metrics reject non-finite values', () {
+    expect(parsePositiveKg('Infinity'), isNull);
+    expect(parsePositiveKg('NaN'), isNull);
+    expect(parsePositiveKg('125,5'), 125.5);
+  });
 
   test('auto batch print triggers once per stable scale reading', () {
     final key = autoBatchPrintKey(

@@ -84,6 +84,10 @@ UsbRpsPrintRequest buildMaterialReceiptReprintRequest({
 }) {
   final stock = prepared.stock;
   final netQty = stock.qty;
+  final lengthM =
+      stock.lengthM != null && stock.lengthM!.isFinite && stock.lengthM! > 0
+          ? stock.lengthM
+          : null;
   final historyNet =
       historyEntry.netQty > 0 ? historyEntry.netQty : historyEntry.qty;
   final historyMatchesCurrent = (historyNet - netQty).abs() <= 0.000001;
@@ -109,6 +113,8 @@ UsbRpsPrintRequest buildMaterialReceiptReprintRequest({
     tareKg: tareKg,
     printCount: 1,
     labelKind: 'material_product',
+    progressQty: lengthM,
+    progressUnit: lengthM == null ? '' : 'm',
   );
 }
 
@@ -142,6 +148,7 @@ GScaleRpsBatchStartRequest buildGScaleRpsBatchStartRequest({
   required double tareKg,
   double? widthMm,
   double? micron,
+  double? lengthM,
 }) {
   final normalizedPrinter = normalizePrinterChoice(printer);
   return GScaleRpsBatchStartRequest(
@@ -161,6 +168,8 @@ GScaleRpsBatchStartRequest buildGScaleRpsBatchStartRequest({
     widthMm:
         widthMm != null && widthMm.isFinite && widthMm > 0 ? widthMm : null,
     micron: micron != null && micron.isFinite && micron > 0 ? micron : null,
+    lengthM:
+        lengthM != null && lengthM.isFinite && lengthM > 0 ? lengthM : null,
   );
 }
 
@@ -188,6 +197,14 @@ bool hasExactRpsBatchContext(GScaleRpsBatchSession? batch) {
       batch.revision > 0 &&
       batch.itemCode.trim().isNotEmpty &&
       batch.warehouse.trim().isNotEmpty;
+}
+
+bool hasCompleteRpsBatchPrintContext(GScaleRpsBatchSession? batch) {
+  final lengthM = batch?.lengthM;
+  return hasExactRpsBatchContext(batch) &&
+      lengthM != null &&
+      lengthM.isFinite &&
+      lengthM > 0;
 }
 
 bool isRpsBatchAlreadyActiveError(Object error) {

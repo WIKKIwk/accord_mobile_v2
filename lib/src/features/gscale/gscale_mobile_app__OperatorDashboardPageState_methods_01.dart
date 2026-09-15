@@ -157,6 +157,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
           _babinaWeightController.text = draft.babinaText;
           _widthController.text = draft.widthText;
           _micronController.text = draft.micronText;
+          _lengthController.text = draft.lengthText;
         }
         _manualQtyController.text = draft.manualQtyText;
         _manualDuplicateController.text = draft.manualDuplicateText;
@@ -189,6 +190,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
       babinaText: _babinaWeightController.text.trim(),
       widthText: _widthController.text.trim(),
       micronText: _micronController.text.trim(),
+      lengthText: _lengthController.text.trim(),
       warehouseMode: _warehouseMode == 'default' ? 'default' : 'manual',
       defaultWarehouse: _currentDefaultWarehouse,
       contextSaved: _draftContextSaved,

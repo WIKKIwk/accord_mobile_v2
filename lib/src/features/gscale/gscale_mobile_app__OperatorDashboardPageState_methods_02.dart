@@ -104,6 +104,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
     }
     final widthMm = parsePositiveKg(_widthController.text);
     final micron = parsePositiveKg(_micronController.text);
+    final lengthM = parsePositiveKg(_lengthController.text);
     if (item.requiresDimensions && widthMm == null) {
       setState(() {
         _errorText = "Material enini mm da to'g'ri kiriting";
@@ -113,6 +114,12 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
     if (item.requiresDimensions && micron == null) {
       setState(() {
         _errorText = "Material mikronini to'g'ri kiriting";
+      });
+      return;
+    }
+    if (lengthM == null) {
+      setState(() {
+        _errorText = "Material metrajini metrda to'g'ri kiriting";
       });
       return;
     }
@@ -160,6 +167,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       warehouse: warehouse,
       widthMm: item.requiresDimensions ? widthMm : null,
       micron: item.requiresDimensions ? micron : null,
+      lengthM: lengthM,
       quantitySource: normalizeQuantitySource(_quantitySource),
       tareEnabled: _babinaEnabled,
       tareKg: parsePositiveKg(_babinaWeightController.text) ?? 0,
@@ -302,6 +310,8 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
             batch.widthMm == null ? '' : formatCompactKg(batch.widthMm!);
         _micronController.text =
             batch.micron == null ? '' : formatCompactKg(batch.micron!);
+        _lengthController.text =
+            batch.lengthM == null ? '' : formatCompactKg(batch.lengthM!);
       });
     }
     if (!batch.active) {

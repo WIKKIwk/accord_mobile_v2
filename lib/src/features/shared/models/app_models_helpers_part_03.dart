@@ -137,6 +137,7 @@ class AdminRawMaterialStockEntry {
     required this.qty,
     this.widthMm,
     this.micron,
+    this.lengthM,
     required this.uom,
     required this.status,
     required this.reservedOrderId,
@@ -151,6 +152,7 @@ class AdminRawMaterialStockEntry {
   final double qty;
   final double? widthMm;
   final double? micron;
+  final double? lengthM;
   final String uom;
   final String status;
   final String reservedOrderId;
@@ -166,6 +168,7 @@ class AdminRawMaterialStockEntry {
       qty: (json['qty'] as num?)?.toDouble() ?? 0,
       widthMm: (json['width_mm'] as num?)?.toDouble(),
       micron: (json['micron'] as num?)?.toDouble(),
+      lengthM: (json['length_m'] as num?)?.toDouble(),
       uom: json['uom']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       reservedOrderId: json['reserved_order_id']?.toString() ?? '',

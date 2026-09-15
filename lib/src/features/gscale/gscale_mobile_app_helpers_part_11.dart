@@ -62,6 +62,7 @@ class OperatorControlDraft {
     required this.defaultWarehouse,
     this.widthText = '',
     this.micronText = '',
+    this.lengthText = '',
     this.contextSaved = false,
   });
 
@@ -80,6 +81,7 @@ class OperatorControlDraft {
   final String defaultWarehouse;
   final String widthText;
   final String micronText;
+  final String lengthText;
   final bool contextSaved;
 
   Map<String, dynamic> toJson() {
@@ -99,6 +101,7 @@ class OperatorControlDraft {
       'default_warehouse': defaultWarehouse,
       'width_text': widthText,
       'micron_text': micronText,
+      'length_text': lengthText,
       'context_saved': contextSaved,
     };
   }
@@ -123,6 +126,7 @@ class OperatorControlDraft {
       defaultWarehouse: _text(json['default_warehouse']),
       widthText: _text(json['width_text']),
       micronText: _text(json['micron_text']),
+      lengthText: _text(json['length_text']),
       contextSaved: json['context_saved'] == true,
     );
   }

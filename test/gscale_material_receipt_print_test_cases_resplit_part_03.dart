@@ -23,6 +23,7 @@ void _registergscale_material_receipt_print_testCases03() {
           defaultWarehouse: '',
           widthText: '324',
           micronText: '234',
+          lengthText: '125',
         ),
       );
       AppSession.instance.token = 'token';
@@ -99,7 +100,7 @@ void _registergscale_material_receipt_print_testCases03() {
       await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
       await tester.pumpAndSettle();
 
-      expect(find.text('BOPP • 324 mm • 234 mikron'), findsOneWidget);
+      expect(find.text('BOPP • 324 mm • 234 mikron • 125 m'), findsOneWidget);
       expect(
         find.text('Ombor: test • Qo‘lda kg • Babina: Yo‘q'),
         findsOneWidget,
@@ -125,9 +126,12 @@ void _registergscale_material_receipt_print_testCases03() {
         '12',
       );
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
+      final editedSaveButton = find.widgetWithText(FilledButton, 'Saqlash');
+      await tester.ensureVisible(editedSaveButton);
       await tester.pumpAndSettle();
-      expect(find.text('BOPP • 500 mm • 12 mikron'), findsOneWidget);
+      await tester.tap(editedSaveButton);
+      await tester.pumpAndSettle();
+      expect(find.text('BOPP • 500 mm • 12 mikron • 125 m'), findsOneWidget);
       expect(find.text('Mahsulot tanlang'), findsNothing);
     },
   );
@@ -150,6 +154,7 @@ void _registergscale_material_receipt_print_testCases03() {
           babinaText: '',
           warehouseMode: 'manual',
           defaultWarehouse: '',
+          lengthText: '125',
         ),
       );
       AppSession.instance.token = 'token';

@@ -16,6 +16,7 @@ void _registergscale_material_receipt_print_testCases01() {
       'gross_qty': 2.5,
       'width_mm': 615,
       'micron': 13,
+      'length_m': 125,
       'unit': 'kg',
       'printer': 'zebra',
       'print_mode': 'rfid',
@@ -30,6 +31,7 @@ void _registergscale_material_receipt_print_testCases01() {
     expect(response.grossQty, 2.5);
     expect(response.widthMm, 615);
     expect(response.micron, 13);
+    expect(response.lengthM, 125);
     expect(response.printer, 'zebra');
     expect(response.printCount, 5);
   });
@@ -43,6 +45,7 @@ void _registergscale_material_receipt_print_testCases01() {
       warehouse: 'Kalidor',
       widthMm: 783,
       micron: 18,
+      lengthM: 125,
       quantitySource: 'manual',
       tareEnabled: true,
       tareKg: 0.78,
@@ -56,6 +59,7 @@ void _registergscale_material_receipt_print_testCases01() {
       'warehouse': 'Kalidor',
       'width_mm': 783,
       'micron': 18,
+      'length_m': 125.0,
       'quantity_source': 'manual',
       'tare_enabled': true,
       'tare_kg': 0.78,
@@ -75,6 +79,7 @@ void _registergscale_material_receipt_print_testCases01() {
       netQty: 23,
       grossQty: 23,
       unit: 'kg',
+      lengthM: 125,
       printer: 'godex',
       printMode: 'label',
       printerStatus: 'client_usb_pending',
@@ -87,7 +92,10 @@ void _registergscale_material_receipt_print_testCases01() {
 
     expect(request.epc, response.epc);
     expect(request.labelKind, 'material_product');
-    expect(request.materialProductLabelTitle, 'CPP 1030/25  23 kg');
+    expect(request.materialProductLabelTitle,
+        'CPP 1030/25  B:23 kg N:23 kg Metri: 125 m');
+    expect(request.progressQty, 125);
+    expect(request.progressUnit, 'm');
     expect(
       request.largeQrLabelFooter(request.epc),
       'EPC: 303132333435363738394142',
@@ -115,6 +123,7 @@ void _registergscale_material_receipt_print_testCases01() {
       itemName: 'CPP 1030/25',
       barcode: '303132333435363738394142',
       qty: 23,
+      lengthM: 125,
       uom: 'kg',
       status: 'available',
       reservedOrderId: '',
@@ -157,7 +166,25 @@ void _registergscale_material_receipt_print_testCases01() {
     expect(request.labelKind, 'material_product');
     expect(request.grossQty, 25);
     expect(request.netQty, 23);
+    expect(request.progressQty, 125);
+    expect(request.progressUnit, 'm');
     expect(request.printMode, 'rfid');
+  });
+
+  test('material JSON does not mistake kilograms for roll meters', () {
+    final request = UsbRpsPrintRequest.fromPrintJson(const {
+      'epc': '303132333435363738394142',
+      'item_code': 'INK-BLACK',
+      'item_name': 'Black ink',
+      'warehouse': 'Kalidor',
+      'gross_qty': 12,
+      'qty': 12,
+      'unit': 'kg',
+      'label_kind': 'material_product',
+    });
+
+    expect(request.progressQty, isNull);
+    expect(request.materialProductLabelTitle, 'Black ink  12 kg');
   });
 
   test('USB print refuses repeated material labels with the same EPC',
@@ -249,6 +276,7 @@ void _registergscale_material_receipt_print_testCases01() {
       tareKg: 0.78,
       widthMm: 615,
       micron: 13,
+      lengthM: 125,
     );
 
     expect(request.toJson(), {
@@ -265,6 +293,7 @@ void _registergscale_material_receipt_print_testCases01() {
       'tare_kg': 0.78,
       'width_mm': 615.0,
       'micron': 13.0,
+      'length_m': 125.0,
     });
   });
 
@@ -288,6 +317,7 @@ void _registergscale_material_receipt_print_testCases01() {
         'tare_kg': 0.78,
         'width_mm': 615,
         'micron': 13,
+        'length_m': 125,
         'last_error': 'submit failed',
         'last_error_at': '2026-05-19T05:00:00Z',
         'prints': [
@@ -318,6 +348,7 @@ void _registergscale_material_receipt_print_testCases01() {
     expect(response.batch.tareEnabled, isTrue);
     expect(response.batch.widthMm, 615);
     expect(response.batch.micron, 13);
+    expect(response.batch.lengthM, 125);
     expect(response.batch.lastError, 'submit failed');
     expect(response.batch.lastErrorAt, '2026-05-19T05:00:00Z');
     expect(response.batch.prints, hasLength(1));

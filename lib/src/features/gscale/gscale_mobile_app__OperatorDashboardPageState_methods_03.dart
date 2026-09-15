@@ -308,11 +308,15 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     }
     final widthMm = parsePositiveKg(_widthController.text);
     final micron = parsePositiveKg(_micronController.text);
+    final lengthM = parsePositiveKg(_lengthController.text);
     if (item.requiresDimensions && widthMm == null) {
       throw Exception("Material enini mm da to'g'ri kiriting");
     }
     if (item.requiresDimensions && micron == null) {
       throw Exception("Material mikronini to'g'ri kiriting");
+    }
+    if (lengthM == null) {
+      throw Exception("Material metrajini metrda to'g'ri kiriting");
     }
     final warehouse = _selectedPrintWarehouse();
     if (warehouse == null || warehouse.trim().isEmpty) {
@@ -362,6 +366,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
             tareKg: tareKg ?? 0,
             widthMm: item.requiresDimensions ? widthMm : null,
             micron: item.requiresDimensions ? micron : null,
+            lengthM: lengthM,
           ),
         )
         .timeout(const Duration(seconds: 15));

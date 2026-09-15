@@ -80,6 +80,7 @@ class GScaleRpsBatchSession {
     required this.tareKg,
     this.widthMm,
     this.micron,
+    this.lengthM,
     this.batchCode = '',
     this.revision = 0,
     this.lastError = '',
@@ -107,6 +108,7 @@ class GScaleRpsBatchSession {
       tareKg: _gscaleNumber(json['tare_kg']),
       widthMm: _gscaleOptionalNumber(json['width_mm']),
       micron: _gscaleOptionalNumber(json['micron']),
+      lengthM: _gscaleOptionalNumber(json['length_m']),
       lastError: _gscaleText(json['last_error']),
       lastErrorAt: _gscaleText(json['last_error_at']),
       createdAt: _gscaleText(json['created_at']),
@@ -139,6 +141,7 @@ class GScaleRpsBatchSession {
   final double tareKg;
   final double? widthMm;
   final double? micron;
+  final double? lengthM;
   final String lastError;
   final String lastErrorAt;
   final String createdAt;
@@ -206,6 +209,7 @@ class GScaleMaterialReceiptPrintResponse {
     required this.grossQty,
     this.widthMm,
     this.micron,
+    this.lengthM,
     required this.unit,
     required this.printer,
     required this.printMode,
@@ -229,6 +233,7 @@ class GScaleMaterialReceiptPrintResponse {
       grossQty: _gscaleNumber(json['gross_qty']),
       widthMm: _gscaleOptionalNumber(json['width_mm']),
       micron: _gscaleOptionalNumber(json['micron']),
+      lengthM: _gscaleOptionalNumber(json['length_m']),
       unit: _gscaleText(json['unit'], fallback: 'kg'),
       printer: _gscaleText(json['printer']),
       printMode: _gscaleText(json['print_mode']),
@@ -249,6 +254,7 @@ class GScaleMaterialReceiptPrintResponse {
   final double grossQty;
   final double? widthMm;
   final double? micron;
+  final double? lengthM;
   final String unit;
   final String printer;
   final String printMode;
@@ -269,6 +275,7 @@ class GScaleMaterialReceiptPrintResponse {
       grossQty: grossQty,
       widthMm: widthMm,
       micron: micron,
+      lengthM: lengthM,
       unit: unit,
       printer: printer,
       printMode: printMode,
@@ -292,6 +299,8 @@ class GScaleMaterialReceiptPrintResponse {
       tareKg: tareKg,
       printCount: printCount,
       labelKind: labelKind,
+      progressQty: lengthM,
+      progressUnit: lengthM == null ? '' : 'm',
     );
   }
 }

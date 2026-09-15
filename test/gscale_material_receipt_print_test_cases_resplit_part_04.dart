@@ -376,6 +376,7 @@ void _registergscale_material_receipt_print_testCases04() {
       tareKg: 0.78,
       widthMm: 615,
       micron: 13,
+      lengthM: 125,
     );
 
     expect(request.toJson(), {
@@ -392,6 +393,7 @@ void _registergscale_material_receipt_print_testCases04() {
       'tare_kg': 0.78,
       'width_mm': 615.0,
       'micron': 13.0,
+      'length_m': 125.0,
     });
   });
 }

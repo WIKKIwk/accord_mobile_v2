@@ -397,7 +397,7 @@ double? parsePositiveKg(String value) {
     return null;
   }
   final parsed = double.tryParse(normalized);
-  if (parsed == null || parsed <= 0) {
+  if (parsed == null || !parsed.isFinite || parsed <= 0) {
     return null;
   }
   return parsed;

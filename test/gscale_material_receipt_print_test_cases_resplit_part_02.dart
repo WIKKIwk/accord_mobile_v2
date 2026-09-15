@@ -183,6 +183,7 @@ void _registergscale_material_receipt_print_testCases02() {
         tareKg: 0,
         widthMm: 783,
         micron: 18,
+        lengthM: 125,
       );
       const offlinePrinter = UsbPrinterProfile(
         kind: UsbPrinterKind.godex,
@@ -230,6 +231,7 @@ void _registergscale_material_receipt_print_testCases02() {
                     tareKg: 0.78,
                     widthMm: 800,
                     micron: 20,
+                    lengthM: 125,
                   ),
                 );
               },
@@ -241,7 +243,8 @@ void _registergscale_material_receipt_print_testCases02() {
 
       expect(stateLoadCount, 1);
       expect(find.text('Batch ma’lumoti'), findsNothing);
-      expect(find.text('Green Tea • 783 mm • 18 mikron'), findsOneWidget);
+      expect(
+          find.text('Green Tea • 783 mm • 18 mikron • 125 m'), findsOneWidget);
       expect(
         find.text('Ombor: Kalidor • Qo‘lda kg • Babina: Yo‘q'),
         findsOneWidget,

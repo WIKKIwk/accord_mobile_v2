@@ -14,7 +14,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
     if (!_rpsBatchStateResolved || batch == null || !batch.active) {
       throw StateError('Faol batch holati server tomonidan tasdiqlanmagan');
     }
-    if (!hasExactRpsBatchContext(batch)) {
+    if (!hasCompleteRpsBatchPrintContext(batch)) {
       throw StateError('Faol batch konteksti to‘liq emas');
     }
     final tareKg = batch.tareEnabled ? batch.tareKg : 0.0;
@@ -142,7 +142,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
   void _maybeAutoPrintStableBatch() {
     if (!_rpsBatchStateResolved ||
         _authoritativeRsBatch?.active != true ||
-        !hasExactRpsBatchContext(_authoritativeRsBatch)) {
+        !hasCompleteRpsBatchPrintContext(_authoritativeRsBatch)) {
       _lastAutoBatchPrintKey = '';
       return;
     }
