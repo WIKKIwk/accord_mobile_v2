@@ -9,9 +9,9 @@ extension AppLocalizationsAstPartResplit2_03 on AppLocalizations {
       );
 
   String get adminTelegramQrScanInstruction => _t(
-        'Telegram ilovasida QR kodni scan qiling va botga Start bering.',
-        'Scan this QR code in Telegram and press Start in the bot.',
-        'Отсканируйте QR-код в Telegram и нажмите Start в боте.',
+        'Telefon kamerasi bilan QR kodni scan qiling. Ochilgan Telegram botida Start bosing.',
+        'Scan the QR code with your phone camera, then press Start in the opened Telegram bot.',
+        'Отсканируйте QR-код камерой телефона, затем нажмите Start в открывшемся боте Telegram.',
       );
 
   String get adminTelegramQrCancel => _t(
