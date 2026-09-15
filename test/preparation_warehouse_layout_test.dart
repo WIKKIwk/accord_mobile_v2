@@ -193,6 +193,8 @@ void main() {
                   return http.Response(
                       jsonEncode({
                         'warehouses': warehouses,
+                        'assigned_warehouses': warehouses,
+                        'material_warehouses': warehouses,
                         'materials': [],
                         'orders': [],
                         'history': [],
@@ -205,4 +207,44 @@ void main() {
       });
     }
   }
+
+  testWidgets('other warehouse keeps Kirim but hides new material action',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.light(),
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: PreparationWarehouseScreen(
+        warehouses: const ['Tayyorlov ombori', 'Omborchi ombori'],
+        assignedWarehouses: const ['Tayyorlov ombori'],
+        materialWarehouses: const ['Tayyorlov ombori'],
+        initialWarehouse: 'Omborchi ombori',
+        materials: const [],
+        history: const [],
+        locked: false,
+        onWarehouseSelected: (_) {},
+        onReceive: (_) async {},
+        onCreateMaterial: (_) async {},
+        onReload: () async {},
+        freshMaterials: () => const [],
+        freshHistory: () => const [],
+        freshWarehouses: () => const ['Tayyorlov ombori', 'Omborchi ombori'],
+        freshAssignedWarehouses: () => const ['Tayyorlov ombori'],
+        freshMaterialWarehouses: () => const ['Tayyorlov ombori'],
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('app-primary-navigation-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Kirim'), findsOneWidget);
+    expect(find.text('Homashyo qo‘shish'), findsNothing);
+  });
 }

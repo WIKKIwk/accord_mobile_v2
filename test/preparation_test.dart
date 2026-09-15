@@ -30,6 +30,8 @@ const _payload = {
 };
 final _snapshot = {
   'warehouses': ['Tayyorlov ombori'],
+  'assigned_warehouses': ['Tayyorlov ombori'],
+  'material_warehouses': ['Tayyorlov ombori'],
   'materials': [
     {
       'item_code': 'P1',
@@ -272,6 +274,8 @@ void main() {
               return http.Response(
                   jsonEncode({
                     'warehouses': ['Tayyorlov ombori'],
+                    'assigned_warehouses': ['Tayyorlov ombori'],
+                    'material_warehouses': ['Tayyorlov ombori'],
                     'materials': [
                       {
                         'item_code': 'P1',

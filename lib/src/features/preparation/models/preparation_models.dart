@@ -71,9 +71,17 @@ class PreparationOrder {
   String get label => '${code.isEmpty ? id : code} — $title';
 }
 
+List<String> _preparationWarehouseList(dynamic raw) => raw is List
+    ? raw.whereType<String>().toList(growable: false)
+    : const [];
+
 class PreparationSnapshot {
   PreparationSnapshot.fromJson(Map<String, dynamic> json)
-      : warehouses = (json['warehouses'] as List).cast<String>(),
+      : warehouses = _preparationWarehouseList(json['warehouses']),
+        assignedWarehouses =
+            _preparationWarehouseList(json['assigned_warehouses']),
+        materialWarehouses =
+            _preparationWarehouseList(json['material_warehouses']),
         materials = (json['materials'] as List)
             .map((m) => PreparationMaterial.fromJson(
                 Map<String, dynamic>.from(m as Map)))
@@ -90,6 +98,8 @@ class PreparationSnapshot {
                 Map<String, dynamic>.from(m as Map)))
             .toList();
   final List<String> warehouses;
+  final List<String> assignedWarehouses;
+  final List<String> materialWarehouses;
   final List<PreparationMaterial> materials;
   final List<PreparationOrder> orders;
   final List<Map<String, dynamic>> history;

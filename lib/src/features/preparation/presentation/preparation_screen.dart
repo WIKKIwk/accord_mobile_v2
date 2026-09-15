@@ -115,6 +115,12 @@ class _PreparationScreenState extends State<PreparationScreen> {
 
   List<String> _syncedWarehouses() => _snapshot?.warehouses ?? const [];
 
+  List<String> _syncedAssignedWarehouses() =>
+      _snapshot?.assignedWarehouses ?? const [];
+
+  List<String> _syncedMaterialWarehouses() =>
+      _snapshot?.materialWarehouses ?? const [];
+
   List<dynamic> _syncedHistory() => _snapshot?.history ?? const [];
 
   Future<void> _submit(String kind, Map<String, dynamic> payload) async {
@@ -151,6 +157,8 @@ class _PreparationScreenState extends State<PreparationScreen> {
   void _openWarehouse(PreparationSnapshot data) {
     _openAndReload(PreparationWarehouseScreen(
       warehouses: data.warehouses,
+      assignedWarehouses: data.assignedWarehouses,
+      materialWarehouses: data.materialWarehouses,
       initialWarehouse: _warehouse,
       materials: data.materials,
       history: data.history,
@@ -162,6 +170,8 @@ class _PreparationScreenState extends State<PreparationScreen> {
       freshMaterials: _syncedMaterials,
       freshHistory: _syncedHistory,
       freshWarehouses: _syncedWarehouses,
+      freshAssignedWarehouses: _syncedAssignedWarehouses,
+      freshMaterialWarehouses: _syncedMaterialWarehouses,
     ));
   }
 

@@ -98,6 +98,7 @@ extension MobileApiPreparation on MobileApi {
             'preparation_invalid',
             'preparation_conflict',
             'preparation_scope',
+            'preparation_warehouse_not_exclusive',
             'preparation_insufficient_stock'
           ].contains(rejectedCode)) {
         await preferences.remove(key);

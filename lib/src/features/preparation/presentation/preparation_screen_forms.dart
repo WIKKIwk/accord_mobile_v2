@@ -36,9 +36,11 @@ extension _PreparationForms on _PreparationScreenState {
           builder: (_) => _PreparationInputDialog(
               title: title, label: label, quantity: quantity));
 
-  Future<void> _createMaterial() async {
+  Future<void> _createMaterial(String warehouse) async {
     final name = await _input(title: 'Yangi homashyo', label: 'Homashyo nomi');
-    if (name != null && mounted) await _submit('materials', {'name': name});
+    if (name != null && mounted) {
+      await _submit('materials', {'name': name, 'warehouse': warehouse});
+    }
   }
 
   Future<void> _receive(PreparationMaterial material) async {
@@ -143,6 +145,8 @@ class PreparationWarehouseScreen extends StatefulWidget {
   const PreparationWarehouseScreen({
     super.key,
     required this.warehouses,
+    required this.assignedWarehouses,
+    required this.materialWarehouses,
     required this.initialWarehouse,
     required this.materials,
     required this.history,
@@ -154,20 +158,26 @@ class PreparationWarehouseScreen extends StatefulWidget {
     required this.freshMaterials,
     required this.freshHistory,
     required this.freshWarehouses,
+    required this.freshAssignedWarehouses,
+    required this.freshMaterialWarehouses,
   });
 
   final List<String> warehouses;
+  final List<String> assignedWarehouses;
+  final List<String> materialWarehouses;
   final String? initialWarehouse;
   final List<PreparationMaterial> materials;
   final List<dynamic> history;
   final bool locked;
   final void Function(String warehouse) onWarehouseSelected;
   final Future<void> Function(PreparationMaterial material) onReceive;
-  final Future<void> Function() onCreateMaterial;
+  final Future<void> Function(String warehouse) onCreateMaterial;
   final Future<void> Function() onReload;
   final List<PreparationMaterial> Function() freshMaterials;
   final List<dynamic> Function() freshHistory;
   final List<String> Function() freshWarehouses;
+  final List<String> Function() freshAssignedWarehouses;
+  final List<String> Function() freshMaterialWarehouses;
 
   @override
   State<PreparationWarehouseScreen> createState() =>
@@ -185,6 +195,14 @@ class _PreparationWarehouseScreenState
 
   /// Yangi ochilgan bola omborlar bilan birga — har doim yangisi.
   List<String> get _warehouses => widget.freshWarehouses();
+
+  List<String> get _assignedWarehouses => widget.freshAssignedWarehouses();
+
+  List<String> get _materialWarehouses =>
+      widget.freshMaterialWarehouses();
+
+  bool get _canCreateMaterial =>
+      _warehouse != null && _materialWarehouses.contains(_warehouse);
 
   @override
   void dispose() {
@@ -242,14 +260,15 @@ class _PreparationWarehouseScreenState
   }
 
   Future<void> _doCreateMaterial() async {
-    if (widget.locked) return;
-    await widget.onCreateMaterial();
+    final warehouse = _warehouse;
+    if (widget.locked || warehouse == null || !_canCreateMaterial) return;
+    await widget.onCreateMaterial(warehouse);
     if (mounted) setState(() => _materials = widget.freshMaterials());
   }
 
   Future<void> _createWarehouse() async {
     if (widget.locked) return;
-    final warehouses = _warehouses;
+    final warehouses = _assignedWarehouses;
     if (warehouses.isEmpty) return;
     final nameController = TextEditingController();
     var parent = _warehouse != null && warehouses.contains(_warehouse)
@@ -395,13 +414,14 @@ class _PreparationWarehouseScreenState
                     icon: Icons.add_circle_outline_rounded,
                     onTap: _doKirim,
                   ),
-                  AdminFabMenuAction(
-                    title: 'Homashyo qo‘shish',
-                    icon: Icons.add_rounded,
-                    onTap: _doCreateMaterial,
-                  ),
+                  if (_canCreateMaterial)
+                    AdminFabMenuAction(
+                      title: 'Homashyo qo‘shish',
+                      icon: Icons.add_rounded,
+                      onTap: _doCreateMaterial,
+                    ),
                 ],
-                if (!widget.locked)
+                if (!widget.locked && _assignedWarehouses.isNotEmpty)
                   AdminFabMenuAction(
                     title: 'Ombor qo‘shish',
                     icon: Icons.warehouse_outlined,
