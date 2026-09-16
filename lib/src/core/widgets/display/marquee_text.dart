@@ -18,11 +18,11 @@ class OverflowMarqueeText extends StatelessWidget {
     this.style,
     this.textAlign = TextAlign.start,
     this.startDelay = const Duration(milliseconds: 900),
-    this.endPause = const Duration(milliseconds: 900),
-    this.returnPause = const Duration(milliseconds: 1200),
-    this.pixelsPerSecond = 42,
-    this.maxScrollDuration = const Duration(seconds: 6),
-    this.minScrollDuration = const Duration(milliseconds: 1400),
+    this.endPause = const Duration(milliseconds: 2200),
+    this.returnPause = const Duration(milliseconds: 1400),
+    this.pixelsPerSecond = 24,
+    this.maxScrollDuration = const Duration(seconds: 9),
+    this.minScrollDuration = const Duration(seconds: 2),
   });
 
   final String text;
