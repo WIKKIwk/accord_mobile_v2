@@ -44,7 +44,8 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
     if (picked == null || !mounted) {
       return;
     }
-    if (widget.openedOrder == null && _hasExistingQuickOrderForProduct(picked)) {
+    if (widget.openedOrder == null &&
+        _hasExistingQuickOrderForProduct(picked)) {
       if (!mounted) {
         return;
       }
@@ -346,22 +347,30 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       _PickerInput(
         label: l10n.adminText('label.customer'),
         value: _customer.text,
+        dense: true,
+        wide: true,
         onTap: _openCustomerPicker,
       ),
       _PickerInput(
         label: l10n.adminText('calculate.product_select'),
         value: _product.text,
         required: true,
+        dense: true,
+        wide: true,
         onTap: _openProductPicker,
       ),
       _PickerInput(
         label: l10n.adminText('calculate.order_type_input'),
         value: _calculateOrderTypeDisplay(_orderType),
+        dense: true,
+        wide: true,
         onTap: _openOrderTypePicker,
       ),
       _PickerInput(
         label: l10n.adminText('calculate.production_type_input'),
         value: _isFlexo ? 'Flexo' : 'Temir',
+        dense: true,
+        wide: true,
         onTap: _openPrintMethodPicker,
       ),
       _ImageUploadInput(
@@ -370,6 +379,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         imageName: _imageName,
         imageSizeBytes: _imageSizeBytes,
         uploading: _uploadingImage,
+        wide: true,
         onPick: _pickImage,
         onClear: _clearImage,
       ),

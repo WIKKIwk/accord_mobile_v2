@@ -45,7 +45,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _product = TextEditingController();
   String _orderType = 'Rulon';
   CalculateOrderProductionOptions? _productionOptions =
-      const CalculateOrderProductionOptions(printMethod: 'metal', coldGlue: false);
+      const CalculateOrderProductionOptions(
+          printMethod: 'metal', coldGlue: false);
   final _kg = TextEditingController();
   final _frameProductSizeMm = TextEditingController();
   final _frameCount = TextEditingController();
@@ -211,7 +212,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           : pageTitle,
       subtitle: widget.openedOrder != null
           ? '№${widget.openedOrder!.template.orderNumber} · Buyurtmani tahrirlash'
-          : widget.trainingMode ? l10n.adminText('calculate.test_mode') : '',
+          : widget.trainingMode
+              ? l10n.adminText('calculate.test_mode')
+              : '',
       nativeTopBar: true,
       resizeToAvoidBottomInset: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -240,9 +243,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             key: _formKey,
             child: ListView(
               padding: EdgeInsets.fromLTRB(
-                4,
+                8,
                 12,
-                4,
+                8,
                 bottomPadding + MediaQuery.viewInsetsOf(context).bottom,
               ),
               children: children,

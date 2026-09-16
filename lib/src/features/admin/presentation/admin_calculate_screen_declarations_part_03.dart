@@ -8,12 +8,16 @@ class _PickerInput extends StatelessWidget {
     required this.onTap,
     this.subtitle = '',
     this.required = false,
+    this.dense = false,
+    this.wide = false,
   });
 
   final String label;
   final String value;
   final String subtitle;
   final bool required;
+  final bool dense;
+  final bool wide;
   final VoidCallback onTap;
 
   @override
@@ -52,8 +56,8 @@ class _PickerInput extends StatelessWidget {
         borderSide: BorderSide(color: scheme.primary, width: 1.2),
       ),
     );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+    final field = Padding(
+      padding: EdgeInsets.only(bottom: dense ? 8 : 12),
       child: InkWell(
         borderRadius: BorderRadius.circular(30),
         onTap: onTap,
@@ -105,6 +109,18 @@ class _PickerInput extends StatelessWidget {
         ),
       ),
     );
+    if (!wide) {
+      return field;
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) => Align(
+        alignment: Alignment.center,
+        child: SizedBox(
+          width: constraints.maxWidth + 8,
+          child: field,
+        ),
+      ),
+    );
   }
 }
 
@@ -117,6 +133,7 @@ class _ImageUploadInput extends StatelessWidget {
     required this.uploading,
     required this.onPick,
     required this.onClear,
+    this.wide = false,
   });
 
   final String localPath;
@@ -126,6 +143,7 @@ class _ImageUploadInput extends StatelessWidget {
   final bool uploading;
   final VoidCallback onPick;
   final VoidCallback onClear;
+  final bool wide;
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +151,7 @@ class _ImageUploadInput extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final hasImage = localPath.trim().isNotEmpty || imageUrl.trim().isNotEmpty;
-    return Padding(
+    final field = Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         borderRadius: BorderRadius.circular(30),
@@ -210,6 +228,18 @@ class _ImageUploadInput extends StatelessWidget {
                 Icon(Icons.upload_file_rounded, color: scheme.onSurfaceVariant),
             ],
           ),
+        ),
+      ),
+    );
+    if (!wide) {
+      return field;
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) => Align(
+        alignment: Alignment.center,
+        child: SizedBox(
+          width: constraints.maxWidth + 8,
+          child: field,
         ),
       ),
     );
