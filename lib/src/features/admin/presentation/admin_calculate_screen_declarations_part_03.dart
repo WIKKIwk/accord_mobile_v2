@@ -32,7 +32,7 @@ class _PickerInput extends StatelessWidget {
     final borderColor =
         required && empty ? scheme.error : scheme.outlineVariant;
     final contentPadding = dense
-        ? const EdgeInsets.fromLTRB(14, 24, 10, 22)
+        ? const EdgeInsets.fromLTRB(14, 12, 10, 12)
         : const EdgeInsets.fromLTRB(14, 12, 10, 10);
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(30),
