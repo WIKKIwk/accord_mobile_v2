@@ -14,7 +14,12 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
               ? l10n.adminText('calculate.calculating')
               : l10n.adminText('calculate.calculate'),
         ),
-        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(52),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+        ),
       ),
       if (_error.isNotEmpty) ...[
         const SizedBox(height: 16),
@@ -90,6 +95,9 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
             label: Text(l10n.adminText('calculate.map_attach')),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
             ),
           ),
         ],
