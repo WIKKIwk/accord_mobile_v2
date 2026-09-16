@@ -94,7 +94,7 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
             icon: const Icon(Icons.account_tree_outlined),
             label: Text(l10n.adminText('calculate.map_attach')),
             style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
+              minimumSize: const Size.fromHeight(60),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30),
               ),
