@@ -442,16 +442,18 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
           onMaterialTap: () => _openLayerMaterialPicker(index),
           onRemove: index == 0 ? null : () => _removeLayer(index),
         ),
-      FilledButton.icon(
-        onPressed: _addLayer,
-        icon: const Icon(Icons.add_rounded),
-        label: Text(l10n.adminText('calculate.add_layer')),
-        style: FilledButton.styleFrom(
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: Theme.of(context).colorScheme.onPrimary,
-          minimumSize: const Size.fromHeight(60),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+      SpringPressable(
+        child: FilledButton.icon(
+          onPressed: _addLayer,
+          icon: const Icon(Icons.add_rounded),
+          label: Text(l10n.adminText('calculate.add_layer')),
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            minimumSize: const Size.fromHeight(60),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
           ),
         ),
       ),

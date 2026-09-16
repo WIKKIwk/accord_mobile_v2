@@ -6,18 +6,21 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
     final freshResult = _hasFreshCalculation ? _result : null;
     return [
       const SizedBox(height: 22),
-      FilledButton.icon(
-        onPressed: _calculating || _savingOpenedOrder ? null : _calculate,
-        icon: const Icon(Icons.calculate_outlined),
-        label: Text(
-          _calculating
-              ? l10n.adminText('calculate.calculating')
-              : l10n.adminText('calculate.calculate'),
-        ),
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(60),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+      SpringPressable(
+        enabled: !_calculating && !_savingOpenedOrder,
+        child: FilledButton.icon(
+          onPressed: _calculating || _savingOpenedOrder ? null : _calculate,
+          icon: const Icon(Icons.calculate_outlined),
+          label: Text(
+            _calculating
+                ? l10n.adminText('calculate.calculating')
+                : l10n.adminText('calculate.calculate'),
+          ),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(60),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
           ),
         ),
       ),
@@ -89,14 +92,16 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
             _editingAllFields &&
             !widget.trainingMode) ...[
           const SizedBox(height: 18),
-          FilledButton.icon(
-            onPressed: _openProductionMap,
-            icon: const Icon(Icons.account_tree_outlined),
-            label: Text(l10n.adminText('calculate.map_attach')),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(60),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
+          SpringPressable(
+            child: FilledButton.icon(
+              onPressed: _openProductionMap,
+              icon: const Icon(Icons.account_tree_outlined),
+              label: Text(l10n.adminText('calculate.map_attach')),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(60),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
               ),
             ),
           ),
