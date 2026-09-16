@@ -454,10 +454,12 @@ class _SequenceOrderRow extends StatelessWidget {
                           ),
                           if (subtitle.isNotEmpty) ...[
                             const SizedBox(height: 4),
-                            Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            OverflowMarqueeText(
+                              text: subtitle,
+                              startDelay: Duration(
+                                milliseconds:
+                                    1000 + (map.id.hashCode.abs() % 5) * 350,
+                              ),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color:
                                     secondaryColor ?? scheme.onSurfaceVariant,

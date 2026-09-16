@@ -626,10 +626,12 @@ class _OpenedOrderCardRow extends StatelessWidget {
                     ),
                     if (subtitle.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      OverflowMarqueeText(
+                        text: subtitle,
+                        startDelay: Duration(
+                          milliseconds:
+                              1000 + (map.id.hashCode.abs() % 5) * 350,
+                        ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                           height: 1.05,
@@ -675,30 +677,72 @@ class _OpenedOrderTitleLine extends StatelessWidget {
       fontWeight: FontWeight.w800,
       letterSpacing: 0.2,
     );
+    // Qatorlar bir vaqtda sinxron yugurmasligi uchun har bir zakazga
+    // o'z hashidan kelib chiqqan kichik start-delay beramiz.
+    final staggerMs = 700 + (map.id.hashCode.abs() % 5) * 350;
+    final marqueeDelay = Duration(milliseconds: staggerMs);
     if (code.isEmpty) {
-      return Text(
-        title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      return OverflowMarqueeText(
+        text: title,
         style: resolvedTitleStyle,
+        startDelay: marqueeDelay,
       );
     }
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(text: code, style: resolvedCodeStyle),
-          TextSpan(
-            text: ' • ',
-            style: resolvedCodeStyle?.copyWith(
-              color: secondaryColor ?? scheme.outline,
-              fontWeight: FontWeight.w700,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Cheksiz kenglikda (masalan o'lchov bosqichida) eski ellipsis.
+        if (!constraints.maxWidth.isFinite) {
+          return Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: code, style: resolvedCodeStyle),
+                TextSpan(
+                  text: ' • ',
+                  style: resolvedCodeStyle?.copyWith(
+                    color: secondaryColor ?? scheme.outline,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                TextSpan(text: title, style: resolvedTitleStyle),
+              ],
             ),
-          ),
-          TextSpan(text: title, style: resolvedTitleStyle),
-        ],
-      ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          );
+        }
+        // Kod doim ko'rinib turadi, faqat uzun nom karusel bo'ladi.
+        return Row(
+          children: [
+            Flexible(
+              flex: 0,
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: code, style: resolvedCodeStyle),
+                    TextSpan(
+                      text: ' • ',
+                      style: resolvedCodeStyle?.copyWith(
+                        color: secondaryColor ?? scheme.outline,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                softWrap: false,
+              ),
+            ),
+            Expanded(
+              child: OverflowMarqueeText(
+                text: title,
+                style: resolvedTitleStyle,
+                startDelay: marqueeDelay,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
