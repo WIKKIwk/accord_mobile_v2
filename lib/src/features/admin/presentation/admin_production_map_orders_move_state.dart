@@ -254,6 +254,11 @@ extension _AdminProductionMapOrdersMoveState
       _selectedMoveOrderIds.removeAll(orderIds);
       _orders = _mergeSavedProductionMapOrders(_orders, savedById);
     });
+    // Dispatch changes backend-owned visibility as well as map metadata.
+    // Discard pre-save reads and reconcile without waiting for the next poll.
+    _queueSnapshotGeneration++;
+    _queueSnapshotNeedsReconcile = true;
+    unawaited(_refreshQueueSnapshot());
   }
 
   Future<void> _resyncAfterMoveActionError(

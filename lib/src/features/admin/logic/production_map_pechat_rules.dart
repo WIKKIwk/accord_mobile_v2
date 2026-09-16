@@ -3,6 +3,30 @@ import 'dart:math' as math;
 import '../../shared/models/app_models.dart';
 import '../models/production_map_models.dart';
 
+/// Only printing alternatives require an explicit dispatch assignment.
+/// Lamination/cutting candidates keep their cooperative visibility.
+bool productionMapPrintAssignmentAllowsOrder({
+  required ProductionMapDefinition map,
+  required AdminApparatus apparatus,
+}) {
+  if (apparatus.operation.trim().toLowerCase() != 'print') return true;
+  return map.nodes.any((node) {
+    if (node.kind != 'apparatus' ||
+        node.apparatusId.trim() != apparatus.id.trim()) {
+      return false;
+    }
+    final group = node.alternativeGroupId.trim();
+    return group.isEmpty ||
+        map.nodes
+            .where((candidate) =>
+                candidate.kind == 'apparatus' &&
+                candidate.alternativeGroupId.trim() == group)
+            .every((candidate) =>
+                candidate.alternativeAssignedApparatusId.trim() ==
+                apparatus.id.trim());
+  });
+}
+
 int productionMapRubberSizeFromWidth(double widthMm) {
   return (widthMm / 50).ceil().clamp(1, 27).toInt() * 50;
 }

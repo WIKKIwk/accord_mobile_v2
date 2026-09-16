@@ -95,7 +95,12 @@ List<ProductionMapSaved> _productionMapBaseOrdersForApparatus({
   final byId = {for (final order in orders) order.map.id.trim(): order};
   return [
     for (final orderId in visibleOrderIds)
-      if (byId.containsKey(orderId.trim())) byId[orderId.trim()]!,
+      if (byId.containsKey(orderId.trim()) &&
+          productionMapPrintAssignmentAllowsOrder(
+            map: byId[orderId.trim()]!.map,
+            apparatus: apparatus,
+          ))
+        byId[orderId.trim()]!,
   ];
 }
 

@@ -98,7 +98,7 @@ void _registeradmin_production_map_test_screen_testCases14() {
             'move-order-disabled-7 ta rangli bosma aparat-zakaz-skip-7-8',
           ),
         ),
-        findsOneWidget,
+        findsNothing,
       );
 
       await _dragOrderHandleForKeyToTopDropZone(
@@ -153,7 +153,7 @@ void _registeradmin_production_map_test_screen_testCases14() {
             'move-order-disabled-7 ta rangli bosma aparat-zakaz-skip-7-8',
           ),
         ),
-        findsOneWidget,
+        findsNothing,
       );
       final returnedMaps = await MobileApi.instance.adminProductionMaps();
       expect(_apparatusTitles(returnedMaps, 'zakaz-skip-7-8'), [
@@ -193,11 +193,11 @@ void _registeradmin_production_map_test_screen_testCases14() {
         _alternativeAssignedTitles(assignedToEightMaps, 'zakaz-skip-7-8'),
         ['8 ta rangli bosma aparat', '8 ta rangli bosma aparat'],
       );
-      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(seconds: 6));
     },
   );
 
-  test('test mode queue snapshot exposes skipped alternative candidates',
+  test('test mode queue snapshot hides unassigned printing alternatives',
       () async {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance.adminSaveProductionMap(
@@ -215,12 +215,12 @@ void _registeradmin_production_map_test_screen_testCases14() {
     final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
 
     expect(
-      snapshot.visibleOrderIds[_print7Id],
-      contains('zakaz-visible-skip'),
+      snapshot.visibleOrderIds[_print7Id] ?? const [],
+      isNot(contains('zakaz-visible-skip')),
     );
     expect(
-      snapshot.visibleOrderIds[_print8Id],
-      contains('zakaz-visible-skip'),
+      snapshot.visibleOrderIds[_print8Id] ?? const [],
+      isNot(contains('zakaz-visible-skip')),
     );
   });
 

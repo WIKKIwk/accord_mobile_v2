@@ -106,8 +106,15 @@ void _registeradmin_production_map_test_screen_testCases13() {
       await tester.tap(find.text('Ko‘chirish'));
       await tester.pumpAndSettle();
       const orderKey = ValueKey(
-        'move-order-7 ta rangli bosma aparat-zakaz-alt-unassigned-move',
+        'move-order-Tanlanmagan-zakaz-alt-unassigned-move',
       );
+      expect(find.byKey(const ValueKey(
+        'move-order-7 ta rangli bosma aparat-zakaz-alt-unassigned-move',
+      )), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('move-boundary-apparatus-picker')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tanlanmagan'));
+      await tester.pumpAndSettle();
       expect(find.byKey(orderKey), findsOneWidget);
       expect(
         find.byKey(
@@ -119,7 +126,7 @@ void _registeradmin_production_map_test_screen_testCases13() {
         findsNothing,
       );
 
-      await _dragOrderHandleForKeyToBottomZone(
+      await _dragOrderHandleForKeyToTopDropZone(
         tester,
         key: orderKey,
       );
@@ -128,11 +135,11 @@ void _registeradmin_production_map_test_screen_testCases13() {
       expect(
         _alternativeAssignedTitles(maps, 'zakaz-alt-unassigned-move'),
         [
-          '8 ta rangli bosma aparat',
-          '8 ta rangli bosma aparat',
+          '7 ta rangli bosma aparat',
+          '7 ta rangli bosma aparat',
         ],
       );
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 6));
     },
   );
 

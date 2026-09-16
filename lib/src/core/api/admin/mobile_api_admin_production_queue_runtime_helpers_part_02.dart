@@ -180,6 +180,12 @@ Map<String, List<String>> _testModeVisibleOrderIdsByApparatus() {
       if (apparatusId == null || !seenApparatusIds.add(apparatusId)) {
         continue;
       }
+      if (!productionMapPrintAssignmentAllowsOrder(
+        map: map,
+        apparatus: _testModeRequiredApparatus(apparatusId),
+      )) {
+        continue;
+      }
       visible.putIfAbsent(apparatusId, () => <String>[]).add(orderId);
     }
   }

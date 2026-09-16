@@ -37,14 +37,16 @@ void _registerAlternativeVisibilityTests() {
                 'kind': 'apparatus',
                 'title': 'Mine',
                 'apparatus_id': mine,
-                'alternative_group_id': 'shared'
+                'alternative_group_id': 'shared',
+                if (mine == _print8Id) 'alternative_assigned_apparatus_id': mine,
               },
               {
                 'id': 'peer',
                 'kind': 'apparatus',
                 'title': 'Peer',
                 'apparatus_id': peer,
-                'alternative_group_id': 'shared'
+                'alternative_group_id': 'shared',
+                if (mine == _print8Id) 'alternative_assigned_apparatus_id': mine,
               },
               {
                 'id': 'later',

@@ -21,6 +21,64 @@ const _colorPrintApparatus = AdminApparatus(
 );
 
 void main() {
+  test(
+      'printing alternatives require assignment by ID, other operations do not',
+      () {
+    const peer = AdminApparatus(
+        id: 'apparatus:test:opaque',
+        name: 'Laminatsiya',
+        operation: 'print',
+        technology: 'rotogravure',
+        colorStations: 8);
+    var map = ProductionMapDefinition(
+      id: 'zakaz-dispatch',
+      productCode: 'DISPATCH',
+      title: 'Dispatch',
+      nodes: [
+        for (final machine in [_flexoApparatus, peer])
+          ProductionMapNode(
+              id: machine.id,
+              kind: 'apparatus',
+              title: 'Display',
+              apparatusId: machine.id,
+              alternativeGroupId: 'group')
+      ],
+      edges: const [],
+    );
+    bool visible(AdminApparatus machine) =>
+        productionMapPrintAssignmentAllowsOrder(map: map, apparatus: machine);
+    expect(visible(_flexoApparatus), isFalse);
+    expect(visible(peer), isFalse);
+    for (final operation in ['laminate', 'cut', 'glue', 'package']) {
+      expect(
+          visible(
+              AdminApparatus(id: peer.id, name: 'Bosma', operation: operation)),
+          isTrue);
+    }
+    map = map.copyWith(nodes: [
+      for (final node in map.nodes)
+        node.copyWith(alternativeAssignedApparatusId: peer.id)
+    ]);
+    expect(visible(_flexoApparatus), isFalse);
+    expect(visible(peer), isTrue);
+    map = map.copyWith(nodes: [
+      for (final node in map.nodes)
+        node.copyWith(alternativeAssignedApparatusId: _flexoApparatus.id)
+    ]);
+    expect(visible(_flexoApparatus), isTrue);
+    expect(visible(peer), isFalse);
+    map = map.copyWith(nodes: [
+      for (final node in map.nodes)
+        node.copyWith(alternativeAssignedApparatusId: '')
+    ]);
+    expect(visible(_flexoApparatus), isFalse);
+    expect(visible(peer), isFalse);
+    map =
+        map.copyWith(nodes: [map.nodes.first.copyWith(alternativeGroupId: '')]);
+    expect(visible(_flexoApparatus), isTrue,
+        reason: 'a direct Flexo needs no dispatch');
+  });
+
   test('apparatus type comes from canonical metadata, not display title', () {
     expect(_flexoApparatus.operation, 'print');
     expect(_flexoApparatus.technology, 'flexographic');
