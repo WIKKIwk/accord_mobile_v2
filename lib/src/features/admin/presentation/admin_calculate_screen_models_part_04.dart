@@ -266,7 +266,7 @@ class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
                 decoration: appSurfaceInputDecoration(
                   context,
                   labelText: l10n.adminText('calculate.material_name'),
-                  borderRadius: 18,
+                  borderRadius: 24,
                 ),
                 validator: (value) => _requiredText(value, l10n),
               ),
@@ -341,7 +341,7 @@ class _MaterialVariantEditorRow extends StatelessWidget {
             decoration: appSurfaceInputDecoration(
               context,
               labelText: l10n.adminText('calculate.micron'),
-              borderRadius: 18,
+              borderRadius: 24,
             ),
             validator: (value) {
               final micron = int.tryParse(value?.trim() ?? '');
@@ -359,7 +359,7 @@ class _MaterialVariantEditorRow extends StatelessWidget {
             decoration: appSurfaceInputDecoration(
               context,
               labelText: l10n.adminText('calculate.coefficient'),
-              borderRadius: 18,
+              borderRadius: 24,
             ),
             validator: (value) {
               final coefficient = double.tryParse(

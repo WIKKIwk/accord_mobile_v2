@@ -26,14 +26,14 @@ class _PickerInput extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 58),
           padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: required && empty ? scheme.error : scheme.outlineVariant,
             ),
@@ -120,14 +120,14 @@ class _ImageUploadInput extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
         onTap: uploading ? null : onPick,
         child: Container(
           constraints: const BoxConstraints(minHeight: 104),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(color: scheme.outlineVariant),
           ),
           child: Row(
@@ -290,7 +290,7 @@ class _LayerInputs extends StatelessWidget {
               context,
               labelText: l10n.adminText('calculate.micron'),
               suffixText: l10n.adminText('calculate.micron_suffix'),
-              borderRadius: 18,
+              borderRadius: 24,
             ),
             validator: (value) => _requiredPositiveNumber(value, l10n),
           ),
