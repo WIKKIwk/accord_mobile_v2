@@ -3,7 +3,7 @@ part of 'admin_production_map_test_screen_test.dart';
 
 void _registeradmin_production_map_test_screen_testCases17() {
   testWidgets(
-      'worker freeze request replaces finish with linked safe-stop issue flow',
+      'replacement worker freeze request keeps linked safe-stop issue flow',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
     const apparatus = _godexId;
@@ -69,8 +69,8 @@ void _registeradmin_production_map_test_screen_testCases17() {
           targetSessionId: 'test-session-$orderId',
           targetApparatus: apparatus,
           targetWorkerRole: 'aparatchi',
-          targetWorkerRef: 'worker-freeze-safe-stop',
-          targetWorkerDisplayName: 'Aparatchi',
+          targetWorkerRef: 'worker-previous-shift',
+          targetWorkerDisplayName: 'Previous shift worker',
           requestedAtUnix: 0,
           transitionedAtUnix: 0,
         ),

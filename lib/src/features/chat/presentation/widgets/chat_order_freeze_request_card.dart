@@ -54,11 +54,16 @@ class _ChatOrderFreezeRequestCardState
     }
   }
 
-  bool get _isTargetWorker {
+  bool get _canSafelyStop {
     final profile = AppSession.instance.profile;
+    final apparatus = widget.data.targetApparatus.trim();
     return profile != null &&
+        profile.role == UserRole.aparatchi &&
+        profile.ref.trim().isNotEmpty &&
         userRoleToJson(profile.role) == widget.data.targetWorkerRole.trim() &&
-        profile.ref.trim() == widget.data.targetWorkerRef.trim();
+        profile.hasCapability('apparatus.queue.manage') &&
+        canonicalApparatusIdIsValid(apparatus) &&
+        profile.assignedApparatus.any((id) => id.trim() == apparatus);
   }
 
   bool get _isRequester {
@@ -69,7 +74,8 @@ class _ChatOrderFreezeRequestCardState
   }
 
   Future<void> _pause() async {
-    if (_actionInFlight || _status != OrderFreezeRequestCardStatus.pending) {
+    if (_actionInFlight || !_canSafelyStop ||
+        _status != OrderFreezeRequestCardStatus.pending) {
       return;
     }
     setState(() => _actionInFlight = true);
@@ -203,9 +209,9 @@ class _ChatOrderFreezeRequestCardState
                     value: widget.data.requesterDisplayName.trim(),
                   ),
                   if (_status == OrderFreezeRequestCardStatus.pending &&
-                      (_isTargetWorker || _isRequester)) ...[
+                      (_canSafelyStop || _isRequester)) ...[
                     const SizedBox(height: 14),
-                    if (_isTargetWorker)
+                    if (_canSafelyStop)
                       FilledButton.icon(
                         onPressed: _actionInFlight ? null : _pause,
                         icon: _actionInFlight
