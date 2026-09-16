@@ -4,6 +4,9 @@ part of 'gscale_mobile_app.dart';
 String _formatMm(double value) =>
     value == value.roundToDouble() ? '${value.round()}' : '$value';
 
+const _linkedOrderWidthUndersizeToleranceMm = 10.0;
+const _linkedOrderWidthMaximumAllowanceMm = 40.0;
+
 extension __OperatorDashboardPageStateAstPartResplit2_02
     on _OperatorDashboardPageState {
   Widget _buildControlSection(
@@ -107,10 +110,14 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
           orderWidth <= 0) {
         return null;
       }
-      if (widthMm >= orderWidth && widthMm <= orderWidth + 30) {
+      final minimumWidth =
+          orderWidth - _linkedOrderWidthUndersizeToleranceMm;
+      final maximumWidth =
+          orderWidth + _linkedOrderWidthMaximumAllowanceMm;
+      if (widthMm >= minimumWidth && widthMm <= maximumWidth) {
         return null;
       }
-      return 'Diapazondan chiqdi (${_formatMm(orderWidth)}–${_formatMm(orderWidth + 30)} mm)';
+      return 'Diapazondan chiqdi (${_formatMm(minimumWidth)}–${_formatMm(maximumWidth)} mm)';
     }
 
     final rangeError = widthRangeError();

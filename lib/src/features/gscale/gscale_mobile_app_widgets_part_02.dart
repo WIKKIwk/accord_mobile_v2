@@ -411,7 +411,7 @@ class OperatorDashboardPage extends StatefulWidget {
   final String? initialWarehouse;
 
   /// Bog'langan order eni (mm). Berilgan bo'lsa, eni field'i diapazondan
-  /// chiqsa qizil bo'ladi: [order, order + 30].
+  /// chiqsa qizil bo'ladi: [order - 10, order + 40].
   final double? linkedOrderWidthMm;
 
   @override

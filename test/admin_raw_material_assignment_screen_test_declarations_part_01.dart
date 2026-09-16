@@ -157,9 +157,9 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
           'order_title': 'Zakaz 1',
           'apparatus': 'apparatus:default:asset-005',
           'order_width_mm': 985,
-          'roll_width_mm': 980,
-          'minimum_width_mm': 985,
-          'maximum_width_mm': 1005,
+          'roll_width_mm': 970,
+          'minimum_width_mm': 975,
+          'maximum_width_mm': 1015,
         };
       case 'GET /v1/mobile/admin/raw-material-assignments/lookup?barcode=30AA':
         body = {

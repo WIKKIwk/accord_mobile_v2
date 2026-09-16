@@ -97,7 +97,7 @@ void _registeradmin_raw_material_assignment_screen_testCases02() {
 
       expect(
         find.text(
-          'Mos emas: rulon eni 980 mm; talab qilinadigan minimum 985 mm.',
+          'Mos emas: rulon eni 970 mm; talab qilinadigan minimum 975 mm.',
         ),
         findsOneWidget,
       );

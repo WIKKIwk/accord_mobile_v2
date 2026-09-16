@@ -1686,9 +1686,9 @@ void main() {
       expect(diagnostic.compatible, isFalse);
       expect(diagnostic.reason, 'raw_material_roll_size_mismatch');
       expect(diagnostic.orderWidthMm, 985);
-      expect(diagnostic.rollWidthMm, 980);
-      expect(diagnostic.minimumWidthMm, 985);
-      expect(diagnostic.maximumWidthMm, 1005);
+      expect(diagnostic.rollWidthMm, 970);
+      expect(diagnostic.minimumWidthMm, 975);
+      expect(diagnostic.maximumWidthMm, 1015);
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
 
@@ -2280,7 +2280,7 @@ void main() {
           isA<MobileApiException>().having(
             (error) => error.message,
             'message',
-            'Mos emas: rulon eni 980 mm; talab qilinadigan minimum 985 mm.',
+            'Mos emas: rulon eni 970 mm; talab qilinadigan minimum 975 mm.',
           ),
         ),
       );
@@ -2289,9 +2289,9 @@ void main() {
               seenRequests,
               assignmentErrorCode: 'raw_material_roll_size_mismatch',
               assignmentErrorOrderWidthMm: 985,
-              assignmentErrorRollWidthMm: 980,
-              assignmentErrorMinimumWidthMm: 985,
-              assignmentErrorMaximumWidthMm: 1005,
+              assignmentErrorRollWidthMm: 970,
+              assignmentErrorMinimumWidthMm: 975,
+              assignmentErrorMaximumWidthMm: 1015,
             ));
   });
 
@@ -2318,7 +2318,7 @@ void main() {
           isA<MobileApiException>().having(
             (error) => error.message,
             'message',
-            'Mos emas: rulon eni 1020 mm; ruxsat etilgan oraliq 985 mm–1005 mm.',
+            'Mos emas: rulon eni 1020 mm; ruxsat etilgan oraliq 975 mm–1015 mm.',
           ),
         ),
       );
@@ -2328,8 +2328,8 @@ void main() {
               assignmentErrorCode: 'raw_material_roll_size_mismatch',
               assignmentErrorOrderWidthMm: 985,
               assignmentErrorRollWidthMm: 1020,
-              assignmentErrorMinimumWidthMm: 985,
-              assignmentErrorMaximumWidthMm: 1005,
+              assignmentErrorMinimumWidthMm: 975,
+              assignmentErrorMaximumWidthMm: 1015,
             ));
   });
 
@@ -2966,8 +2966,8 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'barcode': 'RM-UNDER',
           'compatible': false,
           'reason': 'raw_material_roll_size_mismatch',
-          'item_code': 'ROLL-980',
-          'item_name': 'CPP 980/35',
+          'item_code': 'ROLL-970',
+          'item_name': 'CPP 970/35',
           'item_group': 'Rulon',
           'warehouse': 'Kalidor',
           'stock_status': 'available',
@@ -2977,9 +2977,9 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'order_title': 'Zakaz 1',
           'apparatus': 'apparatus:default:asset-005',
           'order_width_mm': 985,
-          'roll_width_mm': 980,
-          'minimum_width_mm': 985,
-          'maximum_width_mm': 1005,
+          'roll_width_mm': 970,
+          'minimum_width_mm': 975,
+          'maximum_width_mm': 1015,
         };
       case 'GET /v1/mobile/admin/raw-material-intake-candidates?order_id=zakaz-1&apparatus=apparatus%3Adefault%3Aasset-005':
         body = const [
