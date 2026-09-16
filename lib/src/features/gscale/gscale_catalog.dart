@@ -194,10 +194,10 @@ Future<List<GScaleCatalogWarehouse>> fetchGScaleDefaultWarehouses({
   final client = api ?? MobileApi.instance;
   final profile = AppSession.instance.profile;
   if ((role ?? profile?.role) == UserRole.tayyorlovMasteri) {
-    // Match the preparation selector, including other people's warehouses.
-    // Item defaults and assignedWarehouses are not the receipt destination list.
+    // The intake destination must stay within this user's warehouse assignment.
+    // The snapshot is authoritative so a stale login profile cannot widen it.
     final snapshot = await client.preparationSnapshot();
-    return _uniqueWarehouses(snapshot.warehouses, query: query)
+    return _uniqueWarehouses(snapshot.assignedWarehouses, query: query)
         .take(limit)
         .toList(growable: false);
   }
