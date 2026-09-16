@@ -42,10 +42,34 @@ extension MobileApiPreparation on MobileApi {
   /// restart must never turn the same save into a second stock movement.
   Future<Map<String, dynamic>> preparationSubmit(
       String kind, Map<String, dynamic> payload) async {
-    if (_preparationSending) throw StateError('Saqlash davom etmoqda');
     if (!const ['materials', 'receipts', 'consumptions'].contains(kind)) {
       throw ArgumentError.value(kind);
     }
+    return _submitPreparationCommand(
+      kind: kind,
+      path: 'preparation/$kind',
+      payload: payload,
+    );
+  }
+
+  /// Tarozi kirimida Tayyorlov masterining o'z (exclusive) omboriga QR'siz
+  /// kirim. Bu alohida GScale endpointi bo'lib, oddiy preparation kirimi
+  /// picker/qoidalarini o'zgartirmaydi.
+  Future<Map<String, dynamic>> gscaleSimpleMaterialReceipt(
+      Map<String, dynamic> payload) {
+    return _submitPreparationCommand(
+      kind: 'gscale_simple_receipt',
+      path: 'gscale/material-receipt/simple',
+      payload: payload,
+    );
+  }
+
+  Future<Map<String, dynamic>> _submitPreparationCommand({
+    required String kind,
+    required String path,
+    required Map<String, dynamic> payload,
+  }) async {
+    if (_preparationSending) throw StateError('Saqlash davom etmoqda');
     if (payload.containsKey('request_id')) {
       throw ArgumentError('request_id is managed by the client');
     }
@@ -80,7 +104,7 @@ extension MobileApiPreparation on MobileApi {
           throw StateError('Akkaunt o‘zgargan');
         }
         return _post(
-            Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/$kind'),
+            Uri.parse('${MobileApi.baseUrl}/v1/mobile/$path'),
             headers: _headers(requireToken())
               ..['Content-Type'] = 'application/json',
             body: jsonEncode(
@@ -98,6 +122,7 @@ extension MobileApiPreparation on MobileApi {
             'preparation_invalid',
             'preparation_conflict',
             'preparation_scope',
+            'preparation_receipt_requires_qr',
             'preparation_warehouse_not_exclusive',
             'preparation_insufficient_stock'
           ].contains(rejectedCode)) {

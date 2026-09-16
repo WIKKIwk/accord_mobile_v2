@@ -126,6 +126,24 @@ void main() {
     }, () => client);
   });
 
+  test('GScale simple receipt uses its isolated endpoint', () async {
+    Map<String, dynamic>? sent;
+    await http.runWithClient(() async {
+      final response =
+          await MobileApi.instance.gscaleSimpleMaterialReceipt(_payload);
+      expect(response['qr_printed'], false);
+      expect(sent?['request_id'], isA<String>());
+    },
+        () => MockClient((request) async {
+              expect(request.method, 'POST');
+              expect(request.url.path,
+                  '/v1/mobile/gscale/material-receipt/simple');
+              sent = jsonDecode(request.body) as Map<String, dynamic>;
+              return http.Response(
+                  jsonEncode({'id': 'receipt-1', 'qr_printed': false}), 200);
+            }));
+  });
+
   test('insufficient stock response is displayed and is not left pending',
       () async {
     await http.runWithClient(() async {

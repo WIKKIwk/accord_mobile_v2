@@ -2,6 +2,108 @@
 part of 'gscale_mobile_app.dart';
 
 extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
+  Future<void> _refreshTayyorlovMaterialWarehouses() async {
+    if (!widget.controlOnly) {
+      return;
+    }
+    try {
+      if (!AppSession.instance.isLoggedIn) {
+        await AppSession.instance.load();
+      }
+      if (AppSession.instance.profile?.role != UserRole.tayyorlovMasteri) {
+        return;
+      }
+      final snapshot = await MobileApi.instance
+          .preparationSnapshot()
+          .timeout(const Duration(seconds: 4));
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _tayyorlovMaterialWarehouses = snapshot.materialWarehouses
+            .map((warehouse) => warehouse.trim().toLowerCase())
+            .where((warehouse) => warehouse.isNotEmpty)
+            .toSet();
+      });
+    } catch (_) {
+      // Backend sodda kirimda ham ownershipni qayta tekshiradi; scope olinmasa
+      // bu ekran QR workflow'iga o'tmaydi.
+    }
+  }
+
+  bool _isTayyorlovSimpleWarehouse(String warehouse) {
+    return widget.controlOnly &&
+        AppSession.instance.profile?.role == UserRole.tayyorlovMasteri &&
+        _tayyorlovMaterialWarehouses
+            .contains(warehouse.trim().toLowerCase());
+  }
+
+  Future<void> _submitSimpleReceipt() async {
+    if (_manualPrintLoading || _batchActionLoading || _requestInFlight) {
+      return;
+    }
+    final item = _selectedItem;
+    final warehouse = _selectedPrintWarehouse()?.trim() ?? '';
+    final kg = parsePositiveKg(_manualQtyController.text);
+    if (item == null) {
+      setState(() => _errorText = 'Mahsulot tanlang');
+      return;
+    }
+    if (warehouse.isEmpty) {
+      setState(() => _errorText = 'Ombor tanlang');
+      return;
+    }
+    if (kg == null) {
+      setState(() => _errorText = 'Kirim kg miqdorini to‘g‘ri kiriting');
+      return;
+    }
+    await _refreshTayyorlovMaterialWarehouses();
+    if (!mounted) {
+      return;
+    }
+    if (!_isTayyorlovSimpleWarehouse(warehouse)) {
+      setState(() => _errorText = 'Bu ombor uchun QR kirimi talab qilinadi');
+      return;
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _simpleReceiptLoading = true;
+      _errorText = '';
+    });
+    try {
+      await MobileApi.instance
+          .gscaleSimpleMaterialReceipt({
+            'item_code': item.itemCode,
+            'warehouse': warehouse,
+            'kg': formatCompactKg(kg),
+          })
+          .timeout(const Duration(seconds: 30));
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _simpleReceiptLoading = false;
+        _manualQtyController.clear();
+        _manualQtyTapBackup = '';
+        _manualQtyTapCleared = false;
+      });
+      _scheduleSaveControlPrefs();
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(content: Text('Sodda kirim saqlandi')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _simpleReceiptLoading = false;
+        _errorText = error is MobileApiException
+            ? error.message
+            : error.toString();
+      });
+    }
+  }
+
   Future<Set<String>> _materialAssignedWarehouseNames() async {
     final profile = AppSession.instance.profile;
     final fromProfile = profile?.assignedWarehouses ?? const <String>[];
@@ -67,6 +169,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
   }
 
   Future<void> _openDefaultWarehousePicker() async {
+    await _refreshTayyorlovMaterialWarehouses();
     final warehouse = await showModalBottomSheet<MobileWarehouse>(
       context: context,
       isDismissible: true,
@@ -178,11 +281,8 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       );
       return;
     }
-    if (AppSession.instance.profile?.role == UserRole.tayyorlovMasteri &&
-        widget.linkedOrderId.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Avval order tanlang.')),
-      );
+    await _refreshTayyorlovMaterialWarehouses();
+    if (!mounted) {
       return;
     }
     final option = await showModalBottomSheet<SupplierItem>(
@@ -242,6 +342,10 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
   }
 
   Future<void> _openWarehousePicker() async {
+    await _refreshTayyorlovMaterialWarehouses();
+    if (!mounted) {
+      return;
+    }
     final selectedItem = _selectedItem;
     // Material rolida ombor mahsulotga bog'liq emas: mahsulotsiz ham ochiladi.
     if (selectedItem == null && !_warehouseIndependentOfItem) {

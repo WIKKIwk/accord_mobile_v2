@@ -45,17 +45,26 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
         : MobileWarehouse(warehouse: activeBatch.warehouse);
     final defaultWarehouse = _currentDefaultWarehouse;
     final defaultMode = activeBatch == null && _warehouseMode == 'default';
+    final targetWarehouse = defaultMode
+        ? defaultWarehouse
+        : (selectedWarehouse?.warehouse ?? '');
+    final simpleReceiptMode = activeBatch == null &&
+        _isTayyorlovSimpleWarehouse(targetWarehouse);
     final contextFieldsLocked = (activeBatch != null && !editingBatchContext) ||
         _batchActionLoading ||
-        _manualPrintLoading;
+        _manualPrintLoading ||
+        _simpleReceiptLoading;
     final printerLocked =
         _snapshot.batchActive || _batchActionLoading || _manualPrintLoading;
     final selectedPrinter = normalizePrinterChoice(_batchPrinter);
-    final selectedQuantitySource = normalizeQuantitySource(
-      lockedBatchContext ? activeBatch.quantitySource : _quantitySource,
-    );
-    final selectedBabinaEnabled =
-        lockedBatchContext ? activeBatch.tareEnabled : _babinaEnabled;
+    final selectedQuantitySource = simpleReceiptMode
+        ? 'manual'
+        : normalizeQuantitySource(
+            lockedBatchContext ? activeBatch.quantitySource : _quantitySource,
+          );
+    final selectedBabinaEnabled = simpleReceiptMode
+        ? false
+        : (lockedBatchContext ? activeBatch.tareEnabled : _babinaEnabled);
     final manualQtyKg = selectedQuantitySource == 'manual'
         ? parsePositiveKg(_manualQtyController.text)
         : null;
@@ -111,7 +120,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
     final lengthInvalid = selectedProduct != null &&
         _lengthController.text.trim().isNotEmpty &&
         lengthM == null;
-    final hasPrintSelection = selectedProduct != null &&
+    final hasPrintSelection = !simpleReceiptMode && selectedProduct != null &&
         (defaultMode
             ? defaultWarehouse.isNotEmpty
             : selectedWarehouse != null) &&
@@ -150,6 +159,11 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
         !_manualPrintLoading &&
         !_batchActionLoading &&
         !_requestInFlight;
+    final simpleReceiptReady = simpleReceiptMode &&
+        selectedProduct != null &&
+        targetWarehouse.trim().isNotEmpty &&
+        manualQtyKg != null &&
+        !_simpleReceiptLoading;
     final bluetoothPrinterLabel =
         widget.bluetoothPrinter?.displayName.trim().isNotEmpty == true
             ? widget.bluetoothPrinter!.displayName.trim()
@@ -420,7 +434,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             onTap: contextFieldsLocked ? null : _openItemPicker,
           ),
           const SizedBox(height: 8),
-          if (selectedProduct?.requiresDimensions == true) ...[
+          if (!simpleReceiptMode && selectedProduct?.requiresDimensions == true) ...[
             Row(
               children: [
                 Expanded(
@@ -498,7 +512,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               ),
             const SizedBox(height: 8),
           ],
-          if (selectedProduct != null) ...[
+          if (!simpleReceiptMode && selectedProduct != null) ...[
             TextField(
               controller: _lengthController,
               enabled: !contextFieldsLocked,
@@ -529,53 +543,55 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             ),
             const SizedBox(height: 8),
           ],
-          _ContextSwitchRow(
-            label: 'Miqdor (kg)',
-            valueText: selectedQuantitySource == 'manual'
-                ? 'Qo‘lda kg'
-                : 'Tarozidan kg',
-            value: selectedQuantitySource == 'manual',
-            onChanged: contextFieldsLocked
-                ? null
-                : (manual) {
-                    setState(() {
-                      _quantitySource = manual ? 'manual' : 'scale';
-                    });
-                    _scheduleSaveControlPrefs();
-                  },
-          ),
-          const SizedBox(height: 4),
-          _ContextSwitchRow(
-            label: 'Babina',
-            valueText: selectedBabinaEnabled ? 'Bor' : 'Yo‘q',
-            value: selectedBabinaEnabled,
-            onChanged: contextFieldsLocked
-                ? null
-                : (enabled) {
-                    setState(() {
-                      _babinaEnabled = enabled;
-                      if (!enabled) {
-                        _babinaWeightController.clear();
-                      }
-                    });
-                    _scheduleSaveControlPrefs();
-                  },
-          ),
-          if (showContextFields) ...[
-            const SizedBox(height: 2),
-            _BubbleActionButton(
-              onPressed: batchContextSaveEnabled
-                  ? () => unawaited(_saveBatchContextEdit())
-                  : null,
-              icon: _batchActionLoading
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: 'Saqlash',
+          if (!simpleReceiptMode) ...[
+            _ContextSwitchRow(
+              label: 'Miqdor (kg)',
+              valueText: selectedQuantitySource == 'manual'
+                  ? 'Qo‘lda kg'
+                  : 'Tarozidan kg',
+              value: selectedQuantitySource == 'manual',
+              onChanged: contextFieldsLocked
+                  ? null
+                  : (manual) {
+                      setState(() {
+                        _quantitySource = manual ? 'manual' : 'scale';
+                      });
+                      _scheduleSaveControlPrefs();
+                    },
             ),
+            const SizedBox(height: 4),
+            _ContextSwitchRow(
+              label: 'Babina',
+              valueText: selectedBabinaEnabled ? 'Bor' : 'Yo‘q',
+              value: selectedBabinaEnabled,
+              onChanged: contextFieldsLocked
+                  ? null
+                  : (enabled) {
+                      setState(() {
+                        _babinaEnabled = enabled;
+                        if (!enabled) {
+                          _babinaWeightController.clear();
+                        }
+                      });
+                      _scheduleSaveControlPrefs();
+                    },
+            ),
+            if (showContextFields) ...[
+              const SizedBox(height: 2),
+              _BubbleActionButton(
+                onPressed: batchContextSaveEnabled
+                    ? () => unawaited(_saveBatchContextEdit())
+                    : null,
+                icon: _batchActionLoading
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined),
+                label: 'Saqlash',
+              ),
+            ],
           ],
         ],
         if (selectedBabinaEnabled) ...[
@@ -623,7 +639,9 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                   height: manualQtyInvalid ? 84 : 60,
                   child: TextField(
                     controller: _manualQtyController,
-                    enabled: !_batchActionLoading && !_manualPrintLoading,
+                    enabled: !_batchActionLoading &&
+                        !_manualPrintLoading &&
+                        !_simpleReceiptLoading,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
@@ -635,7 +653,8 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                       isDense: true,
                       filled: true,
                       fillColor: scheme.surface,
-                      labelText: 'Qo‘lda brutto kg',
+                      labelText:
+                          simpleReceiptMode ? 'Kirim kg' : 'Qo‘lda brutto kg',
                       suffixText: 'kg',
                       hintText: '5',
                       errorText:
@@ -668,47 +687,64 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                   ),
                 ),
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: SizedBox(
-                    height: duplicateInvalid ? 84 : 60,
-                    child: TextField(
-                      controller: _manualDuplicateController,
-                      enabled: !_batchActionLoading && !_manualPrintLoading,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      textAlignVertical: TextAlignVertical.center,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        filled: true,
-                        fillColor: scheme.surface,
-                        labelText: 'Duplicate soni',
-                        suffixText: 'ta',
-                        hintText: '1',
-                        errorText:
-                            duplicateInvalid ? 'Masalan: 1 yoki 5' : null,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
+              if (!simpleReceiptMode)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: SizedBox(
+                      height: duplicateInvalid ? 84 : 60,
+                      child: TextField(
+                        controller: _manualDuplicateController,
+                        enabled: !_batchActionLoading &&
+                            !_manualPrintLoading &&
+                            !_simpleReceiptLoading,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        textAlignVertical: TextAlignVertical.center,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          filled: true,
+                          fillColor: scheme.surface,
+                          labelText: 'Duplicate soni',
+                          suffixText: 'ta',
+                          hintText: '1',
+                          errorText:
+                              duplicateInvalid ? 'Masalan: 1 yoki 5' : null,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 14,
+                          ),
+                          border: bubbleInputBorder,
+                          enabledBorder: bubbleInputBorder,
+                          focusedBorder: bubbleFocusedInputBorder,
+                          errorBorder: bubbleErrorInputBorder,
+                          focusedErrorBorder: bubbleFocusedErrorInputBorder,
                         ),
-                        border: bubbleInputBorder,
-                        enabledBorder: bubbleInputBorder,
-                        focusedBorder: bubbleFocusedInputBorder,
-                        errorBorder: bubbleErrorInputBorder,
-                        focusedErrorBorder: bubbleFocusedErrorInputBorder,
+                        onChanged: (_) => setState(() {}),
                       ),
-                      onChanged: (_) => setState(() {}),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 2),
-          if (_snapshot.batchActive)
+          if (simpleReceiptMode)
+            _BubbleActionButton(
+              onPressed: simpleReceiptReady
+                  ? () => unawaited(_submitSimpleReceipt())
+                  : null,
+              icon: _simpleReceiptLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.move_to_inbox_outlined),
+              label: _simpleReceiptLoading ? 'Saqlanmoqda…' : 'Kirim qilish',
+            )
+          else if (_snapshot.batchActive)
             Row(
               children: [
                 Expanded(
@@ -755,7 +791,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               icon: const Icon(Icons.play_circle_outline_rounded, size: 24),
               label: 'Boshlash',
             ),
-          if (!_snapshot.batchActive) ...[
+          if (!simpleReceiptMode && !_snapshot.batchActive) ...[
             const SizedBox(height: 4),
             Row(
               children: [
@@ -778,7 +814,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
           ],
           // Bluetooth/tarozi tanlanmasa Boshlash o'lik qoladi, lekin Saqlash
           // har doim active: sababini aniq ko'rsatish uchun.
-          if (!_snapshot.batchActive && !hasPrintDevice) ...[
+          if (!simpleReceiptMode && !_snapshot.batchActive && !hasPrintDevice) ...[
             const SizedBox(height: 4),
             Row(
               children: [

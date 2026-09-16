@@ -22,6 +22,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
 
   bool _manualLoading = false;
   bool _manualPrintLoading = false;
+  bool _simpleReceiptLoading = false;
   bool _requestInFlight = false;
   bool _batchActionLoading = false;
   bool _warehouseSetupLoading = false;
@@ -62,6 +63,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   // Hech narsa yozilmasa eski qiymat qaytariladi.
   String _manualQtyTapBackup = '';
   bool _manualQtyTapCleared = false;
+  Set<String> _tayyorlovMaterialWarehouses = <String>{};
 
   /// Eni yozilganda diapazon xatosi real-time yangilanishi uchun.
   void _refreshWidthRangeValidation() {
@@ -87,6 +89,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       _latencyListenable.value = server.latencyMs;
     }
     _loadControlDraftPreferences();
+    unawaited(_refreshTayyorlovMaterialWarehouses());
     if (server != null) {
       _startLiveStream();
       _startPingLoop();
