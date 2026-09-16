@@ -27,12 +27,19 @@ void _registerOpenedOrderEditTests() {
     await tester.pumpAndSettle();
     expect(find.text('O‘zgarishlarni saqlash'), findsNothing);
     await _calculateFlexo(tester);
+    final submittedKg = tester.widget<TextFormField>(kg).controller!.text;
     await tester.ensureVisible(find.text('O‘zgarishlarni saqlash'));
     await tester.tap(find.text('O‘zgarishlarni saqlash'));
     await tester.pumpAndSettle();
     // Test mode cannot bypass the authoritative server gate.
     expect(
         find.text('Order tahriri uchun server tekshiruvi kerak'), findsWidgets);
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('Saqlash tasdiqlanmadi'), findsOneWidget);
+    expect(find.text('Buyurtma №1234'), findsOneWidget);
+    await tester.tap(find.text('Tushunarli'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextFormField>(kg).controller!.text, submittedKg);
     expect(find.byType(AdminCalculateScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pump(const Duration(seconds: 6));

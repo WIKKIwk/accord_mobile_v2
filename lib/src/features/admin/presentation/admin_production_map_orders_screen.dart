@@ -69,6 +69,7 @@ import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_top_notice.dart';
+import 'widgets/opened_order_edit_error_dialog.dart';
 import 'progress_printer_picker.dart';
 import 'pending_order_widgets.dart';
 import 'admin_progress_qr_scan_screen.dart';

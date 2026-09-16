@@ -1340,11 +1340,10 @@ class _AdminProductionMapOrdersScreenState
         }
       } catch (error) {
         if (mounted) {
-          showAdminTopNotice(
+          await showOpenedOrderEditErrorDialog(
             context,
-            error is MobileApiException
-                ? error.message
-                : 'Buyurtmani tahrirlash ochilmadi',
+            error: error,
+            orderNumber: order.map.orderNumber,
           );
         }
       } finally {

@@ -20,6 +20,7 @@ import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_top_notice.dart';
+import 'widgets/opened_order_edit_error_dialog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -171,11 +172,14 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     } catch (error) {
       if (mounted) {
         setState(() {
-          _error = error is MobileApiException
-              ? error.message
-              : 'Buyurtma saqlanmadi';
+          _error = openedOrderEditErrorReason(error);
         });
-        showAdminTopNotice(context, _error);
+        await showOpenedOrderEditErrorDialog(
+          context,
+          error: error,
+          orderNumber: source.template.orderNumber,
+          saving: true,
+        );
       }
     } finally {
       if (mounted) {
