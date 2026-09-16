@@ -82,6 +82,55 @@ ProductionMapDefinition _openingWipCutoverMap() {
 }
 
 void main() {
+  test('display path follows the assigned alternative apparatus', () {
+    const map = ProductionMapDefinition(
+      id: 'zakaz-display-path',
+      productCode: 'DISPLAY',
+      title: 'Display path',
+      nodes: [
+        ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+        ProductionMapNode(
+          id: 'print-7',
+          kind: 'apparatus',
+          title: '7 ta rangli bosma aparat',
+          apparatusId: 'apparatus:default:bosma_7',
+          alternativeGroupId: 'print-alternatives',
+          alternativeAssignedApparatusId: 'apparatus:default:bosma_9',
+        ),
+        ProductionMapNode(
+          id: 'print-8',
+          kind: 'apparatus',
+          title: '8 ta rangli bosma aparat',
+          apparatusId: 'apparatus:default:bosma_8',
+          alternativeGroupId: 'print-alternatives',
+          alternativeAssignedApparatusId: 'apparatus:default:bosma_9',
+        ),
+        ProductionMapNode(
+          id: 'print-9',
+          kind: 'apparatus',
+          title: '9 ta rangli bosma aparat',
+          apparatusId: 'apparatus:default:bosma_9',
+          alternativeGroupId: 'print-alternatives',
+          alternativeAssignedApparatusId: 'apparatus:default:bosma_9',
+        ),
+        ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+      ],
+      edges: [
+        ProductionMapEdge(from: 'start', to: 'print-7'),
+        ProductionMapEdge(from: 'start', to: 'print-8'),
+        ProductionMapEdge(from: 'start', to: 'print-9'),
+        ProductionMapEdge(from: 'print-7', to: 'end'),
+        ProductionMapEdge(from: 'print-8', to: 'end'),
+        ProductionMapEdge(from: 'print-9', to: 'end'),
+      ],
+    );
+
+    expect(
+      productionMapDisplayPath(map).map((node) => node.id).toList(),
+      const ['start', 'print-9', 'end'],
+    );
+  });
+
   test('shared operation preserves representative edges for every candidate', () {
     final map = ProductionMapDefinition(id: 'zakaz-shared', title: 'Shared', productCode: 'SHARED', nodes: [
       _node('start', 'start', 'Start'),

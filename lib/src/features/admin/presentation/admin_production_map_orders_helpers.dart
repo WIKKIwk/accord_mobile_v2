@@ -233,38 +233,7 @@ String _closedLogTimeLabel(int unixSeconds) {
 }
 
 List<ProductionMapNode> _linearProductionMapNodes(ProductionMapDefinition map) {
-  final byId = {for (final node in map.nodes) node.id: node};
-  final byFrom = <String, List<ProductionMapEdge>>{};
-  for (final edge in map.edges) {
-    byFrom.putIfAbsent(edge.from, () => <ProductionMapEdge>[]).add(edge);
-  }
-  final start = map.nodes
-      .where((node) => node.kind == 'start')
-      .map((node) => node.id)
-      .cast<String?>()
-      .firstWhere((id) => id != null, orElse: () => null);
-  if (start == null || !byId.containsKey(start)) {
-    return map.nodes;
-  }
-  final result = <ProductionMapNode>[];
-  final seen = <String>{};
-  var current = start;
-  while (seen.add(current)) {
-    final node = byId[current];
-    if (node != null) {
-      result.add(node);
-    }
-    final next = byFrom[current]
-        ?.map((edge) => edge.to)
-        .where((id) => byId.containsKey(id))
-        .cast<String?>()
-        .firstWhere((id) => id != null, orElse: () => null);
-    if (next == null) {
-      break;
-    }
-    current = next;
-  }
-  return result.isEmpty ? map.nodes : result;
+  return productionMapDisplayPath(map);
 }
 
 String _productionMapQtyLabel(double value) => formatRawQuantity(value);

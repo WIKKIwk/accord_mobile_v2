@@ -45,6 +45,92 @@ List<ProductionMapChainStage> productionMapLinearWorkStages(
   return List<ProductionMapChainStage>.unmodifiable(stages);
 }
 
+/// Returns the single path shown in an order's map detail.
+///
+/// Alternative apparatus nodes are stored as parallel edges in the map. When
+/// the group has an assigned apparatus, follow that candidate instead of the
+/// first edge in the serialized graph. Unassigned groups retain the existing
+/// first-candidate fallback used for display.
+List<ProductionMapNode> productionMapDisplayPath(
+  ProductionMapDefinition map,
+) {
+  final byId = {for (final node in map.nodes) node.id: node};
+  final byFrom = <String, List<String>>{};
+  for (final edge in map.edges) {
+    if (byId.containsKey(edge.from) && byId.containsKey(edge.to)) {
+      byFrom.putIfAbsent(edge.from, () => <String>[]).add(edge.to);
+    }
+  }
+  final start = map.nodes
+      .where((node) => node.kind == 'start')
+      .map((node) => node.id)
+      .firstWhere((id) => byId.containsKey(id), orElse: () => '');
+  if (start.isEmpty) {
+    return map.nodes;
+  }
+
+  final result = <ProductionMapNode>[];
+  final seen = <String>{};
+  var current = start;
+  while (seen.add(current)) {
+    final node = byId[current];
+    if (node != null) {
+      result.add(node);
+    }
+    final next = _preferredDisplaySuccessor(
+      map,
+      byFrom[current] ?? const <String>[],
+    );
+    if (next == null) {
+      break;
+    }
+    current = next;
+  }
+  return result.isEmpty ? map.nodes : result;
+}
+
+String? _preferredDisplaySuccessor(
+  ProductionMapDefinition map,
+  List<String> candidateIds,
+) {
+  if (candidateIds.isEmpty) {
+    return null;
+  }
+  final candidates = <ProductionMapNode>[];
+  for (final id in candidateIds) {
+    final node = _nodeById(map, id);
+    if (node != null) {
+      candidates.add(node);
+    }
+  }
+  final groups = <String>{
+    for (final node in candidates)
+      if (node.kind == 'apparatus' && node.alternativeGroupId.trim().isNotEmpty)
+        node.alternativeGroupId.trim(),
+  };
+  for (final group in groups) {
+    final groupNodes = map.nodes.where(
+      (node) =>
+          node.kind == 'apparatus' && node.alternativeGroupId.trim() == group,
+    );
+    final assignedApparatusIds = <String>{
+      for (final node in groupNodes)
+        if (node.alternativeAssignedApparatusId.trim().isNotEmpty)
+          node.alternativeAssignedApparatusId.trim(),
+    };
+    for (final assignedId in assignedApparatusIds) {
+      for (final candidate in candidates) {
+        if (candidate.kind == 'apparatus' &&
+            candidate.alternativeGroupId.trim() == group &&
+            candidate.apparatusId.trim() == assignedId) {
+          return candidate.id;
+        }
+      }
+    }
+  }
+  return candidateIds.first;
+}
+
 List<String> productionMapAuthorizedOrderApparatus({
   required ProductionMapDefinition map,
   required Iterable<String> assignedApparatus,
