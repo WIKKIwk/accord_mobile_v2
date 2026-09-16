@@ -59,27 +59,30 @@ class _NumberInput extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-        ],
-        textInputAction: TextInputAction.next,
-        decoration: appSurfaceInputDecoration(
-          context,
-          labelText: label,
-          suffixText: suffixText,
-          borderRadius: 30,
+      child: SizedBox(
+        height: _calculateFieldHeight,
+        child: TextFormField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+          ],
+          textInputAction: TextInputAction.next,
+          decoration: appSurfaceInputDecoration(
+            context,
+            labelText: label,
+            suffixText: suffixText,
+            borderRadius: 30,
+          ),
+          validator: validator ??
+              (required
+                  ? (value) => allowZero
+                      ? _requiredNonNegativeNumber(value, context.l10n)
+                      : _requiredPositiveNumber(value, context.l10n)
+                  : (value) => allowZero
+                      ? _optionalNonNegativeNumber(value, context.l10n)
+                      : _optionalPositiveNumber(value, context.l10n)),
         ),
-        validator: validator ??
-            (required
-                ? (value) => allowZero
-                    ? _requiredNonNegativeNumber(value, context.l10n)
-                    : _requiredPositiveNumber(value, context.l10n)
-                : (value) => allowZero
-                    ? _optionalNonNegativeNumber(value, context.l10n)
-                    : _optionalPositiveNumber(value, context.l10n)),
       ),
     );
   }
@@ -100,18 +103,21 @@ class _IntegerInput extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        textInputAction: TextInputAction.next,
-        decoration: appSurfaceInputDecoration(
-          context,
-          labelText: label,
-          suffixText: suffixText,
-          borderRadius: 30,
+      child: SizedBox(
+        height: _calculateFieldHeight,
+        child: TextFormField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          textInputAction: TextInputAction.next,
+          decoration: appSurfaceInputDecoration(
+            context,
+            labelText: label,
+            suffixText: suffixText,
+            borderRadius: 30,
+          ),
+          validator: (value) => _optionalPositiveInteger(value, context.l10n),
         ),
-        validator: (value) => _optionalPositiveInteger(value, context.l10n),
       ),
     );
   }
