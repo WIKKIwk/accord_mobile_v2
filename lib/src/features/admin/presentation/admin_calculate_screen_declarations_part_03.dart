@@ -9,7 +9,7 @@ class _PickerInput extends StatelessWidget {
     this.subtitle = '',
     this.required = false,
     this.dense = false,
-    this.minHeight = 58,
+    this.height = 58,
   });
 
   final String label;
@@ -17,7 +17,7 @@ class _PickerInput extends StatelessWidget {
   final String subtitle;
   final bool required;
   final bool dense;
-  final double minHeight;
+  final double height;
   final VoidCallback onTap;
 
   @override
@@ -61,8 +61,8 @@ class _PickerInput extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(30),
         onTap: onTap,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: minHeight),
+        child: SizedBox(
+          height: height,
           child: InputDecorator(
             decoration: decoration,
             isEmpty: false,
