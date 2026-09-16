@@ -23,68 +23,84 @@ class _PickerInput extends StatelessWidget {
     final displayValue = value.trim();
     final displaySubtitle = subtitle.trim();
     final empty = displayValue.isEmpty;
+    final labelColor =
+        required && empty ? scheme.error : scheme.onSurfaceVariant;
+    final borderColor =
+        required && empty ? scheme.error : scheme.outlineVariant;
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(30),
+      borderSide: BorderSide(color: borderColor),
+    );
+    final decoration = appSurfaceInputDecoration(
+      context,
+      labelText: label,
+      borderRadius: 30,
+      contentPadding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
+    ).copyWith(
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      labelStyle: theme.textTheme.labelMedium?.copyWith(
+        color: labelColor,
+        fontWeight: FontWeight.w700,
+      ),
+      floatingLabelStyle: theme.textTheme.labelMedium?.copyWith(
+        color: labelColor,
+        fontWeight: FontWeight.w700,
+      ),
+      border: border,
+      enabledBorder: border,
+      focusedBorder: border.copyWith(
+        borderSide: BorderSide(color: scheme.primary, width: 1.2),
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         borderRadius: BorderRadius.circular(30),
         onTap: onTap,
-        child: Container(
+        child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 58),
-          padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-          decoration: BoxDecoration(
-            color: scheme.surface,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: required && empty ? scheme.error : scheme.outlineVariant,
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: required && empty
-                            ? scheme.error
-                            : scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      empty ? label : displayValue,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color:
-                            empty ? scheme.onSurfaceVariant : scheme.onSurface,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    if (displaySubtitle.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+          child: InputDecorator(
+            decoration: decoration,
+            isEmpty: false,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       Text(
-                        displaySubtitle,
-                        maxLines: 1,
+                        empty ? label : displayValue,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: empty
+                              ? scheme.onSurfaceVariant
+                              : scheme.onSurface,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
+                      if (displaySubtitle.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          displaySubtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: scheme.onSurfaceVariant,
-              ),
-            ],
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ),
           ),
         ),
       ),
