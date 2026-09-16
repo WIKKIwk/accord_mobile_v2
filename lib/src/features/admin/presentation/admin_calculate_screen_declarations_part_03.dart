@@ -9,7 +9,7 @@ class _PickerInput extends StatelessWidget {
     this.subtitle = '',
     this.required = false,
     this.dense = false,
-    this.wide = false,
+    this.minHeight = 58,
   });
 
   final String label;
@@ -17,7 +17,7 @@ class _PickerInput extends StatelessWidget {
   final String subtitle;
   final bool required;
   final bool dense;
-  final bool wide;
+  final double minHeight;
   final VoidCallback onTap;
 
   @override
@@ -62,7 +62,7 @@ class _PickerInput extends StatelessWidget {
         borderRadius: BorderRadius.circular(30),
         onTap: onTap,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 58),
+          constraints: BoxConstraints(minHeight: minHeight),
           child: InputDecorator(
             decoration: decoration,
             isEmpty: false,
@@ -109,18 +109,7 @@ class _PickerInput extends StatelessWidget {
         ),
       ),
     );
-    if (!wide) {
-      return field;
-    }
-    return LayoutBuilder(
-      builder: (context, constraints) => Align(
-        alignment: Alignment.center,
-        child: SizedBox(
-          width: constraints.maxWidth + 8,
-          child: field,
-        ),
-      ),
-    );
+    return field;
   }
 }
 
@@ -133,7 +122,6 @@ class _ImageUploadInput extends StatelessWidget {
     required this.uploading,
     required this.onPick,
     required this.onClear,
-    this.wide = false,
   });
 
   final String localPath;
@@ -143,7 +131,6 @@ class _ImageUploadInput extends StatelessWidget {
   final bool uploading;
   final VoidCallback onPick;
   final VoidCallback onClear;
-  final bool wide;
 
   @override
   Widget build(BuildContext context) {
@@ -231,18 +218,7 @@ class _ImageUploadInput extends StatelessWidget {
         ),
       ),
     );
-    if (!wide) {
-      return field;
-    }
-    return LayoutBuilder(
-      builder: (context, constraints) => Align(
-        alignment: Alignment.center,
-        child: SizedBox(
-          width: constraints.maxWidth + 8,
-          child: field,
-        ),
-      ),
-    );
+    return field;
   }
 }
 
