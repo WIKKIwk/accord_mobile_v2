@@ -168,6 +168,7 @@ bool createdLabelIsAfter(String candidate, String current) {
 
 class SupplierItem {
   const SupplierItem({
+    this.orderApparatusOptions = const {},
     required this.code,
     required this.name,
     required this.uom,
@@ -183,10 +184,13 @@ class SupplierItem {
   final String warehouse;
   final String itemGroup;
   final bool requiresDimensions;
+  final Map<String, String> orderApparatusOptions;
   final List<String> customerNames;
 
   factory SupplierItem.fromJson(Map<String, dynamic> json) {
     return SupplierItem(
+      orderApparatusOptions: (json['order_apparatus_options'] as Map?)
+          ?.map((key, value) => MapEntry(key.toString(), value.toString())) ?? const {},
       code: json['code'] as String? ?? '',
       name: json['name'] as String? ?? '',
       uom: json['uom'] as String? ?? '',

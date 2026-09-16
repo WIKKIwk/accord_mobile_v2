@@ -211,51 +211,6 @@ class _MaterialGScaleControlScreenState
     await _applyDeviceSelection(selection);
   }
 
-  /// Chop etilgan homashyoni tanlangan orderga avtomatik ulash
-  /// (faqat linkPrintsToOrder rejimida).
-  Future<void> _linkPrintToOrder(
-    GScaleMaterialReceiptPrintResponse response,
-  ) async {
-    final orderId = _linkedOrderId?.trim() ?? '';
-    final barcode = response.epc.trim();
-    if (orderId.isEmpty || barcode.isEmpty || !mounted) {
-      return;
-    }
-    try {
-      await MobileApi.instance.adminAssignRawMaterialToOrder(
-        orderId: orderId,
-        barcode: barcode,
-      );
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Homashyo orderga ulandi')),
-      );
-    } on MobileApiException catch (e) {
-      if (!mounted) {
-        return;
-      }
-      if (e.code.contains('already_assigned')) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bu homashyo allaqachon orderga ulangan'),
-          ),
-        );
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final orderSection = widget.linkPrintsToOrder
@@ -302,9 +257,6 @@ class _MaterialGScaleControlScreenState
                   widget.linkPrintsToOrder ? (_linkedOrderId ?? '') : '',
               linkedOrderWidthMm:
                   widget.linkPrintsToOrder ? _linkedOrderWidthMm : null,
-              onPrintSucceeded: widget.linkPrintsToOrder
-                  ? (response) => _linkPrintToOrder(response)
-                  : null,
               onExitMode: () async {
                 if (Navigator.of(context).canPop()) {
                   Navigator.of(context).pop();

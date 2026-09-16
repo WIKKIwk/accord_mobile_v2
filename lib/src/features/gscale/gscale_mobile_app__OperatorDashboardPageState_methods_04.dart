@@ -17,6 +17,9 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
     if (!hasCompleteRpsBatchPrintContext(batch)) {
       throw StateError('Faol batch konteksti to‘liq emas');
     }
+    if (widget.linkedOrderId.trim().isNotEmpty && batch.orderId != widget.linkedOrderId.trim()) {
+      throw StateError('Faol batch boshqa orderga tegishli. Batchni tugatib, tanlangan order bilan qayta boshlang');
+    }
     final tareKg = batch.tareEnabled ? batch.tareKg : 0.0;
     final netQty = grossQtyKg - tareKg;
     if (grossQtyKg <= 0 || netQty < _minManualPrintKg) {

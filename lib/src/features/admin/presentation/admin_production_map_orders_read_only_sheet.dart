@@ -391,6 +391,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         materialsExpanded: _materialsExpanded,
         onToggleMaterialsExpanded: () {
           setState(() => _materialsExpanded = !_materialsExpanded);
+          if (_materialsExpanded && !_actionInFlight) {
+            unawaited(_loadMaterialAssignments(showLoading: false));
+          }
         },
         qolipsExpanded: _qolipsExpanded,
         onToggleQolipsExpanded: () {

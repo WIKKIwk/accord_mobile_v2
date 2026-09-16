@@ -383,6 +383,10 @@ String? _materialStartUnavailableReason({
     return l10n.productionText('worker.error.no_materials');
   }
   if (!materialRequirements.assignmentsSatisfied) {
+    final pendingCut = materialRequirements.assignments.any((assignment) =>
+        materialRequirements.normalizedAssignedBarcodes.contains(assignment.barcode.trim().toUpperCase()) &&
+        assignment.executionStatus == 'needs_cutting');
+    if (pendingCut) return 'Homashyo biriktirilgan, lekin apparatingizga katta. Rezka kutilmoqda';
     return l10n.productionText('worker.error.incomplete_material_groups');
   }
   if (materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll &&

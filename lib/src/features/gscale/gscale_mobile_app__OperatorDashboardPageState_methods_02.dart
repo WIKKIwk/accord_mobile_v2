@@ -160,6 +160,8 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       _errorText = '';
     });
     final request = GScaleRpsBatchUpdateRequest(
+      orderId: batch.orderId,
+      apparatus: batch.apparatus,
       batchId: batch.id,
       expectedRevision: batch.revision,
       itemCode: item.itemCode,

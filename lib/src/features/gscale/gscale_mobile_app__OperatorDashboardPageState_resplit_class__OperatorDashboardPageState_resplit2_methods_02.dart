@@ -345,6 +345,11 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
           const SizedBox(height: 6),
         ],
         if (activeBatch != null && !editingBatchContext) ...[
+          if (activeBatch.orderId.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('Faol batch orderi: ${activeBatch.orderId}'),
+            ),
           _BatchContextSummary(
             itemName: activeBatch.displayItemName,
             warehouse: activeBatch.warehouse,

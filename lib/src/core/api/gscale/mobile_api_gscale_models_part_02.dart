@@ -66,6 +66,8 @@ class GScaleRpsBatchResponse {
 
 class GScaleRpsBatchSession {
   const GScaleRpsBatchSession({
+    this.orderId = '',
+    this.apparatus = '',
     required this.id,
     required this.active,
     required this.driverUrl,
@@ -92,6 +94,8 @@ class GScaleRpsBatchSession {
 
   factory GScaleRpsBatchSession.fromJson(Map<String, dynamic> json) {
     return GScaleRpsBatchSession(
+      orderId: _gscaleText((json['order_assignment'] as Map?)?['order_id']),
+      apparatus: _gscaleText((json['order_assignment'] as Map?)?['apparatus']),
       id: _gscaleText(json['id']),
       batchCode: _gscaleText(json['batch_code']),
       revision: (json['revision'] as num?)?.toInt() ?? 0,
@@ -125,6 +129,8 @@ class GScaleRpsBatchSession {
     );
   }
 
+  final String orderId;
+  final String apparatus;
   final String id;
   final String batchCode;
   final int revision;

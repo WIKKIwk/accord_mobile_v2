@@ -789,6 +789,17 @@ class _AssignedMaterialTile extends StatelessWidget {
     }
     addDetail(assignment.itemGroup);
     addDetail(assignment.barcode);
+    addDetail(switch (assignment.executionStatus) {
+      'needs_cutting' => 'Biriktirilgan — apparatingizga katta, rezka kerak',
+      'width_mismatch' => 'Biriktirilgan — rulon eni orderga kichik',
+      'dimensions_missing' => 'Biriktirilgan — rulon o‘lchamlari yetishmaydi',
+      'awaiting_delivery' => 'Mos — apparat oldiga yetkazish kutilmoqda',
+      'ready' => 'Mos — apparat oldida, qabul qilishga tayyor',
+      'in_use' => 'Ishlatilmoqda',
+      'consumed' => 'Ishlatilgan',
+      'unavailable' => 'Biriktirilgan — hozir qabul qilib bo‘lmaydi',
+      _ => '',
+    });
     final materialStateVisible = allowUnlink;
     final statusText = materialStateVisible
         ? _rawMaterialAssignmentStatusText(assignment, context.l10n)

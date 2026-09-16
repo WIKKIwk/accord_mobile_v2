@@ -454,9 +454,16 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     final driverUrl = widget.printTransport.isLocal
         ? offlineUsbDriverUrl
         : driverUrlForRs(server!);
+    final orderId = widget.linkedOrderId.trim();
+    final apparatus = await _chooseReceiptApparatus(item, orderId);
+    if (!mounted || widget.linkedOrderId.trim() != orderId) {
+      throw StateError('Order o‘zgardi. Qayta boshlang');
+    }
     final started = await api
         .gscaleRpsBatchStart(
           buildGScaleRpsBatchStartRequest(
+            orderId: orderId,
+            apparatus: apparatus,
             driverUrl: driverUrl,
             item: item,
             warehouse: warehouse,
@@ -481,6 +488,33 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       });
     }
     return started;
+  }
+
+  Future<String> _chooseReceiptApparatus(MobileItem item, String orderId) async {
+    if (orderId.isEmpty) return '';
+    // Refresh options for this exact order/item; restored drafts may have old
+    // catalog data and must not guess the first printing/laminating station.
+    final items = await MobileApi.instance.gscaleItemsPage(
+      query: item.itemCode, orderId: orderId, offset: 0, limit: 200,
+    );
+    final matches = items.where((entry) => entry.code == item.itemCode);
+    final options = matches.isEmpty ? <String, String>{} : matches.first.orderApparatusOptions;
+    if (options.isEmpty) throw StateError('Bu homashyo uchun orderda mos apparat yo‘q');
+    if (options.length == 1) return options.keys.single;
+    if (!mounted) throw StateError('Ekran yopildi');
+    final selected = await showModalBottomSheet<String>(
+      context: context, useSafeArea: true, isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(child: SingleChildScrollView(child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const ListTile(title: Text('Homashyo qaysi apparat uchun?')),
+          for (final option in options.entries)
+            ListTile(title: Text(option.value), onTap: () => Navigator.of(sheetContext).pop(option.key)),
+        ],
+      ))),
+    );
+    if (selected == null) throw StateError('Apparat tanlanmadi');
+    return selected;
   }
 
   Future<bool> _materialWarehouseAllowed(String warehouse) async {

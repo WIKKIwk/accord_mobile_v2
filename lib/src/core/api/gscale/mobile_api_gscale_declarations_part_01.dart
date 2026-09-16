@@ -274,6 +274,8 @@ extension MobileApiGScale on MobileApi {
 
 class GScaleRpsBatchUpdateRequest {
   const GScaleRpsBatchUpdateRequest({
+    this.orderId = '',
+    this.apparatus = '',
     required this.batchId,
     required this.expectedRevision,
     required this.itemCode,
@@ -287,6 +289,8 @@ class GScaleRpsBatchUpdateRequest {
     this.tareKg = 0,
   });
 
+  final String orderId;
+  final String apparatus;
   final String batchId;
   final int expectedRevision;
   final String itemCode;
@@ -302,6 +306,8 @@ class GScaleRpsBatchUpdateRequest {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'batch_id': batchId.trim(),
+      if (orderId.trim().isNotEmpty) 'order_id': orderId.trim(),
+      if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
       'expected_revision': expectedRevision,
       'item_code': itemCode.trim(),
       'item_name': itemName.trim(),
@@ -343,6 +349,8 @@ class GScaleRpsBatchStopRequest {
 
 class GScaleRpsBatchStartRequest {
   const GScaleRpsBatchStartRequest({
+    this.orderId = '',
+    this.apparatus = '',
     required this.clientBatchId,
     required this.driverUrl,
     required this.itemCode,
@@ -359,6 +367,8 @@ class GScaleRpsBatchStartRequest {
     this.lengthM,
   });
 
+  final String orderId;
+  final String apparatus;
   final String clientBatchId;
   final String driverUrl;
   final String itemCode;
@@ -377,6 +387,8 @@ class GScaleRpsBatchStartRequest {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'client_batch_id': clientBatchId.trim(),
+      if (orderId.trim().isNotEmpty) 'order_id': orderId.trim(),
+      if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
       'driver_url': driverUrl.trim().trimRightSlash(),
       'item_code': itemCode.trim(),
       'item_name': itemName.trim(),

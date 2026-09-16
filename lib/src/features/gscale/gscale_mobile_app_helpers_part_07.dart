@@ -137,6 +137,8 @@ Map<String, dynamic> _gscaleResponseObject(String body) {
 }
 
 GScaleRpsBatchStartRequest buildGScaleRpsBatchStartRequest({
+  String orderId = '',
+  String apparatus = '',
   required String driverUrl,
   required MobileItem item,
   required String warehouse,
@@ -152,6 +154,8 @@ GScaleRpsBatchStartRequest buildGScaleRpsBatchStartRequest({
 }) {
   final normalizedPrinter = normalizePrinterChoice(printer);
   return GScaleRpsBatchStartRequest(
+    orderId: orderId,
+    apparatus: apparatus,
     clientBatchId: '',
     driverUrl: driverUrl,
     itemCode: item.itemCode,
