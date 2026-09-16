@@ -301,6 +301,7 @@ class _LayerInputs extends StatelessWidget {
             label: materialLabel,
             value: material.text,
             required: true,
+            dense: true,
             onTap: onMaterialTap,
           ),
         ),
