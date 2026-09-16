@@ -454,7 +454,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       _TextInput(
         controller: _note,
         label: l10n.adminText('calculate.note'),
-        minLines: 3,
+        minLines: 1,
         maxLines: 5,
       ),
       ..._calculateActionChildren(l10n),
