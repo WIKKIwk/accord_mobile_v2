@@ -434,6 +434,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         _LayerInputs(
           material: _layers[index].material,
           micron: _layers[index].micron,
+          micronFocusNode: _layers[index].micronFocusNode,
           materialLabel: l10n.adminText(
             'calculate.layer_label',
             values: {'number': index + 1},

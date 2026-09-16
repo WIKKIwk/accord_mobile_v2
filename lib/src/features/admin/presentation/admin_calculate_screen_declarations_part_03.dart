@@ -276,6 +276,7 @@ class _LayerInputs extends StatelessWidget {
   const _LayerInputs({
     required this.material,
     required this.micron,
+    required this.micronFocusNode,
     required this.materialLabel,
     required this.micronKey,
     required this.onMaterialTap,
@@ -284,6 +285,7 @@ class _LayerInputs extends StatelessWidget {
 
   final TextEditingController material;
   final TextEditingController micron;
+  final FocusNode micronFocusNode;
   final String materialLabel;
   final Key micronKey;
   final VoidCallback onMaterialTap;
@@ -311,6 +313,7 @@ class _LayerInputs extends StatelessWidget {
           child: TextFormField(
             key: micronKey,
             controller: micron,
+            focusNode: micronFocusNode,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             textInputAction: TextInputAction.next,
@@ -359,6 +362,7 @@ class _LayerControllers {
   String materialId;
   final TextEditingController material;
   final TextEditingController micron;
+  final FocusNode micronFocusNode = FocusNode();
 
   void addListener(VoidCallback listener) {
     material.addListener(listener);
@@ -373,6 +377,7 @@ class _LayerControllers {
   void dispose() {
     material.dispose();
     micron.dispose();
+    micronFocusNode.dispose();
   }
 }
 

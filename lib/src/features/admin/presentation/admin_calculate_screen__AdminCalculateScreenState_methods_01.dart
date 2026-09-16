@@ -197,6 +197,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
     if (!mounted) {
       return;
     }
+    FocusManager.instance.primaryFocus?.unfocus();
     final picked = await showModalBottomSheet<CalculateMaterial>(
       context: context,
       isDismissible: true,
@@ -231,6 +232,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       layer.materialId = picked.id;
       layer.material.text = picked.name;
     });
+    FocusScope.of(context).requestFocus(layer.micronFocusNode);
   }
 
   Future<void> _openMaterialCatalogManager() async {
