@@ -240,9 +240,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             key: _formKey,
             child: ListView(
               padding: EdgeInsets.fromLTRB(
-                4,
+                0,
                 12,
-                4,
+                0,
                 bottomPadding + MediaQuery.viewInsetsOf(context).bottom,
               ),
               children: children,

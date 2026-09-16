@@ -53,7 +53,7 @@ class _PickerInput extends StatelessWidget {
       ),
     );
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         borderRadius: BorderRadius.circular(30),
         onTap: onTap,
@@ -134,7 +134,7 @@ class _ImageUploadInput extends StatelessWidget {
     final scheme = theme.colorScheme;
     final hasImage = localPath.trim().isNotEmpty || imageUrl.trim().isNotEmpty;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         borderRadius: BorderRadius.circular(30),
         onTap: uploading ? null : onPick,
