@@ -15,9 +15,11 @@ import '../../models/preparation_models.dart';
 class PreparationKirimOrderSection extends StatefulWidget {
   const PreparationKirimOrderSection({
     super.key,
+    this.loadOrders,
     this.onOrderChanged,
   });
 
+  final Future<List<PreparationOrder>> Function()? loadOrders;
   final ValueChanged<PreparationOrder?>? onOrderChanged;
 
   @override
@@ -46,12 +48,14 @@ class _PreparationKirimOrderSectionState
       });
     }
     try {
-      final snapshot = await MobileApi.instance.preparationSnapshot();
+      final orders = widget.loadOrders == null
+          ? (await MobileApi.instance.preparationSnapshot()).orders
+          : await widget.loadOrders!();
       if (!mounted) {
         return;
       }
       setState(() {
-        _orders = snapshot.orders
+        _orders = orders
             .where((order) => !order.saved)
             .toList(growable: false);
         final stillThere = _selectedOrderId != null &&

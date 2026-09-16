@@ -14,6 +14,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../preparation/presentation/preparation_navigation.dart';
+import '../../preparation/models/preparation_models.dart';
 import '../../preparation/presentation/widgets/preparation_kirim_order_section.dart';
 import '../../shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -35,6 +36,8 @@ class GScaleModeScreen extends StatelessWidget {
         bottom: const MaterialTaminotchiDock(
           activeTab: MaterialTaminotchiDockTab.scale,
         ),
+        linkPrintsToOrder: true,
+        orderLoader: _loadMaterialTaminotchiKirimOrders,
       );
     }
     if (role == UserRole.tayyorlovMasteri) {
@@ -76,6 +79,7 @@ class _MaterialGScaleControlScreen extends StatefulWidget {
     required this.drawer,
     required this.bottom,
     this.linkPrintsToOrder = false,
+    this.orderLoader,
     this.initialWarehouse,
   });
 
@@ -83,8 +87,9 @@ class _MaterialGScaleControlScreen extends StatefulWidget {
   final Widget bottom;
 
   /// true bo'lsa chop etilgan har bir homashyo tanlangan orderga
-  /// avtomatik ulanadi (tayyorlov kirimi). Material oqimida false.
+  /// avtomatik ulanadi (tayyorlov/material kirimi).
   final bool linkPrintsToOrder;
+  final Future<List<PreparationOrder>> Function()? orderLoader;
   final String? initialWarehouse;
 
   @override
@@ -215,6 +220,7 @@ class _MaterialGScaleControlScreenState
   Widget build(BuildContext context) {
     final orderSection = widget.linkPrintsToOrder
         ? PreparationKirimOrderSection(
+            loadOrders: widget.orderLoader,
             onOrderChanged: (order) => setState(() {
               _linkedOrderId = order?.id;
               final width = order?.widthMm;
@@ -271,4 +277,22 @@ class _MaterialGScaleControlScreenState
       ),
     );
   }
+}
+
+Future<List<PreparationOrder>> _loadMaterialTaminotchiKirimOrders() async {
+  final savedOrders =
+      await MobileApi.instance.adminRawMaterialAssignmentOrders();
+  return savedOrders
+      .map((saved) {
+        final map = saved.map;
+        return PreparationOrder.fromJson({
+          'id': map.id,
+          'code': map.code.trim().isNotEmpty ? map.code : map.orderNumber,
+          'title': map.title,
+          'order_kg': (map.orderKg ?? 0).toString(),
+          'width_mm': map.widthMm,
+          'saved': false,
+        });
+      })
+      .toList(growable: false);
 }
