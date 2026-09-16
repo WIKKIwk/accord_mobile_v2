@@ -11,6 +11,7 @@ import '../../features/chat/models/chat_models.dart';
 import '../../features/chat/models/chat_media_models.dart';
 import '../../features/boyoqchi/models/returned_paint_models.dart';
 import '../../features/preparation/models/preparation_models.dart';
+import '../../features/material_link/models/material_link_request.dart';
 import '../../features/raw_material_split/models/raw_material_split_models.dart';
 import '../../features/shared/models/stock_entry_lookup.dart';
 import '../customer/customer_priority.dart';
@@ -38,6 +39,7 @@ import 'json_payload_decoder.dart';
 import '../cache/order_image_cache.dart';
 
 part 'admin/mobile_api_admin.dart';
+part 'admin/mobile_api_material_link.dart';
 part 'admin/mobile_api_order_images.dart';
 part 'admin/mobile_api_admin_settings_monitor.dart';
 part 'admin/mobile_api_admin_production_queue_runtime.dart';

@@ -324,6 +324,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       canPop: false,
       child: _ReadOnlyOrderDetailContent(
         noticeAnchorKey: _noticeAnchorKey,
+        onMaterialsLinked: () => unawaited(_loadInteractionContractAndSections()),
         onClose: () => Navigator.of(context).pop(),
         map: map,
         orderImageBytes: _orderImageBytes,

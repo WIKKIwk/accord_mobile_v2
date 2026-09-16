@@ -1,5 +1,6 @@
 import '../../shared/models/app_models.dart';
 import 'chat_media_models.dart';
+import '../../material_link/models/material_link_request.dart';
 
 part 'chat_models_declarations_part_01.dart';
 part 'chat_models_declarations_part_02.dart';

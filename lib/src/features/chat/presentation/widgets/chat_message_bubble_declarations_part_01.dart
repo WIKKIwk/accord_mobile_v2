@@ -19,6 +19,13 @@ class ChatMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final materialLink = message.materialLinkRequest;
+    if (materialLink != null && materialLink.id.isNotEmpty) {
+      return MaterialLinkRequestCard(
+        key: ValueKey(materialLink.id),
+        request: materialLink,
+      );
+    }
     final freezeRequest = message.orderFreezeRequest;
     if (freezeRequest != null && freezeRequest.isValid) {
       return ChatOrderFreezeRequestCard(data: freezeRequest);

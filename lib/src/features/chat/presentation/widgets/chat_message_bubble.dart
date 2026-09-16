@@ -10,6 +10,7 @@ import '../../models/chat_models.dart';
 import '../../state/chat_audio_playback_controller.dart';
 import '../chat_media_viewer.dart';
 import 'chat_order_freeze_request_card.dart';
+import '../../../material_link/presentation/material_link_request_card.dart';
 import 'chat_inventory_transfer_request_card.dart';
 
 part 'chat_message_bubble_declarations_part_01.dart';

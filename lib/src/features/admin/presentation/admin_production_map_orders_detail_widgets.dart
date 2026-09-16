@@ -73,6 +73,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onUnlinkMaterial,
     required this.unlinkingMaterialBarcode,
     this.summaryOnlyMode = false,
+    this.onMaterialsLinked,
   });
   final GlobalKey noticeAnchorKey;
   final VoidCallback onClose;
@@ -148,6 +149,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   // "Kutilayotgan buyurtma ko'rsatkichlari" ko'rinadi.
   // Boshqa rollar uchun false bo'lib qoladi — ularga ta'sir qilmaydi.
   final bool summaryOnlyMode;
+  final VoidCallback? onMaterialsLinked;
 
   @override
   Widget build(BuildContext context) {
@@ -347,6 +349,17 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       unlinkingMaterialBarcode: unlinkingMaterialBarcode,
                     ),
                   if (!summaryOnlyMode) const SizedBox(height: 10),
+                  if (!summaryOnlyMode &&
+                      workerMode &&
+                      uiState.showStartMaterials &&
+                      !map.id.startsWith('training-') &&
+                      onMaterialsLinked != null)
+                    MaterialLinkRequestPanel(
+                      key: ValueKey('material-link:${map.id}:${uiState.station}'),
+                      orderId: map.id,
+                      apparatusId: uiState.station,
+                      onMaterialsLinked: onMaterialsLinked!,
+                    ),
                   _OrderSummaryCard(
                     map: map,
                     workerMode: workerMode,

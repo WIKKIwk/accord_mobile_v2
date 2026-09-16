@@ -447,6 +447,20 @@ Ish boshlanishida kerakli homashyo barcode'lari scan qilinadi. UI scanlarni
 yig'adi, ammo `raw_material_scan_required`, `raw_material_mismatch`,
 `raw_material_stock_unavailable` va reservation qoidalarini backend beradi.
 
+Worker start-material bo'limidagi **Ulash uchun so'rov** orqali apparat
+`state`idagi ulanmagan rulonlar uchun so'rov yuboradi. Chat cardi faqat rulonni
+ko'chirgan material ta'minotchi va adminga boradi; bir nechta ta'minotchi bo'lsa,
+so'rovlar alohida guruhlanadi. **Ha, ulash** hech bir rulonni oldindan tanlamagan
+ro'yxatni ochadi: faqat belgilangan barcode'lar yuboriladi. Birinchi qaror ikkala
+card uchun umumiy; rad etilganda qayta so'rov berish mumkin.
+
+Rulon boshqa orderga ulansa yoki joyi/holati o'zgarsa, backend eski so'rovni
+yopadi. 30 daqiqalik muddat va worker bekor qilishi cheksiz kutishni oldini oladi;
+qayta so'rov faqat yaroqli rulon bo'lsa ochiladi. UI faol so'rov holatini har
+5 soniyada yangilaydi, eski revision yangi qarorni orqaga qaytarmaydi. Material
+ro'yxati yangilanadi; ish boshlashdagi mavjud scan/start talablari saqlanadi.
+Backendning `0114_material_link_requests.sql` migratsiyasi talab qilinadi.
+
 ### Qolip: faqat bosma oilasi uchun majburiy
 
 7, 8 va 9 rangli bosma apparatlarda operator homashyo bilan darhol ish boshlay

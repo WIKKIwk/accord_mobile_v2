@@ -94,6 +94,7 @@ class ChatMessage {
   final ChatMessageAttachment? attachment;
 
   String get previewText {
+    if (materialLinkRequest != null) return 'Homashyo ulash so‘rovi';
     if (orderFreezeRequest != null) return 'Buyurtmani muzlatish so‘rovi';
     if (inventoryTransferRequest != null) return 'Ombor transferi';
     final caption = body.trim();
@@ -110,6 +111,10 @@ class ChatMessage {
     if (type != 'order_freeze_request') return null;
     return OrderFreezeRequestCardData.fromJson(metadata);
   }
+
+  MaterialLinkRequest? get materialLinkRequest => type == 'material_link_request'
+      ? MaterialLinkRequest.fromJson(metadata)
+      : null;
 
   InventoryTransferRequestCardData? get inventoryTransferRequest {
     if (type != 'inventory_transfer_request') return null;
