@@ -172,6 +172,11 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'en': 'Order type',
     'ru': 'Тип заказа',
   },
+  'admin.calculate.production_type_input': {
+    'uz': 'Ishlab chiqarish turi',
+    'en': 'Production type',
+    'ru': 'Тип производства',
+  },
   'admin.calculate.kg_input': {
     'uz': 'KG',
     'en': 'Weight',

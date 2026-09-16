@@ -31,11 +31,6 @@ String _calculateOrderTypeDisplay(String raw) {
   }
 }
 
-bool _sameCalculateOrderType(String left, String right) {
-  return _calculateOrderTypeDisplay(left).toLowerCase() ==
-      _calculateOrderTypeDisplay(right).toLowerCase();
-}
-
 class AdminCalculateScreen extends StatefulWidget {
   const AdminCalculateScreen({
     this.pendingOrderId = '',

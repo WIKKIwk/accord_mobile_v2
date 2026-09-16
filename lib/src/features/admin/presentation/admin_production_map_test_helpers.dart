@@ -186,6 +186,15 @@ bool productionMapApparatusMatchesOrder(
   if (context == null) {
     return true;
   }
+  final method = context.templateDraft?.effectivePrintMethod ?? '';
+  if (method == 'flexo' && apparatus.technology != 'flexographic') {
+    return false;
+  }
+  if (method == 'metal' &&
+      (apparatus.technology != 'rotogravure' ||
+          !const [7, 8, 9].contains(apparatus.colorStations))) {
+    return false;
+  }
   if (!productionMapApparatusProfileCanHandleOrder(
     apparatus: apparatus,
     rollCount: context.rollCount,
@@ -193,6 +202,8 @@ bool productionMapApparatusMatchesOrder(
   )) {
     return false;
   }
+  // Flexo uses its canonical width/color limits, not metal cylinder sizes.
+  if (apparatus.technology == 'flexographic') return true;
   final apparatusColorCount = apparatus.colorStations;
   if (apparatusColorCount == null) {
     return true;

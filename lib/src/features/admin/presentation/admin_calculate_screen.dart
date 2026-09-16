@@ -36,15 +36,16 @@ part 'admin_calculate_screen_declarations_part_03.dart';
 part 'admin_calculate_screen_models_part_04.dart';
 part 'admin_calculate_screen_declarations_part_05.dart';
 
-const _calculateOrderTypeOptions = <String>['Paket', 'Rulon', 'Flexo'];
+const _calculateOrderTypeOptions = <String>['Rulon', 'Paket'];
 
 class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _formKey = GlobalKey<FormState>();
   final _imagePicker = ImagePicker();
   final _customer = TextEditingController();
   final _product = TextEditingController();
-  String _orderType = '';
-  CalculateOrderProductionOptions? _productionOptions;
+  String _orderType = 'Rulon';
+  CalculateOrderProductionOptions? _productionOptions =
+      const CalculateOrderProductionOptions(printMethod: 'metal', coldGlue: false);
   final _kg = TextEditingController();
   final _frameProductSizeMm = TextEditingController();
   final _frameCount = TextEditingController();

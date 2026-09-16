@@ -117,9 +117,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         _activeEdgeAllowanceMm;
   }
 
-  bool get _isFlexo =>
-      _productionOptions?.printMethod == 'flexo' ||
-      _orderType.trim().toLowerCase() == 'flexo';
+  bool get _isFlexo => _productionOptions?.printMethod == 'flexo';
 
   double get _activeEdgeAllowanceMm => _isFlexo
       ? _parseRequiredDouble(_edgeAllowanceMm.text)
@@ -363,6 +361,11 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         value: _calculateOrderTypeDisplay(_orderType),
         onTap: _openOrderTypePicker,
       ),
+      _PickerInput(
+        label: l10n.adminText('calculate.production_type_input'),
+        value: _isFlexo ? 'Flexo' : 'Temir',
+        onTap: _openPrintMethodPicker,
+      ),
       _ImageUploadInput(
         localPath: _imageLocalPath,
         imageUrl: _imageUrl,
@@ -459,7 +462,8 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         customerRef: _customerRef,
         product: _product.text,
         itemCode: _itemCode,
-        status: _calculateOrderTypeDisplay(_orderType),
+        status: '${_calculateOrderTypeDisplay(_orderType)} · '
+            '${_isFlexo ? 'Flexo' : 'Temir'}',
         imageUrl: _imageUrl,
         imageName: _imageName,
         imageSizeBytes: _imageSizeBytes,

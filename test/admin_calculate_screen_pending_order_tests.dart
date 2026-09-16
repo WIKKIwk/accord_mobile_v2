@@ -107,7 +107,9 @@ void _registerPendingOrderTests() {
       expect(context.templateDraft!.kg, 600);
       expect(context.templateDraft!.frameProductSizeMm, 300);
       expect(context.templateDraft!.frameCount, 2);
-      expect(context.templateDraft!.status, form);
+      expect(context.templateDraft!.status, form == 'flexo' ? 'Rulon' : form);
+      expect(context.templateDraft!.productionOptions!.printMethod,
+          form == 'flexo' ? 'flexo' : 'metal');
       expect(context.templateDraft!.color, isEmpty);
       expect(context.templateDraft!.edgeAllowanceMm, form == 'flexo' ? 55 : 15);
       expect(context.widthMm, form == 'flexo' ? 655 : 615);

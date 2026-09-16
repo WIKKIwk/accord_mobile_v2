@@ -367,13 +367,17 @@ void _registeradmin_production_map_test_screen_testCases03() {
           GlobalWidgetsLocalizations.delegate,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const AdminProductionMapTestScreen(
+        home: AdminProductionMapTestScreen(
           orderContext: ProductionMapOrderContext(
             orderName: 'Flex order',
             productName: 'vitagum flex paket',
             itemCode: 'ITEM-FLEX',
             rollCount: 7,
             widthMm: 650,
+            templateDraft: CalculateOrderTemplate.fromJson({
+              'status': 'rulon',
+              'production_options': {'print_method': 'flexo', 'cold_glue': false},
+            }),
           ),
         ),
       ),

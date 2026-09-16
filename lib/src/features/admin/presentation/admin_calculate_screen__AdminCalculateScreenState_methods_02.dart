@@ -355,8 +355,37 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
   }
 
   Future<void> _openOrderTypePicker() async {
-    final current = _orderType.trim();
-    final picked = await showModalBottomSheet<String>(
+    final picked = await _openCalculateChoicePicker(
+      titleKey: 'calculate.order_type_input',
+      current: _calculateOrderTypeDisplay(_orderType),
+      options: _calculateOrderTypeOptions,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _orderType = picked);
+  }
+
+  Future<void> _openPrintMethodPicker() async {
+    final picked = await _openCalculateChoicePicker(
+      titleKey: 'calculate.production_type_input',
+      current: _isFlexo ? 'Flexo' : 'Temir',
+      options: const ['Flexo', 'Temir'],
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _productionOptions = CalculateOrderProductionOptions(
+        printMethod: picked == 'Flexo' ? 'flexo' : 'metal',
+        coldGlue: _productionOptions?.coldGlue ?? false,
+        diameterMm: _productionOptions?.diameterMm,
+      );
+    });
+  }
+
+  Future<String?> _openCalculateChoicePicker({
+    required String titleKey,
+    required String current,
+    required List<String> options,
+  }) {
+    return showModalBottomSheet<String>(
       context: context,
       isDismissible: true,
       enableDrag: true,
@@ -378,17 +407,17 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  l10n.adminText('calculate.order_type_input'),
+                  l10n.adminText(titleKey),
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 10),
-                for (final option in _calculateOrderTypeOptions)
+                for (final option in options)
                   ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                     title: Text(option),
-                    trailing: _sameCalculateOrderType(current, option)
+                    trailing: current == option
                         ? const Icon(Icons.check_rounded)
                         : null,
                     onTap: () => Navigator.of(sheetContext).pop(option),
@@ -399,11 +428,5 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
         );
       },
     );
-    if (picked == null || !mounted) {
-      return;
-    }
-    setState(() {
-      _orderType = picked;
-    });
   }
 }

@@ -104,6 +104,7 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
       _frameProductSizeMm.text.trim(),
       _frameCount.text.trim(),
       _orderType.trim().toLowerCase(),
+      _productionOptions?.printMethod ?? '',
       if (_isFlexo) _edgeAllowanceMm.text.trim(),
       _calculateByVal.toString(),
       if (_calculateByVal) _printValSizeMm.text.trim(),

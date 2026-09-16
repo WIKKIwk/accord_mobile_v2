@@ -170,6 +170,17 @@ class CalculateOrderTemplate {
   final double kg;
   final String sourceMapId;
 
+  /// Older templates stored the printing method in the product-form field.
+  String get effectivePrintMethod {
+    final method = productionOptions?.printMethod.trim().toLowerCase();
+    if (method == 'flexo' || method == 'metal') return method!;
+    return switch (status.trim().toLowerCase()) {
+      'flexo' => 'flexo',
+      'rulon' || 'rulo' || 'paket' => 'metal',
+      _ => '',
+    };
+  }
+
   List<CalculateLayerInput> get effectiveLayers {
     if (layers.isNotEmpty) {
       return layers;

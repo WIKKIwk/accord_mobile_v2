@@ -32,7 +32,9 @@ Future<void> _pumpFlexoScreen(
 }
 
 Future<void> _pickFlexoOrderType(WidgetTester tester, String value) async {
-  final picker = find.text('Buyurtma turi');
+  final picker = find.text(
+    ['Flexo', 'Temir'].contains(value) ? 'Ishlab chiqarish turi' : 'Buyurtma turi',
+  );
   await tester.ensureVisible(picker);
   await tester.tap(picker);
   await tester.pumpAndSettle();
@@ -50,6 +52,34 @@ Future<void> _calculateFlexo(WidgetTester tester) async {
 }
 
 void _registerFlexoTests() {
+  for (final form in ['Rulon', 'Paket']) {
+    for (final method in ['Flexo', 'Temir']) {
+      testWidgets('calculate routing $form $method survives draft serialization', (tester) async {
+        Object? args;
+        final template = _flexoTemplate().copyWith(
+          productionOptions: const CalculateOrderProductionOptions(
+            printMethod: 'flexo', coldGlue: true, diameterMm: 45.5,
+          ),
+        );
+        await _pumpFlexoScreen(tester, template: template, edit: true,
+            onProductionMapArguments: (value) => args = value);
+        await _pickFlexoOrderType(tester, form);
+        await _pickFlexoOrderType(tester, method);
+        expect(_flexoField(), method == 'Flexo' ? findsOneWidget : findsNothing);
+        await _calculateFlexo(tester);
+        await tester.ensureVisible(find.text('Mapni ulash'));
+        await tester.tap(find.text('Mapni ulash'));
+        await tester.pumpAndSettle();
+        final draft = (args as ProductionMapTestArgs).orderContext!.templateDraft!;
+        final restored = CalculateOrderTemplate.fromJson(draft.toJson());
+        expect(restored.status, form);
+        expect(restored.productionOptions!.printMethod, method == 'Flexo' ? 'flexo' : 'metal');
+        expect(restored.productionOptions!.coldGlue, isTrue);
+        expect(restored.productionOptions!.diameterMm, 45.5);
+      });
+    }
+  }
+
   testWidgets('Flexo option shows a required nonnegative additional length',
       (tester) async {
     await _pumpFlexoScreen(tester,
@@ -88,7 +118,8 @@ void _registerFlexoTests() {
       expect(context.widthMm, width);
       final template =
           CalculateOrderTemplate.fromJson(context.templateDraft!.toJson());
-      expect(template.status, 'Flexo');
+      expect(template.status, 'Rulon');
+      expect(template.productionOptions!.printMethod, 'flexo');
       expect(template.edgeAllowanceMm, extra);
       expect(template.widthMm, width);
       expect(template.frameProductSizeMm, 250);
@@ -98,7 +129,7 @@ void _registerFlexoTests() {
 
   for (final regularType in ['Paket', 'Rulon']) {
     testWidgets(
-        'Flexo switching to $regularType restores 15 mm and recalculates',
+        'Flexo $regularType keeps method until Temir is selected and recalculates',
         (tester) async {
       Object? openedArgs;
       await _pumpFlexoScreen(tester,
@@ -106,6 +137,9 @@ void _registerFlexoTests() {
       await _calculateFlexo(tester);
       expect(find.text('Mapni ulash'), findsOneWidget);
       await _pickFlexoOrderType(tester, regularType);
+      expect(_flexoField(), findsOneWidget,
+          reason: 'product form must not change the printing method');
+      await _pickFlexoOrderType(tester, 'Temir');
       expect(_flexoField(), findsNothing);
       expect(find.text('Mapni ulash'), findsNothing);
       await _calculateFlexo(tester);
@@ -115,6 +149,7 @@ void _registerFlexoTests() {
       final context = (openedArgs as ProductionMapTestArgs).orderContext!;
       expect(context.widthMm, 765);
       expect(context.templateDraft!.status, regularType);
+      expect(context.templateDraft!.productionOptions!.printMethod, 'metal');
       expect(context.templateDraft!.edgeAllowanceMm, 15);
     });
   }
@@ -161,7 +196,8 @@ void _registerFlexoTests() {
     expect(opened.baseLength, 3500);
     final templates = await MobileApi.instance.calculateOrderTemplates();
     final quick = templates.singleWhere((t) => t.orderNumber.isEmpty);
-    expect(quick.status, 'Flexo');
+    expect(quick.status, 'Rulon');
+    expect(quick.productionOptions!.printMethod, 'flexo');
     expect(quick.edgeAllowanceMm, 55);
     expect(quick.widthMm, 805);
     await tester.pump(const Duration(seconds: 6));

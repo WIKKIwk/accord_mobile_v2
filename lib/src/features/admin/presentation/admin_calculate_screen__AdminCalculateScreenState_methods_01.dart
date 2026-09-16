@@ -78,8 +78,15 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       _customer.text = template.customer;
       _itemCode = template.itemCode;
       _product.text = template.product;
-      _orderType = template.status;
-      _productionOptions = template.productionOptions;
+      _orderType = const ['rulon', 'paket']
+              .contains(template.status.trim().toLowerCase())
+          ? template.status.trim()
+          : 'Rulon';
+      _productionOptions = CalculateOrderProductionOptions(
+        printMethod: template.effectivePrintMethod == 'flexo' ? 'flexo' : 'metal',
+        coldGlue: template.productionOptions?.coldGlue ?? false,
+        diameterMm: template.productionOptions?.diameterMm,
+      );
       _imageId = template.imageId;
       _imageName = template.imageName;
       _imageMime = template.imageMime;

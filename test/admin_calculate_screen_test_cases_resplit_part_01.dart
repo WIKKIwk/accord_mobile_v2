@@ -91,7 +91,7 @@ void _registeradmin_calculate_screen_testCases01() {
     expect(find.text('Production mapga ulash'), findsNothing);
   });
 
-  testWidgets('order type picker offers Paket, Rulon and Flexo', (tester) async {
+  testWidgets('order form and printing method have separate selectable fields', (tester) async {
     await TestModeController.instance.setEnabled(true);
     await _pumpCalculateScreen(tester);
 
@@ -107,15 +107,24 @@ void _registeradmin_calculate_screen_testCases01() {
     await tester.tap(find.text('Buyurtma turi').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Paket'), findsOneWidget);
-    expect(find.text('Rulon'), findsOneWidget);
-    expect(find.text('Flexo'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Paket'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Rulon'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Flexo'), findsNothing);
     expect(find.text('Ready'), findsNothing);
 
-    await tester.tap(find.text('Rulon'));
+    await tester.tap(find.widgetWithText(ListTile, 'Paket'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Rulon'), findsOneWidget);
+    expect(find.text('Paket'), findsOneWidget);
+    await tester.tap(find.text('Ishlab chiqarish turi'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ListTile, 'Flexo'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Temir'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Paket'), findsNothing);
+    await tester.tap(find.widgetWithText(ListTile, 'Flexo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Paket'), findsOneWidget);
+    expect(find.text('Flexo'), findsOneWidget);
   });
 
   testWidgets('calculate screen does not resize shell for keyboard', (
