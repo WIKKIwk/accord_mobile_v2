@@ -26,7 +26,11 @@ class _TextInput extends StatelessWidget {
         maxLines: maxLines,
         textInputAction:
             maxLines == 1 ? TextInputAction.next : TextInputAction.newline,
-        decoration: appSurfaceInputDecoration(context, labelText: label),
+        decoration: appSurfaceInputDecoration(
+          context,
+          labelText: label,
+          borderRadius: 18,
+        ),
         validator: validator,
       ),
     );
@@ -66,6 +70,7 @@ class _NumberInput extends StatelessWidget {
           context,
           labelText: label,
           suffixText: suffixText,
+          borderRadius: 18,
         ),
         validator: validator ??
             (required
@@ -104,6 +109,7 @@ class _IntegerInput extends StatelessWidget {
           context,
           labelText: label,
           suffixText: suffixText,
+          borderRadius: 18,
         ),
         validator: (value) => _optionalPositiveInteger(value, context.l10n),
       ),
