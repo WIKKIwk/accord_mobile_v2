@@ -89,11 +89,11 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
             _editingAllFields &&
             !widget.trainingMode) ...[
           const SizedBox(height: 18),
-          OutlinedButton.icon(
+          FilledButton.icon(
             onPressed: _openProductionMap,
             icon: const Icon(Icons.account_tree_outlined),
             label: Text(l10n.adminText('calculate.map_attach')),
-            style: OutlinedButton.styleFrom(
+            style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30),
