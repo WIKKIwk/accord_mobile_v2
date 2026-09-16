@@ -449,7 +449,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         style: FilledButton.styleFrom(
           backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Theme.of(context).colorScheme.onPrimary,
-          minimumSize: const Size.fromHeight(48),
+          minimumSize: const Size.fromHeight(60),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),

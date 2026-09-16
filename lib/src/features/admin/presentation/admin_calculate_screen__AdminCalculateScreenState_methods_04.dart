@@ -15,7 +15,7 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
               : l10n.adminText('calculate.calculate'),
         ),
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size.fromHeight(60),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),
