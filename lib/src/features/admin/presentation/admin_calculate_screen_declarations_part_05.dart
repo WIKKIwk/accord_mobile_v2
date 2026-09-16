@@ -58,7 +58,7 @@ class _NumberInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 2),
       child: SizedBox(
         height: _calculateFieldHeight,
         child: TextFormField(
@@ -102,7 +102,7 @@ class _IntegerInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 2),
       child: SizedBox(
         height: _calculateFieldHeight,
         child: TextFormField(
