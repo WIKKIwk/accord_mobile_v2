@@ -162,7 +162,6 @@ class PreparationWarehouseScreen extends StatefulWidget {
     required this.onReload,
     required this.freshMaterials,
     required this.freshHistory,
-    required this.freshWarehouses,
     required this.freshAssignedWarehouses,
     required this.freshMaterialWarehouses,
   });
@@ -180,7 +179,6 @@ class PreparationWarehouseScreen extends StatefulWidget {
   final Future<void> Function() onReload;
   final List<PreparationMaterial> Function() freshMaterials;
   final List<dynamic> Function() freshHistory;
-  final List<String> Function() freshWarehouses;
   final List<String> Function() freshAssignedWarehouses;
   final List<String> Function() freshMaterialWarehouses;
 
@@ -198,8 +196,8 @@ class _PreparationWarehouseScreenState
   String _query = '';
   bool _filterExpanded = false;
 
-  /// Yangi ochilgan bola omborlar bilan birga — har doim yangisi.
-  List<String> get _warehouses => widget.freshWarehouses();
+  /// Faqat shu userga ulangan omborlar, jumladan yangi bola omborlar.
+  List<String> get _warehouses => widget.freshAssignedWarehouses();
 
   List<String> get _assignedWarehouses => widget.freshAssignedWarehouses();
 

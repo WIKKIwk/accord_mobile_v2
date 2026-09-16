@@ -85,9 +85,9 @@ class _PreparationScreenState extends State<PreparationScreen> {
       if (!mounted) return;
       setState(() {
         _snapshot = snapshot;
-        if (!snapshot.warehouses.contains(_warehouse)) {
-          _warehouse = snapshot.warehouses.length == 1
-              ? snapshot.warehouses.first
+        if (!snapshot.assignedWarehouses.contains(_warehouse)) {
+          _warehouse = snapshot.assignedWarehouses.length == 1
+              ? snapshot.assignedWarehouses.first
               : null;
         }
         if (_order != null) {
@@ -120,8 +120,6 @@ class _PreparationScreenState extends State<PreparationScreen> {
   /// yangi ma'lumot qaytaradi — qo'shimcha network so'rovsiz.
   List<PreparationMaterial> _syncedMaterials() =>
       _snapshot?.materials ?? const [];
-
-  List<String> _syncedWarehouses() => _snapshot?.warehouses ?? const [];
 
   List<String> _syncedAssignedWarehouses() =>
       _snapshot?.assignedWarehouses ?? const [];
@@ -164,7 +162,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
 
   void _openWarehouse(PreparationSnapshot data) {
     _openAndReload(PreparationWarehouseScreen(
-      warehouses: data.warehouses,
+      warehouses: data.assignedWarehouses,
       assignedWarehouses: data.assignedWarehouses,
       materialWarehouses: data.materialWarehouses,
       initialWarehouse: _warehouse,
@@ -177,7 +175,6 @@ class _PreparationScreenState extends State<PreparationScreen> {
       onReload: _reload,
       freshMaterials: _syncedMaterials,
       freshHistory: _syncedHistory,
-      freshWarehouses: _syncedWarehouses,
       freshAssignedWarehouses: _syncedAssignedWarehouses,
       freshMaterialWarehouses: _syncedMaterialWarehouses,
     ));
@@ -351,7 +348,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
                     const SizedBox(height: 12),
                   ],
                   if (data != null) ...[
-                    if (data.warehouses.isEmpty) ...[
+                    if (data.assignedWarehouses.isEmpty) ...[
                       Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: _adminHomePanelCardGap,
@@ -394,7 +391,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
                         horizontal: _adminHomePanelCardGap,
                       ),
                       children: [
-                        if (data.warehouses.isNotEmpty)
+                        if (data.assignedWarehouses.isNotEmpty)
                           AdminSummaryCard(
                             slot: M3SegmentVerticalSlot.top,
                             cornerRadius: M3SegmentedListGeometry.cornerLarge,
