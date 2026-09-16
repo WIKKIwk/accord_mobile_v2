@@ -32,7 +32,7 @@ class _PickerInput extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 58),
           padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
           decoration: BoxDecoration(
-            color: scheme.surfaceContainerHigh,
+            color: scheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: required && empty ? scheme.error : scheme.outlineVariant,
@@ -126,7 +126,7 @@ class _ImageUploadInput extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 104),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: scheme.surfaceContainerHigh,
+            color: scheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: scheme.outlineVariant),
           ),

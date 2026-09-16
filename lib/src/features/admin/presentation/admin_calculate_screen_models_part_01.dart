@@ -144,9 +144,7 @@ class _SavedTemplateSummary extends StatelessWidget {
   const _SavedTemplateSummary({
     required this.title,
     required this.customer,
-    required this.customerRef,
     required this.product,
-    required this.itemCode,
     required this.status,
     required this.imageUrl,
     required this.imageName,
@@ -161,9 +159,7 @@ class _SavedTemplateSummary extends StatelessWidget {
 
   final String title;
   final String customer;
-  final String customerRef;
   final String product;
-  final String itemCode;
   final String status;
   final String imageUrl;
   final String imageName;
@@ -245,12 +241,10 @@ class _SavedTemplateSummary extends StatelessWidget {
                 _ChecklistRowData(
                   l10n.adminText('label.customer'),
                   customer,
-                  subtitle: customerRef,
                 ),
                 _ChecklistRowData(
                   l10n.adminText('label.item'),
                   product,
-                  subtitle: itemCode,
                 ),
                 _ChecklistRowData(
                   l10n.adminText('calculate.order_type_input'),

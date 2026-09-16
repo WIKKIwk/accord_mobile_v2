@@ -81,15 +81,15 @@ void _registeradmin_calculate_screen_testCases02() {
   });
 
   testWidgets(
-      'quick order details hide duplicate customer and product subtitles',
+      'quick order details show only customer and product names',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
     await _pumpCalculateScreen(
       tester,
       template: _template(
-        itemCode: 'Vesta kotta',
+        itemCode: 'ITEM-001',
         customer: 'Akfa vesta',
-        customerRef: 'Akfa vesta',
+        customerRef: 'CUSTOMER-001',
         product: 'Vesta kotta',
       ),
     );
@@ -99,5 +99,13 @@ void _registeradmin_calculate_screen_testCases02() {
 
     expect(customerRows.where((widget) => widget.maxLines == 1), isEmpty);
     expect(productRows.where((widget) => widget.maxLines == 1), isEmpty);
+    expect(find.text('CUSTOMER-001'), findsNothing);
+    expect(find.text('ITEM-001'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.edit_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CUSTOMER-001'), findsNothing);
+    expect(find.text('Vesta kotta'), findsWidgets);
   });
 }

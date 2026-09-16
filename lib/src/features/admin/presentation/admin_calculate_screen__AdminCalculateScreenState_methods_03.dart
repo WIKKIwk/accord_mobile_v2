@@ -346,13 +346,11 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       _PickerInput(
         label: l10n.adminText('label.customer'),
         value: _customer.text,
-        subtitle: _customerRef,
         onTap: _openCustomerPicker,
       ),
       _PickerInput(
         label: l10n.adminText('calculate.product_select'),
         value: _product.text,
-        subtitle: _itemCode,
         required: true,
         onTap: _openProductPicker,
       ),
@@ -459,9 +457,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       _SavedTemplateSummary(
         title: _resolvedOrderName(),
         customer: _customer.text,
-        customerRef: _customerRef,
         product: _product.text,
-        itemCode: _itemCode,
         status: '${_calculateOrderTypeDisplay(_orderType)} · '
             '${_isFlexo ? 'Flexo' : 'Temir'}',
         imageUrl: _imageUrl,
