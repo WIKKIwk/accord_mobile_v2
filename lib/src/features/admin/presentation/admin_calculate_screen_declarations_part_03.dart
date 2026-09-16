@@ -31,6 +31,9 @@ class _PickerInput extends StatelessWidget {
         required && empty ? scheme.error : scheme.onSurfaceVariant;
     final borderColor =
         required && empty ? scheme.error : scheme.outlineVariant;
+    final contentPadding = dense
+        ? const EdgeInsets.fromLTRB(14, 24, 10, 22)
+        : const EdgeInsets.fromLTRB(14, 12, 10, 10);
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(30),
       borderSide: BorderSide(color: borderColor),
@@ -39,7 +42,7 @@ class _PickerInput extends StatelessWidget {
       context,
       labelText: label,
       borderRadius: 30,
-      contentPadding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
+      contentPadding: contentPadding,
     ).copyWith(
       floatingLabelBehavior: FloatingLabelBehavior.always,
       labelStyle: theme.textTheme.labelMedium?.copyWith(
@@ -57,7 +60,7 @@ class _PickerInput extends StatelessWidget {
       ),
     );
     final field = Padding(
-      padding: EdgeInsets.only(bottom: dense ? 0 : 12),
+      padding: EdgeInsets.only(bottom: dense ? 2 : 12),
       child: InkWell(
         borderRadius: BorderRadius.circular(30),
         onTap: onTap,
