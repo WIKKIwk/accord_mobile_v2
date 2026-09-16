@@ -348,7 +348,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         label: l10n.adminText('label.customer'),
         value: _customer.text,
         dense: true,
-        minHeight: 64,
+        minHeight: 72,
         onTap: _openCustomerPicker,
       ),
       _PickerInput(
@@ -356,21 +356,21 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         value: _product.text,
         required: true,
         dense: true,
-        minHeight: 64,
+        minHeight: 72,
         onTap: _openProductPicker,
       ),
       _PickerInput(
         label: l10n.adminText('calculate.order_type_input'),
         value: _calculateOrderTypeDisplay(_orderType),
         dense: true,
-        minHeight: 64,
+        minHeight: 72,
         onTap: _openOrderTypePicker,
       ),
       _PickerInput(
         label: l10n.adminText('calculate.production_type_input'),
         value: _isFlexo ? 'Flexo' : 'Temir',
         dense: true,
-        minHeight: 64,
+        minHeight: 72,
         onTap: _openPrintMethodPicker,
       ),
       _ImageUploadInput(

@@ -57,7 +57,7 @@ class _PickerInput extends StatelessWidget {
       ),
     );
     final field = Padding(
-      padding: EdgeInsets.only(bottom: dense ? 8 : 12),
+      padding: EdgeInsets.only(bottom: dense ? 0 : 12),
       child: InkWell(
         borderRadius: BorderRadius.circular(30),
         onTap: onTap,
