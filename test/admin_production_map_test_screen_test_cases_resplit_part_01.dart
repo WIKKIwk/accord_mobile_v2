@@ -32,12 +32,10 @@ void _registeradmin_production_map_test_screen_testCases01() {
           .id,
       'apparatus:default:asset-007',
     );
+    final rezka = groups.singleWhere((group) => group.operation == 'cut');
+    expect(rezka.apparatus, hasLength(5));
     expect(
-      groups
-          .singleWhere((group) => group.operation == 'cut')
-          .apparatus
-          .singleWhere((item) => item.name == 'Rezka')
-          .id,
+      rezka.apparatus.singleWhere((item) => item.name == 'Rezka').id,
       'apparatus:default:asset-010',
     );
   });
