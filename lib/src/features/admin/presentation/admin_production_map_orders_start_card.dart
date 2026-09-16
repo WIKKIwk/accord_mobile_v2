@@ -57,6 +57,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.allowMaterialUnlink,
     required this.onUnlinkMaterial,
     required this.unlinkingMaterialBarcode,
+    this.materialLinkRequestPanel,
   });
   final List<AdminApparatus> apparatusCatalog;
   final String orderCode;
@@ -112,6 +113,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool allowMaterialUnlink;
   final void Function(AdminRawMaterialAssignment assignment)? onUnlinkMaterial;
   final String unlinkingMaterialBarcode;
+  final Widget? materialLinkRequestPanel;
 
   final _ReadOnlyOrderDetailUiState uiState;
 
@@ -164,7 +166,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
         hasIntakeCandidates;
     final attachedMaterialsExpandable = materialsLoading ||
         materialsError.trim().isNotEmpty ||
-        uiState.assignedMaterialAssignments.isNotEmpty;
+        uiState.assignedMaterialAssignments.isNotEmpty ||
+        materialLinkRequestPanel != null;
     final startMaterialsExpandable = uiState.materialAssignments.isNotEmpty;
     final qolipsExpandable = requiredQolips.isNotEmpty;
     final customer = customerName?.trim() ?? '';
@@ -424,6 +427,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               unlinkingBarcode: unlinkingMaterialBarcode,
             ),
           ],
+          if (materialLinkRequestPanel != null)
+            Offstage(
+              key: const ValueKey('production-material-link-request'),
+              offstage: !materialsExpanded,
+              // Keep polling while collapsed so approval refreshes the start card.
+              child: materialLinkRequestPanel!,
+            ),
           if (!workerMode) Builder(
             builder: (context) {
               final attachedExpandable = attachedQolipsLoading ||

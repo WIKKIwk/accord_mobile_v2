@@ -33,9 +33,19 @@ extension MobileApiMaterialLink on MobileApi {
   Future<void> createMaterialLinkRequests({
     required String orderId,
     required String apparatus,
+    required List<String> barcodes,
   }) async {
-    await _materialLinkCommand(
-        {'action': 'create', 'order_id': orderId, 'apparatus': apparatus});
+    if (barcodes.isEmpty) {
+      throw const MobileApiException(
+          code: 'material_link_selection_required',
+          message: 'So‘rov yuborish uchun rulonlarni tanlang');
+    }
+    await _materialLinkCommand({
+      'action': 'create',
+      'order_id': orderId,
+      'apparatus': apparatus,
+      'barcodes': barcodes,
+    });
   }
 
   Future<MaterialLinkRequest> decideMaterialLinkRequest({
@@ -80,6 +90,8 @@ extension MobileApiMaterialLink on MobileApi {
         'material_link_no_candidates' =>
           'Bu apparat state’ida orderga ulash mumkin bo‘lgan rulon qolmagan',
         'material_link_selection_required' => 'Ulash uchun rulonlarni tanlang',
+        'material_link_candidates_changed' =>
+          'Tanlangan rulonning joyi yoki holati o‘zgargan. Rulonlarni qayta tanlang',
         'material_link_not_found' => 'So‘rov topilmadi',
         'raw_material_order_not_active' => 'Order faol emas',
         _ when response.statusCode == 403 =>

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
 import '../models/material_link_request.dart';
+import 'material_link_request_card.dart';
 
 class MaterialLinkRequestPanel extends StatefulWidget {
   const MaterialLinkRequestPanel(
@@ -70,10 +71,37 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel> {
 
   Future<void> _send() async {
     if (_busy) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _error = '';
+    });
     try {
-      await MobileApi.instance.createMaterialLinkRequests(
+      final overview = await MobileApi.instance.materialLinkRequests(
           orderId: widget.orderId, apparatus: widget.apparatusId);
+      if (!mounted) return;
+      setState(() => _overview = overview);
+      if (overview.requests.any((r) => r.pending)) return;
+      if (overview.candidates.isEmpty) {
+        setState(() =>
+            _error = 'Ulash mumkin bo‘lgan rulon qolmagan. Holatni yangilang');
+        return;
+      }
+      final selected = await showModalBottomSheet<List<String>>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (_) => MaterialLinkRollPicker(
+          rolls: overview.candidates,
+          title: 'So‘rov yuboriladigan rulonlarni tanlang',
+          submitLabel: 'So‘rov yuborish',
+        ),
+      );
+      if (!mounted || selected == null || selected.isEmpty) return;
+      await MobileApi.instance.createMaterialLinkRequests(
+          orderId: widget.orderId,
+          apparatus: widget.apparatusId,
+          barcodes: selected);
       await _refresh();
     } catch (error) {
       // Re-read after ambiguous transport errors; a committed request must not be duplicated.
@@ -112,7 +140,7 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel> {
       latest.putIfAbsent(request.moverRef, () => request);
     }
     final pending = latest.values.any((r) => r.pending);
-    final available = (_overview?.availableCount ?? 0) > 0;
+    final available = _overview?.candidates.isNotEmpty ?? false;
     if (!available && latest.isEmpty && _error.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -121,10 +149,16 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (available)
-              const Text('Homashyo oldingizda, lekin orderga ulanmaganmi?'),
+            if (available) ...[
+              Text('Orderga ulanmagan rulonlar',
+                  style: Theme.of(context).textTheme.titleSmall),
+              Text(
+                  'Apparat oldidagi ${_overview!.candidates.length} ta mos rulondan keraklisini tanlab so‘rov yuboring'),
+            ],
             for (final request in latest.values) ...[
               Text('${request.moverName}: ${request.statusLabel}'),
+              Text('So‘ralgan rulonlar: '
+                  '${request.rolls.map((roll) => roll.barcode).join(', ')}'),
               if (request.reason.isNotEmpty) Text(request.reason),
               if (request.pending)
                 TextButton(

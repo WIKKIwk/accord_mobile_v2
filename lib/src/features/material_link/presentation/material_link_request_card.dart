@@ -133,8 +133,19 @@ class _MaterialLinkRequestCardState extends State<MaterialLinkRequestCard> {
         Text('Ko‘chirgan: ${_request.moverName}'),
         const SizedBox(height: 8),
         Text(_request.statusLabel, key: const ValueKey('material-link-status')),
+        const SizedBox(height: 8),
+        Text('So‘ralgan rulonlar (${_request.rolls.length} ta):'),
+        for (final roll in _request.rolls)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              '${roll.barcode} • ${roll.itemName}\n'
+              '${roll.qty} ${roll.uom} • ${roll.locationName}',
+              key: ValueKey('material-link-requested-${roll.barcode}'),
+            ),
+          ),
         if (_request.pending)
-          Text('${_request.rolls.length} ta rulondan keraklisini tanlang'),
+          const Text('Ulashga ruxsat beradigan rulonlarni tanlang'),
         if (_request.selectedBarcodes.isNotEmpty)
           Text('Ulangan rulonlar: ${_request.selectedBarcodes.join(', ')}'),
         if (_request.reason.isNotEmpty) Text(_request.reason),
@@ -169,8 +180,15 @@ String _errorText(Object error) => error is MobileApiException
 
 /// Always opens empty. Only explicitly checked barcodes are submitted.
 class MaterialLinkRollPicker extends StatefulWidget {
-  const MaterialLinkRollPicker({super.key, required this.rolls});
+  const MaterialLinkRollPicker({
+    super.key,
+    required this.rolls,
+    this.title = 'Ulanadigan rulonlarni tanlang',
+    this.submitLabel = 'Tanlanganlarni ulash',
+  });
   final List<MaterialLinkRoll> rolls;
+  final String title;
+  final String submitLabel;
   @override
   State<MaterialLinkRollPicker> createState() => _MaterialLinkRollPickerState();
 }
@@ -183,7 +201,7 @@ class _MaterialLinkRollPickerState extends State<MaterialLinkRollPicker> {
         child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(children: [
-              Text('Ulanadigan rulonlarni tanlang',
+              Text(widget.title,
                   style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Expanded(
@@ -214,7 +232,7 @@ class _MaterialLinkRollPickerState extends State<MaterialLinkRollPicker> {
                         ? null
                         : () => Navigator.of(context)
                             .pop(_selected.toList()..sort()),
-                    child: Text('Tanlanganlarni ulash (${_selected.length})'),
+                    child: Text('${widget.submitLabel} (${_selected.length})'),
                   )),
             ])),
       );

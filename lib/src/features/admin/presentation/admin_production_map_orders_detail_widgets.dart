@@ -347,19 +347,20 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       allowMaterialUnlink: allowMaterialUnlink,
                       onUnlinkMaterial: onUnlinkMaterial,
                       unlinkingMaterialBarcode: unlinkingMaterialBarcode,
+                      materialLinkRequestPanel: workerMode &&
+                              uiState.showStartMaterials &&
+                              !map.id.startsWith('training-') &&
+                              onMaterialsLinked != null
+                          ? MaterialLinkRequestPanel(
+                              key: ValueKey(
+                                  'material-link:${map.id}:${uiState.station}'),
+                              orderId: map.id,
+                              apparatusId: uiState.station,
+                              onMaterialsLinked: onMaterialsLinked!,
+                            )
+                          : null,
                     ),
                   if (!summaryOnlyMode) const SizedBox(height: 10),
-                  if (!summaryOnlyMode &&
-                      workerMode &&
-                      uiState.showStartMaterials &&
-                      !map.id.startsWith('training-') &&
-                      onMaterialsLinked != null)
-                    MaterialLinkRequestPanel(
-                      key: ValueKey('material-link:${map.id}:${uiState.station}'),
-                      orderId: map.id,
-                      apparatusId: uiState.station,
-                      onMaterialsLinked: onMaterialsLinked!,
-                    ),
                   _OrderSummaryCard(
                     map: map,
                     workerMode: workerMode,

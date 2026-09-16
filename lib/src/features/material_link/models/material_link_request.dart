@@ -63,11 +63,17 @@ class MaterialLinkRequest {
 class MaterialLinkOverview {
   MaterialLinkOverview.fromJson(Map<String, dynamic> json)
       : availableCount = (json['available_count'] as num?)?.toInt() ?? 0,
+        candidates = (json['candidates'] as List? ?? const [])
+            .whereType<Map>()
+            .map((row) =>
+                MaterialLinkRoll.fromJson(Map<String, dynamic>.from(row)))
+            .toList(),
         requests = (json['requests'] as List? ?? const [])
             .whereType<Map>()
             .map((row) =>
                 MaterialLinkRequest.fromJson(Map<String, dynamic>.from(row)))
             .toList();
   final int availableCount;
+  final List<MaterialLinkRoll> candidates;
   final List<MaterialLinkRequest> requests;
 }
