@@ -29,7 +29,7 @@ class _TextInput extends StatelessWidget {
         decoration: appSurfaceInputDecoration(
           context,
           labelText: label,
-          borderRadius: 18,
+          borderRadius: 22,
         ),
         validator: validator,
       ),
@@ -70,7 +70,7 @@ class _NumberInput extends StatelessWidget {
           context,
           labelText: label,
           suffixText: suffixText,
-          borderRadius: 18,
+          borderRadius: 22,
         ),
         validator: validator ??
             (required
@@ -109,7 +109,7 @@ class _IntegerInput extends StatelessWidget {
           context,
           labelText: label,
           suffixText: suffixText,
-          borderRadius: 18,
+          borderRadius: 22,
         ),
         validator: (value) => _optionalPositiveInteger(value, context.l10n),
       ),
