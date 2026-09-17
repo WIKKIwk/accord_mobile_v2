@@ -71,4 +71,19 @@ void main() {
 
     expect(groups.single.hasInUseQolip, isTrue);
   });
+
+  test('container keeps the order image map id for its cover', () {
+    final groups = groupQolipProductsByContainer(const [
+      QolipProduct(
+        code: 'ITEM-001',
+        name: 'Kross',
+        itemGroup: 'Tayyor mahsulot',
+        qolipCode: 'Q-A-01',
+        orderImageOrderId: 'map-kross-1',
+      ),
+    ]);
+
+    expect(groups.single.orderImageOrderId, 'map-kross-1');
+    expect(groups.single.catalogProduct.orderImageOrderId, 'map-kross-1');
+  });
 }

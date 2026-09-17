@@ -256,6 +256,7 @@ class QolipProduct {
     this.qolipColor = '',
     this.hasQolipSpec = false,
     this.isInUse = false,
+    this.orderImageOrderId = '',
   });
 
   final String warehouse;
@@ -269,6 +270,7 @@ class QolipProduct {
   final String qolipColor;
   final bool hasQolipSpec;
   final bool isInUse;
+  final String orderImageOrderId;
 
   factory QolipProduct.fromJson(Map<String, dynamic> json) {
     return QolipProduct(
@@ -286,6 +288,7 @@ class QolipProduct {
       qolipColor: json['color']?.toString() ?? '',
       hasQolipSpec: json['has_qolip_spec'] == true,
       isInUse: json['is_in_use'] == true,
+      orderImageOrderId: json['order_image_order_id']?.toString() ?? '',
     );
   }
 }

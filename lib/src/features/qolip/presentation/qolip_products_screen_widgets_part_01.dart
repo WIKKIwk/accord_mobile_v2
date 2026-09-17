@@ -37,6 +37,16 @@ class QolipProductContainer {
 
   bool get hasInUseQolip => children.any((child) => child.isInUse);
 
+  String get orderImageOrderId {
+    for (final child in children) {
+      final orderId = child.orderImageOrderId.trim();
+      if (orderId.isNotEmpty) {
+        return orderId;
+      }
+    }
+    return '';
+  }
+
   QolipProduct get catalogProduct {
     final first = children.first;
     return QolipProduct(
@@ -47,6 +57,7 @@ class QolipProductContainer {
       firstQolipCode: first.firstQolipCode.trim().isEmpty
           ? first.qolipCode
           : first.firstQolipCode,
+      orderImageOrderId: orderImageOrderId,
     );
   }
 
@@ -120,6 +131,7 @@ class _QolipProductContainerCard extends StatelessWidget {
   const _QolipProductContainerCard({
     required this.slot,
     required this.container,
+    required this.imageUrl,
     required this.expanded,
     required this.containerSelectionMode,
     required this.qolipSelectionMode,
@@ -135,6 +147,7 @@ class _QolipProductContainerCard extends StatelessWidget {
 
   final M3SegmentVerticalSlot slot;
   final QolipProductContainer container;
+  final String imageUrl;
   final bool expanded;
   final bool containerSelectionMode;
   final bool qolipSelectionMode;
@@ -164,135 +177,151 @@ class _QolipProductContainerCard extends StatelessWidget {
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Stack(
+        fit: StackFit.passthrough,
         children: [
-          InkWell(
-            onTap: onToggle,
-            onLongPress: selectionDisabled ? () {} : onLongPress,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-              child: Row(
-                children: [
-                  if (containerSelectionMode)
-                    Checkbox(
-                      value: selectedContainer,
-                      onChanged: selectionDisabled ? null : (_) => onToggle(),
-                    )
-                  else
-                    SizedBox.square(
-                      dimension: 30,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: selectionDisabled
-                              ? scheme.surfaceContainerHighest
-                              : scheme.primaryContainer,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          selectionDisabled
-                              ? Icons.lock_outline_rounded
-                              : Icons.inventory_2_outlined,
-                          size: 16,
-                          color: selectionDisabled
-                              ? scheme.onSurfaceVariant
-                              : scheme.onPrimaryContainer,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          container.name.isEmpty
-                              ? container.code
-                              : container.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          selectionDisabled
-                              ? l10n.qolipText(
-                                  'products.count_in_use',
-                                  values: {'count': container.children.length},
-                                )
-                              : l10n.qolipText(
-                                  'products.mold_count',
-                                  values: {'count': container.children.length},
-                                ),
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                    height: 1.05,
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (expanded &&
-                      !containerSelectionMode &&
-                      !qolipSelectionMode) ...[
-                    IconButton.filledTonal(
-                      onPressed: onAdd,
-                      icon: const Icon(Icons.add_rounded),
-                      tooltip: l10n.qolipText('products.add'),
-                    ),
-                    const SizedBox(width: 2),
-                  ],
-                  AnimatedRotation(
-                    turns: expanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOutCubic,
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: kAdminOrderCoverWidth,
+            child: AdminOrderCoverThumb(
+              imageUrl: imageUrl,
+              displayName:
+                  container.name.isEmpty ? container.code : container.name,
+              heroTag: 'qolip-order-image-${container.key}',
             ),
           ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: expanded
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Divider(
-                        height: 1,
-                        color: scheme.outlineVariant.withValues(alpha: 0.65),
-                      ),
-                      for (final child in container.children)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 9, 14, 0),
-                          child: _QolipCodeRow(
-                            product: child,
-                            selectionMode: qolipSelectionMode,
-                            selected: selectedQolipCodes.contains(
-                              child.qolipCode.trim(),
+          Padding(
+            padding: const EdgeInsets.only(left: kAdminOrderCoverWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                InkWell(
+                  onTap: onToggle,
+                  onLongPress: selectionDisabled ? () {} : onLongPress,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: kAdminOrderCoverWidth,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+                      child: Row(
+                        children: [
+                          if (containerSelectionMode) ...[
+                            Checkbox(
+                              value: selectedContainer,
+                              onChanged:
+                                  selectionDisabled ? null : (_) => onToggle(),
                             ),
-                            onTap: () => qolipSelectionMode
-                                ? onToggleQolip(child)
-                                : onPrintCodeQr(child),
-                            onLongPress: child.isInUse
-                                ? () {}
-                                : () => onToggleQolip(child),
-                            onEdit: () => onEditQolip(child),
+                            const SizedBox(width: 8),
+                          ],
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  container.name.isEmpty
+                                      ? container.code
+                                      : container.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  selectionDisabled
+                                      ? l10n.qolipText(
+                                          'products.count_in_use',
+                                          values: {
+                                            'count': container.children.length,
+                                          },
+                                        )
+                                      : l10n.qolipText(
+                                          'products.mold_count',
+                                          values: {
+                                            'count': container.children.length,
+                                          },
+                                        ),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                        height: 1.05,
+                                      ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      const SizedBox(height: 10),
-                    ],
-                  )
-                : const SizedBox.shrink(),
+                          if (expanded &&
+                              !containerSelectionMode &&
+                              !qolipSelectionMode) ...[
+                            IconButton.filledTonal(
+                              onPressed: onAdd,
+                              icon: const Icon(Icons.add_rounded),
+                              tooltip: l10n.qolipText('products.add'),
+                            ),
+                            const SizedBox(width: 2),
+                          ],
+                          AnimatedRotation(
+                            turns: expanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOutCubic,
+                            child: Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: expanded
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Divider(
+                              height: 1,
+                              color:
+                                  scheme.outlineVariant.withValues(alpha: 0.65),
+                            ),
+                            for (final child in container.children)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(14, 9, 14, 0),
+                                child: _QolipCodeRow(
+                                  product: child,
+                                  selectionMode: qolipSelectionMode,
+                                  selected: selectedQolipCodes.contains(
+                                    child.qolipCode.trim(),
+                                  ),
+                                  onTap: () => qolipSelectionMode
+                                      ? onToggleQolip(child)
+                                      : onPrintCodeQr(child),
+                                  onLongPress: child.isInUse
+                                      ? () {}
+                                      : () => onToggleQolip(child),
+                                  onEdit: () => onEditQolip(child),
+                                ),
+                              ),
+                            const SizedBox(height: 10),
+                          ],
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
           ),
         ],
       ),

@@ -15,6 +15,7 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
+import '../../admin/presentation/widgets/admin_order_image_thumb.dart';
 import '../../shared/models/app_models.dart';
 import '../qolip_search_matcher.dart';
 import '../state/qolip_data_revision.dart';
@@ -139,34 +140,40 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                   height: M3SegmentedListGeometry.gap,
                 ),
                 itemBuilder: (context, index) {
+                  final container = containers[index];
+                  final orderImageOrderId = container.orderImageOrderId;
                   return _QolipProductContainerCard(
                     slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                       index,
                       containers.length,
                     ),
-                    container: containers[index],
-                    expanded: _expandedContainerKey == containers[index].key,
+                    container: container,
+                    imageUrl: orderImageOrderId.isEmpty
+                        ? ''
+                        : MobileApi.instance.adminProductionMapOrderImageUrl(
+                            orderImageOrderId,
+                          ),
+                    expanded: _expandedContainerKey == container.key,
                     containerSelectionMode:
                         _selectionMode == _QolipSelectionMode.containers,
                     qolipSelectionMode:
                         _selectionMode == _QolipSelectionMode.qolips,
                     selectedContainer: _selectedContainerKeys.contains(
-                      containers[index].key,
+                      container.key,
                     ),
                     selectedQolipCodes: _selectedQolipCodes,
                     onToggle: () {
                       if (_selectionMode == _QolipSelectionMode.containers) {
-                        _toggleContainerSelection(containers[index]);
+                        _toggleContainerSelection(container);
                       } else {
-                        _toggleContainerExpanded(containers[index]);
+                        _toggleContainerExpanded(container);
                       }
                     },
-                    onLongPress: () =>
-                        _toggleContainerSelection(containers[index]),
+                    onLongPress: () => _toggleContainerSelection(container),
                     onToggleQolip: _toggleQolipSelection,
                     onPrintCodeQr: _showQolipCodeQr,
                     onEditQolip: _editQolip,
-                    onAdd: () => _addQolip(containers[index].catalogProduct),
+                    onAdd: () => _addQolip(container.catalogProduct),
                   );
                 },
               ),
