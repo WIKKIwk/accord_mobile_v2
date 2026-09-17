@@ -37,6 +37,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.inputProgressError,
     required this.quickScanStatus,
     required this.quickScanFeedback,
+    required this.highlightMaterialSections,
     required this.quickScanInFlight,
     required this.showQuickScanner,
     required this.allowConcurrentQuickScanner,
@@ -111,6 +112,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final String inputProgressError;
   final String quickScanStatus;
   final ProductionQuickScanFeedback? quickScanFeedback;
+  final bool highlightMaterialSections;
   final bool quickScanInFlight;
   final bool showQuickScanner;
   final bool allowConcurrentQuickScanner;
@@ -331,6 +333,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       onToggleMaterialsExpanded: onToggleMaterialsExpanded,
                       qolipsExpanded: qolipsExpanded,
                       onToggleQolipsExpanded: onToggleQolipsExpanded,
+                      highlightMaterialSections: highlightMaterialSections,
                       attachedQolips: attachedQolips,
                       attachedQolipsLoading: attachedQolipsLoading,
                       attachedQolipsError: attachedQolipsError,

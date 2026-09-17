@@ -513,12 +513,14 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
     required this.countText,
     required this.expanded,
     required this.complete,
+    this.highlighted = false,
     this.onTap,
   });
   final String title;
   final String countText;
   final bool expanded;
   final bool complete;
+  final bool highlighted;
   final VoidCallback? onTap;
 
   @override
@@ -526,55 +528,83 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final expandable = onTap != null;
-    return Semantics(
-      button: expandable,
-      expanded: expandable ? expanded : null,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+    final highlightedForeground = highlighted ? const Color(0xFF173B1D) : null;
+    return TweenAnimationBuilder<Color?>(
+      tween: ColorTween(
+        end: highlighted
+            ? productionQuickScanAcceptedCardColor
+            : Colors.transparent,
+      ),
+      duration: highlighted ? Duration.zero : const Duration(seconds: 2),
+      curve: Curves.easeOut,
+      builder: (context, animatedColor, child) {
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: animatedColor ?? Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: child,
+        );
+      },
+      child: Semantics(
+        button: expandable,
+        expanded: expandable ? expanded : null,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: highlightedForeground,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: complete
-                      ? scheme.primaryContainer
-                      : scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  countText,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: complete
-                        ? scheme.onPrimaryContainer
-                        : scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: highlighted
+                        ? Colors.white.withValues(alpha: 0.58)
+                        : complete
+                            ? scheme.primaryContainer
+                            : scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    countText,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: highlighted
+                          ? highlightedForeground
+                          : complete
+                              ? scheme.onPrimaryContainer
+                              : scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-              ),
-              if (expandable) ...[
-                const SizedBox(width: 4),
-                AnimatedRotation(
-                  turns: expanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 180),
-                  child: Icon(
-                    Icons.expand_more_rounded,
-                    color: scheme.onSurfaceVariant,
+                if (expandable) ...[
+                  const SizedBox(width: 4),
+                  AnimatedRotation(
+                    turns: expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: Icon(
+                      Icons.expand_more_rounded,
+                      color: highlighted
+                          ? highlightedForeground
+                          : scheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

@@ -134,7 +134,8 @@ class _ProductionQuickScannerPanelState
     final scheme = theme.colorScheme;
     final session = _scannerSession;
     final cardColor = switch (widget.feedback) {
-      ProductionQuickScanFeedback.accepted => _quickScannerAcceptedCardColor,
+      ProductionQuickScanFeedback.accepted =>
+        productionQuickScanAcceptedCardColor,
       ProductionQuickScanFeedback.rejected => _quickScannerRejectedCardColor,
       _ => scheme.surface,
     };

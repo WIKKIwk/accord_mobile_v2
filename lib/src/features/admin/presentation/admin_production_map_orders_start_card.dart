@@ -39,6 +39,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.onToggleMaterialsExpanded,
     required this.qolipsExpanded,
     required this.onToggleQolipsExpanded,
+    this.highlightMaterialSections = false,
     this.attachedQolips = const [],
     this.attachedQolipsLoading = false,
     this.attachedQolipsError = '',
@@ -95,6 +96,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final VoidCallback onToggleMaterialsExpanded;
   final bool qolipsExpanded;
   final VoidCallback onToggleQolipsExpanded;
+  final bool highlightMaterialSections;
   final List<QolipProduct> attachedQolips;
   final bool attachedQolipsLoading;
   final String attachedQolipsError;
@@ -311,6 +313,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               expanded: startMaterialsExpandable && startMaterialsExpanded,
               complete: uiState.materialRequiredCount > 0 &&
                   uiState.allMaterialsScanned,
+              highlighted: highlightMaterialSections,
               onTap: startMaterialsExpandable
                   ? onToggleStartMaterialsExpanded
                   : null,
@@ -408,6 +411,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   ),
             expanded: attachedMaterialsExpandable && materialsExpanded,
             complete: false,
+            highlighted: highlightMaterialSections,
             onTap:
                 attachedMaterialsExpandable ? onToggleMaterialsExpanded : null,
           ),
@@ -496,6 +500,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               countText: qolipProgressText,
               expanded: qolipsExpandable && qolipsExpanded,
               complete: qolipScanned,
+              highlighted: highlightMaterialSections,
               onTap: qolipsExpandable ? onToggleQolipsExpanded : null,
             ),
             if (qolipsExpandable && qolipsExpanded) ...[

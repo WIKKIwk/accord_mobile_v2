@@ -3,7 +3,7 @@ part of 'raw_material_scan_dialog.dart';
 
 enum ProductionQuickScanFeedback { none, accepted, rejected }
 
-const _quickScannerAcceptedCardColor = Color(0xFFCBFEBC);
+const productionQuickScanAcceptedCardColor = Color(0xFFCBFEBC);
 const _quickScannerRejectedCardColor = Color(0xFFF23544);
 
 class _QuickScannerStatus extends StatelessWidget {

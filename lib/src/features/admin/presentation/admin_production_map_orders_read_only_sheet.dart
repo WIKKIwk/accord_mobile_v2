@@ -26,6 +26,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   String _qolipRequirementsError = '';
   String _quickScanStatus = '';
   ProductionQuickScanFeedback? _quickScanFeedback;
+  bool _highlightMaterialSections = false;
   Timer? _quickScanFeedbackColorTimer;
   Timer? _quickScanFeedbackHoldTimer;
   bool _quickScanFeedbackHold = false;
@@ -186,6 +187,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _quickScanFeedbackColorTimer?.cancel();
       _quickScanFeedbackHoldTimer?.cancel();
       _quickScanFeedback = null;
+      _highlightMaterialSections = false;
       _quickScanFeedbackHold = false;
       _startInputProgressBatch = null;
       _startInputOpeningWipBatch = null;
@@ -387,6 +389,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         inputProgressError: _inputProgressError,
         quickScanStatus: _quickScanStatus,
         quickScanFeedback: _quickScanFeedback,
+        highlightMaterialSections: _highlightMaterialSections,
         quickScanInFlight: _quickScanInFlight,
         showQuickScanner: scanTasks.visible || _quickScanFeedbackHold,
         allowConcurrentQuickScanner: widget.workerMode && !scanTasks.merge,
@@ -1231,18 +1234,25 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return null;
   }
 
-  void _showQuickScanFeedback(ProductionQuickScanFeedback feedback) {
+  void _showQuickScanFeedback(
+    ProductionQuickScanFeedback feedback, {
+    bool highlightMaterialSections = false,
+  }) {
     if (!mounted || feedback == ProductionQuickScanFeedback.none) return;
     _quickScanFeedbackColorTimer?.cancel();
     _quickScanFeedbackHoldTimer?.cancel();
     setState(() {
       _quickScanFeedback = feedback;
+      _highlightMaterialSections = highlightMaterialSections;
       _quickScanFeedbackHold = true;
     });
     _quickScanFeedbackColorTimer = Timer(const Duration(seconds: 3), () {
       _quickScanFeedbackColorTimer = null;
       if (mounted) {
-        setState(() => _quickScanFeedback = null);
+        setState(() {
+          _quickScanFeedback = null;
+          _highlightMaterialSections = false;
+        });
       }
     });
     _quickScanFeedbackHoldTimer = Timer(const Duration(seconds: 5), () {
@@ -1279,6 +1289,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           received
               ? ProductionQuickScanFeedback.accepted
               : ProductionQuickScanFeedback.rejected,
+          highlightMaterialSections: received,
         );
         return;
       }
@@ -1366,7 +1377,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
                   );
           });
         }
-        _showQuickScanFeedback(ProductionQuickScanFeedback.accepted);
+        _showQuickScanFeedback(
+          ProductionQuickScanFeedback.accepted,
+          highlightMaterialSections: true,
+        );
         return;
       }
 
