@@ -42,8 +42,7 @@ extension MobileApiPreparation on MobileApi {
   /// restart must never turn the same save into a second stock movement.
   Future<Map<String, dynamic>> preparationSubmit(
       String kind, Map<String, dynamic> payload) async {
-    if (!const ['materials', 'receipts', 'receipt_reversals', 'consumptions']
-        .contains(kind)) {
+    if (!const ['materials', 'receipts', 'consumptions'].contains(kind)) {
       throw ArgumentError.value(kind);
     }
     return _submitPreparationCommand(
