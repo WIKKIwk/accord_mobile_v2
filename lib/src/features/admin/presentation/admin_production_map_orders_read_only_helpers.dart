@@ -571,7 +571,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   final showPrintPreflightHold = contractSynchronized &&
       canManageQueue &&
       isPrintApparatus &&
-      showStart &&
+      queueActionControl.printPreflightAllowed &&
       printPreflight == null;
   final showPrintPreflightOutcome = contractSynchronized &&
       canManageQueue &&

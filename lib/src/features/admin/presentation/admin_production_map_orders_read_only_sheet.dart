@@ -259,12 +259,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   ({bool visible, bool materialIntake, bool merge}) _quickScanTasks(
     _ReadOnlyOrderDetailUiState uiState,
   ) {
-    // Print preflight only holds/runs the order; it does not use a QR scan.
-    // Keep the live scanner unmounted for the whole preflight lifecycle.
-    final printPreflightActive = uiState.showPrintPreflightHold ||
-        uiState.printPreflight?.isActive == true;
-    final startMaterialScanPending = !printPreflightActive &&
-        uiState.showStart &&
+    final startMaterialScanPending = uiState.showStart &&
         uiState.showStartMaterials &&
         !_materialsLoading &&
         _materialsError.isEmpty &&
@@ -277,15 +272,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             ) ==
             null &&
         uiState.materialRequiredCount > uiState.materialScannedCount;
-    final qolipScanPending = !printPreflightActive &&
-        uiState.showStart &&
+    final qolipScanPending = uiState.showStart &&
         uiState.qolipScanRequired &&
         !_qolipRequirementsLoading &&
         _qolipRequirementsError.isEmpty &&
         _requiredQolips.isNotEmpty &&
         !_allRequiredQolipsScanned;
-    final inputWipScanPending = !printPreflightActive &&
-        uiState.showStart &&
+    final inputWipScanPending = uiState.showStart &&
         uiState.previousProgressRequired &&
         !uiState.previousProgressReady &&
         !_inputProgressLoading &&
@@ -1012,17 +1005,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       await _refreshQueueActionControlAfterWrite();
       if (!mounted) return null;
       setState(() => _actionInFlight = false);
-      if (action == 'passed' && mounted) {
-        final passedHold = _queueActionControl?.printPreflight;
-        if (passedHold?.isPassed == true) {
-          await _runQueueAction(
-            'start',
-            preflightHoldId: passedHold!.holdId,
-          );
-        } else {
-          _showSheetNotice(context.l10n.productionText('worker.error.sync'));
-        }
-      }
       return response.hold;
     } catch (error) {
       if (!mounted) return null;

@@ -215,6 +215,7 @@ class AdminApparatusQueueOrderActionControl {
     this.closingOutputBatchId = '',
     this.completeRequiresRezkaTotalWasteOnly = false,
     this.freezeRequest,
+    this.printPreflightAllowed = false,
     this.printPreflight,
   });
 
@@ -237,6 +238,7 @@ class AdminApparatusQueueOrderActionControl {
   final String closingOutputBatchId;
   final bool completeRequiresRezkaTotalWasteOnly;
   final AdminProductionOrderFreezeDetails? freezeRequest;
+  final bool printPreflightAllowed;
   final AdminPrintPreflightHold? printPreflight;
 
   bool allows(String action) => allowedActions.contains(action.trim());
@@ -258,11 +260,6 @@ class AdminApparatusQueueOrderActionControl {
           (normalizedState != 'print_preflight' ||
               value.mode != AdminQueueInteractionMode.freshStartBlocked ||
               allowedActions.isNotEmpty)) {
-        return false;
-      }
-      if (preflight.isPassed &&
-          (value.mode != AdminQueueInteractionMode.freshStart ||
-              !allowedActions.contains('start'))) {
         return false;
       }
     }
@@ -525,6 +522,7 @@ class AdminApparatusQueueOrderActionControl {
               (json['freeze_request'] as Map).cast<String, dynamic>(),
             )
           : null,
+      printPreflightAllowed: json['print_preflight_allowed'] == true,
       printPreflight: printPreflight,
     );
   }

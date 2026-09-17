@@ -63,6 +63,7 @@ bool _queueActionControlsEqual(
             other.freezeRequest?.targetApparatus ||
         control.freezeRequest?.targetSessionId !=
             other.freezeRequest?.targetSessionId ||
+        control.printPreflightAllowed != other.printPreflightAllowed ||
         control.printPreflight?.holdId != other.printPreflight?.holdId ||
         control.printPreflight?.status != other.printPreflight?.status ||
         control.printPreflight?.orderId != other.printPreflight?.orderId ||
