@@ -88,6 +88,24 @@ MobileApiException _adminProductionMapException(
         'Avariya ko‘chirish javobi noto‘g‘ri',
       'queue_action_not_allowed' =>
         'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
+      'print_preflight_active' =>
+          'Buyurtmada rang chiqarish davom etmoqda. Avval “Rang chiqdi” yoki “Rang chiqmadi” natijasini belgilang.',
+      'print_preflight_not_found' =>
+          'Rang chiqarish sinovi topilmadi. Oynani yangilang va qayta urinib ko‘ring.',
+      'print_preflight_not_ready' =>
+          'Rang chiqarish natijasi hali tayyor emas. Avval “Rang chiqdi” yoki “Rang chiqmadi” tugmasini bosing.',
+      'print_preflight_action_not_allowed' =>
+          'Rang chiqarish uchun bu amal hozir mumkin emas. Oynani yangilang va qayta urinib ko‘ring.',
+      'print_preflight_requires_print_apparatus' =>
+          'Rang chiqarish faqat bosma apparatida ishlaydi.',
+      'print_preflight_action_invalid' =>
+          'Rang chiqarish amali noto‘g‘ri. Oynani yangilang va qayta urinib ko‘ring.',
+      'apparatus and order_id are required' =>
+          'Aparat yoki buyurtma ma’lumoti topilmadi. Oynani yangilang.',
+      'hold_id and idempotency_key are required' =>
+          'Rang chiqarish so‘rovi to‘liq emas. Oynani yangilang va qayta urinib ko‘ring.',
+      'hold_id is required' =>
+          'Rang chiqarish sinovi topilmadi. Oynani yangilang va qayta urinib ko‘ring.',
       'merge_input_frame_count_mismatch' => activeKadrCount != null &&
               scannedKadrCount != null
           ? 'Merge qilinmadi: joriy rulon $activeKadrCount kadr, scan qilingan WIP $scannedKadrCount kadr. Bir xil kadrli WIPni scan qiling'
@@ -217,6 +235,12 @@ MobileApiException _adminProductionMapException(
       'opening_wip_delete_locked' =>
         'Ishlatilgan Opening WIP rulonini o‘chirib bo‘lmaydi',
       'opening_wip_delete' => 'Opening WIP ruloni o‘chirilmadi',
+      'queue_sequence_order_not_found' =>
+          'Ketma-ketlikdagi buyurtma topilmadi. Oynani yangilang va qayta urinib ko‘ring',
+      'queue_sequence_apparatus_mismatch' =>
+          'Buyurtma tanlangan apparat ketma-ketligiga tegishli emas',
+      'print_preflight_invalid_response' =>
+          'Rang chiqarish serveridan noto‘g‘ri javob keldi. Oynani yangilang',
       'progress_batch_not_resumable' =>
         'Bu progress QR davom ettirishga yaramaydi',
       'progress_batch_correction_reason_required' =>
@@ -441,13 +465,15 @@ String _adminProductionMapUnknownErrorMessage({
     'production_map_run' => 'Production map ishga tushirilmadi',
     _ => 'So‘ralgan amal bajarilmadi',
   };
-  final statusSuffix = statusCode > 0 ? ' (HTTP $statusCode)' : '';
   final normalizedCode = code.trim().toLowerCase();
+  final retryAdvice = statusCode >= 500
+      ? '. Serverda vaqtinchalik muammo yuz berdi. Keyinroq qayta urinib ko‘ring.'
+      : '. Oynani yangilang va qayta urinib ko‘ring.';
   if (normalizedCode.isEmpty ||
       normalizedCode == fallbackCode.trim().toLowerCase()) {
-    return '$operation$statusSuffix';
+    return '$operation$retryAdvice';
   }
-  return '$operation: $code$statusSuffix';
+  return '$operation. Server sababini batafsil yubormadi$retryAdvice';
 }
 
 class AdminProductionWorkflowAuditViolation {

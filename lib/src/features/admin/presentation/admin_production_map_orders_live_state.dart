@@ -680,6 +680,7 @@ extension _AdminProductionMapOrdersLiveState
       showAdminTopNotice(
         context,
         _completionRejectedNoticeText(decision),
+        icon: Icons.warning_amber_rounded,
       );
     }
   }

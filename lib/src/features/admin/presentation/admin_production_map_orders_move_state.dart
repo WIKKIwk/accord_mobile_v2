@@ -208,6 +208,7 @@ extension _AdminProductionMapOrdersMoveState
           error,
           context.l10n.adminText('item.loading_failed'),
         ),
+        icon: Icons.warning_amber_rounded,
       );
     }
   }
@@ -271,6 +272,7 @@ extension _AdminProductionMapOrdersMoveState
     showAdminTopNotice(
       context,
       _adminActionErrorText(error, fallbackMessage),
+      icon: Icons.warning_amber_rounded,
     );
     await _load();
   }
@@ -328,6 +330,7 @@ extension _AdminProductionMapOrdersMoveState
       showAdminTopNotice(
         context,
         context.l10n.adminText('production.move.invalid_target'),
+        icon: Icons.warning_amber_rounded,
       );
       return;
     }
@@ -344,6 +347,7 @@ extension _AdminProductionMapOrdersMoveState
       showAdminTopNotice(
         context,
         context.l10n.adminText('production.move.in_progress'),
+        icon: Icons.warning_amber_rounded,
       );
       return;
     }
@@ -452,6 +456,7 @@ extension _AdminProductionMapOrdersMoveState
       showAdminTopNotice(
         context,
         context.l10n.adminText('production.move.not_unassigned'),
+        icon: Icons.warning_amber_rounded,
       );
       return;
     }
@@ -496,6 +501,7 @@ extension _AdminProductionMapOrdersMoveState
       showAdminTopNotice(
         context,
         context.l10n.adminText('production.move.invalid_target'),
+        icon: Icons.warning_amber_rounded,
       );
       return;
     }

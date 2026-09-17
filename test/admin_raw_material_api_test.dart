@@ -268,6 +268,14 @@ void main() {
       'order_freeze_target_ambiguous':
           'Buyurtmani muzlatish uchun bir nechta faol sessiya topildi',
       'store_failed': 'Production map ma’lumotlarini saqlashda server xatosi',
+      'print_preflight_active':
+          'Buyurtmada rang chiqarish davom etmoqda. Avval “Rang chiqdi” yoki “Rang chiqmadi” natijasini belgilang.',
+      'print_preflight_not_found':
+          'Rang chiqarish sinovi topilmadi. Oynani yangilang va qayta urinib ko‘ring.',
+      'print_preflight_not_ready':
+          'Rang chiqarish natijasi hali tayyor emas. Avval “Rang chiqdi” yoki “Rang chiqmadi” tugmasini bosing.',
+      'print_preflight_action_not_allowed':
+          'Rang chiqarish uchun bu amal hozir mumkin emas. Oynani yangilang va qayta urinib ko‘ring.',
       'forbidden': 'Bu amal sizning rolingiz uchun ruxsat etilmagan',
       'unauthorized': 'Sessiya tugagan. Qayta login qiling',
     };
@@ -304,7 +312,8 @@ void main() {
           isA<MobileApiException>().having(
             (error) => error.message,
             'message',
-            'Order navbat amali bajarilmadi: backend_timeout (HTTP 400)',
+            'Order navbat amali bajarilmadi. Server sababini batafsil '
+                'yubormadi. Oynani yangilang va qayta urinib ko‘ring.',
           ),
         ),
       );

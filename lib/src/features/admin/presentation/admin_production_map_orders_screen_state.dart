@@ -830,6 +830,7 @@ class _AdminProductionMapOrdersScreenState
         showAdminTopNotice(
           context,
           context.l10n.productionText('worker.error.qr_other_order'),
+          icon: Icons.warning_amber_rounded,
         );
         return;
       }
@@ -849,6 +850,7 @@ class _AdminProductionMapOrdersScreenState
         showAdminTopNotice(
           context,
           context.l10n.productionText('worker.error.assigned_machine'),
+          icon: Icons.warning_amber_rounded,
         );
         return;
       }
@@ -880,6 +882,7 @@ class _AdminProductionMapOrdersScreenState
             orderControlState: targetOrderControl,
             queueState: targetQueueState,
           ),
+          icon: Icons.warning_amber_rounded,
         );
         return;
       }
@@ -906,6 +909,7 @@ class _AdminProductionMapOrdersScreenState
         showAdminTopNotice(
           context,
           context.l10n.productionText('worker.error.current_order_missing'),
+          icon: Icons.warning_amber_rounded,
         );
         return;
       }
@@ -913,6 +917,7 @@ class _AdminProductionMapOrdersScreenState
         showAdminTopNotice(
           context,
           context.l10n.productionText('worker.error.current_order_qr'),
+          icon: Icons.warning_amber_rounded,
         );
         return;
       }
@@ -931,6 +936,7 @@ class _AdminProductionMapOrdersScreenState
                 fallback: error.message,
               )
             : context.l10n.productionText('worker.error.other_order_lookup'),
+        icon: Icons.warning_amber_rounded,
       );
     }
   }
@@ -1038,6 +1044,7 @@ class _AdminProductionMapOrdersScreenState
                   fallback: error.message,
                 )
               : context.l10n.productionText('worker.error.machine_roll'),
+          icon: Icons.warning_amber_rounded,
         );
       }
     }
@@ -1244,6 +1251,7 @@ class _AdminProductionMapOrdersScreenState
           error is MobileApiException
               ? error.message
               : context.l10n.adminText('production.open_failed'),
+          icon: Icons.warning_amber_rounded,
         );
       }
     }
@@ -1261,6 +1269,7 @@ class _AdminProductionMapOrdersScreenState
       showAdminTopNotice(
         context,
         context.l10n.productionText('worker.error.sync'),
+        icon: Icons.warning_amber_rounded,
       );
       return;
     }
@@ -1436,6 +1445,7 @@ class _AdminProductionMapOrdersScreenState
       showAdminTopNotice(
         context,
         context.l10n.productionText('worker.error.sync'),
+        icon: Icons.warning_amber_rounded,
       );
       return;
     }
@@ -1484,6 +1494,7 @@ class _AdminProductionMapOrdersScreenState
           error is MobileApiException
               ? error.message
               : 'Buyurtma amali bajarilmadi',
+          icon: Icons.warning_amber_rounded,
         );
       }
     } finally {
