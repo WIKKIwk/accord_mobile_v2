@@ -649,8 +649,8 @@ void _registeradmin_production_map_test_screen_testCases16() {
               await accepted;
               expect(
                 find.byType(ProductionQuickScannerPanel),
-                findsNothing,
-                reason: 'no pending scan task remains, even with a receipt still in flight',
+                findsOneWidget,
+                reason: 'scan feedback keeps the card visible briefly',
               );
               if (receiptScenario == 'parallel failure') {
                 failedReceipt.complete(
@@ -662,6 +662,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
                 await tester.pumpAndSettle();
                 await rejected;
               }
+              await _waitForQuickScannerFeedback(tester);
               expect(find.byType(ProductionQuickScannerPanel), findsNothing);
               final requestCount = requests.length;
               await scan('LATE-CAMERA-FRAME');
@@ -721,6 +722,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
           findsOneWidget,
         );
         expect(find.text('0 ta'), findsOneWidget);
+        await _waitForQuickScannerFeedback(tester);
         expect(find.byType(ProductionQuickScannerPanel), findsNothing);
         expect(
           find.byKey(const ValueKey('receive-additional-raw-material')),

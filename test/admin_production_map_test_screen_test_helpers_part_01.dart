@@ -29,6 +29,7 @@ Future<void> _completeQolipScan(WidgetTester tester) async {
   await tester.enterText(input, 'TEST-QOLIP-QR');
   await tester.tap(find.byTooltip('Qabul qilish'));
   await tester.pumpAndSettle();
+  await _waitForQuickScannerFeedback(tester);
   expect(find.byType(ProductionQuickScannerPanel), findsNothing);
   final qolipsHeader = find.byKey(
     const ValueKey('production-qolips-expansion'),
@@ -46,6 +47,11 @@ Future<void> _completeQolipScan(WidgetTester tester) async {
     ),
     findsOneWidget,
   );
+}
+
+Future<void> _waitForQuickScannerFeedback(WidgetTester tester) async {
+  await tester.pump(const Duration(seconds: 5));
+  await tester.pumpAndSettle();
 }
 
 ProductionMapDefinition _alternativeProductionOrderMap({

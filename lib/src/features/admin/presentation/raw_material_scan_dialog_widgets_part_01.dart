@@ -52,6 +52,7 @@ class ProductionQuickScannerPanel extends StatefulWidget {
     this.busy = false,
     this.allowConcurrentDetections = false,
     this.allowManualEntry = true,
+    this.feedback,
   });
 
   final Future<void> Function(String rawValue) onCodeDetected;
@@ -59,6 +60,7 @@ class ProductionQuickScannerPanel extends StatefulWidget {
   final bool busy;
   final bool allowConcurrentDetections;
   final bool allowManualEntry;
+  final ProductionQuickScanFeedback? feedback;
 
   @override
   State<ProductionQuickScannerPanel> createState() =>

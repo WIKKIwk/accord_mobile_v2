@@ -115,6 +115,60 @@ void main() {
     expect(scanner.tapToFocus, isFalse);
   });
 
+  testWidgets('quick scanner card feedback returns to its default color',
+      (tester) async {
+    await tester.pumpWidget(
+      _testApp(
+        ProductionQuickScannerPanel(
+          statusText: 'Scan',
+          onCodeDetected: (_) async {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    Card card() => tester.widget<Card>(find.byType(Card));
+    final defaultColor = card().color;
+    expect(card().color, defaultColor);
+
+    await tester.pumpWidget(
+      _testApp(
+        ProductionQuickScannerPanel(
+          statusText: 'Scan',
+          feedback: ProductionQuickScanFeedback.accepted,
+          onCodeDetected: (_) async {},
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(card().color, const Color(0xFFCBFEBC));
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpWidget(
+      _testApp(
+        ProductionQuickScannerPanel(
+          statusText: 'Scan',
+          onCodeDetected: (_) async {},
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    expect(card().color, defaultColor);
+
+    await tester.pumpWidget(
+      _testApp(
+        ProductionQuickScannerPanel(
+          statusText: 'Scan',
+          feedback: ProductionQuickScanFeedback.rejected,
+          onCodeDetected: (_) async {},
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(card().color, const Color(0xFFF23544));
+  });
+
   testWidgets('quick scanner delegates lifecycle to the reliable coordinator',
       (tester) async {
     await tester.pumpWidget(

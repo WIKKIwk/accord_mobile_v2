@@ -36,6 +36,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.inputProgressLoading,
     required this.inputProgressError,
     required this.quickScanStatus,
+    required this.quickScanFeedback,
     required this.quickScanInFlight,
     required this.showQuickScanner,
     required this.allowConcurrentQuickScanner,
@@ -109,6 +110,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final bool inputProgressLoading;
   final String inputProgressError;
   final String quickScanStatus;
+  final ProductionQuickScanFeedback? quickScanFeedback;
   final bool quickScanInFlight;
   final bool showQuickScanner;
   final bool allowConcurrentQuickScanner;
@@ -259,8 +261,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       duration: AppMotion.medium,
                       curve: AppMotion.standardDecelerate,
                       alignment: Alignment.topCenter,
-                      // Unmount the camera immediately when its task ends;
-                      // an outgoing AnimatedSwitcher child keeps scanning.
+                      // Keep the camera mounted through the final feedback
+                      // fade before unmounting it when the task ends.
                       child: showQuickScanner
                           ? Column(
                               key: const ValueKey(
@@ -270,6 +272,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                                 ProductionQuickScannerPanel(
                                   statusText: quickScanStatus,
                                   busy: quickScanInFlight,
+                                  feedback: quickScanFeedback,
                                   allowConcurrentDetections:
                                       allowConcurrentQuickScanner,
                                   allowManualEntry: !uiState.openingWipRequired,

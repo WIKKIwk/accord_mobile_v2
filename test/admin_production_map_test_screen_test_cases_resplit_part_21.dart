@@ -200,6 +200,7 @@ void _registeradmin_production_map_test_screen_testCases21() {
       );
       await tester.tap(find.byTooltip('Qabul qilish'));
       await tester.pumpAndSettle();
+      await _waitForQuickScannerFeedback(tester);
 
       expect(find.text('Oldingi bosqich tasdiqlandi'), findsWidgets);
       expect(find.byType(ProductionQuickScannerPanel), findsNothing);
@@ -397,6 +398,7 @@ void _registeradmin_production_map_test_screen_testCases21() {
           )
           .onCodeDetected(openingWip.batches.first.qrPayload);
       await tester.pumpAndSettle();
+      await _waitForQuickScannerFeedback(tester);
 
       expect(find.text('Oldingi bosqich tasdiqlandi'), findsWidgets);
       expect(find.text('7 ta rangli bosma aparat • 100 m'), findsOneWidget);

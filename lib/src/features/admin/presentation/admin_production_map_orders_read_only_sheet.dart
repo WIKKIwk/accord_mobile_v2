@@ -25,6 +25,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   bool _qolipRequirementsLoading = false;
   String _qolipRequirementsError = '';
   String _quickScanStatus = '';
+  ProductionQuickScanFeedback? _quickScanFeedback;
+  Timer? _quickScanFeedbackColorTimer;
+  Timer? _quickScanFeedbackHoldTimer;
+  bool _quickScanFeedbackHold = false;
   String _quickScanLocaleCode = '';
   final Set<String> _seenQuickScanValues = <String>{};
   int _quickScanActiveCount = 0;
@@ -143,6 +147,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   @override
   void dispose() {
+    _quickScanFeedbackColorTimer?.cancel();
+    _quickScanFeedbackHoldTimer?.cancel();
     dismissAdminTopNotice();
     super.dispose();
   }
@@ -177,6 +183,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _materialIntakeMode = false;
       _mergeScanMode = false;
       _seenQuickScanValues.clear();
+      _quickScanFeedbackColorTimer?.cancel();
+      _quickScanFeedbackHoldTimer?.cancel();
+      _quickScanFeedback = null;
+      _quickScanFeedbackHold = false;
       _startInputProgressBatch = null;
       _startInputOpeningWipBatch = null;
       _availableInputProgressBatches = const [];
@@ -376,8 +386,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         inputProgressLoading: _inputProgressLoading,
         inputProgressError: _inputProgressError,
         quickScanStatus: _quickScanStatus,
+        quickScanFeedback: _quickScanFeedback,
         quickScanInFlight: _quickScanInFlight,
-        showQuickScanner: scanTasks.visible,
+        showQuickScanner: scanTasks.visible || _quickScanFeedbackHold,
         allowConcurrentQuickScanner: widget.workerMode && !scanTasks.merge,
         onQuickScan: _handleQuickScan,
         requiresQolipScan: requiresQolipScan,
@@ -1220,6 +1231,28 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return null;
   }
 
+  void _showQuickScanFeedback(ProductionQuickScanFeedback feedback) {
+    if (!mounted || feedback == ProductionQuickScanFeedback.none) return;
+    _quickScanFeedbackColorTimer?.cancel();
+    _quickScanFeedbackHoldTimer?.cancel();
+    setState(() {
+      _quickScanFeedback = feedback;
+      _quickScanFeedbackHold = true;
+    });
+    _quickScanFeedbackColorTimer = Timer(const Duration(seconds: 3), () {
+      _quickScanFeedbackColorTimer = null;
+      if (mounted) {
+        setState(() => _quickScanFeedback = null);
+      }
+    });
+    _quickScanFeedbackHoldTimer = Timer(const Duration(seconds: 5), () {
+      _quickScanFeedbackHoldTimer = null;
+      if (mounted) {
+        setState(() => _quickScanFeedbackHold = false);
+      }
+    });
+  }
+
   Future<void> _handleQuickScan(String rawValue) async {
     if (!mounted) return;
     // A camera callback can arrive after the scan task has ended.
@@ -1239,7 +1272,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
     try {
       if (scanTasks.materialIntake) {
-        await _receiveAdditionalMaterialFromQuickScan(normalized);
+        final received = await _receiveAdditionalMaterialFromQuickScan(
+          normalized,
+        );
+        _showQuickScanFeedback(
+          received
+              ? ProductionQuickScanFeedback.accepted
+              : ProductionQuickScanFeedback.rejected,
+        );
         return;
       }
       if (scanTasks.merge) {
@@ -1269,16 +1309,26 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             context.l10n.productionText('worker.notice.merge_complete'),
           );
         }
+        _showQuickScanFeedback(
+          merged
+              ? ProductionQuickScanFeedback.accepted
+              : ProductionQuickScanFeedback.rejected,
+        );
         return;
       }
       final orderId = widget.order.map.id.trim();
       final station = widget.apparatus?.id.trim() ?? '';
       if (_queueActionControl?.interaction?.openingWipMode ==
           AdminQueuePreviousWipMode.scanRequired) {
-        _acceptOpeningWipQr(
+        final accepted = _acceptOpeningWipQr(
           orderId: orderId,
           apparatus: station,
           qrPayload: rawValue.trim(),
+        );
+        _showQuickScanFeedback(
+          accepted
+              ? ProductionQuickScanFeedback.accepted
+              : ProductionQuickScanFeedback.rejected,
         );
         return;
       }
@@ -1316,6 +1366,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
                   );
           });
         }
+        _showQuickScanFeedback(ProductionQuickScanFeedback.accepted);
         return;
       }
 
@@ -1347,6 +1398,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
                     );
             });
           }
+          _showQuickScanFeedback(ProductionQuickScanFeedback.accepted);
           return;
         }
         scanError = MobileApiException(
@@ -1363,6 +1415,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           qrPayload: normalized,
         );
         if (batch != null && _acceptProgressBatch(batch)) {
+          _showQuickScanFeedback(ProductionQuickScanFeedback.accepted);
           return;
         }
         scanError ??= MobileApiException(
@@ -1380,6 +1433,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               : _readOnlyQueueActionErrorText(scanError, context.l10n);
         });
       }
+      _showQuickScanFeedback(ProductionQuickScanFeedback.rejected);
     } catch (error) {
       if (_quickScanErrorAllowsRetry(error)) {
         _seenQuickScanValues.remove(scanKey);
@@ -1392,6 +1446,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           );
         });
       }
+      _showQuickScanFeedback(ProductionQuickScanFeedback.rejected);
     } finally {
       if (mounted) {
         setState(() {
@@ -2011,14 +2066,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     });
   }
 
-  Future<void> _receiveAdditionalMaterialFromQuickScan(String barcode) async {
+  Future<bool> _receiveAdditionalMaterialFromQuickScan(String barcode) async {
     final orderId = widget.order.map.id.trim();
     final apparatus = widget.apparatus?.id.trim() ?? '';
     if (orderId.isEmpty || apparatus.isEmpty) {
       _showSheetNotice(
         context.l10n.productionText('worker.error.order_machine_missing'),
       );
-      return;
+      return false;
     }
     if (mounted) {
       setState(() {
@@ -2035,9 +2090,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         apparatus: apparatus,
         barcode: barcode,
       );
-      if (!mounted) return;
+      if (!mounted) return false;
       await _loadMaterialAssignments();
-      if (!mounted) return;
+      if (!mounted) return false;
       final qty = assignment.receivedQty;
       final uom = assignment.stockUom.trim();
       final quantityLabel =
@@ -2062,6 +2117,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           values: {'qty': quantityLabel},
         ),
       );
+      return true;
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -2072,6 +2128,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         });
         _showSheetNotice(_readOnlyQueueActionErrorText(error, context.l10n));
       }
+      return false;
     } finally {
       if (mounted) {
         setState(() {

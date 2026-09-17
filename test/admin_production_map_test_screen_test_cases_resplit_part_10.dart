@@ -204,6 +204,7 @@ void _registeradmin_production_map_test_screen_testCases10() {
     );
     await tester.tap(find.byTooltip('Qabul qilish'));
     await tester.pumpAndSettle();
+    await _waitForQuickScannerFeedback(tester);
 
     expect(find.byType(ProductionQuickScannerPanel), findsNothing);
     expect(find.text('1/1'), findsOneWidget);
@@ -381,6 +382,7 @@ void _registeradmin_production_map_test_screen_testCases10() {
       await tester.enterText(manualInput, materialBarcode);
       await tester.tap(find.byTooltip('Qabul qilish'));
       await tester.pumpAndSettle();
+      await _waitForQuickScannerFeedback(tester);
 
       expect(find.byType(ProductionQuickScannerPanel), findsNothing);
       expect(find.text('Homashyolar tasdiqlandi'), findsNothing);

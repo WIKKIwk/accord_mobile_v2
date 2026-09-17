@@ -133,11 +133,25 @@ class _ProductionQuickScannerPanelState
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final session = _scannerSession;
+    final cardColor = switch (widget.feedback) {
+      ProductionQuickScanFeedback.accepted => _quickScannerAcceptedCardColor,
+      ProductionQuickScanFeedback.rejected => _quickScannerRejectedCardColor,
+      _ => scheme.surface,
+    };
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      color: scheme.surface,
+    return TweenAnimationBuilder<Color?>(
+      tween: ColorTween(end: cardColor),
+      duration:
+          widget.feedback == null ? const Duration(seconds: 2) : Duration.zero,
+      curve: Curves.easeOut,
+      builder: (context, animatedColor, child) {
+        return Card(
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          color: animatedColor ?? scheme.surface,
+          child: child,
+        );
+      },
       child: Column(
         children: [
           SizedBox(
@@ -302,7 +316,7 @@ class _ProductionQuickScannerPanelState
                   ? ColoredBox(
                       key: const ValueKey(
                           'production-quick-scanner-manual-visible'),
-                      color: scheme.surface,
+                      color: Colors.transparent,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                         child: Row(
