@@ -220,6 +220,11 @@ void main() {
     expect(userRoleToJson(UserRole.boyoqchi), 'boyoqchi');
   });
 
+  test('omborchi role alias uses the canonical werka contract', () {
+    expect(userRoleFromJson('omborchi'), UserRole.werka);
+    expect(userRoleToJson(userRoleFromJson('omborchi')), 'werka');
+  });
+
   test('material taminotchi role opens material home and tarozi access',
       () async {
     await AppSession.instance.setSession(

@@ -18,6 +18,7 @@ UserRole userRoleFromJson(String? value) {
   final roleValue = (value ?? '').trim().toLowerCase();
   if (roleValue == 'tayyorlov_masteri') return UserRole.tayyorlovMasteri;
   if (roleValue == 'homashyo_rezkachi') return UserRole.homashyoRezkachi;
+  if (roleValue == 'omborchi') return UserRole.werka;
   return roleValue == 'werka'
       ? UserRole.werka
       : roleValue == 'customer'
