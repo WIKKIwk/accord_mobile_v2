@@ -7,6 +7,7 @@ class _SequenceModulePage extends StatefulWidget {
     required this.apparatus,
     required this.completionRequests,
     required this.orders,
+    required this.searchQuery,
     required this.readOnly,
     required this.customerNameByMapId,
     required this.queueStates,
@@ -23,6 +24,7 @@ class _SequenceModulePage extends StatefulWidget {
   final AdminApparatus? apparatus;
   final List<AdminCompletionRequestNotification> completionRequests;
   final List<ProductionMapSaved> orders;
+  final String searchQuery;
   final bool readOnly;
   final Map<String, String> customerNameByMapId;
   final Map<String, String> queueStates;
@@ -224,10 +226,12 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
           else if (orders.isEmpty)
             _EmptyOpenedOrders(
               message: context.l10n.productionText(
-                'worker.queue.empty.for_apparatus',
-                values: {
-                  'apparatus': selected.name.trim(),
-                },
+                widget.searchQuery.trim().isEmpty
+                    ? 'worker.queue.empty.for_apparatus'
+                    : 'production.search_empty',
+                values: widget.searchQuery.trim().isEmpty
+                    ? {'apparatus': selected.name.trim()}
+                    : const {},
               ),
             )
           else if (orders.isNotEmpty)

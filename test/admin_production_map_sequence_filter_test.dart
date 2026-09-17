@@ -4,6 +4,7 @@ import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/admin_sequence_apparatus_store.dart';
+import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -172,5 +173,85 @@ void main() {
         _godexId,
       );
     },
+  );
+
+  testWidgets(
+    'search filters orders in the admin sequence tab',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      await MobileApi.instance.adminSaveProductionMap(
+        _sequenceSearchMap(
+          id: 'zakaz-sequence-search-alpha',
+          title: 'Alpha sequence order',
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMap(
+        _sequenceSearchMap(
+          id: 'zakaz-sequence-search-beta',
+          title: 'Beta sequence order',
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: _godexId,
+        orderIds: const [
+          'zakaz-sequence-search-alpha',
+          'zakaz-sequence-search-beta',
+        ],
+      );
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          locale: Locale('uz'),
+          localizationsDelegates: [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: AdminProductionMapOrdersScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alpha sequence order'), findsOneWidget);
+      expect(find.text('Beta sequence order'), findsOneWidget);
+
+      await tester.enterText(find.byType(EditableText), 'beta');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alpha sequence order'), findsNothing);
+      expect(find.text('Beta sequence order'), findsOneWidget);
+    },
+  );
+}
+
+ProductionMapDefinition _sequenceSearchMap({
+  required String id,
+  required String title,
+}) {
+  return ProductionMapDefinition(
+    id: id,
+    productCode: '${id.toUpperCase()}-PRODUCT',
+    title: title,
+    nodes: [
+      const ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+      const ProductionMapNode(
+        id: 'apparatus',
+        kind: 'apparatus',
+        title: 'Godex aparat - DEMO',
+        apparatusId: _godexId,
+      ),
+      ProductionMapNode(
+        id: 'end',
+        kind: 'end',
+        title: title,
+        itemCode: '${id.toUpperCase()}-PRODUCT',
+      ),
+    ],
+    edges: const [
+      ProductionMapEdge(from: 'start', to: 'apparatus'),
+      ProductionMapEdge(from: 'apparatus', to: 'end'),
+    ],
   );
 }

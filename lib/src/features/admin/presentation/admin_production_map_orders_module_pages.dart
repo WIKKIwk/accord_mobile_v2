@@ -208,6 +208,12 @@ class _AdminModulesBody extends StatelessWidget {
       orderStatusesByOrderId: orderStatusesByOrderId,
       queueStatesByApparatus: queueStatesByApparatus,
     );
+    final sequenceOrders = selectedApparatus == null
+        ? const <ProductionMapSaved>[]
+        : _visibleOrders(
+            orders: ordersForApparatus(selectedApparatus!),
+            query: searchQuery,
+          );
     return Column(
       children: [
         if (modules.length > 1)
@@ -233,10 +239,9 @@ class _AdminModulesBody extends StatelessWidget {
                       availableApparatus: apparatus,
                       apparatus: selectedApparatus,
                       completionRequests: completionRequests,
-                      orders: selectedApparatus == null
-                          ? const []
-                          : ordersForApparatus(selectedApparatus!),
-                      readOnly: readOnly,
+                      orders: sequenceOrders,
+                      searchQuery: searchQuery,
+                      readOnly: readOnly || searchQuery.trim().isNotEmpty,
                       onSelectApparatus: onSelectSequenceApparatus,
                       onReorder: onReorder,
                       customerNameByMapId: customerNameByMapId,
@@ -285,16 +290,22 @@ class _AdminModulesBody extends StatelessWidget {
                       topOrders: moveTopApparatus == null ||
                               moveBottomApparatus == null
                           ? const []
-                          : moveOrdersForApparatus(
-                              source: moveTopApparatus!,
-                              target: moveBottomApparatus!,
+                          : _visibleOrders(
+                              orders: moveOrdersForApparatus(
+                                source: moveTopApparatus!,
+                                target: moveBottomApparatus!,
+                              ),
+                              query: searchQuery,
                             ),
                       bottomOrders: moveTopApparatus == null ||
                               moveBottomApparatus == null
                           ? const []
-                          : moveOrdersForApparatus(
-                              source: moveBottomApparatus!,
-                              target: moveTopApparatus!,
+                          : _visibleOrders(
+                              orders: moveOrdersForApparatus(
+                                source: moveBottomApparatus!,
+                                target: moveTopApparatus!,
+                              ),
+                              query: searchQuery,
                             ),
                       selectedOrderIds: selectedMoveOrderIds,
                       draggingOrders: draggingMoveOrders,
