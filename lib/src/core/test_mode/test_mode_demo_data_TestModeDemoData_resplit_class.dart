@@ -52,6 +52,19 @@ class TestModeDemoData {
       _TestModeDemoData_warehouseItemPage_resplit2AstPart(
           warehouse: warehouse, query: query, limit: limit, offset: offset);
 
+  static List<AdminWarehouseStockRoll> warehouseItemRolls({
+    required String warehouse,
+    required String itemCode,
+    int limit = 500,
+    int offset = 0,
+  }) =>
+      _TestModeDemoData_warehouseItemRolls_resplit2AstPart(
+        warehouse: warehouse,
+        itemCode: itemCode,
+        limit: limit,
+        offset: offset,
+      );
+
   static AdminSupplierSummary get supplierSummary {
     final active = suppliers.where((item) => !item.blocked).length;
     return AdminSupplierSummary(

@@ -2,7 +2,7 @@
 part of 'admin_warehouses_screen.dart';
 
 extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
-  Future<List<String>> _loadMaterialAssignedWarehouses() async {
+  Future<List<String>> _loadAssignedWarehouses() async {
     final profile = AppSession.instance.profile;
     final profileWarehouses = profile?.assignedWarehouses ?? const <String>[];
     if (profileWarehouses.isNotEmpty) {
@@ -13,8 +13,7 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
     final displayName = profile?.displayName.trim().toLowerCase() ?? '';
     return _uniqueWarehouseNames(
       assignments
-          .where((assignment) =>
-              assignment.principalRole == UserRole.materialTaminotchi)
+          .where((assignment) => assignment.principalRole == profile?.role)
           .where((assignment) {
         final ref = assignment.principalRef.trim().toLowerCase();
         final name = assignment.displayName.trim().toLowerCase();
@@ -41,8 +40,8 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
     final summariesFuture = MobileApi.instance.adminWarehouseSummaries(
       limit: 500,
     );
-    final allowedWarehousesFuture = _materialScoped
-        ? _loadMaterialAssignedWarehouses()
+    final allowedWarehousesFuture = _warehouseScoped
+        ? _loadAssignedWarehouses()
         : Future<List<String>?>.value(null);
     final qolipAssignmentsFuture = _adminScoped
         ? MobileApi.instance.adminWarehouseAssignments()
@@ -79,7 +78,7 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
 
   Future<_WarehouseInventorySection?> _loadDetail(String warehouse) async {
     final allowedWarehouses =
-        _materialScoped ? await _loadMaterialAssignedWarehouses() : null;
+        _warehouseScoped ? await _loadAssignedWarehouses() : null;
     if (!_warehouseAllowed(warehouse, allowedWarehouses)) {
       return null;
     }
@@ -213,7 +212,7 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
 
   Future<void> _connectWarehouseLive() async {
     if (_disposed ||
-        _materialScoped ||
+        _warehouseScoped ||
         await TestModeController.instance.isEnabled() ||
         !mounted) {
       return;
@@ -245,7 +244,7 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
       Navigator.of(context).pop();
       return;
     }
-    if (_materialScoped) {
+    if (_warehouseScoped) {
       Navigator.of(context).pushReplacementNamed(routeName);
       return;
     }
@@ -284,8 +283,7 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
   }
 
   Future<void> _restoreSavedWarehousePreference() async {
-    final saved =
-        await AdminWarehouseFilterStore.instance.loadSavedWarehouse();
+    final saved = await AdminWarehouseFilterStore.instance.loadSavedWarehouse();
     if (!mounted ||
         _disposed ||
         _userManuallySelectedWarehouse ||
@@ -317,7 +315,11 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
       return;
     }
     nav.pushReplacementNamed(
-      _materialScoped ? AppRoutes.materialHome : AppRoutes.adminHome,
+      _materialScoped
+          ? AppRoutes.materialHome
+          : _werkaScoped
+              ? AppRoutes.werkaHome
+              : AppRoutes.adminHome,
     );
   }
 

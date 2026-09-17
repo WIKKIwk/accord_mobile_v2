@@ -182,6 +182,7 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
           else if (!isQolipWarehouse && _items.isNotEmpty)
             _WarehouseItemListModule(
               items: _items,
+              onItemTap: (item) => unawaited(_showWarehouseItemRolls(item)),
             )
           else if (isQolipWarehouse)
             Padding(

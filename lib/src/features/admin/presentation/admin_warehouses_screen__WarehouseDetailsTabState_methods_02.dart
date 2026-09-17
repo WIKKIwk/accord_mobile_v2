@@ -14,6 +14,31 @@ extension __WarehouseDetailsTabStateAstPart02 on _WarehouseDetailsTabState {
     _handleItemsSearchChanged(value);
   }
 
+  Future<void> _showWarehouseItemRolls(AdminWarehouseStockItem item) async {
+    final warehouse = item.warehouse.trim();
+    final itemCode = item.code.trim();
+    if (warehouse.isEmpty || itemCode.isEmpty || !mounted) {
+      return;
+    }
+    final future = MobileApi.instance.adminWarehouseItemRolls(
+      warehouse: warehouse,
+      itemCode: itemCode,
+      orderId: item.orderId,
+    );
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (context) => _WarehouseItemRollsSheet(
+        item: item,
+        rollsFuture: future,
+      ),
+    );
+  }
+
   Future<void> _editRawStock(AdminRawMaterialStockEntry stock) async {
     final barcode = stock.barcode.trim();
     if (!widget.allowRawStockEdit ||

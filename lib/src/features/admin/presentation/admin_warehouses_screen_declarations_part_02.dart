@@ -328,9 +328,13 @@ String _adminQolipDetail(QolipProduct product) {
 }
 
 class _WarehouseItemListModule extends StatelessWidget {
-  const _WarehouseItemListModule({required this.items});
+  const _WarehouseItemListModule({
+    required this.items,
+    required this.onItemTap,
+  });
 
   final List<AdminWarehouseStockItem> items;
+  final ValueChanged<AdminWarehouseStockItem> onItemTap;
 
   @override
   Widget build(BuildContext context) {
@@ -344,6 +348,7 @@ class _WarehouseItemListModule extends StatelessWidget {
               items.length,
             ),
             item: items[index],
+            onTap: () => onItemTap(items[index]),
           ),
       ],
     );
@@ -351,16 +356,22 @@ class _WarehouseItemListModule extends StatelessWidget {
 }
 
 class _WarehouseItemRow extends StatelessWidget {
-  const _WarehouseItemRow({required this.slot, required this.item});
+  const _WarehouseItemRow({
+    required this.slot,
+    required this.item,
+    required this.onTap,
+  });
 
   final M3SegmentVerticalSlot slot;
   final AdminWarehouseStockItem item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final title = item.name.trim().isEmpty ? item.code : item.name;
     final subtitle = <String>[
+      if (item.orderId.trim().isNotEmpty) item.orderId.trim(),
       if (item.code.trim().isNotEmpty) item.code.trim(),
       '${_formatQty(item.onHandQty)} ${item.uom}'.trim(),
       if (item.itemGroup.trim().isNotEmpty) item.itemGroup.trim(),
@@ -384,6 +395,7 @@ class _WarehouseItemRow extends StatelessWidget {
       ),
       title: title,
       subtitle: subtitle,
+      onTap: onTap,
       details: [
         _WarehouseDetailEntry(
           context.l10n.adminText('label.code'),

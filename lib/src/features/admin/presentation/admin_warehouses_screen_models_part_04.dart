@@ -377,6 +377,7 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
     required this.subtitle,
     required this.details,
     this.expandedFooter,
+    this.onTap,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -385,6 +386,7 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
   final String subtitle;
   final List<_WarehouseDetailEntry> details;
   final Widget? expandedFooter;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -399,12 +401,13 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
       subtitle: subtitle,
       value: '',
       showChevron: true,
-      onTap: () => _showWarehouseSummaryDetails(
-        context,
-        title: title,
-        details: details,
-        expandedFooter: expandedFooter,
-      ),
+      onTap: onTap ??
+          () => _showWarehouseSummaryDetails(
+                context,
+                title: title,
+                details: details,
+                expandedFooter: expandedFooter,
+              ),
       leading: leading,
       titleMaxLines: 1,
       subtitleMaxLines: 1,
@@ -415,6 +418,184 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
             color: scheme.onSurfaceVariant,
             height: 1.05,
           ),
+    );
+  }
+}
+
+class _WarehouseItemRollsSheet extends StatelessWidget {
+  const _WarehouseItemRollsSheet({
+    required this.item,
+    required this.rollsFuture,
+  });
+
+  final AdminWarehouseStockItem item;
+  final Future<List<AdminWarehouseStockRoll>> rollsFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final title = item.name.trim().isEmpty ? item.code : item.name;
+    return FractionallySizedBox(
+      heightFactor: 0.86,
+      child: Material(
+        color: scheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: SizedBox(
+                  width: 42,
+                  child: Divider(
+                    thickness: 4,
+                    height: 8,
+                    color: scheme.outlineVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                context.l10n.adminText('warehouse.rolls'),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: FutureBuilder<List<AdminWarehouseStockRoll>>(
+                  future: rollsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(child: AppLoadingIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          context.l10n.adminText(
+                            'warehouse.rolls_load_failed',
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      );
+                    }
+                    final rolls = snapshot.data ?? const [];
+                    if (rolls.isEmpty) {
+                      return Center(
+                        child: Text(
+                          context.l10n.adminText('warehouse.no_rolls'),
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      itemCount: rolls.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) => _WarehouseItemRollRow(
+                        index: index,
+                        slot:
+                            M3SegmentedListGeometry.standaloneListSlotForIndex(
+                          index,
+                          rolls.length,
+                        ),
+                        roll: rolls[index],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WarehouseItemRollRow extends StatelessWidget {
+  const _WarehouseItemRollRow({
+    required this.index,
+    required this.slot,
+    required this.roll,
+  });
+
+  final int index;
+  final M3SegmentVerticalSlot slot;
+  final AdminWarehouseStockRoll roll;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final title = roll.paddonCode.trim().isEmpty
+        ? 'Rulon ${index + 1}'
+        : 'Rulon ${index + 1} • Paddon ${roll.paddonCode}';
+    final subtitle = <String>[
+      if (roll.barcode.trim().isNotEmpty) roll.barcode.trim(),
+      '${_formatQty(roll.qty)} ${roll.uom}'.trim(),
+      if (roll.orderId.trim().isNotEmpty) roll.orderId.trim(),
+    ].join(' • ');
+    final details = <_WarehouseDetailEntry>[
+      _WarehouseDetailEntry(
+        context.l10n.adminText('label.barcode'),
+        roll.barcode,
+      ),
+      _WarehouseDetailEntry(
+        context.l10n.adminText('calculate.order'),
+        roll.orderId,
+      ),
+      _WarehouseDetailEntry(
+        context.l10n.adminText('warehouse.available_quantity'),
+        '${_formatQty(roll.qty)} ${roll.uom}'.trim(),
+      ),
+      if (roll.paddonCode.trim().isNotEmpty)
+        _WarehouseDetailEntry(
+          context.l10n.adminText('warehouse.paddon'),
+          roll.paddonCode,
+        ),
+      if (roll.progressBatchId.trim().isNotEmpty)
+        _WarehouseDetailEntry(
+          context.l10n.adminText('warehouse.progress_batch'),
+          roll.progressBatchId,
+        ),
+      if (roll.acceptedByDisplayName.trim().isNotEmpty)
+        _WarehouseDetailEntry(
+          context.l10n.adminText('warehouse.accepted_by'),
+          roll.acceptedByDisplayName,
+        ),
+      if (roll.acceptedAtUnix > 0)
+        _WarehouseDetailEntry(
+          context.l10n.adminText('label.date'),
+          formatUnixSecondsLocalDateTime(roll.acceptedAtUnix),
+        ),
+    ];
+    return _WarehouseExpandableSummaryCard(
+      slot: slot,
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.receipt_long_rounded,
+            size: 16,
+            color: scheme.onSecondaryContainer,
+          ),
+        ),
+      ),
+      title: title,
+      subtitle: subtitle,
+      details: details,
     );
   }
 }

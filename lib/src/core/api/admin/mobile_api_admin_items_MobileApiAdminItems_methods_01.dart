@@ -261,6 +261,55 @@ extension MobileApiAdminItemsAstPart01 on MobileApi {
         .toList();
   }
 
+  Future<List<AdminWarehouseStockRoll>> adminWarehouseItemRolls({
+    required String warehouse,
+    required String itemCode,
+    String orderId = '',
+    int limit = 500,
+    int offset = 0,
+  }) async {
+    final normalizedWarehouse = warehouse.trim();
+    final normalizedItemCode = itemCode.trim();
+    if (normalizedWarehouse.isEmpty || normalizedItemCode.isEmpty) {
+      return const <AdminWarehouseStockRoll>[];
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      return TestModeDemoData.warehouseItemRolls(
+        warehouse: normalizedWarehouse,
+        itemCode: normalizedItemCode,
+        limit: limit,
+        offset: offset,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/warehouses/items/rolls',
+        ).replace(
+          queryParameters: {
+            'warehouse': normalizedWarehouse,
+            'item_code': normalizedItemCode,
+            if (orderId.trim().isNotEmpty) 'order_id': orderId.trim(),
+            if (limit > 0) 'limit': '$limit',
+            if (offset > 0) 'offset': '$offset',
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin warehouse rolls failed');
+    }
+    final json = await decodeJsonListPayload(response.body);
+    return json
+        .map(
+          (item) => AdminWarehouseStockRoll.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
   Future<List<AdminWarehouse>> adminWarehouses({
     String query = '',
     String parent = '',

@@ -8,16 +8,19 @@ class WerkaNavigationDrawer extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.onNavigate,
+    this.selectedRouteName,
   });
 
   final int selectedIndex;
   final ValueChanged<String> onNavigate;
+  final String? selectedRouteName;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return RoleNavigationDrawer(
       selectedIndex: selectedIndex,
+      selectedRouteName: selectedRouteName,
       onNavigate: onNavigate,
       destinations: [
         RoleNavigationDrawerDestination(
@@ -57,6 +60,14 @@ class WerkaNavigationDrawer extends StatelessWidget {
             selectedIcon: Icons.inventory_rounded,
             label: 'Joylashtirish va transfer',
             routeName: AppRoutes.inventoryMovements,
+            push: true,
+          ),
+        if (AppRouter.canOpenRoute(AppRoutes.adminWarehouses))
+          RoleNavigationDrawerDestination(
+            icon: Icons.warehouse_outlined,
+            selectedIcon: Icons.warehouse_rounded,
+            label: l10n.adminText('warehouse.my_warehouse'),
+            routeName: AppRoutes.adminWarehouses,
             push: true,
           ),
       ],

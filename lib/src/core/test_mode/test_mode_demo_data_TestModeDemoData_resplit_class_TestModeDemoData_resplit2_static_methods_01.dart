@@ -20,6 +20,46 @@ List<AdminWarehouseStockItem>
   return TestModeDemoData._page(filtered, limit: limit, offset: offset);
 }
 
+List<AdminWarehouseStockRoll>
+    _TestModeDemoData_warehouseItemRolls_resplit2AstPart({
+  required String warehouse,
+  required String itemCode,
+  int limit = 500,
+  int offset = 0,
+}) {
+  final item = TestModeDemoData.warehouseStockItems
+      .cast<AdminWarehouseStockItem?>()
+      .firstWhere(
+        (candidate) =>
+            candidate!.warehouse.trim().toLowerCase() ==
+                warehouse.trim().toLowerCase() &&
+            candidate.code.trim().toLowerCase() ==
+                itemCode.trim().toLowerCase(),
+        orElse: () => null,
+      );
+  if (item == null) {
+    return const <AdminWarehouseStockRoll>[];
+  }
+  final count = item.packageCount > 0 ? item.packageCount : 1;
+  final rolls = List<AdminWarehouseStockRoll>.generate(
+    count,
+    (index) => AdminWarehouseStockRoll(
+      stockId: 'demo-roll:${item.code}:$index',
+      warehouse: item.warehouse,
+      itemCode: item.code,
+      orderId: 'demo-order-${index + 1}',
+      paddonCode: 'DEMO-${(index + 1).toString().padLeft(5, '0')}',
+      progressBatchId: 'demo-batch:${item.code}:$index',
+      barcode: 'DEMO-ROLL-${(index + 1).toString().padLeft(4, '0')}',
+      qty: item.onHandQty / count,
+      uom: item.uom,
+      acceptedByDisplayName: 'Demo Werka',
+      acceptedAtUnix: 0,
+    ),
+  );
+  return TestModeDemoData._page(rolls, limit: limit, offset: offset);
+}
+
 List<SupplierItem> _TestModeDemoData_itemPage_resplit2AstPart({
   String query = '',
   String group = '',

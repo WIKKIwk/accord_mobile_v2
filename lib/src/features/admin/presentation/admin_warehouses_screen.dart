@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/print_service.dart';
@@ -19,6 +20,7 @@ import '../../material_taminotchi/presentation/widgets/material_taminotchi_navig
 import '../../material_taminotchi/presentation/widgets/material_state_locations_tab.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/models/inventory_movement_models.dart';
+import '../../werka/presentation/widgets/werka_navigation_drawer.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../logic/canonical_apparatus_display.dart';
 import '../state/admin_warehouse_filter_store.dart';

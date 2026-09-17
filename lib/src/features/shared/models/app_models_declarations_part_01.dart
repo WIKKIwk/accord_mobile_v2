@@ -279,6 +279,7 @@ class AdminWarehouseStockItem {
     required this.name,
     required this.uom,
     required this.warehouse,
+    this.orderId = '',
     required this.onHandQty,
     required this.packageCount,
     this.itemGroup = '',
@@ -288,6 +289,7 @@ class AdminWarehouseStockItem {
   final String name;
   final String uom;
   final String warehouse;
+  final String orderId;
   final String itemGroup;
   final double onHandQty;
   final int packageCount;
@@ -298,9 +300,54 @@ class AdminWarehouseStockItem {
       name: json['name'] as String? ?? '',
       uom: json['uom'] as String? ?? '',
       warehouse: json['warehouse'] as String? ?? '',
+      orderId: json['order_id'] as String? ?? '',
       itemGroup: json['item_group'] as String? ?? '',
       onHandQty: (json['on_hand_qty'] as num?)?.toDouble() ?? 0,
       packageCount: (json['package_count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class AdminWarehouseStockRoll {
+  const AdminWarehouseStockRoll({
+    required this.stockId,
+    required this.warehouse,
+    required this.itemCode,
+    required this.orderId,
+    required this.paddonCode,
+    required this.progressBatchId,
+    required this.barcode,
+    required this.qty,
+    required this.uom,
+    required this.acceptedByDisplayName,
+    required this.acceptedAtUnix,
+  });
+
+  final String stockId;
+  final String warehouse;
+  final String itemCode;
+  final String orderId;
+  final String paddonCode;
+  final String progressBatchId;
+  final String barcode;
+  final double qty;
+  final String uom;
+  final String acceptedByDisplayName;
+  final int acceptedAtUnix;
+
+  factory AdminWarehouseStockRoll.fromJson(Map<String, dynamic> json) {
+    return AdminWarehouseStockRoll(
+      stockId: json['stock_id'] as String? ?? '',
+      warehouse: json['warehouse'] as String? ?? '',
+      itemCode: json['item_code'] as String? ?? '',
+      orderId: json['order_id'] as String? ?? '',
+      paddonCode: json['paddon_code'] as String? ?? '',
+      progressBatchId: json['progress_batch_id'] as String? ?? '',
+      barcode: json['barcode'] as String? ?? '',
+      qty: (json['qty'] as num?)?.toDouble() ?? 0,
+      uom: json['uom'] as String? ?? '',
+      acceptedByDisplayName: json['accepted_by_display_name'] as String? ?? '',
+      acceptedAtUnix: (json['accepted_at_unix'] as num?)?.toInt() ?? 0,
     );
   }
 }

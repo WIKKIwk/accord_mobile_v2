@@ -148,6 +148,36 @@ const _admin_localization_adminTranslations_resplitPart16 = {
     'en': 'Packages',
     'ru': 'Упаковки',
   },
+  'admin.warehouse.rolls': {
+    'uz': 'Rulonlar',
+    'en': 'Rolls',
+    'ru': 'Рулоны',
+  },
+  'admin.warehouse.no_rolls': {
+    'uz': 'Bu order bo‘yicha qabul qilingan rulonlar topilmadi',
+    'en': 'No received rolls were found for this order',
+    'ru': 'Для этого заказа принятые рулоны не найдены',
+  },
+  'admin.warehouse.rolls_load_failed': {
+    'uz': 'Rulonlar ro‘yxati yuklanmadi',
+    'en': 'Could not load the roll list',
+    'ru': 'Не удалось загрузить список рулонов',
+  },
+  'admin.warehouse.paddon': {
+    'uz': 'Paddon',
+    'en': 'Paddon',
+    'ru': 'Паддон',
+  },
+  'admin.warehouse.progress_batch': {
+    'uz': 'Partiya',
+    'en': 'Batch',
+    'ru': 'Партия',
+  },
+  'admin.warehouse.accepted_by': {
+    'uz': 'Qabul qilgan',
+    'en': 'Accepted by',
+    'ru': 'Принял',
+  },
   'admin.warehouse.unselected': {
     'uz': 'Tanlanmagan',
     'en': 'Not selected',

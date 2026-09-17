@@ -22,8 +22,13 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
   final GlobalKey<MaterialStateLocationsTabState> _materialStateLocationsKey =
       GlobalKey<MaterialStateLocationsTabState>();
 
-  bool get _materialScoped =>
-      AppSession.instance.profile?.role == UserRole.materialTaminotchi;
+  UserRole? get _profileRole => AppSession.instance.profile?.role;
+
+  bool get _materialScoped => _profileRole == UserRole.materialTaminotchi;
+
+  bool get _werkaScoped => _profileRole == UserRole.werka;
+
+  bool get _warehouseScoped => _materialScoped || _werkaScoped;
 
   bool get _adminScoped => AppSession.instance.profile?.role == UserRole.admin;
 
@@ -60,13 +65,19 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
               selectedRouteName: AppRoutes.adminWarehouses,
               onNavigate: _openDrawerRoute,
             )
-          : AdminNavigationDrawer(
-              selectedIndex: 0,
-              selectedRouteName: AppRoutes.adminWarehouses,
-              onNavigate: _openDrawerRoute,
-            ),
-      title: materialScoped
-          ? context.l10n.adminText('warehouse.my_locations')
+          : _werkaScoped
+              ? WerkaNavigationDrawer(
+                  selectedIndex: 0,
+                  selectedRouteName: AppRoutes.adminWarehouses,
+                  onNavigate: _openDrawerRoute,
+                )
+              : AdminNavigationDrawer(
+                  selectedIndex: 0,
+                  selectedRouteName: AppRoutes.adminWarehouses,
+                  onNavigate: _openDrawerRoute,
+                ),
+      title: materialScoped || _werkaScoped
+          ? context.l10n.adminText('warehouse.my_warehouse')
           : context.l10n.adminText('label.warehouse'),
       subtitle: '',
       nativeTopBar: true,
@@ -77,7 +88,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
       titleWidget: AdminCatalogSearchField(
         controller: _materialItemsSearchController,
         focusNode: _materialItemsSearchFocusNode,
-        hintText: materialScoped
+        hintText: materialScoped || _werkaScoped
             ? context.l10n.adminText('warehouse.location_products_search')
             : context.l10n.adminText('warehouse.products_search'),
         onChanged: (value) {
@@ -94,16 +105,18 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
       ),
       bottom: materialScoped
           ? const MaterialTaminotchiDock()
-          : AdminDock(
-              activeTab: AdminDockTab.settings,
-              primaryFabActions: [
-                AdminFabMenuAction(
-                  title: context.l10n.adminText('warehouse.create'),
-                  icon: Icons.warehouse_outlined,
-                  onTap: _openWarehouseCreateDialog,
+          : _werkaScoped
+              ? null
+              : AdminDock(
+                  activeTab: AdminDockTab.settings,
+                  primaryFabActions: [
+                    AdminFabMenuAction(
+                      title: context.l10n.adminText('warehouse.create'),
+                      icon: Icons.warehouse_outlined,
+                      onTap: _openWarehouseCreateDialog,
+                    ),
+                  ],
                 ),
-              ],
-            ),
       contentPadding: EdgeInsets.zero,
       child: FutureBuilder<_WarehouseSummaryData>(
         future: _future,
@@ -116,7 +129,8 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
             return AppRetryState(onRetry: _reload);
           }
           final data = snapshot.data ?? _WarehouseSummaryData.empty;
-          final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
+          final bottomPadding = MediaQuery.viewPaddingOf(context).bottom +
+              (materialScoped || _adminScoped ? 128 : 24);
           final productsTab = _WarehouseDetailsTab(
             key: _warehouseDetailsKey,
             summaries: data.sections,
@@ -169,6 +183,9 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
                 ),
               ],
             );
+          }
+          if (_werkaScoped) {
+            return productsTab;
           }
           return Column(
             children: [
