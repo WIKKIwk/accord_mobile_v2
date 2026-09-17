@@ -973,7 +973,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final uiState = _detailUiState;
     final preflight = uiState.printPreflight;
     if (uiState.showPrintPreflightHold) {
-      unawaited(_runPrintPreflight('hold'));
+      unawaited(_startPrintPreflightImmediately());
     } else if (uiState.showPrintPreflightStart) {
       unawaited(_runPrintPreflight('start'));
     } else if (preflight?.isPassed == true) {
@@ -983,32 +983,43 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
-  Future<void> _runPrintPreflight(String action) async {
+  Future<void> _startPrintPreflightImmediately() async {
+    final hold = await _runPrintPreflight('hold');
+    if (!mounted || hold?.isHeld != true) return;
+    await _runPrintPreflight('start', holdId: hold!.holdId);
+  }
+
+  Future<AdminPrintPreflightHold?> _runPrintPreflight(
+    String action, {
+    String holdId = '',
+  }) async {
     final apparatus = widget.apparatus?.id.trim() ?? '';
     final orderId = widget.order.map.id.trim();
     final currentHold = _queueActionControl?.printPreflight;
-    if (apparatus.isEmpty || orderId.isEmpty || _actionInFlight) return;
+    if (apparatus.isEmpty || orderId.isEmpty || _actionInFlight) return null;
     final stamp = DateTime.now().microsecondsSinceEpoch;
-    final holdId = action == 'hold'
+    final requestHoldId = action == 'hold'
         ? 'print-preflight:$orderId:$apparatus:$stamp'
-        : currentHold?.holdId ?? '';
-    final idempotencyKey = action == 'hold' ? holdId : '';
+        : holdId.trim().isNotEmpty
+            ? holdId.trim()
+            : currentHold?.holdId ?? '';
+    final idempotencyKey = action == 'hold' ? requestHoldId : '';
     setState(() {
       _actionControlGeneration++;
       _actionInFlight = true;
       _lastQueueActionPrintFailed = false;
     });
     try {
-      await MobileApi.instance
+      final response = await MobileApi.instance
           .adminPrintPreflight(
             apparatus: apparatus,
             orderId: orderId,
             action: action,
-            holdId: holdId,
+            holdId: requestHoldId,
             idempotencyKey: idempotencyKey,
           )
           .timeout(_queueActionUiTimeout);
-      if (!mounted) return;
+      if (!mounted) return null;
       setState(() => _actionInFlight = false);
       await _refreshQueueActionControlAfterWrite();
       if (action == 'passed' && mounted) {
@@ -1022,11 +1033,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           _showSheetNotice(context.l10n.productionText('worker.error.sync'));
         }
       }
+      return response.hold;
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted) return null;
       setState(() => _actionInFlight = false);
       unawaited(_refreshQueueActionControlAfterWrite());
       _showSheetNotice(_readOnlyQueueActionErrorText(error, context.l10n));
+      return null;
     }
   }
 
