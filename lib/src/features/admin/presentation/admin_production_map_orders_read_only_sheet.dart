@@ -259,7 +259,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   ({bool visible, bool materialIntake, bool merge}) _quickScanTasks(
     _ReadOnlyOrderDetailUiState uiState,
   ) {
-    final startMaterialScanPending = uiState.showStart &&
+    // Print preflight only holds/runs the order; it does not use a QR scan.
+    // Keep the live scanner unmounted for the whole preflight lifecycle.
+    final printPreflightActive = uiState.showPrintPreflightHold ||
+        uiState.printPreflight?.isActive == true;
+    final startMaterialScanPending = !printPreflightActive &&
+        uiState.showStart &&
         uiState.showStartMaterials &&
         !_materialsLoading &&
         _materialsError.isEmpty &&
@@ -272,13 +277,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             ) ==
             null &&
         uiState.materialRequiredCount > uiState.materialScannedCount;
-    final qolipScanPending = uiState.showStart &&
+    final qolipScanPending = !printPreflightActive &&
+        uiState.showStart &&
         uiState.qolipScanRequired &&
         !_qolipRequirementsLoading &&
         _qolipRequirementsError.isEmpty &&
         _requiredQolips.isNotEmpty &&
         !_allRequiredQolipsScanned;
-    final inputWipScanPending = uiState.showStart &&
+    final inputWipScanPending = !printPreflightActive &&
+        uiState.showStart &&
         uiState.previousProgressRequired &&
         !uiState.previousProgressReady &&
         !_inputProgressLoading &&
