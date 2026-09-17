@@ -42,6 +42,30 @@ extension MobileApiAdminTelegram on MobileApi {
     );
   }
 
+  Future<TelegramAdminOverview> updateTelegramUserbotSettings({
+    required int apiId,
+    String apiHash = '',
+  }) async {
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse(
+            '${MobileApi.baseUrl}/v1/mobile/admin/telegram/userbot-settings'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'api_id': apiId,
+          'api_hash': apiHash.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Telegram userbot settings update failed');
+    }
+    return TelegramAdminOverview.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<TelegramInvite> createTelegramInvite(TelegramInviteRole role) async {
     final response = await _sendAuthorized(
       () => _post(

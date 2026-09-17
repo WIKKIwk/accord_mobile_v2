@@ -470,6 +470,66 @@ extension AppLocalizationsAstPartResplit2_02 on AppLocalizations {
         'Бот не настроен',
       );
 
+  String get adminTelegramUserbotSettingsTitle => _t(
+        'Userbot sozlamalari',
+        'Userbot settings',
+        'Настройки юзербота',
+      );
+
+  String get adminTelegramUserbotSettingsSubtitle => _t(
+        'my.telegram.org/apps dan olingan App api_id va App api_hashni kiriting. Hash serverda himoyalangan holda saqlanadi.',
+        'Enter the App api_id and App api_hash from my.telegram.org/apps. The hash is stored securely on the server.',
+        'Введите App api_id и App api_hash с my.telegram.org/apps. Hash хранится на сервере в защищённом виде.',
+      );
+
+  String get adminTelegramUserbotApiIdLabel => _t(
+        'App api_id',
+        'App api_id',
+        'App api_id',
+      );
+
+  String get adminTelegramUserbotApiHashLabel => _t(
+        'App api_hash',
+        'App api_hash',
+        'App api_hash',
+      );
+
+  String get adminTelegramUserbotApiHashKeepHint => _t(
+        'Bo‘sh qoldirsangiz, mavjud hash saqlanadi',
+        'Leave empty to keep the current hash',
+        'Оставьте пустым, чтобы сохранить текущий hash',
+      );
+
+  String get adminTelegramSaveUserbotSettings => _t(
+        'Userbotni saqlash',
+        'Save userbot',
+        'Сохранить юзербота',
+      );
+
+  String get adminTelegramUserbotNotConfigured => _t(
+        'Userbot API sozlanmagan',
+        'Userbot API is not configured',
+        'API юзербота не настроен',
+      );
+
+  String get adminTelegramUserbotApiIdInvalid => _t(
+        'API ID musbat raqam bo‘lishi kerak',
+        'API ID must be a positive number',
+        'API ID должен быть положительным числом',
+      );
+
+  String get adminTelegramUserbotApiHashRequired => _t(
+        'API Hashni kiriting',
+        'Enter the API hash',
+        'Введите API hash',
+      );
+
+  String get adminTelegramUserbotApiHashInvalid => _t(
+        'API Hash 32 ta hex belgidan iborat bo‘lishi kerak',
+        'API hash must contain 32 hexadecimal characters',
+        'API hash должен содержать 32 шестнадцатеричных символа',
+      );
+
   String get adminTelegramInviteRolesTitle => _t(
         'Taklif yuborish',
         'Send an invite',

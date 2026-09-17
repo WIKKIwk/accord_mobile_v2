@@ -51,6 +51,25 @@ class TelegramBotSettings {
   }
 }
 
+class TelegramUserbotSettings {
+  const TelegramUserbotSettings({
+    required this.apiId,
+    required this.apiHashConfigured,
+  });
+
+  final int? apiId;
+  final bool apiHashConfigured;
+
+  bool get configured => apiId != null && apiHashConfigured;
+
+  factory TelegramUserbotSettings.fromJson(Map<String, dynamic> json) {
+    return TelegramUserbotSettings(
+      apiId: (json['api_id'] as num?)?.toInt(),
+      apiHashConfigured: json['api_hash_configured'] as bool? ?? false,
+    );
+  }
+}
+
 class TelegramUserAccount {
   const TelegramUserAccount({
     required this.telegramUserId,
@@ -135,11 +154,13 @@ class TelegramChat {
 class TelegramAdminOverview {
   const TelegramAdminOverview({
     required this.bot,
+    required this.userbot,
     required this.users,
     required this.chats,
   });
 
   final TelegramBotSettings bot;
+  final TelegramUserbotSettings userbot;
   final List<TelegramUserAccount> users;
   final List<TelegramChat> chats;
 
@@ -148,6 +169,10 @@ class TelegramAdminOverview {
     return TelegramAdminOverview(
       bot: TelegramBotSettings.fromJson(
         (json['bot'] as Map<dynamic, dynamic>? ?? const {})
+            .cast<String, dynamic>(),
+      ),
+      userbot: TelegramUserbotSettings.fromJson(
+        (json['userbot'] as Map<dynamic, dynamic>? ?? const {})
             .cast<String, dynamic>(),
       ),
       users: rawUsers is List

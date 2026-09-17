@@ -111,6 +111,46 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
     }
   }
 
+  Future<void> _openUserbotSettings(TelegramAdminOverview data) async {
+    final input = await showModalBottomSheet<TelegramUserbotSettingsInput>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => TelegramUserbotSettingsSheet(
+        initial: data.userbot,
+      ),
+    );
+    if (input == null || !mounted) {
+      return;
+    }
+    try {
+      final updated = await MobileApi.instance.updateTelegramUserbotSettings(
+        apiId: input.apiId,
+        apiHash: input.apiHash,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _future = Future<TelegramAdminOverview>.value(updated);
+      });
+      showAdminTopNotice(
+        context,
+        context.l10n.adminTelegramSettingsSaved,
+        icon: Icons.verified_rounded,
+      );
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          context.l10n.adminTelegramSettingsSaveFailed,
+          icon: Icons.error_outline_rounded,
+        );
+      }
+    }
+  }
+
   Future<void> _shareInvite(TelegramInviteRole role) async {
     try {
       final invite = await MobileApi.instance.createTelegramInvite(role);
@@ -193,6 +233,11 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
               _TelegramBotSettingsCard(
                 settings: data.bot,
                 onTap: () => _openBotSettings(data),
+              ),
+              const SizedBox(height: 8),
+              _TelegramUserbotSettingsCard(
+                settings: data.userbot,
+                onTap: () => _openUserbotSettings(data),
               ),
               const SizedBox(height: 8),
               _TelegramGroupsCard(chats: data.chats),
@@ -303,6 +348,70 @@ class _TelegramBotSettingsCard extends StatelessWidget {
                     style: theme.textTheme.bodySmall?.copyWith(
                       color:
                           configured ? scheme.primary : scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: scheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TelegramUserbotSettingsCard extends StatelessWidget {
+  const _TelegramUserbotSettingsCard({
+    required this.settings,
+    required this.onTap,
+  });
+
+  final TelegramUserbotSettings settings;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return M3SegmentFilledSurface(
+      slot: M3SegmentVerticalSlot.middle,
+      cornerRadius: M3SegmentedListGeometry.cornerLarge,
+      backgroundColor: scheme.surfaceContainerLowest,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: scheme.tertiaryContainer,
+              foregroundColor: scheme.onTertiaryContainer,
+              child: const Icon(Icons.person_outline_rounded),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.adminTelegramUserbotSettingsTitle,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    settings.configured
+                        ? 'API ID: ${settings.apiId}'
+                        : context.l10n.adminTelegramUserbotNotConfigured,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: settings.configured
+                          ? scheme.tertiary
+                          : scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

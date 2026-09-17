@@ -8,6 +8,10 @@ const _test_mode_demo_data_TestModeDemoData_resplit_class_TestModeDemoData_teleg
     tokenConfigured: true,
     tokenHint: '••••1234',
   ),
+  userbot: TelegramUserbotSettings(
+    apiId: null,
+    apiHashConfigured: false,
+  ),
   users: [
     TelegramUserAccount(
       telegramUserId: 'demo-telegram-1001',
