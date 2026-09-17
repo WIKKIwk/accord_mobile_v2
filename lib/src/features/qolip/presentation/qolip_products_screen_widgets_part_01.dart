@@ -180,18 +180,6 @@ class _QolipProductContainerCard extends StatelessWidget {
       child: Stack(
         fit: StackFit.passthrough,
         children: [
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: kAdminOrderCoverWidth,
-            child: AdminOrderCoverThumb(
-              imageUrl: imageUrl,
-              displayName:
-                  container.name.isEmpty ? container.code : container.name,
-              heroTag: 'qolip-order-image-${container.key}',
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.only(left: kAdminOrderCoverWidth),
             child: Column(
@@ -321,6 +309,20 @@ class _QolipProductContainerCard extends StatelessWidget {
                       : const SizedBox.shrink(),
                 ),
               ],
+            ),
+          ),
+          // Keep the cover on top so its long-press preview wins over the
+          // container-selection InkWell underneath it.
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: kAdminOrderCoverWidth,
+            child: AdminOrderCoverThumb(
+              imageUrl: imageUrl,
+              displayName:
+                  container.name.isEmpty ? container.code : container.name,
+              heroTag: 'qolip-order-image-${container.key}',
             ),
           ),
         ],
