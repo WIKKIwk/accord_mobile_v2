@@ -21,6 +21,31 @@ void _registeradmin_calculate_screen_testCases01() {
     expect(templateMap.map.orderNumber, isEmpty);
   });
 
+  test('test mode auto opens a new production-map order', () async {
+    await TestModeController.instance.setEnabled(true);
+    resetMobileApiTestModeData();
+
+    final result = await MobileApi.instance.adminAutoOpenProductionMap(
+      template: _template(itemCode: 'ITEM-1').copyWith(
+        status: 'Rulon',
+        kg: 120,
+        productionOptions: const CalculateOrderProductionOptions(
+          printMethod: 'metal',
+          coldGlue: false,
+        ),
+      ),
+    );
+
+    expect(result.saved.map.id, 'zakaz-0001');
+    expect(result.saved.map.orderNumber, '0001');
+    expect(result.template?.sourceMapId, 'template-zakaz-0001');
+    expect(result.saved.map.nodes.map((node) => node.id), [
+      'start',
+      'auto_order',
+      'end',
+    ]);
+  });
+
   test(
     'test mode snapshots the template frame count on a new rezka order',
     () async {

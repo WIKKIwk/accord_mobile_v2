@@ -82,6 +82,16 @@ const _admin_localization_adminTranslations_resplitPart04 = {
     'en': 'Attach map',
     'ru': 'Привязать карту',
   },
+  'admin.calculate.auto_open': {
+    'uz': 'Avtomatik ochish',
+    'en': 'Open automatically',
+    'ru': 'Открыть автоматически',
+  },
+  'admin.calculate.auto_opening': {
+    'uz': 'Avtomatik ochilmoqda...',
+    'en': 'Opening automatically...',
+    'ru': 'Автоматическое открытие...',
+  },
   'admin.roles.select_role': {
     'uz': 'Role tanlang',
     'en': 'Select a role',

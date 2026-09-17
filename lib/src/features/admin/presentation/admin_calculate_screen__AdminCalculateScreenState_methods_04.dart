@@ -7,9 +7,13 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
     return [
       const SizedBox(height: 22),
       SpringPressable(
-        enabled: !_calculating && !_savingOpenedOrder,
+        enabled:
+            !_calculating && !_savingOpenedOrder && !_openingAutomaticOrder,
         child: FilledButton.icon(
-          onPressed: _calculating || _savingOpenedOrder ? null : _calculate,
+          onPressed:
+              _calculating || _savingOpenedOrder || _openingAutomaticOrder
+                  ? null
+                  : _calculate,
           icon: const Icon(Icons.calculate_outlined),
           label: Text(
             _calculating
@@ -94,7 +98,7 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
           const SizedBox(height: 18),
           SpringPressable(
             child: FilledButton.icon(
-              onPressed: _openProductionMap,
+              onPressed: _openingAutomaticOrder ? null : _openProductionMap,
               icon: const Icon(Icons.account_tree_outlined),
               label: Text(l10n.adminText('calculate.map_attach')),
               style: FilledButton.styleFrom(
@@ -103,6 +107,24 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
                   borderRadius: BorderRadius.circular(30),
                 ),
               ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed:
+                _openingAutomaticOrder ? null : _openAutomaticProductionMap,
+            icon: Icon(
+              _openingAutomaticOrder
+                  ? Icons.hourglass_top_rounded
+                  : Icons.auto_awesome_outlined,
+            ),
+            label: Text(
+              _openingAutomaticOrder
+                  ? l10n.adminText('calculate.auto_opening')
+                  : l10n.adminText('calculate.auto_open'),
+            ),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
             ),
           ),
         ],

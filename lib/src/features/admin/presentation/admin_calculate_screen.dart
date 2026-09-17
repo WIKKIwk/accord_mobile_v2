@@ -70,6 +70,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   int _productCustomerGeneration = 0;
   bool _calculating = false;
   bool _openingSavedOrder = false;
+  bool _openingAutomaticOrder = false;
   bool _savingOpenedOrder = false;
   bool _openingTrainingOrder = false;
   bool _uploadingImage = false;

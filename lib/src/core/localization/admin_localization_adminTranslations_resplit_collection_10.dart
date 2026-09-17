@@ -97,6 +97,11 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'en': 'Could not open the order',
     'ru': 'Не удалось открыть заказ',
   },
+  'admin.calculate.auto_open_failed': {
+    'uz': 'Zakazni avtomatik ochib bo‘lmadi',
+    'en': 'Could not open the order automatically',
+    'ru': 'Не удалось автоматически открыть заказ',
+  },
   'admin.calculate.training_order_open_hint': {
     'uz': 'Training orderni aparat ichidan oching',
     'en': 'Open the training order from the machine screen',

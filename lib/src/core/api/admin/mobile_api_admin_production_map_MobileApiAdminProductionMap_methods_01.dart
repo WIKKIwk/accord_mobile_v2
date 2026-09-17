@@ -322,6 +322,82 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
     );
   }
 
+  Future<ProductionMapSaveWithOrderResult> adminAutoOpenProductionMap({
+    required CalculateOrderTemplate template,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final map = ProductionMapDefinition(
+        id: 'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}',
+        productCode: template.itemCode.trim().isEmpty
+            ? template.product.trim()
+            : template.itemCode.trim(),
+        title: template.product.trim(),
+        customerName: template.customer.trim(),
+        imageId: template.imageId.trim(),
+        rollCount: template.rollCount,
+        widthMm: template.widthMm,
+        printValSizeMm: template.printValSizeMm,
+        orderKg: template.kg,
+        nodes: const [
+          ProductionMapNode(
+            id: 'start',
+            kind: 'start',
+            title: 'Start',
+            x: 420,
+            y: 32,
+          ),
+          ProductionMapNode(
+            id: 'auto_order',
+            kind: 'task',
+            title: 'Automatic order',
+            roleCode: 'zakaz',
+            x: 420,
+            y: 196,
+          ),
+          ProductionMapNode(
+            id: 'end',
+            kind: 'end',
+            title: 'End',
+            x: 420,
+            y: 360,
+          ),
+        ],
+        edges: const [
+          ProductionMapEdge(from: 'start', to: 'auto_order'),
+          ProductionMapEdge(from: 'auto_order', to: 'end'),
+        ],
+      );
+      return adminSaveProductionMapWithOrder(map: map, template: template);
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/auto-open',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'template': template.toJson()}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'production_map_auto_open',
+      );
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return ProductionMapSaveWithOrderResult(
+      saved: ProductionMapSaved.fromJson(
+        (payload['saved'] as Map).cast<String, dynamic>(),
+      ),
+      template: payload['template'] is Map
+          ? CalculateOrderTemplate.fromJson(
+              (payload['template'] as Map).cast<String, dynamic>(),
+            )
+          : null,
+    );
+  }
+
   Future<List<ProductionMapSaved>> adminMoveProductionMapOrdersBatch({
     required List<String> mapIds,
     required String fromApparatus,

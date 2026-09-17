@@ -105,6 +105,66 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     }
   }
 
+  Future<void> _openAutomaticProductionMap() async {
+    if (_openingAutomaticOrder ||
+        _openingSavedOrder ||
+        widget.openedOrder != null ||
+        widget.pendingOrderId.isNotEmpty ||
+        widget.trainingMode) {
+      return;
+    }
+    if (!_hasFreshCalculation) {
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('calculate.calculate_first'),
+      );
+      return;
+    }
+    final error = _templateValidationError();
+    if (error != null) {
+      showAdminTopNotice(context, error);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() => _openingAutomaticOrder = true);
+    try {
+      final result = await MobileApi.instance.adminAutoOpenProductionMap(
+        template: _buildTemplateDraft(),
+      );
+      if (!mounted) {
+        return;
+      }
+      final savedTemplate = result.template;
+      if (savedTemplate != null) {
+        CalculateOrderTemplateStore.instance.remember(savedTemplate);
+      }
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText(
+          'calculate.order_opened',
+          values: {'order': result.saved.map.orderNumber},
+        ),
+        icon: Icons.check_circle_outline,
+      );
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : context.l10n.adminText('calculate.auto_open_failed'),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _openingAutomaticOrder = false);
+      }
+    }
+  }
+
   Future<void> _openTrainingOrder() async {
     if (_openingTrainingOrder || !widget.trainingMode) {
       return;
