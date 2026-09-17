@@ -112,7 +112,7 @@ export class FrameBudget {
   }
 }
 
-const COLORS = { in_progress: '#278263', paused: '#b37b22', frozen: '#925f84',
+const COLORS = { print_preflight: '#7e86a8', in_progress: '#278263', paused: '#b37b22', frozen: '#925f84',
   pending: '#597ba3', idle: '#77827d', unknown: '#8b8984' };
 
 export function createFactoryLive({ host, root, camera, canvas, getBox, onSelect, requestRender }) {

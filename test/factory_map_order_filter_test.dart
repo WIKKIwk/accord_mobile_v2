@@ -2,9 +2,10 @@ import 'package:accord_mobile_v2/src/features/admin/logic/factory_map_order_filt
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  const orderIds = ['active', 'paused', 'finished', 'queued'];
+  const orderIds = ['active', 'colour', 'paused', 'finished', 'queued'];
   const states = {
     'active': 'in_progress',
+    'colour': 'print_preflight',
     'paused': 'paused',
     'finished': 'completed',
   };
@@ -16,7 +17,7 @@ void main() {
         states: states,
         filter: FactoryMapOrderFilter.inProgress,
       ),
-      ['active', 'paused'],
+      ['active', 'colour', 'paused'],
     );
   });
 

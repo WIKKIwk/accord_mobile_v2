@@ -244,11 +244,13 @@ class _FactoryApparatusLiveSheetState
                   decoration: BoxDecoration(
                     color: !widget.live.fresh
                         ? Colors.grey
-                        : states.values.contains('in_progress')
-                            ? const Color(0xFF278263)
-                            : states.values.contains('paused')
-                                ? const Color(0xFFB37B22)
-                                : Colors.blueGrey,
+                        : states.values.contains('print_preflight')
+                            ? const Color(0xFF7E86A8)
+                            : states.values.contains('in_progress')
+                                ? const Color(0xFF278263)
+                                : states.values.contains('paused')
+                                    ? const Color(0xFFB37B22)
+                                    : Colors.blueGrey,
                     shape: BoxShape.circle,
                   ),
                 ),

@@ -33,7 +33,7 @@ void main() {
     await flush();
     expect(row(live)['state'], 'in_progress');
     expect(row(live)['orderId'], 'current-order');
-    for (final state in ['paused', 'frozen', 'pending']) {
+    for (final state in ['print_preflight', 'paused', 'frozen', 'pending']) {
       states = {'order': state};
       await live.refresh();
       expect(row(live)['state'], state);

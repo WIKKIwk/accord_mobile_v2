@@ -30,7 +30,8 @@ bool factoryMapOrderMatchesFilter({
   final state = apparatusQueueOrderStateFromRaw(states[orderId.trim()]);
   return switch (filter) {
     FactoryMapOrderFilter.inProgress =>
-      state == ApparatusQueueOrderState.inProgress ||
+      state == ApparatusQueueOrderState.printPreflight ||
+          state == ApparatusQueueOrderState.inProgress ||
           state == ApparatusQueueOrderState.paused,
     FactoryMapOrderFilter.completed =>
       state == ApparatusQueueOrderState.completed,

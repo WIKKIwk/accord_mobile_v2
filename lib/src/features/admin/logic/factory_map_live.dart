@@ -119,6 +119,7 @@ class FactoryMapLive extends ChangeNotifier {
       String state = fresh ? 'idle' : 'unknown';
       String orderId = '';
       for (final candidate in const [
+        'print_preflight',
         'in_progress',
         'paused',
         'frozen',

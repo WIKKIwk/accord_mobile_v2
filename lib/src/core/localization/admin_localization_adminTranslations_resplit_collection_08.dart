@@ -370,6 +370,9 @@ const _admin_localization_adminTranslations_resplitPart08 = {
   'admin.factory_map.live.in_progress': {
     'uz': 'Ishlayapti', 'en': 'Running', 'ru': 'Работает',
   },
+  'admin.factory_map.live.print_preflight': {
+    'uz': 'Rang chiqaryapti', 'en': 'Colour matching', 'ru': 'Подбор цвета',
+  },
   'admin.factory_map.live.paused': {
     'uz': 'Pauzada', 'en': 'Paused', 'ru': 'На паузе',
   },
