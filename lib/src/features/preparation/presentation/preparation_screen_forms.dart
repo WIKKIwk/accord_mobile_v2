@@ -1147,7 +1147,7 @@ class _PreparationOrdersScreenState extends State<PreparationOrdersScreen> {
   }
 }
 
-class PreparationHistoryScreen extends StatelessWidget {
+class PreparationHistoryScreen extends StatefulWidget {
   const PreparationHistoryScreen({
     super.key,
     required this.history,
@@ -1156,6 +1156,132 @@ class PreparationHistoryScreen extends StatelessWidget {
 
   final List<dynamic> history;
   final Future<void> Function() onReload;
+
+  @override
+  State<PreparationHistoryScreen> createState() =>
+      _PreparationHistoryScreenState();
+}
+
+class _PreparationHistoryScreenState extends State<PreparationHistoryScreen> {
+  late List<Map<String, dynamic>> _history = [
+    for (final entry in widget.history)
+      if (entry is Map) Map<String, dynamic>.from(entry),
+  ];
+
+  Future<void> _onReceiptLongPress(
+      BuildContext context, Map<String, dynamic> doc) async {
+    final canReverse = doc['can_reverse'] == true;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final scheme = Theme.of(sheetContext).colorScheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: Text('Kirim — ${doc['name'] ?? ''}'),
+                  subtitle: Text(
+                    '${doc['warehouse'] ?? ''} • ${preparationDisplay(doc['kg']?.toString() ?? '0')} kg',
+                  ),
+                  leading: const Icon(Icons.receipt_long_outlined),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  enabled: canReverse,
+                  leading: Icon(
+                    Icons.undo_rounded,
+                    color: canReverse ? scheme.error : scheme.outline,
+                  ),
+                  title: const Text('Kirimni bekor qilish'),
+                  subtitle: Text(
+                    canReverse
+                        ? 'Ishlatilmagan va orderga ulanmagan kirim'
+                        : 'Bu kirim ishlatilgan yoki orderga ulangan',
+                  ),
+                  onTap: canReverse
+                      ? () => Navigator.of(sheetContext).pop('reverse')
+                      : null,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.close_rounded),
+                  title: const Text('Yopish'),
+                  onTap: () => Navigator.of(sheetContext).pop(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (action == 'reverse' && mounted) {
+      await _reverseReceipt(doc);
+    }
+  }
+
+  Future<void> _reverseReceipt(Map<String, dynamic> doc) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => const _PreparationInputDialog(
+        title: 'Kirimni bekor qilish',
+        label: 'Sabab',
+        emptyError: 'Sabab kiriting',
+        maxLength: 500,
+      ),
+    );
+    if (!mounted || reason == null) return;
+    final confirmed = await showM3ConfirmDialog(
+      context: context,
+      title: 'Kirimni bekor qilish',
+      message:
+          '${preparationDisplay(doc['kg']?.toString() ?? '0')} kg kirim bekor qilinsinmi? Bu amal tarixda saqlanadi.',
+      cancelLabel: 'Qaytish',
+      confirmLabel: 'Bekor qilish',
+      destructive: true,
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      final result = await MobileApi.instance.preparationReverseReceipt(
+        receiptId: doc['id']?.toString() ?? '',
+        reason: reason,
+      );
+      if (!mounted) return;
+      final receiptId = doc['id']?.toString();
+      setState(() {
+        _history = [
+          {
+            ...result,
+            'created_at': DateTime.now().toIso8601String(),
+          },
+          for (final entry in _history)
+            if (entry['id']?.toString() == receiptId)
+              {
+                ...entry,
+                'reversed': true,
+                'can_reverse': false,
+              }
+            else
+              entry,
+        ];
+      });
+      await widget.onReload();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Kirim bekor qilindi')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1174,18 +1300,18 @@ class PreparationHistoryScreen extends StatelessWidget {
         IconButton(
           tooltip: 'Yangilash',
           icon: const Icon(Icons.refresh),
-          onPressed: onReload,
+          onPressed: widget.onReload,
         ),
       ],
       child: AppRefreshIndicator(
-        onRefresh: onReload,
+        onRefresh: widget.onReload,
         allowRefreshOnShortContent: true,
         child: ListView(
           physics: const TopRefreshScrollPhysics(),
           padding: EdgeInsets.only(bottom: bottomPadding),
           children: [
             const SizedBox(height: _adminHomePanelCardGap),
-            if (history.isEmpty)
+            if (_history.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
@@ -1201,11 +1327,11 @@ class PreparationHistoryScreen extends StatelessWidget {
                   horizontal: _adminHomePanelCardGap,
                 ),
                 children: [
-                  for (var i = 0; i < history.length; i++)
+                  for (var i = 0; i < _history.length; i++)
                     _buildHistoryCard(
                       context,
-                      history[i] as Map<String, dynamic>,
-                      _slotFor(i, history.length),
+                      _history[i],
+                      _slotFor(i, _history.length),
                     ),
                 ],
               ),
@@ -1222,26 +1348,46 @@ class PreparationHistoryScreen extends StatelessWidget {
   ) {
     final scheme = Theme.of(context).colorScheme;
     final isReceipt = doc['kind'] == 'receipt';
+    final isReversal = doc['kind'] == 'receipt_reversal';
+    final reversed = doc['reversed'] == true;
+    final title = isReceipt
+        ? 'Kirim — ${doc['name']}'
+        : isReversal
+            ? 'Kirimni bekor qilish — ${doc['name']}'
+            : 'Sarf — ${doc['order_code']} ${doc['order_title']}';
+    final subtitle = isReceipt || isReversal
+        ? '${doc['warehouse']} • ${_formatDateTime(doc['created_at'])}${reversed ? '\nBekor qilingan' : ''}'
+        : '${doc['warehouse']} • ${_formatDateTime(doc['created_at'])}\n${_linesSummary(doc['lines'])}';
+    final value = isReceipt
+        ? '+${preparationDisplay(doc['kg'] as String? ?? '0')} kg'
+        : isReversal
+            ? '-${preparationDisplay(doc['kg'] as String? ?? '0')} kg'
+            : 'Order: ${preparationDisplay(doc['order_kg'] as String? ?? '0')} kg';
 
     return AdminSummaryCard(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       backgroundColor: scheme.surfaceContainerLowest,
-      title: isReceipt
-          ? 'Kirim — ${doc['name']}'
-          : 'Sarf — ${doc['order_code']} ${doc['order_title']}',
-      subtitle: isReceipt
-          ? '${doc['warehouse']} • ${_formatDateTime(doc['created_at'])}'
-          : '${doc['warehouse']} • ${_formatDateTime(doc['created_at'])}\n${_linesSummary(doc['lines'])}',
-      value: isReceipt
-          ? '+${preparationDisplay(doc['kg'] as String? ?? '0')} kg'
-          : 'Order: ${preparationDisplay(doc['order_kg'] as String? ?? '0')} kg',
+      title: title,
+      subtitle: subtitle,
+      value: value,
       leading: Icon(
-        isReceipt
-            ? Icons.check_circle_outline_rounded
-            : Icons.remove_circle_outline_rounded,
-        color: isReceipt ? Colors.green : Colors.orange,
+        isReversal
+            ? Icons.undo_rounded
+            : isReceipt
+                ? (reversed
+                    ? Icons.undo_outlined
+                    : Icons.check_circle_outline_rounded)
+                : Icons.remove_circle_outline_rounded,
+        color: isReversal
+            ? scheme.error
+            : isReceipt
+                ? (reversed ? scheme.outline : Colors.green)
+                : Colors.orange,
       ),
+      onLongPress: isReceipt && !reversed
+          ? () => _onReceiptLongPress(context, doc)
+          : null,
       showChevron: false,
       elevation: 4,
     );
@@ -1250,9 +1396,15 @@ class PreparationHistoryScreen extends StatelessWidget {
 
 class _PreparationInputDialog extends StatefulWidget {
   const _PreparationInputDialog(
-      {required this.title, required this.label, required this.quantity});
+      {required this.title,
+      required this.label,
+      this.quantity = false,
+      this.emptyError = 'Nom kiriting',
+      this.maxLength = 160});
   final String title, label;
   final bool quantity;
+  final String emptyError;
+  final int maxLength;
   @override
   State<_PreparationInputDialog> createState() =>
       _PreparationInputDialogState();
@@ -1309,9 +1461,9 @@ class _PreparationInputDialogState extends State<_PreparationInputDialog> {
                     validator: (text) {
                       if (!widget.quantity) {
                         return (text ?? '').trim().isEmpty
-                            ? 'Nom kiriting'
-                            : (text!.trim().length > 160
-                                ? 'Nom juda uzun'
+                            ? widget.emptyError
+                            : (text!.trim().length > widget.maxLength
+                                ? 'Matn juda uzun'
                                 : null);
                       }
                       try {

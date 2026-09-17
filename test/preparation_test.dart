@@ -140,8 +140,58 @@ void main() {
                   '/v1/mobile/gscale/material-receipt/simple');
               sent = jsonDecode(request.body) as Map<String, dynamic>;
               return http.Response(
-                  jsonEncode({'id': 'receipt-1', 'qr_printed': false}), 200);
+            jsonEncode({'id': 'receipt-1', 'qr_printed': false}), 200);
             }));
+  });
+
+  test('receipt reversal uses its dedicated preparation endpoint', () async {
+    Map<String, dynamic>? sent;
+    await http.runWithClient(() async {
+      final response = await MobileApi.instance.preparationReverseReceipt(
+        receiptId: 'receipt-1',
+        reason: 'Xato miqdor',
+      );
+      expect(response['kind'], 'receipt_reversal');
+      expect(sent?['request_id'], isA<String>());
+      expect(sent?['receipt_id'], 'receipt-1');
+      expect(sent?['reason'], 'Xato miqdor');
+    },
+        () => MockClient((request) async {
+              expect(request.method, 'POST');
+              expect(request.url.path,
+                  '/v1/mobile/preparation/receipt-reversals');
+              sent = jsonDecode(request.body) as Map<String, dynamic>;
+              return http.Response(
+                  jsonEncode({'id': 'reversal-1', 'kind': 'receipt_reversal'}),
+                  200);
+            }));
+  });
+
+  testWidgets('receipt history long press exposes cancellation action',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: PreparationHistoryScreen(
+        history: const [
+          {
+            'id': 'receipt-1',
+            'kind': 'receipt',
+            'warehouse': 'Tayyorlov ombori',
+            'item_code': 'P1',
+            'name': 'Kley',
+            'kg': '12.500000',
+            'created_at': '2026-09-08T10:54:36',
+            'can_reverse': true,
+            'reversed': false,
+          },
+        ],
+        onReload: () async {},
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text('Kirim — Kley'));
+    await tester.pumpAndSettle();
+    expect(find.text('Kirimni bekor qilish'), findsOneWidget);
+    expect(find.text('Ishlatilmagan va orderga ulanmagan kirim'), findsOneWidget);
   });
 
   test('insufficient stock response is displayed and is not left pending',

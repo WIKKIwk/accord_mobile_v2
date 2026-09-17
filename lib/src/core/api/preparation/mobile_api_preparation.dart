@@ -42,13 +42,28 @@ extension MobileApiPreparation on MobileApi {
   /// restart must never turn the same save into a second stock movement.
   Future<Map<String, dynamic>> preparationSubmit(
       String kind, Map<String, dynamic> payload) async {
-    if (!const ['materials', 'receipts', 'consumptions'].contains(kind)) {
+    if (!const ['materials', 'receipts', 'receipt_reversals', 'consumptions']
+        .contains(kind)) {
       throw ArgumentError.value(kind);
     }
     return _submitPreparationCommand(
       kind: kind,
       path: 'preparation/$kind',
       payload: payload,
+    );
+  }
+
+  Future<Map<String, dynamic>> preparationReverseReceipt({
+    required String receiptId,
+    required String reason,
+  }) {
+    return _submitPreparationCommand(
+      kind: 'receipt_reversals',
+      path: 'preparation/receipt-reversals',
+      payload: {
+        'receipt_id': receiptId,
+        'reason': reason,
+      },
     );
   }
 
