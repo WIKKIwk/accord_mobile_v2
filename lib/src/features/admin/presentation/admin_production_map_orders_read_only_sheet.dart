@@ -259,6 +259,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   ({bool visible, bool materialIntake, bool merge}) _quickScanTasks(
     _ReadOnlyOrderDetailUiState uiState,
   ) {
+    if (uiState.showPrintPreflightHold) {
+      return (visible: false, materialIntake: false, merge: false);
+    }
     final startMaterialScanPending = uiState.showStart &&
         uiState.showStartMaterials &&
         !_materialsLoading &&
