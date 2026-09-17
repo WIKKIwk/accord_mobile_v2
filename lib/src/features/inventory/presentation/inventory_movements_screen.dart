@@ -114,9 +114,16 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
       ? _selectedStateAssetCount
       : _selectedAssetKeys.length;
 
-  List<InventoryAsset> get _selectedAssets => _assets
-      .where((asset) => _selectedAssetKeys.contains(_selectionKey(asset)))
-      .toList(growable: false);
+  List<InventoryAsset> get _selectedAssets {
+    final selected = <String, InventoryAsset>{};
+    for (final asset in [..._assets, ..._qrScannedAssets]) {
+      final key = _selectionKey(asset);
+      if (_selectedAssetKeys.contains(key)) {
+        selected[key] = asset;
+      }
+    }
+    return selected.values.toList(growable: false);
+  }
 
   List<InventoryAsset> get _selectedLinkedRawMaterialAssets => _selectedAssets
       .where(

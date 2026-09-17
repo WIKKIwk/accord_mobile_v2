@@ -116,10 +116,19 @@ extension __InventoryMovementsScreenStateAstPart01
   String _selectionKey(InventoryAsset asset) =>
       '${asset.kind.apiValue}:${asset.assetRef.toLowerCase()}';
 
-  bool _canBulkRelocate(InventoryAsset asset) =>
-      asset.isAvailable &&
-      asset.physicalLocation.kind == InventoryLocationKind.warehouse &&
-      asset.custodyWarehouseId == _selectedWarehouseId;
+  bool _canBulkRelocate(InventoryAsset asset, {bool fromQrLookup = false}) {
+    if (!asset.isAvailable ||
+        asset.physicalLocation.kind != InventoryLocationKind.warehouse) {
+      return false;
+    }
+    if (_isAdmin || asset.custodyWarehouseId == _selectedWarehouseId) {
+      return true;
+    }
+    return fromQrLookup &&
+        _assignedWarehouseNames.contains(
+          asset.custodyWarehouse.trim().toLowerCase(),
+        );
+  }
 
   Future<void> _loadAll() async {
     if (mounted) {
@@ -343,6 +352,23 @@ extension __InventoryMovementsScreenStateAstPart01
 
   Future<void> _applyAssetMutations(List<InventoryAsset> mutations) async {
     final stateTab = _materialStateLocationsKey.currentState;
+    final unique = <String, InventoryAsset>{
+      for (final asset in mutations) _selectionKey(asset): asset,
+    };
+    if (unique.isNotEmpty && mounted) {
+      setState(() {
+        final next = List<InventoryAsset>.of(_qrScannedAssets);
+        for (final entry in unique.entries) {
+          final index = next.indexWhere(
+            (asset) => _selectionKey(asset) == entry.key,
+          );
+          if (index >= 0) {
+            next[index] = entry.value;
+          }
+        }
+        _qrScannedAssets = List<InventoryAsset>.unmodifiable(next);
+      });
+    }
     await Future.wait<void>([
       _applyWarehouseAssetMutations(mutations),
       if (stateTab != null) stateTab.applyAssetMutations(mutations),

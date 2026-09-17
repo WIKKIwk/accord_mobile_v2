@@ -65,6 +65,85 @@ void _registerinventory_movements_testCases02({
     expect(find.text('Polipropilen'), findsOneWidget);
   });
 
+  testWidgets('QR search results support long-press selection and relocation', (
+    tester,
+  ) async {
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Materialchi',
+      legalName: '',
+      ref: 'material-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['inventory.movement.manage'],
+      assignedWarehouses: ['Material ombor', 'Qolip ombor'],
+    );
+    seedMobileApiInventoryMovementTestData(
+      locations: [source, destination, factoryState],
+      assets: [asset, otherWarehouseAsset],
+      transfers: [transfer],
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Amallar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('QR orqali izlash'));
+    await tester.pumpAndSettle();
+
+    final scanner = tester.widget<ProductionQuickScannerPanel>(
+      find.byKey(const ValueKey('inventory-qr-search-scanner')),
+    );
+    await scanner.onCodeDetected('30AA');
+    await tester.pumpAndSettle();
+
+    final result = find.byKey(
+      const ValueKey('inventory-qr-search-result-raw:1'),
+    );
+    expect(result, findsOneWidget);
+    await tester.longPress(result);
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 ta tanlandi'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('inventory-selection-relocate')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('inventory-selection-relocate')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Qaysi State’ga ko‘chirasiz?'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey('inventory-location-inventory_location:state:bosma'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ko‘chirish'));
+    await tester.pumpAndSettle();
+
+    final stateAssets = await MobileApi.instance.inventoryAssets(
+      currentUserStatesOnly: true,
+    );
+    expect(stateAssets.single.assetRef, asset.assetRef);
+  });
+
   testWidgets('warehouse filter is restored when movement screen is reopened', (
     tester,
   ) async {

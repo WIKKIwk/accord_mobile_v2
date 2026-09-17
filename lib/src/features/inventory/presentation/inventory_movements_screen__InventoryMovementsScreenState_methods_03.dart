@@ -250,6 +250,12 @@ extension __InventoryMovementsScreenStateAstPart03
                 final selectionKey = _selectionKey(asset);
                 final orderAssignment = _rawMaterialOrderAssignments[
                     rawMaterialAssetBarcode(asset)];
+                final busy = _busyKeys.any(
+                  (item) => item.contains(selectionKey),
+                );
+                final selected = _selectedAssetKeys.contains(selectionKey);
+                final selectable =
+                    _canBulkRelocate(asset, fromQrLookup: true) && !busy;
                 return Padding(
                   padding: EdgeInsets.only(
                     top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
@@ -263,10 +269,15 @@ extension __InventoryMovementsScreenStateAstPart03
                     ),
                     asset: asset,
                     orderAssignment: orderAssignment,
-                    busy: _busyKeys.any((item) => item.contains(selectionKey)),
-                    selected: false,
-                    onTap: () => _showAssetDetails(asset),
-                    onLongPress: null,
+                    busy: busy,
+                    selected: selected,
+                    onTap: _selectionMode
+                        ? (selectable
+                            ? () => _toggleAssetSelection(asset)
+                            : null)
+                        : () => _showAssetDetails(asset),
+                    onLongPress:
+                        selectable ? () => _toggleAssetSelection(asset) : null,
                   ),
                 );
               },
