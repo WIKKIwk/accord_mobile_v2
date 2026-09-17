@@ -18,14 +18,41 @@ extension __AdminServerMonitorScreenStateAstPart01
     }
   }
 
-  Future<void> _switchServerEndpoint() async {
+  Future<void> _openServerEndpointSheet() async {
     if (_switchingServer) {
       return;
     }
-    final raw = _serverEndpointController.text.trim();
-    if (raw.isEmpty) {
-      _showNotice(context.l10n.adminText('server.endpoint_required'));
+    final endpointStore = ServerEndpointStore.instance;
+    await endpointStore.saveEndpoint(MobileApi.baseUrl);
+    if (!mounted) {
       return;
+    }
+    await showSpringBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      builder: (sheetContext) {
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.76,
+          ),
+          child: ServerEndpointSwitcherSheet(
+            endpoints: endpointStore.savedEndpoints,
+            activeBaseUrl: MobileApi.baseUrl,
+            onSwitch: (endpoint) => _switchServerEndpoint(endpoint.baseUrl),
+            onSave: endpointStore.saveEndpoint,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<bool> _switchServerEndpoint(String raw) async {
+    if (_switchingServer) {
+      return false;
+    }
+    if (raw.trim().isEmpty) {
+      _showNotice(context.l10n.adminText('server.endpoint_required'));
+      return false;
     }
 
     setState(() => _switchingServer = true);
@@ -33,11 +60,10 @@ extension __AdminServerMonitorScreenStateAstPart01
     try {
       final result = await MobileApi.instance.switchServerEndpoint(raw);
       if (!mounted) {
-        return;
+        return false;
       }
       switch (result.status) {
         case MobileServerSwitchStatus.switched:
-          _serverEndpointController.text = result.baseUrl;
           setState(() {
             _report = null;
             _loading = true;
@@ -47,45 +73,45 @@ extension __AdminServerMonitorScreenStateAstPart01
           _showNotice(context.l10n.adminText('server.switched'));
           await _loadSnapshot();
           _startLiveStream();
-          return;
+          return true;
         case MobileServerSwitchStatus.alreadyActive:
-          _serverEndpointController.text = result.baseUrl;
           _showNotice(context.l10n.adminText('server.already_active'));
           await _loadSnapshot();
           _startLiveStream();
-          return;
+          return true;
         case MobileServerSwitchStatus.credentialsNotFound:
           final confirmed = await _confirmMissingCredentials(result.baseUrl);
           if (!mounted) {
-            return;
+            return false;
           }
           if (confirmed) {
             await MobileApi.instance.confirmServerEndpointWithoutLogin(
               result.baseUrl,
             );
             if (!mounted) {
-              return;
+              return false;
             }
             Navigator.of(context).pushNamedAndRemoveUntil(
               AppRoutes.login,
               (route) => false,
             );
+            return false;
           } else {
             _startLiveStream();
           }
-          return;
+          return false;
         case MobileServerSwitchStatus.invalidEndpoint:
           _showNotice(context.l10n.adminText('server.invalid_endpoint'));
           _startLiveStream();
-          return;
+          return false;
         case MobileServerSwitchStatus.notMiniRsErp:
           _showNotice(context.l10n.adminText('server.not_mini_rs'));
           _startLiveStream();
-          return;
+          return false;
         case MobileServerSwitchStatus.unavailable:
           _showNotice(context.l10n.adminText('server.unavailable'));
           _startLiveStream();
-          return;
+          return false;
       }
     } catch (error) {
       if (mounted) {
@@ -97,6 +123,7 @@ extension __AdminServerMonitorScreenStateAstPart01
         );
         _startLiveStream();
       }
+      return false;
     } finally {
       if (mounted) {
         setState(() => _switchingServer = false);

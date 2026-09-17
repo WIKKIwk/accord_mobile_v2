@@ -6,8 +6,11 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/files/backup_file_saver.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/network/server_endpoint_store.dart';
+import '../../../core/widgets/feedback/spring_bottom_sheet.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
+import 'server_endpoint_switcher_sheet.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -38,8 +41,6 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   bool _importingBackup = false;
   double _importProgress = 0;
   String? _pendingImportJobId;
-  final TextEditingController _serverEndpointController =
-      TextEditingController(text: MobileApi.baseUrl);
   bool _switchingServer = false;
 
   @override
@@ -53,7 +54,6 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   void dispose() {
     _liveGeneration++;
     unawaited(_liveSubscription?.cancel());
-    _serverEndpointController.dispose();
     super.dispose();
   }
 

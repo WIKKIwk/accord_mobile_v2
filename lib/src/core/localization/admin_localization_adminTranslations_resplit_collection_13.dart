@@ -124,6 +124,41 @@ const _admin_localization_adminTranslations_resplitPart13 = {
     'en': 'New ERP domain',
     'ru': 'Новый домен ERP',
   },
+  'admin.server.active_endpoint_label': {
+    'uz': 'Faol ERP serveri',
+    'en': 'Active ERP server',
+    'ru': 'Активный сервер ERP',
+  },
+  'admin.server.saved_title': {
+    'uz': 'Saqlangan serverlar',
+    'en': 'Saved servers',
+    'ru': 'Сохранённые серверы',
+  },
+  'admin.server.saved_description': {
+    'uz': 'Kerakli serverni tanlang yoki yangi domen qo‘shing.',
+    'en': 'Choose a saved server or add a new domain.',
+    'ru': 'Выберите сохранённый сервер или добавьте новый домен.',
+  },
+  'admin.server.current_short': {
+    'uz': 'Joriy server',
+    'en': 'Current server',
+    'ru': 'Текущий сервер',
+  },
+  'admin.server.add_endpoint': {
+    'uz': 'Domen qo‘shish',
+    'en': 'Add domain',
+    'ru': 'Добавить домен',
+  },
+  'admin.server.add_endpoint_title': {
+    'uz': 'Yangi ERP domeni',
+    'en': 'New ERP domain',
+    'ru': 'Новый домен ERP',
+  },
+  'admin.server.add_endpoint_description': {
+    'uz': 'Domenni saqlang. Almashtirishda server tekshiriladi.',
+    'en': 'Save the domain. The server will be checked when you switch.',
+    'ru': 'Сохраните домен. Сервер будет проверен при переключении.',
+  },
   'admin.server.check_connect': {
     'uz': 'Domenni tekshirish va ulanish',
     'en': 'Check domain and connect',

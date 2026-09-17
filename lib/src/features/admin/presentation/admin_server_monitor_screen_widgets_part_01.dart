@@ -11,14 +11,14 @@ class AdminServerMonitorScreen extends StatefulWidget {
 
 class _ServerEndpointPanel extends StatelessWidget {
   const _ServerEndpointPanel({
-    required this.controller,
+    required this.currentUrl,
     required this.busy,
-    required this.onSubmit,
+    required this.onOpen,
   });
 
-  final TextEditingController controller;
+  final String currentUrl;
   final bool busy;
-  final VoidCallback onSubmit;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -44,34 +44,44 @@ class _ServerEndpointPanel extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 10),
-            TextField(
-              key: const ValueKey('server-endpoint-input'),
-              controller: controller,
-              enabled: !busy,
-              keyboardType: TextInputType.url,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => onSubmit(),
-              decoration: InputDecoration(
-                labelText: context.l10n.adminText('server.endpoint_label'),
-                hintText: 'https://erp.example.com',
-                prefixIcon: Icon(Icons.language_rounded),
+            Semantics(
+              button: true,
+              label: context.l10n.adminText(
+                'server.active_endpoint_label',
               ),
-            ),
-            const SizedBox(height: 10),
-            FilledButton.icon(
-              key: const ValueKey('server-endpoint-switch'),
-              onPressed: busy ? null : onSubmit,
-              icon: busy
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.swap_horiz_rounded),
-              label: Text(
-                busy
-                    ? context.l10n.adminText('server.checking')
-                    : context.l10n.adminText('server.check_connect'),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  key: const ValueKey('server-endpoint-input'),
+                  onTap: busy ? null : onOpen,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InputDecorator(
+                    isEmpty: currentUrl.isEmpty,
+                    decoration: InputDecoration(
+                      enabled: !busy,
+                      labelText: context.l10n.adminText(
+                        'server.active_endpoint_label',
+                      ),
+                      prefixIcon: const Icon(Icons.language_rounded),
+                      suffixIcon: busy
+                          ? const Padding(
+                              padding: EdgeInsets.all(14),
+                              child: SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : const Icon(Icons.unfold_more_rounded),
+                    ),
+                    child: Text(
+                      currentUrl,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],

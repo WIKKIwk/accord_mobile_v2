@@ -49,6 +49,13 @@ class MobileServerHandshake {
   }
 }
 
+class _ServerLoginCredentials {
+  const _ServerLoginCredentials(this.phone, this.code);
+
+  final String phone;
+  final String code;
+}
+
 extension MobileApiServer on MobileApi {
   Future<MobileServerSwitchResult> switchServerEndpoint(String raw) async {
     final normalized = ServerEndpointStore.normalize(raw);
@@ -80,22 +87,8 @@ extension MobileApiServer on MobileApi {
       );
     }
 
-    String phone = '';
-    String code = '';
-    final savedAccounts = SavedAccountRuntime.instance;
-    if (savedAccounts.isInitialized) {
-      final activeId = savedAccounts.store.activeAccountId;
-      final activeSession = activeId == null
-          ? null
-          : await savedAccounts.store.sessionFor(activeId);
-      phone = activeSession?.phone ?? '';
-      code = activeSession?.code ?? '';
-    } else {
-      final prefs = await SharedPreferences.getInstance();
-      phone = prefs.getString(MobileApi._lastPhoneKey)?.trim() ?? '';
-      code = prefs.getString(MobileApi._lastCodeKey)?.trim() ?? '';
-    }
-    if (phone.isEmpty || code.isEmpty) {
+    final credentials = await _credentialsForEndpoint(normalized);
+    if (credentials == null) {
       return MobileServerSwitchResult(
         status: MobileServerSwitchStatus.credentialsNotFound,
         baseUrl: normalized,
@@ -107,8 +100,8 @@ extension MobileApiServer on MobileApi {
     try {
       loginResult = await _loginAt(
         targetBaseUrl: normalized,
-        phone: phone,
-        code: code,
+        phone: credentials.phone,
+        code: credentials.code,
         directTransport: true,
       );
     } on _MobileLoginException catch (error) {
@@ -139,14 +132,68 @@ extension MobileApiServer on MobileApi {
     await _activateLoggedInEndpoint(
       baseUrl: normalized,
       loginResult: loginResult,
-      phone: phone,
-      code: code,
+      phone: credentials.phone,
+      code: credentials.code,
     );
     return MobileServerSwitchResult(
       status: MobileServerSwitchStatus.switched,
       baseUrl: normalized,
       version: handshake.version,
     );
+  }
+
+  Future<_ServerLoginCredentials?> _credentialsForEndpoint(
+    String baseUrl,
+  ) async {
+    final savedAccounts = SavedAccountRuntime.instance;
+    if (savedAccounts.isInitialized) {
+      final store = savedAccounts.store;
+      final currentProfile = AppSession.instance.profile;
+      final requiresAdmin = AppSession.instance.can('admin.access');
+      SavedAccountSession? fallback;
+      for (final account in store.accountsForEndpoint(baseUrl)) {
+        final session = await store.sessionFor(account.id);
+        if (session == null ||
+            session.phone.trim().isEmpty ||
+            session.code.trim().isEmpty) {
+          continue;
+        }
+        if (requiresAdmin &&
+            !session.account.profile.hasCapability('admin.access')) {
+          continue;
+        }
+        final sameProfile = currentProfile != null &&
+            currentProfile.ref == session.account.profile.ref &&
+            currentProfile.role == session.account.profile.role;
+        if (sameProfile) {
+          return _ServerLoginCredentials(session.phone, session.code);
+        }
+        fallback ??= session;
+      }
+      if (fallback != null) {
+        return _ServerLoginCredentials(fallback.phone, fallback.code);
+      }
+
+      final activeId = store.activeAccountId;
+      final activeSession =
+          activeId == null ? null : await store.sessionFor(activeId);
+      if (activeSession != null &&
+          activeSession.phone.trim().isNotEmpty &&
+          activeSession.code.trim().isNotEmpty) {
+        return _ServerLoginCredentials(
+          activeSession.phone,
+          activeSession.code,
+        );
+      }
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final phone = prefs.getString(MobileApi._lastPhoneKey)?.trim() ?? '';
+    final code = prefs.getString(MobileApi._lastCodeKey)?.trim() ?? '';
+    if (phone.isEmpty || code.isEmpty) {
+      return null;
+    }
+    return _ServerLoginCredentials(phone, code);
   }
 
   Future<void> confirmServerEndpointWithoutLogin(String raw) async {

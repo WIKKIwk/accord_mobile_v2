@@ -8,6 +8,7 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
+    await ServerEndpointStore.instance.load();
     await ServerEndpointStore.instance.clearOverride();
   });
 
@@ -43,6 +44,40 @@ void main() {
     expect(
         prefs.getString('active_server_endpoint'), 'https://erp.example.com');
     expect(MobileApi.baseUrl, 'https://erp.example.com');
+  });
+
+  test('persists multiple saved endpoints for quick switching', () async {
+    final store = ServerEndpointStore.instance;
+
+    await store.saveEndpoint('erp-one.example.com');
+    await store.saveEndpoint('https://erp-two.example.com/');
+
+    expect(
+      store.savedEndpoints.map((endpoint) => endpoint.baseUrl),
+      containsAll(<String>[
+        'https://erp-one.example.com',
+        'https://erp-two.example.com',
+        ServerEndpointStore.compiledBaseUrl,
+      ]),
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getString('saved_server_endpoints_v1'),
+      allOf(
+        contains('https://erp-one.example.com'),
+        contains('https://erp-two.example.com'),
+      ),
+    );
+
+    await store.load();
+    expect(
+      store.savedEndpoints.map((endpoint) => endpoint.baseUrl),
+      containsAll(<String>[
+        'https://erp-one.example.com',
+        'https://erp-two.example.com',
+      ]),
+    );
   });
 
   test('parses only the Mini RS ERP handshake contract', () {

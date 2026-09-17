@@ -1,5 +1,6 @@
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_server_monitor_screen.dart';
@@ -14,6 +15,8 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    await ServerEndpointStore.instance.load();
+    await ServerEndpointStore.instance.clearOverride();
     resetMobileApiTestModeData();
     await TestModeController.instance.setEnabled(true);
     AppSession.instance.token = 'token';
@@ -79,5 +82,43 @@ void main() {
     expect(find.text('Bu kun uchun backup yo‘q'), findsOneWidget);
     expect(find.byKey(const ValueKey('server-backup-start-confirm')),
         findsNothing);
+  });
+
+  testWidgets('endpoint field opens the saved server switcher', (tester) async {
+    await ServerEndpointStore.instance.saveEndpoint(
+      'https://erp-two.example.com',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminServerMonitorScreen(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final endpointField = find.byKey(const ValueKey('server-endpoint-input'));
+    await tester.scrollUntilVisible(
+      endpointField,
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(
+      endpointField,
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.text('Saqlangan serverlar'), findsOneWidget);
+    expect(find.text('https://erp-two.example.com'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Saqlangan serverlar'))).pop();
+    await tester.pump(const Duration(milliseconds: 300));
   });
 }

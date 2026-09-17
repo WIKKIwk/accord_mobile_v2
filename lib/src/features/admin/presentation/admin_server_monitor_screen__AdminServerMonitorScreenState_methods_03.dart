@@ -6,9 +6,9 @@ extension __AdminServerMonitorScreenStateAstPart03
   Widget _buildBody(BuildContext context) {
     final report = _report;
     final endpointPanel = _ServerEndpointPanel(
-      controller: _serverEndpointController,
+      currentUrl: MobileApi.baseUrl,
       busy: _switchingServer,
-      onSubmit: _switchServerEndpoint,
+      onOpen: _openServerEndpointSheet,
     );
     final currentServerLabel = Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
