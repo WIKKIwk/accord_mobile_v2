@@ -98,6 +98,7 @@ class SpringSheetRoute<T> extends PopupRoute<T> {
 
   @override
   bool didPop(T? result) {
+    FocusManager.instance.primaryFocus?.unfocus();
     _popped = true;
     return super.didPop(result);
   }
@@ -158,34 +159,41 @@ class SpringSheetRoute<T> extends PopupRoute<T> {
   ) {
     return Align(
       alignment: Alignment.bottomCenter,
-      child: AnimatedBuilder(
-        animation: controller!,
-        builder: (context, child) {
-          return FractionalTranslation(
-            translation: Offset(0, 1 - controller!.value),
-            child: child,
-          );
-        },
-        child: Builder(
-          builder: (context) {
-            double height() => context.size?.height ?? 1;
-            return GestureDetector(
-              excludeFromSemantics: true,
-              onVerticalDragUpdate: (details) {
-                _dragBy(details.primaryDelta! / height());
-              },
-              onVerticalDragEnd: (details) {
-                _endDrag(details.velocity.pixelsPerSecond.dy / height());
-              },
-              onVerticalDragCancel: () {
-                _endDrag(0);
-              },
-              child: SizedBox(
-                width: double.infinity,
-                child: SheetContainer(child: builder(context)),
-              ),
+      child: AnimatedPadding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        child: AnimatedBuilder(
+          animation: controller!,
+          builder: (context, child) {
+            return FractionalTranslation(
+              translation: Offset(0, 1 - controller!.value),
+              child: child,
             );
           },
+          child: Builder(
+            builder: (context) {
+              double height() => context.size?.height ?? 1;
+              return GestureDetector(
+                excludeFromSemantics: true,
+                onVerticalDragUpdate: (details) {
+                  _dragBy(details.primaryDelta! / height());
+                },
+                onVerticalDragEnd: (details) {
+                  _endDrag(details.velocity.pixelsPerSecond.dy / height());
+                },
+                onVerticalDragCancel: () {
+                  _endDrag(0);
+                },
+                child: SizedBox(
+                  width: double.infinity,
+                  child: SheetContainer(child: builder(context)),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

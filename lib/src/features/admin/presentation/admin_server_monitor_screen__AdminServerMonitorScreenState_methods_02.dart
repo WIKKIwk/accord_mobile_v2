@@ -410,6 +410,7 @@ extension __AdminServerMonitorScreenStateAstPart02
   }
 
   void _goHomeOrPop() {
+    FocusManager.instance.primaryFocus?.unfocus();
     final nav = Navigator.of(context);
     if (nav.canPop()) {
       nav.pop();

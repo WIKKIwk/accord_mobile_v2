@@ -44,6 +44,7 @@ class _ServerEndpointSwitcherSheetState
 
   @override
   void dispose() {
+    FocusManager.instance.primaryFocus?.unfocus();
     _endpointController.dispose();
     super.dispose();
   }
@@ -52,6 +53,7 @@ class _ServerEndpointSwitcherSheetState
     if (_busy || endpoint.baseUrl == widget.activeBaseUrl) {
       return;
     }
+    _dismissKeyboard();
     setState(() {
       _busy = true;
       _errorText = null;
@@ -81,6 +83,7 @@ class _ServerEndpointSwitcherSheetState
     if (_busy) {
       return;
     }
+    _dismissKeyboard();
     setState(() {
       _busy = true;
       _errorText = null;
@@ -119,6 +122,7 @@ class _ServerEndpointSwitcherSheetState
     if (_busy) {
       return;
     }
+    _dismissKeyboard();
     setState(() {
       _adding = true;
       _errorText = null;
@@ -129,11 +133,16 @@ class _ServerEndpointSwitcherSheetState
     if (_busy) {
       return;
     }
+    _dismissKeyboard();
     setState(() {
       _adding = false;
       _endpointController.clear();
       _errorText = null;
     });
+  }
+
+  void _dismissKeyboard() {
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
   @override
@@ -299,6 +308,7 @@ class _ServerEndpointSwitcherSheetState
             autofocus: true,
             keyboardType: TextInputType.url,
             textInputAction: TextInputAction.done,
+            onTapOutside: (_) => _dismissKeyboard(),
             onSubmitted: (_) => _save(),
             decoration: InputDecoration(
               labelText: l10n.adminText('server.endpoint_label'),
