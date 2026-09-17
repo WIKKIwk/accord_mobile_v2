@@ -118,6 +118,11 @@ const _admin_localization_adminTranslations_resplitPart11 = {
     'en': 'My locations',
     'ru': 'Мои ячейки',
   },
+  'admin.warehouse.my_warehouse': {
+    'uz': 'Omborim',
+    'en': 'My warehouse',
+    'ru': 'Мой склад',
+  },
   'admin.warehouse.location_products_search': {
     'uz': 'Joylashuvdagi mahsulotni qidirish',
     'en': 'Search items in this location',

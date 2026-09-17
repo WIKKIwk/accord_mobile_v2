@@ -49,6 +49,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.rezkaMergeStateLines,
     required this.onMaterialIntake,
     required this.onStart,
+    required this.onPrintPreflightPassed,
+    required this.onPrintPreflightFailed,
     required this.onPause,
     required this.onMerge,
     required this.onRollComplete,
@@ -106,6 +108,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final List<String> rezkaMergeStateLines;
   final VoidCallback onMaterialIntake;
   final VoidCallback onStart;
+  final VoidCallback onPrintPreflightPassed;
+  final VoidCallback onPrintPreflightFailed;
   final VoidCallback onPause;
   final VoidCallback onMerge;
   final VoidCallback onRollComplete;
@@ -138,7 +142,10 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           );
     final orderControlBlocked =
         orderControlState != AdminOrderControlState.active;
-    final hasActions = uiState.showStart ||
+    final hasActions = uiState.showPrintPreflightHold ||
+        uiState.showPrintPreflightStart ||
+        uiState.showPrintPreflightOutcome ||
+        uiState.showStart ||
         uiState.showPause ||
         uiState.showMerge ||
         uiState.showComplete ||
@@ -313,8 +320,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               expanded: startMaterialsExpandable && startMaterialsExpanded,
               complete: uiState.materialRequiredCount > 0 &&
                   uiState.allMaterialsScanned,
-              highlighted: quickScanHighlight ==
-                  ProductionQuickScanHighlight.materials,
+              highlighted:
+                  quickScanHighlight == ProductionQuickScanHighlight.materials,
               onTap: startMaterialsExpandable
                   ? onToggleStartMaterialsExpanded
                   : null,
@@ -412,8 +419,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   ),
             expanded: attachedMaterialsExpandable && materialsExpanded,
             complete: false,
-            highlighted: quickScanHighlight ==
-                ProductionQuickScanHighlight.materials,
+            highlighted:
+                quickScanHighlight == ProductionQuickScanHighlight.materials,
             onTap:
                 attachedMaterialsExpandable ? onToggleMaterialsExpanded : null,
           ),
@@ -440,55 +447,55 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               // Keep polling while collapsed so approval refreshes the start card.
               child: materialLinkRequestPanel!,
             ),
-          if (!workerMode) Builder(
-            builder: (context) {
-              final attachedExpandable = attachedQolipsLoading ||
-                  attachedQolipsError.trim().isNotEmpty ||
-                  attachedQolips.isNotEmpty;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Divider(
-                    height: 28,
-                    color: scheme.outlineVariant.withValues(alpha: 0.5),
-                  ),
-                  _ScannedItemsExpansionHeader(
-                    key: const ValueKey(
-                      'production-attached-qolips-expansion',
+          if (!workerMode)
+            Builder(
+              builder: (context) {
+                final attachedExpandable = attachedQolipsLoading ||
+                    attachedQolipsError.trim().isNotEmpty ||
+                    attachedQolips.isNotEmpty;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Divider(
+                      height: 28,
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
                     ),
-                    title: context.l10n.productionText(
-                      attachedExpandable || attachedQolipsLoading
-                          ? 'worker.molds.attached'
-                          : 'worker.molds.attached.empty',
-                    ),
-                    countText: attachedQolipsLoading
-                        ? '...'
-                        : context.l10n.productionCount(
-                            attachedQolips.length,
-                            kind: 'molds',
-                          ),
-                    expanded:
-                        attachedExpandable && attachedQolipsExpanded,
-                    complete: false,
-                    onTap: attachedExpandable
-                        ? onToggleAttachedQolipsExpanded
-                        : null,
-                  ),
-                  if (attachedExpandable && attachedQolipsExpanded) ...[
-                    const SizedBox(height: 12),
-                    _AttachedQolipListBody(
-                      qolips: attachedQolips,
-                      loading: attachedQolipsLoading,
-                      error: attachedQolipsError,
-                      emptyText: context.l10n.productionText(
-                        'worker.molds.attached.empty',
+                    _ScannedItemsExpansionHeader(
+                      key: const ValueKey(
+                        'production-attached-qolips-expansion',
                       ),
+                      title: context.l10n.productionText(
+                        attachedExpandable || attachedQolipsLoading
+                            ? 'worker.molds.attached'
+                            : 'worker.molds.attached.empty',
+                      ),
+                      countText: attachedQolipsLoading
+                          ? '...'
+                          : context.l10n.productionCount(
+                              attachedQolips.length,
+                              kind: 'molds',
+                            ),
+                      expanded: attachedExpandable && attachedQolipsExpanded,
+                      complete: false,
+                      onTap: attachedExpandable
+                          ? onToggleAttachedQolipsExpanded
+                          : null,
                     ),
+                    if (attachedExpandable && attachedQolipsExpanded) ...[
+                      const SizedBox(height: 12),
+                      _AttachedQolipListBody(
+                        qolips: attachedQolips,
+                        loading: attachedQolipsLoading,
+                        error: attachedQolipsError,
+                        emptyText: context.l10n.productionText(
+                          'worker.molds.attached.empty',
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-              );
-            },
-          ),
+                );
+              },
+            ),
           if (uiState.showStart && requiresQolipScan) ...[
             Divider(
               height: 28,
@@ -502,8 +509,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               countText: qolipProgressText,
               expanded: qolipsExpandable && qolipsExpanded,
               complete: qolipScanned,
-              highlighted: quickScanHighlight ==
-                  ProductionQuickScanHighlight.qolips,
+              highlighted:
+                  quickScanHighlight == ProductionQuickScanHighlight.qolips,
               onTap: qolipsExpandable ? onToggleQolipsExpanded : null,
             ),
             if (qolipsExpandable && qolipsExpanded) ...[
@@ -618,43 +625,109 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               duration: AppMotion.medium,
               curve: AppMotion.standardDecelerate,
               alignment: Alignment.topCenter,
-              child: uiState.showStart
-                  ? FilledButton.icon(
-                      key: const ValueKey('production-order-start-action'),
-                      onPressed: actionInFlight ||
-                              !materialStartReady ||
-                              (requiresQolipScan && !qolipScanned) ||
-                              !uiState.previousProgressReady
-                          ? null
-                          : onStart,
-                      icon: const Icon(Icons.play_arrow_rounded),
-                      label: Text(
-                        context.l10n.productionText('worker.action.start'),
+              child: uiState.showPrintPreflightOutcome
+                  ? Row(
+                      key: const ValueKey(
+                        'production-order-print-preflight-outcome',
                       ),
-                      style: FilledButton.styleFrom(
-                        minimumSize: Size.fromHeight(workerMode ? 58 : 52),
-                        padding: workerMode
-                            ? const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 16,
-                              )
-                            : null,
-                        textStyle: workerMode
-                            ? theme.textTheme.titleMedium?.copyWith(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w900,
-                              )
-                            : null,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            workerMode ? 28 : 14,
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed:
+                                actionInFlight ? null : onPrintPreflightPassed,
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: Text(
+                              context.l10n.productionText(
+                                'worker.action.print_preflight_passed',
+                              ),
+                            ),
+                            style: FilledButton.styleFrom(
+                              minimumSize:
+                                  Size.fromHeight(workerMode ? 58 : 52),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  workerMode ? 28 : 14,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed:
+                                actionInFlight ? null : onPrintPreflightFailed,
+                            icon: const Icon(Icons.cancel_outlined),
+                            label: Text(
+                              context.l10n.productionText(
+                                'worker.action.print_preflight_failed',
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize:
+                                  Size.fromHeight(workerMode ? 58 : 52),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  workerMode ? 28 : 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     )
-                  : const SizedBox(
-                      key: ValueKey('production-order-start-action-hidden'),
-                    ),
+                  : uiState.showPrintPreflightHold ||
+                          uiState.showPrintPreflightStart ||
+                          uiState.showStart
+                      ? FilledButton.icon(
+                          key: const ValueKey('production-order-start-action'),
+                          onPressed: actionInFlight ||
+                                  (uiState.showStart &&
+                                      !uiState.showPrintPreflightHold &&
+                                      (!materialStartReady ||
+                                          (requiresQolipScan &&
+                                              !qolipScanned) ||
+                                          !uiState.previousProgressReady))
+                              ? null
+                              : onStart,
+                          icon: Icon(
+                            uiState.showPrintPreflightHold
+                                ? Icons.colorize_rounded
+                                : Icons.play_arrow_rounded,
+                          ),
+                          label: Text(
+                            context.l10n.productionText(
+                              uiState.showPrintPreflightHold
+                                  ? 'worker.action.print_preflight'
+                                  : uiState.showPrintPreflightStart
+                                      ? 'worker.action.print_preflight_start'
+                                      : 'worker.action.start',
+                            ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            minimumSize: Size.fromHeight(workerMode ? 58 : 52),
+                            padding: workerMode
+                                ? const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 16,
+                                  )
+                                : null,
+                            textStyle: workerMode
+                                ? theme.textTheme.titleMedium?.copyWith(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                  )
+                                : null,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                workerMode ? 28 : 14,
+                              ),
+                            ),
+                          ),
+                        )
+                      : const SizedBox(
+                          key: ValueKey('production-order-start-action-hidden'),
+                        ),
             ),
             AnimatedSize(
               key: const ValueKey('production-order-pause-complete-motion'),

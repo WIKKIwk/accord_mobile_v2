@@ -102,7 +102,8 @@ class _AdminProductionMapOrdersScreenState
         builder: (_) => PendingOrderDetailSheet(order: order));
     if (!mounted) return;
     if (completed == true) {
-      setState(() => _pendingOrders = _pendingOrders.where((p) => p.id != order.id).toList());
+      setState(() => _pendingOrders =
+          _pendingOrders.where((p) => p.id != order.id).toList());
     }
     await _refreshPendingOrders(force: completed == true);
     if (completed == true && mounted) await _refreshLive();
@@ -234,7 +235,8 @@ class _AdminProductionMapOrdersScreenState
           for (final order in snapshot.orders) order.id.trim(),
         };
         _tayyorlovResponsibilities =
-            List<PreparationResponsibility>.unmodifiable(snapshot.responsibilities);
+            List<PreparationResponsibility>.unmodifiable(
+                snapshot.responsibilities);
         _tayyorlovFilterError = null;
       });
     } catch (error) {
@@ -267,16 +269,18 @@ class _AdminProductionMapOrdersScreenState
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     final role = AppSession.instance.profile?.role;
     final assignedRezka = widget.workerMode
-        ? _apparatus.where((apparatus) =>
-            apparatus.operation.trim() == 'cut' &&
-            _isAssignedWatchApparatus(apparatus,
-              assignedApparatus:
-                  AppSession.instance.profile?.assignedApparatus ?? const []))
+        ? _apparatus
+            .where((apparatus) =>
+                apparatus.operation.trim() == 'cut' &&
+                _isAssignedWatchApparatus(apparatus,
+                    assignedApparatus:
+                        AppSession.instance.profile?.assignedApparatus ??
+                            const []))
             .toList()
         : <AdminApparatus>[];
     final paddonApparatus = assignedRezka
-        .where((apparatus) => apparatus.id == _selectedApparatus?.id)
-        .firstOrNull ??
+            .where((apparatus) => apparatus.id == _selectedApparatus?.id)
+            .firstOrNull ??
         (_selectedApparatus == null && assignedRezka.length == 1
             ? assignedRezka.single
             : null);
@@ -305,8 +309,7 @@ class _AdminProductionMapOrdersScreenState
       UserRole.qolipchi => const QolipDock(activeTab: null),
       UserRole.materialTaminotchi =>
         const MaterialTaminotchiDock(activeTab: null),
-      UserRole.tayyorlovMasteri =>
-        const PreparationDock(),
+      UserRole.tayyorlovMasteri => const PreparationDock(),
       _ => null,
     };
     return AppShell(
@@ -457,10 +460,13 @@ class _AdminProductionMapOrdersScreenState
                                   _visibleOrderIdsByApparatus,
                               queueStatesByApparatus: _queueStatesByApparatus,
                               stageStatesByOrderId: _stageStatesByOrderId,
-                              queueActionControlsByApparatus: _queueActionControlsByApparatus,
+                              queueActionControlsByApparatus:
+                                  _queueActionControlsByApparatus,
                               workActivityByApparatus: _workActivityByApparatus,
                               workerRole: AppSession.instance.profile == null
-                                  ? '' : userRoleToJson(AppSession.instance.profile!.role),
+                                  ? ''
+                                  : userRoleToJson(
+                                      AppSession.instance.profile!.role),
                               workerRef: AppSession.instance.profile?.ref ?? '',
                               orderStatusesByOrderId: _orderStatusesByOrderId,
                               orderControlsByOrderId: _orderControlsByOrderId,
@@ -540,6 +546,8 @@ class _AdminProductionMapOrdersScreenState
                               visibleOrderIdsByApparatus:
                                   _visibleOrderIdsByApparatus,
                               orderStatusesByOrderId: _orderStatusesByOrderId,
+                              queueActionControlsByApparatus:
+                                  _queueActionControlsByApparatus,
                               sequenceInteractionHint: isQolipchi
                                   ? 'Bir marta bosing — ma’lumot. Uzoq bosing — order qoliplarini ochish.'
                                   : null,
@@ -634,7 +642,8 @@ class _AdminProductionMapOrdersScreenState
         _queueActionControlsByApparatus.remove(apparatusKey);
         _queueStatesByApparatus[apparatusKey] = result.states;
         if (result.hasWorkActivity) {
-          final activities = _workActivityByApparatus.putIfAbsent(apparatusKey, () => {});
+          final activities =
+              _workActivityByApparatus.putIfAbsent(apparatusKey, () => {});
           final activity = result.workActivity;
           if (activity == null) {
             activities.remove(orderId);
@@ -1042,7 +1051,8 @@ class _AdminProductionMapOrdersScreenState
     final operation = apparatus.operation.trim().toLowerCase();
     final isLaminatsiya = operation == 'laminate';
     final isBosma = operation == 'print';
-    final supportsAstatka = operation == 'laminate' || operation == 'cut' || isBosma;
+    final supportsAstatka =
+        operation == 'laminate' || operation == 'cut' || isBosma;
     if (!widget.workerMode ||
         !_isAssignedWatchApparatus(
           apparatus,
@@ -1063,30 +1073,44 @@ class _AdminProductionMapOrdersScreenState
     final state = apparatusQueueOrderStateFromRaw(
       queueStates[order.map.id.trim()],
     );
-    final stageWork = _queueActionControlForApparatus(apparatus: apparatus,
-        orderId: order.map.id.trim())?.stageWork;
+    final stageWork = _queueActionControlForApparatus(
+            apparatus: apparatus, orderId: order.map.id.trim())
+        ?.stageWork;
     if (stageWork?.astatkaAvailable == true) {
-      _showWatchOrderDetail(apparatus: apparatus, order: order, startAstatkaOnOpen: true);
+      _showWatchOrderDetail(
+          apparatus: apparatus, order: order, startAstatkaOnOpen: true);
       return;
     }
     if (isBosma) {
-      final control = _queueActionControlForApparatus(apparatus: apparatus,
-          orderId: order.map.id.trim());
+      final control = _queueActionControlForApparatus(
+          apparatus: apparatus, orderId: order.map.id.trim());
       if (control?.isConsistentWith(
-            _orderControlsByOrderId[order.map.id.trim()] ?? AdminOrderControlState.active,
-            queueState: queueStates[order.map.id.trim()]) != true ||
-          !const {ApparatusQueueOrderState.inProgress, ApparatusQueueOrderState.paused,
-            ApparatusQueueOrderState.completed}.contains(state)) {
+                  _orderControlsByOrderId[order.map.id.trim()] ??
+                      AdminOrderControlState.active,
+                  queueState: queueStates[order.map.id.trim()]) !=
+              true ||
+          !const {
+            ApparatusQueueOrderState.inProgress,
+            ApparatusQueueOrderState.paused,
+            ApparatusQueueOrderState.completed
+          }.contains(state)) {
         return;
       }
       final choice = await showModalBottomSheet<_BosmaWorkerLongPressChoice>(
-        context: context, useSafeArea: true, showDragHandle: true,
-        builder: (_) => _BosmaWorkerFinishSheet(canFinish: control?.allows('complete') == true),
+        context: context,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (_) => _BosmaWorkerFinishSheet(
+            canFinish: control?.allows('complete') == true),
       );
       if (!mounted || choice == null) return;
-      _showWatchOrderDetail(apparatus: apparatus, order: order,
-        startBosmaFinishOnOpen: choice == _BosmaWorkerLongPressChoice.finishWork,
-        startAstatkaOnOpen: choice == _BosmaWorkerLongPressChoice.astatkaReport);
+      _showWatchOrderDetail(
+          apparatus: apparatus,
+          order: order,
+          startBosmaFinishOnOpen:
+              choice == _BosmaWorkerLongPressChoice.finishWork,
+          startAstatkaOnOpen:
+              choice == _BosmaWorkerLongPressChoice.astatkaReport);
       return;
     }
     if (isLaminatsiya && state == ApparatusQueueOrderState.paused) {
@@ -1132,7 +1156,8 @@ class _AdminProductionMapOrdersScreenState
         context: context,
         useSafeArea: true,
         showDragHandle: true,
-        builder: (_) => _LaminatsiyaWorkerFinishSheet(isRezka: operation == 'cut'),
+        builder: (_) =>
+            _LaminatsiyaWorkerFinishSheet(isRezka: operation == 'cut'),
       );
       if (!mounted || choice != _LaminatsiyaWorkerLongPressChoice.finishWork) {
         return;
@@ -1318,7 +1343,8 @@ class _AdminProductionMapOrdersScreenState
             ListTile(
               leading: const Icon(Icons.edit_note_rounded),
               title: const Text('Buyurtmani tahrirlash'),
-              onTap: () => Navigator.pop(context, _OrderLongPressAction.editOrder),
+              onTap: () =>
+                  Navigator.pop(context, _OrderLongPressAction.editOrder),
             ),
           ],
         ),

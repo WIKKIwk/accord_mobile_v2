@@ -63,6 +63,10 @@ bool _queueActionControlsEqual(
             other.freezeRequest?.targetApparatus ||
         control.freezeRequest?.targetSessionId !=
             other.freezeRequest?.targetSessionId ||
+        control.printPreflight?.holdId != other.printPreflight?.holdId ||
+        control.printPreflight?.status != other.printPreflight?.status ||
+        control.printPreflight?.orderId != other.printPreflight?.orderId ||
+        control.printPreflight?.apparatus != other.printPreflight?.apparatus ||
         control.allowedActions.length != other.allowedActions.length ||
         !control.allowedActions.containsAll(other.allowedActions)) {
       return false;
@@ -187,5 +191,6 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     freezeRequestId: request.freezeRequestId,
     freezeWithIssue: request.freezeWithIssue,
     issueNote: request.issueNote,
+    printPreflightHoldId: request.printPreflightHoldId,
   );
 }

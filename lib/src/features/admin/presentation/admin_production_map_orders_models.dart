@@ -47,6 +47,7 @@ class _ReadOnlyQueueActionRequest {
     this.freezeRequestId = '',
     this.freezeWithIssue = false,
     this.issueNote = '',
+    this.printPreflightHoldId = '',
   });
   final AdminApparatus apparatus;
   final ProductionMapSaved order;
@@ -86,6 +87,7 @@ class _ReadOnlyQueueActionRequest {
   final String freezeRequestId;
   final bool freezeWithIssue;
   final String issueNote;
+  final String printPreflightHoldId;
 }
 
 class _WorkerWatchTab {
@@ -167,6 +169,10 @@ class _ReadOnlyOrderDetailUiState {
     required this.previousProgressRequired,
     required this.previousProgressReady,
     required this.showStart,
+    required this.printPreflight,
+    required this.showPrintPreflightHold,
+    required this.showPrintPreflightStart,
+    required this.showPrintPreflightOutcome,
     required this.showPause,
     required this.showMerge,
     required this.showRollComplete,
@@ -206,6 +212,10 @@ class _ReadOnlyOrderDetailUiState {
   final bool previousProgressRequired;
   final bool previousProgressReady;
   final bool showStart;
+  final AdminPrintPreflightHold? printPreflight;
+  final bool showPrintPreflightHold;
+  final bool showPrintPreflightStart;
+  final bool showPrintPreflightOutcome;
   final bool showPause;
   final bool showMerge;
   final bool showRollComplete;
@@ -264,6 +274,7 @@ bool _sameMoveApparatusIdentity(
 
 enum _OrderCardTone {
   neutral,
+  printPreflight,
   inProgress,
   waitingNextStage,
   paused,
@@ -279,6 +290,7 @@ _OrderCardTone _resolveWorkerOrderCardTone({
   AdminProductionOrderStatusDetail? orderStatus,
   AdminOrderControlState orderControl = AdminOrderControlState.active,
   ApparatusQueueOrderState? apparatusState,
+  bool printPreflight = false,
 }) {
   // Order-wide safety warnings remain shared. Active/paused/completed on a
   // different stage must not override this worker's own apparatus session.
@@ -287,16 +299,21 @@ _OrderCardTone _resolveWorkerOrderCardTone({
     orderControl: orderControl,
     apparatusState: apparatusState,
   );
-  if (globalTone == _OrderCardTone.issue || globalTone == _OrderCardTone.frozen ||
+  if (globalTone == _OrderCardTone.issue ||
+      globalTone == _OrderCardTone.frozen ||
       apparatusState == ApparatusQueueOrderState.frozen) {
-    return globalTone == _OrderCardTone.issue ? globalTone : _OrderCardTone.frozen;
+    return globalTone == _OrderCardTone.issue
+        ? globalTone
+        : _OrderCardTone.frozen;
   }
+  if (printPreflight) return _OrderCardTone.printPreflight;
   if (workActivity == null ||
       !workActivity.belongsTo(role: workerRole, ref: workerRef)) {
     return _OrderCardTone.neutral;
   }
   return switch ((workActivity.state, apparatusState)) {
-    ('in_progress', ApparatusQueueOrderState.inProgress) => _OrderCardTone.inProgress,
+    ('in_progress', ApparatusQueueOrderState.inProgress) =>
+      _OrderCardTone.inProgress,
     ('paused', ApparatusQueueOrderState.paused) => _OrderCardTone.paused,
     _ => _OrderCardTone.neutral,
   };
@@ -307,6 +324,7 @@ _OrderCardTone _resolveOrderCardTone({
   AdminOrderControlState orderControl = AdminOrderControlState.active,
   OrderQueueActivityState? orderActivityState,
   ApparatusQueueOrderState? apparatusState,
+  bool printPreflight = false,
 }) {
   final status = orderStatus?.orderStatus.trim().toLowerCase() ?? '';
   final lifecycleStatus =
@@ -314,6 +332,9 @@ _OrderCardTone _resolveOrderCardTone({
   if (status == 'completed_with_issue' ||
       (orderStatus?.completedWithIssueCount ?? 0) > 0) {
     return _OrderCardTone.issue;
+  }
+  if (printPreflight) {
+    return _OrderCardTone.printPreflight;
   }
   if (orderControl != AdminOrderControlState.active) {
     return _OrderCardTone.frozen;
@@ -368,6 +389,7 @@ Color? _orderCardBackgroundColor(
   }
   final theme = Theme.of(context);
   final accent = switch (tone) {
+    _OrderCardTone.printPreflight => Colors.transparent,
     _OrderCardTone.inProgress => const Color(0xFF2E7D32),
     _OrderCardTone.waitingNextStage => const Color(0xFF1565C0),
     _OrderCardTone.paused => const Color(0xFFF9A825),
@@ -380,5 +402,19 @@ Color? _orderCardBackgroundColor(
   return Color.alphaBlend(
     accent.withValues(alpha: opacity),
     theme.colorScheme.surfaceContainerLowest,
+  );
+}
+
+Gradient? _orderCardBackgroundGradient(_OrderCardTone tone) {
+  if (tone != _OrderCardTone.printPreflight) return null;
+  return const LinearGradient(
+    begin: Alignment(-1, 1),
+    end: Alignment(1, -1),
+    colors: [
+      Color(0xFF7E86A8),
+      Color(0xFFE5BFC4),
+      Color(0xFFF4FAFC),
+    ],
+    stops: [0.0, 0.52, 1.0],
   );
 }

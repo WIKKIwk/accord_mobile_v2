@@ -27,6 +27,7 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
     int? rezkaRecordFrameIndex,
     String rezkaOutputCycle = '',
     String outputPaddonCode = '',
+    String printPreflightHoldId = '',
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -78,6 +79,8 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
           'action': action,
           if (outputPaddonCode.trim().isNotEmpty)
             'output_paddon_code': outputPaddonCode.trim(),
+          if (printPreflightHoldId.trim().isNotEmpty)
+            'print_preflight_hold_id': printPreflightHoldId.trim(),
           if (completeWithoutOutput) 'complete_without_output': true,
           if (freezeWithIssue) 'freeze_with_issue': true,
           if (freezeWithIssue) 'issue_note': trimmedIssueNote,

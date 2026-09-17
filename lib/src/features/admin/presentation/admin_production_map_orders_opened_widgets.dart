@@ -17,6 +17,7 @@ class _OpenedOrderList extends StatelessWidget {
     required this.customerNameByMapId,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
+    required this.queueActionControlsByApparatus,
     required this.queueStatesByApparatus,
     required this.visibleOrderIdsByApparatus,
     required this.onInfoOrder,
@@ -29,6 +30,8 @@ class _OpenedOrderList extends StatelessWidget {
   final Map<String, String> customerNameByMapId;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
+  final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      queueActionControlsByApparatus;
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
@@ -68,6 +71,9 @@ class _OpenedOrderList extends StatelessWidget {
           orderId,
         ),
         orderActivityState: orderActivityStates[orderId],
+        printPreflight: queueActionControlsByApparatus.values.any(
+          (controls) => controls[orderId]?.printPreflight?.isActive == true,
+        ),
       );
       children.add(
         _OpenedOrderRow(
@@ -136,7 +142,10 @@ class _OpenedOrderRow extends StatelessWidget {
     return M3SegmentFilledSurface(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      backgroundColor: _orderCardBackgroundColor(context, tone),
+      backgroundColor: _orderCardBackgroundGradient(tone) == null
+          ? _orderCardBackgroundColor(context, tone)
+          : null,
+      backgroundGradient: _orderCardBackgroundGradient(tone),
       child: InkWell(
         onLongPress: onLongPress,
         child: Stack(
@@ -261,6 +270,7 @@ List<_OrderWatermarkData> _orderWatermarks({
   required AppLocalizations l10n,
 }) {
   return switch (tone) {
+    _OrderCardTone.printPreflight => const [],
     _OrderCardTone.inProgress => _activeApparatusWatermarks(
         order: order,
         apparatusCatalog: apparatusCatalog,

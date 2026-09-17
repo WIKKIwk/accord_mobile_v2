@@ -158,6 +158,26 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'en': 'Start',
     'ru': 'Начать',
   },
+  'worker.action.print_preflight': {
+    'uz': 'Rang chiqarish',
+    'en': 'Test print',
+    'ru': 'Пробная печать',
+  },
+  'worker.action.print_preflight_start': {
+    'uz': 'Boshlash',
+    'en': 'Start test print',
+    'ru': 'Начать пробную печать',
+  },
+  'worker.action.print_preflight_passed': {
+    'uz': 'Rang chiqdi',
+    'en': 'Colour is good',
+    'ru': 'Цвет получен',
+  },
+  'worker.action.print_preflight_failed': {
+    'uz': 'Rang chiqmadi',
+    'en': 'Colour failed',
+    'ru': 'Цвет не получен',
+  },
   'worker.action.pause': {
     'uz': 'Pauza',
     'en': 'Pause',

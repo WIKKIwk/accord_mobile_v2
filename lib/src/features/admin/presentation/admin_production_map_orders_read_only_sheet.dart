@@ -332,7 +332,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       canPop: false,
       child: _ReadOnlyOrderDetailContent(
         noticeAnchorKey: _noticeAnchorKey,
-        onMaterialsLinked: () => unawaited(_loadInteractionContractAndSections()),
+        onMaterialsLinked: () =>
+            unawaited(_loadInteractionContractAndSections()),
         onClose: () => Navigator.of(context).pop(),
         map: map,
         orderImageBytes: _orderImageBytes,
@@ -441,7 +442,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           });
         },
         onMaterialIntake: _toggleMaterialIntakeMode,
-        onStart: () => unawaited(_runQueueAction('start')),
+        onStart: _handleStartAction,
+        onPrintPreflightPassed: () => unawaited(_runPrintPreflight('passed')),
+        onPrintPreflightFailed: () => unawaited(_runPrintPreflight('failed')),
         onPause: () => unawaited(_runProgressAction('pause')),
         onMerge: _toggleMergeScanMode,
         onRollComplete: () => unawaited(_runProgressAction('roll_complete')),
@@ -478,9 +481,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (map.id.trim().isEmpty) return;
     setState(() => _orderImageLoading = true);
     try {
-      final bytes =
-          await MobileApi.instance.adminProductionMapOrderImage(map.id,
-            imageId: map.imageId, thumbnail: true);
+      final bytes = await MobileApi.instance.adminProductionMapOrderImage(
+          map.id,
+          imageId: map.imageId,
+          thumbnail: true);
       if (!mounted) return;
       setState(() {
         _orderImageBytes = bytes;
@@ -499,9 +503,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   Future<void> _openOrderImage() async {
     final map = widget.order.map;
-    _showProductionMapOrderImageDialog(context, OrderImageProvider(
-      MobileApi.instance.adminProductionMapOrderImageUrl(map.id, imageId: map.imageId),
-    ));
+    _showProductionMapOrderImageDialog(
+        context,
+        OrderImageProvider(
+          MobileApi.instance
+              .adminProductionMapOrderImageUrl(map.id, imageId: map.imageId),
+        ));
   }
 
   Future<void> _loadInteractionContractAndSections() async {
@@ -955,6 +962,67 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
+  void _handleStartAction() {
+    final uiState = _detailUiState;
+    final preflight = uiState.printPreflight;
+    if (uiState.showPrintPreflightHold) {
+      unawaited(_runPrintPreflight('hold'));
+    } else if (uiState.showPrintPreflightStart) {
+      unawaited(_runPrintPreflight('start'));
+    } else if (preflight?.isPassed == true) {
+      unawaited(_runQueueAction('start', preflightHoldId: preflight!.holdId));
+    } else {
+      unawaited(_runQueueAction('start'));
+    }
+  }
+
+  Future<void> _runPrintPreflight(String action) async {
+    final apparatus = widget.apparatus?.id.trim() ?? '';
+    final orderId = widget.order.map.id.trim();
+    final currentHold = _queueActionControl?.printPreflight;
+    if (apparatus.isEmpty || orderId.isEmpty || _actionInFlight) return;
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final holdId = action == 'hold'
+        ? 'print-preflight:$orderId:$apparatus:$stamp'
+        : currentHold?.holdId ?? '';
+    final idempotencyKey = action == 'hold' ? holdId : '';
+    setState(() {
+      _actionControlGeneration++;
+      _actionInFlight = true;
+      _lastQueueActionPrintFailed = false;
+    });
+    try {
+      await MobileApi.instance
+          .adminPrintPreflight(
+            apparatus: apparatus,
+            orderId: orderId,
+            action: action,
+            holdId: holdId,
+            idempotencyKey: idempotencyKey,
+          )
+          .timeout(_queueActionUiTimeout);
+      if (!mounted) return;
+      setState(() => _actionInFlight = false);
+      await _refreshQueueActionControlAfterWrite();
+      if (action == 'passed' && mounted) {
+        final passedHold = _queueActionControl?.printPreflight;
+        if (passedHold?.isPassed == true) {
+          await _runQueueAction(
+            'start',
+            preflightHoldId: passedHold!.holdId,
+          );
+        } else {
+          _showSheetNotice(context.l10n.productionText('worker.error.sync'));
+        }
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _actionInFlight = false);
+      unawaited(_refreshQueueActionControlAfterWrite());
+      _showSheetNotice(_readOnlyQueueActionErrorText(error, context.l10n));
+    }
+  }
+
   Future<bool> _runQueueAction(
     String action, {
     _ProgressQtyInput? progressInput,
@@ -973,9 +1041,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     bool freezeWithIssue = false,
     String issueNote = '',
     String freezeRequestId = '',
+    String preflightHoldId = '',
   }) async {
     final l10n = context.l10n;
-    if (_actionInFlight || !_queueActionContractSynchronized ||
+    if (_actionInFlight ||
+        !_queueActionContractSynchronized ||
         _queueActionControl?.allows(action) != true) {
       return false;
     }
@@ -984,8 +1054,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     // and transaction. A full snapshot GET here cannot prevent a race and
     // used to add an entire network round trip to every click.
     final latestControl = _queueActionControl;
-    if (action == 'complete' && widget.apparatus?.operation.trim() == 'print' &&
-        (progressInput?.closingOutputBatchId ?? '') != latestControl?.closingOutputBatchId) {
+    if (action == 'complete' &&
+        widget.apparatus?.operation.trim() == 'print' &&
+        (progressInput?.closingOutputBatchId ?? '') !=
+            latestControl?.closingOutputBatchId) {
       _showSheetNotice(l10n.productionText('worker.error.sync'));
       return false;
     }
@@ -1046,6 +1118,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               freezeWithIssue: freezeWithIssue,
               issueNote: issueNote,
               freezeRequestId: freezeRequestId,
+              printPreflightHoldId: preflightHoldId,
             ),
           )
           .timeout(_queueActionUiTimeout);
@@ -1232,8 +1305,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   void _showQuickScanFeedback(
     ProductionQuickScanFeedback feedback, {
-    ProductionQuickScanHighlight highlight =
-        ProductionQuickScanHighlight.none,
+    ProductionQuickScanHighlight highlight = ProductionQuickScanHighlight.none,
   }) {
     if (!mounted || feedback == ProductionQuickScanFeedback.none) return;
     _quickScanFeedbackColorTimer?.cancel();
@@ -1702,7 +1774,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   Future<void> _runInitialBosmaFinishFlow() async {
     final outcome = await _runProgressAction('complete');
-    if (mounted) Navigator.of(context).pop(outcome == _ProgressActionOutcome.completed);
+    if (mounted)
+      Navigator.of(context).pop(outcome == _ProgressActionOutcome.completed);
   }
 
   Future<_ProgressActionOutcome> _runAstatkaReport() async {
@@ -1729,7 +1802,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           returnedPaintImageId: input.returnedPaintImageId,
           description: input.description,
         );
-        await ReturnedPaintDraftStore.instance.clear('${returnedPaintWorkerDraftScope(
+        await ReturnedPaintDraftStore.instance
+            .clear('${returnedPaintWorkerDraftScope(
           actorRef: AppSession.instance.profile?.ref ?? '',
           orderId: widget.order.map.id,
           apparatus: apparatusId,
@@ -1823,14 +1897,16 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     bool workerHandoff = false,
     bool removeRollFromApparatus = false,
   }) async {
-    if (action == 'complete' && widget.apparatus?.operation.trim() == 'print' &&
+    if (action == 'complete' &&
+        widget.apparatus?.operation.trim() == 'print' &&
         !_queueActionContractSynchronized) {
       try {
         final latest = await _loadCurrentQueueActionControl();
         if (!mounted) return _ProgressActionOutcome.cancelled;
         setState(() => _queueActionControl = latest);
         if (latest?.isConsistentWith(_orderControlState,
-              queueState: _queueStates[widget.order.map.id.trim()]) != true ||
+                    queueState: _queueStates[widget.order.map.id.trim()]) !=
+                true ||
             latest?.allows('complete') != true) {
           _showSheetNotice(_queueActionUnavailableText(
             l10n: context.l10n,
@@ -1841,7 +1917,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           return _ProgressActionOutcome.failed;
         }
       } catch (_) {
-        if (mounted) _showSheetNotice(context.l10n.productionText('worker.error.sync'));
+        if (mounted)
+          _showSheetNotice(context.l10n.productionText('worker.error.sync'));
         return _ProgressActionOutcome.failed;
       }
     }
@@ -1898,7 +1975,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       fullCompletionReportRequired:
           fullCompletionReportRequired ?? _completionNeedsFullReport(action),
       closingOutputBatchId: action == 'complete'
-          ? _queueActionControl?.closingOutputBatchId ?? '' : '',
+          ? _queueActionControl?.closingOutputBatchId ?? ''
+          : '',
       rezkaTotalWasteOnlyCompletionRequired:
           _queueActionControl?.completeRequiresRezkaTotalWasteOnly ?? false,
       workerHandoff: workerHandoff,
@@ -1923,7 +2001,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _returnedPaintDraft = null;
         _returnedPaintDraftScope = '';
       }
-      return completed ? _ProgressActionOutcome.completed : _ProgressActionOutcome.failed;
+      return completed
+          ? _ProgressActionOutcome.completed
+          : _ProgressActionOutcome.failed;
     }
     final isTrainingOrder = widget.order.map.id.trim().startsWith('training-');
     if (input.isIssue && freezeRequestSafeStop && !isTrainingOrder) {
@@ -2221,7 +2301,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _availableInputProgressBatches = const [];
         _availableOpeningWipBatches = const [];
         _inputProgressLoading = false;
-        _inputProgressError = error is TimeoutException || error is http.ClientException
+        _inputProgressError = error is TimeoutException ||
+                error is http.ClientException
             ? context.l10n.productionText('worker.error.network_timeout')
             : context.l10n.productionText(
                 error is MobileApiException &&

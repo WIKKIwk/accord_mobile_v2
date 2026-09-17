@@ -65,6 +65,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onTapMapApparatus,
     required this.onMaterialIntake,
     required this.onStart,
+    required this.onPrintPreflightPassed,
+    required this.onPrintPreflightFailed,
     required this.onPause,
     required this.onMerge,
     required this.onRollComplete,
@@ -140,6 +142,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final ValueChanged<ProductionMapNode> onTapMapApparatus;
   final VoidCallback onMaterialIntake;
   final VoidCallback onStart;
+  final VoidCallback onPrintPreflightPassed;
+  final VoidCallback onPrintPreflightFailed;
   final VoidCallback onPause;
   final VoidCallback onMerge;
   final VoidCallback onRollComplete;
@@ -343,6 +347,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       rezkaMergeStateLines: rezkaMergeStateLines,
                       onMaterialIntake: onMaterialIntake,
                       onStart: onStart,
+                      onPrintPreflightPassed: onPrintPreflightPassed,
+                      onPrintPreflightFailed: onPrintPreflightFailed,
                       onPause: onPause,
                       onMerge: onMerge,
                       onRollComplete: onRollComplete,
@@ -485,8 +491,10 @@ void _showProductionMapOrderImageDialog(
                       image: image,
                       fit: BoxFit.contain,
                       frameBuilder: (context, child, frame, synchronous) =>
-                          frame != null || synchronous ? child
-                              : const Center(child: CircularProgressIndicator()),
+                          frame != null || synchronous
+                              ? child
+                              : const Center(
+                                  child: CircularProgressIndicator()),
                       errorBuilder: (_, __, ___) => Icon(
                         Icons.broken_image_outlined,
                         color: scheme.primary,
@@ -633,8 +641,7 @@ class _TayyorlovFormulaButton extends StatelessWidget {
     if (materials.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-              'Bu orderda sizga biriktirilgan homashyo topilmadi.'),
+          content: Text('Bu orderda sizga biriktirilgan homashyo topilmadi.'),
         ),
       );
       return;
@@ -651,8 +658,7 @@ class _TayyorlovFormulaButton extends StatelessWidget {
         orderId: orderId,
         orderCode: _openedOrderDisplayCode(map).trim(),
         productCode: map.productCode.trim(),
-        productTitle:
-            _openedOrderPrimaryTitle(map, l10n: context.l10n).trim(),
+        productTitle: _openedOrderPrimaryTitle(map, l10n: context.l10n).trim(),
         materialId: picked.materialId,
         materialName: materialName,
         customerName: customerName,
@@ -719,8 +725,7 @@ Future<PreparationResponsibility?> _pickOrderHomashyo(
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     sheetAnimationStyle: kM3PickerSheetAnimation,
-    builder: (sheetContext) =>
-        _OrderHomashyoPickerSheet(materials: materials),
+    builder: (sheetContext) => _OrderHomashyoPickerSheet(materials: materials),
   );
 }
 
@@ -733,8 +738,7 @@ class _OrderHomashyoPickerSheet extends StatefulWidget {
       _OrderHomashyoPickerSheetState();
 }
 
-class _OrderHomashyoPickerSheetState
-    extends State<_OrderHomashyoPickerSheet> {
+class _OrderHomashyoPickerSheetState extends State<_OrderHomashyoPickerSheet> {
   final _searchController = TextEditingController();
   String _query = '';
 
@@ -752,10 +756,9 @@ class _OrderHomashyoPickerSheetState
     final filtered = query.isEmpty
         ? widget.materials
         : widget.materials
-            .where((item) =>
-                '${item.materialName} ${item.materialId}'
-                    .toLowerCase()
-                    .contains(query))
+            .where((item) => '${item.materialName} ${item.materialId}'
+                .toLowerCase()
+                .contains(query))
             .toList(growable: false);
     return DraggableScrollableSheet(
       expand: false,
@@ -765,8 +768,7 @@ class _OrderHomashyoPickerSheetState
       builder: (_, scrollController) => Container(
         decoration: BoxDecoration(
           color: scheme.surface,
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: Column(
           children: [
@@ -806,13 +808,10 @@ class _OrderHomashyoPickerSheetState
                             : item.materialName.trim();
                         return Padding(
                           padding: EdgeInsets.only(
-                            top: index == 0
-                                ? 0
-                                : M3SegmentedListGeometry.gap,
+                            top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
                           ),
                           child: AdminSupplierListRow(
-                            key: ValueKey(
-                                'order-homashyo-${item.materialId}'),
+                            key: ValueKey('order-homashyo-${item.materialId}'),
                             slot: M3SegmentedListGeometry
                                 .standaloneListSlotForIndex(
                               index,
@@ -825,8 +824,7 @@ class _OrderHomashyoPickerSheetState
                               kind: AdminUserKind.supplier,
                               roleLabelOverride: 'Homashyo formulasi',
                             ),
-                            onTap: () =>
-                                Navigator.of(context).pop(item),
+                            onTap: () => Navigator.of(context).pop(item),
                           ),
                         );
                       },

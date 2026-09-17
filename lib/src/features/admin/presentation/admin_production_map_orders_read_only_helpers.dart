@@ -256,6 +256,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
   bool removeRollFromApparatus = false,
   bool freezeWithIssue = false,
   String issueNote = '',
+  String printPreflightHoldId = '',
 }) {
   return _ReadOnlyQueueActionRequest(
     apparatus: prepared.apparatus,
@@ -294,7 +295,8 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     progressBatchId: _queueActionProgressBatchId(
       action: action,
       progressBatchId: progressInput?.closingOutputBatchId.isNotEmpty == true
-          ? progressInput!.closingOutputBatchId : progressBatchId,
+          ? progressInput!.closingOutputBatchId
+          : progressBatchId,
       startInputBatchId: prepared.startInputBatchId,
     ),
     customerName: customerName.trim(),
@@ -309,12 +311,14 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     returnedPaintImageId: progressInput?.returnedPaintImageId ?? '',
     fullCompletionReportRequired:
         progressInput?.fullCompletionReportRequired ?? false,
-    completeWithoutOutput: progressInput?.closingOutputBatchId.isNotEmpty == true,
+    completeWithoutOutput:
+        progressInput?.closingOutputBatchId.isNotEmpty == true,
     workerHandoff: workerHandoff,
     removeRollFromApparatus: removeRollFromApparatus,
     freezeRequestId: freezeRequestId,
     freezeWithIssue: freezeWithIssue,
     issueNote: issueNote,
+    printPreflightHoldId: printPreflightHoldId,
   );
 }
 
@@ -384,9 +388,11 @@ String? _materialStartUnavailableReason({
   }
   if (!materialRequirements.assignmentsSatisfied) {
     final pendingCut = materialRequirements.assignments.any((assignment) =>
-        materialRequirements.normalizedAssignedBarcodes.contains(assignment.barcode.trim().toUpperCase()) &&
+        materialRequirements.normalizedAssignedBarcodes
+            .contains(assignment.barcode.trim().toUpperCase()) &&
         assignment.executionStatus == 'needs_cutting');
-    if (pendingCut) return 'Homashyo biriktirilgan, lekin apparatingizga katta. Rezka kutilmoqda';
+    if (pendingCut)
+      return 'Homashyo biriktirilgan, lekin apparatingizga katta. Rezka kutilmoqda';
     return l10n.productionText('worker.error.incomplete_material_groups');
   }
   if (materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll &&
@@ -560,6 +566,21 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   final showStart = contractSynchronized &&
       canManageQueue &&
       queueActionControl.allows('start');
+  final isPrintApparatus = apparatus?.operation.trim().toLowerCase() == 'print';
+  final printPreflight = queueActionControl?.printPreflight;
+  final showPrintPreflightHold = contractSynchronized &&
+      canManageQueue &&
+      isPrintApparatus &&
+      showStart &&
+      printPreflight == null;
+  final showPrintPreflightStart = contractSynchronized &&
+      canManageQueue &&
+      isPrintApparatus &&
+      printPreflight?.isHeld == true;
+  final showPrintPreflightOutcome = contractSynchronized &&
+      canManageQueue &&
+      isPrintApparatus &&
+      printPreflight?.isRunning == true;
   final showPause = contractSynchronized &&
       canManageQueue &&
       queueActionControl.allows('pause');
@@ -608,6 +629,10 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     previousProgressRequired: previousProgressRequired,
     previousProgressReady: !previousProgressRequired || acceptedPreviousWip,
     showStart: showStart,
+    printPreflight: printPreflight,
+    showPrintPreflightHold: showPrintPreflightHold,
+    showPrintPreflightStart: showPrintPreflightStart,
+    showPrintPreflightOutcome: showPrintPreflightOutcome,
     showPause: showPause,
     showMerge: showMerge,
     showRollComplete: showRollComplete,
@@ -624,6 +649,8 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     blockingReasonCode: interaction?.blockingReasonCode ?? '',
     showBackendBlockingState: canManageQueue &&
         contractSynchronized &&
+        !showPrintPreflightStart &&
+        !showPrintPreflightOutcome &&
         (interaction?.blockingReasonCode.trim().isNotEmpty ?? false),
   );
 }

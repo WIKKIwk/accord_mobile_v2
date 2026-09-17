@@ -142,6 +142,51 @@ class AdminRezkaActivePartialRoll {
   }
 }
 
+class AdminPrintPreflightHold {
+  const AdminPrintPreflightHold({
+    required this.holdId,
+    required this.idempotencyKey,
+    required this.orderId,
+    required this.apparatus,
+    required this.status,
+  });
+
+  final String holdId;
+  final String idempotencyKey;
+  final String orderId;
+  final String apparatus;
+  final String status;
+
+  bool get isHeld => status == 'held';
+  bool get isRunning => status == 'running';
+  bool get isPassed => status == 'passed';
+  bool get isInProgress => isHeld || isRunning;
+  bool get isActive => isInProgress || isPassed;
+
+  static AdminPrintPreflightHold? tryFromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final holdId = raw['hold_id']?.toString().trim() ?? '';
+    final idempotencyKey = raw['idempotency_key']?.toString().trim() ?? '';
+    final orderId = raw['order_id']?.toString().trim() ?? '';
+    final apparatus = raw['apparatus']?.toString().trim() ?? '';
+    final status = raw['status']?.toString().trim().toLowerCase() ?? '';
+    if (holdId.isEmpty ||
+        idempotencyKey.isEmpty ||
+        orderId.isEmpty ||
+        apparatus.isEmpty ||
+        !const {'held', 'running', 'passed'}.contains(status)) {
+      return null;
+    }
+    return AdminPrintPreflightHold(
+      holdId: holdId,
+      idempotencyKey: idempotencyKey,
+      orderId: orderId,
+      apparatus: apparatus,
+      status: status,
+    );
+  }
+}
+
 class AdminApparatusQueueOrderActionControl {
   const AdminApparatusQueueOrderActionControl({
     this.stageWork,
@@ -163,6 +208,7 @@ class AdminApparatusQueueOrderActionControl {
     this.closingOutputBatchId = '',
     this.completeRequiresRezkaTotalWasteOnly = false,
     this.freezeRequest,
+    this.printPreflight,
   });
 
   final AdminQueueWorkActivity? workActivity;
@@ -184,6 +230,7 @@ class AdminApparatusQueueOrderActionControl {
   final String closingOutputBatchId;
   final bool completeRequiresRezkaTotalWasteOnly;
   final AdminProductionOrderFreezeDetails? freezeRequest;
+  final AdminPrintPreflightHold? printPreflight;
 
   bool allows(String action) => allowedActions.contains(action.trim());
 
@@ -198,8 +245,23 @@ class AdminApparatusQueueOrderActionControl {
         !_queueInteractionModeMatchesState(value.mode, normalizedState)) {
       return false;
     }
+    final preflight = printPreflight;
+    if (preflight != null) {
+      if (preflight.isInProgress &&
+          (normalizedState != 'pending' ||
+              value.mode != AdminQueueInteractionMode.freshStartBlocked ||
+              allowedActions.isNotEmpty)) {
+        return false;
+      }
+      if (preflight.isPassed &&
+          (value.mode != AdminQueueInteractionMode.freshStart ||
+              !allowedActions.contains('start'))) {
+        return false;
+      }
+    }
     for (final action in allowedActions) {
-      if (action == 'complete' && value.mode == AdminQueueInteractionMode.paused &&
+      if (action == 'complete' &&
+          value.mode == AdminQueueInteractionMode.paused &&
           closingOutputBatchId.trim().isNotEmpty) {
         continue;
       }
@@ -208,7 +270,8 @@ class AdminApparatusQueueOrderActionControl {
       }
     }
     if (closingOutputBatchId.trim().isNotEmpty &&
-        (normalizedState != 'paused' || value.mode != AdminQueueInteractionMode.paused ||
+        (normalizedState != 'paused' ||
+            value.mode != AdminQueueInteractionMode.paused ||
             !allowedActions.contains('complete'))) {
       return false;
     }
@@ -376,10 +439,16 @@ class AdminApparatusQueueOrderActionControl {
         }
       }
     }
-    final rezkaOutputReport = AdminRezkaOutputReport.tryFromJson(json['rezka_output_report']);
+    final hasPrintPreflightField = json.containsKey('print_preflight');
+    final printPreflight = AdminPrintPreflightHold.tryFromJson(
+      json['print_preflight'],
+    );
+    final rezkaOutputReport =
+        AdminRezkaOutputReport.tryFromJson(json['rezka_output_report']);
     if (json['rezka_output_report'] != null &&
-        (rezkaOutputReport == null || rezkaOutputReport.frames.any(
-          (slot) => slot.index > rezkaOutputKadrCounts.length))) {
+        (rezkaOutputReport == null ||
+            rezkaOutputReport.frames
+                .any((slot) => slot.index > rezkaOutputKadrCounts.length))) {
       hasValidRezkaMergeState = false;
     }
     final lineageBatchIds = <String>{};
@@ -421,7 +490,8 @@ class AdminApparatusQueueOrderActionControl {
           rawActions is List &&
           json['interaction'] is Map &&
           json['previous_stage_ready'] is bool &&
-          json['complete_requires_full_report'] is bool,
+          json['complete_requires_full_report'] is bool &&
+          (!hasPrintPreflightField || printPreflight != null),
       previousStage: json['previous_stage']?.toString().trim() ?? '',
       stageNodeId: json['stage_node_id']?.toString().trim() ?? '',
       previousStageReady: json['previous_stage_ready'] == true,
@@ -435,9 +505,12 @@ class AdminApparatusQueueOrderActionControl {
       hasValidRezkaMergeState: hasValidRezkaMergeState,
       completeRequiresFullReport: json['complete_requires_full_report'] == true,
       stageWork: json['stage_work'] is Map
-          ? AdminStageWorkControl.fromJson((json['stage_work'] as Map).cast<String, dynamic>()) : null,
+          ? AdminStageWorkControl.fromJson(
+              (json['stage_work'] as Map).cast<String, dynamic>())
+          : null,
       closingOutputBatchId: json['closing_output_batch_id'] is String
-          ? (json['closing_output_batch_id'] as String).trim() : '',
+          ? (json['closing_output_batch_id'] as String).trim()
+          : '',
       completeRequiresRezkaTotalWasteOnly:
           json['complete_requires_rezka_total_waste_only'] == true,
       freezeRequest: json['freeze_request'] is Map
@@ -445,14 +518,22 @@ class AdminApparatusQueueOrderActionControl {
               (json['freeze_request'] as Map).cast<String, dynamic>(),
             )
           : null,
+      printPreflight: printPreflight,
     );
   }
 }
 
 class AdminStageWorkControl {
-  const AdminStageWorkControl({this.completed = false, this.localCompleted = false, this.upstreamClosed = false,
-    this.astatkaAvailable = false, this.astatkaRequired = false, this.reportSessionId = '',
-    this.upstreamTitle = '', this.lastApparatus = '', this.lastWorkerRef = ''});
+  const AdminStageWorkControl(
+      {this.completed = false,
+      this.localCompleted = false,
+      this.upstreamClosed = false,
+      this.astatkaAvailable = false,
+      this.astatkaRequired = false,
+      this.reportSessionId = '',
+      this.upstreamTitle = '',
+      this.lastApparatus = '',
+      this.lastWorkerRef = ''});
   final bool completed;
   // This machine's reported execution, not completion of the shared operation.
   final bool localCompleted;
@@ -464,24 +545,47 @@ class AdminStageWorkControl {
   final String lastApparatus;
   final String lastWorkerRef;
 
-  factory AdminStageWorkControl.fromJson(Map<String, dynamic> json) => AdminStageWorkControl(
-    completed: json['completed'] == true, localCompleted: json['local_completed'] == true,
-    upstreamClosed: json['upstream_closed'] == true,
-    astatkaAvailable: json['astatka_available'] == true, astatkaRequired: json['astatka_required'] == true,
-    reportSessionId: json['report_session_id']?.toString() ?? '', upstreamTitle: json['upstream_title']?.toString() ?? '',
-    lastApparatus: json['last_apparatus']?.toString() ?? '', lastWorkerRef: json['last_worker_ref']?.toString() ?? '');
+  factory AdminStageWorkControl.fromJson(Map<String, dynamic> json) =>
+      AdminStageWorkControl(
+          completed: json['completed'] == true,
+          localCompleted: json['local_completed'] == true,
+          upstreamClosed: json['upstream_closed'] == true,
+          astatkaAvailable: json['astatka_available'] == true,
+          astatkaRequired: json['astatka_required'] == true,
+          reportSessionId: json['report_session_id']?.toString() ?? '',
+          upstreamTitle: json['upstream_title']?.toString() ?? '',
+          lastApparatus: json['last_apparatus']?.toString() ?? '',
+          lastWorkerRef: json['last_worker_ref']?.toString() ?? '');
 
-  bool get needsReportPrompt => upstreamClosed && astatkaAvailable && astatkaRequired && reportSessionId.isNotEmpty;
+  bool get needsReportPrompt =>
+      upstreamClosed &&
+      astatkaAvailable &&
+      astatkaRequired &&
+      reportSessionId.isNotEmpty;
 
   @override
-  bool operator ==(Object other) => other is AdminStageWorkControl && completed == other.completed &&
+  bool operator ==(Object other) =>
+      other is AdminStageWorkControl &&
+      completed == other.completed &&
       localCompleted == other.localCompleted &&
-      upstreamClosed == other.upstreamClosed && astatkaAvailable == other.astatkaAvailable &&
-      astatkaRequired == other.astatkaRequired && reportSessionId == other.reportSessionId &&
-      upstreamTitle == other.upstreamTitle && lastApparatus == other.lastApparatus && lastWorkerRef == other.lastWorkerRef;
+      upstreamClosed == other.upstreamClosed &&
+      astatkaAvailable == other.astatkaAvailable &&
+      astatkaRequired == other.astatkaRequired &&
+      reportSessionId == other.reportSessionId &&
+      upstreamTitle == other.upstreamTitle &&
+      lastApparatus == other.lastApparatus &&
+      lastWorkerRef == other.lastWorkerRef;
   @override
-  int get hashCode => Object.hash(completed, localCompleted, upstreamClosed, astatkaAvailable, astatkaRequired,
-      reportSessionId, upstreamTitle, lastApparatus, lastWorkerRef);
+  int get hashCode => Object.hash(
+      completed,
+      localCompleted,
+      upstreamClosed,
+      astatkaAvailable,
+      astatkaRequired,
+      reportSessionId,
+      upstreamTitle,
+      lastApparatus,
+      lastWorkerRef);
 }
 
 bool _queueInteractionModeMatchesState(

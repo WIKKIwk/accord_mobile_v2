@@ -26,6 +26,7 @@ Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
     int? rezkaRecordFrameIndex,
     String rezkaOutputCycle = '',
     String outputPaddonCode = '',
+    String printPreflightHoldId = '',
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -133,6 +134,7 @@ final normalizedApparatusId = apparatus.trim();
     }
     return _adminApparatusQueueActionResultBackend(
       outputPaddonCode: outputPaddonCode,
+      printPreflightHoldId: printPreflightHoldId,
       completeWithoutOutput: completeWithoutOutput,
       rezkaRecordFrameIndex: rezkaRecordFrameIndex,
       rezkaOutputCycle: rezkaOutputCycle,

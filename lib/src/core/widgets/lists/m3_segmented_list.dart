@@ -122,6 +122,7 @@ class M3SegmentFilledSurface extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.backgroundColor,
+    this.backgroundGradient,
     this.borderRadiusOverride,
   });
 
@@ -133,6 +134,7 @@ class M3SegmentFilledSurface extends StatelessWidget {
 
   /// `null` — standart [ColorScheme.surfaceContainerLowest].
   final Color? backgroundColor;
+  final Gradient? backgroundGradient;
   final BorderRadius? borderRadiusOverride;
 
   @override
@@ -140,10 +142,17 @@ class M3SegmentFilledSurface extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final BorderRadius radius = borderRadiusOverride ??
         M3SegmentedListGeometry.borderRadius(slot, cornerRadius);
-    final Color bg = backgroundColor ?? scheme.surfaceContainerLowest;
+    final Color bg = backgroundColor ??
+        (backgroundGradient == null
+            ? scheme.surfaceContainerLowest
+            : Colors.transparent);
 
     final Widget ink = Ink(
-      decoration: BoxDecoration(color: bg, borderRadius: radius),
+      decoration: BoxDecoration(
+        color: backgroundGradient == null ? bg : null,
+        gradient: backgroundGradient,
+        borderRadius: radius,
+      ),
       child: child,
     );
 
