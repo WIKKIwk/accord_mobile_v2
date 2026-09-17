@@ -82,6 +82,41 @@ ProductionMapDefinition _openingWipCutoverMap() {
 }
 
 void main() {
+  test('WIP consumers are same-stage alternatives, not repeated machines', () {
+    final map = ProductionMapDefinition(
+      id: 'zakaz-0073', productCode: '0073', title: 'QR consumers',
+      nodes: [
+        _node('start', 'start', 'Start'),
+        _node('print', 'apparatus', 'Print', apparatusId: _printId),
+        const ProductionMapNode(id: 'lam2', kind: 'apparatus', title: 'Lam2',
+          apparatusId: _lamination2Id, alternativeGroupId: 'lam-stage'),
+        const ProductionMapNode(id: 'lam1', kind: 'apparatus', title: 'Lam1',
+          apparatusId: _lamination1Id, alternativeGroupId: 'lam-stage'),
+        _node('cut', 'apparatus', 'Cut', apparatusId: _cutId),
+        _node('lam2-again', 'apparatus', 'Later Lam2', apparatusId: _lamination2Id),
+        _node('end', 'end', 'End'),
+      ],
+      edges: const [
+        ProductionMapEdge(from: 'start', to: 'print'),
+        ProductionMapEdge(from: 'print', to: 'lam2'),
+        ProductionMapEdge(from: 'print', to: 'lam1'),
+        ProductionMapEdge(from: 'lam2', to: 'cut'),
+        ProductionMapEdge(from: 'lam1', to: 'cut'),
+        ProductionMapEdge(from: 'cut', to: 'lam2-again'),
+        ProductionMapEdge(from: 'lam2-again', to: 'end'),
+      ],
+    );
+    expect(productionMapWipConsumerIds(map: map,
+      nextApparatus: _lamination2Id, nextStageNodeId: 'lam2'),
+      unorderedEquals([_lamination1Id, _lamination2Id]));
+    expect(productionMapWipConsumerIds(map: map,
+      nextApparatus: _lamination2Id, nextStageNodeId: 'lam2-again'), [_lamination2Id]);
+    for (final node in ['', 'missing', 'print']) {
+      expect(productionMapWipConsumerIds(map: map,
+        nextApparatus: _lamination2Id, nextStageNodeId: node), isEmpty);
+    }
+  });
+
   test('display path follows the assigned alternative apparatus', () {
     const map = ProductionMapDefinition(
       id: 'zakaz-display-path',

@@ -2,8 +2,13 @@
 part of '../mobile_api.dart';
 
 extension MobileApiAdminProgressQr on MobileApi {
-  Future<AdminProgressBatch> adminProgressQrLookup(String qrPayload) async {
+  Future<AdminProgressBatch> adminProgressQrLookup(
+    String qrPayload, {
+    String apparatus = '',
+    String orderId = '',
+  }) async {
     final normalized = qrPayload.trim();
+    final scoped = apparatus.trim().isNotEmpty || orderId.trim().isNotEmpty;
     if (await TestModeController.instance.isEnabled()) {
       final batch = _testModeProgressBatchForKey(normalized);
       if (batch == null) {
@@ -11,6 +16,21 @@ extension MobileApiAdminProgressQr on MobileApi {
           code: 'progress_batch_not_found',
           message: 'Progress QR topilmadi',
         );
+      }
+      if (scoped) {
+        final maps = _testModeProductionMaps.where((m) => m.map.id == orderId.trim());
+        final candidates = maps.isEmpty ? const <String>[] : productionMapWipConsumerIds(
+          map: maps.first.map,
+          nextApparatus: batch.nextApparatus,
+          nextStageNodeId: batch.payloadJson['next_stage_node_id']?.toString() ?? '',
+        );
+        if (batch.orderId != orderId.trim() || batch.wipStatus != 'waiting' ||
+            !candidates.contains(apparatus.trim())) {
+          throw const MobileApiException(
+            code: 'progress_batch_not_accepted',
+            message: 'Bu QR oldingi bosqich mahsulotiga mos emas',
+          );
+        }
       }
       return batch;
     }
@@ -21,13 +41,26 @@ extension MobileApiAdminProgressQr on MobileApi {
         ),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({'qr_payload': normalized}),
+        body: jsonEncode({
+          'qr_payload': normalized,
+          if (scoped) 'apparatus': apparatus.trim(),
+          if (scoped) 'order_id': orderId.trim(),
+        }),
       ),
     );
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'progress_batch_not_found');
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    // An older server's unscoped lookup must not be mistaken for eligibility.
+    if (scoped &&
+        (payload['validated_apparatus'] != apparatus.trim() ||
+            payload['validated_order_id'] != orderId.trim())) {
+      throw const MobileApiException(
+        code: 'progress_batch_not_accepted',
+        message: 'Server QR yo‘nalishini tasdiqlamadi',
+      );
+    }
     final raw = payload['batch'];
     if (raw is! Map) {
       throw const MobileApiException(

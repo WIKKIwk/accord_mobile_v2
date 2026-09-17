@@ -99,14 +99,14 @@ void main() {
     expect(preload, contains('adminOpeningWipCandidates('));
   });
 
-  test('worker start scanner validates preloaded QR data locally', () {
+  test('worker start scanner validates WIP against server order and apparatus', () {
     final source = File(
       'lib/src/features/admin/presentation/'
       'admin_production_map_orders_read_only_sheet.dart',
     ).readAsStringSync();
     final scanStart = source.indexOf('Future<void> _handleQuickScan(');
     final scanEnd = source.indexOf(
-      'bool _quickScanErrorAllowsRetry(',
+      'void _toggleMergeScanMode(',
       scanStart,
     );
     expect(scanStart, greaterThanOrEqualTo(0));
@@ -116,7 +116,9 @@ void main() {
     expect(scan, contains('_startAssignments'));
     expect(scan, contains('_requiredQolips'));
     expect(scan, contains('_availableInputProgressBatches'));
-    expect(scan, isNot(contains('adminProgressQrLookup(')));
+    expect(scan, contains('adminProgressQrLookup('));
+    expect(scan, contains('apparatus: station'));
+    expect(scan, contains('orderId: orderId'));
     expect(scan, isNot(contains('adminValidateProductionMapQolipDetails(')));
     expect(scan, isNot(contains('adminLookupOpeningWip(')));
     expect(scan, isNot(contains('_fetchMaterialAssignments(')));

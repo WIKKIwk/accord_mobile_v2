@@ -832,11 +832,21 @@ class _AdminProductionMapOrdersScreenState
         );
         return;
       }
+      await _refreshLive();
+      if (!mounted) return;
+      final targetMaps = _orders.where((order) => order.map.id.trim() == targetOrderId);
+      final candidates = targetMaps.isEmpty ? <String>[stationId] : productionMapWipConsumerIds(
+        map: targetMaps.first.map,
+        nextApparatus: stationId,
+        nextStageNodeId: batch.payloadJson['next_stage_node_id']?.toString() ?? '',
+      );
+      final assigned = AppSession.instance.profile?.assignedApparatus ?? const <String>[];
       AdminApparatus? station;
       for (final candidate in _apparatus) {
-        if (candidate.id.trim() == stationId) {
+        if (candidates.contains(candidate.id.trim()) &&
+            _isAssignedWatchApparatus(candidate, assignedApparatus: assigned)) {
           station = candidate;
-          break;
+          if (candidate.id.trim() == stationId) break;
         }
       }
       if (station == null ||
@@ -852,7 +862,9 @@ class _AdminProductionMapOrdersScreenState
         );
         return;
       }
-      await _refreshLive();
+      await MobileApi.instance.adminProgressQrLookup(
+        qrPayload, apparatus: station.id, orderId: targetOrderId,
+      );
       if (!mounted) return;
       final targetControl = _queueActionControlForApparatus(
         apparatus: station,

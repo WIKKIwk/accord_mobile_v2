@@ -288,7 +288,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _inputProgressError.isEmpty &&
         (uiState.openingWipRequired
             ? _availableOpeningWipBatches.isNotEmpty
-            : _availableInputProgressBatches.isNotEmpty);
+            : true);
     final materialIntake = _materialIntakeMode &&
         uiState.materialIntakeAllowed &&
         !_materialsLoading &&
@@ -1509,11 +1509,21 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
       final previousStage = _queueActionControl?.previousStage.trim();
       if (previousStage != null && previousStage.isNotEmpty) {
-        final batch = _inputProgressBatchForScannedQr(
-          batches: _availableInputProgressBatches,
-          qrPayload: normalized,
+        final batch = await MobileApi.instance.adminProgressQrLookup(
+          normalized,
+          apparatus: station,
+          orderId: orderId,
         );
-        if (batch != null && _acceptProgressBatch(batch)) {
+        if (!mounted || !_materialContextIsCurrent(orderId, station)) return;
+        // The server validated the exact QR against the current map. It may
+        // have been produced after this sheet opened or outside its list page.
+        setState(() {
+          _availableInputProgressBatches = [
+            batch,
+            ..._availableInputProgressBatches.where((b) => b.batchId != batch.batchId),
+          ];
+        });
+        if (_acceptProgressBatch(batch)) {
           _showQuickScanFeedback(ProductionQuickScanFeedback.accepted);
           return;
         }
@@ -1534,9 +1544,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
       _showQuickScanFeedback(ProductionQuickScanFeedback.rejected);
     } catch (error) {
-      if (_quickScanErrorAllowsRetry(error)) {
-        _seenQuickScanValues.remove(scanKey);
-      }
+      // A rejected roll can become available after a peer releases it, and a
+      // map can be corrected while the sheet is open. Allow another scan.
+      _seenQuickScanValues.remove(scanKey);
       if (mounted) {
         setState(() {
           _quickScanStatus = _readOnlyQueueActionErrorText(
@@ -1554,10 +1564,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         });
       }
     }
-  }
-
-  bool _quickScanErrorAllowsRetry(Object error) {
-    return error is TimeoutException || error is http.ClientException;
   }
 
   void _toggleMergeScanMode() {

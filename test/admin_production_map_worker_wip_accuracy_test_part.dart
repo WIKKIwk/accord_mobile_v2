@@ -84,6 +84,32 @@ void _registerWorkerWipAccuracyTests() {
   }
 
   http.Response supportingResponse(http.Request request) {
+    if (request.url.path.endsWith('/sequence')) {
+      final station = request.url.queryParameters['apparatus'] ?? _lamination1Id;
+      final printer = station == _print7Id;
+      return http.Response(jsonEncode({
+        'sequences': {station: [orderId]},
+        'visible_order_ids': {station: [orderId]},
+        'queue_states': {station: {orderId: 'pending'}},
+        'stage_states': {}, 'queue_policies': [],
+        'queue_action_controls': {station: {orderId: {
+          'state': 'pending', 'allowed_actions': ['start'],
+          'previous_stage': printer ? '' : _print7Id,
+          'previous_stage_ready': true, 'complete_requires_full_report': false,
+          'interaction': {
+            'mode': 'fresh_start', 'start_materials_mode': 'hidden',
+            'material_scan_required': false, 'assigned_materials_display_only': true,
+            'material_intake_allowed': false,
+            'previous_wip_mode': printer ? 'not_required' : 'scan_required',
+            'opening_wip_mode': 'not_required',
+            'qolip_mode': printer ? 'scan_required' : 'not_required',
+            'blocking_reason_code': '',
+          },
+        }}},
+        'order_controls': {orderId: {'state': 'active'}},
+        'order_statuses': {}, 'frozen_orders_by_apparatus': {},
+      }), 200);
+    }
     if (request.url.path.endsWith('/raw-material-assignments')) {
       return http.Response('{"assignments":[]}', 200);
     }
@@ -155,7 +181,7 @@ void _registerWorkerWipAccuracyTests() {
         expect(start, findsOneWidget);
         expect(tester.widget<FilledButton>(start).onPressed, isNull);
         expect(find.byType(ProductionQuickScannerPanel),
-            scenario == 'available' ? findsOneWidget : findsNothing);
+            ['available', 'empty'].contains(scenario) ? findsOneWidget : findsNothing);
         if (scenario == 'loading') {
           expect(find.byType(LinearProgressIndicator), findsWidgets);
           pending.complete(http.Response('{"batches":[]}', 200));
@@ -205,6 +231,59 @@ void _registerWorkerWipAccuracyTests() {
                     return http.Response('{"batches":[]}', 200);
                 }
               }));
+    });
+  }
+
+  for (final initiallyRejected in [false, true]) {
+    testWidgets('worker accepts newly produced peer-targeted QR, retry=$initiallyRejected', (tester) async {
+      var lookups = 0;
+      final lookupBodies = <Object?>[];
+      const qr = '400118D5A225166D31898C1F';
+      await http.runWithClient(() async {
+        await open(tester);
+        await tester.pumpAndSettle();
+        final start = find.widgetWithText(FilledButton, 'Boshlash');
+        expect(tester.widget<FilledButton>(start).onPressed, isNull);
+        void scan() => tester.widget<ProductionQuickScannerPanel>(
+          find.byType(ProductionQuickScannerPanel)).onCodeDetected(qr);
+        scan();
+        await tester.pumpAndSettle();
+        if (initiallyRejected) {
+          expect(tester.widget<FilledButton>(start).onPressed, isNull);
+          scan();
+          await tester.pumpAndSettle();
+        }
+        expect(lookups, initiallyRejected ? 2 : 1);
+        expect(lookupBodies.first, {
+          'qr_payload': qr, 'apparatus': _lamination1Id, 'order_id': orderId,
+        });
+        expect(tester.widget<FilledButton>(start).onPressed, isNotNull,
+          reason: tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).join(' | '));
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      }, () => MockClient((request) async {
+        if (request.url.path.endsWith('/wip-batches')) {
+          return http.Response('{"batches":[]}', 200);
+        }
+        if (request.url.path.endsWith('/progress-qr/lookup')) {
+          lookups++;
+          lookupBodies.add(jsonDecode(request.body));
+          if (initiallyRejected && lookups == 1) {
+            return http.Response('{"error":"progress_batch_not_accepted"}', 400);
+          }
+          return http.Response(jsonEncode({
+            'validated_apparatus': _lamination1Id, 'validated_order_id': orderId,
+            'batch': {
+              'batch_id': 'new-roll', 'order_id': orderId,
+              'apparatus': _print7Id, 'current_apparatus': _print7Id,
+              'next_apparatus': 'apparatus:default:asset-008',
+              'wip_status': 'waiting', 'status': 'roll_detached', 'action': 'detach_roll',
+              'produced_qty': 9900, 'uom': 'm', 'qr_payload': qr,
+            },
+          }), 200);
+        }
+        return supportingResponse(request);
+      }));
     });
   }
 

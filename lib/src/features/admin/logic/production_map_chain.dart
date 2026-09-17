@@ -18,6 +18,32 @@ class ProductionMapChainStage {
   bool get isApparatus => apparatusId != null;
 }
 
+/// Candidate consumers of one concrete WIP destination. Group identity is
+/// occurrence-specific; another use of the same machine is not interchangeable.
+List<String> productionMapWipConsumerIds({
+  required ProductionMapDefinition map,
+  required String nextApparatus,
+  required String nextStageNodeId,
+}) {
+  final stages = productionMapLinearWorkStages(map);
+  final targets = map.nodes.where((node) =>
+      node.kind == 'apparatus' &&
+      node.apparatusId.trim() == nextApparatus.trim() &&
+      (nextStageNodeId.trim().isEmpty || node.id == nextStageNodeId.trim()) &&
+      stages.any((stage) => stage.nodeId == node.id));
+  if (targets.length != 1) return const [];
+  final target = targets.single;
+  final group = target.alternativeGroupId.trim();
+  return [
+    for (final stage in stages)
+      if (stage.apparatusId != null &&
+          (stage.nodeId == target.id ||
+              (group.isNotEmpty && map.nodes.any((node) =>
+                  node.id == stage.nodeId && node.alternativeGroupId.trim() == group))))
+        stage.apparatusId!,
+  ];
+}
+
 List<ProductionMapChainStage> productionMapLinearWorkStages(
   ProductionMapDefinition map,
 ) {

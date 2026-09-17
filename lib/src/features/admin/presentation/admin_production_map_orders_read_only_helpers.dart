@@ -155,21 +155,6 @@ AdminProgressBatch? _matchingInputProgressBatch({
   return null;
 }
 
-AdminProgressBatch? _inputProgressBatchForScannedQr({
-  required List<AdminProgressBatch> batches,
-  required String qrPayload,
-}) {
-  final normalized = qrPayload.trim().toUpperCase();
-  if (normalized.isEmpty) return null;
-  for (final batch in batches) {
-    if (batch.qrPayload.trim().toUpperCase() == normalized &&
-        _progressBatchCanBeScanned(batch)) {
-      return batch;
-    }
-  }
-  return null;
-}
-
 AdminOpeningWipBatch? _matchingOpeningWipBatch({
   required List<AdminOpeningWipBatch> batches,
   String batchId = '',
