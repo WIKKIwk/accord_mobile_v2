@@ -445,6 +445,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         onStart: _handleStartAction,
         onPrintPreflightPassed: () => unawaited(_runPrintPreflight('passed')),
         onPrintPreflightFailed: () => unawaited(_runPrintPreflight('failed')),
+        onPrintPreflightFreeze: () => unawaited(_runPrintPreflightFreeze()),
         onPause: () => unawaited(_runProgressAction('pause')),
         onMerge: _toggleMergeScanMode,
         onRollComplete: () => unawaited(_runProgressAction('roll_complete')),
@@ -931,13 +932,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       final request = control?.freezeRequest;
       final apparatus = widget.apparatus?.id.trim() ?? '';
       final initialRequestId = widget.initialPauseRequestId.trim();
+      final isPrintPreflight = control?.state.trim() == 'print_preflight' &&
+          control?.printPreflight?.isInProgress == true;
       final valid = control != null &&
-          control.state.trim() == 'in_progress' &&
+          (control.state.trim() == 'in_progress' || isPrintPreflight) &&
           request != null &&
           request.status.trim() == 'pending' &&
           request.requestId.trim().isNotEmpty &&
-          request.targetSessionId.trim().isNotEmpty &&
           request.targetApparatus.trim() == apparatus &&
+          (isPrintPreflight
+              ? request.targetSessionId.trim().isEmpty
+              : request.targetSessionId.trim().isNotEmpty) &&
           (initialRequestId.isEmpty ||
               request.requestId.trim() == initialRequestId);
       if (!valid) {
@@ -972,6 +977,25 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     } else {
       unawaited(_runQueueAction('start'));
     }
+  }
+
+  Future<bool> _runPrintPreflightFreeze() async {
+    final request = await _loadAuthoritativeFreezeRequest();
+    if (!mounted || request == null) return false;
+    final control = _queueActionControl;
+    final isPrintPreflight = control?.state.trim() == 'print_preflight' &&
+        control?.printPreflight?.isInProgress == true;
+    if (!isPrintPreflight) return false;
+    final completed = await _runQueueAction(
+      'freeze',
+      freezeRequestId: request.requestId,
+    );
+    if (mounted && completed) {
+      _showSheetNotice(
+        context.l10n.productionText('worker.freeze.print_preflight.success'),
+      );
+    }
+    return completed;
   }
 
   Future<AdminPrintPreflightHold?> _runPrintPreflight(
@@ -1742,6 +1766,22 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _runInitialPauseFlow() async {
+    if (_orderControlState == AdminOrderControlState.freezeRequested) {
+      final request = await _loadAuthoritativeFreezeRequest();
+      if (!mounted) return;
+      final control = _queueActionControl;
+      final isPrintPreflight = request != null &&
+          control?.state.trim() == 'print_preflight' &&
+          control?.printPreflight?.isInProgress == true;
+      if (isPrintPreflight) {
+        final completed = await _runQueueAction(
+          'freeze',
+          freezeRequestId: request.requestId,
+        );
+        if (mounted) Navigator.of(context).pop(completed);
+        return;
+      }
+    }
     final outcome = await _runProgressAction(
       _orderControlState == AdminOrderControlState.freezeRequested
           ? 'detach_roll'

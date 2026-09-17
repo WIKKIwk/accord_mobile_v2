@@ -256,10 +256,15 @@ class AdminApparatusQueueOrderActionControl {
     }
     final preflight = printPreflight;
     if (preflight != null) {
+      final preflightFreezeRequested = normalizedState == 'print_preflight' &&
+          value.mode == AdminQueueInteractionMode.freezeRequested &&
+          allowedActions.length == 1 &&
+          allowedActions.contains('freeze');
       if (preflight.isInProgress &&
           (normalizedState != 'print_preflight' ||
-              value.mode != AdminQueueInteractionMode.freshStartBlocked ||
-              allowedActions.isNotEmpty)) {
+              (!preflightFreezeRequested &&
+                  (value.mode != AdminQueueInteractionMode.freshStartBlocked ||
+                      allowedActions.isNotEmpty)))) {
         return false;
       }
     }
@@ -300,7 +305,11 @@ class AdminApparatusQueueOrderActionControl {
       AdminQueueInteractionMode.requeuedReady => const {'resume'},
       AdminQueueInteractionMode.inProgress => null,
       AdminQueueInteractionMode.freezeRequested =>
-        normalizedState == 'in_progress' ? const {'pause'} : const <String>{},
+        normalizedState == 'in_progress'
+            ? const {'pause'}
+            : normalizedState == 'print_preflight'
+                ? const {'freeze'}
+                : const <String>{},
       AdminQueueInteractionMode.paused => null,
       AdminQueueInteractionMode.freshStartBlocked ||
       AdminQueueInteractionMode.requeuedWaiting ||
@@ -323,8 +332,11 @@ class AdminApparatusQueueOrderActionControl {
       if (request == null ||
           request.requestId.trim().isEmpty ||
           request.status.trim().toLowerCase() != 'pending' ||
-          request.targetSessionId.trim().isEmpty ||
           request.targetApparatus.trim().isEmpty) {
+        return false;
+      }
+      if (normalizedState != 'print_preflight' &&
+          request.targetSessionId.trim().isEmpty) {
         return false;
       }
     }
@@ -599,7 +611,8 @@ bool _queueInteractionModeMatchesState(
 ) {
   return switch (state) {
     'print_preflight' => mode == AdminQueueInteractionMode.freshStartBlocked ||
-        mode == AdminQueueInteractionMode.freshStart,
+        mode == AdminQueueInteractionMode.freshStart ||
+        mode == AdminQueueInteractionMode.freezeRequested,
     'pending' => const {
         AdminQueueInteractionMode.freshStart,
         AdminQueueInteractionMode.freshStartBlocked,
@@ -633,7 +646,8 @@ bool _queueActionMatchesInteractionMode(
     'roll_complete' ||
     'complete' =>
       mode == AdminQueueInteractionMode.inProgress,
-    'freeze' => mode == AdminQueueInteractionMode.inProgress,
+    'freeze' => mode == AdminQueueInteractionMode.inProgress ||
+        mode == AdminQueueInteractionMode.freezeRequested,
     _ => false,
   };
 }

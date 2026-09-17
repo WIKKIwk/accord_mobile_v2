@@ -172,6 +172,7 @@ class _ReadOnlyOrderDetailUiState {
     required this.printPreflight,
     required this.showPrintPreflightHold,
     required this.showPrintPreflightOutcome,
+    required this.showPrintPreflightFreeze,
     required this.showPause,
     required this.showMerge,
     required this.showRollComplete,
@@ -214,6 +215,7 @@ class _ReadOnlyOrderDetailUiState {
   final AdminPrintPreflightHold? printPreflight;
   final bool showPrintPreflightHold;
   final bool showPrintPreflightOutcome;
+  final bool showPrintPreflightFreeze;
   final bool showPause;
   final bool showMerge;
   final bool showRollComplete;

@@ -67,6 +67,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onStart,
     required this.onPrintPreflightPassed,
     required this.onPrintPreflightFailed,
+    required this.onPrintPreflightFreeze,
     required this.onPause,
     required this.onMerge,
     required this.onRollComplete,
@@ -144,6 +145,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onStart;
   final VoidCallback onPrintPreflightPassed;
   final VoidCallback onPrintPreflightFailed;
+  final VoidCallback onPrintPreflightFreeze;
   final VoidCallback onPause;
   final VoidCallback onMerge;
   final VoidCallback onRollComplete;
@@ -349,6 +351,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       onStart: onStart,
                       onPrintPreflightPassed: onPrintPreflightPassed,
                       onPrintPreflightFailed: onPrintPreflightFailed,
+                      onPrintPreflightFreeze: onPrintPreflightFreeze,
                       onPause: onPause,
                       onMerge: onMerge,
                       onRollComplete: onRollComplete,

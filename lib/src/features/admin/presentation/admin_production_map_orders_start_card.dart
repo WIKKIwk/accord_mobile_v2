@@ -51,6 +51,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.onStart,
     required this.onPrintPreflightPassed,
     required this.onPrintPreflightFailed,
+    required this.onPrintPreflightFreeze,
     required this.onPause,
     required this.onMerge,
     required this.onRollComplete,
@@ -110,6 +111,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final VoidCallback onStart;
   final VoidCallback onPrintPreflightPassed;
   final VoidCallback onPrintPreflightFailed;
+  final VoidCallback onPrintPreflightFreeze;
   final VoidCallback onPause;
   final VoidCallback onMerge;
   final VoidCallback onRollComplete;
@@ -144,6 +146,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
         orderControlState != AdminOrderControlState.active;
     final hasActions = uiState.showPrintPreflightHold ||
         uiState.showPrintPreflightOutcome ||
+        uiState.showPrintPreflightFreeze ||
         uiState.showStart ||
         uiState.showPause ||
         uiState.showMerge ||
@@ -619,6 +622,39 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               _RezkaMergeStateCard(lines: rezkaMergeStateLines),
               const SizedBox(height: 10),
             ],
+            if (uiState.showPrintPreflightFreeze)
+              FilledButton.icon(
+                key: const ValueKey(
+                  'production-order-print-preflight-freeze',
+                ),
+                onPressed: actionInFlight ? null : onPrintPreflightFreeze,
+                icon: const Icon(Icons.stop_circle_outlined),
+                label: Text(
+                  context.l10n.productionText(
+                    'worker.freeze.print_preflight.action',
+                  ),
+                ),
+                style: FilledButton.styleFrom(
+                  minimumSize: Size.fromHeight(workerMode ? 58 : 52),
+                  padding: workerMode
+                      ? const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        )
+                      : null,
+                  textStyle: workerMode
+                      ? theme.textTheme.titleMedium?.copyWith(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        )
+                      : null,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(
+                      workerMode ? 28 : 14,
+                    ),
+                  ),
+                ),
+              ),
             AnimatedSize(
               key: const ValueKey('production-order-start-action-motion'),
               duration: AppMotion.medium,

@@ -66,7 +66,9 @@ final normalizedApparatusId = apparatus.trim();
         message: 'Muammo bilan yakunlash faqat muzlatish amalida mumkin',
       );
     }
-    if (action == 'freeze' && !freezeWithIssue) {
+    if (action == 'freeze' &&
+        !freezeWithIssue &&
+        freezeRequestId.trim().isEmpty) {
       throw const MobileApiException(
         code: 'freeze_action_requires_issue',
         message: 'Muzlatish amalida muammo izohi majburiy',

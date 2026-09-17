@@ -59,6 +59,16 @@ const _app_localizations_declarations__productionTranslations_resplitPart05 = {
     'en': 'The order was frozen with an issue',
     'ru': 'Заказ заморожен с указанием проблемы',
   },
+  'worker.freeze.print_preflight.action': {
+    'uz': 'Rang chiqarishni to‘xtatib muzlatish',
+    'en': 'Stop colour matching and freeze',
+    'ru': 'Остановить подбор цвета и заморозить',
+  },
+  'worker.freeze.print_preflight.success': {
+    'uz': 'Rang chiqarish to‘xtatildi va order muzlatildi',
+    'en': 'Colour matching stopped and the order was frozen',
+    'ru': 'Подбор цвета остановлен, заказ заморожен',
+  },
   'worker.materials.start': {
     'uz': 'Ish boshlash uchun homashyolar',
     'en': 'Materials required to start',

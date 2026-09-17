@@ -573,10 +573,18 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
       isPrintApparatus &&
       queueActionControl.printPreflightAllowed &&
       printPreflight == null;
+  final showPrintPreflightFreeze = contractSynchronized &&
+      canManageQueue &&
+      isPrintApparatus &&
+      orderControlState == AdminOrderControlState.freezeRequested &&
+      queueActionControl.state == 'print_preflight' &&
+      printPreflight?.isInProgress == true &&
+      queueActionControl.allows('freeze');
   final showPrintPreflightOutcome = contractSynchronized &&
       canManageQueue &&
       isPrintApparatus &&
-      queueActionControl?.state == 'print_preflight' &&
+      orderControlState == AdminOrderControlState.active &&
+      queueActionControl.state == 'print_preflight' &&
       printPreflight?.isInProgress == true;
   final showPause = contractSynchronized &&
       canManageQueue &&
@@ -629,6 +637,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     printPreflight: printPreflight,
     showPrintPreflightHold: showPrintPreflightHold,
     showPrintPreflightOutcome: showPrintPreflightOutcome,
+    showPrintPreflightFreeze: showPrintPreflightFreeze,
     showPause: showPause,
     showMerge: showMerge,
     showRollComplete: showRollComplete,
