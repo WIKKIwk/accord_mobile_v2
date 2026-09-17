@@ -263,8 +263,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       duration: AppMotion.medium,
                       curve: AppMotion.standardDecelerate,
                       alignment: Alignment.topCenter,
-                      // Keep the camera mounted through the final feedback
-                      // fade before unmounting it when the task ends.
+                      // Unmount the camera as soon as no scan task remains.
                       child: showQuickScanner
                           ? Column(
                               key: const ValueKey(

@@ -50,7 +50,6 @@ Future<void> _completeQolipScan(WidgetTester tester) async {
 }
 
 Future<void> _waitForQuickScannerFeedback(WidgetTester tester) async {
-  await tester.pump(const Duration(seconds: 5));
   await tester.pumpAndSettle();
 }
 

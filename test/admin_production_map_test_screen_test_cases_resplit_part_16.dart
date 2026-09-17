@@ -649,8 +649,8 @@ void _registeradmin_production_map_test_screen_testCases16() {
               await accepted;
               expect(
                 find.byType(ProductionQuickScannerPanel),
-                findsOneWidget,
-                reason: 'scan feedback keeps the card visible briefly',
+                findsNothing,
+                reason: 'camera closes when no scan task remains',
               );
               if (receiptScenario == 'parallel failure') {
                 failedReceipt.complete(

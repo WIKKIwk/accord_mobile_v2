@@ -29,8 +29,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   ProductionQuickScanHighlight _quickScanHighlight =
       ProductionQuickScanHighlight.none;
   Timer? _quickScanFeedbackColorTimer;
-  Timer? _quickScanFeedbackHoldTimer;
-  bool _quickScanFeedbackHold = false;
   String _quickScanLocaleCode = '';
   final Set<String> _seenQuickScanValues = <String>{};
   int _quickScanActiveCount = 0;
@@ -150,7 +148,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   @override
   void dispose() {
     _quickScanFeedbackColorTimer?.cancel();
-    _quickScanFeedbackHoldTimer?.cancel();
     dismissAdminTopNotice();
     super.dispose();
   }
@@ -186,10 +183,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _mergeScanMode = false;
       _seenQuickScanValues.clear();
       _quickScanFeedbackColorTimer?.cancel();
-      _quickScanFeedbackHoldTimer?.cancel();
       _quickScanFeedback = null;
       _quickScanHighlight = ProductionQuickScanHighlight.none;
-      _quickScanFeedbackHold = false;
       _startInputProgressBatch = null;
       _startInputOpeningWipBatch = null;
       _availableInputProgressBatches = const [];
@@ -392,7 +387,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         quickScanFeedback: _quickScanFeedback,
         quickScanHighlight: _quickScanHighlight,
         quickScanInFlight: _quickScanInFlight,
-        showQuickScanner: scanTasks.visible || _quickScanFeedbackHold,
+        showQuickScanner: scanTasks.visible,
         allowConcurrentQuickScanner: widget.workerMode && !scanTasks.merge,
         onQuickScan: _handleQuickScan,
         requiresQolipScan: requiresQolipScan,
@@ -1242,25 +1237,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }) {
     if (!mounted || feedback == ProductionQuickScanFeedback.none) return;
     _quickScanFeedbackColorTimer?.cancel();
-    _quickScanFeedbackHoldTimer?.cancel();
     setState(() {
       _quickScanFeedback = feedback;
       _quickScanHighlight = highlight;
-      _quickScanFeedbackHold = true;
     });
-    _quickScanFeedbackColorTimer = Timer(const Duration(seconds: 3), () {
+    _quickScanFeedbackColorTimer = Timer(const Duration(seconds: 2), () {
       _quickScanFeedbackColorTimer = null;
       if (mounted) {
         setState(() {
           _quickScanFeedback = null;
           _quickScanHighlight = ProductionQuickScanHighlight.none;
         });
-      }
-    });
-    _quickScanFeedbackHoldTimer = Timer(const Duration(seconds: 5), () {
-      _quickScanFeedbackHoldTimer = null;
-      if (mounted) {
-        setState(() => _quickScanFeedbackHold = false);
       }
     });
   }
