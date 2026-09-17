@@ -20,9 +20,9 @@ gltf.scene.traverse(object => {
   meshes.set(id, object);
 });
 
-test('only the eight complete models and verified Rezka body are apparatus', () => {
+test('eight earlier machines and five complete slitters are apparatus', () => {
   const replacements = gltf.scene.children.filter(o => o.userData.factory_map_object_id);
-  assert.equal(replacements.length, 8);
+  assert.equal(replacements.length, 13);
   for (const root of replacements) root.traverse(o => {
     assert(isFactoryMapApparatus(o), `${o.name} must select its complete apparatus`);
     assert.equal(apparatusObjectId(o), root.userData.factory_map_object_id);
@@ -86,19 +86,23 @@ test('strip only the detached rods from legacy cuboids, preserving body faces an
   }
 });
 
-test('cleaned Rezka still raycasts to its original instance', () => {
+test('old Rezka copies are collapsed and replacement preserves the saved ID', () => {
   const object = meshes.get('node:20');
   const matrix = new Matrix4(); object.getMatrixAt(0, matrix);
   for (let i = 1; i < object.count; i++) {
     const duplicate = new Matrix4(); object.getMatrixAt(i, duplicate);
     assert.deepEqual(duplicate.elements, matrix.elements, 'node-level Rezka ID requires coincident copies');
   }
-  const box = object.geometry.boundingBox.clone().applyMatrix4(matrix).applyMatrix4(object.matrixWorld);
+  assert.equal(matrix.determinant(), 0);
+  const replacement = gltf.scene.children.find(o => o.userData.factory_map_object_id === 'node:20');
+  assert(replacement);
+  const box = new Box3().setFromObject(replacement);
   const center = box.getCenter(new Vector3());
   const ray = new Raycaster(center.clone().add(new Vector3(0, 20, 0)), new Vector3(0, -1, 0));
-  const hit = apparatusHit(ray.intersectObject(object, false));
-  assert.equal(hit.object, object);
-  assert.equal(hit.instanceId, 0);
+  assert.equal(ray.intersectObject(object, false).length, 0);
+  const hit = apparatusHit(ray.intersectObject(replacement, true));
+  assert(hit);
+  assert.equal(apparatusObjectId(hit.object), 'node:20');
 });
 
 test('renderer gates taps and saved/picker highlights and native serves the same policy', () => {

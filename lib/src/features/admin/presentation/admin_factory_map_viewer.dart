@@ -74,7 +74,7 @@ class AdminFactoryMapViewer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    const scriptVersion = '20260907_sheet_render_suspend_v1';
+    const scriptVersion = '20260917_five_rezka_facing_v2';
     final rendererScript = kIsWeb
         ? './assets/packages/model_viewer_plus/assets/factory-map-renderer.js?v=$scriptVersion'
         : './factory-map-renderer.js?v=$scriptVersion';
@@ -82,7 +82,7 @@ class AdminFactoryMapViewer extends StatelessWidget {
 
     return ModelViewer(
       src: kIsWeb
-          ? 'assets/assets/models/zavod6-clay.glb'
+          ? 'assets/assets/models/zavod6-clay.glb?v=$scriptVersion'
           : 'assets/models/zavod6-clay.glb',
       alt: l10n.adminText('factory_map.title'),
       interactionEnabled: interactionEnabled,
@@ -123,7 +123,7 @@ class AdminFactoryMapViewer extends StatelessWidget {
           data-factory-map-canvas
           draggable="false"
           data-model-src="__MODEL_SRC__"
-          data-model-gzip-src="${kIsWeb ? 'models/zavod6-clay.glb.gz?v=20260906-extruder' : ''}"
+          data-model-gzip-src="${kIsWeb ? 'models/zavod6-clay.glb.gz?v=$scriptVersion' : ''}"
           data-selection-mode="$selectionMode"
           data-selected-object-id="$escapedSelectedObjectId"
         ></canvas>

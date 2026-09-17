@@ -110,7 +110,7 @@ test('render deduplication keeps source geometry, transforms, material and IDs u
   });
   const stats = optimizeStaticMap(root);
   assert.equal(stats.instancesBefore, 1523);
-  assert.equal(stats.instancesAfter, 543);
+  assert.equal(stats.instancesAfter, 535); // Eight transformed copies of four old rezka blocks removed.
   for (const entry of originals) {
     const { object } = entry;
     assert.equal(object.count, entry.count);

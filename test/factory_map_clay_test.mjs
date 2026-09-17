@@ -22,6 +22,7 @@ const flexo = JSON.parse(fs.readFileSync(path.join(repo, 'design/factory_map_cla
 const coating = JSON.parse(fs.readFileSync(path.join(repo, 'design/factory_map_clay/coating-v2-fit-report.json')));
 const extruder = JSON.parse(fs.readFileSync(path.join(repo, 'design/factory_map_clay/extruder-fit-report.json')));
 const equipment = [...fit.presses, laminator, laminator1, flexo, coating, extruder];
+const rezka = JSON.parse(fs.readFileSync(path.join(repo, 'design/factory_map_clay/rezka-placements.json')));
 const gltf = await new GLTFLoader().parseAsync(clay.bytes.buffer.slice(clay.bytes.byteOffset, clay.bytes.byteOffset + clay.bytes.byteLength), '');
 gltf.scene.updateMatrixWorld(true);
 const rendererSource = fs.readFileSync(path.join(repo, 'third_party/model_viewer_plus/assets/factory-map-renderer.js'), 'utf8');
@@ -36,7 +37,7 @@ test('original node numbering, unrelated instance transforms and bindings surviv
   }
   const permittedBytes = new Set();
   const collapsedByNode = new Map();
-  for (const part of equipment.flatMap(item => [item, ...(item.attached_components ?? [])])) {
+  for (const part of [...equipment.flatMap(item => [item, ...(item.attached_components ?? [])]), ...rezka.replaced_parts]) {
     if (!collapsedByNode.has(part.node)) collapsedByNode.set(part.node, new Set());
     for (const i of part.coincident_instances) collapsedByNode.get(part.node).add(i);
   }
@@ -79,7 +80,7 @@ test('legacy extruder alias is limited to eight geometrically coincident copies'
 test('all eight real Blender models fit their original world-space envelopes', () => {
   assert.equal(gltf.scene.userData.factory_map_style, 'clay');
   const replacements = gltf.scene.children.filter(o => o.userData.factory_map_object_id);
-  assert.equal(replacements.length, 8);
+  assert.equal(replacements.length, 13);
   for (const press of equipment) {
     const root = replacements.find(o => o.userData.factory_map_object_id === press.factory_map_object_id);
     assert(root);
@@ -333,6 +334,6 @@ test('Flutter bundles and displays the assembled clay model', () => {
   const pubspec = fs.readFileSync(path.join(repo, 'pubspec.yaml'), 'utf8');
   // Release web assets gain Flutter's assets/ URL prefix; native uses its
   // rootBundle key. Both point to the exact same approved source model.
-  assert.match(viewer, /src: kIsWeb\s*\? 'assets\/assets\/models\/zavod6-clay\.glb'\s*: 'assets\/models\/zavod6-clay\.glb'/);
+  assert.match(viewer, /src: kIsWeb\s*\? 'assets\/assets\/models\/zavod6-clay\.glb\?v=\$scriptVersion'\s*: 'assets\/models\/zavod6-clay\.glb'/);
   assert.match(pubspec, /- assets\/models\/zavod6-clay\.glb/);
 });

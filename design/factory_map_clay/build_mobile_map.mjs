@@ -4,11 +4,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { appendRezka } from './append_rezka.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '../..');
 const fit = JSON.parse(fs.readFileSync(path.join(here, 'fit-report.json')));
 const approvals = JSON.parse(fs.readFileSync(path.join(here, 'approved-equipment.json')));
+const rezka = JSON.parse(fs.readFileSync(path.join(here, 'rezka-placements.json')));
 const equipment = [...fit.presses, ...approvals.map(approval => {
   const item = JSON.parse(fs.readFileSync(path.join(here, approval.report)));
   assert.equal(item.apparatus_id, approval.apparatus_id);
@@ -36,7 +38,7 @@ let binaryLength = bin.length;
 
 // Collapse only the coincident instances at the verified placements.
 // Keep translations, all instance indices and every other apparatus unchanged.
-for (const press of equipment.flatMap(item => [item, ...(item.attached_components ?? [])])) {
+for (const press of [...equipment.flatMap(item => [item, ...(item.attached_components ?? [])]), ...rezka.replaced_parts]) {
   const node = doc.nodes[press.node];
   const scale = doc.accessors[node.extensions.EXT_mesh_gpu_instancing.attributes.SCALE];
   const view = doc.bufferViews[scale.bufferView];
@@ -118,6 +120,7 @@ for (const press of equipment) {
   binaryLength += imported.bin.length;
 }
 
+binaryLength = appendRezka(doc, chunks, binaryLength, rezka, new URL('./', import.meta.url));
 doc.buffers = [{ byteLength: binaryLength }];
 doc.asset.generator = 'Accord clay map assembler / original gltfpack + Blender';
 doc.scenes[doc.scene ?? 0].extras = { factory_map_style: 'clay', source_sha256: fit.source_sha256 };
@@ -132,5 +135,12 @@ header.writeUInt32LE(json.length, 12); header.write('JSON', 16);
 const binHeader = Buffer.alloc(8);
 binHeader.writeUInt32LE(binary.length, 0); binHeader.write('BIN\0', 4);
 const output = path.join(repo, 'assets/models/zavod6-clay.glb');
-fs.writeFileSync(output, Buffer.concat([header, json, binHeader, binary]));
+// Preserve the last working map if assembly is interrupted or disk fills up.
+const temporary = `${output}.${process.pid}.tmp`;
+try {
+  fs.writeFileSync(temporary, Buffer.concat([header, json, binHeader, binary]));
+  fs.renameSync(temporary, output);
+} finally {
+  if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
+}
 console.log(`Wrote ${output} (${(fs.statSync(output).size / 1048576).toFixed(2)} MiB); original 109 node indices retained.`);

@@ -1,5 +1,32 @@
 # Accord clay bosma study
 
+## Five approved rezka placements (2026-09-17)
+
+`rezka-placements.json` records replacement of the four user-indicated blocks
+with five copies of the approved `slitter_rewinder_v1/slitter-rewinder-clay.glb`.
+Two face the aisle from the outer wall; three form the inner row facing toward
+the wall machines (+X / left in the user's arrow screenshot). Only their yaw
+was corrected; all five centers and IDs are unchanged. The middle
+inner block is split into a pair around its previous center, matching the red
+placement marks. Each copy uses the same uniform 0.7 scale (no shape distortion).
+These are visual map units, not newly measured physical dimensions.
+
+The four existing object IDs are retained (`node:20`, `node:18:instance:1`,
+`node:19:instance:0`, `node:19:instance:1`); the extra object has a stable
+`equipment:rezka:5` ID. All 32 overlapping old instances are collapsed without
+renumbering source nodes. The prior `node:20` ERP link is preserved. Other ERP
+links are not guessed or written; the new roots are independently selectable.
+
+`append_rezka.mjs` embeds the approved geometry/materials once and shares them
+between five roots; it adds about 1.3 MiB rather than five model payloads.
+Rebuild with `build_mobile_map.mjs`, then `build_web_transport.mjs`. The original
+phone GLB, eight earlier replacements and other source instance bytes remain
+unchanged. `rezka_placement_preview.html` previews the actual assembled GLB.
+
+```sh
+node --test test/factory_map_rezka_test.mjs test/factory_map_clay_test.mjs test/factory_map_scene_policy_test.mjs
+```
+
 Editable Blender prototype for the existing factory map. The 9-color press is
 inspired by the supplied equipment photo. The 7/8-color variants use the same
 visual family; unseen physical details are approximations.

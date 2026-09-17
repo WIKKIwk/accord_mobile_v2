@@ -1,0 +1,23 @@
+{
+  "approved_at": "2026-09-17",
+  "approval": "User approved replacing four indicated blocks with five copies of the reviewed slitter; two by the wall, three in the inner row.",
+  "export": "slitter_rewinder_v1/slitter-rewinder-clay.glb",
+  "export_sha256": "f149bf9fae78cd6377206bc212320d71b6903a7f0865b216d0eeb466b7183715",
+  "previous_map_sha256": "5741b3d245259f300fd43912a3f30e1479d298715033fc120d6ebc851dd34a44",
+  "scale": 0.7,
+  "local_center_gltf": [0.0715, 0, 0.31],
+  "replaced_parts": [
+    {"node": 20, "coincident_instances": [0,1,2,3,4,5,6,7]},
+    {"node": 18, "coincident_instances": [1,5,8,12,15,19,22,26]},
+    {"node": 19, "coincident_instances": [0,2,4,6,8,10,12,14]},
+    {"node": 19, "coincident_instances": [1,3,5,7,9,11,13,15]}
+  ],
+  "placements": [
+    {"label": "Rezka 1", "object_id": "node:20", "center": [34.70,0.018,33.635], "yaw": -90, "replaced_part": 0},
+    {"label": "Rezka 2", "object_id": "node:18:instance:1", "center": [34.153,0.018,39.236], "yaw": -90, "replaced_part": 1},
+    {"label": "Rezka 3", "object_id": "node:19:instance:1", "center": [22.538,0.018,40.569], "yaw": 90, "replaced_part": 3},
+    {"label": "Rezka 4", "object_id": "node:19:instance:0", "center": [25.788,0.018,40.569], "yaw": 90, "replaced_part": 2},
+    {"label": "Rezka 5", "object_id": "equipment:rezka:5", "center": [28.888,0.018,40.569], "yaw": 90}
+  ],
+  "placement_note": "World coordinates recovered from the four source blocks. Split the inner middle block into a pair around its original center, matching the user's red marks. The three inner machines face +X, toward the two wall machines (left in the user's arrow screenshot); their centers are unchanged. Uniform scale preserves the approved silhouette. IDs label physical map objects only; no ERP binding is created or changed."
+}

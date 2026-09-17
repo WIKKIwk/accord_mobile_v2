@@ -1,0 +1,31 @@
+{
+  "status": "standalone_preview_not_placed",
+  "primary_reference": "User photo 2, 2026-09-17",
+  "dimensions_note": "Unmeasured visual proportions, not real dimensions or a fitted map envelope",
+  "bounds_blender": [
+    [
+      -1.6299999952316284,
+      -1.3569999933242798,
+      0.0
+    ],
+    [
+      1.7730000019073486,
+      0.7369999885559082,
+      2.559000015258789
+    ]
+  ],
+  "dimensions_blender": [
+    3.402999997138977,
+    2.093999981880188,
+    2.559000015258789
+  ],
+  "editable_parts": 272,
+  "export_meshes": 11,
+  "triangles": 32588,
+  "glb_bytes": 1392032,
+  "protected_sha256": {
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/assets/models/zavod6-clay.glb": "5741b3d245259f300fd43912a3f30e1479d298715033fc120d6ebc851dd34a44",
+    "/Users/wikki/Desktop/Accord_project/accord_mobile_v2/design/factory_map_clay/approved-equipment.json": "a73af3e2cbfa848872c8196f35e64fb1bba74d24138b3e260216980a7b0c1003"
+  },
+  "reference_interpretation": "Angular white side towers, charcoal inset, parallel transverse rollers, knife collars, low front roll, two sloped consoles, right motor. Hidden rear mechanics approximate; no copied brand or packaging graphics."
+}
