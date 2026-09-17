@@ -142,6 +142,111 @@ void _registerinventory_movements_testCases02({
       currentUserStatesOnly: true,
     );
     expect(stateAssets.single.assetRef, asset.assetRef);
+    expect(
+      find.byKey(const ValueKey('inventory-qr-search-result-raw:1')),
+      findsNothing,
+    );
+
+    final warehouseAssets = await MobileApi.instance.inventoryAssets(
+      warehouseId: source.warehouseId,
+      query: asset.identifier,
+    );
+    expect(warehouseAssets, isEmpty);
+
+    final scannerAfterRelocation = tester.widget<ProductionQuickScannerPanel>(
+      find.byKey(const ValueKey('inventory-qr-search-scanner')),
+    );
+    await scannerAfterRelocation.onCodeDetected(asset.identifier);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('inventory-qr-search-result-raw:1')),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('inventory-qr-search-close')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('State’lar'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('material-state-filter-chip')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bosma oldi'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('material-state-asset-raw:1')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('opening QR lookup starts with an empty result list', (
+    tester,
+  ) async {
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Materialchi',
+      legalName: '',
+      ref: 'material-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['inventory.movement.manage'],
+      assignedWarehouses: ['Material ombor', 'Qolip ombor'],
+    );
+    seedMobileApiInventoryMovementTestData(
+      locations: [source, destination, factoryState],
+      assets: [asset, otherWarehouseAsset],
+      transfers: [transfer],
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Future<void> openQrLookup() async {
+      await tester.tap(find.bySemanticsLabel('Amallar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('QR orqali izlash'));
+      await tester.pumpAndSettle();
+    }
+
+    await openQrLookup();
+    final scanner = tester.widget<ProductionQuickScannerPanel>(
+      find.byKey(const ValueKey('inventory-qr-search-scanner')),
+    );
+    await scanner.onCodeDetected(asset.identifier);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('inventory-qr-search-result-raw:1')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('inventory-qr-search-close')),
+    );
+    await tester.pumpAndSettle();
+    await openQrLookup();
+
+    expect(
+      find.byKey(const ValueKey('inventory-qr-search-result-raw:1')),
+      findsNothing,
+    );
+    expect(
+      find.text('QR skaner qilingan mahsulotlar shu yerda chiqadi'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('warehouse filter is restored when movement screen is reopened', (

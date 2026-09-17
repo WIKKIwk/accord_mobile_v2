@@ -38,6 +38,9 @@ extension __InventoryMovementsScreenStateAstPart01
     setState(() {
       _inventoryFabOpen = false;
       _qrLookupOpen = true;
+      _qrScannedAssets = const [];
+      _qrLookupBusyCodes.clear();
+      _selectedAssetKeys.clear();
       _qrLookupStatus = 'QR kodni ramkaga keltiring';
     });
   }
@@ -70,13 +73,19 @@ extension __InventoryMovementsScreenStateAstPart01
         query: barcode,
         limit: 100,
       );
-      final exactMatches = assets
+      final warehouseAssets = assets
+          .where(
+            (asset) =>
+                asset.physicalLocation.kind == InventoryLocationKind.warehouse,
+          )
+          .toList(growable: false);
+      final exactMatches = warehouseAssets
           .where((asset) => _qrAssetMatchesBarcode(asset, barcode))
           .toList(growable: false);
       final matches = exactMatches.isNotEmpty
           ? exactMatches
-          : assets.length == 1
-              ? assets
+          : warehouseAssets.length == 1
+              ? warehouseAssets
               : const <InventoryAsset>[];
       if (matches.isEmpty) {
         throw const MobileApiException(
@@ -362,8 +371,14 @@ extension __InventoryMovementsScreenStateAstPart01
           final index = next.indexWhere(
             (asset) => _selectionKey(asset) == entry.key,
           );
-          if (index >= 0) {
+          if (index < 0) {
+            continue;
+          }
+          if (entry.value.physicalLocation.kind ==
+              InventoryLocationKind.warehouse) {
             next[index] = entry.value;
+          } else {
+            next.removeAt(index);
           }
         }
         _qrScannedAssets = List<InventoryAsset>.unmodifiable(next);
