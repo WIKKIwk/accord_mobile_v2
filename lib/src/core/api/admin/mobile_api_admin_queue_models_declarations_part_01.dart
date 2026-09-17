@@ -174,7 +174,14 @@ class AdminPrintPreflightHold {
         idempotencyKey.isEmpty ||
         orderId.isEmpty ||
         apparatus.isEmpty ||
-        !const {'held', 'running', 'passed'}.contains(status)) {
+        !const {
+          'held',
+          'running',
+          'passed',
+          'failed',
+          'cancelled',
+          'consumed',
+        }.contains(status)) {
       return null;
     }
     return AdminPrintPreflightHold(

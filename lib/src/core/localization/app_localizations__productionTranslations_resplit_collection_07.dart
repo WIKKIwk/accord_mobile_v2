@@ -131,7 +131,7 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
   },
   'worker.waiting.print_preflight_active': {
     'uz':
-        'Rang sinovi davom etmoqda. Natijani belgilang yoki sinovni bekor qiling.',
+        'Rang chiqaryapti. Natijani belgilang yoki sinovni bekor qiling.',
     'en': 'A colour preflight is active. Record its result or cancel it.',
     'ru': 'Идёт пробная печать. Укажите результат или отмените её.',
   },

@@ -973,7 +973,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final uiState = _detailUiState;
     final preflight = uiState.printPreflight;
     if (uiState.showPrintPreflightHold) {
-      unawaited(_startPrintPreflightImmediately());
+      unawaited(_runPrintPreflight('hold'));
     } else if (uiState.showPrintPreflightStart) {
       unawaited(_runPrintPreflight('start'));
     } else if (preflight?.isPassed == true) {
@@ -983,16 +983,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
-  Future<void> _startPrintPreflightImmediately() async {
-    final hold = await _runPrintPreflight('hold');
-    if (!mounted || hold?.isHeld != true) return;
-    await _runPrintPreflight('start', holdId: hold!.holdId);
-  }
-
   Future<AdminPrintPreflightHold?> _runPrintPreflight(
-    String action, {
-    String holdId = '',
-  }) async {
+    String action,
+  ) async {
     final apparatus = widget.apparatus?.id.trim() ?? '';
     final orderId = widget.order.map.id.trim();
     final currentHold = _queueActionControl?.printPreflight;
@@ -1000,9 +993,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final stamp = DateTime.now().microsecondsSinceEpoch;
     final requestHoldId = action == 'hold'
         ? 'print-preflight:$orderId:$apparatus:$stamp'
-        : holdId.trim().isNotEmpty
-            ? holdId.trim()
-            : currentHold?.holdId ?? '';
+        : currentHold?.holdId ?? '';
     final idempotencyKey = action == 'hold' ? requestHoldId : '';
     setState(() {
       _actionControlGeneration++;
@@ -1020,8 +1011,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           )
           .timeout(_queueActionUiTimeout);
       if (!mounted) return null;
-      setState(() => _actionInFlight = false);
       await _refreshQueueActionControlAfterWrite();
+      if (!mounted) return null;
+      setState(() => _actionInFlight = false);
       if (action == 'passed' && mounted) {
         final passedHold = _queueActionControl?.printPreflight;
         if (passedHold?.isPassed == true) {

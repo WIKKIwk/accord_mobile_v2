@@ -684,6 +684,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                           onPressed: actionInFlight ||
                                   (uiState.showStart &&
                                       !uiState.showPrintPreflightHold &&
+                                      !uiState.showPrintPreflightStart &&
                                       (!materialStartReady ||
                                           (requiresQolipScan &&
                                               !qolipScanned) ||
@@ -691,17 +692,17 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                               ? null
                               : onStart,
                           icon: Icon(
-                            uiState.showPrintPreflightHold
+                            uiState.showPrintPreflightHold ||
+                                    uiState.showPrintPreflightStart
                                 ? Icons.colorize_rounded
                                 : Icons.play_arrow_rounded,
                           ),
                           label: Text(
                             context.l10n.productionText(
-                              uiState.showPrintPreflightHold
+                              uiState.showPrintPreflightHold ||
+                                      uiState.showPrintPreflightStart
                                   ? 'worker.action.print_preflight'
-                                  : uiState.showPrintPreflightStart
-                                      ? 'worker.action.print_preflight_start'
-                                      : 'worker.action.start',
+                                  : 'worker.action.start',
                             ),
                           ),
                           style: FilledButton.styleFrom(
