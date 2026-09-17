@@ -72,6 +72,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'en': 'In progress',
     'ru': 'В процессе',
   },
+  'worker.queue.status.print_preflight': {
+    'uz': 'Rang chiqaryapti',
+    'ru': 'Подбор цвета',
+    'en': 'Colour matching',
+  },
   'worker.queue.status.paused': {
     'uz': 'Pauzada',
     'en': 'Paused',

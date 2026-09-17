@@ -519,7 +519,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _loadInteractionContractAndSections() async {
-    if (!_queueActionContractSynchronized) {
+    if (widget.apparatus != null) {
       try {
         final refreshed = await _loadCurrentQueueActionControl();
         if (!mounted) return;
@@ -974,8 +974,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final preflight = uiState.printPreflight;
     if (uiState.showPrintPreflightHold) {
       unawaited(_runPrintPreflight('hold'));
-    } else if (uiState.showPrintPreflightStart) {
-      unawaited(_runPrintPreflight('start'));
     } else if (preflight?.isPassed == true) {
       unawaited(_runQueueAction('start', preflightHoldId: preflight!.holdId));
     } else {

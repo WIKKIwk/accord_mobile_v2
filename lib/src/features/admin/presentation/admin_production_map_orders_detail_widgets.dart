@@ -1134,6 +1134,7 @@ class _SequenceStepTile extends StatelessWidget {
 
   Color _statusForeground(ColorScheme scheme) {
     return switch (status) {
+      ApparatusQueueOrderState.printPreflight => const Color(0xFF343D60),
       ApparatusQueueOrderState.inProgress => const Color(0xFF8A4B00),
       ApparatusQueueOrderState.paused => const Color(0xFF9B1C1C),
       ApparatusQueueOrderState.frozen => const Color(0xFF1565C0),
@@ -1145,6 +1146,7 @@ class _SequenceStepTile extends StatelessWidget {
 
   Color _statusBackground(ColorScheme scheme) {
     return switch (status) {
+      ApparatusQueueOrderState.printPreflight => const Color(0xFFE5BFC4),
       ApparatusQueueOrderState.inProgress => const Color(0xFFFFECB3),
       ApparatusQueueOrderState.paused => const Color(0xFFFFCDD2),
       ApparatusQueueOrderState.frozen => const Color(0xFFBBDEFB),
@@ -1159,6 +1161,9 @@ class _SequenceStepTile extends StatelessWidget {
     ApparatusQueueOrderState status,
   ) {
     return switch (status) {
+      ApparatusQueueOrderState.printPreflight => context.l10n.productionText(
+          'worker.queue.status.print_preflight',
+        ),
       ApparatusQueueOrderState.inProgress => context.l10n.productionText(
           'worker.queue.status.in_progress',
         ),

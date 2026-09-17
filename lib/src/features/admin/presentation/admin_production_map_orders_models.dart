@@ -171,7 +171,6 @@ class _ReadOnlyOrderDetailUiState {
     required this.showStart,
     required this.printPreflight,
     required this.showPrintPreflightHold,
-    required this.showPrintPreflightStart,
     required this.showPrintPreflightOutcome,
     required this.showPause,
     required this.showMerge,
@@ -214,7 +213,6 @@ class _ReadOnlyOrderDetailUiState {
   final bool showStart;
   final AdminPrintPreflightHold? printPreflight;
   final bool showPrintPreflightHold;
-  final bool showPrintPreflightStart;
   final bool showPrintPreflightOutcome;
   final bool showPause;
   final bool showMerge;
@@ -290,7 +288,6 @@ _OrderCardTone _resolveWorkerOrderCardTone({
   AdminProductionOrderStatusDetail? orderStatus,
   AdminOrderControlState orderControl = AdminOrderControlState.active,
   ApparatusQueueOrderState? apparatusState,
-  bool printPreflight = false,
 }) {
   // Order-wide safety warnings remain shared. Active/paused/completed on a
   // different stage must not override this worker's own apparatus session.
@@ -306,7 +303,9 @@ _OrderCardTone _resolveWorkerOrderCardTone({
         ? globalTone
         : _OrderCardTone.frozen;
   }
-  if (printPreflight) return _OrderCardTone.printPreflight;
+  if (apparatusState == ApparatusQueueOrderState.printPreflight) {
+    return _OrderCardTone.printPreflight;
+  }
   if (workActivity == null ||
       !workActivity.belongsTo(role: workerRole, ref: workerRef)) {
     return _OrderCardTone.neutral;
@@ -324,7 +323,6 @@ _OrderCardTone _resolveOrderCardTone({
   AdminOrderControlState orderControl = AdminOrderControlState.active,
   OrderQueueActivityState? orderActivityState,
   ApparatusQueueOrderState? apparatusState,
-  bool printPreflight = false,
 }) {
   final status = orderStatus?.orderStatus.trim().toLowerCase() ?? '';
   final lifecycleStatus =
@@ -333,14 +331,14 @@ _OrderCardTone _resolveOrderCardTone({
       (orderStatus?.completedWithIssueCount ?? 0) > 0) {
     return _OrderCardTone.issue;
   }
-  if (printPreflight) {
-    return _OrderCardTone.printPreflight;
-  }
   if (orderControl != AdminOrderControlState.active) {
     return _OrderCardTone.frozen;
   }
   if (status == 'frozen') {
     return _OrderCardTone.frozen;
+  }
+  if (status == 'print_preflight') {
+    return _OrderCardTone.printPreflight;
   }
   if (status == 'paused') {
     return _OrderCardTone.paused;
@@ -359,6 +357,8 @@ _OrderCardTone _resolveOrderCardTone({
   final activityState = orderActivityState ??
       switch (apparatusState) {
         ApparatusQueueOrderState.pending => OrderQueueActivityState.pending,
+        ApparatusQueueOrderState.printPreflight =>
+          OrderQueueActivityState.printPreflight,
         ApparatusQueueOrderState.inProgress =>
           OrderQueueActivityState.inProgress,
         ApparatusQueueOrderState.paused => OrderQueueActivityState.paused,
@@ -368,6 +368,7 @@ _OrderCardTone _resolveOrderCardTone({
       };
   if (activityState != null) {
     return switch (activityState) {
+      OrderQueueActivityState.printPreflight => _OrderCardTone.printPreflight,
       OrderQueueActivityState.inProgress => _OrderCardTone.inProgress,
       OrderQueueActivityState.waitingNextStage =>
         _OrderCardTone.waitingNextStage,
@@ -408,8 +409,8 @@ Color? _orderCardBackgroundColor(
 Gradient? _orderCardBackgroundGradient(_OrderCardTone tone) {
   if (tone != _OrderCardTone.printPreflight) return null;
   return const LinearGradient(
-    begin: Alignment(-1, 1),
-    end: Alignment(1, -1),
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
     colors: [
       Color(0xFF7E86A8),
       Color(0xFFE5BFC4),

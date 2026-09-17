@@ -1,6 +1,190 @@
 part of 'admin_production_map_test_screen_test.dart';
 
 void _registerWorkerActivityTests() {
+  for (final view in ['worker', 'sequence', 'orders']) {
+    testWidgets(
+      'print status uses ordinary snapshot and stream across re-entry: $view',
+      (tester) async {
+        final workerMode = view == 'worker';
+        await TestModeController.instance.setEnabled(true);
+        AppSession.instance.profile = SessionProfile(
+          role: workerMode ? UserRole.aparatchi : UserRole.admin,
+          displayName: 'Worker',
+          legalName: '',
+          ref: 'worker-me',
+          phone: '',
+          avatarUrl: '',
+          capabilities: const [
+            'apparatus.queue.read',
+            'apparatus.queue.manage',
+          ],
+          assignedApparatus: const [_print7Id],
+        );
+        const orderId = 'zakaz-print-status';
+        final saved = await MobileApi.instance.adminSaveProductionMap(
+          _productionOrderMap(
+            id: orderId,
+            title: 'Colour status',
+            productCode: 'COLOUR',
+            apparatusId: _print7Id,
+            product: 'Colour status',
+          ),
+        );
+        final apparatus = await MobileApi.instance.adminApparatus(limit: 200);
+        final events =
+            StreamController<AdminProductionMapLiveSnapshot>.broadcast();
+        addTearDown(events.close);
+        var reads = 0;
+        AdminProductionMapLiveSnapshot snapshot(String state, int revision) =>
+            AdminProductionMapLiveSnapshot(
+              maps: [saved],
+              sequences: {
+                _print7Id: [orderId],
+              },
+              visibleOrderIds: {
+                _print7Id: [orderId],
+              },
+              queueStates: {
+                _print7Id: {orderId: state},
+              },
+              queuePolicies: const {},
+              orderControls: const {},
+              // Colours must not depend on a separate preflight payload/flag.
+              queueActionControls: const {},
+              orderStatuses: {
+                orderId: AdminProductionOrderStatusDetail(orderStatus: state),
+              },
+              completedOrders: const [],
+              completionRequests: const [],
+              completionRequestDecisions: const [],
+              revision: revision,
+              epoch: 'server',
+            );
+        var current = snapshot('pending', 1);
+        await TestModeController.instance.setEnabled(workerMode);
+        await http.runWithClient(
+          () async {
+            Future<void> mount() async {
+              await tester.pumpWidget(
+                MaterialApp(
+                  theme: ThemeData(useMaterial3: true),
+                  locale: const Locale('uz'),
+                  localizationsDelegates: const [
+                    AppLocalizations.delegate,
+                    GlobalMaterialLocalizations.delegate,
+                    GlobalCupertinoLocalizations.delegate,
+                    GlobalWidgetsLocalizations.delegate,
+                  ],
+                  supportedLocales: AppLocalizations.supportedLocales,
+                  home: AdminProductionMapOrdersScreen(
+                    readOnly: workerMode,
+                    workerMode: workerMode,
+                    apparatusLoader: () async =>
+                        apparatus.where((a) => a.id == _print7Id).toList(),
+                    queueSnapshotLoader: () async {
+                      reads++;
+                      return current;
+                    },
+                    liveEventsLoader: () => events.stream,
+                  ),
+                ),
+              );
+              await tester.pumpAndSettle();
+              if (view == 'orders') {
+                await tester.tap(find.text('Buyurtmalar'));
+                await tester.pumpAndSettle();
+              }
+            }
+
+            final row = find.byKey(
+              ValueKey(switch (view) {
+                'worker' => 'worker-order-$orderId',
+                'sequence' => 'sequence-row-$_print7Id-$orderId',
+                _ => 'opened-order-$orderId',
+              }),
+            );
+            LinearGradient? cardGradient(Widget widget) {
+              final decoration = switch (widget) {
+                DecoratedBox() => widget.decoration,
+                Ink() => widget.decoration,
+                _ => null,
+              };
+              return decoration is BoxDecoration &&
+                      decoration.gradient is LinearGradient
+                  ? decoration.gradient as LinearGradient
+                  : null;
+            }
+
+            final gradient = find.descendant(
+              of: row,
+              matching: find.byWidgetPredicate(
+                (widget) => cardGradient(widget) != null,
+              ),
+            );
+            await _usePhoneViewport(tester);
+            await mount();
+            expect(row, findsOneWidget);
+            expect(gradient, findsNothing);
+            current = snapshot('print_preflight', 2);
+            events.add(current);
+            await tester.pumpAndSettle();
+            expect(gradient, findsOneWidget);
+            final actual = cardGradient(tester.widget(gradient))!;
+            expect(actual.colors, const [
+              Color(0xFF7E86A8),
+              Color(0xFFE5BFC4),
+              Color(0xFFF4FAFC),
+            ]);
+            expect(actual.stops, [0.0, 0.52, 1.0]);
+            expect(actual.begin, Alignment.topLeft);
+            expect(actual.end, Alignment.bottomRight);
+            if (workerMode)
+              expect(
+                reads,
+                1,
+                reason: 'the existing stream alone updates the card',
+              );
+            events.add(snapshot('pending', 1));
+            await tester.pumpAndSettle();
+            expect(
+              gradient,
+              findsOneWidget,
+              reason: 'older stream frame cannot clear the status',
+            );
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pumpAndSettle();
+            await mount();
+            if (workerMode) expect(reads, 2);
+            expect(
+              gradient,
+              findsOneWidget,
+              reason:
+                  're-entry restores server status without local persistence',
+            );
+            current = snapshot('pending', 3);
+            events.add(current);
+            await tester.pumpAndSettle();
+            expect(
+              gradient,
+              findsNothing,
+              reason: 'failed trial returns to the ordinary queue status',
+            );
+            if (workerMode) expect(reads, 2);
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+          },
+          () => MockClient(
+            (request) async => http.Response(
+              '{}',
+              200,
+              headers: {'content-type': 'application/json'},
+            ),
+          ),
+        );
+      },
+    );
+  }
   for (final (apparatusId, legacy) in [
     (_print7Id, false), (_lamination1Id, false), (_rezkaId, false),
     (_godexId, false), (_print7Id, true),

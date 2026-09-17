@@ -1,5 +1,6 @@
 enum ApparatusQueueOrderState {
   pending,
+  printPreflight,
   inProgress,
   paused,
   frozen,
@@ -8,6 +9,7 @@ enum ApparatusQueueOrderState {
 
 enum OrderQueueActivityState {
   pending,
+  printPreflight,
   inProgress,
   waitingNextStage,
   paused,
@@ -20,9 +22,12 @@ const _queueInProgressFlag = 1 << 1;
 const _queuePausedFlag = 1 << 2;
 const _queueFrozenFlag = 1 << 3;
 const _queueCompletedFlag = 1 << 4;
+const _queuePrintPreflightFlag = 1 << 5;
 
 ApparatusQueueOrderState apparatusQueueOrderStateFromRaw(String? raw) {
   switch (raw?.trim().toLowerCase()) {
+    case 'print_preflight':
+      return ApparatusQueueOrderState.printPreflight;
     case 'in_progress':
       return ApparatusQueueOrderState.inProgress;
     case 'paused':
@@ -117,6 +122,7 @@ Map<String, OrderQueueActivityState> queueActivityStatesForOrders({
 int _queueStateFlag(ApparatusQueueOrderState state) {
   return switch (state) {
     ApparatusQueueOrderState.pending => _queuePendingFlag,
+    ApparatusQueueOrderState.printPreflight => _queuePrintPreflightFlag,
     ApparatusQueueOrderState.inProgress => _queueInProgressFlag,
     ApparatusQueueOrderState.paused => _queuePausedFlag,
     ApparatusQueueOrderState.frozen => _queueFrozenFlag,
@@ -127,6 +133,9 @@ int _queueStateFlag(ApparatusQueueOrderState state) {
 OrderQueueActivityState? _orderQueueActivityStateFromFlags(int flags) {
   if ((flags & _queueFrozenFlag) != 0) {
     return OrderQueueActivityState.frozen;
+  }
+  if ((flags & _queuePrintPreflightFlag) != 0) {
+    return OrderQueueActivityState.printPreflight;
   }
   if ((flags & _queuePausedFlag) != 0) {
     return OrderQueueActivityState.paused;
@@ -224,6 +233,7 @@ String? firstActionableQueueOrderId({
     }
     final state = apparatusQueueOrderStateFromRaw(states[normalized]);
     if (state == ApparatusQueueOrderState.completed ||
+        state == ApparatusQueueOrderState.printPreflight ||
         state == ApparatusQueueOrderState.frozen ||
         state == ApparatusQueueOrderState.paused ||
         state == ApparatusQueueOrderState.inProgress) {
@@ -270,7 +280,8 @@ String? firstActiveQueueOrderId({
       continue;
     }
     final state = apparatusQueueOrderStateFromRaw(states[normalized]);
-    if (state == ApparatusQueueOrderState.inProgress) {
+    if (state == ApparatusQueueOrderState.inProgress ||
+        state == ApparatusQueueOrderState.printPreflight) {
       return normalized;
     }
   }

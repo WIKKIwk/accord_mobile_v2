@@ -267,6 +267,7 @@ List<String> _normalizedAdminScopeValues(Iterable<String> values) {
 
 const _knownApparatusQueueStates = {
   'pending',
+  'print_preflight',
   'in_progress',
   'paused',
   'frozen',

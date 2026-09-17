@@ -573,14 +573,11 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
       isPrintApparatus &&
       showStart &&
       printPreflight == null;
-  final showPrintPreflightStart = contractSynchronized &&
-      canManageQueue &&
-      isPrintApparatus &&
-      printPreflight?.isHeld == true;
   final showPrintPreflightOutcome = contractSynchronized &&
       canManageQueue &&
       isPrintApparatus &&
-      printPreflight?.isRunning == true;
+      queueActionControl?.state == 'print_preflight' &&
+      printPreflight?.isInProgress == true;
   final showPause = contractSynchronized &&
       canManageQueue &&
       queueActionControl.allows('pause');
@@ -631,7 +628,6 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     showStart: showStart,
     printPreflight: printPreflight,
     showPrintPreflightHold: showPrintPreflightHold,
-    showPrintPreflightStart: showPrintPreflightStart,
     showPrintPreflightOutcome: showPrintPreflightOutcome,
     showPause: showPause,
     showMerge: showMerge,
@@ -649,7 +645,6 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     blockingReasonCode: interaction?.blockingReasonCode ?? '',
     showBackendBlockingState: canManageQueue &&
         contractSynchronized &&
-        !showPrintPreflightStart &&
         !showPrintPreflightOutcome &&
         (interaction?.blockingReasonCode.trim().isNotEmpty ?? false),
   );

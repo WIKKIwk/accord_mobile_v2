@@ -19,6 +19,8 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
   }
 
   String _statusLabel(AppLocalizations l10n) => switch (widget.state) {
+        ApparatusQueueOrderState.printPreflight =>
+          l10n.productionText('worker.queue.status.print_preflight'),
         ApparatusQueueOrderState.inProgress =>
           l10n.adminText('factory_map.filter.in_progress'),
         ApparatusQueueOrderState.paused =>
@@ -33,6 +35,7 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
       };
 
   Color _statusColor(ColorScheme scheme) => switch (widget.state) {
+        ApparatusQueueOrderState.printPreflight => const Color(0xFF7E86A8),
         ApparatusQueueOrderState.inProgress => const Color(0xFF2E7D32),
         ApparatusQueueOrderState.paused => const Color(0xFFC62828),
         ApparatusQueueOrderState.frozen => const Color(0xFF1565C0),

@@ -13,7 +13,6 @@ class _SequenceModulePage extends StatefulWidget {
     required this.queueStates,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
-    required this.queueActionControlsByApparatus,
     this.interactionHint,
     required this.onSelectApparatus,
     required this.onReorder,
@@ -31,8 +30,6 @@ class _SequenceModulePage extends StatefulWidget {
   final Map<String, String> queueStates;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
-  final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
-      queueActionControlsByApparatus;
   final String? interactionHint;
   final ValueChanged<AdminApparatus> onSelectApparatus;
   final ReorderCallback onReorder;
@@ -94,12 +91,6 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
           apparatusState: apparatusQueueOrderStateFromRaw(
             widget.queueStates[order.map.id.trim()],
           ),
-          printPreflight: widget
-                  .queueActionControlsByApparatus[widget.apparatus?.id.trim()]
-                      ?[order.map.id.trim()]
-                  ?.printPreflight
-                  ?.isActive ==
-              true,
         ),
         onTap: widget.onInfoOrder == null
             ? null

@@ -197,7 +197,11 @@ void _registerWorkerNoticeTests() {
           of: card,
           matching: find.widgetWithText(
             FilledButton,
-            l10n.productionText('worker.action.$action'),
+            l10n.productionText(
+              action == 'start' && fixture.state == 'pending'
+                  ? 'worker.action.print_preflight'
+                  : 'worker.action.$action',
+            ),
           ),
         );
         final allowed = !syncWarning && fixture.allows(action);

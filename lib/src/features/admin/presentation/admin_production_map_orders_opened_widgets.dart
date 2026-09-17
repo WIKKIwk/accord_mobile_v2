@@ -17,7 +17,6 @@ class _OpenedOrderList extends StatelessWidget {
     required this.customerNameByMapId,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
-    required this.queueActionControlsByApparatus,
     required this.queueStatesByApparatus,
     required this.visibleOrderIdsByApparatus,
     required this.onInfoOrder,
@@ -30,8 +29,6 @@ class _OpenedOrderList extends StatelessWidget {
   final Map<String, String> customerNameByMapId;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
-  final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
-      queueActionControlsByApparatus;
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
@@ -71,9 +68,6 @@ class _OpenedOrderList extends StatelessWidget {
           orderId,
         ),
         orderActivityState: orderActivityStates[orderId],
-        printPreflight: queueActionControlsByApparatus.values.any(
-          (controls) => controls[orderId]?.printPreflight?.isActive == true,
-        ),
       );
       children.add(
         _OpenedOrderRow(

@@ -255,7 +255,7 @@ class AdminApparatusQueueOrderActionControl {
     final preflight = printPreflight;
     if (preflight != null) {
       if (preflight.isInProgress &&
-          (normalizedState != 'pending' ||
+          (normalizedState != 'print_preflight' ||
               value.mode != AdminQueueInteractionMode.freshStartBlocked ||
               allowedActions.isNotEmpty)) {
         return false;
@@ -600,6 +600,8 @@ bool _queueInteractionModeMatchesState(
   String state,
 ) {
   return switch (state) {
+    'print_preflight' => mode == AdminQueueInteractionMode.freshStartBlocked ||
+        mode == AdminQueueInteractionMode.freshStart,
     'pending' => const {
         AdminQueueInteractionMode.freshStart,
         AdminQueueInteractionMode.freshStartBlocked,

@@ -143,7 +143,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     final orderControlBlocked =
         orderControlState != AdminOrderControlState.active;
     final hasActions = uiState.showPrintPreflightHold ||
-        uiState.showPrintPreflightStart ||
         uiState.showPrintPreflightOutcome ||
         uiState.showStart ||
         uiState.showPause ||
@@ -677,14 +676,12 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                       ],
                     )
                   : uiState.showPrintPreflightHold ||
-                          uiState.showPrintPreflightStart ||
                           uiState.showStart
                       ? FilledButton.icon(
                           key: const ValueKey('production-order-start-action'),
                           onPressed: actionInFlight ||
                                   (uiState.showStart &&
                                       !uiState.showPrintPreflightHold &&
-                                      !uiState.showPrintPreflightStart &&
                                       (!materialStartReady ||
                                           (requiresQolipScan &&
                                               !qolipScanned) ||
@@ -692,15 +689,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                               ? null
                               : onStart,
                           icon: Icon(
-                            uiState.showPrintPreflightHold ||
-                                    uiState.showPrintPreflightStart
+                            uiState.showPrintPreflightHold
                                 ? Icons.colorize_rounded
                                 : Icons.play_arrow_rounded,
                           ),
                           label: Text(
                             context.l10n.productionText(
-                              uiState.showPrintPreflightHold ||
-                                      uiState.showPrintPreflightStart
+                              uiState.showPrintPreflightHold
                                   ? 'worker.action.print_preflight'
                                   : 'worker.action.start',
                             ),

@@ -546,8 +546,6 @@ class _AdminProductionMapOrdersScreenState
                               visibleOrderIdsByApparatus:
                                   _visibleOrderIdsByApparatus,
                               orderStatusesByOrderId: _orderStatusesByOrderId,
-                              queueActionControlsByApparatus:
-                                  _queueActionControlsByApparatus,
                               sequenceInteractionHint: isQolipchi
                                   ? 'Bir marta bosing — ma’lumot. Uzoq bosing — order qoliplarini ochish.'
                                   : null,
