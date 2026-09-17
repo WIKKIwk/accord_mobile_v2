@@ -3,6 +3,8 @@ part of 'raw_material_scan_dialog.dart';
 
 enum ProductionQuickScanFeedback { none, accepted, rejected }
 
+enum ProductionQuickScanHighlight { none, materials, qolips }
+
 const productionQuickScanAcceptedCardColor = Color(0xFFCBFEBC);
 const _quickScannerRejectedCardColor = Color(0xFFF23544);
 
