@@ -183,6 +183,18 @@ void main() {
       singleAssignment: false
     ),
     (
+      name: 'unassigned detached group keeps all candidates',
+      selected: '',
+      sources: <String>[],
+      singleAssignment: false
+    ),
+    (
+      name: 'unassigned partial end edges keep all candidates',
+      selected: '',
+      sources: ['print-8'],
+      singleAssignment: false
+    ),
+    (
       name: 'missing selected candidate does not attach elsewhere',
       selected: 'print-6',
       sources: <String>[],
@@ -272,7 +284,7 @@ void main() {
             ['start']);
       }
       final expectedSources =
-          scenario.selected.isEmpty ? scenario.sources : [scenario.selected];
+          scenario.selected.isEmpty ? printIds : [scenario.selected];
       final lamination =
           saved.nodes.where((node) => _allIds.contains(node.apparatusId));
       for (final node in lamination) {
@@ -293,6 +305,140 @@ void main() {
               .map((edge) => edge.from),
           unorderedEquals(lamination.map((node) => node.id)));
       await _disposeMap(tester);
+    });
+  }
+
+  for (final scenario in [
+    (name: 'detached end', sources: <String>[], selected: ''),
+    (name: 'left end edge only', sources: ['lam-1'], selected: ''),
+    (name: 'right end edge only', sources: ['lam-2'], selected: ''),
+    (name: 'both end edges', sources: ['lam-1', 'lam-2'], selected: ''),
+    (
+      name: 'selected left with detached end',
+      sources: <String>[],
+      selected: 'lam-1'
+    ),
+    (
+      name: 'selected right with stale left edge',
+      sources: ['lam-1'],
+      selected: 'lam-2'
+    ),
+  ]) {
+    testWidgets('Rezka Skip source: ${scenario.name}', (tester) async {
+      const printIds = ['print-7', 'print-8', 'print-9'];
+      const laminationIds = ['lam-1', 'lam-2'];
+      final map = ProductionMapDefinition(
+        id: _mapId,
+        title: 'Chikko mini',
+        productCode: 'CHIKKO',
+        orderNumber: '0004',
+        widthMm: 765,
+        nodes: [
+          const ProductionMapNode(
+              id: 'start', kind: 'start', title: 'Start', x: 420, y: 32),
+          for (var index = 0; index < printIds.length; index++)
+            ProductionMapNode(
+              id: printIds[index],
+              kind: 'apparatus',
+              title: '${index + 7} ta rangli bosma aparat',
+              apparatusId: 'apparatus:default:bosma_${index + 7}',
+              alternativeGroupId: 'auto_print',
+              alternativeAssignedApparatusId: 'apparatus:default:bosma_8',
+              x: 140 + index * 280,
+              y: 164,
+            ),
+          for (var index = 0; index < laminationIds.length; index++)
+            ProductionMapNode(
+              id: laminationIds[index],
+              kind: 'apparatus',
+              title: 'Laminatsiya ${index + 1}',
+              apparatusId: _regularIds[index],
+              alternativeGroupId: 'auto_lamination',
+              alternativeAssignedApparatusId: scenario.selected.isEmpty
+                  ? ''
+                  : _regularIds[laminationIds.indexOf(scenario.selected)],
+              x: 280 + index * 280,
+              y: 296,
+            ),
+          const ProductionMapNode(
+              id: 'end', kind: 'end', title: 'Chikko mini', x: 420, y: 560),
+        ],
+        edges: [
+          for (final id in printIds) ProductionMapEdge(from: 'start', to: id),
+          for (final id in laminationIds)
+            ProductionMapEdge(from: 'print-8', to: id),
+          for (final id in scenario.sources)
+            ProductionMapEdge(from: id, to: 'end'),
+        ],
+      );
+      await MobileApi.instance.upsertCalculateOrderTemplate(
+        CalculateOrderTemplate.fromJson({
+          'id': 'template-rezka-skip',
+          'source_map_id': 'template-$_mapId',
+          'frame_count': 3,
+          'width_mm': 765,
+        }),
+      );
+      await _openMap(tester, 765, savedMap: map, lockedNodeIds: {
+        ...printIds,
+        if (scenario.selected.isNotEmpty) ...laminationIds,
+      });
+      await tester.tap(find.bySemanticsLabel('Element qo‘shish'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('admin-fab-menu-Rezka')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+      expect(find.text('Rezka sozlash'), findsOneWidget);
+      expect(find.text('Kadr 3'), findsOneWidget);
+      await tester.tap(find.text('Saqlash'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-map-save')));
+      await tester.pumpAndSettle();
+
+      final saved = (await MobileApi.instance.adminProductionMap(_mapId)).map;
+      final originalIds = map.nodes.map((node) => node.id).toSet();
+      final rezka =
+          saved.nodes.where((node) => !originalIds.contains(node.id)).toList();
+      expect(rezka, hasLength(5));
+      expect(
+          rezka.map((node) => node.alternativeGroupId).toSet(), hasLength(1));
+      final expectedSources =
+          scenario.selected.isEmpty ? laminationIds : [scenario.selected];
+      for (final node in rezka) {
+        expect(node.rezkaKadrCount, 3);
+        expect(node.rezkaFrameGroups, [1, 1, 1]);
+        expect(
+            saved.edges
+                .where((edge) => edge.to == node.id)
+                .map((edge) => edge.from),
+            unorderedEquals(expectedSources));
+        expect(
+            saved.edges
+                .where((edge) => edge.from == node.id)
+                .map((edge) => edge.to),
+            ['end']);
+      }
+      expect(
+          saved.edges
+              .where((edge) => edge.to == 'end')
+              .map((edge) => edge.from),
+          unorderedEquals(rezka.map((node) => node.id)));
+      // Existing apparatus, assignment metadata and upstream edges stay intact.
+      for (final node in map.nodes.where((node) => node.kind != 'end')) {
+        expect(saved.nodes.singleWhere((saved) => saved.id == node.id).toJson(),
+            node.toJson());
+      }
+      expect(
+          saved.edges
+              .where(
+                  (edge) => originalIds.contains(edge.to) && edge.to != 'end')
+              .map((edge) => edge.toJson()),
+          map.edges
+              .where((edge) => edge.to != 'end')
+              .map((edge) => edge.toJson()));
+      await _disposeMap(tester);
+      expect(tester.takeException(), isNull);
     });
   }
 }

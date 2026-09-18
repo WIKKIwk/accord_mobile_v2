@@ -155,6 +155,13 @@ extension __AdminProductionMapTestGraphStateAstPart01
           // End may be detached or still linked to inactive alternatives.
           // Append to this group's selected occurrence, never the list tail.
           previous = selected.single;
+        } else {
+          // A detached or partial End link must not choose an unassigned
+          // alternative. Keep every candidate of this upstream group.
+          for (final member in groupNodes) {
+            previousById[member.id] = member;
+          }
+          continue;
         }
       }
       previousById[previous.id] = previous;
