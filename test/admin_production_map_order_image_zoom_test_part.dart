@@ -43,6 +43,7 @@ void _registerOrderImageZoomTests() {
               title: 'Legacy image',
               productCode: 'LEGACY',
               apparatusId: apparatusId,
+              baseLength: 1000,
               product: 'Legacy'));
       expect(saved.map.imageId, isEmpty);
       final apparatus = await MobileApi.instance.adminApparatus(limit: 200);
@@ -117,6 +118,32 @@ void _registerOrderImageZoomTests() {
                       of: photo, matching: find.byType(RawImage)))
                   .any((image) => image.image?.width == 256),
               isTrue);
+          await tester.pumpAndSettle();
+          final image =
+              find.descendant(of: photo, matching: find.byType(Image));
+          final pixels =
+              find.descendant(of: photo, matching: find.byType(RawImage));
+          final provider = tester.widget<Image>(image).image;
+          final decodedImage = tester.widget<RawImage>(pixels).image;
+          for (var action = 0; action < 4; action++) {
+            await tester.tap(find.text('Kutilayotgan natija'));
+            await tester.pump();
+            expect(tester.widget<Image>(image).image, provider,
+                reason: 'sheet actions must reuse the thumbnail cache key');
+            expect(tester.widget<RawImage>(pixels).image, same(decodedImage),
+                reason: 'sheet actions must not decode the image again');
+            final switcher = tester.widget<AnimatedSwitcher>(find.descendant(
+                of: photo, matching: find.byType(AnimatedSwitcher)));
+            expect(switcher.child?.key, const ValueKey('image'),
+                reason:
+                    'a loaded thumbnail must not return to its placeholder');
+            final fades = tester.widgetList<FadeTransition>(find.descendant(
+                of: photo, matching: find.byType(FadeTransition)));
+            expect(fades, hasLength(1));
+            expect(fades.single.opacity.value, 1,
+                reason: 'sheet actions must not restart the image fade');
+            await tester.pumpAndSettle();
+          }
           await tester.tap(photo);
           await tester.pumpAndSettle();
           expect(

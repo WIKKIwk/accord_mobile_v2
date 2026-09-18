@@ -63,7 +63,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   ReturnedPaintDraft? _returnedPaintDraft;
   String _returnedPaintDraftScope = '';
   String _unlinkingMaterialBarcode = '';
-  List<int>? _orderImageBytes;
+  Uint8List? _orderImageBytes;
   bool _orderImageLoading = false;
   bool get _quickScanInFlight => _quickScanActiveCount > 0;
   bool get _materialIntakeInFlight => _materialIntakeActiveCount > 0;
@@ -489,7 +489,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           thumbnail: true);
       if (!mounted) return;
       setState(() {
-        _orderImageBytes = bytes;
+        // Keep one buffer for this loaded photo: MemoryImage uses its identity
+        // as the cache key, so sheet actions must not create fresh copies.
+        _orderImageBytes = bytes == null ? null : Uint8List.fromList(bytes);
         _orderImageLoading = false;
       });
     } catch (error) {

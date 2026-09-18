@@ -65,7 +65,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   });
   final List<AdminApparatus> apparatusCatalog;
   final String orderCode;
-  final List<int>? orderImageBytes;
+  final Uint8List? orderImageBytes;
   final bool orderImageLoading;
   final VoidCallback onViewOrderImage;
   final String productTitle;

@@ -83,7 +83,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final GlobalKey noticeAnchorKey;
   final VoidCallback onClose;
   final ProductionMapDefinition map;
-  final List<int>? orderImageBytes;
+  final Uint8List? orderImageBytes;
   final bool orderImageLoading;
   final VoidCallback onViewOrderImage;
   final bool workerMode;
@@ -429,7 +429,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
 
 Widget _productionMapOrderImageThumbnail({
   required BuildContext context,
-  required List<int>? imageBytes,
+  required Uint8List? imageBytes,
   required bool loading,
   required VoidCallback onTap,
 }) {
@@ -451,7 +451,7 @@ Widget _productionMapOrderImageThumbnail({
       ? ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: ImageFade(
-            image: MemoryImage(Uint8List.fromList(imageBytes)),
+            image: MemoryImage(imageBytes),
             key: const ValueKey('production-order-detail-photo'),
             width: 44,
             height: 44,
@@ -533,7 +533,7 @@ class _TayyorlovSummaryOrderHeader extends StatelessWidget {
     required this.customerName,
   });
   final ProductionMapDefinition map;
-  final List<int>? orderImageBytes;
+  final Uint8List? orderImageBytes;
   final bool orderImageLoading;
   final VoidCallback onViewOrderImage;
   final String? customerName;
