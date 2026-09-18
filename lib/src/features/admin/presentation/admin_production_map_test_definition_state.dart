@@ -121,6 +121,7 @@ extension _AdminProductionMapTestDefinitionState
     try {
       final definition = _currentMapDefinition(orderNumber: orderNumber);
       _validateCanonicalApparatusReferences(definition);
+      _validateRezkaFrames(definition);
       final draft = _templateDraft;
       if (draft != null) {
         final templateDefinition = definition.withoutAlternativeAssignments();
@@ -174,6 +175,22 @@ extension _AdminProductionMapTestDefinitionState
     } finally {
       if (mounted) {
         _updateScreenState(() => _savingMap = false);
+      }
+    }
+  }
+
+  void _validateRezkaFrames(ProductionMapDefinition definition) {
+    for (final node in definition.nodes) {
+      if (!_isRezkaProductionNode(node, _apparatusCatalog)) continue;
+      final count = node.rezkaKadrCount ?? 0;
+      final groups = node.rezkaFrameGroups;
+      if (count <= 0 || (groups.isNotEmpty &&
+          (groups.any((value) => value <= 0) ||
+              groups.fold<int>(0, (sum, value) => sum + value) != count))) {
+        throw MobileApiException(
+          code: 'rezka_kadr_count_required',
+          message: '${node.title}: kadr sozlamasi to‘liq emas. Rezka sozlash oynasini ochib, kadrlarni saqlang.',
+        );
       }
     }
   }

@@ -21,24 +21,17 @@ class _RezkaNodeEditSheet extends StatefulWidget {
 
 class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
   late final TextEditingController _title;
-  late final TextEditingController _kadrCount;
-  late final TextEditingController _labelLength;
-  late bool _byFrame;
   late List<int> _frameGroups;
+
+  bool get _validFrames => widget.frameCount > 0 &&
+      _frameGroups.isNotEmpty &&
+      _frameGroups.every((count) => count > 0) &&
+      _frameGroups.fold<int>(0, (sum, count) => sum + count) == widget.frameCount;
 
   @override
   void initState() {
     super.initState();
     _title = TextEditingController(text: widget.node.title);
-    _kadrCount = TextEditingController(
-      text: widget.node.rezkaKadrCount?.toString() ?? '',
-    );
-    _labelLength = TextEditingController(
-      text: widget.node.rezkaLabelLength == null
-          ? ''
-          : _formatRezkaNumber(widget.node.rezkaLabelLength!),
-    );
-    _byFrame = widget.node.rezkaFrameGroups.isNotEmpty;
     _frameGroups = widget.node.rezkaFrameGroups.isNotEmpty
         ? List<int>.from(widget.node.rezkaFrameGroups)
         : List<int>.filled(widget.frameCount, 1, growable: true);
@@ -47,8 +40,6 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
   @override
   void dispose() {
     _title.dispose();
-    _kadrCount.dispose();
-    _labelLength.dispose();
     super.dispose();
   }
 
@@ -82,42 +73,12 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
             const SizedBox(height: 14),
             _SheetField(label: 'Nomi', controller: _title),
             const SizedBox(height: 10),
-            SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(
-                  value: false,
-                  label: Text('Buyurtma bo‘yicha'),
-                ),
-                ButtonSegment(value: true, label: Text('Kadr bo‘yicha')),
-              ],
-              selected: {_byFrame},
-              onSelectionChanged: (selection) {
-                setState(() => _byFrame = selection.single);
-              },
-            ),
-            const SizedBox(height: 10),
-            if (_byFrame)
-              _buildFrameGroups(context)
-            else ...[
-              _SheetField(
-                label: 'Kadr soni',
-                controller: _kadrCount,
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 10),
-              _SheetField(
-                label: 'Etiketka uzunligi',
-                controller: _labelLength,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-              ),
-            ],
+            _buildFrameGroups(context),
             const SizedBox(height: 16),
             _PlainActionButton(
               label: 'Saqlash',
               icon: Icons.check_rounded,
-              onTap: _save,
+              onTap: _validFrames ? _save : null,
             ),
           ],
         ),
@@ -127,7 +88,10 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
 
   Widget _buildFrameGroups(BuildContext context) {
     if (widget.frameCount <= 0) {
-      return const Text('Kadr soni topilmadi');
+      return const Text('Buyurtmada kadr soni topilmadi. Avval buyurtma hisob-kitobida kadr sonini belgilang.');
+    }
+    if (!_validFrames) {
+      return const Text('Saqlangan kadr guruhlari kadr soniga mos emas. Rezka sozlamasini qayta yarating.');
     }
     var cursor = 1;
     final children = <Widget>[];
@@ -180,15 +144,7 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
   }
 
   void _save() {
-    final kadrText = _kadrCount.text.trim();
-    final labelText = _labelLength.text.trim().replaceAll(',', '.');
-    final kadr = kadrText.isEmpty ? null : int.tryParse(kadrText);
-    final label = labelText.isEmpty ? null : double.tryParse(labelText);
-    if ((kadrText.isNotEmpty && (kadr == null || kadr <= 0)) ||
-        (labelText.isNotEmpty && (label == null || label <= 0))) {
-      showAdminTopNotice(context, 'Rezka qiymatlarini to‘g‘ri kiriting');
-      return;
-    }
+    if (!_validFrames) return;
     final title = _title.text.trim();
     Navigator.of(context).pop(
       ProductionMapNode(
@@ -207,9 +163,8 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
         alternativeAssignedTitle: widget.node.alternativeAssignedTitle,
         alternativeAssignedApparatusId:
             widget.node.alternativeAssignedApparatusId,
-        rezkaKadrCount: _byFrame ? widget.frameCount : kadr,
-        rezkaLabelLength: _byFrame ? null : label,
-        rezkaFrameGroups: _byFrame ? List<int>.from(_frameGroups) : const [],
+        rezkaKadrCount: widget.frameCount,
+        rezkaFrameGroups: List<int>.from(_frameGroups),
         x: widget.node.x,
         y: widget.node.y,
       ),

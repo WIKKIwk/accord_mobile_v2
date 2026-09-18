@@ -66,6 +66,7 @@ part 'admin_production_map_worker_fab_qr_test_part.dart';
 part 'admin_production_map_worker_recovery_test_part.dart';
 part 'admin_production_map_worker_activity_test_part.dart';
 part 'admin_production_map_worker_queue_ordering_test_part.dart';
+part 'admin_production_map_rezka_frame_only_test_part.dart';
 part 'admin_production_map_alternative_visibility_test_part.dart';
 part 'admin_production_map_print_method_tests.dart';
 part 'admin_production_map_order_image_zoom_test_part.dart';
@@ -174,6 +175,7 @@ void main() {
   _registerWorkerRecoveryTests();
   _registerWorkerActivityTests();
   _registerWorkerQueueOrderingTests();
+  _registerRezkaFrameOnlyTests();
   _registerOrderImageZoomTests();
   _registerWorkerWipAccuracyTests();
   _registerWorkerCompletedWipTests();

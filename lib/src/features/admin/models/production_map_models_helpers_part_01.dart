@@ -185,6 +185,7 @@ class ProductionMapNode {
     String? alternativeAssignedApparatusId,
     int? rezkaKadrCount,
     double? rezkaLabelLength,
+    bool clearRezkaLabelLength = false,
     List<int>? rezkaFrameGroups,
     double? x,
     double? y,
@@ -208,7 +209,8 @@ class ProductionMapNode {
       alternativeAssignedApparatusId:
           alternativeAssignedApparatusId ?? this.alternativeAssignedApparatusId,
       rezkaKadrCount: rezkaKadrCount ?? this.rezkaKadrCount,
-      rezkaLabelLength: rezkaLabelLength ?? this.rezkaLabelLength,
+      rezkaLabelLength: clearRezkaLabelLength
+          ? null : rezkaLabelLength ?? this.rezkaLabelLength,
       rezkaFrameGroups: rezkaFrameGroups ?? this.rezkaFrameGroups,
       x: x ?? this.x,
       y: y ?? this.y,

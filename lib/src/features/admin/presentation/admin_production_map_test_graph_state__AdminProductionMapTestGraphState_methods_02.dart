@@ -206,11 +206,30 @@ extension __AdminProductionMapTestGraphStateAstPart02
       return;
     }
     if (_isRezkaProductionNode(node, _apparatusCatalog)) {
+      final groupId = node.alternativeGroupId.trim();
+      if (groupId.isNotEmpty && nodes.any((item) =>
+          item.alternativeGroupId.trim() == groupId && _isNodeLocked(item.id))) {
+        showAdminTopNotice(context, 'Ish boshlangan Rezka guruhi sozlamasini o‘zgartirib bo‘lmaydi.');
+        return;
+      }
       final edited = await _showRezkaEditSheet(node);
       if (edited == null || !mounted) {
         return;
       }
-      _updateScreenState(() => nodes[index] = edited);
+      _updateScreenState(() {
+        nodes[index] = edited;
+        if (groupId.isEmpty) return;
+        for (var i = 0; i < nodes.length; i++) {
+          if (i != index && nodes[i].alternativeGroupId.trim() == groupId &&
+              _isRezkaProductionNode(nodes[i], _apparatusCatalog)) {
+            nodes[i] = nodes[i].copyWith(
+              rezkaKadrCount: edited.rezkaKadrCount,
+              rezkaFrameGroups: edited.rezkaFrameGroups,
+              clearRezkaLabelLength: true,
+            );
+          }
+        }
+      });
       return;
     }
     if (node.kind == 'apparatus') {

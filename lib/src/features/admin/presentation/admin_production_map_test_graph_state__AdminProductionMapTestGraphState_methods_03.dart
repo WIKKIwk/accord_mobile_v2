@@ -3,8 +3,34 @@ part of 'admin_production_map_test_screen.dart';
 
 extension __AdminProductionMapTestGraphStateAstPart03
     on _AdminProductionMapTestScreenState {
-  Future<ProductionMapNode?> _showRezkaEditSheet(ProductionMapNode node) {
+  Future<ProductionMapNode?> _showRezkaEditSheet(ProductionMapNode node) async {
     final savedFrameCount = _productionMapRezkaFrameCount(node);
+    var frameCount = savedFrameCount > 0
+        ? savedFrameCount
+        : _productionMapOrderFrameCount(widget.orderContext);
+    if (frameCount <= 0 && (widget.savedMap?.id.trim().isNotEmpty ?? false)) {
+      // Existing-order editors do not carry a template draft (passing one
+      // would change their save flow). Resolve only this order's exact link.
+      try {
+        final templates = await MobileApi.instance.calculateOrderTemplates();
+        final mapId = widget.savedMap!.id.trim();
+        final linked = templates.where((item) =>
+            item.sourceMapId.trim() == mapId ||
+            item.sourceMapId.trim() == 'template-$mapId');
+        if (linked.length == 1) {
+          final count = linked.single.frameCount;
+          if (count.isFinite && count > 0 && count == count.roundToDouble()) {
+            frameCount = count.toInt();
+          }
+        }
+      } catch (_) {
+        if (mounted) {
+          showAdminTopNotice(context, 'Buyurtma kadrlarini yuklab bo‘lmadi. Qayta urinib ko‘ring.');
+        }
+        return null;
+      }
+    }
+    if (!mounted) return null;
     return showModalBottomSheet<ProductionMapNode>(
       context: context,
       isDismissible: true,
@@ -14,9 +40,7 @@ extension __AdminProductionMapTestGraphStateAstPart03
       barrierColor: Colors.black.withValues(alpha: 0.32),
       builder: (context) => _RezkaNodeEditSheet(
         node: node,
-        frameCount: savedFrameCount > 0
-            ? savedFrameCount
-            : _productionMapOrderFrameCount(widget.orderContext),
+        frameCount: frameCount,
       ),
     );
   }

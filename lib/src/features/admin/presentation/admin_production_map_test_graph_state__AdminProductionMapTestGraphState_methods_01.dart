@@ -72,8 +72,18 @@ extension __AdminProductionMapTestGraphStateAstPart01
       return;
     }
     if (picked.skip) {
+      ProductionMapNode? rezkaSettings;
+      if (group.operation == 'cut') {
+        rezkaSettings = await _showRezkaEditSheet(
+          _newNode('rezka-settings', 'apparatus').copyWith(
+            title: canonicalApparatusGroupLabel(group, context.l10n),
+            apparatusId: compatible.first.id,
+          ),
+        );
+        if (rezkaSettings == null || !mounted) return;
+      }
       _updateScreenState(() {
-        _insertAlternativeApparatusNodes(group, compatible);
+        _insertAlternativeApparatusNodes(group, compatible, rezkaSettings: rezkaSettings);
       });
       return;
     }
@@ -102,8 +112,9 @@ extension __AdminProductionMapTestGraphStateAstPart01
 
   void _insertAlternativeApparatusNodes(
     CanonicalApparatusGroup group,
-    List<AdminApparatus> apparatus,
-  ) {
+    List<AdminApparatus> apparatus, {
+    ProductionMapNode? rezkaSettings,
+  }) {
     final endIndex = nodes.indexWhere((item) => item.kind == 'end');
     if (endIndex <= 0 || apparatus.isEmpty) {
       return;
@@ -176,6 +187,8 @@ extension __AdminProductionMapTestGraphStateAstPart01
           apparatusId: apparatus[index].id,
           alternativeGroupId: groupId,
           alternativeGroupLabel: groupLabel,
+          rezkaKadrCount: rezkaSettings?.rezkaKadrCount,
+          rezkaFrameGroups: rezkaSettings?.rezkaFrameGroups ?? const [],
           x: firstX + index * _ProductionMapCanvas._nodeSize.width,
           y: y,
         ),

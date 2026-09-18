@@ -66,10 +66,10 @@ void _registeradmin_production_map_test_screen_testCases03() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Rezka').last);
       await tester.pumpAndSettle();
-      expect(find.text('Buyurtma bo‘yicha'), findsOneWidget);
-
-      await tester.tap(find.text('Kadr bo‘yicha'));
-      await tester.pumpAndSettle();
+      expect(find.text('Buyurtma bo‘yicha'), findsNothing);
+      expect(find.text('Kadr bo‘yicha'), findsNothing);
+      expect(find.text('Kadr soni'), findsNothing);
+      expect(find.text('Etiketka uzunligi'), findsNothing);
       expect(find.text('Kadr 1'), findsOneWidget);
       expect(find.text('Kadr 4'), findsOneWidget);
 
@@ -240,8 +240,6 @@ void _registeradmin_production_map_test_screen_testCases03() {
 
       await tester.tap(find.text('Rezka'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Kadr bo‘yicha'));
-      await tester.pumpAndSettle();
 
       expect(find.text('Kadr 1'), findsOneWidget);
       expect(find.text('Kadr 3'), findsOneWidget);
@@ -250,7 +248,7 @@ void _registeradmin_production_map_test_screen_testCases03() {
   );
 
   testWidgets(
-    'editing existing rezka count updates and persists laminatsiya eligibility',
+    'editing existing rezka groups updates and persists laminatsiya eligibility',
     (tester) async {
       await TestModeController.instance.setEnabled(true);
       await _usePhoneViewport(tester);
@@ -293,7 +291,8 @@ void _registeradmin_production_map_test_screen_testCases03() {
                   kind: 'apparatus',
                   title: 'Rezka',
                   apparatusId: _rezkaId,
-                  rezkaKadrCount: 2,
+                  rezkaKadrCount: 3,
+                  rezkaFrameGroups: [3],
                   x: 420,
                   y: 164,
                 ),
@@ -317,11 +316,9 @@ void _registeradmin_production_map_test_screen_testCases03() {
 
       await tester.tap(find.text('Rezka'));
       await tester.pumpAndSettle();
-      final kadrCountField = find.byWidgetPredicate(
-        (widget) =>
-            widget is TextField && widget.decoration?.labelText == 'Kadr soni',
-      );
-      await tester.enterText(kadrCountField, '3');
+      expect(find.text('Kadr soni'), findsNothing);
+      await tester.tap(find.text('Kadr 1-3'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Saqlash'));
       await tester.pumpAndSettle();
 
@@ -343,6 +340,7 @@ void _registeradmin_production_map_test_screen_testCases03() {
         saved.map.nodes.firstWhere((node) => node.id == 'rezka').rezkaKadrCount,
         3,
       );
+      expect(saved.map.nodes.firstWhere((node) => node.id == 'rezka').rezkaFrameGroups, [1, 1, 1]);
       expect(
         saved.map.nodes.any((node) => node.apparatusId == _lamination1Id),
         isTrue,

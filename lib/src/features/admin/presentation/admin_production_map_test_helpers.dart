@@ -295,10 +295,10 @@ int _productionMapRezkaFrameCount(ProductionMapNode node) {
 
 int _productionMapOrderFrameCount(ProductionMapOrderContext? orderContext) {
   final frameCount = orderContext?.templateDraft?.frameCount ?? 0;
-  if (frameCount <= 0) {
+  if (!frameCount.isFinite || frameCount <= 0 || frameCount != frameCount.roundToDouble()) {
     return 0;
   }
-  return frameCount.round();
+  return frameCount.toInt();
 }
 
 bool _productionMapWidthFitsLaminatsiya(
