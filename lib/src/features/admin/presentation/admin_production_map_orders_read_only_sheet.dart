@@ -96,7 +96,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _orderControls,
       widget.order.map.id.trim(),
     );
-    unawaited(_loadInteractionContractAndSections());
+    unawaited(_loadInitialInteractionAndScan());
     unawaited(_loadOrderImage());
     if (widget.startPauseOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -121,10 +121,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     } else if (widget.startResumeOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_runInitialResumeFlow());
-      });
-    } else if (widget.initialOrderSwitchBatch != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_runInitialOrderSwitchFlow());
       });
     }
   }
@@ -515,6 +511,19 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           MobileApi.instance
               .adminProductionMapOrderImageUrl(map.id, imageId: map.imageId),
         ));
+  }
+
+  Future<void> _loadInitialInteractionAndScan() async {
+    await _loadInteractionContractAndSections();
+    if (!mounted || !_queueActionContractSynchronized) return;
+    final qrPayload = widget.initialScanQrPayload.trim();
+    if (qrPayload.isNotEmpty) {
+      // Replay through the same scoped validation as the embedded scanner,
+      // once all start requirements and input batches have finished loading.
+      await _handleQuickScan(qrPayload);
+    } else if (widget.initialOrderSwitchBatch != null) {
+      await _runInitialOrderSwitchFlow();
+    }
   }
 
   Future<void> _loadInteractionContractAndSections() async {
@@ -1669,12 +1678,16 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     targetControl = snapshot.queueActionControls[station]?[targetOrderId];
     targetQueueState = snapshot.queueStates[station]?[targetOrderId];
     final targetOrderControl = snapshot.orderControlFor(targetOrderId);
+    final canPrepareSwitch =
+        targetControl?.interaction?.blockingReasonCode == 'apparatus_busy' &&
+        _queueActionContractSynchronized &&
+        _queueActionControl?.allows('complete') == true;
     if (targetControl?.isConsistentWith(
               targetOrderControl,
               queueState: targetQueueState,
             ) !=
             true ||
-        targetControl?.allows('start') != true) {
+        (targetControl?.allows('start') != true && !canPrepareSwitch)) {
       _showSheetNotice(_queueActionUnavailableText(
         l10n: context.l10n,
         control: targetControl,
@@ -1727,54 +1740,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         return false;
       }
     }
-    setState(() {
-      _quickScanActiveCount += 1;
-      _quickScanStatus = context.l10n.productionText(
-        'worker.order.switch.starting',
-      );
-    });
-    try {
-      await MobileApi.instance.adminApparatusQueueActionResult(
-        apparatus: station,
-        orderId: targetOrderId,
-        action: 'start',
-        qrPayload: batch.qrPayload,
-        progressBatchId: batch.batchId,
-        uom: batch.uom.trim().isEmpty ? 'm' : batch.uom.trim(),
-      );
-      if (mounted) {
-        setState(() {
-          _quickScanStatus = context.l10n.productionText(
-            'worker.order.switch.started_with_id',
-            values: {'order': targetOrderId},
-          );
-          _startInputProgressBatch = null;
-          _startInputOpeningWipBatch = null;
-        });
-        _showSheetNotice(
-          context.l10n.productionText('worker.order.switch.started'),
-        );
-      }
-      return true;
-    } catch (error) {
-      if (mounted) {
-        setState(
-          () => _quickScanStatus = _readOnlyQueueActionErrorText(
-            error,
-            context.l10n,
-          ),
-        );
-        _showSheetNotice(_readOnlyQueueActionErrorText(error, context.l10n));
-      }
-      return false;
-    } finally {
-      if (mounted) {
-        setState(() {
-          _quickScanActiveCount =
-              _quickScanActiveCount > 0 ? _quickScanActiveCount - 1 : 0;
-        });
-      }
-    }
+    // The parent opens the target sheet and replays this QR after a fresh
+    // contract load. Start remains explicit and retains all material/Qolip gates.
+    return true;
   }
 
   Future<void> _runInitialPauseFlow() async {
@@ -2475,6 +2443,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.allowWipQrReprint = true,
     this.initialOrderControls = const {},
     this.initialOrderSwitchBatch,
+    this.initialScanQrPayload = '',
     this.initialPauseRequestId = '',
     this.startPauseOnOpen = false,
     this.startWorkerHandoffOnOpen = false,
@@ -2503,6 +2472,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final bool allowWipQrReprint;
   final Map<String, AdminOrderControlState> initialOrderControls;
   final AdminProgressBatch? initialOrderSwitchBatch;
+  final String initialScanQrPayload;
   final String initialPauseRequestId;
   final bool startPauseOnOpen;
   final bool startWorkerHandoffOnOpen;

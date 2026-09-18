@@ -12,6 +12,7 @@ class _AdminProductionMapOrdersScreenState
   bool _workerCatalogReady = false;
   bool _workerForeground = true;
   bool _workerRetryAllowed = true;
+  bool _workerQrScanInFlight = false;
   Timer? _workerRecoveryTimer;
   bool _liveRefreshInFlight = false;
   bool _liveRefreshQueued = false;
@@ -723,6 +724,7 @@ class _AdminProductionMapOrdersScreenState
     bool startRollRemovalOnOpen = false,
     bool startResumeOnOpen = false,
     AdminProgressBatch? initialOrderSwitchBatch,
+    String initialScanQrPayload = '',
   }) {
     final mapId = order.map.id.trim();
     final sheetFuture = showModalBottomSheet<bool>(
@@ -772,6 +774,7 @@ class _AdminProductionMapOrdersScreenState
         progressDriverUrlPicker: widget.progressDriverUrlPicker,
         initialOrderControls: _orderControlsByOrderId,
         initialOrderSwitchBatch: initialOrderSwitchBatch,
+        initialScanQrPayload: initialScanQrPayload,
         startWorkerHandoffOnOpen: startWorkerHandoffOnOpen,
         startAstatkaOnOpen: startAstatkaOnOpen,
         startBosmaFinishOnOpen: startBosmaFinishOnOpen,
@@ -780,10 +783,25 @@ class _AdminProductionMapOrdersScreenState
       ),
     );
     unawaited(
-      sheetFuture.then((result) {
-        if (mounted && result == true) {
-          unawaited(_refreshLive());
+      sheetFuture.then((result) async {
+        if (mounted && result == true && initialOrderSwitchBatch != null) {
+          await _refreshLive();
+          if (!mounted) return;
+          final targets = _orders.where((item) =>
+              item.map.id.trim() == initialOrderSwitchBatch.orderId.trim());
+          if (targets.isNotEmpty) {
+            _showWatchOrderDetail(
+              apparatus: apparatus,
+              order: targets.first,
+              initialScanQrPayload: initialOrderSwitchBatch.qrPayload,
+            );
+            return;
+          }
+          showAdminTopNotice(context,
+              context.l10n.productionText('worker.error.other_order_lookup'));
+          return;
         }
+        if (mounted && result == true) unawaited(_refreshLive());
         if (mounted) unawaited(_showPendingStageAstatkaPrompt());
       }),
     );
@@ -808,14 +826,20 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _openWorkerQrScanner() async {
-    final result = await Navigator.of(context).pushNamed(
-      AppRoutes.adminProgressQrScan,
-      arguments: const AdminProgressQrScanArgs(scanOnly: true),
-    );
-    if (!mounted || result is! String || result.trim().isEmpty) {
-      return;
+    if (_workerQrScanInFlight) return;
+    _workerQrScanInFlight = true;
+    try {
+      final result = await Navigator.of(context).pushNamed(
+        AppRoutes.adminProgressQrScan,
+        arguments: const AdminProgressQrScanArgs(scanOnly: true),
+      );
+      if (!mounted || result is! String || result.trim().isEmpty) {
+        return;
+      }
+      await _handleWorkerFabQr(result.trim());
+    } finally {
+      _workerQrScanInFlight = false;
     }
-    await _handleWorkerFabQr(result.trim());
   }
 
   Future<void> _handleWorkerFabQr(String qrPayload) async {
@@ -835,8 +859,14 @@ class _AdminProductionMapOrdersScreenState
       await _refreshLive();
       if (!mounted) return;
       final targetMaps = _orders.where((order) => order.map.id.trim() == targetOrderId);
-      final candidates = targetMaps.isEmpty ? <String>[stationId] : productionMapWipConsumerIds(
-        map: targetMaps.first.map,
+      if (targetMaps.isEmpty) {
+        showAdminTopNotice(context,
+            context.l10n.productionText('worker.error.other_order_lookup'));
+        return;
+      }
+      final targetOrder = targetMaps.first;
+      final candidates = productionMapWipConsumerIds(
+        map: targetOrder.map,
         nextApparatus: stationId,
         nextStageNodeId: batch.payloadJson['next_stage_node_id']?.toString() ?? '',
       );
@@ -882,8 +912,7 @@ class _AdminProductionMapOrdersScreenState
                 targetOrderControl,
                 queueState: targetQueueState,
               ) !=
-              true ||
-          targetControl?.allows('start') != true) {
+              true) {
         showAdminTopNotice(
           context,
           _queueActionUnavailableText(
@@ -915,19 +944,34 @@ class _AdminProductionMapOrdersScreenState
       final currentOrder = _workerCurrentOrderForApparatus(
         apparatus: station,
       );
-      if (currentOrder == null) {
+      // No previous job is required to scan a waiting input and start work.
+      // Only an actual handoff may temporarily tolerate the busy-machine gate.
+      final canFinishCurrent = currentOrder != null &&
+          currentOrder.map.id.trim() != targetOrderId &&
+          _queueActionControlForApparatus(
+                apparatus: station,
+                orderId: currentOrder.map.id,
+              )?.allows('complete') == true;
+      final canPrepareSwitch = canFinishCurrent &&
+          targetControl?.interaction?.blockingReasonCode == 'apparatus_busy';
+      if (targetControl?.allows('start') != true && !canPrepareSwitch) {
         showAdminTopNotice(
           context,
-          context.l10n.productionText('worker.error.current_order_missing'),
+          _queueActionUnavailableText(
+            l10n: context.l10n,
+            control: targetControl,
+            orderControlState: targetOrderControl,
+            queueState: targetQueueState,
+          ),
           icon: Icons.warning_amber_rounded,
         );
         return;
       }
-      if (currentOrder.map.id.trim() == targetOrderId) {
-        showAdminTopNotice(
-          context,
-          context.l10n.productionText('worker.error.current_order_qr'),
-          icon: Icons.warning_amber_rounded,
+      if (currentOrder == null || currentOrder.map.id.trim() == targetOrderId) {
+        _showWatchOrderDetail(
+          apparatus: station,
+          order: targetOrder,
+          initialScanQrPayload: qrPayload,
         );
         return;
       }

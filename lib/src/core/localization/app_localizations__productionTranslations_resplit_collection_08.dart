@@ -158,27 +158,27 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
   },
   'worker.order.switch.complete_current': {
     'uz':
-        'Bu QR boshqa orderga tegishli. Hozirgi ishni to‘liq tugatib, yangi orderni boshlaysizmi?',
+        'Bu QR boshqa orderga tegishli. Hozirgi ishni to‘liq tugatib, yangi order oynasiga o‘tasizmi?',
     'en':
-        'This QR code belongs to another order. Complete the current work and start the new order?',
+        'This QR code belongs to another order. Complete the current work and open the new order?',
     'ru':
-        'Этот QR-код относится к другому заказу. Завершить текущую работу и начать новый заказ?',
+        'Этот QR-код относится к другому заказу. Завершить текущую работу и открыть новый заказ?',
   },
   'worker.order.switch.report_current': {
     'uz':
-        'Bu QR boshqa orderga tegishli. Hozirgi ish uchun astatka qayd qilib, yangi orderni boshlaysizmi?',
+        'Bu QR boshqa orderga tegishli. Hozirgi ish uchun astatka qayd qilib, yangi order oynasiga o‘tasizmi?',
     'en':
-        'This QR code belongs to another order. Record the current remainder and start the new order?',
+        'This QR code belongs to another order. Record the current remainder and open the new order?',
     'ru':
-        'Этот QR-код относится к другому заказу. Зафиксировать остаток текущей работы и начать новый заказ?',
+        'Этот QR-код относится к другому заказу. Зафиксировать остаток текущей работы и открыть новый заказ?',
   },
   'worker.order.switch.stop_current': {
     'uz':
-        'Bu QR boshqa orderga tegishli. Hozirgi ishni to‘xtatib, yangi orderni boshlaysizmi?',
+        'Bu QR boshqa orderga tegishli. Yangi order oynasiga o‘tasizmi?',
     'en':
-        'This QR code belongs to another order. Stop the current work and start the new order?',
+        'This QR code belongs to another order. Open the new order?',
     'ru':
-        'Этот QR-код относится к другому заказу. Остановить текущую работу и начать новый заказ?',
+        'Этот QR-код относится к другому заказу. Открыть новый заказ?',
   },
   'worker.action.no': {
     'uz': 'Yo‘q',
@@ -186,9 +186,9 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
     'ru': 'Нет',
   },
   'worker.order.switch.confirm': {
-    'uz': 'Ha, boshlash',
-    'en': 'Yes, start',
-    'ru': 'Да, начать',
+    'uz': 'Ha, o‘tish',
+    'en': 'Yes, open',
+    'ru': 'Да, открыть',
   },
   'worker.order.switch.starting': {
     'uz': 'Yangi order boshlanmoqda...',

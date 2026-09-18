@@ -16,9 +16,11 @@ import 'package:accord_mobile_v2/src/features/admin/logic/canonical_apparatus_gr
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_order_image_thumb.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_top_notice.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/calculate_order_store.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
+import 'package:accord_mobile_v2/src/features/aparatchi/presentation/widgets/aparatchi_dock.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/inventory_movement_models.dart';
 import 'package:accord_mobile_v2/src/features/boyoqchi/state/returned_paint_draft_store.dart';
@@ -60,6 +62,7 @@ part 'admin_production_map_test_screen_test_cases_resplit_part_23.dart';
 part 'admin_production_map_worker_latency_test_part.dart';
 part 'admin_production_map_worker_notices_test_part.dart';
 part 'admin_production_map_worker_material_width_notice_test_part.dart';
+part 'admin_production_map_worker_fab_qr_test_part.dart';
 part 'admin_production_map_worker_recovery_test_part.dart';
 part 'admin_production_map_worker_activity_test_part.dart';
 part 'admin_production_map_alternative_visibility_test_part.dart';
@@ -166,6 +169,7 @@ void main() {
   _registerWorkerLatencyTests();
   _registerWorkerNoticeTests();
   _registerWorkerMaterialWidthNoticeTests();
+  _registerWorkerFabQrTests();
   _registerWorkerRecoveryTests();
   _registerWorkerActivityTests();
   _registerOrderImageZoomTests();
