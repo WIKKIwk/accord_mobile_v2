@@ -185,6 +185,19 @@ void _registerWorkerFabQrTests() {
       await tester.pumpAndSettle();
       expect(scannerRoutes, 1);
       await tester.tap(find.byKey(const ValueKey('return-fab-qr')));
+      await tester.pump();
+      if (scenario == 'idle') {
+        expect(
+            find.byWidgetPredicate((widget) =>
+                widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet'),
+            findsOneWidget);
+        expect(find.byType(ProductionQuickScannerPanel), findsNothing,
+            reason: 'FAB QR validation must not briefly mount the camera');
+        final pendingStart = find.widgetWithText(FilledButton, 'Boshlash');
+        expect(pendingStart, findsOneWidget);
+        expect(tester.widget<FilledButton>(pendingStart).onPressed, isNull,
+            reason: 'start must wait for the FAB QR validation');
+      }
       await tester.pumpAndSettle();
       await scanFuture;
 

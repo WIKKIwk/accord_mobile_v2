@@ -32,6 +32,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   String _quickScanLocaleCode = '';
   final Set<String> _seenQuickScanValues = <String>{};
   int _quickScanActiveCount = 0;
+  bool _initialQrScanPending = false;
   int _materialIntakeActiveCount = 0;
   int _materialLoadGeneration = 0;
 
@@ -96,6 +97,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _orderControls,
       widget.order.map.id.trim(),
     );
+    _initialQrScanPending = widget.initialScanQrPayload.trim().isNotEmpty;
     unawaited(_loadInitialInteractionAndScan());
     unawaited(_loadOrderImage());
     if (widget.startPauseOnOpen) {
@@ -370,7 +372,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         materialsError: _materialsError,
         materialStartReady: materialStartReady,
         materialStartBlockingText: materialStartBlockingText,
-        actionInFlight: _actionInFlight,
+        actionInFlight: _actionInFlight || _initialQrScanPending,
         materialIntakeInFlight: _materialIntakeInFlight,
         materialIntakeMode: _materialIntakeMode,
         intakeCandidatesExpanded: _intakeCandidatesExpanded,
@@ -383,13 +385,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         openingWipBatch: _startInputOpeningWipBatch,
         openingWipBatches: _availableOpeningWipBatches,
         inputProgressBatches: _availableInputProgressBatches,
-        inputProgressLoading: _inputProgressLoading,
+        inputProgressLoading: _inputProgressLoading || _initialQrScanPending,
         inputProgressError: _inputProgressError,
         quickScanStatus: _quickScanStatus,
         quickScanFeedback: _quickScanFeedback,
         quickScanHighlight: _quickScanHighlight,
         quickScanInFlight: _quickScanInFlight,
-        showQuickScanner: scanTasks.visible,
+        showQuickScanner: !_initialQrScanPending && scanTasks.visible,
         allowConcurrentQuickScanner: widget.workerMode && !scanTasks.merge,
         onQuickScan: _handleQuickScan,
         requiresQolipScan: requiresQolipScan,
@@ -516,15 +518,21 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _loadInitialInteractionAndScan() async {
-    await _loadInteractionContractAndSections();
-    if (!mounted || !_queueActionContractSynchronized) return;
-    final qrPayload = widget.initialScanQrPayload.trim();
-    if (qrPayload.isNotEmpty) {
-      // Replay through the same scoped validation as the embedded scanner,
-      // once all start requirements and input batches have finished loading.
-      await _handleQuickScan(qrPayload);
-    } else if (widget.initialOrderSwitchBatch != null) {
-      await _runInitialOrderSwitchFlow();
+    try {
+      await _loadInteractionContractAndSections();
+      if (!mounted || !_queueActionContractSynchronized) return;
+      final qrPayload = widget.initialScanQrPayload.trim();
+      if (qrPayload.isNotEmpty) {
+        // Validate the FAB's QR without mounting a second camera. Scan tasks
+        // stay authoritative so rejected or incomplete scans can resume below.
+        await _handleQuickScan(qrPayload);
+      } else if (widget.initialOrderSwitchBatch != null) {
+        await _runInitialOrderSwitchFlow();
+      }
+    } finally {
+      if (mounted && _initialQrScanPending) {
+        setState(() => _initialQrScanPending = false);
+      }
     }
   }
 
@@ -1077,6 +1085,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }) async {
     final l10n = context.l10n;
     if (_actionInFlight ||
+        _initialQrScanPending ||
         !_queueActionContractSynchronized ||
         _queueActionControl?.allows(action) != true) {
       return false;
