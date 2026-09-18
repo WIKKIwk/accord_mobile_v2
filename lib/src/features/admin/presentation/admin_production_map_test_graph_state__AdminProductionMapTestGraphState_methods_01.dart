@@ -111,13 +111,44 @@ extension __AdminProductionMapTestGraphStateAstPart01
     final end = nodes[endIndex];
     final incomingEdges =
         edges.where((edge) => edge.to == end.id).toList(growable: false);
-    final previousNodes = incomingEdges.isEmpty
+    final previousCandidates = incomingEdges.isEmpty
         ? [nodes[endIndex - 1]]
         : [
             for (final edge in incomingEdges)
               if (nodes.any((node) => node.id == edge.from))
                 nodes.firstWhere((node) => node.id == edge.from),
           ];
+    final previousById = <String, ProductionMapNode>{};
+    for (final candidate in previousCandidates) {
+      var previous = candidate;
+      final previousGroupId = candidate.alternativeGroupId.trim();
+      if (candidate.kind == 'apparatus' && previousGroupId.isNotEmpty) {
+        final groupNodes = nodes.where((node) =>
+            node.kind == 'apparatus' &&
+            node.alternativeGroupId.trim() == previousGroupId);
+        final assignedIds = groupNodes
+            .map((node) => node.alternativeAssignedApparatusId.trim())
+            .where((id) => id.isNotEmpty)
+            .toSet();
+        if (assignedIds.isNotEmpty) {
+          final selected = groupNodes
+              .where((node) => assignedIds.contains(node.apparatusId.trim()))
+              .toList(growable: false);
+          if (assignedIds.length != 1 || selected.length != 1) {
+            showAdminTopNotice(
+              context,
+              'Tanlangan aparat aniqlanmadi. Mapni qayta oching.',
+            );
+            return;
+          }
+          // End may be detached or still linked to inactive alternatives.
+          // Append to this group's selected occurrence, never the list tail.
+          previous = selected.single;
+        }
+      }
+      previousById[previous.id] = previous;
+    }
+    final previousNodes = previousById.values.toList(growable: false);
     if (previousNodes.isEmpty) {
       return;
     }

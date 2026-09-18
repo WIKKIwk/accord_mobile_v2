@@ -144,6 +144,157 @@ void main() {
     await _expectSavedLamination(tester, [_extruderId]);
     await _disposeMap(tester);
   });
+
+  for (final scenario in [
+    (
+      name: 'detached end follows middle selection',
+      selected: 'print-8',
+      sources: <String>[],
+      singleAssignment: false
+    ),
+    (
+      name: 'inactive end edge follows selection',
+      selected: 'print-8',
+      sources: ['print-9'],
+      singleAssignment: false
+    ),
+    (
+      name: 'parallel end edges collapse to first selection',
+      selected: 'print-7',
+      sources: ['print-7', 'print-8', 'print-9'],
+      singleAssignment: false
+    ),
+    (
+      name: 'selection stored on one group member',
+      selected: 'print-8',
+      sources: <String>[],
+      singleAssignment: true
+    ),
+    (
+      name: 'last selection stays selected',
+      selected: 'print-9',
+      sources: ['print-7', 'print-8', 'print-9'],
+      singleAssignment: false
+    ),
+    (
+      name: 'unassigned parallel group keeps candidates',
+      selected: '',
+      sources: ['print-7', 'print-8', 'print-9'],
+      singleAssignment: false
+    ),
+    (
+      name: 'missing selected candidate does not attach elsewhere',
+      selected: 'print-6',
+      sources: <String>[],
+      singleAssignment: false
+    ),
+  ]) {
+    testWidgets('lamination Skip source: ${scenario.name}', (tester) async {
+      const printIds = ['print-7', 'print-8', 'print-9'];
+      final lockedIds =
+          scenario.selected.isEmpty ? <String>{} : printIds.toSet();
+      final map = ProductionMapDefinition(
+        id: _mapId,
+        title: 'Chikko mini',
+        productCode: 'CHIKKO',
+        orderNumber: '0004',
+        widthMm: 765,
+        nodes: [
+          const ProductionMapNode(
+              id: 'start', kind: 'start', title: 'Start', x: 420, y: 32),
+          for (var index = 0; index < printIds.length; index++)
+            ProductionMapNode(
+              id: printIds[index],
+              kind: 'apparatus',
+              title: '${index + 7} ta rangli bosma aparat',
+              apparatusId: 'apparatus:default:bosma_${index + 7}',
+              alternativeGroupId: 'auto_print',
+              alternativeGroupLabel: 'Bosma aparat',
+              alternativeAssignedApparatusId: scenario.selected.isNotEmpty &&
+                      (!scenario.singleAssignment || index == 0)
+                  ? 'apparatus:default:bosma_${scenario.selected.split('-').last}'
+                  : '',
+              x: 140 + index * 280,
+              y: 164,
+            ),
+          const ProductionMapNode(
+              id: 'end', kind: 'end', title: 'Chikko mini', x: 420, y: 428),
+        ],
+        edges: [
+          for (final id in printIds) ProductionMapEdge(from: 'start', to: id),
+          for (final id in scenario.sources)
+            ProductionMapEdge(from: id, to: 'end'),
+        ],
+      );
+      await _openMap(tester, 765, savedMap: map, lockedNodeIds: lockedIds);
+      await _openLamination(tester);
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+
+      if (scenario.selected.isNotEmpty &&
+          !printIds.contains(scenario.selected)) {
+        expect(find.text('Tanlangan aparat aniqlanmadi. Mapni qayta oching.'),
+            findsOneWidget);
+        dismissAdminTopNotice();
+        await tester.pumpAndSettle();
+        await _expectSavedLamination(tester, []);
+        final saved = (await MobileApi.instance.adminProductionMap(_mapId)).map;
+        expect(saved.nodes.map((node) => node.toJson()),
+            map.nodes.map((node) => node.toJson()));
+        expect(saved.edges.map((edge) => edge.toJson()),
+            map.edges.map((edge) => edge.toJson()));
+        await _disposeMap(tester);
+        return;
+      }
+
+      // Adding downstream work must not unlock or rewrite the started group.
+      for (final id in lockedIds) {
+        final incoming =
+            find.byKey(ValueKey('production-map-edge-delete-start-$id-'));
+        expect(
+            tester
+                .widget<InkWell>(find.descendant(
+                    of: incoming, matching: find.byType(InkWell)))
+                .onTap,
+            isNull);
+      }
+      await _expectSavedLamination(tester, _allIds);
+      final saved = (await MobileApi.instance.adminProductionMap(_mapId)).map;
+      for (final original
+          in map.nodes.where((node) => printIds.contains(node.id))) {
+        expect(
+            saved.nodes.singleWhere((node) => node.id == original.id).toJson(),
+            original.toJson());
+        expect(
+            saved.edges
+                .where((edge) => edge.to == original.id)
+                .map((edge) => edge.from),
+            ['start']);
+      }
+      final expectedSources =
+          scenario.selected.isEmpty ? scenario.sources : [scenario.selected];
+      final lamination =
+          saved.nodes.where((node) => _allIds.contains(node.apparatusId));
+      for (final node in lamination) {
+        expect(
+            saved.edges
+                .where((edge) => edge.to == node.id)
+                .map((edge) => edge.from),
+            unorderedEquals(expectedSources));
+        expect(
+            saved.edges
+                .where((edge) => edge.from == node.id)
+                .map((edge) => edge.to),
+            ['end']);
+      }
+      expect(
+          saved.edges
+              .where((edge) => edge.to == 'end')
+              .map((edge) => edge.from),
+          unorderedEquals(lamination.map((node) => node.id)));
+      await _disposeMap(tester);
+    });
+  }
 }
 
 ProductionMapOrderContext _context(double width) => ProductionMapOrderContext(
@@ -156,7 +307,10 @@ ProductionMapOrderContext _context(double width) => ProductionMapOrderContext(
     );
 
 Future<void> _openMap(WidgetTester tester, double width,
-    {int? kadrCount, List<int> groups = const []}) async {
+    {int? kadrCount,
+    List<int> groups = const [],
+    ProductionMapDefinition? savedMap,
+    Set<String> lockedNodeIds = const {}}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -172,38 +326,40 @@ Future<void> _openMap(WidgetTester tester, double width,
     supportedLocales: AppLocalizations.supportedLocales,
     home: AdminProductionMapTestScreen(
       orderContext: _context(width),
-      savedMap: ProductionMapDefinition(
-        id: _mapId,
-        title: 'Lamination fit',
-        productCode: 'LAM-FIT',
-        orderNumber: '8877',
-        widthMm: width,
-        nodes: [
-          const ProductionMapNode(
-              id: 'start', kind: 'start', title: 'Start', x: 420, y: 32),
-          if (kadrCount != null)
-            ProductionMapNode(
-              id: 'rezka',
-              kind: 'apparatus',
-              title: 'Rezka',
-              apparatusId: 'apparatus:default:asset-010',
-              rezkaKadrCount: kadrCount,
-              rezkaFrameGroups: groups,
-              x: 420,
-              y: 164,
-            ),
-          const ProductionMapNode(
-              id: 'end', kind: 'end', title: 'End', x: 420, y: 296),
-        ],
-        edges: [
-          if (kadrCount == null)
-            const ProductionMapEdge(from: 'start', to: 'end')
-          else ...[
-            const ProductionMapEdge(from: 'start', to: 'rezka'),
-            const ProductionMapEdge(from: 'rezka', to: 'end'),
-          ],
-        ],
-      ),
+      lockedNodeIds: lockedNodeIds,
+      savedMap: savedMap ??
+          ProductionMapDefinition(
+            id: _mapId,
+            title: 'Lamination fit',
+            productCode: 'LAM-FIT',
+            orderNumber: '8877',
+            widthMm: width,
+            nodes: [
+              const ProductionMapNode(
+                  id: 'start', kind: 'start', title: 'Start', x: 420, y: 32),
+              if (kadrCount != null)
+                ProductionMapNode(
+                  id: 'rezka',
+                  kind: 'apparatus',
+                  title: 'Rezka',
+                  apparatusId: 'apparatus:default:asset-010',
+                  rezkaKadrCount: kadrCount,
+                  rezkaFrameGroups: groups,
+                  x: 420,
+                  y: 164,
+                ),
+              const ProductionMapNode(
+                  id: 'end', kind: 'end', title: 'End', x: 420, y: 296),
+            ],
+            edges: [
+              if (kadrCount == null)
+                const ProductionMapEdge(from: 'start', to: 'end')
+              else ...[
+                const ProductionMapEdge(from: 'start', to: 'rezka'),
+                const ProductionMapEdge(from: 'rezka', to: 'end'),
+              ],
+            ],
+          ),
     ),
   ));
   await tester.pumpAndSettle();
