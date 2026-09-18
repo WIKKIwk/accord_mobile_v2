@@ -33,6 +33,7 @@ bool _queueActionControlsEqual(
     final control = entry.value;
     if (other == null ||
         control.workActivity != other.workActivity ||
+        control.lastWorkedAtUnix != other.lastWorkedAtUnix ||
         control.state != other.state ||
         control.previousStage != other.previousStage ||
         control.previousStageReady != other.previousStageReady ||

@@ -1,5 +1,45 @@
 part of 'admin_production_map_orders_screen.dart';
 
+List<ProductionMapSaved> _workerDisplayOrderSequence({
+  required List<ProductionMapSaved> orders,
+  required ApparatusQueuePolicy policy,
+  required Map<String, String> queueStates,
+  required Map<String, AdminApparatusQueueOrderActionControl> controls,
+}) {
+  if (policy != ApparatusQueuePolicy.freePick) return orders;
+  final positions = {
+    for (var index = 0; index < orders.length; index++)
+      orders[index].map.id.trim(): index,
+  };
+  int priority(String id) {
+    final state = apparatusQueueOrderStateFromRaw(queueStates[id]);
+    if (state == ApparatusQueueOrderState.inProgress ||
+        state == ApparatusQueueOrderState.printPreflight) {
+      return 0;
+    }
+    if ((controls[id]?.lastWorkedAtUnix ?? 0) > 0 ||
+        state == ApparatusQueueOrderState.paused) {
+      return 1;
+    }
+    return 2;
+  }
+
+  // A display-only copy: never rewrite the administrator's queue sequence.
+  // Server timestamps restore recency after re-entry, including released work.
+  return List<ProductionMapSaved>.of(orders)
+    ..sort((left, right) {
+      final leftId = left.map.id.trim();
+      final rightId = right.map.id.trim();
+      final byPriority = priority(leftId).compareTo(priority(rightId));
+      if (byPriority != 0) return byPriority;
+      final byRecency = (controls[rightId]?.lastWorkedAtUnix ?? 0)
+          .compareTo(controls[leftId]?.lastWorkedAtUnix ?? 0);
+      return byRecency != 0
+          ? byRecency
+          : positions[leftId]!.compareTo(positions[rightId]!);
+    });
+}
+
 List<_WorkerCompletedOrderEntry> _workerCompletedOrders({
   required List<ProductionMapSaved> orders,
   required List<AdminCompletedQueueOrder> completedOrders,

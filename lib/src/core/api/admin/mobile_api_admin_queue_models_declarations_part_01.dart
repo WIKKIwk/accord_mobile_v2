@@ -198,6 +198,7 @@ class AdminApparatusQueueOrderActionControl {
   const AdminApparatusQueueOrderActionControl({
     this.stageWork,
     this.workActivity,
+    this.lastWorkedAtUnix = 0,
     this.state = '',
     this.allowedActions = const {},
     this.interaction,
@@ -220,6 +221,7 @@ class AdminApparatusQueueOrderActionControl {
   });
 
   final AdminQueueWorkActivity? workActivity;
+  final int lastWorkedAtUnix;
   final AdminStageWorkControl? stageWork;
   final String state;
   final Set<String> allowedActions;
@@ -498,6 +500,7 @@ class AdminApparatusQueueOrderActionControl {
     }
     return AdminApparatusQueueOrderActionControl(
       workActivity: AdminQueueWorkActivity.tryFromJson(json['work_activity']),
+      lastWorkedAtUnix: _positiveJsonInt(json['last_worked_at_unix']) ?? 0,
       state: json['state']?.toString().trim() ?? '',
       allowedActions: Set<String>.unmodifiable(actions),
       interaction: AdminQueueWorkerInteraction.tryFromJson(json['interaction']),

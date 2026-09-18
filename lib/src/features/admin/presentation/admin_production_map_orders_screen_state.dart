@@ -464,6 +464,7 @@ class _AdminProductionMapOrdersScreenState
                               queueActionControlsByApparatus:
                                   _queueActionControlsByApparatus,
                               workActivityByApparatus: _workActivityByApparatus,
+                              queuePoliciesByApparatus: _queuePoliciesByApparatus,
                               workerRole: AppSession.instance.profile == null
                                   ? ''
                                   : userRoleToJson(

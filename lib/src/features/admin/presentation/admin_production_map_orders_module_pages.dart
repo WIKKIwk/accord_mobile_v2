@@ -656,6 +656,7 @@ class _AuditCountChip extends StatelessWidget {
 class _WorkerWatchBody extends StatelessWidget {
   const _WorkerWatchBody({
     required this.workActivityByApparatus,
+    required this.queuePoliciesByApparatus,
     required this.workerRole,
     required this.workerRef,
     required this.apparatus,
@@ -678,6 +679,7 @@ class _WorkerWatchBody extends StatelessWidget {
   });
   final Map<String, Map<String, AdminQueueWorkActivity>>
       workActivityByApparatus;
+  final Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus;
   final String workerRole;
   final String workerRef;
   final List<AdminApparatus> apparatus;
@@ -712,7 +714,7 @@ class _WorkerWatchBody extends StatelessWidget {
   }
 
   List<ProductionMapSaved> _ordersForApparatus(AdminApparatus item) {
-    return _productionMapOrdersForApparatus(
+    final visibleOrders = _productionMapOrdersForApparatus(
       orders: orders,
       apparatus: item,
       visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
@@ -723,6 +725,15 @@ class _WorkerWatchBody extends StatelessWidget {
       orderStatusesByOrderId: orderStatusesByOrderId,
       workerMode: true,
       query: searchQuery,
+    );
+    return _workerDisplayOrderSequence(
+      orders: visibleOrders,
+      policy: _queuePolicyForApparatus(
+        item,
+        queuePoliciesByApparatus: queuePoliciesByApparatus,
+      ),
+      queueStates: queueStatesByApparatus[item.id.trim()] ?? const {},
+      controls: queueActionControlsByApparatus[item.id.trim()] ?? const {},
     );
   }
 
