@@ -50,6 +50,7 @@ int _matchedRawMaterialRequirementCount({
 class AdminRawMaterialAssignment {
   const AdminRawMaterialAssignment({
     this.executionStatus = '',
+    this.rollWidthMm,
     required this.orderId,
     required this.apparatus,
     required this.barcode,
@@ -71,6 +72,7 @@ class AdminRawMaterialAssignment {
 
   final String orderId;
   final String executionStatus;
+  final double? rollWidthMm;
   final String apparatus;
   final String barcode;
   final String itemCode;
@@ -91,6 +93,7 @@ class AdminRawMaterialAssignment {
   factory AdminRawMaterialAssignment.fromJson(Map<String, dynamic> json) {
     return AdminRawMaterialAssignment(
       executionStatus: json['execution_status']?.toString() ?? '',
+      rollWidthMm: (json['roll_width_mm'] as num?)?.toDouble(),
       orderId: json['order_id']?.toString() ?? '',
       apparatus: _requireCanonicalApparatusId(
         json['apparatus']?.toString() ?? '',
@@ -127,6 +130,7 @@ class AdminRawMaterialAssignment {
   }) {
     return AdminRawMaterialAssignment(
       executionStatus: executionStatus,
+      rollWidthMm: rollWidthMm,
       orderId: orderId,
       apparatus: apparatus,
       barcode: barcode,

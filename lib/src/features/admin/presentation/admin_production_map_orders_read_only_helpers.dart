@@ -309,6 +309,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
 
 String? _queueActionStartBlockReason({
   required String action,
+  required double? orderWidthMm,
   required AdminRawMaterialStartRequirements? materialRequirements,
   required bool materialsLoading,
   required String materialsError,
@@ -323,6 +324,7 @@ String? _queueActionStartBlockReason({
     return null;
   }
   final materialUnavailableReason = _materialStartUnavailableReason(
+    orderWidthMm: orderWidthMm,
     materialRequirements: materialRequirements,
     materialsLoading: materialsLoading,
     materialsError: materialsError,
@@ -350,6 +352,7 @@ String? _queueActionStartBlockReason({
 }
 
 String? _materialStartUnavailableReason({
+  required double? orderWidthMm,
   required AdminRawMaterialStartRequirements? materialRequirements,
   required bool materialsLoading,
   required String materialsError,
@@ -378,6 +381,34 @@ String? _materialStartUnavailableReason({
         assignment.executionStatus == 'needs_cutting');
     if (pendingCut)
       return 'Homashyo biriktirilgan, lekin apparatingizga katta. Rezka kutilmoqda';
+    // The endpoint includes the whole order's assignments. Only explain
+    // width failures for materials committed to this apparatus start.
+    for (final assignment in materialRequirements.assignments) {
+      if (assignment.executionStatus != 'width_mismatch' ||
+          !materialRequirements.normalizedAssignedBarcodes
+              .contains(assignment.barcode.trim().toUpperCase())) {
+        continue;
+      }
+      final rollWidthMm = assignment.rollWidthMm;
+      if (rollWidthMm != null &&
+          rollWidthMm.isFinite &&
+          rollWidthMm > 0 &&
+          orderWidthMm != null &&
+          orderWidthMm.isFinite &&
+          orderWidthMm > 0) {
+        String millimeters(double value) => value == value.truncateToDouble()
+            ? value.toStringAsFixed(0)
+            : value.toString();
+        return l10n.productionText(
+          'worker.error.material_width_mismatch_detail',
+          values: {
+            'roll_width': millimeters(rollWidthMm),
+            'order_width': millimeters(orderWidthMm),
+          },
+        );
+      }
+      return l10n.productionText('worker.error.material_width_mismatch');
+    }
     return l10n.productionText('worker.error.incomplete_material_groups');
   }
   if (materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll &&
@@ -430,6 +461,7 @@ bool _queueActionShouldClearQolipScan(Object error) {
 
 _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   required String action,
+  required double? orderWidthMm,
   required AdminApparatus? apparatus,
   required _ReadOnlyQueueActionCallback? onQueueAction,
   required bool actionInFlight,
@@ -474,6 +506,7 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
     startInputQrPayload: startInputQrPayload,
     blockReason: _queueActionStartBlockReason(
       action: action,
+      orderWidthMm: orderWidthMm,
       materialRequirements: materialRequirements,
       materialsLoading: materialsLoading,
       materialsError: materialsError,

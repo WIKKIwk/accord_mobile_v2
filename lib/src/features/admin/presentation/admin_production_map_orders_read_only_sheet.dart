@@ -267,6 +267,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         !_materialsLoading &&
         _materialsError.isEmpty &&
         _materialStartUnavailableReason(
+              orderWidthMm: widget.order.map.widthMm,
               materialRequirements: _materialStartRequirements,
               materialsLoading: _materialsLoading,
               materialsError: _materialsError,
@@ -315,6 +316,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final qolipScanAllowsStart =
         !requiresQolipScan || _allRequiredQolipsScanned;
     final materialStartUnavailableReason = _materialStartUnavailableReason(
+      orderWidthMm: map.widthMm,
       materialRequirements: _materialStartRequirements,
       materialsLoading: _materialsLoading,
       materialsError: _materialsError,
@@ -1082,6 +1084,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     final prepared = _prepareReadOnlyQueueAction(
       action: action,
+      orderWidthMm: widget.order.map.widthMm,
       apparatus: widget.apparatus,
       onQueueAction: widget.onQueueAction,
       actionInFlight: _actionInFlight,

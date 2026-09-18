@@ -184,6 +184,19 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'en': 'Required material groups are not fully attached',
     'ru': 'Обязательные группы сырья прикреплены не полностью',
   },
+  'worker.error.material_width_mismatch': {
+    'uz': 'Homashyo biriktirilgan, lekin rulon eni orderga kichik.',
+    'en': 'Material is attached, but the roll is too narrow for the order.',
+    'ru': 'Сырьё прикреплено, но рулон слишком узкий для заказа.',
+  },
+  'worker.error.material_width_mismatch_detail': {
+    'uz':
+        'Homashyo biriktirilgan, lekin rulon eni orderga kichik. Rulon eni: {roll_width} mm. Order eni: {order_width} mm.',
+    'en':
+        'Material is attached, but the roll is too narrow for the order. Roll width: {roll_width} mm. Order width: {order_width} mm.',
+    'ru':
+        'Сырьё прикреплено, но рулон слишком узкий для заказа. Ширина рулона: {roll_width} мм. Ширина заказа: {order_width} мм.',
+  },
   'worker.error.material_not_at_machine': {
     'uz': 'Apparat oldiga homashyo olib kelinmagan',
     'en': 'The material has not been brought to the machine',

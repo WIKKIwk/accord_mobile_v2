@@ -59,6 +59,7 @@ part 'admin_production_map_test_screen_test_cases_resplit_part_22.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_23.dart';
 part 'admin_production_map_worker_latency_test_part.dart';
 part 'admin_production_map_worker_notices_test_part.dart';
+part 'admin_production_map_worker_material_width_notice_test_part.dart';
 part 'admin_production_map_worker_recovery_test_part.dart';
 part 'admin_production_map_worker_activity_test_part.dart';
 part 'admin_production_map_alternative_visibility_test_part.dart';
@@ -164,6 +165,7 @@ void main() {
   _registeradmin_production_map_test_screen_testCases23();
   _registerWorkerLatencyTests();
   _registerWorkerNoticeTests();
+  _registerWorkerMaterialWidthNoticeTests();
   _registerWorkerRecoveryTests();
   _registerWorkerActivityTests();
   _registerOrderImageZoomTests();
