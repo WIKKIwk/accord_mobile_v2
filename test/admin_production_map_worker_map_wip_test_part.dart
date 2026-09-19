@@ -4,8 +4,20 @@ void _registerWorkerMapWipTests() {
   const orderId = 'zakaz-worker-map-wip';
   final l10n = AppLocalizations(const Locale('uz'));
 
-  for (final scenario in ['own', 'lamination', 'denied', 'retry']) {
-    testWidgets('worker map WIP read-only history: $scenario', (tester) async {
+  for (final scenario in [
+    'own',
+    'own-print-error',
+    'same-apparatus-other-worker',
+    'missing-owner',
+    'opening',
+    'lamination',
+    'denied',
+    'retry',
+  ]) {
+    testWidgets('worker map WIP details and reprint: $scenario',
+        (tester) async {
+      final ownSource = !['lamination', 'denied', 'retry'].contains(scenario);
+      final canReprint = scenario == 'own' || scenario == 'own-print-error';
       await TestModeController.instance.setEnabled(true);
       AppSession.instance.profile = const SessionProfile(
         role: UserRole.aparatchi,
@@ -62,6 +74,7 @@ void _registerWorkerMapWipTests() {
           readOnly: true,
           workerMode: true,
           liveEventsLoader: () => const Stream.empty(),
+          progressDriverUrlPicker: (_) async => 'http://printer.test',
         ),
       ));
       await tester.pumpAndSettle();
@@ -78,7 +91,7 @@ void _registerWorkerMapWipTests() {
       await tester.tap(find.text('Kutilayotgan natija'));
       await tester.pumpAndSettle();
 
-      final source = scenario == 'own' ? _print7Id : _lamination1Id;
+      final source = ownSource ? _print7Id : _lamination1Id;
       final node = find
           .descendant(
             of: find.byType(BottomSheet),
@@ -106,22 +119,70 @@ void _registerWorkerMapWipTests() {
               findsNothing);
         } else {
           expect(find.text('1 ta WIP yaratilgan'), findsOneWidget);
-          expect(
-              find.text(scenario == 'own' ? '15 m' : '12 m'), findsOneWidget);
-          await tester.tap(find.byKey(const ValueKey('worker-wip-item-0')));
+          expect(find.text(ownSource ? '15 m' : '12 m'), findsOneWidget);
+          await tester
+              .longPress(find.byKey(const ValueKey('worker-wip-item-0')));
           await tester.pumpAndSettle();
           expect(find.byKey(ValueKey('worker-wip-history-preview-$source')),
               findsOneWidget);
-          expect(find.text('Qayta chop etish'), findsNothing);
-          expect(find.byKey(ValueKey('worker-wip-history-reprint-$source')),
+          final details = find.byType(BottomSheet).last;
+          expect(
+              find.descendant(
+                  of: details, matching: find.text('0004 • Map WIP order')),
+              findsOneWidget);
+          for (final hidden in [
+            'WIP ID',
+            'Order',
+            'Boshlangan',
+            'Amali',
+            'Ishchi'
+          ]) {
+            expect(find.descendant(of: details, matching: find.text(hidden)),
+                findsNothing);
+          }
+          expect(
+              find.descendant(
+                  of: details, matching: find.textContaining('apparatus:')),
               findsNothing);
+          expect(
+              find.descendant(
+                  of: details,
+                  matching: find.textContaining('zakaz-worker-map-wip')),
+              findsNothing);
+          expect(
+              find.descendant(
+                  of: details, matching: find.text('400000000000000000000001')),
+              findsNothing);
+          final reprint =
+              find.byKey(ValueKey('worker-wip-history-reprint-$source'));
+          expect(reprint, canReprint ? findsOneWidget : findsNothing);
+          if (canReprint) {
+            await tester.ensureVisible(reprint);
+            await tester.tap(reprint);
+            await tester.pumpAndSettle();
+            if (scenario == 'own-print-error') {
+              expect(find.text('Printer ulanmagan'), findsOneWidget);
+              expect(find.text('Qayta chop etish'), findsOneWidget);
+            } else {
+              expect(find.byKey(ValueKey('worker-wip-history-preview-$source')),
+                  findsOneWidget);
+            }
+            final request = requests.singleWhere((r) => r.method == 'POST');
+            expect(request.url.path, endsWith('/progress-qr/reprint'));
+            final body = jsonDecode(request.body) as Map;
+            expect(body['progress_batch_id'], source);
+            expect(body['qr_payload'], '400000000000000000000001');
+            expect(body['print_count'], 1);
+            expect(body['driver_url'], 'http://printer.test');
+          }
         }
-        expect(requests, hasLength(scenario == 'retry' ? 4 : 2));
-        expect(requests.every((r) => r.method == 'GET'), isTrue);
-        expect(
-            requests.every((r) => r.url.queryParameters['order_id'] == orderId),
+        final reads = requests.where((r) => r.method == 'GET');
+        expect(reads, hasLength(scenario == 'retry' ? 4 : 2));
+        expect(requests.where((r) => r.method == 'POST'),
+            hasLength(canReprint ? 1 : 0));
+        expect(reads.every((r) => r.url.queryParameters['order_id'] == orderId),
             isTrue);
-        expect(requests.every((r) => r.url.queryParameters['status'] == 'all'),
+        expect(reads.every((r) => r.url.queryParameters['status'] == 'all'),
             isTrue);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
@@ -129,6 +190,23 @@ void _registerWorkerMapWipTests() {
       },
           () => MockClient((request) async {
                 requests.add(request);
+                if (request.url.path.endsWith('/progress-qr/reprint')) {
+                  if (scenario == 'own-print-error') {
+                    return http.Response(
+                        '{"error":"scale_driver_not_configured"}',
+                        503);
+                  }
+                  return http.Response(
+                      jsonEncode({
+                        'ok': true,
+                        'batch': {
+                          'batch_id': source,
+                          'qr_payload': '400000000000000000000001'
+                        },
+                        'print': {'status': 'printed'},
+                      }),
+                      200);
+                }
                 if (request.url.path.endsWith('/opening-wip')) {
                   return http.Response('{"records":[]}', 200);
                 }
@@ -152,8 +230,17 @@ void _registerWorkerMapWipTests() {
                             'apparatus': station,
                             'current_apparatus': _lamination1Id,
                             'worker_ref': station == _print7Id
-                                ? 'map-wip-worker'
+                                ? (scenario == 'missing-owner'
+                                    ? ''
+                                    : scenario == 'same-apparatus-other-worker'
+                                        ? 'other-worker'
+                                        : 'map-wip-worker')
                                 : 'other-worker',
+                            'label_item_name':
+                                'Output apparatus:$station complete',
+                            'payload_json': scenario == 'opening'
+                                ? {'input_wip_source_kind': 'opening_wip'}
+                                : {},
                             'action': 'complete',
                             'status': 'completed',
                             'wip_status':

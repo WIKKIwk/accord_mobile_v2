@@ -1597,7 +1597,8 @@ class _AdminProductionMapOrdersScreenState
         order: entry.order,
         apparatus: entry.apparatus,
         apparatusCatalog: _apparatus,
-        allowWipQrReprint: false,
+        workerMode: true,
+        progressDriverUrlPicker: widget.progressDriverUrlPicker,
       ),
     );
   }

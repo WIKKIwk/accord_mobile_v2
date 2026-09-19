@@ -143,6 +143,10 @@ void _registerWorkerCompletedWipTests() {
           expect(find.text('12 m'), findsOneWidget);
           expect(find.text('999 m'), findsNothing);
           expect(find.text('Qayta chop etish'), findsNothing);
+          await tester.longPress(find.byKey(const ValueKey('worker-wip-item-0')));
+          await tester.pumpAndSettle();
+          expect(find.byKey(ValueKey('worker-wip-history-reprint-output-$orderId')), findsOneWidget);
+          expect(find.descendant(of: find.byType(BottomSheet).last, matching: find.text('WIP ID')), findsNothing);
         }
         expect(historyAttempts, scenario == 'retry' ? 2 : 1);
         expect(
@@ -190,6 +194,7 @@ void _registerWorkerCompletedWipTests() {
                               'produced_qty': id == orderId ? 12 : 999,
                               'uom': 'm',
                               'completed_at_unix': 100,
+                              'qr_payload': '400000000000000000000001',
                             },
                       ],
                     }),

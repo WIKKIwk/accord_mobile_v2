@@ -22,6 +22,7 @@ class RpsQrReprintSheet extends StatefulWidget {
     required this.onReprint,
     required this.errorMessage,
     this.title = 'Chop etilgan QR',
+    this.showPayload = true,
     this.successMessage = 'Mavjud QR qayta chop etildi',
     this.previewKey,
     this.reprintButtonKey = const ValueKey('rps-qr-reprint'),
@@ -34,6 +35,7 @@ class RpsQrReprintSheet extends StatefulWidget {
 
   final String title;
   final String payload;
+  final bool showPayload;
   final String itemName;
   final List<RpsQrDetail> details;
   final Future<String?> Function()? onReprint;
@@ -208,15 +210,17 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 4),
-              SelectableText(
-                widget.payload,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.7,
+              if (widget.showPayload) ...[
+                const SizedBox(height: 4),
+                SelectableText(
+                  widget.payload,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.7,
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 16),
               for (final detail in widget.details)
                 _RpsQrDetailLine(label: detail.label, value: detail.value),

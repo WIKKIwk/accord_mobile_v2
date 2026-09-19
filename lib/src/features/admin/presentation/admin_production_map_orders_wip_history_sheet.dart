@@ -109,6 +109,7 @@ class _WorkerWipHistorySheet extends StatefulWidget {
     required this.apparatus,
     required this.apparatusCatalog,
     this.allowWipQrReprint = true,
+    this.workerMode = false,
     this.progressDriverUrlPicker,
     this.sourceApparatusId = '',
     this.apparatusTitle = '',
@@ -117,6 +118,7 @@ class _WorkerWipHistorySheet extends StatefulWidget {
   final AdminApparatus? apparatus;
   final List<AdminApparatus> apparatusCatalog;
   final bool allowWipQrReprint;
+  final bool workerMode;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final String sourceApparatusId;
   final String apparatusTitle;
@@ -183,6 +185,21 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
     });
   }
 
+  bool _canReprintWip(AdminProgressBatch batch) {
+    if (!widget.allowWipQrReprint) return false;
+    if (!widget.workerMode) return true;
+    // Ownership, not assignment to the same machine, permits a worker reprint.
+    // Opening WIP is admin-managed stock, even when its creator has this ref.
+    final workerRef = AppSession.instance.profile?.ref.trim() ?? '';
+    return workerRef.isNotEmpty &&
+        batch.workerRef.trim() == workerRef &&
+        batch.payloadJson['input_wip_source_kind']
+                ?.toString()
+                .trim()
+                .toLowerCase() !=
+            'opening_wip';
+  }
+
   Future<void> _showWipDetails(AdminProgressBatch batch) async {
     final payload = batch.qrPayload.trim();
     if (payload.isEmpty) {
@@ -213,21 +230,31 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
       builder: (sheetContext) => RpsQrReprintSheet(
         title: sheetContext.l10n.productionText('worker.wip.history.title'),
         payload: payload,
-        itemName: _workerWipFirstNotEmpty([
-          batch.labelItemName,
-          batch.labelItemCode,
-          sheetContext.l10n.productionText('worker.daily.wip'),
-        ]),
+        showPayload: !widget.workerMode,
+        itemName: widget.workerMode
+            ? [
+                if (widget.order.map.orderNumber.trim().isNotEmpty)
+                  widget.order.map.orderNumber.trim(),
+                _workerWipFirstNotEmpty([
+                  widget.order.map.title,
+                  sheetContext.l10n.productionText('worker.daily.wip'),
+                ]),
+              ].join(' • ')
+            : _workerWipFirstNotEmpty([
+                batch.labelItemName,
+                batch.labelItemCode,
+                sheetContext.l10n.productionText('worker.daily.wip'),
+              ]),
         previewKey: ValueKey('worker-wip-history-preview-${batch.batchId}'),
         reprintButtonKey: ValueKey(
           'worker-wip-history-reprint-${batch.batchId}',
         ),
-        details: _workerWipReprintDetails(
-          batch,
-          sheetContext.l10n,
-          widget.apparatusCatalog,
-        ),
-        onReprint: widget.allowWipQrReprint ? () => _reprintWip(batch) : null,
+        details: widget.workerMode
+            ? _workerWipCompactDetails(
+                batch, sheetContext.l10n, widget.apparatusCatalog)
+            : _workerWipReprintDetails(
+                batch, sheetContext.l10n, widget.apparatusCatalog),
+        onReprint: _canReprintWip(batch) ? () => _reprintWip(batch) : null,
         errorMessage: (error) => error is MobileApiException
             ? error.message
             : error.toString().replaceFirst('Bad state: ', ''),
@@ -239,6 +266,12 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
   }
 
   Future<String?> _reprintWip(AdminProgressBatch batch) async {
+    if (!_canReprintWip(batch)) {
+      throw MobileApiException(
+        code: 'forbidden',
+        message: context.l10n.productionText('worker.wip.access_denied'),
+      );
+    }
     final printer = await _pickProgressPrinter(
       context,
       widget.progressDriverUrlPicker,
@@ -430,6 +463,46 @@ List<AdminProgressBatch> _mergeWorkerWipBatches(
     return byTime != 0 ? byTime : right.batchId.compareTo(left.batchId);
   });
   return merged;
+}
+
+List<RpsQrDetail> _workerWipCompactDetails(
+  AdminProgressBatch batch,
+  AppLocalizations l10n,
+  List<AdminApparatus> apparatusCatalog,
+) {
+  String displayApparatus(String value) {
+    final label = canonicalApparatusDisplayLabel(value, apparatusCatalog).trim();
+    return label.contains('apparatus:') ? '' : label;
+  }
+
+  final source = displayApparatus(batch.apparatus);
+  final current = displayApparatus(_workerWipFirstNotEmpty([
+    batch.currentApparatus,
+    batch.currentLocation,
+  ]));
+  return [
+    RpsQrDetail(
+      l10n.productionText('worker.wip.info.quantity'),
+      formatQuantityWithUnit(
+        batch.producedQty,
+        batch.uom,
+        trimTrailingZeros: true,
+      ),
+    ),
+    RpsQrDetail(
+      l10n.productionText('worker.daily.status'),
+      _workerWipStatusLabel(batch, l10n),
+    ),
+    if (source.isNotEmpty)
+      RpsQrDetail(l10n.productionText('worker.wip.info.source'), source),
+    if (current.isNotEmpty && current != source)
+      RpsQrDetail(l10n.productionText('worker.wip.info.location'), current),
+    if (batch.completedAtUnix > 0)
+      RpsQrDetail(
+        l10n.productionText('worker.wip.info.finished'),
+        formatUnixSecondsLocalDateTime(batch.completedAtUnix),
+      ),
+  ];
 }
 
 List<RpsQrDetail> _workerWipReprintDetails(
