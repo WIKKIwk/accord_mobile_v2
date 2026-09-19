@@ -324,6 +324,28 @@ _OrderCardTone _resolveWorkerOrderCardTone({
   };
 }
 
+_OrderCardTone _resolveApparatusOrderCardTone({
+  AdminProductionOrderStatusDetail? orderStatus,
+  AdminOrderControlState orderControl = AdminOrderControlState.active,
+  required ApparatusQueueOrderState apparatusState,
+  bool printPreflightPassed = false,
+}) {
+  // Keep order-wide safety warnings, but never borrow another machine's work
+  // status for the selected apparatus queue.
+  final globalTone = _resolveOrderCardTone(
+    orderStatus: orderStatus,
+    orderControl: orderControl,
+  );
+  if (globalTone == _OrderCardTone.issue ||
+      globalTone == _OrderCardTone.frozen) {
+    return globalTone;
+  }
+  return _resolveOrderCardTone(
+    apparatusState: apparatusState,
+    printPreflightPassed: printPreflightPassed,
+  );
+}
+
 _OrderCardTone _resolveOrderCardTone({
   AdminProductionOrderStatusDetail? orderStatus,
   AdminOrderControlState orderControl = AdminOrderControlState.active,

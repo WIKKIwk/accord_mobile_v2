@@ -476,6 +476,7 @@ class _AdminProductionMapOrdersScreenState
                               onLongPressWatchOrder: _showWatchOrderLongPress,
                             )
                           : _AdminModulesBody(
+                              stageStatesByOrderId: _stageStatesByOrderId,
                               queueActionControlsByApparatus:
                                   _queueActionControlsByApparatus,
                               pendingOrders: _pendingOrders,

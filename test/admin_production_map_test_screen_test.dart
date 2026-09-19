@@ -18,6 +18,7 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/admin_productio
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_order_image_thumb.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_top_notice.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/calculate_order_store.dart';
+import 'package:accord_mobile_v2/src/features/admin/state/admin_sequence_apparatus_store.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/widgets/aparatchi_dock.dart';
@@ -73,6 +74,7 @@ part 'admin_production_map_order_image_zoom_test_part.dart';
 part 'admin_production_map_worker_wip_accuracy_test_part.dart';
 part 'admin_production_map_worker_completed_wip_test_part.dart';
 part 'admin_production_map_worker_map_wip_test_part.dart';
+part 'admin_production_map_admin_status_scope_test_part.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
 const _print7Id = 'apparatus:default:bosma_7';
@@ -123,6 +125,7 @@ void main() {
 
   _registeradmin_production_map_test_screen_testCases01();
   _registerAlternativeVisibilityTests();
+  _registerAdminStatusScopeTests();
   _registerPrintMethodRoutingTests();
 
   _registeradmin_production_map_test_screen_testCases02();

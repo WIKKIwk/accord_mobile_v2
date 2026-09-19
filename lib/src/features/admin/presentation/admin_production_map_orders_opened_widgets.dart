@@ -18,6 +18,7 @@ class _OpenedOrderList extends StatelessWidget {
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
     required this.queueStatesByApparatus,
+    required this.stageStatesByOrderId,
     required this.queueActionControlsByApparatus,
     required this.visibleOrderIdsByApparatus,
     required this.onInfoOrder,
@@ -31,6 +32,7 @@ class _OpenedOrderList extends StatelessWidget {
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, Map<String, String>> stageStatesByOrderId;
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       queueActionControlsByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
@@ -96,6 +98,7 @@ class _OpenedOrderList extends StatelessWidget {
             tone: tone,
             apparatusCatalog: apparatusCatalog,
             queueStatesByApparatus: queueStatesByApparatus,
+            stageStates: stageStatesByOrderId[orderId] ?? const {},
             l10n: l10n,
           ),
           tone: tone,
@@ -274,6 +277,7 @@ List<_OrderWatermarkData> _orderWatermarks({
   required _OrderCardTone tone,
   required List<AdminApparatus> apparatusCatalog,
   required Map<String, Map<String, String>> queueStatesByApparatus,
+  required Map<String, String> stageStates,
   required AppLocalizations l10n,
 }) {
   return switch (tone) {
@@ -289,6 +293,7 @@ List<_OrderWatermarkData> _orderWatermarks({
         order: order,
         apparatusCatalog: apparatusCatalog,
         queueStatesByApparatus: queueStatesByApparatus,
+        stageStates: stageStates,
         l10n: l10n,
       ),
     _OrderCardTone.paused => _stageStatusWatermarks(
@@ -323,21 +328,30 @@ List<_OrderWatermarkData> _waitingNextStageWatermarks({
   required ProductionMapSaved order,
   required List<AdminApparatus> apparatusCatalog,
   required Map<String, Map<String, String>> queueStatesByApparatus,
+  required Map<String, String> stageStates,
   required AppLocalizations l10n,
 }) {
   final orderId = order.map.id.trim();
   if (orderId.isEmpty) {
     return const [];
   }
-  final seen = <String>{};
+  final nodesById = {for (final node in order.map.nodes) node.id: node};
   var completedSeen = false;
   for (final stage in productionMapLinearWorkStages(order.map)) {
     final apparatusId = stage.apparatusId?.trim() ?? '';
-    if (apparatusId.isEmpty || !seen.add(apparatusId)) {
+    final node = nodesById[stage.nodeId];
+    if (apparatusId.isEmpty || node == null) {
       continue;
     }
-    final state = apparatusQueueOrderStateFromRaw(
-      queueStatesByApparatus[apparatusId]?[orderId],
+    // Server stage states include shared alternative completion and distinguish
+    // repeated occurrences. An unused candidate's own queue can stay pending.
+    final state = productionMapNodeQueueState(
+      node: node,
+      orderId: orderId,
+      currentStation: '',
+      currentQueueStates: const {},
+      queueStatesByApparatus: queueStatesByApparatus,
+      stageStates: stageStates,
     );
     if (state == ApparatusQueueOrderState.completed) {
       completedSeen = true;

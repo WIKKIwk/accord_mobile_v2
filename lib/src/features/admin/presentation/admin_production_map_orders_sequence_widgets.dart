@@ -84,7 +84,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
         index: index,
         readOnly: widget.readOnly,
         customerName: widget.customerNameByMapId[order.map.id.trim()] ?? '',
-        tone: _resolveOrderCardTone(
+        tone: _resolveApparatusOrderCardTone(
           printPreflightPassed: _orderPrintPreflightPassed(
             orderId: order.map.id,
             apparatusId: selected?.id ?? '',

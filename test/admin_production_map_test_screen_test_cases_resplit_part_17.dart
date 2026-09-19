@@ -526,7 +526,7 @@ void _registeradmin_production_map_test_screen_testCases17() {
         firstApparatusId: _print7Id,
         secondApparatusId: _lamination1Id,
         secondApparatusName: 'Laminatsiya',
-      ),
+      ).copyWith(orderNumber: '0004'),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
       apparatus: _print7Id,
@@ -567,6 +567,8 @@ void _registeradmin_production_map_test_screen_testCases17() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Buyurtmalar'));
+    await tester.pumpAndSettle();
     final row = find.byKey(const ValueKey('opened-order-$orderId'));
     expect(row, findsOneWidget);
     final card = tester.widget<Material>(

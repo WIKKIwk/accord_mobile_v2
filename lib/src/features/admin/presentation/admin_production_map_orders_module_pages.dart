@@ -14,6 +14,7 @@ class _OrdersModulePage extends StatelessWidget {
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
     required this.queueStatesByApparatus,
+    required this.stageStatesByOrderId,
     required this.queueActionControlsByApparatus,
     required this.visibleOrderIdsByApparatus,
     required this.onInfoOrder,
@@ -31,6 +32,7 @@ class _OrdersModulePage extends StatelessWidget {
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, Map<String, String>> stageStatesByOrderId;
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       queueActionControlsByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
@@ -71,6 +73,7 @@ class _OrdersModulePage extends StatelessWidget {
             orderStatusesByOrderId: orderStatusesByOrderId,
             orderControlsByOrderId: orderControlsByOrderId,
             queueStatesByApparatus: queueStatesByApparatus,
+            stageStatesByOrderId: stageStatesByOrderId,
             queueActionControlsByApparatus: queueActionControlsByApparatus,
             visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
             onInfoOrder: onInfoOrder,
@@ -118,6 +121,7 @@ class _AdminModulesBody extends StatelessWidget {
     required this.onMove,
     required this.customerNameByMapId,
     required this.queueStatesByApparatus,
+    required this.stageStatesByOrderId,
     required this.queueActionControlsByApparatus,
     required this.visibleOrderIdsByApparatus,
     required this.orderStatusesByOrderId,
@@ -187,6 +191,7 @@ class _AdminModulesBody extends StatelessWidget {
   })? onInfoSequenceOrder;
   final Map<String, String> customerNameByMapId;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, Map<String, String>> stageStatesByOrderId;
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       queueActionControlsByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
@@ -292,6 +297,7 @@ class _AdminModulesBody extends StatelessWidget {
                       orderStatusesByOrderId: orderStatusesByOrderId,
                       orderControlsByOrderId: orderControlsByOrderId,
                       queueStatesByApparatus: queueStatesByApparatus,
+                      stageStatesByOrderId: stageStatesByOrderId,
                       visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
                       onInfoOrder: onInfoOrder,
                       onLongPressOrder: onLongPressOrder,
