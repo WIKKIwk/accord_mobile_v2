@@ -127,7 +127,7 @@ void _registeradmin_production_map_test_screen_testCases07() {
           product: 'admin map WIP product',
           firstApparatusId: _print7Id,
           secondApparatusId: _rezkaId,
-        ),
+        ).copyWith(orderNumber: '0004'),
       );
       await MobileApi.instance.adminCreateOpeningWip(
         const AdminOpeningWipCreateInput(

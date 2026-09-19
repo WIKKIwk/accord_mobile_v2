@@ -14,7 +14,7 @@ void _registerWorkerCompletedWipTests() {
       product: 'completed WIP product',
       firstApparatusId: _print7Id,
       secondApparatusId: _lamination1Id,
-    ));
+    ).copyWith(orderNumber: '0004'));
     for (final apparatus in [_print7Id, _lamination1Id]) {
       await MobileApi.instance.adminSaveProductionMapSequence(
         apparatus: apparatus,
@@ -115,7 +115,10 @@ void _registerWorkerCompletedWipTests() {
       var historyAttempts = 0;
       await http.runWithClient(() async {
         await openCompletedTab(tester);
-        await tester.tap(find.textContaining('Worker completed WIP'));
+        await tester.tap(find.ancestor(
+          of: find.textContaining('Worker completed WIP'),
+          matching: find.byType(InkWell),
+        ).first);
         await tester.pumpAndSettle();
 
         final error =
@@ -163,7 +166,7 @@ void _registerWorkerCompletedWipTests() {
           () => MockClient((request) async {
                 requests.add(request);
                 if (!request.url.path.endsWith('/progress-qr/history')) {
-                  // In particular, Opening WIP requires admin/production-map access.
+                  // Personal history must not depend on order-level requests.
                   return http.Response('{"error":"forbidden"}', 403);
                 }
                 historyAttempts++;

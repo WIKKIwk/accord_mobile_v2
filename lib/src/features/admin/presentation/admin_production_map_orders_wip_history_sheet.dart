@@ -138,6 +138,8 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
     final orderId = widget.order.map.id.trim();
     final sourceApparatusId = widget.sourceApparatusId.trim();
     if (sourceApparatusId.isNotEmpty) {
+      // The server authorizes this explicit order for the viewer. Filter by
+      // producer below: a processed roll may now be at another apparatus.
       final results = await Future.wait<Object>([
         MobileApi.instance.adminWipBatches(
           status: 'all',
@@ -165,8 +167,8 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
     }
 
     // Own history is scoped to the authenticated worker by the server.
-    // Opening WIP is admin-managed stock, not this worker's output, and its
-    // admin-only endpoint must not prevent workers from viewing their batches.
+    // Opening WIP is admin-managed stock, not this worker's output, so it
+    // belongs in the order-stage history above rather than this personal list.
     final batches = await MobileApi.instance.adminProgressQrHistory(limit: 200);
     return _mergeWorkerWipBatches(
       batches.where((batch) => batch.orderId.trim() == orderId),
@@ -225,7 +227,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
           sheetContext.l10n,
           widget.apparatusCatalog,
         ),
-        onReprint: () => _reprintWip(batch),
+        onReprint: widget.allowWipQrReprint ? () => _reprintWip(batch) : null,
         errorMessage: (error) => error is MobileApiException
             ? error.message
             : error.toString().replaceFirst('Bad state: ', ''),
@@ -377,7 +379,12 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                       return const Center(child: AppLoadingIndicator());
                     }
                     if (snapshot.hasError) {
-                      return _WorkerWipHistoryError(onRetry: _retry);
+                      final error = snapshot.error;
+                      return _WorkerWipHistoryError(
+                        onRetry: _retry,
+                        accessDenied: error is MobileApiException &&
+                            (error.statusCode == 403 || error.code == 'forbidden'),
+                      );
                     }
                     final batches =
                         snapshot.data ?? const <AdminProgressBatch>[];
@@ -387,9 +394,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                     return _WorkerWipHistoryList(
                       batches: batches,
                       apparatusCatalog: widget.apparatusCatalog,
-                      onLongPress: widget.allowWipQrReprint
-                          ? (batch) => unawaited(_showWipDetails(batch))
-                          : null,
+                      onLongPress: (batch) => unawaited(_showWipDetails(batch)),
                     );
                   },
                 ),
@@ -792,6 +797,7 @@ class _WorkerWipHistoryCard extends StatelessWidget {
     return Card.filled(
       color: scheme.surfaceContainerHighest,
       child: InkWell(
+        onTap: onLongPress,
         onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 15),
@@ -983,7 +989,11 @@ class _WorkerWipStatusChip extends StatelessWidget {
 }
 
 class _WorkerWipHistoryError extends StatelessWidget {
-  const _WorkerWipHistoryError({required this.onRetry});
+  const _WorkerWipHistoryError({
+    required this.onRetry,
+    this.accessDenied = false,
+  });
+  final bool accessDenied;
   final VoidCallback onRetry;
 
   @override
@@ -992,7 +1002,9 @@ class _WorkerWipHistoryError extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(context.l10n.productionText('worker.wip.history.error')),
+          Text(context.l10n.productionText(
+            accessDenied ? 'worker.wip.access_denied' : 'worker.wip.history.error',
+          )),
           const SizedBox(height: 8),
           TextButton(
             onPressed: onRetry,

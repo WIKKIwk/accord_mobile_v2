@@ -36,7 +36,7 @@ class RpsQrReprintSheet extends StatefulWidget {
   final String payload;
   final String itemName;
   final List<RpsQrDetail> details;
-  final Future<String?> Function() onReprint;
+  final Future<String?> Function()? onReprint;
   final String Function(Object error) errorMessage;
   final String successMessage;
   final Key? previewKey;
@@ -57,7 +57,8 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
   String? _errorText;
 
   Future<void> _reprint() async {
-    if (_printing) {
+    final onReprint = widget.onReprint;
+    if (_printing || onReprint == null) {
       return;
     }
     setState(() {
@@ -65,7 +66,7 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
       _errorText = null;
     });
     try {
-      final warning = await widget.onReprint();
+      final warning = await onReprint();
       if (!mounted) {
         return;
       }
@@ -230,18 +231,21 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
                   ),
                 ),
               ],
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                key: widget.reprintButtonKey,
-                onPressed: _printing || _deleting ? null : _reprint,
-                icon: _printing
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.print_rounded),
-                label: Text(_printing ? 'Chop etilmoqda…' : 'Qayta chop etish'),
-              ),
+              if (widget.onReprint != null) ...[
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  key: widget.reprintButtonKey,
+                  onPressed: _printing || _deleting ? null : _reprint,
+                  icon: _printing
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.print_rounded),
+                  label:
+                      Text(_printing ? 'Chop etilmoqda…' : 'Qayta chop etish'),
+                ),
+              ],
               if (widget.onDelete != null) ...[
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
