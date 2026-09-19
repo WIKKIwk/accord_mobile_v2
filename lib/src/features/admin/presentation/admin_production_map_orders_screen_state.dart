@@ -170,10 +170,6 @@ class _AdminProductionMapOrdersScreenState
       unawaited(_restoreSavedSequenceApparatusPreference());
       unawaited(_startAdminLive());
     }
-    if (widget.supplyViewerMode &&
-        AppSession.instance.profile?.role == UserRole.tayyorlovMasteri) {
-      unawaited(_refreshTayyorlovOrderFilter());
-    }
   }
 
   @override

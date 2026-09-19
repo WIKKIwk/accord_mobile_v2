@@ -391,6 +391,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     _TayyorlovFormulaButton(
                       map: map,
                       customerName: customerName,
+                      noticeAnchorKey: noticeAnchorKey,
                     ),
                   if (!summaryOnlyMode && (!workerMode || summaryExpanded))
                     const SizedBox(height: 10),
@@ -615,9 +616,11 @@ class _TayyorlovFormulaButton extends StatelessWidget {
   const _TayyorlovFormulaButton({
     required this.map,
     required this.customerName,
+    required this.noticeAnchorKey,
   });
   final ProductionMapDefinition map;
   final String? customerName;
+  final GlobalKey noticeAnchorKey;
 
   Future<void> _openForOrder(BuildContext context) async {
     final orderId = map.id.trim();
@@ -641,16 +644,18 @@ class _TayyorlovFormulaButton extends StatelessWidget {
     }
     Navigator.of(context, rootNavigator: true).pop();
     if (loadError != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loadError.toString())),
+      showAdminTopNotice(
+        context,
+        loadError.toString(),
+        anchorKey: noticeAnchorKey,
       );
       return;
     }
     if (materials.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bu orderda sizga biriktirilgan homashyo topilmadi.'),
-        ),
+      showAdminTopNotice(
+        context,
+        'Bu orderda sizga biriktirilgan homashyo topilmadi.',
+        anchorKey: noticeAnchorKey,
       );
       return;
     }

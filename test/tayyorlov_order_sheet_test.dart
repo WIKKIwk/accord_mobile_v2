@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
@@ -8,16 +10,68 @@ import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
+const _tayyorlovProfile = SessionProfile(
+  role: UserRole.tayyorlovMasteri,
+  displayName: 'Tayyorlov masteri',
+  legalName: '',
+  ref: 'tayyorlov-1',
+  phone: '',
+  avatarUrl: '',
+  capabilities: ['preparation.access'],
+);
 
-ProductionMapDefinition _tayyorlovOrderMap() {
-  return const ProductionMapDefinition(
-    id: 'zakaz-tayyorlov-summary-only',
+MockClient _preparationClient({
+  List<String> allowedIds = const ['zakaz-tayyorlov-summary-only'],
+  int materialsStatus = 200,
+  int snapshotStatus = 200,
+}) {
+  return MockClient((request) async {
+    final snapshot = request.url.path == '/v1/mobile/preparation/snapshot';
+    expect(
+      request.url.path,
+      snapshot
+          ? '/v1/mobile/preparation/snapshot'
+          : '/v1/mobile/preparation/order-materials',
+    );
+    return http.Response(
+      jsonEncode(snapshot
+          ? {
+              'materials': [],
+              'history': [],
+              'orders': [
+                for (final id in allowedIds)
+                  {'id': id, 'code': id, 'title': id, 'order_kg': '100'},
+              ],
+              'responsibilities': [
+                {'material_id': 'builtin-pe', 'material_name': 'PE'},
+              ],
+            }
+          : {
+              'order_id': request.url.queryParameters['order_id'],
+              'materials': [],
+              'error': 'Homashyoni yuklab bo‘lmadi',
+            }),
+      snapshot ? snapshotStatus : materialsStatus,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
+  });
+}
+
+ProductionMapDefinition _tayyorlovOrderMap({
+  String id = 'zakaz-tayyorlov-summary-only',
+  String title = 'Tayyorlov summary order',
+  String orderNumber = '0003',
+}) {
+  return ProductionMapDefinition(
+    id: id,
     productCode: 'SUPPLY-TAYYORLOV',
-    title: 'Tayyorlov summary order',
-    orderNumber: '0003',
+    title: title,
+    orderNumber: orderNumber,
     rollCount: 6,
     widthMm: 1265,
     orderKg: 100,
@@ -98,7 +152,7 @@ void main() {
 
   testWidgets(
     'tayyorlov masteri sheet shows only expected order metrics',
-    (tester) async {
+    (tester) => http.runWithClient(() async {
       await TestModeController.instance.setEnabled(true);
       await MobileApi.instance.adminSaveProductionMap(_tayyorlovOrderMap());
       AppSession.instance.profile = const SessionProfile(
@@ -138,8 +192,69 @@ void main() {
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
-    },
+    }, _preparationClient),
   );
+
+  for (final snapshotStatus in [200, 503]) {
+    testWidgets(
+        'tayyorlov list respects material scope ($snapshotStatus)',
+        (tester) => http.runWithClient(() async {
+              await TestModeController.instance.setEnabled(true);
+              await MobileApi.instance
+                  .adminSaveProductionMap(_tayyorlovOrderMap());
+              await MobileApi.instance
+                  .adminSaveProductionMap(_tayyorlovOrderMap(
+                id: 'zakaz-unassigned',
+                title: 'Unassigned material order',
+                orderNumber: '0004',
+              ));
+              AppSession.instance.profile = _tayyorlovProfile;
+              await _pumpSupplySequence(tester);
+              expect(find.textContaining('Unassigned material order'),
+                  findsNothing);
+              expect(find.textContaining('Tayyorlov summary order'),
+                  snapshotStatus == 200 ? findsOneWidget : findsNothing);
+              await tester.pumpWidget(const SizedBox.shrink());
+              await tester.pumpAndSettle();
+            }, () => _preparationClient(snapshotStatus: snapshotStatus)));
+  }
+
+  for (final materialsStatus in [200, 503]) {
+    testWidgets(
+        'formula notice appears above the open sheet ($materialsStatus)',
+        (tester) => http.runWithClient(() async {
+              await TestModeController.instance.setEnabled(true);
+              await MobileApi.instance
+                  .adminSaveProductionMap(_tayyorlovOrderMap());
+              AppSession.instance.profile = _tayyorlovProfile;
+              await _pumpSupplySequence(tester);
+              await _openOrderSheet(tester);
+              await tester
+                  .tap(find.byKey(const ValueKey('tayyorlov-formula-button')));
+              await tester.pump();
+              await tester.pump(const Duration(milliseconds: 300));
+              final notice = find.textContaining(materialsStatus == 200
+                  ? 'Bu orderda sizga biriktirilgan homashyo topilmadi.'
+                  : 'Homashyoni yuklab bo‘lmadi');
+              expect(notice, findsOneWidget,
+                  reason: tester
+                      .widgetList<Text>(find.byType(Text))
+                      .map((text) => text.data)
+                      .join(' | '));
+              expect(find.byType(SnackBar), findsNothing);
+              expect(find.text('Zakaz kodi'), findsOneWidget);
+              final sheetRect = tester.getRect(find.byType(BottomSheet).last);
+              expect(sheetRect.contains(tester.getCenter(notice)), isTrue);
+              // Notices live in the root overlay, not in the covered page scaffold.
+              final banner = tester.element(find.ancestor(
+                of: notice,
+                matching: find.byType(MaterialBanner),
+              ));
+              expect(banner.findAncestorWidgetOfExactType<Scaffold>(), isNull);
+              await tester.pumpWidget(const SizedBox.shrink());
+              await tester.pumpAndSettle();
+            }, () => _preparationClient(materialsStatus: materialsStatus)));
+  }
 
   testWidgets(
     'qolipchi sheet still shows full order sections',

@@ -331,12 +331,16 @@ extension _AdminProductionMapOrdersLiveState
   Future<void> _refreshAdminLiveBatch({required bool initial}) async {
     if (widget.supplyViewerMode) {
       if (initial) {
-        await _refreshCanonicalInitial();
+        await Future.wait([
+          _refreshCanonicalInitial(),
+          _refreshTayyorlovOrderFilter(),
+        ]);
         return;
       }
       await Future.wait([
         _refreshQueueSnapshot(),
         _refreshApparatusCatalog(),
+        _refreshTayyorlovOrderFilter(),
       ]);
       if (_lastAppliedSnapshotRevision == null) {
         await _refreshMapsAndApparatus();
