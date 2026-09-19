@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import '../../shared/models/app_models.dart';
 import '../models/production_map_models.dart';
 
-/// Only printing alternatives require an explicit dispatch assignment.
+/// Only printing groups with multiple candidates require dispatch assignment.
 /// Lamination/cutting candidates keep their cooperative visibility.
 bool productionMapPrintAssignmentAllowsOrder({
   required ProductionMapDefinition map,
@@ -16,14 +16,19 @@ bool productionMapPrintAssignmentAllowsOrder({
       return false;
     }
     final group = node.alternativeGroupId.trim();
-    return group.isEmpty ||
-        map.nodes
-            .where((candidate) =>
-                candidate.kind == 'apparatus' &&
-                candidate.alternativeGroupId.trim() == group)
-            .every((candidate) =>
-                candidate.alternativeAssignedApparatusId.trim() ==
-                apparatus.id.trim());
+    if (group.isEmpty) return true;
+    final candidates = map.nodes
+        .where((candidate) =>
+            candidate.kind == 'apparatus' &&
+            candidate.alternativeGroupId.trim() == group)
+        .toList();
+    // A remaining single candidate needs no choice, but never override an
+    // explicit assignment to another apparatus.
+    return (candidates.length == 1 &&
+            node.alternativeAssignedApparatusId.trim().isEmpty) ||
+        candidates.every((candidate) =>
+            candidate.alternativeAssignedApparatusId.trim() ==
+            apparatus.id.trim());
   });
 }
 

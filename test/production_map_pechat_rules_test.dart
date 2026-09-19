@@ -21,6 +21,46 @@ const _colorPrintApparatus = AdminApparatus(
 );
 
 void main() {
+  test('single unassigned print candidate needs no dispatch', () {
+    for (final machine in [_flexoApparatus, _colorPrintApparatus]) {
+      var map = ProductionMapDefinition(
+        id: 'zakaz-single-print',
+        productCode: 'SINGLE',
+        title: 'Single print',
+        nodes: [
+          ProductionMapNode(
+            id: 'print',
+            kind: 'apparatus',
+            title: 'Display',
+            apparatusId: machine.id,
+            alternativeGroupId: 'print-group',
+          ),
+        ],
+        edges: const [],
+      );
+      bool visible(AdminApparatus apparatus) =>
+          productionMapPrintAssignmentAllowsOrder(
+              map: map, apparatus: apparatus);
+      final peer = machine.id == _flexoApparatus.id
+          ? _colorPrintApparatus
+          : _flexoApparatus;
+      expect(visible(machine), isTrue);
+      expect(visible(peer), isFalse);
+
+      map = map.copyWith(nodes: [
+        map.nodes.single.copyWith(alternativeAssignedApparatusId: machine.id),
+      ]);
+      expect(visible(machine), isTrue);
+
+      map = map.copyWith(nodes: [
+        map.nodes.single.copyWith(alternativeAssignedApparatusId: peer.id),
+      ]);
+      expect(visible(machine), isFalse,
+          reason: 'an explicit assignment must not be overridden');
+      expect(visible(peer), isFalse);
+    }
+  });
+
   test(
       'printing alternatives require assignment by ID, other operations do not',
       () {
