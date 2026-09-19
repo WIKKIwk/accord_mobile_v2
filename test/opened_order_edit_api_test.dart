@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/opened_order_edit_error_dialog.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -78,7 +80,15 @@ void main() {
             ? MobileApi.instance.adminOpenedOrderEditSource(source.orderId)
             : MobileApi.instance.adminSaveOpenedOrderEdit(
                 source: source, template: source.template);
-        await expectLater(request, throwsA(isA<MobileApiException>()));
+        await expectLater(
+          request,
+          throwsA(isA<MobileApiException>()
+              .having((error) => error.statusCode, 'status', 409)
+              .having((error) => error.message, 'server reason',
+                  'Buyurtmada opening WIP ochilgan')
+              .having(openedOrderEditErrorReason, 'dialog reason',
+                  'Buyurtmada opening WIP ochilgan')),
+        );
       },
           () => MockClient((request) async {
                 calls++;
@@ -92,4 +102,101 @@ void main() {
       expect(calls, 1);
     });
   }
+
+  for (final status in [400, 404, 409, 422]) {
+    test('edit preserves a business reason for HTTP $status', () async {
+      const reason = 'Buyurtmaga xomashyo biriktirilgan. '
+          'Xomashyo tarixini tekshiring.';
+      await http.runWithClient(
+        () => expectLater(
+          MobileApi.instance.adminOpenedOrderEditSource('zakaz-1234'),
+          throwsA(isA<MobileApiException>()
+              .having((error) => error.message, 'reason', reason)
+              .having((error) => error.statusCode, 'status', status)),
+        ),
+        () => MockClient((_) async => http.Response(
+            jsonEncode({'error': reason}), status,
+            headers: {'content-type': 'application/json; charset=utf-8'})),
+      );
+    });
+  }
+
+  for (final scenario in [
+    (403, jsonEncode({'error': 'private authorization details'})),
+    (500, jsonEncode({'error': 'private database details'})),
+    (409, jsonEncode({'error': 'private_unknown_error_code'})),
+    (409, '<html>private proxy response</html>'),
+    (409, jsonEncode({'error': '<html>private proxy response</html>'})),
+    (409, '{}'),
+  ]) {
+    test('edit keeps a safe fallback for $scenario', () async {
+      await http.runWithClient(
+        () => expectLater(
+          MobileApi.instance.adminOpenedOrderEditSource('zakaz-1234'),
+          throwsA(isA<MobileApiException>()
+              .having((error) => error.message, 'safe message',
+                  isNot(contains('private')))
+              .having(openedOrderEditErrorReason, 'safe dialog',
+                  isNot(contains('private')))),
+        ),
+        () => MockClient((_) async => http.Response(scenario.$2, scenario.$1)),
+      );
+    });
+  }
+
+  test('edit keeps the existing translation for a known server error',
+      () async {
+    await http.runWithClient(
+      () => expectLater(
+        MobileApi.instance.adminOpenedOrderEditSource('zakaz-1234'),
+        throwsA(isA<MobileApiException>().having(
+          (error) => error.message,
+          'translated reason',
+          'Aparat yoki buyurtma ma’lumoti topilmadi. Oynani yangilang.',
+        )),
+      ),
+      () => MockClient((_) async => http.Response(
+          jsonEncode({'error': 'apparatus and order_id are required'}), 400)),
+    );
+  });
+
+  testWidgets('actual API business reason reaches the edit dialog',
+      (tester) async {
+    const reason = 'Buyurtmada ish sessiyasi ochilgan. '
+        'Ish tarixini tekshiring.';
+    tester.view.physicalSize = const Size(375, 667);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Builder(builder: (context) {
+            return TextButton(
+              onPressed: () async {
+                try {
+                  await MobileApi.instance
+                      .adminOpenedOrderEditSource('zakaz-1234');
+                } catch (error) {
+                  if (!context.mounted) return;
+                  await showOpenedOrderEditErrorDialog(context,
+                      error: error, orderNumber: '1234');
+                }
+              },
+              child: const Text('Edit'),
+            );
+          }),
+        ),
+      ));
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      expect(find.text(reason), findsOneWidget);
+      expect(find.textContaining('Server sababini batafsil yubormadi'),
+          findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((_) async => http.Response(
+            jsonEncode({'error': reason}), 409,
+            headers: {'content-type': 'application/json; charset=utf-8'})));
+  });
 }

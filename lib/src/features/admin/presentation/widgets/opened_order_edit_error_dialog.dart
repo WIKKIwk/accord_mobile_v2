@@ -21,8 +21,8 @@ String openedOrderEditErrorReason(Object error) {
         'ochib holatini tekshiring; muammo takrorlansa, mas’ul '
         'administratorga buyurtma raqamini yuboring.';
   }
-  // The shared API formatter adds an operation prefix and an HTTP suffix.
-  // Keep this presentation change local to opened-order editing.
+  // Also accept errors from older clients that wrapped the server reason
+  // with an operation prefix and an HTTP suffix.
   final reason = error.message
       .replaceFirst(RegExp(r'^So‘ralgan amal bajarilmadi:\s*'), '')
       .replaceFirst(RegExp(r'\s*\(HTTP \d+\)$'), '')

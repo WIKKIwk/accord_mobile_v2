@@ -30,7 +30,7 @@ extension MobileApiOpenedOrderEdit on MobileApi {
           headers: _headers(requireToken()),
         ));
     if (response.statusCode != 200) {
-      throw _adminProductionMapException(response, 'order_edit');
+      throw _openedOrderEditException(response);
     }
     return OpenedOrderEditSource.fromJson(
       (jsonDecode(response.body) as Map).cast<String, dynamic>(),
@@ -57,10 +57,33 @@ extension MobileApiOpenedOrderEdit on MobileApi {
               {'original': source.original, 'template': template.toJson()}),
         ));
     if (response.statusCode != 200) {
-      throw _adminProductionMapException(response, 'order_edit');
+      throw _openedOrderEditException(response);
     }
     return OpenedOrderEditSource.fromJson(
       (jsonDecode(response.body) as Map).cast<String, dynamic>(),
     );
   }
+}
+
+MobileApiException _openedOrderEditException(http.Response response) {
+  final error = _adminProductionMapException(response, 'order_edit');
+  // This endpoint returns user-facing business reasons in `error`, not just
+  // machine codes. Preserve them without exposing auth or server failures.
+  final reason = error.code.trim();
+  if (const {400, 404, 409, 422}.contains(response.statusCode) &&
+      error.message ==
+          _adminProductionMapUnknownErrorMessage(
+            code: error.code,
+            fallbackCode: 'order_edit',
+            statusCode: response.statusCode,
+          ) &&
+      reason.contains(RegExp(r'\s')) &&
+      !reason.contains(RegExp(r'[<>]'))) {
+    return MobileApiException(
+      code: error.code,
+      message: reason,
+      statusCode: response.statusCode,
+    );
+  }
+  return error;
 }
