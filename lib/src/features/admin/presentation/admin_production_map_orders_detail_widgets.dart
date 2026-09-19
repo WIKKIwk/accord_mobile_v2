@@ -176,9 +176,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     );
     final rezkaMergeStateLines = _rezkaMergeStateLines(
       inputLineage: uiState.rezkaInputLineage,
-      activePartialRolls: uiState.rezkaActivePartialRolls,
       l10n: context.l10n,
-      apparatusCatalog: apparatusCatalog,
     );
     return DraggableScrollableSheet(
       expand: false,
@@ -1633,7 +1631,7 @@ class _RezkaWipSplitInstruction extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Map bo‘yicha rezka',
+                    context.l10n.productionText('worker.map.cutting'),
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: scheme.onSecondaryContainer,
                       fontWeight: FontWeight.w800,

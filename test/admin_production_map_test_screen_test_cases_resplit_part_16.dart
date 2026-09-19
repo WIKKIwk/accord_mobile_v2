@@ -741,7 +741,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
           find.byKey(const ValueKey('production-quick-scanner-manual')),
           findsNothing,
         );
-        await tester.tap(find.text('Merge'));
+        await tester.tap(find.text('Rulon ulash'));
         await tester.pump();
         expect(
           find.byType(ProductionQuickScannerPanel),
@@ -749,7 +749,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
           reason:
               'explicit Merge remains available without pending raw material',
         );
-        await tester.tap(find.text('Merge'));
+        await tester.tap(find.text('Rulon ulash'));
         await tester.pump();
         expect(find.byType(ProductionQuickScannerPanel), findsNothing);
         await tester.pump(const Duration(seconds: 2));

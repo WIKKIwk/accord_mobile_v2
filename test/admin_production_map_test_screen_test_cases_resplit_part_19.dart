@@ -76,7 +76,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('laminatsiya-dialog').first);
     await tester.pumpAndSettle();
-    expect(find.text('Merge'), findsOneWidget);
+    expect(find.text('Rulon ulash'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('production-order-rezka-merge-state')),
       findsNothing,
@@ -186,7 +186,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('rezka-intermediate-dialog').first);
     await tester.pumpAndSettle();
-    expect(find.text('Merge'), findsOneWidget);
+    expect(find.text('Rulon ulash'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('production-order-rezka-merge-state')),
       findsNothing,
@@ -296,7 +296,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
     await tester.tap(find.textContaining('rezka-dialog').first);
     await tester.pumpAndSettle();
     expect(find.text('Rulonni tugatish'), findsNothing);
-    expect(find.text('Merge'), findsOneWidget);
+    expect(find.text('Rulon ulash'), findsOneWidget);
     expect(find.byType(ProductionQuickScannerPanel), findsNothing);
     expect(find.text('Hali qabul qilinmagan homashyo yo‘q'), findsNothing);
     expect(
@@ -307,15 +307,15 @@ void _registeradmin_production_map_test_screen_testCases19() {
       find.byKey(const ValueKey('production-order-rezka-merge-state')),
       findsOneWidget,
     );
-    expect(find.text('Ulangan rulonlar holati'), findsOneWidget);
-    expect(find.text('Joriy rulon: wip-b'), findsOneWidget);
-    expect(find.text('Rulonlar ketma-ketligi: wip-a → wip-b'), findsOneWidget);
+    expect(find.text('Rulonlar ulandi'), findsOneWidget);
+    expect(find.text('Hozir 2-rulon ishlanmoqda.'), findsOneWidget);
+    expect(find.text('2-rulon 1-rulonning davomiga ulandi.'), findsOneWidget);
     expect(
-      find.text('Faol o‘ramlar: 1 ta · Manba: 2 ta rulon'),
-      findsOneWidget,
+      find.textContaining('Faol o‘ramlar'),
+      findsNothing,
     );
 
-    await tester.tap(find.text('Merge'));
+    await tester.tap(find.text('Rulon ulash'));
     await tester.pump();
     expect(
       find.byKey(const ValueKey('production-order-quick-scanner-visible')),
@@ -329,7 +329,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
           .allowConcurrentDetections,
       isFalse,
     );
-    await tester.tap(find.text('Merge'));
+    await tester.tap(find.text('Rulon ulash'));
     await tester.pump();
 
     expect(find.byType(ProductionQuickScannerPanel), findsNothing,
@@ -437,17 +437,17 @@ void _registeradmin_production_map_test_screen_testCases19() {
     await tester.tap(find.textContaining('rezka-split').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Map bo‘yicha rezka'), findsOneWidget);
+    expect(find.text('Rulonni kesish rejasi'), findsOneWidget);
     expect(
-      find.textContaining('WIP 2 bo‘lakka bo‘linadi'),
+      find.textContaining('Rulondan 2 ta chiqish ruloni olinadi'),
       findsOneWidget,
     );
     expect(
-      find.textContaining('1-bo‘lak: 3 kadr'),
+      find.textContaining('1-rulon: 3 kadr'),
       findsOneWidget,
     );
     expect(
-      find.textContaining('2-bo‘lak: 1 kadr'),
+      find.textContaining('2-rulon: 1 kadr'),
       findsOneWidget,
     );
     expect(find.textContaining('Jami: 4 kadr'), findsOneWidget);
@@ -545,17 +545,17 @@ void _registeradmin_production_map_test_screen_testCases19() {
       find.byKey(const ValueKey('production-order-rezka-merge-state')),
       findsOneWidget,
     );
-    expect(find.text('Ulangan rulonlar holati'), findsOneWidget);
-    expect(find.text('Joriy rulon: 2-rulon (Apparat 007)'), findsOneWidget);
+    expect(find.text('Rulonlar ulandi'), findsOneWidget);
+    expect(find.text('Hozir 2-rulon ishlanmoqda.'), findsOneWidget);
     expect(
       find.text(
-        'Rulonlar ketma-ketligi: 1-rulon (Apparat 008) → 2-rulon (Apparat 007)',
+        '2-rulon 1-rulonning davomiga ulandi.',
       ),
       findsOneWidget,
     );
     expect(
-      find.text('Faol o‘ramlar: 1 ta · Manba: 2 ta rulon'),
-      findsOneWidget,
+      find.textContaining('Apparat 00'),
+      findsNothing,
     );
     expect(find.textContaining('progress-batch'), findsNothing);
   });

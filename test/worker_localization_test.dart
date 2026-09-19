@@ -59,31 +59,31 @@ void main() {
     expect(uzbek.productionText('worker.action.start'), 'Boshlash');
     expect(english.productionText('worker.action.start'), 'Start');
     expect(russian.productionText('worker.action.start'), 'Начать');
-    expect(uzbek.productionText('worker.action.merge'), 'Merge');
+    expect(uzbek.productionText('worker.action.merge'), 'Rulon ulash');
     expect(
       uzbek.productionText(
         'worker.merge_state.current',
         values: const {'batch': 'wip-b'},
       ),
-      'Joriy rulon: wip-b',
+      'Hozir wip-b ishlanmoqda.',
     );
     expect(
       uzbek.productionText('worker.merge_state.title'),
-      'Ulangan rulonlar holati',
+      'Rulonlar ulandi',
     );
     expect(
       uzbek.productionText(
-        'worker.merge_state.lineage',
-        values: const {'lineage': 'wip-a → wip-b'},
+        'worker.notice.merge_complete',
+        values: const {'next': '2-rulon', 'current': '1-rulon'},
       ),
-      'Rulonlar ketma-ketligi: wip-a → wip-b',
+      '2-rulon 1-rulonning davomiga ulandi.',
     );
     expect(
       uzbek.productionText(
-        'worker.merge_state.partial_rolls',
-        values: const {'rolls': 3, 'sources': 2},
+        'worker.merge_state.count',
+        values: const {'count': 3},
       ),
-      'Faol o‘ramlar: 3 ta · Manba: 2 ta rulon',
+      'Jami 3 ta rulon biriktirilgan.',
     );
     expect(
       uzbek.productionErrorMessage('merge_input_same'),

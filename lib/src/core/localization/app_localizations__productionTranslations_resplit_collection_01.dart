@@ -194,8 +194,8 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'ru': 'Пауза',
   },
   'worker.action.merge': {
-    'uz': 'Merge',
-    'en': 'Merge',
+    'uz': 'Rulon ulash',
+    'en': 'Join roll',
     'ru': 'Соединить',
   },
   'worker.action.detach_roll': {

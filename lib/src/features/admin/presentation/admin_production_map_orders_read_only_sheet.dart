@@ -45,6 +45,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   bool _lastQueueActionPrintFailed = false;
   bool _materialIntakeMode = false;
   bool _mergeScanMode = false;
+  bool _mergeConfirmationPending = false;
   bool _materialsLoading = true;
   String _materialsError = '';
   bool _inputProgressLoading = false;
@@ -295,11 +296,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _intakeCandidateAssignments.isNotEmpty;
     final merge = _mergeScanMode && uiState.showMerge;
     return (
-      visible: startMaterialScanPending ||
-          qolipScanPending ||
-          inputWipScanPending ||
-          materialIntake ||
-          merge,
+      visible: !_mergeConfirmationPending &&
+          (startMaterialScanPending ||
+              qolipScanPending ||
+              inputWipScanPending ||
+              materialIntake ||
+              merge),
       materialIntake: materialIntake,
       merge: merge,
     );
@@ -1381,6 +1383,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     // A camera callback can arrive after the scan task has ended.
     final scanTasks = _quickScanTasks(_detailUiState);
     if (!scanTasks.visible) return;
+    if (scanTasks.merge && (_quickScanInFlight || _actionInFlight)) return;
     final normalized = rawMaterialBarcodeFromQr(rawValue).trim();
     final scanKey = normalized.toUpperCase();
     if (normalized.isEmpty || !_seenQuickScanValues.add(scanKey)) {
@@ -1409,6 +1412,51 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         return;
       }
       if (scanTasks.merge) {
+        final control = _queueActionControl!;
+        final orderId = widget.order.map.id.trim();
+        final station = widget.apparatus?.id.trim() ?? '';
+        final lineage = List<AdminRezkaInputLink>.of(
+            control.rezkaInputLineage, growable: false);
+        final current = lineage.where((link) => link.inUse).firstOrNull;
+        final nextSequence = lineage.fold<int>(
+              0,
+              (value, link) => value > link.sequenceNo ? value : link.sequenceNo,
+            ) +
+            1;
+        final labels = {
+          'current': current == null
+              ? context.l10n.productionText('worker.merge.current_roll')
+              : _formatMergeInputBatchLabel(current, l10n: context.l10n),
+          'next': context.l10n.productionText('worker.merge.roll',
+              values: {'index': nextSequence}),
+        };
+        setState(() => _mergeConfirmationPending = true);
+        final confirmed = await _confirmRollMerge(
+          labels: labels,
+          qrLabel: normalized,
+        );
+        if (!mounted) return;
+        if (!confirmed) {
+          setState(() {
+            // Cancellation ends this scan task; camera callbacks must not
+            // immediately reopen the confirmation for the same physical QR.
+            _mergeScanMode = false;
+            _seenQuickScanValues.clear();
+            _quickScanStatus = _defaultQuickScanStatus();
+          });
+          return;
+        }
+        if (!_materialContextIsCurrent(orderId, station) ||
+            !_mergeScanMode ||
+            !_queueActionContractSynchronized ||
+            _queueActionControl?.allows('merge') != true ||
+            control.stageNodeId != _queueActionControl?.stageNodeId ||
+            !_sameMergeInputLineage(lineage,
+                _queueActionControl?.rezkaInputLineage ?? const [])) {
+          setState(() => _mergeScanMode = false);
+          _showSheetNotice(context.l10n.productionText('worker.error.sync'));
+          return;
+        }
         final merged = await _runQueueAction(
           'merge',
           qrPayload: rawValue.trim(),
@@ -1422,6 +1470,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             _seenQuickScanValues.clear();
             _quickScanStatus = context.l10n.productionText(
               'worker.notice.merge_complete',
+              values: labels,
             );
           } else if (_mergeScanMode && _queueActionControl != null) {
             _seenQuickScanValues.remove(scanKey);
@@ -1432,7 +1481,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         });
         if (merged) {
           _showSheetNotice(
-            context.l10n.productionText('worker.notice.merge_complete'),
+            context.l10n.productionText('worker.notice.merge_complete',
+                values: labels),
           );
         }
         _showQuickScanFeedback(
@@ -1592,6 +1642,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     } finally {
       if (mounted) {
         setState(() {
+          if (scanTasks.merge) _mergeConfirmationPending = false;
           _quickScanActiveCount =
               _quickScanActiveCount > 0 ? _quickScanActiveCount - 1 : 0;
         });
@@ -1599,8 +1650,52 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
+  Future<bool> _confirmRollMerge({
+    required Map<String, String> labels,
+    required String qrLabel,
+  }) async {
+    final l10n = context.l10n;
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            key: const ValueKey('production-merge-confirm-dialog'),
+            scrollable: true,
+            title: Text(l10n.productionText('worker.merge.confirm.title')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l10n.productionText('worker.merge.confirm.message',
+                    values: labels)),
+                const SizedBox(height: 12),
+                Text(l10n.productionText('worker.merge.confirm.order',
+                    values: {'order': widget.order.map.orderNumber})),
+                Text('QR: $qrLabel'),
+                const SizedBox(height: 12),
+                Text(l10n.productionText('worker.merge.confirm.warning')),
+              ],
+            ),
+            actions: [
+              OutlinedButton(
+                key: const ValueKey('production-merge-cancel'),
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(l10n.productionText('worker.action.no')),
+              ),
+              FilledButton(
+                key: const ValueKey('production-merge-confirm'),
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(l10n.productionText('worker.merge.confirm.yes')),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   void _toggleMergeScanMode() {
     if (_actionInFlight ||
+        _quickScanInFlight ||
+        _mergeConfirmationPending ||
         !_queueActionContractSynchronized ||
         _queueActionControl?.allows('merge') != true) {
       return;
@@ -2396,6 +2491,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       anchorKey: _noticeAnchorKey,
     );
   }
+}
+
+bool _sameMergeInputLineage(
+  List<AdminRezkaInputLink> before,
+  List<AdminRezkaInputLink> after,
+) {
+  if (before.length != after.length) return false;
+  final byId = {for (final link in after) link.inputBatchId: link};
+  return before.every((link) =>
+      byId[link.inputBatchId]?.sequenceNo == link.sequenceNo &&
+      byId[link.inputBatchId]?.status == link.status);
 }
 
 bool _rezkaMergeControlAdvanced(

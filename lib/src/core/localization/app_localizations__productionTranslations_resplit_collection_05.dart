@@ -299,7 +299,7 @@ const _app_localizations_declarations__productionTranslations_resplitPart05 = {
     'ru': 'Сырье без указанного этапа',
   },
   'worker.map.cutting': {
-    'uz': 'Map bo‘yicha rezka',
+    'uz': 'Rulonni kesish rejasi',
     'en': 'Slitting from map',
     'ru': 'Резка по карте',
   },
@@ -309,17 +309,17 @@ const _app_localizations_declarations__productionTranslations_resplitPart05 = {
     'ru': '{completed} / {total} этапов',
   },
   'worker.split.rolls': {
-    'uz': 'Rulon {frames} ta alohida WIP ga bo‘linadi',
+    'uz': 'Rulondan {frames} ta alohida rulon olinadi',
     'en': 'The roll will be split into {frames} separate WIPs',
     'ru': 'Рулон будет разделен на {frames} отдельных WIP',
   },
   'worker.split.qr': {
-    'uz': 'Har bir WIP uchun alohida QR chiqadi',
+    'uz': 'Har bir rulon uchun alohida QR chiqadi',
     'en': 'A separate QR code will be created for each WIP',
     'ru': 'Для каждого WIP будет создан отдельный QR-код',
   },
   'worker.split.same': {
-    'uz': 'Har bir WIP uchun alohida metraj, kg, babina va diametr kiriting',
+    'uz': 'Har bir rulon uchun alohida metraj, kg, babina va diametr kiriting',
     'en': 'Enter length, weight, core, and diameter separately for each WIP',
     'ru': 'Для каждого WIP введите отдельно метраж, вес, втулку и диаметр',
   },
@@ -329,12 +329,12 @@ const _app_localizations_declarations__productionTranslations_resplitPart05 = {
     'ru': 'Длина этикетки: {length} мм',
   },
   'worker.split.summary': {
-    'uz': 'WIP {count} bo‘lakka bo‘linadi',
+    'uz': 'Rulondan {count} ta chiqish ruloni olinadi',
     'en': 'The WIP will be split into {count} parts',
     'ru': 'WIP будет разделен на {count} частей',
   },
   'worker.split.part': {
-    'uz': '{index}-bo‘lak: {frames} kadr',
+    'uz': '{index}-rulon: {frames} kadr',
     'en': 'Part {index}: {frames} frames',
     'ru': 'Часть {index}: {frames} кадров',
   },

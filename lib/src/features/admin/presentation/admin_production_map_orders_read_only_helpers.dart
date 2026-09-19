@@ -805,58 +805,16 @@ List<String> _rezkaWipSplitInstructionLines({
 
 String _formatMergeInputBatchLabel(
   AdminRezkaInputLink link, {
-  Iterable<AdminApparatus> apparatusCatalog = const [],
+  required AppLocalizations l10n,
 }) {
-  final rawId = link.inputBatchId.trim();
-  if (rawId.isEmpty) return '';
-
-  if (rawId.startsWith('progress-batch:')) {
-    final parts = rawId.split(':');
-    // Format: progress-batch:<stamp>:<apparatus>:<order>:<action>
-    String apparatusName = '';
-    if (parts.length >= 3) {
-      final rawApparatus = parts[2].trim();
-      final catalogName =
-          canonicalApparatusDisplayLabel(rawApparatus, apparatusCatalog).trim();
-      if (catalogName.isNotEmpty && catalogName != rawApparatus) {
-        apparatusName = catalogName;
-      } else {
-        apparatusName = _humanizeApparatusIdentifier(rawApparatus);
-      }
-    }
-    final rollName = link.sequenceNo > 0 ? '${link.sequenceNo}-rulon' : 'Rulon';
-    return apparatusName.isNotEmpty ? '$rollName ($apparatusName)' : rollName;
-  }
-
-  if (rawId.startsWith('opening-wip:')) {
-    final rollName = link.sequenceNo > 0 ? '${link.sequenceNo}-rulon' : 'Rulon';
-    return '$rollName (Qoldiq WIP)';
-  }
-
-  return rawId;
-}
-
-String _humanizeApparatusIdentifier(String raw) {
-  var s = raw
-      .replaceAll('apparatus-default-', '')
-      .replaceAll('apparatus:default:', '')
-      .replaceAll('apparatus-', '')
-      .replaceAll('asset-', 'Apparat ')
-      .replaceAll('asset:', 'Apparat ')
-      .replaceAll('-', ' ')
-      .replaceAll('_', ' ')
-      .trim();
-  if (s.startsWith('asset ')) {
-    s = s.replaceFirst('asset ', 'Apparat ');
-  }
-  return s.isEmpty ? raw : s;
+  // Use the server's roll sequence, never guess a machine name from a WIP ID.
+  return l10n.productionText('worker.merge.roll',
+      values: {'index': link.sequenceNo});
 }
 
 List<String> _rezkaMergeStateLines({
   required List<AdminRezkaInputLink> inputLineage,
-  required List<AdminRezkaActivePartialRoll> activePartialRolls,
   required AppLocalizations l10n,
-  Iterable<AdminApparatus> apparatusCatalog = const [],
 }) {
   // A single input is only the WIP selected by Start. Merge state becomes
   // real only after an explicit successful Merge adds another source.
@@ -870,39 +828,29 @@ List<String> _rezkaMergeStateLines({
     if (link.inUse) {
       currentBatch = _formatMergeInputBatchLabel(
         link,
-        apparatusCatalog: apparatusCatalog,
+        l10n: l10n,
       );
       break;
     }
   }
-  final sourceBatchIds = <String>{
-    for (final roll in activePartialRolls) ...roll.sourceInputBatchIds,
-  };
   return [
+    l10n.productionText(
+      'worker.notice.merge_complete',
+      values: {
+        'next': _formatMergeInputBatchLabel(lineage.last, l10n: l10n),
+        'current': _formatMergeInputBatchLabel(lineage[lineage.length - 2],
+            l10n: l10n),
+      },
+    ),
     if (currentBatch.isNotEmpty)
       l10n.productionText(
         'worker.merge_state.current',
         values: {'batch': currentBatch},
       ),
-    if (lineage.isNotEmpty)
+    if (lineage.length > 2)
       l10n.productionText(
-        'worker.merge_state.lineage',
-        values: {
-          'lineage': lineage
-              .map((link) => _formatMergeInputBatchLabel(
-                    link,
-                    apparatusCatalog: apparatusCatalog,
-                  ))
-              .join(' → '),
-        },
-      ),
-    if (activePartialRolls.isNotEmpty)
-      l10n.productionText(
-        'worker.merge_state.partial_rolls',
-        values: {
-          'rolls': activePartialRolls.length,
-          'sources': sourceBatchIds.length,
-        },
+        'worker.merge_state.count',
+        values: {'count': lineage.length},
       ),
   ];
 }

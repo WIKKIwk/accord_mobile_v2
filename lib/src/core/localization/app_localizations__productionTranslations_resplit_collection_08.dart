@@ -58,24 +58,64 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
     'ru': 'Проверка QR-кода...',
   },
   'worker.scanner.merge_prompt': {
-    'uz': 'Ulanadigan keyingi WIP rulon QR sini scan qiling',
+    'uz': 'Ulanadigan rulon QR kodini skan qiling. Keyin ulashni tasdiqlaysiz.',
     'en': 'Scan the next WIP roll to merge',
     'ru': 'Отсканируйте следующий рулон WIP для соединения',
   },
   'worker.notice.merge_complete': {
-    'uz': 'WIP rulon ulandi. Ishni davom ettiring',
-    'en': 'The WIP roll was merged. Continue working.',
-    'ru': 'Рулон WIP соединен. Продолжайте работу.',
+    'uz': '{next} {current}ning davomiga ulandi.',
+    'en': '{next} was joined to continue {current}.',
+    'ru': '{next} присоединён к продолжению {current}.',
   },
   'worker.merge_state.current': {
-    'uz': 'Joriy rulon: {batch}',
+    'uz': 'Hozir {batch} ishlanmoqda.',
     'en': 'Current roll: {batch}',
     'ru': 'Текущий рулон: {batch}',
   },
   'worker.merge_state.title': {
-    'uz': 'Ulangan rulonlar holati',
-    'en': 'Roll merge status',
-    'ru': 'Состояние соединения рулонов',
+    'uz': 'Rulonlar ulandi',
+    'en': 'Rolls joined',
+    'ru': 'Рулоны соединены',
+  },
+  'worker.merge_state.count': {
+    'uz': 'Jami {count} ta rulon biriktirilgan.',
+    'en': '{count} rolls have been joined in total.',
+    'ru': 'Всего соединено рулонов: {count}.',
+  },
+  'worker.merge.roll': {
+    'uz': '{index}-rulon',
+    'en': 'roll {index}',
+    'ru': 'рулон №{index}',
+  },
+  'worker.merge.current_roll': {
+    'uz': 'apparatdagi rulon',
+    'en': 'the roll on the machine',
+    'ru': 'рулон на аппарате',
+  },
+  'worker.merge.confirm.title': {
+    'uz': 'Rulonni ulash',
+    'en': 'Join the roll',
+    'ru': 'Соединение рулонов',
+  },
+  'worker.merge.confirm.message': {
+    'uz': '{next}ni {current}ning davomiga ulaysizmi?',
+    'en': 'Join {next} to continue {current}?',
+    'ru': 'Присоединить {next} к продолжению {current}?',
+  },
+  'worker.merge.confirm.order': {
+    'uz': 'Buyurtma №{order}',
+    'en': 'Order #{order}',
+    'ru': 'Заказ №{order}',
+  },
+  'worker.merge.confirm.warning': {
+    'uz': 'Tasdiqlasangiz, bu ulanishni ortga qaytarib bo‘lmaydi.',
+    'en': 'Once confirmed, this join cannot be undone.',
+    'ru': 'После подтверждения это соединение нельзя отменить.',
+  },
+  'worker.merge.confirm.yes': {
+    'uz': 'Ha, ulash',
+    'en': 'Yes, join',
+    'ru': 'Да, соединить',
   },
   'worker.merge_state.lineage': {
     'uz': 'Rulonlar ketma-ketligi: {lineage}',
