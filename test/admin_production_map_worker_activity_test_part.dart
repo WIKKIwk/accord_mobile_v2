@@ -190,11 +190,12 @@ void _registerWorkerActivityTests() {
             void expectPassed() {
               final ready = cardGradient(tester.widget(gradient))!;
               expect(ready.colors, const [
-                Color(0xFF2A6618),
-                Color(0xFF79BD2F),
-                Color(0xFFBFE653),
+                Color(0xFF4B8F2F),
+                Color(0xFF9BD34B),
+                Color(0xFFD9F294),
+                Colors.white,
               ]);
-              expect(ready.stops, [0.0, 0.52, 1.0]);
+              expect(ready.stops, [0.0, 0.38, 0.70, 1.0]);
               expect(ready.begin, Alignment.topLeft);
               expect(ready.end, Alignment.bottomRight);
               expect(tester.takeException(), isNull);

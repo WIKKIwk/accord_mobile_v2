@@ -423,8 +423,13 @@ Gradient? _orderCardBackgroundGradient(_OrderCardTone tone) {
     return const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF2A6618), Color(0xFF79BD2F), Color(0xFFBFE653)],
-      stops: [0.0, 0.52, 1.0],
+      colors: [
+        Color(0xFF4B8F2F),
+        Color(0xFF9BD34B),
+        Color(0xFFD9F294),
+        Colors.white,
+      ],
+      stops: [0.0, 0.38, 0.70, 1.0],
     );
   }
   if (tone != _OrderCardTone.printPreflight) return null;
