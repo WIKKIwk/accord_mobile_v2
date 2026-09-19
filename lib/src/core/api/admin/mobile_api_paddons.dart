@@ -106,6 +106,39 @@ class AdminPaddonQrPrintResult {
 }
 
 extension MobileApiPaddons on MobileApi {
+  Future<String?> activeRezkaPaddon(String apparatus) async {
+    final response = await _sendAuthorized(() => _get(
+          Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/active')
+              .replace(queryParameters: {'apparatus': apparatus.trim()}),
+          headers: _headers(requireToken()),
+        ));
+    return _activePaddonResponse(response, apparatus);
+  }
+
+  Future<String?> setActiveRezkaPaddon(String apparatus, String? code) async {
+    final response = await _sendAuthorized(() => _put(
+          Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/active'),
+          headers: _headers(requireToken())..['Content-Type'] = 'application/json',
+          body: jsonEncode({'apparatus': apparatus.trim(), 'code': code?.trim() ?? ''}),
+        ));
+    return _activePaddonResponse(response, apparatus);
+  }
+
+  String? _activePaddonResponse(http.Response response, String apparatus) {
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'active_paddon');
+    }
+    final payload = jsonDecode(response.body);
+    if (payload is! Map || payload['ok'] != true ||
+        payload['apparatus'] != apparatus.trim() || !payload.containsKey('code') ||
+        (payload['code'] != null &&
+            (payload['code'] is! String || (payload['code'] as String).trim().isEmpty))) {
+      throw const MobileApiException(code: 'active_paddon_invalid_response',
+          message: 'Faol paddon ma’lumoti yuklanmadi. Qayta urinib ko‘ring.');
+    }
+    return payload['code'] as String?;
+  }
+
   Future<List<AdminPaddon>> adminPaddons({int limit = 100}) async {
     final boundedLimit = limit.clamp(1, 200).toInt();
     final response = await _sendAuthorized(

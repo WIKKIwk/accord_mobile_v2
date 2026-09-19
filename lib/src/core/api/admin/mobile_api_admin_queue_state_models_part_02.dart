@@ -344,9 +344,10 @@ extension MobileApiAdminQueueState on MobileApi {
     return policies;
   }
 
-  Future<void> adminSaveProductionMapSequence({
+  Future<List<String>> adminSaveProductionMapSequence({
     required String apparatus,
     required List<String> orderIds,
+    String? movedOrderId,
   }) async {
     final normalizedApparatus = _requireCanonicalApparatusId(apparatus);
     if (await TestModeController.instance.isEnabled()) {
@@ -359,7 +360,7 @@ extension MobileApiAdminQueueState on MobileApi {
       _testModeApparatusSequences[normalizedApparatus] = List<String>.from(
         orderIds,
       );
-      return;
+      return List<String>.from(orderIds);
     }
     final response = await _sendAuthorized(
       () => _put(
@@ -370,11 +371,26 @@ extension MobileApiAdminQueueState on MobileApi {
         body: jsonEncode({
           'apparatus': normalizedApparatus,
           'order_ids': orderIds,
+          if (movedOrderId != null) 'moved_order_id': movedOrderId,
         }),
       ),
     );
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'production_map_sequence');
     }
+    // Bulk saves keep the legacy acknowledgement contract. A drag must
+    // receive its actual server placement, not assume the requested one.
+    if (movedOrderId == null) return List.of(orderIds);
+    final data = jsonDecode(response.body);
+    final saved = data is Map ? data['order_ids'] : null;
+    if (data is! Map ||
+        data['ok'] != true ||
+        saved is! List ||
+        saved.any((id) => id is! String || id.trim().isEmpty) ||
+        saved.toSet().length != saved.length ||
+        !orderIds.every(saved.contains)) {
+      throw _productionMapQueueContractException('invalid saved order_ids');
+    }
+    return List<String>.from(saved);
   }
 }

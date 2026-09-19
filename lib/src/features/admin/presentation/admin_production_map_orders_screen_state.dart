@@ -112,6 +112,7 @@ class _AdminProductionMapOrdersScreenState
 
   List<AdminApparatus> _apparatus = const [];
   final Map<String, List<String>> _sequenceByApparatus = {};
+  bool _sequenceReorderPending = false;
   final Map<String, List<String>> _visibleOrderIdsByApparatus = {};
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
   // Kept separately from action permissions, which are invalidated on a

@@ -178,14 +178,12 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
       if (!mounted || _rezkaPrinter == null) return;
       var saved = _rezkaReport!.frameAt(index);
       if (saved == null) {
-        final paddonCode = await ActiveRezkaPaddonStore.load(widget.apparatus);
         final result = await MobileApi.instance.adminApparatusQueueActionResult(
           apparatus: widget.apparatus,
           orderId: widget.order.map.id,
           action: 'roll_complete',
           rezkaRecordFrameIndex: index + 1,
           rezkaOutputCycle: _rezkaReport!.cycleId,
-          outputPaddonCode: paddonCode ?? '',
           rezkaFrames: [
             _RezkaFrameInput(
               meterQty: _parseQty(frame.meter.text),

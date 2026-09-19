@@ -155,7 +155,7 @@ extension _AdminProductionMapOrdersMoveState
     int oldIndex,
     int newIndex,
   ) async {
-    if (widget.readOnly) {
+    if (widget.readOnly || _sequenceReorderPending) {
       return;
     }
     final apparatus = _selectedApparatus;
@@ -176,12 +176,14 @@ extension _AdminProductionMapOrdersMoveState
     final orderIds =
         orders.map((order) => order.map.id).toList(growable: false);
     _updateScreenState(() {
+      _sequenceReorderPending = true;
       _sequenceByApparatus[apparatusKey] = orderIds;
     });
     await _persistApparatusSequence(
       apparatus: apparatusKey,
       orderIds: orderIds,
       previousOrderIds: previousOrderIds,
+      movedOrderId: moved.map.id,
     );
   }
 
@@ -189,12 +191,32 @@ extension _AdminProductionMapOrdersMoveState
     required String apparatus,
     required List<String> orderIds,
     required List<String> previousOrderIds,
+    required String movedOrderId,
   }) async {
     try {
-      await MobileApi.instance.adminSaveProductionMapSequence(
+      final savedOrderIds =
+          await MobileApi.instance.adminSaveProductionMapSequence(
         apparatus: apparatus,
         orderIds: orderIds,
+        movedOrderId: movedOrderId,
       );
+      if (!mounted) return;
+      _updateScreenState(() {
+        _sequenceByApparatus[apparatus] = savedOrderIds;
+      });
+      final visibleIds = orderIds.toSet();
+      final savedIndex = savedOrderIds
+          .where(visibleIds.contains)
+          .toList()
+          .indexOf(movedOrderId);
+      if (savedIndex != orderIds.indexOf(movedOrderId)) {
+        showAdminTopNotice(
+          context,
+          context.l10n.adminText('sequence.nearest_position',
+              values: {'position': savedIndex + 1}),
+          icon: Icons.info_outline,
+        );
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -210,6 +232,8 @@ extension _AdminProductionMapOrdersMoveState
         ),
         icon: Icons.warning_amber_rounded,
       );
+    } finally {
+      if (mounted) _updateScreenState(() => _sequenceReorderPending = false);
     }
   }
 

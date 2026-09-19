@@ -1,11 +1,11 @@
 import 'dart:convert';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
+import '../api/mobile_api.dart';
 import '../network/server_endpoint_store.dart';
 import '../session/state/app_session.dart';
 
-/// A pallet selection belongs to one account, server and physical apparatus.
+/// Server-owned selection. The scope key is only a widget identity, never a
+/// local persistence key. Reads must not fall back to a device preference.
 class ActiveRezkaPaddonStore {
   static String? scopeKey(String apparatusId) {
     final profile = AppSession.instance.profile;
@@ -22,22 +22,9 @@ class ActiveRezkaPaddonStore {
         ])}';
   }
 
-  static Future<String?> load(String apparatusId) async {
-    final key = scopeKey(apparatusId);
-    if (key == null) return null;
-    final preferences = await SharedPreferences.getInstance();
-    final value = preferences.getString(key)?.trim();
-    return value == null || value.isEmpty ? null : value;
-  }
+  static Future<String?> load(String apparatusId) =>
+      MobileApi.instance.activeRezkaPaddon(apparatusId);
 
-  static Future<void> save(String apparatusId, String? code) async {
-    final key = scopeKey(apparatusId);
-    if (key == null) throw StateError('No active Rezka account');
-    final preferences = await SharedPreferences.getInstance();
-    final value = code?.trim() ?? '';
-    final saved = value.isEmpty
-        ? await preferences.remove(key)
-        : await preferences.setString(key, value);
-    if (!saved) throw StateError('Paddon selection was not saved');
-  }
+  static Future<String?> save(String apparatusId, String? code) =>
+      MobileApi.instance.setActiveRezkaPaddon(apparatusId, code);
 }

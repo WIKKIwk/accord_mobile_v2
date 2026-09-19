@@ -2,6 +2,11 @@
 part of 'admin_localization.dart';
 
 const _admin_localization_adminTranslations_resplitPart01 = {
+  'admin.sequence.nearest_position': {
+    'uz': 'Buyurtma eng yaqin ruxsat etilgan — {position}-o‘ringa qo‘yildi.',
+    'en': 'The order was placed in the nearest allowed position: {position}.',
+    'ru': 'Заказ перемещён на ближайшую разрешённую позицию: {position}.',
+  },
   'admin.action.save': {
     'uz': 'Saqlash',
     'en': 'Save',

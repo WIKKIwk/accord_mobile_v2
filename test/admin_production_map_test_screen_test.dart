@@ -76,6 +76,7 @@ part 'admin_production_map_worker_completed_wip_test_part.dart';
 part 'admin_production_map_worker_map_wip_test_part.dart';
 part 'admin_production_map_admin_status_scope_test_part.dart';
 part 'admin_production_map_merge_confirmation_test_part.dart';
+part 'admin_production_map_sequence_reorder_test_part.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
 const _print7Id = 'apparatus:default:bosma_7';
@@ -128,6 +129,7 @@ void main() {
   _registerAlternativeVisibilityTests();
   _registerAdminStatusScopeTests();
   _registerMergeConfirmationTests();
+  _registerSequenceReorderTests();
   _registerPrintMethodRoutingTests();
 
   _registeradmin_production_map_test_screen_testCases02();
