@@ -19,6 +19,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.pauseLabel,
     required this.queueStates,
     required this.queueStatesByApparatus,
+    required this.queueActionControlsByApparatus,
     required this.stageStates,
     required this.materialsLoading,
     required this.materialsError,
@@ -97,6 +98,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final String pauseLabel;
   final Map<String, String> queueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      queueActionControlsByApparatus;
   final Map<String, String> stageStates;
   final bool materialsLoading;
   final String materialsError;
@@ -400,6 +403,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       currentStation: uiState.station,
                       queueStates: queueStates,
                       queueStatesByApparatus: queueStatesByApparatus,
+                      queueActionControlsByApparatus:
+                          queueActionControlsByApparatus,
                       stageStates: stageStates,
                       currentStageNodeId: uiState.stageNodeId,
                       expanded: workerMode ? summaryExpanded : mapExpanded,
@@ -995,6 +1000,7 @@ class _SequenceStepTile extends StatelessWidget {
     required this.status,
     required this.current,
     required this.isDone,
+    this.printPreflightPassed = false,
     this.onTap,
   });
   final ProductionMapNode node;
@@ -1004,6 +1010,9 @@ class _SequenceStepTile extends StatelessWidget {
   final ApparatusQueueOrderState? status;
   final bool current;
   final bool isDone;
+  final bool printPreflightPassed;
+  bool get _colourMatched =>
+      status == ApparatusQueueOrderState.printPreflight && printPreflightPassed;
   final VoidCallback? onTap;
   static const _completedGreen = Color(0xFF2E7D32);
 
@@ -1136,6 +1145,7 @@ class _SequenceStepTile extends StatelessWidget {
   }
 
   Color _statusForeground(ColorScheme scheme) {
+    if (_colourMatched) return const Color(0xFF163311);
     return switch (status) {
       ApparatusQueueOrderState.printPreflight => const Color(0xFF343D60),
       ApparatusQueueOrderState.inProgress => const Color(0xFF8A4B00),
@@ -1148,6 +1158,7 @@ class _SequenceStepTile extends StatelessWidget {
   }
 
   Color _statusBackground(ColorScheme scheme) {
+    if (_colourMatched) return const Color(0xFFEAF6DA);
     return switch (status) {
       ApparatusQueueOrderState.printPreflight => const Color(0xFFE5BFC4),
       ApparatusQueueOrderState.inProgress => const Color(0xFFFFECB3),
@@ -1163,6 +1174,10 @@ class _SequenceStepTile extends StatelessWidget {
     BuildContext context,
     ApparatusQueueOrderState status,
   ) {
+    if (_colourMatched) {
+      return context.l10n
+          .productionText('worker.queue.status.print_preflight_passed');
+    }
     return switch (status) {
       ApparatusQueueOrderState.printPreflight => context.l10n.productionText(
           'worker.queue.status.print_preflight',

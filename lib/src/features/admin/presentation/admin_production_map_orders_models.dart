@@ -275,6 +275,7 @@ bool _sameMoveApparatusIdentity(
 enum _OrderCardTone {
   neutral,
   printPreflight,
+  printPreflightPassed,
   inProgress,
   waitingNextStage,
   paused,
@@ -290,6 +291,7 @@ _OrderCardTone _resolveWorkerOrderCardTone({
   AdminProductionOrderStatusDetail? orderStatus,
   AdminOrderControlState orderControl = AdminOrderControlState.active,
   ApparatusQueueOrderState? apparatusState,
+  bool printPreflightPassed = false,
 }) {
   // Order-wide safety warnings remain shared. Active/paused/completed on a
   // different stage must not override this worker's own apparatus session.
@@ -306,7 +308,9 @@ _OrderCardTone _resolveWorkerOrderCardTone({
         : _OrderCardTone.frozen;
   }
   if (apparatusState == ApparatusQueueOrderState.printPreflight) {
-    return _OrderCardTone.printPreflight;
+    return printPreflightPassed
+        ? _OrderCardTone.printPreflightPassed
+        : _OrderCardTone.printPreflight;
   }
   if (workActivity == null ||
       !workActivity.belongsTo(role: workerRole, ref: workerRef)) {
@@ -325,7 +329,11 @@ _OrderCardTone _resolveOrderCardTone({
   AdminOrderControlState orderControl = AdminOrderControlState.active,
   OrderQueueActivityState? orderActivityState,
   ApparatusQueueOrderState? apparatusState,
+  bool printPreflightPassed = false,
 }) {
+  final preflightTone = printPreflightPassed
+      ? _OrderCardTone.printPreflightPassed
+      : _OrderCardTone.printPreflight;
   final status = orderStatus?.orderStatus.trim().toLowerCase() ?? '';
   final lifecycleStatus =
       orderStatus?.lifecycleStatus.trim().toLowerCase() ?? '';
@@ -340,7 +348,7 @@ _OrderCardTone _resolveOrderCardTone({
     return _OrderCardTone.frozen;
   }
   if (status == 'print_preflight') {
-    return _OrderCardTone.printPreflight;
+    return preflightTone;
   }
   if (status == 'paused') {
     return _OrderCardTone.paused;
@@ -370,7 +378,7 @@ _OrderCardTone _resolveOrderCardTone({
       };
   if (activityState != null) {
     return switch (activityState) {
-      OrderQueueActivityState.printPreflight => _OrderCardTone.printPreflight,
+      OrderQueueActivityState.printPreflight => preflightTone,
       OrderQueueActivityState.inProgress => _OrderCardTone.inProgress,
       OrderQueueActivityState.waitingNextStage =>
         _OrderCardTone.waitingNextStage,
@@ -392,7 +400,9 @@ Color? _orderCardBackgroundColor(
   }
   final theme = Theme.of(context);
   final accent = switch (tone) {
-    _OrderCardTone.printPreflight => Colors.transparent,
+    _OrderCardTone.printPreflight ||
+    _OrderCardTone.printPreflightPassed =>
+      Colors.transparent,
     _OrderCardTone.inProgress => const Color(0xFF2E7D32),
     _OrderCardTone.waitingNextStage => const Color(0xFF1565C0),
     _OrderCardTone.paused => const Color(0xFFF9A825),
@@ -409,6 +419,14 @@ Color? _orderCardBackgroundColor(
 }
 
 Gradient? _orderCardBackgroundGradient(_OrderCardTone tone) {
+  if (tone == _OrderCardTone.printPreflightPassed) {
+    return const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFF2A6618), Color(0xFF79BD2F), Color(0xFFBFE653)],
+      stops: [0.0, 0.52, 1.0],
+    );
+  }
   if (tone != _OrderCardTone.printPreflight) return null;
   return const LinearGradient(
     begin: Alignment.topLeft,
@@ -420,4 +438,58 @@ Gradient? _orderCardBackgroundGradient(_OrderCardTone tone) {
     ],
     stops: [0.0, 0.52, 1.0],
   );
+}
+
+// Presentation only: never turn a passed colour trial into a queue/work state.
+// Match the current apparatus/order, and ignore historical or consumed holds.
+bool _orderPrintPreflightPassed({
+  required String orderId,
+  required Map<String, Map<String, String>> queueStates,
+  required Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      controls,
+  String? apparatusId,
+  String? stageNodeId,
+}) {
+  final id = orderId.trim();
+  final stages = queueStates.entries.where((entry) =>
+      (apparatusId == null || entry.key == apparatusId.trim()) &&
+      entry.value[id]?.trim() == 'print_preflight');
+  return stages.isNotEmpty &&
+      stages.every((entry) {
+        final control = controls[entry.key]?[id];
+        final hold = control?.printPreflight;
+        return control?.state.trim() == 'print_preflight' &&
+            (stageNodeId == null ||
+                control?.stageNodeId.trim() == stageNodeId.trim()) &&
+            hold != null &&
+            hold.isPassed &&
+            hold.orderId.trim() == id &&
+            hold.apparatus.trim() == entry.key;
+      });
+}
+
+class _PrintPreflightPassedLabel extends StatelessWidget {
+  const _PrintPreflightPassedLabel();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF6DA),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            child: Text(
+              context.l10n
+                  .productionText('worker.queue.status.print_preflight_passed'),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: const Color(0xFF163311),
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+        ),
+      );
 }

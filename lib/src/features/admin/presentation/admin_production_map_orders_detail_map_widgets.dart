@@ -9,6 +9,7 @@ class _OrderMapProgressCard extends StatelessWidget {
     required this.currentStation,
     required this.queueStates,
     required this.queueStatesByApparatus,
+    required this.queueActionControlsByApparatus,
     required this.stageStates,
     required this.currentStageNodeId,
     required this.expanded,
@@ -22,6 +23,8 @@ class _OrderMapProgressCard extends StatelessWidget {
   final String currentStation;
   final Map<String, String> queueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      queueActionControlsByApparatus;
   final Map<String, String> stageStates;
   final String currentStageNodeId;
   final bool expanded;
@@ -51,6 +54,17 @@ class _OrderMapProgressCard extends StatelessWidget {
                       for (var index = 0; index < steps.length; index++) ...[
                         _SequenceStepTile(
                           node: steps[index],
+                          printPreflightPassed: _orderPrintPreflightPassed(
+                            orderId: orderId,
+                            apparatusId: steps[index].apparatusId,
+                            stageNodeId: steps[index].id,
+                            queueStates: {
+                              ...queueStatesByApparatus,
+                              if (currentStation.isNotEmpty)
+                                currentStation: queueStates,
+                            },
+                            controls: queueActionControlsByApparatus,
+                          ),
                           operation: _canonicalNodeOperation(
                             steps[index],
                             apparatusCatalog,

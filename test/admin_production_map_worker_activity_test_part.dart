@@ -1,9 +1,16 @@
 part of 'admin_production_map_test_screen_test.dart';
 
 void _registerWorkerActivityTests() {
-  for (final view in ['worker', 'sequence', 'orders']) {
+  for (final (view, dark) in [
+    ('worker', false),
+    ('sequence', false),
+    ('orders', false),
+    ('worker', true),
+    ('sequence', true),
+    ('orders', true),
+  ]) {
     testWidgets(
-      'print status uses ordinary snapshot and stream across re-entry: $view',
+      'print status uses ordinary snapshot and stream across re-entry: $view dark=$dark',
       (tester) async {
         final workerMode = view == 'worker';
         await TestModeController.instance.setEnabled(true);
@@ -35,7 +42,13 @@ void _registerWorkerActivityTests() {
             StreamController<AdminProductionMapLiveSnapshot>.broadcast();
         addTearDown(events.close);
         var reads = 0;
-        AdminProductionMapLiveSnapshot snapshot(String state, int revision) =>
+        AdminProductionMapLiveSnapshot snapshot(
+          String state,
+          int revision, {
+          String? trialStatus,
+          String holdApparatus = _print7Id,
+          String holdOrder = orderId,
+        }) =>
             AdminProductionMapLiveSnapshot(
               maps: [saved],
               sequences: {
@@ -49,8 +62,26 @@ void _registerWorkerActivityTests() {
               },
               queuePolicies: const {},
               orderControls: const {},
-              // Colours must not depend on a separate preflight payload/flag.
-              queueActionControls: const {},
+              // Running still works without a hold; green requires the current
+              // server-confirmed result for exactly this order and apparatus.
+              queueActionControls: {
+                if (trialStatus != null)
+                  _print7Id: {
+                    orderId: AdminApparatusQueueOrderActionControl(
+                      state: state,
+                      stageNodeId: saved.map.nodes
+                          .firstWhere((node) => node.kind == 'apparatus')
+                          .id,
+                      printPreflight: AdminPrintPreflightHold(
+                        holdId: 'trial',
+                        idempotencyKey: 'trial',
+                        orderId: holdOrder,
+                        apparatus: holdApparatus,
+                        status: trialStatus,
+                      ),
+                    ),
+                  },
+              },
               orderStatuses: {
                 orderId: AdminProductionOrderStatusDetail(orderStatus: state),
               },
@@ -67,7 +98,9 @@ void _registerWorkerActivityTests() {
             Future<void> mount() async {
               await tester.pumpWidget(
                 MaterialApp(
-                  theme: ThemeData(useMaterial3: true),
+                  theme: ThemeData(
+                      useMaterial3: true,
+                      brightness: dark ? Brightness.dark : Brightness.light),
                   locale: const Locale('uz'),
                   localizationsDelegates: const [
                     AppLocalizations.delegate,
@@ -151,6 +184,30 @@ void _registerWorkerActivityTests() {
               findsOneWidget,
               reason: 'older stream frame cannot clear the status',
             );
+            current = snapshot('print_preflight', 3, trialStatus: 'passed');
+            events.add(current);
+            await tester.pumpAndSettle();
+            void expectPassed() {
+              final ready = cardGradient(tester.widget(gradient))!;
+              expect(ready.colors, const [
+                Color(0xFF2A6618),
+                Color(0xFF79BD2F),
+                Color(0xFFBFE653),
+              ]);
+              expect(ready.stops, [0.0, 0.52, 1.0]);
+              expect(ready.begin, Alignment.topLeft);
+              expect(ready.end, Alignment.bottomRight);
+              expect(
+                  find.descendant(
+                      of: row, matching: find.text('Rang chiqarildi')),
+                  findsOneWidget);
+              expect(tester.takeException(), isNull);
+            }
+
+            expectPassed();
+            events.add(snapshot('print_preflight', 2, trialStatus: 'running'));
+            await tester.pumpAndSettle();
+            expectPassed();
             await tester.pumpWidget(const SizedBox.shrink());
             await tester.pumpAndSettle();
             await mount();
@@ -161,7 +218,46 @@ void _registerWorkerActivityTests() {
               reason:
                   're-entry restores server status without local persistence',
             );
-            current = snapshot('pending', 3);
+            expectPassed();
+            // Historical/foreign successes must not paint this queue green.
+            if (view == 'orders') {
+              await tester.tap(find.descendant(
+                  of: row, matching: find.byTooltip('Buyurtma ma’lumotlari')));
+              await tester.pumpAndSettle();
+              await tester.ensureVisible(find.text('Mapni ko‘rish'));
+              await tester.tap(find.text('Mapni ko‘rish'));
+              await tester.pumpAndSettle();
+              expect(
+                  find.descendant(
+                      of: find.byType(BottomSheet),
+                      matching: find.text('Rang chiqarildi')),
+                  findsOneWidget);
+              expect(
+                  find.descendant(
+                      of: find.byType(BottomSheet),
+                      matching: find.text('Rang chiqaryapti')),
+                  findsNothing);
+              await tester.tap(
+                  find.byKey(const ValueKey('production-order-detail-close')));
+              await tester.pumpAndSettle();
+            }
+            for (final invalid in [
+              snapshot('print_preflight', 4,
+                  trialStatus: 'passed', holdApparatus: _print8Id),
+              snapshot('print_preflight', 5,
+                  trialStatus: 'passed', holdOrder: 'another-order'),
+              snapshot('print_preflight', 6, trialStatus: 'consumed'),
+            ]) {
+              events.add(invalid);
+              await tester.pumpAndSettle();
+              expect(
+                  cardGradient(tester.widget(gradient))!.colors, actual.colors);
+              expect(
+                  find.descendant(
+                      of: row, matching: find.text('Rang chiqarildi')),
+                  findsNothing);
+            }
+            current = snapshot('pending', 7, trialStatus: 'failed');
             events.add(current);
             await tester.pumpAndSettle();
             expect(
@@ -170,6 +266,17 @@ void _registerWorkerActivityTests() {
               reason: 'failed trial returns to the ordinary queue status',
             );
             if (workerMode) expect(reads, 2);
+            events.add(snapshot('print_preflight', 8, trialStatus: 'passed'));
+            await tester.pumpAndSettle();
+            expectPassed();
+            events.add(snapshot('in_progress', 9, trialStatus: 'consumed'));
+            await tester.pumpAndSettle();
+            expect(gradient, findsNothing,
+                reason: 'Start uses the ordinary work colour');
+            expect(
+                find.descendant(
+                    of: row, matching: find.text('Rang chiqarildi')),
+                findsNothing);
             await tester.pumpWidget(const SizedBox.shrink());
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull);

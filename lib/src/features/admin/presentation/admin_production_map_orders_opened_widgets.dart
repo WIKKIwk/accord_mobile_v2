@@ -18,6 +18,7 @@ class _OpenedOrderList extends StatelessWidget {
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
     required this.queueStatesByApparatus,
+    required this.queueActionControlsByApparatus,
     required this.visibleOrderIdsByApparatus,
     required this.onInfoOrder,
     required this.onLongPressOrder,
@@ -30,6 +31,8 @@ class _OpenedOrderList extends StatelessWidget {
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      queueActionControlsByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
@@ -62,6 +65,11 @@ class _OpenedOrderList extends StatelessWidget {
       final order = orders[index];
       final orderId = order.map.id.trim();
       final tone = _resolveOrderCardTone(
+        printPreflightPassed: _orderPrintPreflightPassed(
+          orderId: orderId,
+          queueStates: queueStatesByApparatus,
+          controls: queueActionControlsByApparatus,
+        ),
         orderStatus: orderStatusesByOrderId[orderId],
         orderControl: adminProductionMapOrderControlFor(
           orderControlsByOrderId,
@@ -126,6 +134,8 @@ class _OpenedOrderRow extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final map = order.map;
+    final passed = tone == _OrderCardTone.printPreflightPassed;
+    final passedForeground = passed ? const Color(0xFF102A0B) : null;
     final subtitle = _openedOrderSubtitle(
       map,
       customerName: customerName,
@@ -181,6 +191,8 @@ class _OpenedOrderRow extends StatelessWidget {
                           map: map,
                           theme: theme,
                           scheme: scheme,
+                          titleColor: passedForeground,
+                          secondaryColor: passedForeground,
                         ),
                         if (subtitle.isNotEmpty) ...[
                           const SizedBox(height: 4),
@@ -189,11 +201,13 @@ class _OpenedOrderRow extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
+                              color:
+                                  passedForeground ?? scheme.onSurfaceVariant,
                               height: 1.05,
                             ),
                           ),
                         ],
+                        if (passed) const _PrintPreflightPassedLabel(),
                       ],
                     ),
                   ),
@@ -264,7 +278,9 @@ List<_OrderWatermarkData> _orderWatermarks({
   required AppLocalizations l10n,
 }) {
   return switch (tone) {
-    _OrderCardTone.printPreflight => const [],
+    _OrderCardTone.printPreflight ||
+    _OrderCardTone.printPreflightPassed =>
+      const [],
     _OrderCardTone.inProgress => _activeApparatusWatermarks(
         order: order,
         apparatusCatalog: apparatusCatalog,

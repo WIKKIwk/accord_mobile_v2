@@ -11,6 +11,7 @@ class _SequenceModulePage extends StatefulWidget {
     required this.readOnly,
     required this.customerNameByMapId,
     required this.queueStates,
+    required this.queueActionControls,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
     this.interactionHint,
@@ -28,6 +29,7 @@ class _SequenceModulePage extends StatefulWidget {
   final bool readOnly;
   final Map<String, String> customerNameByMapId;
   final Map<String, String> queueStates;
+  final Map<String, AdminApparatusQueueOrderActionControl> queueActionControls;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final String? interactionHint;
@@ -83,6 +85,12 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
         readOnly: widget.readOnly,
         customerName: widget.customerNameByMapId[order.map.id.trim()] ?? '',
         tone: _resolveOrderCardTone(
+          printPreflightPassed: _orderPrintPreflightPassed(
+            orderId: order.map.id,
+            apparatusId: selected?.id ?? '',
+            queueStates: {selected?.id ?? '': widget.queueStates},
+            controls: {selected?.id ?? '': widget.queueActionControls},
+          ),
           orderStatus: widget.orderStatusesByOrderId[order.map.id.trim()],
           orderControl: adminProductionMapOrderControlFor(
             widget.orderControlsByOrderId,
@@ -409,6 +417,8 @@ class _SequenceOrderRow extends StatelessWidget {
     );
 
     final resolvedGradient = _orderCardBackgroundGradient(tone);
+    final passed = tone == _OrderCardTone.printPreflightPassed;
+    final passedForeground = passed ? const Color(0xFF102A0B) : null;
     return Material(
       color: backgroundColor ??
           (resolvedGradient == null
@@ -461,8 +471,8 @@ class _SequenceOrderRow extends StatelessWidget {
                             map: map,
                             theme: theme,
                             scheme: scheme,
-                            titleColor: titleColor,
-                            secondaryColor: secondaryColor,
+                            titleColor: titleColor ?? passedForeground,
+                            secondaryColor: secondaryColor ?? passedForeground,
                           ),
                           if (subtitle.isNotEmpty) ...[
                             const SizedBox(height: 4),
@@ -473,12 +483,14 @@ class _SequenceOrderRow extends StatelessWidget {
                                     1000 + (map.id.hashCode.abs() % 5) * 350,
                               ),
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color:
-                                    secondaryColor ?? scheme.onSurfaceVariant,
+                                color: secondaryColor ??
+                                    passedForeground ??
+                                    scheme.onSurfaceVariant,
                                 height: 1.05,
                               ),
                             ),
                           ],
+                          if (passed) const _PrintPreflightPassedLabel(),
                         ],
                       ),
                     ),

@@ -77,6 +77,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'ru': 'Подбор цвета',
     'en': 'Colour matching',
   },
+  'worker.queue.status.print_preflight_passed': {
+    'uz': 'Rang chiqarildi',
+    'ru': 'Цвет подобран',
+    'en': 'Colour matched',
+  },
   'worker.queue.status.paused': {
     'uz': 'Pauzada',
     'en': 'Paused',

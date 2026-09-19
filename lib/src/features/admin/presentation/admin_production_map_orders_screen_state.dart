@@ -480,6 +480,8 @@ class _AdminProductionMapOrdersScreenState
                               onLongPressWatchOrder: _showWatchOrderLongPress,
                             )
                           : _AdminModulesBody(
+                              queueActionControlsByApparatus:
+                                  _queueActionControlsByApparatus,
                               pendingOrders: _pendingOrders,
                               pendingOrdersError: _pendingOrdersError,
                               onPendingOrder: _showPendingOrder,
@@ -710,6 +712,7 @@ class _AdminProductionMapOrdersScreenState
         queueStatesByApparatus: _queueStatesByApparatus,
         stageStatesByOrderId: _stageStatesByOrderId,
         allowWipQrReprint: !widget.supplyViewerMode,
+        queueActionControlsByApparatus: _queueActionControlsByApparatus,
         progressDriverUrlPicker: widget.progressDriverUrlPicker,
         initialOrderControls: _orderControlsByOrderId,
       ),
@@ -760,6 +763,7 @@ class _AdminProductionMapOrdersScreenState
           apparatus: apparatus,
           orderId: mapId,
         ),
+        queueActionControlsByApparatus: _queueActionControlsByApparatus,
         queuePolicy: _queuePolicyForApparatus(
           apparatus,
           queuePoliciesByApparatus: _queuePoliciesByApparatus,

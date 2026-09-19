@@ -51,6 +51,9 @@ Future<void> showAdminProductionMapOrderReadOnlyDetail(
         queueStatesByApparatus: snapshot.queueStates,
       ),
       queueStatesByApparatus: snapshot.queueStates,
+      queueActionControlsByApparatus: snapshot.queueActionControls,
+      queueActionControl: snapshot.queueActionControls[apparatus.id.trim()]
+          ?[mapId],
       stageStatesByOrderId: snapshot.stageStates,
       queuePolicy: _queuePolicyForApparatus(
         apparatus,
@@ -131,6 +134,7 @@ Future<bool> showProductionMapFreezePauseFlow(
       queueStatesByApparatus: snapshot.queueStates,
       stageStatesByOrderId: snapshot.stageStates,
       queueActionControl: queueActionControl,
+      queueActionControlsByApparatus: snapshot.queueActionControls,
       queuePolicy: _queuePolicyForApparatus(
         target,
         queuePoliciesByApparatus: snapshot.queuePolicies,

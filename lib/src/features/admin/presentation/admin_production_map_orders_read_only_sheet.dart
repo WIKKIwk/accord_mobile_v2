@@ -367,6 +367,16 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             : context.l10n.productionText('worker.action.pause'),
         queueStates: _queueStates,
         queueStatesByApparatus: widget.queueStatesByApparatus,
+        queueActionControlsByApparatus: {
+          ...widget.queueActionControlsByApparatus,
+          if (uiState.station.isNotEmpty)
+            uiState.station: {
+              ...?widget.queueActionControlsByApparatus[uiState.station],
+              // Do not reuse a stale result after the current control clears.
+              uiState.orderId: _queueActionControl ??
+                  const AdminApparatusQueueOrderActionControl(),
+            },
+        },
         stageStates: _stageStates,
         materialsLoading: _materialsLoading,
         materialsError: _materialsError,
@@ -2444,6 +2454,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.workerMode = false,
     this.initialQueueStates = const {},
     this.queueStatesByApparatus = const {},
+    this.queueActionControlsByApparatus = const {},
     this.stageStatesByOrderId = const {},
     this.queueActionControl,
     this.queuePolicy = ApparatusQueuePolicy.strictSequence,
@@ -2473,6 +2484,8 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final bool workerMode;
   final Map<String, String> initialQueueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      queueActionControlsByApparatus;
   final Map<String, Map<String, String>> stageStatesByOrderId;
   final AdminApparatusQueueOrderActionControl? queueActionControl;
   final ApparatusQueuePolicy queuePolicy;

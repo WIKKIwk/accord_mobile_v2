@@ -14,6 +14,7 @@ class _OrdersModulePage extends StatelessWidget {
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
     required this.queueStatesByApparatus,
+    required this.queueActionControlsByApparatus,
     required this.visibleOrderIdsByApparatus,
     required this.onInfoOrder,
     required this.onLongPressOrder,
@@ -30,6 +31,8 @@ class _OrdersModulePage extends StatelessWidget {
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      queueActionControlsByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
@@ -68,6 +71,7 @@ class _OrdersModulePage extends StatelessWidget {
             orderStatusesByOrderId: orderStatusesByOrderId,
             orderControlsByOrderId: orderControlsByOrderId,
             queueStatesByApparatus: queueStatesByApparatus,
+            queueActionControlsByApparatus: queueActionControlsByApparatus,
             visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
             onInfoOrder: onInfoOrder,
             onLongPressOrder: onLongPressOrder,
@@ -114,6 +118,7 @@ class _AdminModulesBody extends StatelessWidget {
     required this.onMove,
     required this.customerNameByMapId,
     required this.queueStatesByApparatus,
+    required this.queueActionControlsByApparatus,
     required this.visibleOrderIdsByApparatus,
     required this.orderStatusesByOrderId,
     this.sequenceInteractionHint,
@@ -182,6 +187,8 @@ class _AdminModulesBody extends StatelessWidget {
   })? onInfoSequenceOrder;
   final Map<String, String> customerNameByMapId;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      queueActionControlsByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final String? sequenceInteractionHint;
@@ -235,6 +242,9 @@ class _AdminModulesBody extends StatelessWidget {
               for (final module in modules)
                 switch (module) {
                   _OpenedOrderModule.sequence => _SequenceModulePage(
+                      queueActionControls: queueActionControlsByApparatus[
+                              selectedApparatus?.id.trim()] ??
+                          const {},
                       bottomPadding: bottomPadding,
                       availableApparatus: apparatus,
                       apparatus: selectedApparatus,
@@ -263,6 +273,8 @@ class _AdminModulesBody extends StatelessWidget {
                       onLongPressOrder: onLongPressOrder,
                     ),
                   _OpenedOrderModule.orders => _OrdersModulePage(
+                      queueActionControlsByApparatus:
+                          queueActionControlsByApparatus,
                       pendingOrders: pendingOrders
                           .where((o) => o.matches(searchQuery))
                           .toList(),
@@ -785,6 +797,9 @@ class _WorkerWatchBody extends StatelessWidget {
                   )
                 else
                   _AparatchiWatchSequencePage(
+                    queueActionControls: queueActionControlsByApparatus[
+                            tab.apparatus!.id.trim()] ??
+                        const {},
                     workActivity:
                         workActivityByApparatus[tab.apparatus!.id.trim()] ??
                             const {},
@@ -832,6 +847,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
     required this.bottomPadding,
     required this.isAssigned,
     required this.queueStates,
+    required this.queueActionControls,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
     required this.onTapOrder,
@@ -845,6 +861,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
   final double bottomPadding;
   final bool isAssigned;
   final Map<String, String> queueStates;
+  final Map<String, AdminApparatusQueueOrderActionControl> queueActionControls;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final ValueChanged<ProductionMapSaved> onTapOrder;
@@ -903,6 +920,12 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                     onTap: () => onTapOrder(orders[index]),
                     onLongPress: () => onLongPressOrder(orders[index]),
                     tone: _resolveWorkerOrderCardTone(
+                      printPreflightPassed: _orderPrintPreflightPassed(
+                        orderId: orders[index].map.id,
+                        apparatusId: apparatus.id,
+                        queueStates: {apparatus.id: queueStates},
+                        controls: {apparatus.id: queueActionControls},
+                      ),
                       workActivity: workActivity[orders[index].map.id.trim()],
                       workerRole: workerRole,
                       workerRef: workerRef,
