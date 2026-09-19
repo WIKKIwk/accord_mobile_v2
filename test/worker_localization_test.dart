@@ -7,6 +7,9 @@ void main() {
       () {
     const keys = {
       'apparatus_busy': 'worker.waiting.apparatus_busy',
+      'print_preflight_active': 'worker.waiting.print_preflight_active',
+      'print_preflight_other_order_active':
+          'worker.waiting.print_preflight_other_order_active',
       'previous_stage_not_configured':
           'worker.error.previous_stage_not_configured',
       'raw_material_assignment_required':
@@ -31,6 +34,21 @@ void main() {
       expect(l10n.productionErrorMessage('future_reason', fallback: fallback),
           fallback);
     }
+  });
+
+  test('another order preflight does not ask this worker to record its result', () {
+    for (final language in ['uz', 'en', 'ru']) {
+      final l10n = AppLocalizations(Locale(language));
+      expect(
+        l10n.productionErrorMessage('print_preflight_other_order_active'),
+        isNot(l10n.productionErrorMessage('print_preflight_active')),
+      );
+    }
+    final l10n = AppLocalizations(const Locale('uz'));
+    final message =
+        l10n.productionErrorMessage('print_preflight_other_order_active');
+    expect(message, contains('boshqa buyurtma'));
+    expect(message, isNot(contains('Natijani belgilang')));
   });
 
   test('worker production text follows the selected locale', () {

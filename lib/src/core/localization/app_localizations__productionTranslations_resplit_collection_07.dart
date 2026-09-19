@@ -135,6 +135,14 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'en': 'A colour preflight is active. Record its result or cancel it.',
     'ru': 'Идёт пробная печать. Укажите результат или отмените её.',
   },
+  'worker.waiting.print_preflight_other_order_active': {
+    'uz':
+        'Apparatda boshqa buyurtma uchun rang chiqarilmoqda. U tugaguncha yoki bekor qilinguncha kuting.',
+    'en':
+        'Colour matching is in progress for another order on this machine. Wait until it finishes or is cancelled.',
+    'ru':
+        'На аппарате выполняется подбор цвета для другого заказа. Дождитесь его завершения или отмены.',
+  },
   'worker.waiting.apparatus_busy': {
     'uz':
         'Apparatda boshqa buyurtma ishlanmoqda. Boshlash yoki davom ettirish uchun apparat bo‘shashishini kuting.',

@@ -40,6 +40,8 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
     final key = switch (code.trim().toLowerCase()) {
       'apparatus_busy' => 'worker.waiting.apparatus_busy',
       'print_preflight_active' => 'worker.waiting.print_preflight_active',
+      'print_preflight_other_order_active' =>
+          'worker.waiting.print_preflight_other_order_active',
       'previous_stage_not_configured' =>
         'worker.error.previous_stage_not_configured',
       'raw_material_assignment_required' =>
