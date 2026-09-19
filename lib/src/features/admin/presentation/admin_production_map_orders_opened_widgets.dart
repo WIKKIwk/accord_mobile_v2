@@ -207,7 +207,6 @@ class _OpenedOrderRow extends StatelessWidget {
                             ),
                           ),
                         ],
-                        if (passed) const _PrintPreflightPassedLabel(),
                       ],
                     ),
                   ),

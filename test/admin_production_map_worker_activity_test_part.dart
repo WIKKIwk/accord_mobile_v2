@@ -197,10 +197,6 @@ void _registerWorkerActivityTests() {
               expect(ready.stops, [0.0, 0.52, 1.0]);
               expect(ready.begin, Alignment.topLeft);
               expect(ready.end, Alignment.bottomRight);
-              expect(
-                  find.descendant(
-                      of: row, matching: find.text('Rang chiqarildi')),
-                  findsOneWidget);
               expect(tester.takeException(), isNull);
             }
 
@@ -252,10 +248,6 @@ void _registerWorkerActivityTests() {
               await tester.pumpAndSettle();
               expect(
                   cardGradient(tester.widget(gradient))!.colors, actual.colors);
-              expect(
-                  find.descendant(
-                      of: row, matching: find.text('Rang chiqarildi')),
-                  findsNothing);
             }
             current = snapshot('pending', 7, trialStatus: 'failed');
             events.add(current);
@@ -273,10 +265,6 @@ void _registerWorkerActivityTests() {
             await tester.pumpAndSettle();
             expect(gradient, findsNothing,
                 reason: 'Start uses the ordinary work colour');
-            expect(
-                find.descendant(
-                    of: row, matching: find.text('Rang chiqarildi')),
-                findsNothing);
             await tester.pumpWidget(const SizedBox.shrink());
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull);

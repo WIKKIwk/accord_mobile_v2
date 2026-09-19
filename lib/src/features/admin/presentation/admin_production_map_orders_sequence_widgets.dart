@@ -490,7 +490,6 @@ class _SequenceOrderRow extends StatelessWidget {
                               ),
                             ),
                           ],
-                          if (passed) const _PrintPreflightPassedLabel(),
                         ],
                       ),
                     ),

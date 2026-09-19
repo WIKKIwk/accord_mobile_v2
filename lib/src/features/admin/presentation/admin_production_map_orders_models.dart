@@ -467,29 +467,3 @@ bool _orderPrintPreflightPassed({
             hold.apparatus.trim() == entry.key;
       });
 }
-
-class _PrintPreflightPassedLabel extends StatelessWidget {
-  const _PrintPreflightPassedLabel();
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xFFEAF6DA),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            child: Text(
-              context.l10n
-                  .productionText('worker.queue.status.print_preflight_passed'),
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: const Color(0xFF163311),
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-        ),
-      );
-}
