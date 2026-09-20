@@ -26,13 +26,12 @@ void _registeradmin_user_create_screen_testCases01() {
 
       await _pumpUi(tester);
 
-      expect(find.text('Role tanlash'), findsOneWidget);
-      expect(find.text('Role tanlang'), findsOneWidget);
+      expect(find.text('Role tanlang'), findsNWidgets(2));
       expect(find.text('Omborchi'), findsNothing);
       expect(find.byType(TabBar), findsNothing);
       expect(seenRequests, contains('GET /v1/mobile/admin/roles'));
 
-      await tester.tap(find.text('Role tanlang').first);
+      await tester.tap(find.text('Role tanlang').last);
       await _pumpUi(tester);
       expect(find.text('Role tanlang'), findsWidgets);
       expect(find.text('Item yaratuvchi'), findsOneWidget);
@@ -56,7 +55,7 @@ void _registeradmin_user_create_screen_testCases01() {
 
       expect(seenRequests, contains('POST /v1/mobile/admin/customers'));
       expect(tester.takeException(), isNull);
-      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(milliseconds: 5500));
       await _pumpUi(tester);
     }, createHttpClient: (_) => client);
   });
@@ -84,7 +83,7 @@ void _registeradmin_user_create_screen_testCases01() {
       );
 
       await _pumpUi(tester);
-      await tester.tap(find.text('Role tanlang').first);
+      await tester.tap(find.text('Role tanlang').last);
       await _pumpUi(tester);
       await _selectPickerItem(tester, 'Aparatchi');
 
@@ -114,7 +113,7 @@ void _registeradmin_user_create_screen_testCases01() {
         isTrue,
       );
       expect(tester.takeException(), isNull);
-      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(milliseconds: 5500));
       await _pumpUi(tester);
     }, createHttpClient: (_) => client);
   });
@@ -142,7 +141,7 @@ void _registeradmin_user_create_screen_testCases01() {
       );
 
       await _pumpUi(tester);
-      await tester.tap(find.text('Role tanlang').first);
+      await tester.tap(find.text('Role tanlang').last);
       await _pumpUi(tester);
       await _selectPickerItem(tester, 'Qolipchi');
 
@@ -162,6 +161,9 @@ void _registeradmin_user_create_screen_testCases01() {
         ),
       );
       expect(seenRequests, isNot(contains('POST /v1/mobile/admin/customers')));
+      // Newly issued credentials are shown immediately because GET cannot recover them.
+      expect(find.text('501234567890'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsOneWidget);
       expect(
         seenRequests.any((request) => request.contains('/admin/workers')),
         isFalse,
@@ -173,7 +175,7 @@ void _registeradmin_user_create_screen_testCases01() {
         isTrue,
       );
       expect(tester.takeException(), isNull);
-      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(milliseconds: 5500));
       await _pumpUi(tester);
     }, createHttpClient: (_) => client);
   });
@@ -204,7 +206,7 @@ void _registeradmin_user_create_screen_testCases01() {
       );
 
       await _pumpUi(tester);
-      await tester.tap(find.text('Role tanlang').first);
+      await tester.tap(find.text('Role tanlang').last);
       await _pumpUi(tester);
       await _selectPickerItem(tester, 'Bo‘yoqchi');
 
@@ -227,7 +229,7 @@ void _registeradmin_user_create_screen_testCases01() {
         isTrue,
       );
       expect(tester.takeException(), isNull);
-      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(milliseconds: 5500));
       await _pumpUi(tester);
     }, createHttpClient: (_) => client);
   });
@@ -255,7 +257,7 @@ void _registeradmin_user_create_screen_testCases01() {
       );
 
       await _pumpUi(tester);
-      await tester.tap(find.text('Role tanlang').first);
+      await tester.tap(find.text('Role tanlang').last);
       await _pumpUi(tester);
 
       expect(find.text('Material taminotchisi'), findsOneWidget);
@@ -306,7 +308,7 @@ void _registeradmin_user_create_screen_testCases01() {
         isTrue,
       );
       expect(tester.takeException(), isNull);
-      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(milliseconds: 5500));
       await _pumpUi(tester);
     }, createHttpClient: (_) => client);
   });
@@ -334,7 +336,7 @@ void _registeradmin_user_create_screen_testCases01() {
       );
 
       await _pumpUi(tester);
-      await tester.tap(find.text('Role tanlang').first);
+      await tester.tap(find.text('Role tanlang').last);
       await _pumpUi(tester);
       await _selectPickerItem(tester, 'Material taminotchisi');
       await _waitForMaterialItemGroupSelector(tester);
@@ -380,7 +382,7 @@ void _registeradmin_user_create_screen_testCases01() {
         isTrue,
       );
       expect(tester.takeException(), isNull);
-      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(milliseconds: 5500));
       await _pumpUi(tester);
     }, createHttpClient: (_) => client);
   });

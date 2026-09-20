@@ -102,6 +102,16 @@ const _admin_localization_adminTranslations_resplitPart17 = {
     'en': 'Not generated yet',
     'ru': 'Ещё не создан',
   },
+  'admin.profile.code_not_shown': {
+    'uz': 'Saqlangan kod ko‘rsatilmaydi',
+    'en': 'Saved codes are not displayed',
+    'ru': 'Сохранённый код не отображается',
+  },
+  'admin.profile.code_once_hint': {
+    'uz': 'Yangi kodni hozir nusxalab oling. Sahifa qayta ochilganda ko‘rsatilmaydi.',
+    'en': 'Copy the new code now. It will not be shown when this page is reopened.',
+    'ru': 'Скопируйте новый код сейчас. При повторном открытии страницы он не отображается.',
+  },
   'admin.profile.code_copied': {
     'uz': 'Kod nusxalandi',
     'en': 'Code copied',

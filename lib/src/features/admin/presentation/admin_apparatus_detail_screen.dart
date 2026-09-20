@@ -33,10 +33,9 @@ class AdminApparatusDetailScreen extends StatefulWidget {
   final Future<AdminApparatus?> Function(
     AdminApparatus apparatus,
     String objectId,
-  )
-  onPlacementChanged;
+  ) onPlacementChanged;
   final Future<AdminApparatus?> Function(AdminApparatus apparatus, bool enabled)
-  onTrainingChanged;
+      onTrainingChanged;
   final Future<void> Function(AdminApparatus apparatus) onEdit;
 
   @override
@@ -74,7 +73,8 @@ class _AdminApparatusDetailScreenState
         _apparatus,
         selection.objectId,
       );
-      if (mounted) setState(() => _apparatus = saved ?? widget.currentApparatus());
+      if (mounted)
+        setState(() => _apparatus = saved ?? widget.currentApparatus());
     } finally {
       if (mounted) setState(() => _savingPlacement = false);
     }
@@ -89,7 +89,8 @@ class _AdminApparatusDetailScreenState
         return;
       }
       final saved = await widget.onPlacementChanged(_apparatus, '');
-      if (mounted) setState(() => _apparatus = saved ?? widget.currentApparatus());
+      if (mounted)
+        setState(() => _apparatus = saved ?? widget.currentApparatus());
     } finally {
       if (mounted) setState(() => _savingPlacement = false);
     }
@@ -133,20 +134,6 @@ class _AdminApparatusDetailScreenState
             _sectionLabel(
               context,
               scheme,
-              context.l10n.adminText('apparatus.tabs_queue'),
-            ),
-            const SizedBox(height: 8),
-            AdminQueuePolicyPanel(
-              key: ValueKey('detail-queue-${_apparatus.id}'),
-              bottomPadding: 0,
-              apparatusId: _apparatus.id,
-              padding: EdgeInsets.zero,
-              shrinkWrap: true,
-            ),
-            const SizedBox(height: 12),
-            _sectionLabel(
-              context,
-              scheme,
               context.l10n.adminText('apparatus.tabs_capacity'),
             ),
             const SizedBox(height: 8),
@@ -155,6 +142,20 @@ class _AdminApparatusDetailScreenState
               apparatus: [_apparatus],
               bottomPadding: 0,
               showApparatusSelector: false,
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+            ),
+            const SizedBox(height: 12),
+            _sectionLabel(
+              context,
+              scheme,
+              context.l10n.adminText('apparatus.tabs_queue'),
+            ),
+            const SizedBox(height: 8),
+            AdminQueuePolicyPanel(
+              key: ValueKey('detail-queue-${_apparatus.id}'),
+              bottomPadding: 0,
+              apparatusId: _apparatus.id,
               padding: EdgeInsets.zero,
               shrinkWrap: true,
             ),
@@ -186,9 +187,9 @@ class _AdminApparatusDetailScreenState
       child: Text(
         text,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w700,
-          color: scheme.onSurfaceVariant,
-        ),
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurfaceVariant,
+            ),
       ),
     );
   }
@@ -230,8 +231,8 @@ class _AdminApparatusDetailScreenState
                     Text(
                       _apparatus.name,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -239,9 +240,9 @@ class _AdminApparatusDetailScreenState
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        height: 1.1,
-                      ),
+                            color: scheme.onSurfaceVariant,
+                            height: 1.1,
+                          ),
                     ),
                   ],
                 ),

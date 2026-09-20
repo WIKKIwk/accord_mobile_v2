@@ -36,6 +36,7 @@ class _AdminApparatusCapacityPanelState
   List<ProductionMapSaved> _orders = const [];
   String? _selectedApparatusId;
   DateTime _scheduleStart = DateTime.now();
+  DateTime _downtimeStart = DateTime.now();
   bool _loading = true;
   bool _saving = false;
   bool _finiteCapacity = true;
@@ -117,11 +118,9 @@ class _AdminApparatusCapacityPanelState
       color: AppTheme.shellStart(context),
       child: ListView(
         shrinkWrap: widget.shrinkWrap,
-        physics: widget.shrinkWrap
-            ? const NeverScrollableScrollPhysics()
-            : null,
-        padding:
-            widget.padding ??
+        physics:
+            widget.shrinkWrap ? const NeverScrollableScrollPhysics() : null,
+        padding: widget.padding ??
             EdgeInsets.fromLTRB(8, 8, 8, widget.bottomPadding),
         children: [
           _sectionCard(
@@ -236,6 +235,9 @@ class _AdminApparatusCapacityPanelState
                   readOnly: true,
                   decoration: _decoration(
                     l10n.adminText('capacity.capabilities'),
+                  ).copyWith(
+                    suffixIcon: const Icon(Icons.lock_outline_rounded),
+                    helperText: l10n.adminText('apparatus.master_data_edit'),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -243,7 +245,13 @@ class _AdminApparatusCapacityPanelState
                   controller: _notes,
                   maxLines: 2,
                   readOnly: true,
-                  decoration: _decoration(l10n.adminText('capacity.notes')),
+                  decoration:
+                      _decoration(l10n.adminText('capacity.notes')).copyWith(
+                    suffixIcon: const Icon(Icons.lock_outline_rounded),
+                    helperText: l10n.adminText(
+                      'apparatus.master_data_edit',
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Align(
@@ -255,6 +263,75 @@ class _AdminApparatusCapacityPanelState
                     label: Text(l10n.adminText('capacity.save_profile')),
                   ),
                 ),
+              ],
+            ),
+          ),
+          _sectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l10n.adminText('capacity.downtime_title'),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: l10n.adminText('action.save'),
+                      onPressed: _addDowntime,
+                      icon: const Icon(Icons.add_task_outlined),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: OutlinedButton(
+                        onPressed: _pickDowntimeStart,
+                        child: Text(
+                          '${l10n.adminText('capacity.start')}\n${_formatUnix(_downtimeStart.millisecondsSinceEpoch ~/ 1000)}',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _downtimeHours,
+                        keyboardType: TextInputType.number,
+                        decoration: _decoration(
+                          l10n.adminText('capacity.hours'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _downtimeReason,
+                  decoration: _decoration(l10n.adminText('capacity.reason')),
+                ),
+                const SizedBox(height: 8),
+                for (final downtime in downtimes.take(8))
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    leading: const Icon(Icons.build_circle_outlined),
+                    title: Text(
+                      '${canonicalApparatusDisplayLabel(
+                        downtime.apparatusId,
+                        widget.apparatus,
+                      )} • ${downtime.reason}',
+                    ),
+                    subtitle: Text(
+                      '${_formatUnix(downtime.startsAtUnix)} — ${_formatUnix(downtime.endsAtUnix)}',
+                    ),
+                  ),
               ],
             ),
           ),
@@ -395,70 +472,6 @@ class _AdminApparatusCapacityPanelState
                             )
                           : null,
                     ),
-              ],
-            ),
-          ),
-          _sectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l10n.adminText('capacity.downtime_title'),
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: l10n.adminText('action.save'),
-                      onPressed: _addDowntime,
-                      icon: const Icon(Icons.add_task_outlined),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _downtimeHours,
-                        keyboardType: TextInputType.number,
-                        decoration: _decoration(
-                          l10n.adminText('capacity.hours'),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 2,
-                      child: TextField(
-                        controller: _downtimeReason,
-                        decoration: _decoration(
-                          l10n.adminText('capacity.reason'),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                for (final downtime in downtimes.take(8))
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    leading: const Icon(Icons.build_circle_outlined),
-                    title: Text(
-                      '${canonicalApparatusDisplayLabel(
-                        downtime.apparatusId,
-                        widget.apparatus,
-                      )} • ${downtime.reason}',
-                    ),
-                    subtitle: Text(
-                      '${_formatUnix(downtime.startsAtUnix)} — ${_formatUnix(downtime.endsAtUnix)}',
-                    ),
-                  ),
               ],
             ),
           ),

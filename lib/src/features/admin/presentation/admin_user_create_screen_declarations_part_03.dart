@@ -286,7 +286,7 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
           werkaPhone: phone.text.trim(),
           werkaName: name.text.trim(),
           werkaAvatarUrl: current.werkaAvatarUrl,
-          werkaCode: werkaCode,
+          werkaCode: '',
           werkaCodeLocked: current.werkaCodeLocked,
           werkaCodeRetryAfterSec: _retryAfterSec,
           adminPhone: current.adminPhone,

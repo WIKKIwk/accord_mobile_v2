@@ -108,6 +108,7 @@ class _SupplierCreateTabState extends State<_SupplierCreateTab> {
         context,
         context.l10n.adminText('user.supplier_created'),
       );
+      await _showIssuedCode(context, supplier.code);
     } catch (_) {
       if (mounted) {
         showAdminTopNotice(
@@ -237,6 +238,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
     }
     setState(() => saving = true);
     try {
+      var issuedCode = '';
       if (_isQolipchiRole || _isBoyoqchiRole || _isPreparationRole || _isRawMaterialSplitRole) {
         final role = _isRawMaterialSplitRole ? UserRole.homashyoRezkachi : _isPreparationRole ? UserRole.tayyorlovMasteri : _isBoyoqchiRole ? UserRole.boyoqchi : UserRole.qolipchi;
         final user = await MobileApi.instance.adminCreateSystemUser(
@@ -244,16 +246,17 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
           name: name.text.trim(),
           phone: phone.text.trim(),
         );
-        await MobileApi.instance.adminRegenerateSystemUserCode(user.id);
+        issuedCode = (await MobileApi.instance.adminRegenerateSystemUserCode(user.id)).code;
         if ((_isPreparationRole || _isRawMaterialSplitRole) && !widget.assignedRole.system) {
           await _assignCustomRole(widget.assignedRole, role, user.id);
         }
       } else if (_isMaterialTaminotchiAssignedRole) {
-        await MobileApi.instance.adminCreateMaterialTaminotchi(
+        final material = await MobileApi.instance.adminCreateMaterialTaminotchi(
           name: name.text.trim(),
           phone: phone.text.trim(),
           assignedItemGroups: _sortedSelection(selectedItemGroups),
         );
+        issuedCode = material.code;
       } else {
         final user = await MobileApi.instance.adminCreateCustomer(
           name: name.text.trim(),
@@ -267,7 +270,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
                 ..sort(),
             ),
           );
-          await MobileApi.instance.adminRegenerateCustomerCode(user.ref);
+          issuedCode = (await MobileApi.instance.adminRegenerateCustomerCode(user.ref)).code;
         } else {
           final principalRole = _principalRoleForAssignedRole(
             widget.assignedRole,
@@ -291,6 +294,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
         context,
         context.l10n.adminText('user.created'),
       );
+      await _showIssuedCode(context, issuedCode);
     } catch (error) {
       if (mounted) {
         showAdminTopNotice(

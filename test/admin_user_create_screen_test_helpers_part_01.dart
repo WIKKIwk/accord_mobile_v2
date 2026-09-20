@@ -127,7 +127,11 @@ class _AdminUserCreateHttpClient implements HttpClient {
       case 'GET /v1/mobile/admin/apparatus?limit=200':
         body = const [
           {
-            'name': '7 ta rangli pechat',
+            'apparatus_id': 'apparatus:default:asset-001',
+            'display': {'display_name': '7 ta rangli pechat'},
+            'source_revision': 1,
+            'source_aasx_sha256': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+            'execution_profile': {'operation': 'print', 'technology': 'flexographic'},
           },
         ];
       case 'POST /v1/mobile/admin/workers':

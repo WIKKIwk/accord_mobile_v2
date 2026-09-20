@@ -316,15 +316,14 @@ extension __AdminApparatusCapacityPanelStateAstPart01
       );
       return;
     }
-    final start = DateTime.now();
     try {
       await MobileApi.instance.adminSaveApparatusDowntime(
         AdminApparatusDowntime(
           id: '',
           apparatusId: apparatus.id,
           apparatus: apparatus.name,
-          startsAtUnix: start.millisecondsSinceEpoch ~/ 1000,
-          endsAtUnix: start
+          startsAtUnix: _downtimeStart.millisecondsSinceEpoch ~/ 1000,
+          endsAtUnix: _downtimeStart
                   .add(Duration(minutes: (hours * 60).round()))
                   .millisecondsSinceEpoch ~/
               1000,
@@ -342,6 +341,30 @@ extension __AdminApparatusCapacityPanelStateAstPart01
     } catch (error) {
       if (mounted) showAdminTopNotice(context, _errorMessage(error));
     }
+  }
+
+  Future<void> _pickDowntimeStart() async {
+    final date = await showDatePicker(
+      context: context,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 366)),
+      initialDate: _downtimeStart,
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_downtimeStart),
+    );
+    if (time == null) return;
+    setState(() {
+      _downtimeStart = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    });
   }
 
   String _errorMessage(Object error) {

@@ -29,7 +29,7 @@ void _registeradmin_user_create_screen_testCases02() {
       );
 
       await _pumpUi(tester);
-      await tester.tap(find.text('Role tanlang').first);
+      await tester.tap(find.text('Role tanlang').last);
       await _pumpUi(tester);
       await _selectPickerItem(tester, 'Material taminotchisi');
       await _selectMaterialItemGroups(tester, const ['Kraska']);
@@ -51,7 +51,7 @@ void _registeradmin_user_create_screen_testCases02() {
       );
       expect(find.text('forbidden'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(milliseconds: 5500));
       await _pumpUi(tester);
     }, createHttpClient: (_) => client);
   });
@@ -82,7 +82,7 @@ void _registeradmin_user_create_screen_testCases02() {
       );
 
       await _pumpUi(tester);
-      await tester.tap(find.text('Role tanlang').first);
+      await tester.tap(find.text('Role tanlang').last);
       await _pumpUi(tester);
 
       expect(find.text('Material taminotchisi'), findsOneWidget);
@@ -125,7 +125,7 @@ void _registeradmin_user_create_screen_testCases02() {
         isTrue,
       );
       expect(tester.takeException(), isNull);
-      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(milliseconds: 5500));
       await _pumpUi(tester);
     }, createHttpClient: (_) => client);
   });

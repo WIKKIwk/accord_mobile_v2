@@ -82,7 +82,7 @@ class _AdminCustomerPanel extends StatelessWidget {
               Expanded(
                 child: Text(
                   detail.code.trim().isEmpty
-                      ? l10n.adminText('profile.not_generated')
+                      ? l10n.adminText('profile.code_not_shown')
                       : detail.code,
                   style: theme.textTheme.titleMedium,
                 ),
@@ -108,6 +108,10 @@ class _AdminCustomerPanel extends StatelessWidget {
             ],
           ),
         ),
+        if (detail.code.trim().isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(l10n.adminText('profile.code_once_hint'), style: theme.textTheme.bodySmall),
+        ],
         if (detail.codeRetryAfterSec > 0) ...[
           const SizedBox(height: 12),
           Text(

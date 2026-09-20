@@ -85,7 +85,7 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
           werkaPhone: phone.text.trim(),
           werkaName: name.text.trim(),
           werkaAvatarUrl: current.werkaAvatarUrl,
-          werkaCode: werkaCode,
+          werkaCode: '',
           werkaCodeLocked: current.werkaCodeLocked,
           werkaCodeRetryAfterSec: _retryAfterSec,
           adminPhone: current.adminPhone,

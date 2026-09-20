@@ -65,7 +65,7 @@ class _WerkaAdminPanel extends StatelessWidget {
               Expanded(
                 child: Text(
                   code.trim().isEmpty
-                      ? l10n.adminText('profile.not_generated')
+                      ? l10n.adminText('profile.code_not_shown')
                       : code,
                   style: theme.textTheme.titleMedium,
                 ),
@@ -89,6 +89,10 @@ class _WerkaAdminPanel extends StatelessWidget {
             ],
           ),
         ),
+        if (code.trim().isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(l10n.adminText('profile.code_once_hint'), style: theme.textTheme.bodySmall),
+        ],
         if (retryAfterSec > 0) ...[
           const SizedBox(height: 12),
           Text(
