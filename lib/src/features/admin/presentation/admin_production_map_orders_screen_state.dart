@@ -1438,8 +1438,16 @@ class _AdminProductionMapOrdersScreenState
       if (!mounted || comment == null || !_orderControlActionsInFlight.add(orderId)) return;
       setState(() {});
       try {
-        final next = await MobileApi.instance.adminEarlyCloseProductionOrder(
-          orderId: orderId, comment: comment);
+        final AdminOrderControlState next;
+        try {
+          next = await MobileApi.instance.adminEarlyCloseProductionOrder(
+            orderId: orderId, comment: comment);
+        } catch (error) {
+          if (mounted) showAdminTopNotice(context,
+            error is MobileApiException ? error.message : 'Buyurtma yopilmadi',
+            icon: Icons.warning_amber_rounded);
+          return;
+        }
         if (!mounted) return;
         setState(() {
           _earlyClosingOrderIds.add(orderId);
@@ -1447,19 +1455,20 @@ class _AdminProductionMapOrdersScreenState
           if (next == AdminOrderControlState.frozen) {
             _orders = [for (final item in _orders)
               if (item.map.id.trim() != orderId) item];
-            for (final sequence in _sequenceByApparatus.values) {
-              sequence.removeWhere((id) => id.trim() == orderId);
-            }
+            // API snapshots own immutable lists. Replace our local values;
+            // never mutate a snapshot after the server has accepted closure.
+            _sequenceByApparatus.updateAll((_, sequence) => [
+              for (final id in sequence)
+                if (id.trim() != orderId) id,
+            ]);
           }
         });
         showAdminTopNotice(context, next == AdminOrderControlState.frozen
           ? 'Buyurtma erta yopildi. Tarix Yopilganlar bo‘limida saqlandi.'
           : 'Yopish so‘rovi yuborildi. Oxirgi rulon yechilishi kutilmoqda.');
+        // Refresh helpers report their own read errors. They must not turn
+        // an already accepted close into a "Buyurtma yopilmadi" notice.
         await _refreshLive();
-      } catch (error) {
-        if (mounted) showAdminTopNotice(context,
-          error is MobileApiException ? error.message : 'Buyurtma yopilmadi',
-          icon: Icons.warning_amber_rounded);
       } finally {
         _orderControlActionsInFlight.remove(orderId);
         if (mounted) setState(() {});

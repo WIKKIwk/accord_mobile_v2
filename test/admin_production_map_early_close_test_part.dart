@@ -1,7 +1,13 @@
 part of 'admin_production_map_test_screen_test.dart';
 
 void _registerEarlyCloseMenuTests() {
-  testWidgets('early close unstarted 0009 moves from both lists into preserved closed history', (tester) async {
+  for (final scenario in [
+    (tab: 'Buyurtmalar', archiveReadFails: false),
+    (tab: 'Ketma-ketlik', archiveReadFails: false),
+    (tab: 'Ketma-ketlik', archiveReadFails: true),
+  ]) {
+  final tab = scenario.tab;
+  testWidgets('early close from $tab handles immutable API sequences and preserves closed history (archive read fails: ${scenario.archiveReadFails})', (tester) async {
     await TestModeController.instance.setEnabled(true);
     const id = 'zakaz-0009';
     await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
@@ -12,6 +18,7 @@ void _registerEarlyCloseMenuTests() {
     final initial = await MobileApi.instance.adminProductionMapQueueSnapshot();
     final maps = await MobileApi.instance.adminProductionMaps();
     var closed = false;
+    var archiveReadFails = scenario.archiveReadFails;
     final posts = <http.Request>[];
     final archived = AdminClosedProductionOrder.fromJson({
       'order_id': id, 'order_number': '0009', 'title': 'Erta yopish testi',
@@ -20,9 +27,12 @@ void _registerEarlyCloseMenuTests() {
       'early_close': {'comment': 'Mijoz rad etdi', 'closed_at_unix': 123},
     });
     AdminApparatusQueueSnapshot snapshot() => AdminApparatusQueueSnapshot(
-      maps: maps, revision: closed ? 2 : 1,
-      sequences: {for (final entry in initial.sequences.entries)
-        entry.key: [for (final value in entry.value) if (!closed || value != id) value]},
+      maps: List.unmodifiable(maps), revision: closed ? 2 : 1,
+      sequences: MobileApi.instance.parseApparatusSequenceMap({
+        for (final entry in initial.sequences.entries)
+          entry.key: [for (final value in entry.value) if (!closed || value != id) value],
+        _print9Id: <String>[],
+      }),
       visibleOrderIds: {for (final entry in initial.visibleOrderIds.entries)
         entry.key: [for (final value in entry.value) if (!closed || value != id) value]},
       queueStates: initial.queueStates, queuePolicies: initial.queuePolicies,
@@ -44,14 +54,18 @@ void _registerEarlyCloseMenuTests() {
         home: AdminProductionMapOrdersScreen(
           apparatusLoader: () async => catalog.where((item) => item.id == _print8Id).toList(),
           queueSnapshotLoader: () async => snapshot(),
-          closedOrdersLoader: () async => [if (closed) archived],
+          closedOrdersLoader: () async {
+            if (closed && archiveReadFails) throw TimeoutException('offline');
+            return [if (closed) archived];
+          },
           liveEventsLoader: () => const Stream.empty(),
         ),
       ));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Buyurtmalar'));
+      await tester.tap(find.text(tab));
       await tester.pumpAndSettle();
-      final order = find.byKey(const ValueKey('opened-order-$id'));
+      final order = find.byKey(ValueKey(tab == 'Buyurtmalar'
+          ? 'opened-order-$id' : 'sequence-row-$_print8Id-$id'));
       await tester.ensureVisible(order);
       await tester.longPress(order);
       await tester.pumpAndSettle();
@@ -64,6 +78,12 @@ void _registerEarlyCloseMenuTests() {
       await tester.pumpAndSettle();
       expect(posts, hasLength(1));
       expect(jsonDecode(posts.single.body), {'order_id': id, 'action': 'close_early', 'comment': 'Mijoz rad etdi'});
+      expect(find.text('Buyurtma yopilmadi'), findsNothing);
+      expect(find.text('Buyurtma erta yopildi. Tarix Yopilganlar bo‘limida saqlandi.'), findsOneWidget);
+      if (archiveReadFails) {
+        expect(find.text('Yopilgan orderlar yuklanmadi'), findsOneWidget);
+        archiveReadFails = false;
+      }
       expect(order, findsNothing);
       expect(find.textContaining('muzlatib bo‘lmaydi'), findsNothing);
       await tester.tap(find.text('Ketma-ketlik'));
@@ -71,6 +91,8 @@ void _registerEarlyCloseMenuTests() {
       expect(find.byKey(const ValueKey('sequence-row-$_print8Id-$id')), findsNothing);
       await tester.tap(find.text('Yopilgan'));
       await tester.pumpAndSettle();
+      expect(find.text('Yopilgan orderlar yuklanmadi'), findsNothing);
+      expect(posts, hasLength(1)); // Retrying a read must not repeat closure.
       expect(find.textContaining('Erta yopish testi'), findsOneWidget);
       await tester.tap(find.byType(ExpansionTile).first);
       await tester.pumpAndSettle();
@@ -91,6 +113,7 @@ void _registerEarlyCloseMenuTests() {
       return http.Response('{"completion_requests":[]}', 200);
     }));
   });
+  }
 
   for (final tab in ['Buyurtmalar', 'Ketma-ketlik']) {
     testWidgets('early close long press is available in $tab', (tester) async {
