@@ -153,6 +153,7 @@ String _closedLogActionLabel(String action) {
 }
 
 String _closedLogTitle(AdminProductionOrderLogEntry log) {
+  if (log.action == 'close_early') return 'Order muammo bilan erta yopildi';
   if (log.freeze != null) {
     return _closedLogFreezeStatusLabel(log.freeze!.status);
   }
@@ -171,6 +172,7 @@ String _closedLogApparatusLabel(
   List<AdminApparatus> apparatusCatalog,
 ) {
   final freeze = log.freeze;
+  if (log.action == 'close_early') return '';
   if (freeze != null) {
     final apparatus = freeze.targetApparatus.trim();
     if (apparatus.isNotEmpty) {
@@ -194,6 +196,7 @@ String _closedLogApparatusLabel(
 }
 
 String _closedLogStateLabel(AdminProductionOrderLogEntry log) {
+  if (log.action == 'close_early') return 'Erta yopilgan';
   final freeze = log.freeze;
   if (freeze != null) {
     return _closedLogFreezeStatusLabel(freeze.status);

@@ -164,6 +164,7 @@ class PreparationWarehouseScreen extends StatefulWidget {
     required this.freshHistory,
     required this.freshAssignedWarehouses,
     required this.freshMaterialWarehouses,
+    this.freshManagedWarehouses,
   });
 
   final List<String> warehouses;
@@ -181,6 +182,7 @@ class PreparationWarehouseScreen extends StatefulWidget {
   final List<dynamic> Function() freshHistory;
   final List<String> Function() freshAssignedWarehouses;
   final List<String> Function() freshMaterialWarehouses;
+  final List<String> Function()? freshManagedWarehouses;
 
   @override
   State<PreparationWarehouseScreen> createState() =>
@@ -195,11 +197,14 @@ class _PreparationWarehouseScreenState
   final FocusNode _searchFocusNode = FocusNode();
   String _query = '';
   bool _filterExpanded = false;
+  bool _managingWarehouse = false;
+  void _updateWarehouse(VoidCallback action) => setState(action);
 
   /// Faqat shu userga ulangan omborlar, jumladan yangi bola omborlar.
   List<String> get _warehouses => widget.freshAssignedWarehouses();
 
-  List<String> get _assignedWarehouses => widget.freshAssignedWarehouses();
+  List<String> get _managedWarehouses =>
+      widget.freshManagedWarehouses?.call() ?? const [];
 
   List<String> get _materialWarehouses =>
       widget.freshMaterialWarehouses();
@@ -278,8 +283,8 @@ class _PreparationWarehouseScreenState
   }
 
   Future<void> _createWarehouse() async {
-    if (widget.locked) return;
-    final warehouses = _assignedWarehouses;
+    if (widget.locked || _managingWarehouse) return;
+    final warehouses = _materialWarehouses;
     if (warehouses.isEmpty) return;
     final nameController = TextEditingController();
     var parent = _warehouse != null && warehouses.contains(_warehouse)
@@ -339,6 +344,7 @@ class _PreparationWarehouseScreenState
         ),
       );
       if (created == null || created.trim().isEmpty || !mounted) return;
+      setState(() => _managingWarehouse = true);
       final warehouse = await MobileApi.instance.preparationCreateWarehouse(
         name: created,
         parent: parent,
@@ -358,10 +364,11 @@ class _PreparationWarehouseScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(_warehouseErrorMessage(e))),
         );
       }
     } finally {
+      if (mounted) setState(() => _managingWarehouse = false);
       nameController.dispose();
     }
   }
@@ -420,7 +427,7 @@ class _PreparationWarehouseScreenState
         primaryFabActions: _warehouses.isEmpty
             ? null
             : [
-                if (_warehouse != null && !widget.locked) ...[
+                if (_warehouse != null && !widget.locked && !_managingWarehouse) ...[
                   AdminFabMenuAction(
                     title: _canCreateMaterial ? 'Kirim' : 'Tarozi kirimi',
                     icon: _canCreateMaterial
@@ -435,7 +442,7 @@ class _PreparationWarehouseScreenState
                       onTap: _doCreateMaterial,
                     ),
                 ],
-                if (!widget.locked && _assignedWarehouses.isNotEmpty)
+                if (!widget.locked && !_managingWarehouse && _materialWarehouses.isNotEmpty)
                   AdminFabMenuAction(
                     title: 'Ombor qo‘shish',
                     icon: Icons.warehouse_outlined,
@@ -454,7 +461,14 @@ class _PreparationWarehouseScreenState
               selectedValue: _warehouse,
               options: [
                 for (final w in _warehouses)
-                  AdminFilterChipOption(value: w, label: w),
+                  AdminFilterChipOption(
+                    value: w,
+                    label: w,
+                    onLongPress: !widget.locked && !_managingWarehouse &&
+                            _managedWarehouses.contains(w)
+                        ? () => _warehouseActions(w)
+                        : null,
+                  ),
               ],
               expanded: _filterExpanded,
               onToggle: () => setState(
@@ -641,7 +655,7 @@ class _PreparationMaterialDetailScreenState
 
   List<dynamic> get _receipts => _history
       .where((d) =>
-          d['kind'] == 'receipt' &&
+          (d['kind'] == 'receipt' || d['kind'] == 'receipt_reversal') &&
           d['warehouse'] == widget.warehouse &&
           (d['item_code'] as String? ?? '') == widget.materialCode)
       .toList();
@@ -795,25 +809,48 @@ class _PreparationMaterialDetailScreenState
                 ),
                 children: [
                   for (var i = 0; i < receipts.length; i++)
-                    AdminSummaryCard(
-                      slot: _slotFor(i, receipts.length),
-                      cornerRadius:
-                          M3SegmentedListGeometry.cornerRadiusForSlot(
-                        _slotFor(i, receipts.length),
-                      ),
-                      backgroundColor: scheme.surfaceContainerLowest,
-                      title:
-                          '+${preparationDisplay(receipts[i]['kg'] as String? ?? '0')} kg',
-                      subtitle:
-                          '${receipts[i]['warehouse']} • ${_formatDateTime(receipts[i]['created_at'])}',
-                      value: '',
-                      leading: const Icon(
-                        Icons.check_circle_outline_rounded,
-                        color: Colors.green,
-                      ),
-                      showChevron: false,
-                      elevation: 0,
-                    ),
+                    Builder(builder: (_) {
+                      final doc = receipts[i];
+                      final isReversal = doc['kind'] == 'receipt_reversal';
+                      final reversed = doc['reversed'] == true;
+                      final name =
+                          doc['name']?.toString() ?? material?.name ?? '';
+                      final reason = doc['reason']?.toString().trim() ?? '';
+                      final subtitle = [
+                        '${doc['warehouse']} • ${_formatDateTime(doc['created_at'])}',
+                        if (isReversal && reason.isNotEmpty) 'Sabab: $reason',
+                        if (!isReversal && reversed) 'Bekor qilingan',
+                      ].join('\n');
+                      return AdminSummaryCard(
+                        slot: _slotFor(i, receipts.length),
+                        cornerRadius:
+                            M3SegmentedListGeometry.cornerRadiusForSlot(
+                          _slotFor(i, receipts.length),
+                        ),
+                        backgroundColor: scheme.surfaceContainerLowest,
+                        title: isReversal
+                            ? 'Kirimni bekor qilish — $name'
+                            : '+${preparationDisplay(doc['kg'] as String? ?? '0')} kg',
+                        subtitle: subtitle,
+                        value: isReversal
+                            ? '-${preparationDisplay(doc['kg'] as String? ?? '0')} kg'
+                            : '',
+                        leading: Icon(
+                          isReversal
+                              ? Icons.undo_rounded
+                              : reversed
+                                  ? Icons.undo_outlined
+                                  : Icons.check_circle_outline_rounded,
+                          color: isReversal
+                              ? scheme.error
+                              : reversed
+                                  ? scheme.outline
+                                  : Colors.green,
+                        ),
+                        showChevron: false,
+                        elevation: 0,
+                      );
+                    }),
                 ],
               ),
             ],
@@ -955,13 +992,6 @@ class _PreparationOrdersScreenState extends State<PreparationOrdersScreen> {
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
       bottom: const PreparationDock(),
-      actions: [
-        IconButton(
-          tooltip: 'Yangilash',
-          icon: const Icon(Icons.refresh),
-          onPressed: widget.locked ? null : widget.onReload,
-        ),
-      ],
       child: AppRefreshIndicator(
         onRefresh: widget.onReload,
         allowRefreshOnShortContent: true,
@@ -1171,52 +1201,30 @@ class _PreparationHistoryScreenState extends State<PreparationHistoryScreen> {
   Future<void> _onReceiptLongPress(
       BuildContext context, Map<String, dynamic> doc) async {
     final canReverse = doc['can_reverse'] == true;
-    final action = await showModalBottomSheet<String>(
+    final action = await showSpringBottomSheet<String>(
       context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        final scheme = Theme.of(sheetContext).colorScheme;
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  title: Text('Kirim — ${doc['name'] ?? ''}'),
-                  subtitle: Text(
-                    '${doc['warehouse'] ?? ''} • ${preparationDisplay(doc['kg']?.toString() ?? '0')} kg',
-                  ),
-                  leading: const Icon(Icons.receipt_long_outlined),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  enabled: canReverse,
-                  leading: Icon(
-                    Icons.undo_rounded,
-                    color: canReverse ? scheme.error : scheme.outline,
-                  ),
-                  title: const Text('Kirimni bekor qilish'),
-                  subtitle: Text(
-                    canReverse
-                        ? 'Ishlatilmagan va orderga ulanmagan kirim'
-                        : 'Bu kirim ishlatilgan yoki orderga ulangan',
-                  ),
-                  onTap: canReverse
-                      ? () => Navigator.of(sheetContext).pop('reverse')
-                      : null,
-                ),
-                ListTile(
-                  leading: const Icon(Icons.close_rounded),
-                  title: const Text('Yopish'),
-                  onTap: () => Navigator.of(sheetContext).pop(),
-                ),
-              ],
-            ),
+      builder: (_) => AppActionSheet<String>(
+        title: 'Kirim — ${doc['name'] ?? ''}',
+        subtitle:
+            '${doc['warehouse'] ?? ''} • ${preparationDisplay(doc['kg']?.toString() ?? '0')} kg',
+        actions: [
+          AppActionSheetAction(
+            title: 'Kirimni bekor qilish',
+            icon: Icons.undo_rounded,
+            value: 'reverse',
+            subtitle: canReverse
+                ? 'Ishlatilmagan va orderga ulanmagan kirim'
+                : 'Bu kirim ishlatilgan yoki orderga ulangan',
+            enabled: canReverse,
+            destructive: true,
           ),
-        );
-      },
+          const AppActionSheetAction(
+            title: 'Yopish',
+            icon: Icons.close_rounded,
+            value: 'close',
+          ),
+        ],
+      ),
     );
     if (action == 'reverse' && mounted) {
       await _reverseReceipt(doc);
@@ -1296,13 +1304,6 @@ class _PreparationHistoryScreenState extends State<PreparationHistoryScreen> {
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
       bottom: const PreparationDock(),
-      actions: [
-        IconButton(
-          tooltip: 'Yangilash',
-          icon: const Icon(Icons.refresh),
-          onPressed: widget.onReload,
-        ),
-      ],
       child: AppRefreshIndicator(
         onRefresh: widget.onReload,
         allowRefreshOnShortContent: true,
@@ -1400,10 +1401,12 @@ class _PreparationInputDialog extends StatefulWidget {
       required this.label,
       this.quantity = false,
       this.emptyError = 'Nom kiriting',
+      this.initialValue = '',
       this.maxLength = 160});
   final String title, label;
   final bool quantity;
   final String emptyError;
+  final String initialValue;
   final int maxLength;
   @override
   State<_PreparationInputDialog> createState() =>
@@ -1411,7 +1414,7 @@ class _PreparationInputDialog extends StatefulWidget {
 }
 
 class _PreparationInputDialogState extends State<_PreparationInputDialog> {
-  final _controller = TextEditingController();
+  late final _controller = TextEditingController(text: widget.initialValue);
   final _form = GlobalKey<FormState>();
   @override
   void dispose() {
@@ -1457,6 +1460,13 @@ class _PreparationInputDialogState extends State<_PreparationInputDialog> {
                     keyboardType: widget.quantity
                         ? const TextInputType.numberWithOptions(decimal: true)
                         : TextInputType.text,
+                    inputFormatters: widget.quantity
+                        ? [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.,]'),
+                            ),
+                          ]
+                        : null,
                     decoration: InputDecoration(labelText: widget.label),
                     validator: (text) {
                       if (!widget.quantity) {

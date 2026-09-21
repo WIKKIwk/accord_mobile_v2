@@ -24,6 +24,7 @@ List<AdminProgressBatch> _closedProgressBatchesForLog(
   AdminProductionOrderLogEntry log,
 ) {
   final freezeSessionId = log.freeze?.targetSessionId.trim() ?? '';
+  if (log.action == 'close_early') return const [];
   if (freezeSessionId.isNotEmpty) {
     final sessionMatches = order.progressBatches
         .where((batch) => batch.sessionId.trim() == freezeSessionId)

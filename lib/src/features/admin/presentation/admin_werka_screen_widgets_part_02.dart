@@ -77,7 +77,7 @@ class _WerkaAdminPanel extends StatelessWidget {
                 ),
               IconButton(
                 onPressed:
-                    regenerating || retryAfterSec > 0 ? null : onRegenerateCode,
+                    regenerating ? null : onRegenerateCode,
                 icon: regenerating
                     ? const SizedBox(
                         height: 18,
@@ -91,7 +91,7 @@ class _WerkaAdminPanel extends StatelessWidget {
         ),
         if (code.trim().isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(l10n.adminText('profile.code_once_hint'), style: theme.textTheme.bodySmall),
+          Text(l10n.adminText('profile.code_copy_hint'), style: theme.textTheme.bodySmall),
         ],
         if (retryAfterSec > 0) ...[
           const SizedBox(height: 12),

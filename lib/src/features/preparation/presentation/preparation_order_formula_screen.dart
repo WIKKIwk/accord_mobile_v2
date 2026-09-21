@@ -4,11 +4,24 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
 import 'preparation_navigation.dart';
+
+String preparationFormulaErrorMessage(Object error) {
+  if (error is MobileApiException) {
+    if (error.statusCode == 403) return 'Bu formulani boshqarish huquqingiz yo‘q';
+    if (error.statusCode == 401) return 'Sessiya tugagan. Qayta kiring';
+    if (error.statusCode == 400 || error.statusCode == 409 ||
+        error.code == 'account_changed' || error.code == 'preparation_invalid_response') {
+      return error.message;
+    }
+  }
+  return 'Formulalar bilan amal bajarilmadi. Internet aloqasini tekshirib, qayta urinib ko‘ring';
+}
 
 /// Tayyorlov masteri uchun formula sahifasi — bitta homashyo scope'ida.
 ///
@@ -25,6 +38,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
     required this.materialId,
     required this.materialName,
     this.customerName,
+    this.initialFormulaName,
+    this.manageSavedFormula = false,
   });
 
   final String orderId;
@@ -34,6 +49,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
   final String materialId;
   final String materialName;
   final String? customerName;
+  final String? initialFormulaName;
+  final bool manageSavedFormula;
 
   static Route<void> route({
     required String orderId,
@@ -43,6 +60,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
     required String materialId,
     required String materialName,
     String? customerName,
+    String? initialFormulaName,
+    bool manageSavedFormula = false,
   }) {
     return PreparationOrderFormulaRoute(
       builder: (_) => PreparationOrderFormulaScreen(
@@ -53,6 +72,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
         materialId: materialId,
         materialName: materialName,
         customerName: customerName,
+        initialFormulaName: initialFormulaName,
+        manageSavedFormula: manageSavedFormula,
       ),
     );
   }
@@ -80,6 +101,7 @@ class _PreparationOrderFormulaScreenState
   bool _deleting = false;
   bool _editing = false;
   String? _editingName;
+  bool _initialEditorOpened = false;
   final List<_FormulaRow> _rows = [];
 
   @override
@@ -105,15 +127,11 @@ class _PreparationOrderFormulaScreenState
     }
     try {
       final snapshot = await MobileApi.instance.preparationSnapshot();
-      List<PreparationFormula> formulas = const [];
-      try {
-        formulas = await MobileApi.instance.preparationFormulas(
-          widget.productCode,
-          materialId: widget.materialId,
-        );
-      } catch (_) {
-        // Formula yo'q bo'lsa bo'sh ro'yxat — xatolik emas.
-      }
+      final formulas = await MobileApi.instance.preparationFormulas(
+        widget.productCode,
+        materialId: widget.materialId,
+        savedOnly: widget.manageSavedFormula,
+      );
       if (!mounted) return;
       final materials = [...snapshot.materials]
         ..sort((a, b) {
@@ -125,8 +143,19 @@ class _PreparationOrderFormulaScreenState
         _materials = materials;
         _formulas = formulas;
       });
+      if (!_initialEditorOpened && widget.initialFormulaName != null) {
+        final formula = formulas
+            .where((f) => f.name == widget.initialFormulaName)
+            .firstOrNull;
+        _initialEditorOpened = true;
+        if (formula != null) {
+          _openEditor(existing: formula);
+        } else {
+          setState(() => _error = 'Formula topilmadi. Ro‘yxatni yangilang');
+        }
+      }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = preparationFormulaErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -137,12 +166,13 @@ class _PreparationOrderFormulaScreenState
       final formulas = await MobileApi.instance.preparationFormulas(
         widget.productCode,
         materialId: widget.materialId,
+        savedOnly: widget.manageSavedFormula,
       );
       if (mounted) setState(() => _formulas = formulas);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(preparationFormulaErrorMessage(e))),
         );
       }
     }
@@ -345,6 +375,7 @@ class _PreparationOrderFormulaScreenState
         lines,
         name: name,
         materialId: widget.materialId,
+        savedOnly: widget.manageSavedFormula,
       );
       if (!mounted) return;
       setState(() => _saving = false);
@@ -358,7 +389,7 @@ class _PreparationOrderFormulaScreenState
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(preparationFormulaErrorMessage(e))),
         );
       }
     }
@@ -382,6 +413,7 @@ class _PreparationOrderFormulaScreenState
         widget.productCode,
         formula.name,
         materialId: widget.materialId,
+        savedOnly: widget.manageSavedFormula,
       );
       if (!mounted) return;
       setState(() => _deleting = false);
@@ -394,7 +426,7 @@ class _PreparationOrderFormulaScreenState
       if (mounted) {
         setState(() => _deleting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(preparationFormulaErrorMessage(e))),
         );
       }
     }
@@ -427,6 +459,7 @@ class _PreparationOrderFormulaScreenState
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
       bottom: PreparationDock(
+        showPrimaryFab: !widget.manageSavedFormula,
         primaryFabActions: [
           AdminFabMenuAction(
             title: 'Formula qo‘shish',
@@ -435,18 +468,15 @@ class _PreparationOrderFormulaScreenState
           ),
         ],
       ),
-      actions: [
-        IconButton(
-          tooltip: 'Yangilash',
-          onPressed: _loading || _saving ? null : _reload,
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
       child: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: EdgeInsets.only(bottom: bottomPadding),
-              children: [
+          : AppRefreshIndicator(
+              onRefresh: _reload,
+              allowRefreshOnShortContent: true,
+              child: ListView(
+                physics: const TopRefreshScrollPhysics(),
+                padding: EdgeInsets.only(bottom: bottomPadding),
+                children: [
                 const SizedBox(height: 4),
                 if (_error != null)
                   Padding(
@@ -633,7 +663,8 @@ class _PreparationOrderFormulaScreenState
                       onDelete: () => _deleteFormula(_formulas[f]),
                     ),
                   ],
-              ],
+                ],
+              ),
             ),
     );
   }

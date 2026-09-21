@@ -25,6 +25,8 @@ class _AdminProductionMapOrdersScreenState
   bool _workerCompletedHistoryError = false;
   String? _workerCompletedHistoryErrorMessage;
   String? _closedOrdersErrorMessage;
+  Future<void>? _closedOrdersRefresh;
+  bool _closedOrdersRefreshQueued = false;
   String? _completionRequestsErrorMessage;
   int _liveStreamGeneration = 0;
   int _queueSnapshotGeneration = 0;
@@ -125,6 +127,7 @@ class _AdminProductionMapOrdersScreenState
       _queueActionControlsByApparatus = {};
   final Map<String, List<AdminFrozenQueueOrder>> _frozenOrdersByApparatus = {};
   final Map<String, AdminOrderControlState> _orderControlsByOrderId = {};
+  final Set<String> _earlyClosingOrderIds = {};
   final Map<String, AdminProductionOrderStatusDetail> _orderStatusesByOrderId =
       {};
   List<AdminCompletedQueueOrder> _completedWorkerOrders = const [];
@@ -1337,6 +1340,7 @@ class _AdminProductionMapOrdersScreenState
     final hasFrozenQueueState = _queueStatesByApparatus.values.any(
       (states) => states[orderId]?.trim().toLowerCase() == 'frozen',
     );
+    final closingEarly = _earlyClosingOrderIds.contains(orderId);
     final action = await showModalBottomSheet<_OrderLongPressAction>(
       context: context,
       showDragHandle: true,
@@ -1351,7 +1355,7 @@ class _AdminProductionMapOrdersScreenState
                 title: Text('Navbat holati sinxron emas'),
                 subtitle: Text('Server holati yangilanishi kutilmoqda'),
               ),
-            if (control == AdminOrderControlState.active) ...[
+            if (control == AdminOrderControlState.active && !closingEarly) ...[
               if (!hasFrozenQueueState)
                 ListTile(
                   leading: const Icon(Icons.ac_unit_rounded),
@@ -1378,7 +1382,7 @@ class _AdminProductionMapOrdersScreenState
                 ),
               ),
             ],
-            if (control == AdminOrderControlState.freezeRequested)
+            if (control == AdminOrderControlState.freezeRequested && !closingEarly)
               ListTile(
                 leading: const Icon(Icons.cancel_outlined),
                 title: Text(
@@ -1389,7 +1393,7 @@ class _AdminProductionMapOrdersScreenState
                   _OrderLongPressAction.cancelFreeze,
                 ),
               ),
-            if (control == AdminOrderControlState.frozen)
+            if (control == AdminOrderControlState.frozen && !closingEarly)
               ListTile(
                 leading: const Icon(Icons.play_circle_outline_rounded),
                 title: Text(context.l10n.adminText('production.unfreeze')),
@@ -1398,7 +1402,19 @@ class _AdminProductionMapOrdersScreenState
                   _OrderLongPressAction.unfreeze,
                 ),
               ),
-            ListTile(
+            if (closingEarly)
+              const ListTile(enabled: false,
+                leading: Icon(Icons.hourglass_bottom_rounded),
+                title: Text('Erta yopish so‘rovi yuborilgan'),
+                subtitle: Text('Ishchining oxirgi rulonni yechishi kutilmoqda'))
+            else
+              ListTile(
+                leading: Icon(Icons.stop_circle_outlined,
+                  color: Theme.of(context).colorScheme.error),
+                title: const Text('Orderni muammo bilan erta yopish'),
+                onTap: () => Navigator.pop(context, _OrderLongPressAction.closeEarly),
+              ),
+            if (!closingEarly) ListTile(
               leading: const Icon(Icons.account_tree_outlined),
               title: Text(context.l10n.adminText('production.edit_map')),
               onTap: () => Navigator.pop(
@@ -1406,7 +1422,7 @@ class _AdminProductionMapOrdersScreenState
                 _OrderLongPressAction.editMap,
               ),
             ),
-            ListTile(
+            if (!closingEarly) ListTile(
               leading: const Icon(Icons.edit_note_rounded),
               title: const Text('Buyurtmani tahrirlash'),
               onTap: () =>
@@ -1417,6 +1433,39 @@ class _AdminProductionMapOrdersScreenState
       ),
     );
     if (!mounted || action == null) return;
+    if (action == _OrderLongPressAction.closeEarly) {
+      final comment = await showProductionMapEarlyCloseDialog(context);
+      if (!mounted || comment == null || !_orderControlActionsInFlight.add(orderId)) return;
+      setState(() {});
+      try {
+        final next = await MobileApi.instance.adminEarlyCloseProductionOrder(
+          orderId: orderId, comment: comment);
+        if (!mounted) return;
+        setState(() {
+          _earlyClosingOrderIds.add(orderId);
+          _orderControlsByOrderId[orderId] = next;
+          if (next == AdminOrderControlState.frozen) {
+            _orders = [for (final item in _orders)
+              if (item.map.id.trim() != orderId) item];
+            for (final sequence in _sequenceByApparatus.values) {
+              sequence.removeWhere((id) => id.trim() == orderId);
+            }
+          }
+        });
+        showAdminTopNotice(context, next == AdminOrderControlState.frozen
+          ? 'Buyurtma erta yopildi. Tarix Yopilganlar bo‘limida saqlandi.'
+          : 'Yopish so‘rovi yuborildi. Oxirgi rulon yechilishi kutilmoqda.');
+        await _refreshLive();
+      } catch (error) {
+        if (mounted) showAdminTopNotice(context,
+          error is MobileApiException ? error.message : 'Buyurtma yopilmadi',
+          icon: Icons.warning_amber_rounded);
+      } finally {
+        _orderControlActionsInFlight.remove(orderId);
+        if (mounted) setState(() {});
+      }
+      return;
+    }
     if (action == _OrderLongPressAction.editOrder) {
       _orderControlActionsInFlight.add(orderId);
       try {
@@ -1453,7 +1502,8 @@ class _AdminProductionMapOrdersScreenState
         AdminOrderControlAction.cancelFreeze,
       _OrderLongPressAction.unfreeze => AdminOrderControlAction.unfreeze,
       _OrderLongPressAction.delete => AdminOrderControlAction.delete,
-      _OrderLongPressAction.editMap || _OrderLongPressAction.editOrder => null,
+      _OrderLongPressAction.editMap || _OrderLongPressAction.editOrder ||
+      _OrderLongPressAction.closeEarly => null,
     };
     if (controlAction == null) {
       return;
@@ -1608,6 +1658,9 @@ class _AdminProductionMapOrdersScreenState
   void _setModule(_OpenedOrderModule module) {
     if (_module != module) {
       setState(() => _module = module);
+      if (module == _OpenedOrderModule.closed) {
+        unawaited(_refreshClosedOrders());
+      }
     }
     final index = _modules.indexOf(module);
     if (index < 0) {
@@ -1629,6 +1682,9 @@ class _AdminProductionMapOrdersScreenState
     final module = _modules[_tabController.index];
     if (_module != module) {
       setState(() => _module = module);
+      if (module == _OpenedOrderModule.closed) {
+        unawaited(_refreshClosedOrders());
+      }
     }
     if (module == _OpenedOrderModule.audit) {
       unawaited(_refreshWorkflowAudit());

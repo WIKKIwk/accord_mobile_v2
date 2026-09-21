@@ -285,7 +285,7 @@ class _AdminSupplierPanel extends StatelessWidget {
                   icon: const Icon(Icons.content_copy_outlined),
                 ),
               IconButton(
-                onPressed: regeneratingCode || retryAfterSec > 0
+                onPressed: regeneratingCode
                     ? null
                     : onRegenerateCode,
                 icon: regeneratingCode
@@ -301,7 +301,7 @@ class _AdminSupplierPanel extends StatelessWidget {
         ),
         if (detail.code.trim().isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(l10n.adminText('profile.code_once_hint'), style: theme.textTheme.bodySmall),
+          Text(l10n.adminText('profile.code_copy_hint'), style: theme.textTheme.bodySmall),
         ],
         if (retryAfterSec > 0) ...[
           const SizedBox(height: 12),

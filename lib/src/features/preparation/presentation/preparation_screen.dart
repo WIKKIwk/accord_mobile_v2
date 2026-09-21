@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/navigation/app_root_navigation.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../../core/widgets/feedback/spring_bottom_sheet.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -15,8 +17,12 @@ import '../../admin/presentation/widgets/admin_summary_card.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
 import 'preparation_navigation.dart';
+import 'preparation_order_formula_screen.dart';
 
 part 'preparation_screen_forms.dart';
+part 'preparation_warehouse_management.dart';
+part 'preparation_materials_screen.dart';
+part 'preparation_formula_orders_screen.dart';
 
 const double _adminHomePanelCardGap = 4;
 
@@ -177,6 +183,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
       freshHistory: _syncedHistory,
       freshAssignedWarehouses: _syncedAssignedWarehouses,
       freshMaterialWarehouses: _syncedMaterialWarehouses,
+      freshManagedWarehouses: () => _snapshot?.managedWarehouses ?? const [],
     ));
   }
 
@@ -205,6 +212,18 @@ class _PreparationScreenState extends State<PreparationScreen> {
   }
 
   List<AdminFabMenuAction> _fabActions(PreparationSnapshot data) => [
+        if (!_locked)
+          AdminFabMenuAction(
+            title: 'Formulalar',
+            icon: Icons.functions_rounded,
+            onTap: () => _openAndReload(const PreparationFormulaOrdersScreen()),
+          ),
+        if (!_locked)
+          AdminFabMenuAction(
+            title: 'Homashyolar',
+            icon: Icons.inventory_2_outlined,
+            onTap: () => _openAndReload(const PreparationMaterialsScreen()),
+          ),
         AdminFabMenuAction(
           title: 'Ombor',
           icon: Icons.warehouse_outlined,
@@ -266,13 +285,6 @@ class _PreparationScreenState extends State<PreparationScreen> {
       drawer: const PreparationDrawer(),
       bottom: PreparationDock(
           primaryFabActions: data == null ? null : _fabActions(data)),
-      actions: [
-        IconButton(
-          tooltip: 'Yangilash',
-          onPressed: _saving || _loading ? null : _reload,
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
       child: data == null && _loading
           ? const Center(child: AppLoadingIndicator())
           : AppRefreshIndicator(
@@ -303,10 +315,6 @@ class _PreparationScreenState extends State<PreparationScreen> {
                         leading: Icon(
                           Icons.error_outline_rounded,
                           color: scheme.onErrorContainer,
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.refresh),
-                          onPressed: _loading ? null : _reload,
                         ),
                         elevation: 4,
                       ),
@@ -404,6 +412,34 @@ class _PreparationScreenState extends State<PreparationScreen> {
                             onTap: _locked ? null : () => _openWarehouse(data),
                             elevation: 4,
                           ),
+                        AdminSummaryCard(
+                          slot: M3SegmentVerticalSlot.middle,
+                          cornerRadius: M3SegmentedListGeometry.cornerMiddle,
+                          backgroundColor: scheme.surfaceContainerLowest,
+                          title: 'Homashyolar',
+                          titleStyle: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          value: '',
+                          onTap: _locked
+                              ? null
+                              : () => _openAndReload(
+                                  const PreparationMaterialsScreen()),
+                          elevation: 4,
+                        ),
+                        AdminSummaryCard(
+                          slot: M3SegmentVerticalSlot.middle,
+                          cornerRadius: M3SegmentedListGeometry.cornerMiddle,
+                          backgroundColor: scheme.surfaceContainerLowest,
+                          title: 'Formulalar',
+                          titleStyle: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          value: '',
+                          onTap: _locked ? null : () => _openAndReload(
+                              const PreparationFormulaOrdersScreen()),
+                          elevation: 4,
+                        ),
                         AdminSummaryCard(
                           slot: M3SegmentVerticalSlot.middle,
                           cornerRadius: M3SegmentedListGeometry.cornerMiddle,

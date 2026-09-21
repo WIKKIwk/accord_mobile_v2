@@ -76,6 +76,7 @@ class _ClosedOrderTile extends StatelessWidget {
     );
     final closedAt = _closedLogTimeLabel(order.completedAtUnix);
     final subtitle = [
+      if (order.logs.any((log) => log.action == 'close_early')) 'Erta yopilgan',
       if (order.productCode.trim().isNotEmpty) order.productCode.trim(),
       if (closedBy.isNotEmpty) 'Yopdi: $closedBy',
       if (closedAt.isNotEmpty) closedAt,
@@ -193,6 +194,7 @@ class _ClosedOrderLogRow extends StatelessWidget {
       'resume' => Icons.replay_rounded,
       'roll_complete' => Icons.done_all_rounded,
       'complete' => Icons.check_rounded,
+      'close_early' => Icons.stop_circle_outlined,
       _ => Icons.history_rounded,
     };
   }
@@ -215,6 +217,8 @@ class _ClosedOrderLogRow extends StatelessWidget {
       if (state.isNotEmpty) state,
       if (time.isNotEmpty) time,
       if (transferReason.isNotEmpty) 'Sabab: $transferReason',
+      if (log.action == 'close_early' && log.issueNote.trim().isNotEmpty)
+        'Sabab: ${log.issueNote.trim()}',
     ].join(' • ');
 
     return Material(

@@ -94,7 +94,7 @@ class _AdminCustomerPanel extends StatelessWidget {
                 ),
               IconButton(
                 key: const ValueKey('admin-customer-detail-code-regenerate'),
-                onPressed: regeneratingCode || detail.codeLocked
+                onPressed: regeneratingCode
                     ? null
                     : onRegenerateCode,
                 icon: regeneratingCode
@@ -110,7 +110,7 @@ class _AdminCustomerPanel extends StatelessWidget {
         ),
         if (detail.code.trim().isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(l10n.adminText('profile.code_once_hint'), style: theme.textTheme.bodySmall),
+          Text(l10n.adminText('profile.code_copy_hint'), style: theme.textTheme.bodySmall),
         ],
         if (detail.codeRetryAfterSec > 0) ...[
           const SizedBox(height: 12),

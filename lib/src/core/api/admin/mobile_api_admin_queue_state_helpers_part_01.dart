@@ -157,6 +157,13 @@ Map<String, AdminOrderControlState> _parseAdminOrderControls(Object? raw) {
   };
 }
 
+Set<String> _parseEarlyClosingOrderIds(Object? raw) => {
+  if (raw is Map)
+    for (final entry in raw.entries)
+      if (entry.value is Map && (entry.value as Map)['early_close'] is Map)
+        entry.key.toString().trim(),
+};
+
 Map<String, List<AdminFrozenQueueOrder>> _parseAdminFrozenOrdersByApparatus(
   Object? raw,
 ) {

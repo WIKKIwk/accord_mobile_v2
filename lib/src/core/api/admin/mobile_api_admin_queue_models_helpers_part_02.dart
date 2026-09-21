@@ -55,6 +55,7 @@ class AdminApparatusQueueSnapshot {
     required this.queueStates,
     required this.queuePolicies,
     required this.orderControls,
+    this.earlyClosingOrderIds = const {},
     this.queueActionControls = const {},
     this.stageStates = const {},
     this.orderCustomers = const {},
@@ -71,6 +72,7 @@ class AdminApparatusQueueSnapshot {
   final Map<String, Map<String, String>> stageStates;
   final Map<String, AdminApparatusQueuePolicy> queuePolicies;
   final Map<String, AdminOrderControlState> orderControls;
+  final Set<String> earlyClosingOrderIds;
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       queueActionControls;
   final Map<String, String> orderCustomers;

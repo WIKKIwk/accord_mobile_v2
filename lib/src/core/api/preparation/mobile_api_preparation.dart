@@ -158,9 +158,11 @@ extension MobileApiPreparation on MobileApi {
   /// Tayyorlov formula cardlari: bitta tayyor mahsulot kodi + bitta
   /// homashyo (calculate-material oilasi) uchun bir nechta nomli formula.
   /// Cardlar nom bo'yicha alifboda. Homashyo majburiy scope.
+  /// savedOnly faqat mavjud formulalarni boshqaradi, jumladan eski bo‘sh scope.
   Future<List<PreparationFormula>> preparationFormulas(
     String productCode, {
     required String materialId,
+    bool savedOnly = false,
   }) async {
     final code = productCode.trim();
     final material = materialId.trim();
@@ -168,12 +170,13 @@ extension MobileApiPreparation on MobileApi {
       throw const MobileApiException(
           code: 'preparation_invalid', message: 'Mahsulot kodi topilmadi');
     }
-    if (material.isEmpty) {
+    if (material.isEmpty && !savedOnly) {
       throw const MobileApiException(
           code: 'preparation_invalid', message: 'Homashyo tanlanmadi');
     }
     final key = _preparationStorageKey();
-    final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formulas')
+    final uri = Uri.parse(
+            '${MobileApi.baseUrl}/v1/mobile/preparation/formulas${savedOnly ? '/saved' : ''}')
         .replace(queryParameters: {
       'product_code': code,
       'material_id': material,
@@ -188,19 +191,38 @@ extension MobileApiPreparation on MobileApi {
     return PreparationFormula.listFromJson(_preparationResponse(response));
   }
 
+  Future<List<PreparationFormulaOrder>> preparationFormulaOrders() async {
+    final key = _preparationStorageKey();
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) {
+        throw const MobileApiException(code: 'account_changed', message: 'Akkaunt o‘zgargan. Sahifani qayta oching');
+      }
+      return _get(Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-orders'),
+          headers: _headers(requireToken()));
+    });
+    if (_preparationStorageKey() != key) {
+      throw const MobileApiException(code: 'account_changed', message: 'Akkaunt o‘zgargan. Sahifani qayta oching');
+    }
+    final data = _preparationResponse(response);
+    return (data['orders'] as List).map((entry) => PreparationFormulaOrder.fromJson(
+      Map<String, dynamic>.from(entry as Map))).toList();
+  }
+
   Future<PreparationFormula> preparationUpsertFormula(
     String productCode,
     List<Map<String, String>> lines, {
     String? name,
     required String materialId,
+    bool savedOnly = false,
   }) async {
     final key = _preparationStorageKey();
     final response = await _sendAuthorized(() {
       if (_preparationStorageKey() != key) {
         throw StateError('Akkaunt o‘zgargan');
       }
-      return _post(
-          Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formulas'),
+      return (savedOnly ? _patch : _post)(
+          Uri.parse(
+              '${MobileApi.baseUrl}/v1/mobile/preparation/formulas${savedOnly ? '/saved' : ''}'),
           headers: _headers(requireToken())
             ..['Content-Type'] = 'application/json',
           body: jsonEncode({
@@ -218,9 +240,11 @@ extension MobileApiPreparation on MobileApi {
     String productCode,
     String name, {
     required String materialId,
+    bool savedOnly = false,
   }) async {
     final key = _preparationStorageKey();
-    final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formulas')
+    final uri = Uri.parse(
+            '${MobileApi.baseUrl}/v1/mobile/preparation/formulas${savedOnly ? '/saved' : ''}')
         .replace(queryParameters: {
       'product_code': productCode.trim(),
       'name': name.trim(),
@@ -233,7 +257,12 @@ extension MobileApiPreparation on MobileApi {
       return _delete(uri, headers: _headers(requireToken()));
     });
     if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
-    _preparationResponse(response);
+    final data = _preparationResponse(response);
+    if (savedOnly && data['deleted'] != true) {
+      throw const MobileApiException(
+          code: 'preparation_invalid_response',
+          message: 'Formula o‘chirilgani tasdiqlanmadi. Ro‘yxatni yangilang');
+    }
   }
 
   /// Order qatlamlaridagi homashyolar — faqat o'ziga biriktirilganlari qaytadi.
@@ -274,21 +303,9 @@ extension MobileApiPreparation on MobileApi {
     required String name,
     required String parent,
   }) async {
-    final key = _preparationStorageKey();
-    final response = await _sendAuthorized(() {
-      if (_preparationStorageKey() != key) {
-        throw StateError('Akkaunt o‘zgargan');
-      }
-      return _post(
-          Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/warehouses'),
-          headers: _headers(requireToken())
-            ..['Content-Type'] = 'application/json',
-          body: jsonEncode(
-              {'name': name.trim(), 'parent_warehouse': parent.trim()}));
+    return _preparationWarehouseMutation('POST', {
+      'name': name.trim(), 'parent_warehouse': parent.trim(),
     });
-    if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
-    final data = _preparationResponse(response);
-    return (data['warehouse'] as String? ?? '').trim();
   }
 
   /// Admin: tayyorlov masterining javobgar homashyolari ro'yxati.

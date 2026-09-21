@@ -9,6 +9,53 @@ enum _OrderLongPressAction {
   delete,
   editMap,
   editOrder,
+  closeEarly,
+}
+
+Future<String?> showProductionMapEarlyCloseDialog(BuildContext context) {
+  return showDialog<String>(context: context,
+    builder: (_) => const _EarlyCloseOrderDialog());
+}
+
+class _EarlyCloseOrderDialog extends StatefulWidget {
+  const _EarlyCloseOrderDialog();
+
+  @override
+  State<_EarlyCloseOrderDialog> createState() => _EarlyCloseOrderDialogState();
+}
+
+class _EarlyCloseOrderDialogState extends State<_EarlyCloseOrderDialog> {
+  final _comment = TextEditingController();
+
+  @override
+  void dispose() {
+    _comment.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Qanday sabab bilan yopyapsiz?'),
+    content: TextField(
+      key: const ValueKey('early-close-comment'),
+      controller: _comment,
+      autofocus: true,
+      minLines: 3,
+      maxLines: 5,
+      maxLength: 2000,
+      decoration: const InputDecoration(labelText: 'Izoh'),
+      onChanged: (_) => setState(() {}),
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context),
+        child: const Text('Bekor qilish')),
+      FilledButton(
+        onPressed: _comment.text.trim().isEmpty ? null
+          : () => Navigator.pop(context, _comment.text.trim()),
+        child: const Text('Yopish'),
+      ),
+    ],
+  );
 }
 
 Future<void> showAdminProductionMapOrderReadOnlyDetail(

@@ -5,11 +5,13 @@ class AdminFilterChipOption<T> {
     required this.value,
     required this.label,
     this.key,
+    this.onLongPress,
   });
 
   final T value;
   final String label;
   final Key? key;
+  final VoidCallback? onLongPress;
 }
 
 class AdminExpandableFilterChip<T> extends StatelessWidget {
@@ -118,6 +120,7 @@ class AdminExpandableFilterChip<T> extends StatelessWidget {
                             label: option.label,
                             selected: option.value == selectedValue,
                             onSelect: () => onSelect(option.value),
+                            onLongPress: option.onLongPress,
                           ),
                       ],
                     ),
@@ -145,36 +148,41 @@ class _AdminExpandableFilterOptionChip<T> extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onSelect,
+    this.onLongPress,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onSelect;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return FilterChip(
-      selected: selected,
-      showCheckmark: selected,
-      checkmarkColor: scheme.onSecondaryContainer,
-      label: Text(label),
-      labelStyle: theme.textTheme.labelLarge?.copyWith(
-        color: selected ? scheme.onSecondaryContainer : scheme.onSurface,
-        fontWeight: FontWeight.w500,
+    return GestureDetector(
+      onLongPress: onLongPress,
+      child: FilterChip(
+        selected: selected,
+        showCheckmark: selected,
+        checkmarkColor: scheme.onSecondaryContainer,
+        label: Text(label),
+        labelStyle: theme.textTheme.labelLarge?.copyWith(
+          color: selected ? scheme.onSecondaryContainer : scheme.onSurface,
+          fontWeight: FontWeight.w500,
+        ),
+        onSelected: (_) => onSelect(),
+        selectedColor: scheme.secondaryContainer,
+        backgroundColor: scheme.surfaceContainerLowest,
+        elevation: 2,
+        pressElevation: 2,
+        shadowColor: scheme.shadow.withValues(alpha: 0.18),
+        side: const BorderSide(color: Colors.transparent),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: const VisualDensity(horizontal: 0, vertical: -1),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
       ),
-      onSelected: (_) => onSelect(),
-      selectedColor: scheme.secondaryContainer,
-      backgroundColor: scheme.surfaceContainerLowest,
-      elevation: 2,
-      pressElevation: 2,
-      shadowColor: scheme.shadow.withValues(alpha: 0.18),
-      side: const BorderSide(color: Colors.transparent),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: const VisualDensity(horizontal: 0, vertical: -1),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
     );
   }
 }

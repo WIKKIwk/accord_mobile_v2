@@ -100,6 +100,7 @@ extension MobileApiAdminQueueState on MobileApi {
       ),
       orderControls: orderControls,
       orderCustomers: _stringMapOfStrings(payload['order_customers']),
+      earlyClosingOrderIds: _parseEarlyClosingOrderIds(payload['order_controls']),
       orderStatuses: _parseAdminOrderStatuses(payload['order_statuses']),
       frozenOrdersByApparatus: _parseAdminFrozenOrdersByApparatus(
         payload['frozen_orders_by_apparatus'],
@@ -148,6 +149,38 @@ extension MobileApiAdminQueueState on MobileApi {
         code: 'order_control_invalid_response',
         message: 'Buyurtma holati olinmadi',
       );
+    }
+    return AdminOrderControlState.fromRaw(control['state']);
+  }
+
+  Future<AdminOrderControlState> adminEarlyCloseProductionOrder({
+    required String orderId,
+    required String comment,
+  }) async {
+    if (comment.trim().isEmpty || comment.trim().runes.length > 2000) {
+      throw const MobileApiException(code: 'early_close_comment_invalid',
+          message: 'Yopish sababini yozing (2000 belgigacha)');
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      throw const MobileApiException(code: 'early_close_test_mode',
+          message: 'Erta yopish amali demo rejimida bajarilmaydi');
+    }
+    final response = await _sendAuthorized(() => _post(
+      Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/production-maps/order-control'),
+      headers: _headers(requireToken())..['Content-Type'] = 'application/json',
+      body: jsonEncode({'order_id': orderId.trim(), 'action': 'close_early',
+        'comment': comment.trim()}),
+    ));
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'order_control_failed',
+        earlyClose: true);
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final control = payload['control'];
+    if (control is! Map || control['early_close'] is! Map ||
+        !const {'freeze_requested', 'frozen'}.contains(control['state'])) {
+      throw const MobileApiException(code: 'order_control_invalid_response',
+          message: 'Buyurtma holati olinmadi');
     }
     return AdminOrderControlState.fromRaw(control['state']);
   }

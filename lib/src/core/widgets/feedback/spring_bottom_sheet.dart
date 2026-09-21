@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 
+import '../lists/m3_segmented_list.dart';
+
 /// Pastdan chiqadigan spring-animatsiyali modal sheet.
 ///
 /// [showModalBottomSheet] o'rniga ishlatiladi — API bir xil:
@@ -217,6 +219,155 @@ class SheetContainer extends StatelessWidget {
           top: Radius.circular(28),
         ),
         child: ColoredBox(color: surface, child: child),
+      ),
+    );
+  }
+}
+
+class AppSheetHandle extends StatelessWidget {
+  const AppSheetHandle({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 38,
+        height: 4,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          borderRadius: BorderRadius.circular(99),
+        ),
+      ),
+    );
+  }
+}
+
+class AppActionSheetAction<T> {
+  const AppActionSheetAction({
+    required this.title,
+    required this.icon,
+    required this.value,
+    this.subtitle,
+    this.enabled = true,
+    this.destructive = false,
+  });
+
+  final String title;
+  final IconData icon;
+  final T value;
+  final String? subtitle;
+  final bool enabled;
+  final bool destructive;
+}
+
+class AppActionSheet<T> extends StatelessWidget {
+  const AppActionSheet({
+    super.key,
+    required this.title,
+    required this.actions,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final List<AppActionSheetAction<T>> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 14, 4, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const AppSheetHandle(),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(title, style: theme.textTheme.headlineSmall),
+            ),
+            if ((subtitle ?? '').trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  subtitle!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            M3SegmentSpacedColumn(
+              children: [
+                for (var i = 0; i < actions.length; i++)
+                  Builder(builder: (sheetContext) {
+                    final action = actions[i];
+                    final slot = M3SegmentedListGeometry
+                        .standaloneListSlotForIndex(i, actions.length);
+                    final radius =
+                        M3SegmentedListGeometry.cornerRadiusForSlot(slot);
+                    final foreground = action.destructive
+                        ? scheme.error
+                        : action.enabled
+                            ? scheme.onSurface
+                            : scheme.onSurface.withValues(alpha: 0.38);
+                    return M3SegmentFilledSurface(
+                      slot: slot,
+                      cornerRadius: radius,
+                      backgroundColor: scheme.surfaceContainerLowest,
+                      onTap: action.enabled
+                          ? () => Navigator.of(sheetContext).pop(action.value)
+                          : null,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 9, 12, 9),
+                        child: Row(
+                          children: [
+                            Icon(action.icon, color: foreground, size: 20),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    action.title,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: foreground,
+                                    ),
+                                  ),
+                                  if ((action.subtitle ?? '').trim().isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Text(
+                                        action.subtitle!,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(color: foreground),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: action.enabled
+                                  ? scheme.onSurfaceVariant
+                                  : scheme.outline,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

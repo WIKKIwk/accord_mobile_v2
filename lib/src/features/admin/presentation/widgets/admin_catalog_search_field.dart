@@ -16,6 +16,7 @@ class AdminCatalogSearchField extends StatelessWidget {
     this.onBackWithContext,
     this.leadingIcon = Icons.arrow_back_rounded,
     this.leadingTooltip,
+    this.showLeading = true,
     this.searchCloseKey,
   });
 
@@ -29,6 +30,7 @@ class AdminCatalogSearchField extends StatelessWidget {
   final void Function(BuildContext context)? onBackWithContext;
   final IconData leadingIcon;
   final String? leadingTooltip;
+  final bool showLeading;
   final Key? searchCloseKey;
 
   void _handleBack(BuildContext context) {
@@ -164,32 +166,35 @@ class AdminCatalogSearchField extends StatelessWidget {
             alignment: Alignment.center,
             child: Row(
               children: [
-                AnimatedContainer(
-                  width: searchActive ? 0 : 38,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  child: ClipRect(
-                    child: AnimatedOpacity(
-                      opacity: searchActive ? 0 : 1,
-                      duration: const Duration(milliseconds: 120),
-                      child: IconButton(
-                        tooltip: leadingTooltip ??
-                            MaterialLocalizations.of(context).backButtonTooltip,
-                        style: IconButton.styleFrom(padding: EdgeInsets.zero),
-                        onPressed: () => _handleBack(context),
-                        icon: Icon(
-                          leadingIcon,
-                          color: scheme.onSurfaceVariant,
+                if (showLeading)
+                  AnimatedContainer(
+                    width: searchActive ? 0 : 38,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    child: ClipRect(
+                      child: AnimatedOpacity(
+                        opacity: searchActive ? 0 : 1,
+                        duration: const Duration(milliseconds: 120),
+                        child: IconButton(
+                          tooltip: leadingTooltip ??
+                              MaterialLocalizations.of(context)
+                                  .backButtonTooltip,
+                          style: IconButton.styleFrom(padding: EdgeInsets.zero),
+                          onPressed: () => _handleBack(context),
+                          icon: Icon(
+                            leadingIcon,
+                            color: scheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                AnimatedContainer(
-                  width: searchActive ? 0 : 6,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                ),
+                if (showLeading)
+                  AnimatedContainer(
+                    width: searchActive ? 0 : 6,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                  ),
                 Expanded(
                   child: Transform.translate(
                     offset: const Offset(0, -1),

@@ -3,8 +3,9 @@ part of '../mobile_api.dart';
 
 MobileApiException _adminProductionMapException(
   http.Response response,
-  String fallbackCode,
-) {
+  String fallbackCode, {
+  bool earlyClose = false,
+}) {
   String code = fallbackCode;
   var apparatusOptions = const <String>[];
   var details = const <String>[];
@@ -52,13 +53,30 @@ MobileApiException _adminProductionMapException(
       scannedKadrCount = (payload['scanned_kadr_count'] as num?)?.toInt();
     }
   } catch (_) {}
+  final earlyCloseMessage = earlyClose ? switch (code.trim().toLowerCase()) {
+    'order_not_started' =>
+      'Server boshlanmagan buyurtmani erta yopishni rad etdi. Backendni yangilash kerak.',
+    'order_already_completed' =>
+      'Buyurtma allaqachon yopilgan. Yopilganlar bo‘limini tekshiring.',
+    'early_close_comment_required_or_too_long' =>
+      'Yopish sababini yozing (2000 belgigacha).',
+    'order_freeze_target_not_found' =>
+      'Erta yopish uchun faol ish sessiyasi topilmadi. Buyurtma holatini yangilang.',
+    'order_freeze_target_ambiguous' =>
+      'Buyurtmada bir nechta faol ish bor. Erta yopishdan oldin ularning holatini tekshiring.',
+    'order_freeze_requested' =>
+      'Buyurtmani yopish uchun ishchining oxirgi rulonni yechishi kutilmoqda.',
+    'order_frozen' || 'order_control_action_not_allowed' =>
+      'Buyurtmaning hozirgi holatida erta yopish mumkin emas. Holatni yangilang.',
+    _ => null,
+  } : null;
   return MobileApiException(
     code: code,
     apparatusOptions: apparatusOptions,
     details: details,
     activeKadrCount: activeKadrCount,
     scannedKadrCount: scannedKadrCount,
-    message: switch (code.trim().toLowerCase()) {
+    message: earlyCloseMessage ?? switch (code.trim().toLowerCase()) {
       'duplicate_order_number' => 'Bu raqam boshqa zakazga berilgan',
       'order_number_immutable' => 'Zakaz raqamini o‘zgartirish mumkin emas',
       'order_number_exhausted' => 'Zakaz raqamlari limiti tugagan',

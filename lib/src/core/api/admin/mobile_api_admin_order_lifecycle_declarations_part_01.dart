@@ -366,6 +366,7 @@ class AdminClosedProductionOrder {
 
   factory AdminClosedProductionOrder.fromJson(Map<String, dynamic> json) {
     final logsRaw = json['logs'];
+    final earlyClose = json['early_close'];
     return AdminClosedProductionOrder(
       orderId: json['order_id']?.toString() ?? '',
       orderNumber: json['order_number']?.toString() ?? '',
@@ -386,6 +387,17 @@ class AdminClosedProductionOrder {
             AdminProductionOrderLogEntry.fromJson(
               (item as Map).cast<String, dynamic>(),
             ),
+        if (earlyClose is Map && earlyClose['closed_at_unix'] is num)
+          AdminProductionOrderLogEntry(
+            eventId: 'early-close:${json['order_id']}',
+            apparatus: '', orderId: json['order_id']?.toString() ?? '',
+            action: 'close_early', fromState: '', toState: 'cancelled',
+            actorRole: json['closed_by_role']?.toString() ?? '',
+            actorRef: json['closed_by_ref']?.toString() ?? '',
+            actorDisplayName: json['closed_by_display_name']?.toString() ?? '',
+            createdAtUnix: (earlyClose['closed_at_unix'] as num).toInt(),
+            issueNote: earlyClose['comment']?.toString() ?? '',
+          ),
       ],
     );
   }

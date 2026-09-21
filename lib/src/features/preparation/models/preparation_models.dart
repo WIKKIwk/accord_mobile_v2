@@ -75,6 +75,22 @@ class PreparationMaterial {
   }
 }
 
+class PreparationOwnedMaterial {
+  const PreparationOwnedMaterial({
+    required this.code,
+    required this.name,
+    required this.warehouses,
+  });
+  factory PreparationOwnedMaterial.fromJson(Map<String, dynamic> json) =>
+      PreparationOwnedMaterial(
+        code: json['item_code'] as String,
+        name: json['name'] as String,
+        warehouses: _preparationWarehouseList(json['warehouses']),
+      );
+  final String code, name;
+  final List<String> warehouses;
+}
+
 class PreparationOrder {
   PreparationOrder.fromJson(Map<String, dynamic> json)
       : id = json['id'] as String,
@@ -100,6 +116,8 @@ class PreparationSnapshot {
             _preparationWarehouseList(json['assigned_warehouses']),
         materialWarehouses =
             _preparationWarehouseList(json['material_warehouses']),
+        managedWarehouses =
+            _preparationWarehouseList(json['managed_warehouses']),
         materials = (json['materials'] as List)
             .map((m) => PreparationMaterial.fromJson(
                 Map<String, dynamic>.from(m as Map)))
@@ -118,6 +136,7 @@ class PreparationSnapshot {
   final List<String> warehouses;
   final List<String> assignedWarehouses;
   final List<String> materialWarehouses;
+  final List<String> managedWarehouses;
   final List<PreparationMaterial> materials;
   final List<PreparationOrder> orders;
   final List<Map<String, dynamic>> history;
@@ -152,6 +171,43 @@ class PreparationPendingCommand {
           kind: json['kind'] as String,
           requestId: json['request_id'] as String,
           payload: Map<String, dynamic>.from(json['payload'] as Map));
+}
+
+class PreparationFormulaOrder {
+  const PreparationFormulaOrder({
+    required this.id,
+    required this.code,
+    required this.productCode,
+    required this.title,
+    required this.formulas,
+    this.hasOrder = true,
+  });
+  factory PreparationFormulaOrder.fromJson(Map<String, dynamic> json) =>
+      PreparationFormulaOrder(
+        id: json['order_id'] as String,
+        code: json['order_code'] as String? ?? '',
+        productCode: json['product_code'] as String,
+        title: json['title'] as String,
+        hasOrder: json['has_order'] as bool? ?? true,
+        formulas: (json['formulas'] as List)
+            .map((entry) => PreparationScopedFormula.fromJson({
+                  'product_code': json['product_code'],
+                  ...Map<String, dynamic>.from(entry as Map),
+                }))
+            .toList(),
+      );
+  final String id, code, productCode, title;
+  final bool hasOrder;
+  final List<PreparationScopedFormula> formulas;
+}
+
+class PreparationScopedFormula {
+  PreparationScopedFormula.fromJson(Map<String, dynamic> json)
+      : materialId = json['material_id'] as String,
+        materialName = json['material_name'] as String,
+        formula = PreparationFormula.fromJson(json);
+  final String materialId, materialName;
+  final PreparationFormula formula;
 }
 
 class PreparationFormulaLine {

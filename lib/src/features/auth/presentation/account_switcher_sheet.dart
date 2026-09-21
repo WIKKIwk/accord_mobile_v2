@@ -1,6 +1,7 @@
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/accounts/saved_account_store.dart';
 import '../../../core/widgets/feedback/spring_pressable.dart';
+import '../../../core/widgets/feedback/spring_bottom_sheet.dart';
 import '../../../core/widgets/forms/pin_pad.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../shared/models/app_models.dart';
@@ -156,7 +157,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
-          child: _SheetHandle(),
+          child: AppSheetHandle(),
         ),
         const SizedBox(height: 16),
         Padding(
@@ -258,7 +259,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _SheetHandle(),
+          const AppSheetHandle(),
           const SizedBox(height: 6),
           Align(
             alignment: Alignment.centerLeft,
@@ -437,24 +438,6 @@ String _compactApparatusLabel(String value) {
     RegExp(r'\s+aparat(?:i)?$', caseSensitive: false),
     '',
   );
-}
-
-class _SheetHandle extends StatelessWidget {
-  const _SheetHandle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 38,
-        height: 4,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          borderRadius: BorderRadius.circular(99),
-        ),
-      ),
-    );
-  }
 }
 
 String _displayName(SessionProfile profile) {

@@ -120,6 +120,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot {
     required this.completionRequests,
     required this.completionRequestDecisions,
     required super.orderControls,
+    super.earlyClosingOrderIds = const {},
     super.orderCustomers = const {},
     super.orderStatuses = const {},
     super.frozenOrdersByApparatus = const {},
@@ -178,6 +179,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot {
             ),
       ],
       orderControls: orderControls,
+      earlyClosingOrderIds: _parseEarlyClosingOrderIds(json['order_controls']),
       orderCustomers: _stringMapOfStrings(json['order_customers']),
       orderStatuses: _parseAdminOrderStatuses(json['order_statuses']),
       frozenOrdersByApparatus: _parseAdminFrozenOrdersByApparatus(

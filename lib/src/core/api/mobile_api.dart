@@ -85,6 +85,8 @@ part 'calculate/mobile_api_calculate.dart';
 part 'chat/mobile_api_chat.dart';
 part 'boyoqchi/mobile_api_boyoqchi.dart';
 part 'preparation/mobile_api_preparation.dart';
+part 'preparation/mobile_api_preparation_warehouses.dart';
+part 'preparation/mobile_api_preparation_materials.dart';
 part 'raw_material_split/mobile_api_raw_material_split.dart';
 part 'customer/mobile_api_customer.dart';
 part 'gscale/mobile_api_gscale.dart';

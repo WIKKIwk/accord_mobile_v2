@@ -466,6 +466,7 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   bool _queueSnapshotChanged(AdminApparatusQueueSnapshot snapshot) {
+    if (!setEquals(_earlyClosingOrderIds, snapshot.earlyClosingOrderIds)) return true;
     if (_sequenceByApparatus.length != snapshot.sequences.length ||
         _visibleOrderIdsByApparatus.length != snapshot.visibleOrderIds.length ||
         _queueStatesByApparatus.length != snapshot.queueStates.length ||
@@ -531,6 +532,7 @@ extension _AdminProductionMapOrdersLiveState
     for (final entry in snapshot.orderStatuses.entries) {
       final current = _orderStatusesByOrderId[entry.key];
       if (current == null ||
+          current.lifecycleStatus != entry.value.lifecycleStatus ||
           current.orderStatus != entry.value.orderStatus ||
           current.completedWithIssueCount !=
               entry.value.completedWithIssueCount) {
@@ -547,6 +549,21 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   void _replaceQueueSnapshotMaps(AdminApparatusQueueSnapshot snapshot) {
+    // Queue/live updates also invalidate the separately loaded archive when
+    // an order closes (including the worker finishing a pending early close).
+    Map<String, String> closedLifecycles(
+      Map<String, AdminProductionOrderStatusDetail> statuses,
+    ) => {
+      for (final entry in statuses.entries)
+        if (const {'production_completed', 'closed', 'cancelled'}
+            .contains(entry.value.lifecycleStatus))
+          entry.key: entry.value.lifecycleStatus,
+    };
+    final refreshClosed = !widget.workerMode && !widget.supplyViewerMode &&
+        !_loading && !mapEquals(
+          closedLifecycles(_orderStatusesByOrderId),
+          closedLifecycles(snapshot.orderStatuses),
+        );
     _sequenceByApparatus
       ..clear()
       ..addAll(snapshot.sequences);
@@ -581,10 +598,14 @@ extension _AdminProductionMapOrdersLiveState
     _orderControlsByOrderId
       ..clear()
       ..addAll(snapshot.orderControls);
+    _earlyClosingOrderIds
+      ..clear()
+      ..addAll(snapshot.earlyClosingOrderIds);
     _customerByMapId = {...snapshot.orderCustomers};
     _orderStatusesByOrderId
       ..clear()
       ..addAll(snapshot.orderStatuses);
+    if (refreshClosed) unawaited(_refreshClosedOrders());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_showPendingStageAstatkaPrompt());
     });
@@ -689,31 +710,45 @@ extension _AdminProductionMapOrdersLiveState
     }
   }
 
-  Future<void> _refreshClosedOrders() async {
-    if (widget.workerMode) {
-      return;
+  Future<void> _refreshClosedOrders() {
+    if (!mounted || widget.workerMode || widget.supplyViewerMode) {
+      return Future.value();
     }
-    try {
-      final loader = widget.closedOrdersLoader ??
-          MobileApi.instance.adminClosedProductionMapOrders;
-      final closed = await loader();
-      if (!mounted) {
-        return;
+    final pending = _closedOrdersRefresh;
+    if (pending != null) {
+      _closedOrdersRefreshQueued = true;
+      return pending;
+    }
+    return _closedOrdersRefresh = _refreshClosedOrdersUntilCurrent()
+        .whenComplete(() => _closedOrdersRefresh = null);
+  }
+
+  Future<void> _refreshClosedOrdersUntilCurrent() async {
+    while (mounted) {
+      _closedOrdersRefreshQueued = false;
+      try {
+        final loader = widget.closedOrdersLoader ??
+            MobileApi.instance.adminClosedProductionMapOrders;
+        final closed = await loader();
+        if (!mounted) return;
+        // A closure may arrive while the previous archive read is in flight.
+        // Discard that old result and read again after the invalidation.
+        if (_closedOrdersRefreshQueued) continue;
+        _updateScreenState(() {
+          _closedOrders = closed;
+          _closedOrdersErrorMessage = null;
+        });
+      } catch (error) {
+        if (!mounted) return;
+        if (_closedOrdersRefreshQueued) continue;
+        _updateScreenState(() {
+          _closedOrdersErrorMessage =
+              error is MobileApiException && error.message.trim().isNotEmpty
+                  ? error.message
+                  : 'Yopilgan orderlar yuklanmadi';
+        });
       }
-      _updateScreenState(() {
-        _closedOrders = closed;
-        _closedOrdersErrorMessage = null;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      _updateScreenState(() {
-        _closedOrdersErrorMessage =
-            error is MobileApiException && error.message.trim().isNotEmpty
-                ? error.message
-                : 'Yopilgan orderlar yuklanmadi';
-      });
+      if (!_closedOrdersRefreshQueued) return;
     }
   }
 

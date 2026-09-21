@@ -267,7 +267,17 @@ void main() {
         tester.getCenter(find.widgetWithText(FilledButton, 'Saqlash')).dy,
         lessThan(tester.getCenter(find.text('Bekor qilish')).dy),
       );
-      await tester.enterText(find.byType(TextFormField), '12.5');
+      final kgField = find.byType(TextFormField);
+      final kgTextField = find.descendant(
+        of: kgField,
+        matching: find.byType(TextField),
+      );
+      expect(
+        tester.widget<TextField>(kgTextField).keyboardType,
+        const TextInputType.numberWithOptions(decimal: true),
+      );
+      await tester.enterText(kgField, '12.5kg');
+      expect(tester.widget<TextFormField>(kgField).controller!.text, '12.5');
       await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
       await tester.pumpAndSettle();
       expect(requests.single['kg'], '12.500000');
@@ -317,6 +327,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Kirimlar'), findsOneWidget);
       expect(find.text('+10 kg'), findsOneWidget);
+      expect(find.text('Kirimni bekor qilish — Kley'), findsOneWidget);
+      expect(find.text('-10 kg'), findsOneWidget);
+      expect(find.textContaining('Sabab: Xato kirim'), findsOneWidget);
       expect(find.text('Chiqimlar'), findsOneWidget);
       expect(find.text('-30 kg'), findsOneWidget);
       await tester.tap(find.byKey(const Key('preparation-detail-kirim')));
@@ -360,11 +373,24 @@ void main() {
                     'history': [
                       {
                         'kind': 'receipt',
+                        'id': 'receipt-cancelled',
                         'warehouse': 'Tayyorlov ombori',
                         'item_code': 'P1',
                         'name': 'Kley',
                         'kg': '10.000000',
                         'created_at': '2026-09-08T10:54:36',
+                        'reversed': true,
+                      },
+                      {
+                        'kind': 'receipt_reversal',
+                        'id': 'reversal-1',
+                        'receipt_id': 'receipt-cancelled',
+                        'warehouse': 'Tayyorlov ombori',
+                        'item_code': 'P1',
+                        'name': 'Kley',
+                        'kg': '10.000000',
+                        'reason': 'Xato kirim',
+                        'created_at': '2026-09-08T10:55:36',
                       },
                       {
                         'kind': 'consumption',

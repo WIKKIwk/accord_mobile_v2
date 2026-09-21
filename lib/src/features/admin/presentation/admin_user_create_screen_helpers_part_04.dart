@@ -13,7 +13,7 @@ Future<void> _showIssuedCode(BuildContext context, String code) async {
         children: [
           SelectableText(code),
           const SizedBox(height: 12),
-          Text(dialogContext.l10n.adminText('profile.code_once_hint')),
+          Text(dialogContext.l10n.adminText('profile.code_copy_hint')),
         ],
       ),
       actions: [

@@ -166,7 +166,9 @@ void main() {
           expect(tester.takeException(), isNull);
 
           warehouses = ['Tayyorlov ombori'];
-          await tester.tap(find.byTooltip('Yangilash'));
+          expect(find.byIcon(Icons.refresh), findsNothing);
+          final homeList = find.byType(ListView).first;
+          await tester.fling(homeList, const Offset(0, 600), 1000);
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
           expect(find.text('Tayyorlov ombori'), findsOneWidget);
