@@ -22,6 +22,55 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
       frame.diameter.text = number('diameter');
       frame.issueNote.text = saved.issueNote;
     }
+    _autofillRezkaFrames(report);
+  }
+
+  void _autofillRezkaFrames(AdminRezkaOutputReport report) {
+    if (!_showRezkaFrameInputs || _rezkaAutofillReference != null) return;
+    for (var index = 0; index < _rezkaFrameControllers.length; index++) {
+      final saved = report.frameAt(index);
+      final source = _rezkaFrameControllers[index];
+      if (saved == null || saved.isIssue || !_rezkaFrameMetricsComplete(source)) {
+        continue;
+      }
+      // Keep this saved roll as the reference for the whole output cycle.
+      // Subsequent saves/reprints must not replace it or overwrite draft edits.
+      _rezkaAutofillReference = _RezkaFrameInput(
+        meterQty: _parseQty(source.meter.text),
+        kgQty: _parseQty(source.kg.text),
+        bobinaKg: _parseQty(source.bobina.text),
+        diameter: _parseQty(source.diameter.text),
+      );
+      for (var next = index + 1; next < _rezkaFrameControllers.length; next++) {
+        final target = _rezkaFrameControllers[next];
+        if (report.frameAt(next) != null ||
+            _rezkaFrameHasAnyMetric(target) ||
+            target.issueNote.text.trim().isNotEmpty) {
+          continue;
+        }
+        target.meter.text = source.meter.text;
+        target.kg.text = source.kg.text;
+        target.bobina.text = source.bobina.text;
+        target.diameter.text = source.diameter.text;
+      }
+      return;
+    }
+  }
+
+  void _updateRezkaMeterFromWeight(int index, String value) {
+    final reference = _rezkaAutofillReference;
+    if (reference == null ||
+        _rezkaPrintBusy ||
+        _rezkaSyncRequired ||
+        _rezkaReport?.frameAt(index) != null) {
+      return;
+    }
+    final kg = _parseQty(value);
+    final meter = kg == null ? null : kg * reference.meterQty! / reference.kgQty!;
+    _rezkaFrameControllers[index].meter.text =
+        meter != null && meter.isFinite && meter > 0
+            ? formatRawQuantity(meter)
+            : '';
   }
 
   Future<void> _reportRezkaFrameIssue(int index) async {

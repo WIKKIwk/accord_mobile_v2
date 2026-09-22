@@ -123,6 +123,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   return showDialog<_ProgressQtyInput>(
     context: context,
     barrierColor: Colors.black54,
+    barrierDismissible: false,
     builder: (context) => _ProgressQtyDialog(
       action: action,
       order: order,
@@ -270,6 +271,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final Set<int> _rezkaFrameIssuePrompted = <int>{};
 
   AdminRezkaOutputReport? _rezkaReport;
+  _RezkaFrameInput? _rezkaAutofillReference;
   bool _rezkaPrintBusy = false;
   bool _rezkaSyncRequired = false;
   final Map<int, String> _rezkaPrintStatus = {};
@@ -318,7 +320,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
 
   @override
   Widget build(BuildContext context) => PopScope(
-        canPop: !_rezkaPrintBusy,
+        canPop: false,
         child: _buildContent(context),
       );
 
@@ -383,11 +385,13 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     bool positive = false,
     bool allowZero = false,
     bool enabled = true,
+    ValueChanged<String>? onChanged,
   }) {
     return TextFormField(
       key: key,
       enabled: enabled,
       controller: controller,
+      onChanged: onChanged,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: <TextInputFormatter>[
         FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
@@ -976,6 +980,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
             key: ValueKey<String>('rezka-frame-$index-kg'),
             enabled: fieldsEnabled,
             controller: frame.kg,
+            onChanged: (value) => _updateRezkaMeterFromWeight(index, value),
             label: context.l10n.productionText('worker.daily.field.weight'),
             error: requiredError(
               context.l10n.productionText('worker.daily.field.weight'),
