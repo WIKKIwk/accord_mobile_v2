@@ -1582,9 +1582,11 @@ class _AdminProductionMapOrdersScreenState
               if (item.map.id.trim() != orderId) item,
           ];
           _orderControlsByOrderId.remove(orderId);
-          for (final sequence in _sequenceByApparatus.values) {
-            sequence.removeWhere((id) => id.trim() == orderId);
-          }
+          // Snapshot lists are immutable and may still be shared with readers.
+          _sequenceByApparatus.updateAll((_, sequence) => [
+            for (final id in sequence)
+              if (id.trim() != orderId) id,
+          ]);
         } else if (next != null) {
           _orderControlsByOrderId[orderId] = next;
         }

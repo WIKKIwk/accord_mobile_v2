@@ -1,9 +1,22 @@
+import 'dart:async';
+
+import 'package:http/http.dart' as http;
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/opened_order_edit_error_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('network failures explain uncertainty without claiming the save failed',
+      () {
+    expect(openedOrderEditErrorReason(TimeoutException('private')),
+        contains('saqlanganini tekshiring'));
+    expect(openedOrderEditErrorReason(http.ClientException('private')),
+        contains('aloqa'));
+    expect(openedOrderEditErrorReason(const FormatException('private')),
+        contains('format'));
+  });
+
   const legacyError = MobileApiException(
     code: 'order_edit',
     statusCode: 409,

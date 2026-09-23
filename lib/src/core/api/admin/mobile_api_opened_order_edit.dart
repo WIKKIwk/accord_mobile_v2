@@ -66,6 +66,27 @@ extension MobileApiOpenedOrderEdit on MobileApi {
 }
 
 MobileApiException _openedOrderEditException(http.Response response) {
+  // Only the endpoint's explicit, operator-facing diagnostic contract may
+  // bypass the generic 5xx fallback. Never display raw database/proxy bodies.
+  try {
+    final payload = jsonDecode(response.body);
+    if (payload is Map &&
+        payload['error'] is String &&
+        payload['message'] is String &&
+        (payload['error'] as String).startsWith('order_edit_') &&
+        !const {401, 403}.contains(response.statusCode)) {
+      final message = (payload['message'] as String).trim();
+      if (message.isNotEmpty && !message.contains(RegExp(r'[<>]'))) {
+        return MobileApiException(
+          code: payload['error'] as String,
+          message: message,
+          statusCode: response.statusCode,
+        );
+      }
+    }
+  } on FormatException {
+    // Older servers and gateways need the existing fallback below.
+  }
   final error = _adminProductionMapException(response, 'order_edit');
   // This endpoint returns user-facing business reasons in `error`, not just
   // machine codes. Preserve them without exposing auth or server failures.

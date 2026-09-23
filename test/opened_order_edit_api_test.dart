@@ -124,6 +124,13 @@ void main() {
   for (final scenario in [
     (403, jsonEncode({'error': 'private authorization details'})),
     (500, jsonEncode({'error': 'private database details'})),
+    (
+      500,
+      jsonEncode({
+        'error': 'order_edit_database_failed',
+        'message': '<html>private proxy response</html>'
+      })
+    ),
     (409, jsonEncode({'error': 'private_unknown_error_code'})),
     (409, '<html>private proxy response</html>'),
     (409, jsonEncode({'error': '<html>private proxy response</html>'})),
@@ -141,6 +148,43 @@ void main() {
         ),
         () => MockClient((_) async => http.Response(scenario.$2, scenario.$1)),
       );
+    });
+  }
+
+  for (final method in ['GET', 'PUT']) {
+    test('$method preserves the actual explained database failure', () async {
+      const reason = 'Serverning baza hisobi saqlash uchun tarix yozuvlarini '
+          'himoyalay olmadi. Administrator baza sozlamalarini tekshirishi kerak.';
+      var calls = 0;
+      await http.runWithClient(() async {
+        final source = OpenedOrderEditSource.fromJson(json);
+        await expectLater(
+          method == 'GET'
+              ? MobileApi.instance.adminOpenedOrderEditSource(source.orderId)
+              : MobileApi.instance.adminSaveOpenedOrderEdit(
+                  source: source, template: source.template.copyWith(kg: 600)),
+          throwsA(isA<MobileApiException>()
+              .having((error) => error.statusCode, 'status', 500)
+              .having((error) => error.code, 'cause',
+                  'order_edit_database_permission')
+              .having(openedOrderEditErrorReason, 'displayed reason', reason)),
+        );
+      },
+          () => MockClient((request) async {
+                calls++;
+                expect(request.method, method);
+                return http.Response(
+                    jsonEncode({
+                      'error': 'order_edit_database_permission',
+                      'message': reason,
+                    }),
+                    500,
+                    headers: {
+                      'content-type': 'application/json; charset=utf-8'
+                    });
+              }));
+      expect(calls, 1,
+          reason: 'An unsuccessful write must not be retried automatically');
     });
   }
 

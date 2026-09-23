@@ -508,6 +508,12 @@ keypad ochishi kerak. UOM label input yonida aniq ko'rinadi.
 
 ### Backend xatolarini ko'rsatish
 
+Ochilgan order tahririda backendning `order_edit_*` kodi bilan qaytargan
+`message` matni HTTP 500 bo‘lsa ham oynada to‘liq ko‘rsatiladi. Bu baza
+ruxsati, bandligi, migratsiya yoki aloqa muammosining ma’nosini tushuntiradi.
+Timeout yoki aloqa uzilishida ilova saqlanmagan deb taxmin qilmaydi:
+qayta yuborishdan oldin orderning saqlangan holatini tekshirishni so‘raydi.
+
 Production map API error code'lari `_adminProductionMapException`da operator
 uchun tushunarli matnga tarjima qilinadi. Yangi backend validation code qo'shilsa
 mobile fallback “Production map amali bajarilmadi”ga tushib qolmasligi uchun shu

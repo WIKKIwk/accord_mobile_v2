@@ -78,6 +78,7 @@ part 'admin_production_map_admin_status_scope_test_part.dart';
 part 'admin_production_map_merge_confirmation_test_part.dart';
 part 'admin_production_map_sequence_reorder_test_part.dart';
 part 'admin_production_map_early_close_test_part.dart';
+part 'admin_production_map_order_delete_test_part.dart';
 part 'admin_production_map_closed_sync_test_part.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
@@ -133,6 +134,7 @@ void main() {
   _registerMergeConfirmationTests();
   _registerSequenceReorderTests();
   _registerEarlyCloseMenuTests();
+  _registerOrderDeleteTests();
   _registerClosedOrdersSyncTests();
   _registerPrintMethodRoutingTests();
 

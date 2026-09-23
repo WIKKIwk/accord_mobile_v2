@@ -1,8 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../../../../core/api/mobile_api.dart';
 
 String openedOrderEditErrorReason(Object error) {
+  if (error is TimeoutException) {
+    return 'Serverdan javob kutish muddati tugadi. So‘rov serverga yetib '
+        'borgan bo‘lishi mumkin; buyurtmani qayta ochib, o‘zgarish '
+        'saqlanganini tekshiring.';
+  }
+  if (error is http.ClientException) {
+    return 'Server bilan aloqa o‘rnatilmadi yoki uzildi. Internet va '
+        'server manzilini tekshiring. Qayta saqlashdan oldin buyurtmani '
+        'ochib, oxirgi holatini tekshiring.';
+  }
+  if (error is FormatException) {
+    return 'Server javobi kutilgan ma’lumot formatida kelmadi. '
+        'Buyurtmani qayta ochib holatini tekshiring; administrator '
+        'server va ilova versiyalari mosligini tekshirishi kerak.';
+  }
   if (error is! MobileApiException) {
     return 'Tahrirlash vaqtida kutilmagan xato yuz berdi. '
         'Buyurtmani qayta ochib holatini tekshiring. Muammo takrorlansa, '
@@ -14,6 +32,16 @@ String openedOrderEditErrorReason(Object error) {
   if (error.statusCode == 403) {
     return 'Hisobingizda buyurtmani tahrirlash huquqi yo‘q. '
         'Mas’ul administratordan ruxsatlarni tekshirishni so‘rang.';
+  }
+  if (error.code.startsWith('order_edit_') &&
+      error.message.trim().isNotEmpty &&
+      !error.message.contains(RegExp(r'[<>]'))) {
+    return error.message;
+  }
+  if (const {502, 503, 504}.contains(error.statusCode)) {
+    return 'Serverga olib boruvchi xizmat javob ololmadi yoki server '
+        'hozir ishlamayapti. Administrator server va ulanish xizmatini '
+        'tekshirishi kerak. Buyurtmani qayta ochib, saqlangan holatini tekshiring.';
   }
   if ((error.statusCode ?? 0) >= 500) {
     return 'Server buyurtma ma’lumotlarini tekshira yoki saqlay olmadi. '
