@@ -48,9 +48,9 @@ endif
 CHROME_PROFILE_DIR := $(shell mktemp -d /tmp/accord-mobile-chrome.XXXXXX)
 CHROME_WEB_BROWSER_FLAGS := --web-browser-flag=--disable-web-security --web-browser-flag=--disable-site-isolation-trials --web-browser-flag=--user-data-dir=$(CHROME_PROFILE_DIR)
 ifeq ($(RUN_DEVICE),chrome)
-RUN_BROWSER_FLAGS := $(CHROME_WEB_BROWSER_FLAGS)
+RUN_BROWSER_FLAGS := $(CHROME_WEB_BROWSER_FLAGS) --dart-define=ACCORD_DEV_API_PROXY=true
 else ifeq ($(RUN_DEVICE),web-server)
-RUN_BROWSER_FLAGS := --web-hostname=$(RUN_WEB_HOST)
+RUN_BROWSER_FLAGS := --web-hostname=$(RUN_WEB_HOST) --dart-define=ACCORD_DEV_API_PROXY=true
 ifneq ($(strip $(RUN_WEB_PORT)),auto)
 ifneq ($(strip $(RUN_WEB_PORT)),)
 RUN_BROWSER_FLAGS += --web-port=$(RUN_WEB_PORT)
@@ -270,7 +270,7 @@ web: prepare-run deps
 ifeq ($(HOST_OS),Darwin)
 web: print-bridge-up
 endif
-	@CHROME_EXECUTABLE="$(CHROME_EXECUTABLE)" $(FLUTTER_BIN) run -d chrome $(CHROME_WEB_BROWSER_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL) --dart-define=ACCORD_PRINT_BRIDGE_URL=$(PRINT_BRIDGE_URL)
+	@CHROME_EXECUTABLE="$(CHROME_EXECUTABLE)" $(FLUTTER_BIN) run -d chrome $(CHROME_WEB_BROWSER_FLAGS) --dart-define=ACCORD_DEV_API_PROXY=true --dart-define=MOBILE_API_BASE_URL=$(API_URL) --dart-define=ACCORD_PRINT_BRIDGE_URL=$(PRINT_BRIDGE_URL)
 
 run-local: API_URL=$(LOCAL_API_URL)
 run-local: run

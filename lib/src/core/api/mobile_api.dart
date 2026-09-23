@@ -24,6 +24,7 @@ import '../realtime/warehouse_live_client.dart';
 import '../search/search_activity_store.dart';
 import '../search/search_normalizer.dart';
 import '../network/server_endpoint_store.dart';
+import '../network/mobile_http_client.dart';
 import '../session/accounts/saved_account_runtime.dart';
 import '../session/session.dart';
 import '../test_mode/test_mode_controller.dart';
@@ -221,7 +222,7 @@ class MobileApi {
   // this process-wide singleton.
   final _httpClients = Expando<http.Client>();
   http.Client get _httpClient =>
-      _httpClients[Zone.current] ??= http.Client();
+      _httpClients[Zone.current] ??= createMobileHttpClient();
   final _queueSnapshotReads =
       Expando<Map<String, Future<AdminApparatusQueueSnapshot>>>();
   int _queueSnapshotReadEpoch = 0;

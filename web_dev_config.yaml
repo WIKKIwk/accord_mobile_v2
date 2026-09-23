@@ -1,0 +1,7 @@
+# Local Flutter preview only. TLS is still verified by the dev server; the
+# browser no longer needs a QUIC connection to this API origin.
+server:
+  proxy:
+    - prefix: /__accord_api/
+      target: https://mini-rs-erp-test.wspace.sbs/
+      replace: /

@@ -31,6 +31,12 @@ extension AppLocalizationsAstPartResplit2_01 on AppLocalizations {
   String get loginFailed =>
       _t('Kirish muvaffaqiyatsiz', 'Login failed', 'Не удалось войти');
 
+  String get loginConnectionFailed => _t(
+        'Server bilan bog‘lanib bo‘lmadi. Qayta urining.',
+        'Could not connect to the server. Try again.',
+        'Не удалось связаться с сервером. Попробуйте ещё раз.',
+      );
+
   String get connectInternetPrompt => _t(
         'Iltimos internetga ulaning.',
         'Please connect to the internet.',

@@ -131,17 +131,9 @@ extension __LoginScreenStateAstPart01 on _LoginScreenState {
         return;
       }
       setState(() {
-        errorText = l10n.loginFailed;
+        errorText = loginFailureMessage(error, l10n);
         loading = false;
       });
-      final text = '$error';
-      if (text.contains('SocketException') ||
-          text.contains('ClientException') ||
-          text.contains('Failed host lookup') ||
-          text.contains('Connection refused') ||
-          text.contains('timed out')) {
-        showNetworkRequiredDialog(context, message: l10n.connectInternetPrompt);
-      }
     }
   }
 

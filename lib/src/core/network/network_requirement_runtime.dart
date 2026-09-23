@@ -2,10 +2,10 @@ import '../api/mobile_api.dart';
 import '../native_iroh_transport.dart';
 import '../session/session.dart';
 import 'network_required_dialog.dart';
+import 'mobile_http_client.dart';
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
-import 'package:http/http.dart' as http;
 
 class NetworkRequirementRuntime extends StatefulWidget {
   const NetworkRequirementRuntime({super.key, required this.child});
@@ -47,6 +47,7 @@ class _NetworkRequirementRuntimeState extends State<NetworkRequirementRuntime>
       return;
     }
     _checking = true;
+    final client = createMobileHttpClient();
     try {
       final uri = Uri.parse('${MobileApi.baseUrl}/healthz');
       if (NativeIrohTransport.canUseFor(uri)) {
@@ -57,7 +58,7 @@ class _NetworkRequirementRuntimeState extends State<NetworkRequirementRuntime>
       }
       final response = await (NativeIrohTransport.canUseFor(uri)
               ? NativeIrohTransport.send(method: 'GET', uri: uri)
-              : http.get(uri))
+              : client.get(uri))
           .timeout(const Duration(seconds: 3));
       if (response.statusCode == 200) {
         return;
@@ -66,6 +67,7 @@ class _NetworkRequirementRuntimeState extends State<NetworkRequirementRuntime>
     } catch (_) {
       await _showOfflineMessage();
     } finally {
+      client.close();
       _checking = false;
     }
   }

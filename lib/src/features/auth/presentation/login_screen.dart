@@ -3,7 +3,6 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/app_preview.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_controller.dart';
-import '../../../core/network/network_required_dialog.dart';
 import '../../../core/notifications/service/push_messaging_service.dart';
 import '../../../core/security/state/security_controller.dart';
 import '../../../core/session/accounts/account_switch_runtime.dart';
@@ -16,6 +15,8 @@ import '../../shared/models/app_models.dart';
 import 'welcome_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'dart:async';
 
 part 'login_screen__LoginScreenState_methods_01.dart';
 part 'login_screen_helpers_part_01.dart';
