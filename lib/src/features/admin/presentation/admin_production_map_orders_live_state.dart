@@ -375,7 +375,7 @@ extension _AdminProductionMapOrdersLiveState
     _queueSnapshotRefreshInFlight = true;
     final requestGeneration = ++_queueSnapshotGeneration;
     try {
-      final queueSnapshot = await _readOrdersSnapshot();
+      final queueSnapshot = await _readOrdersSnapshot(fresh: _queueSnapshotNeedsReconcile);
       if (!mounted || requestGeneration != _queueSnapshotGeneration) {
         return;
       }
@@ -466,6 +466,7 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   bool _queueSnapshotChanged(AdminApparatusQueueSnapshot snapshot) {
+    if (!mapEquals(_sequenceVersions, snapshot.sequenceVersions)) return true;
     if (!setEquals(_earlyClosingOrderIds, snapshot.earlyClosingOrderIds)) return true;
     if (_sequenceByApparatus.length != snapshot.sequences.length ||
         _visibleOrderIdsByApparatus.length != snapshot.visibleOrderIds.length ||
@@ -567,6 +568,9 @@ extension _AdminProductionMapOrdersLiveState
     _sequenceByApparatus
       ..clear()
       ..addAll(snapshot.sequences);
+    _sequenceVersions
+      ..clear()
+      ..addAll(snapshot.sequenceVersions);
     _visibleOrderIdsByApparatus
       ..clear()
       ..addAll(snapshot.visibleOrderIds);

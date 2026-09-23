@@ -114,6 +114,7 @@ class _AdminProductionMapOrdersScreenState
 
   List<AdminApparatus> _apparatus = const [];
   final Map<String, List<String>> _sequenceByApparatus = {};
+  final Map<String, String> _sequenceVersions = {};
   bool _sequenceReorderPending = false;
   final Map<String, List<String>> _visibleOrderIdsByApparatus = {};
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
@@ -1713,6 +1714,9 @@ class _AdminProductionMapOrdersScreenState
       queueActionControlsByApparatus: _queueActionControlsByApparatus,
       orderStatusesByOrderId: _orderStatusesByOrderId,
       workerMode: widget.workerMode,
+      orderControlsByOrderId: _orderControlsByOrderId,
+      excludeFrozen: _module == _OpenedOrderModule.sequence &&
+          !widget.workerMode && !widget.readOnly && !widget.supplyViewerMode,
       query: _searchQuery,
     );
   }

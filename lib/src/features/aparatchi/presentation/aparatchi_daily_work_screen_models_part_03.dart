@@ -38,26 +38,70 @@ class _DailyWorkOrderGroupCardState extends State<_DailyWorkOrderGroupCard> {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              context.l10n.productionText('worker.daily.order'),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              group.orderId,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
+                        child: () {
+                          final hasOrderTitle = group.orderTitle.trim().isNotEmpty &&
+                              group.orderTitle.trim().toLowerCase() !=
+                                  group.orderId.trim().toLowerCase();
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (hasOrderTitle) ...[
+                                Row(
+                                  children: [
+                                    Text(
+                                      context.l10n.productionText('worker.daily.order'),
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    Text(
+                                      ' • ',
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: scheme.outline,
+                                      ),
+                                    ),
+                                    Flexible(
+                                      child: Text(
+                                        group.orderId,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.labelSmall?.copyWith(
+                                          color: scheme.primary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  group.orderTitle,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ] else ...[
+                                Text(
+                                  context.l10n.productionText('worker.daily.order'),
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  group.orderId,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          );
+                        }(),
                       ),
                       const SizedBox(width: 8),
                       DecoratedBox(

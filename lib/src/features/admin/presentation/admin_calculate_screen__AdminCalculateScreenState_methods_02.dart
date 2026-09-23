@@ -291,20 +291,22 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     }
   }
 
-  bool _hasExistingQuickOrderForProduct(SupplierItem product) {
+  CalculateOrderTemplate? _findExistingQuickOrderForProduct(
+    SupplierItem product,
+  ) {
     final productKeys = {
       product.code,
       product.name,
     }.map(_normalizeProductMapKey).where((key) => key.isNotEmpty).toSet();
     if (productKeys.isEmpty) {
-      return false;
+      return null;
     }
     final currentTemplateId = _templateId.trim();
     final templates = CalculateOrderTemplateStore.instance.templates;
-    return templates.any((template) {
+    for (final template in templates) {
       if (currentTemplateId.isNotEmpty &&
           template.id.trim() == currentTemplateId) {
-        return false;
+        continue;
       }
       final templateKeys = {
         template.itemCode,
@@ -312,12 +314,15 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
         template.name,
         template.code,
       }.map(_normalizeProductMapKey).where((key) => key.isNotEmpty);
-      return templateKeys.any(productKeys.contains);
-    });
+      if (templateKeys.any(productKeys.contains)) {
+        return template;
+      }
+    }
+    return null;
   }
 
-  Future<bool?> _confirmQuickOrderRecreate() {
-    return showDialog<bool>(
+  Future<QuickOrderRecreateAction?> _confirmQuickOrderRecreate() {
+    return showDialog<QuickOrderRecreateAction>(
       context: context,
       builder: (context) => const _QuickOrderRecreateDialog(),
     );

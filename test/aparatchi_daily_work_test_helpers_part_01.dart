@@ -7,6 +7,8 @@ AdminProgressBatch _batch({
   String apparatus = 'apparatus:default:asset-007',
   required DateTime startedAt,
   DateTime? completedAt,
+  String labelItemName = '',
+  Map<String, dynamic>? payload,
 }) {
   return AdminProgressBatch.fromJson({
     'batch_id': batchId,
@@ -14,5 +16,7 @@ AdminProgressBatch _batch({
     'apparatus': apparatus,
     'started_at_unix': startedAt.millisecondsSinceEpoch ~/ 1000,
     'completed_at_unix': (completedAt?.millisecondsSinceEpoch ?? 0) ~/ 1000,
+    if (labelItemName.isNotEmpty) 'label_item_name': labelItemName,
+    if (payload != null) 'payload_json': payload,
   });
 }

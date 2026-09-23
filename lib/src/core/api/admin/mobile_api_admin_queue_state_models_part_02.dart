@@ -40,6 +40,7 @@ extension MobileApiAdminQueueState on MobileApi {
         _testModeOrderControls,
       );
       final snapshot = AdminApparatusQueueSnapshot(
+        sequenceVersions: {for (final id in _testModeEffectiveQueueSequences().keys) id: '0' * 64},
         sequences: _testModeEffectiveQueueSequences(),
         visibleOrderIds: _testModeVisibleOrderIdsByApparatus(),
         queueStates: {
@@ -90,6 +91,7 @@ extension MobileApiAdminQueueState on MobileApi {
     _requireProductionMapSnapshotShape(payload, includesMaps: false);
     final orderControls = _parseAdminOrderControls(payload['order_controls']);
     final snapshot = AdminApparatusQueueSnapshot(
+      sequenceVersions: _stringMapOfStrings(payload['sequence_versions']),
       sequences: parseApparatusSequenceMap(payload['sequences']),
       visibleOrderIds: visibleOrderIds,
       queueStates: parseApparatusQueueStateMap(payload['queue_states']),

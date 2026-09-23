@@ -7,6 +7,7 @@ void _registeradmin_production_map_queue_snapshot_testCases01() {
       'ok': true,
       'maps': const [],
       'sequences': const {},
+      'sequence_versions': {_printId: 'a' * 64},
       'visible_order_ids': const {},
       'queue_states': const {},
       'queue_policies': const [],
@@ -31,6 +32,7 @@ void _registeradmin_production_map_queue_snapshot_testCases01() {
     });
 
     expect(snapshot.completedOrders, hasLength(2));
+    expect(snapshot.sequenceVersions, {_printId: 'a' * 64});
     expect(snapshot.completedOrders[0].status, 'completed');
     expect(snapshot.completedOrders[0].apparatus, _printId);
     expect(snapshot.completedOrders[1].status, 'in_progress');

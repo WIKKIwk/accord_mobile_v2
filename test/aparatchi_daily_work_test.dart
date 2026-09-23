@@ -162,6 +162,67 @@ void main() {
     AppSession.instance.profile = null;
   });
 
+  testWidgets('daily work shows both order title and order number on group card', (tester) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Operator',
+      legalName: '',
+      ref: 'op-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.read'],
+      assignedApparatus: ['apparatus:default:asset-010'],
+    );
+    final day = DateTime(2026, 8, 1);
+    final batches = [
+      _batch(
+        batchId: 'wip-title-1',
+        orderId: 'zakaz-0003',
+        apparatus: 'apparatus:default:asset-010',
+        startedAt: day.add(const Duration(hours: 9)),
+        labelItemName: 'Avella rose 72 sht yarim tayyor mahsulot, apparat: Rezka',
+      ),
+      _batch(
+        batchId: 'wip-title-2',
+        orderId: 'zakaz-0004',
+        apparatus: 'apparatus:default:asset-010',
+        startedAt: day.add(const Duration(hours: 10)),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AparatchiDailyWorkScreen(
+          initialDate: day,
+          historyLoader: () async => batches,
+          apparatusLoader: () async => _dailyWorkApparatusCatalog,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Order with title should show both order ID and clean order title
+    expect(find.text('zakaz-0003'), findsOneWidget);
+    expect(find.text('Avella rose 72 sht'), findsOneWidget);
+
+    // Order without title should show order ID
+    expect(find.text('zakaz-0004'), findsOneWidget);
+
+    AppSession.instance.token = null;
+    AppSession.instance.profile = null;
+  });
+
   test('daily WIP history is not restricted by apparatus name', () {
     final day = DateTime(2026, 8, 1);
     final daily = adminProgressBatchesForLocalDay(

@@ -114,6 +114,8 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
   required Map<String, Map<String, AdminApparatusQueueOrderActionControl>> queueActionControlsByApparatus,
   required Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId,
   required bool workerMode,
+  Map<String, AdminOrderControlState> orderControlsByOrderId = const {},
+  bool excludeFrozen = false,
   required String query,
 }) {
   final visibleOrders = _productionMapBaseOrdersForApparatus(
@@ -128,6 +130,10 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
   final queueOrders = visibleOrders.where(
     (order) {
       final orderId = order.map.id.trim();
+      if (excludeFrozen && (orderControlsByOrderId[orderId] == AdminOrderControlState.frozen ||
+          states[orderId] == 'frozen')) {
+        return false;
+      }
       final lifecycle = orderStatusesByOrderId[orderId]?.lifecycleStatus;
       if (const {'production_completed', 'closed', 'cancelled'}.contains(lifecycle)) {
         return false;

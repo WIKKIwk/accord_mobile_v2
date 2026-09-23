@@ -171,7 +171,7 @@ void _registeradmin_calculate_screen_testCases01() {
 
     expect(find.text('Demo haridor'), findsNothing);
 
-    await tester.tap(find.text('Mahsulot'));
+    await tester.tap(find.text('Mahsulot tanlang').first);
     await tester.pumpAndSettle();
     expect(find.text('CPP sous'), findsNothing);
     expect(find.text('Demo kraska'), findsNothing);
@@ -181,22 +181,28 @@ void _registeradmin_calculate_screen_testCases01() {
     expect(find.text('Demo haridor'), findsOneWidget);
   });
 
-  testWidgets('product picker asks before recreating existing quick order', (
+  testWidgets('product picker asks before recreating existing quick order and can use template', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance.upsertCalculateOrderTemplate(
-      _template(itemCode: 'DEMO-HOTLUNCH'),
+      _template(
+        itemCode: 'DEMO-HOTLUNCH',
+        product: 'Hotlunch',
+        customer: 'Miray Haridor',
+      ),
     );
     await _pumpCalculateScreen(tester);
 
-    await tester.tap(find.text('Mahsulot'));
+    await tester.tap(find.text('Mahsulot tanlang').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Hotlunch').last);
     await tester.pumpAndSettle();
 
     expect(find.text('Bu tezkor zakazlar ro‘yxatida bor'), findsOneWidget);
     expect(find.text('Qaytadan yaratmoqchimisiz?'), findsOneWidget);
+    expect(find.text('Shu tayyor shablonni ishlatasizmi?'), findsOneWidget);
+    expect(find.text('Ishlatish'), findsOneWidget);
     expect(
       find.descendant(of: find.byType(Row), matching: find.text('Yo‘q')),
       findsWidgets,
@@ -206,11 +212,13 @@ void _registeradmin_calculate_screen_testCases01() {
       findsWidgets,
     );
 
+    // Cancel (Yo'q)
     await tester.tap(find.text('Yo‘q'));
     await tester.pumpAndSettle();
     expect(find.text('Hotlunch'), findsNothing);
 
-    await tester.tap(find.text('Mahsulot'));
+    // Recreate (Ha)
+    await tester.tap(find.text('Mahsulot tanlang').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Hotlunch').last);
     await tester.pumpAndSettle();
@@ -218,6 +226,29 @@ void _registeradmin_calculate_screen_testCases01() {
     await tester.pumpAndSettle();
 
     expect(find.text('Hotlunch'), findsWidgets);
+
+    // Now test using template (Ishlatish)
+    await _pumpCalculateScreen(tester);
+    await tester.tap(
+      find.text('Mahsulot tanlang').first,
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hotlunch').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ishlatish'), findsOneWidget);
+    await tester.tap(find.text('Ishlatish'));
+    await tester.pumpAndSettle();
+
+    // Template values should be applied
+    expect(find.text('Hotlunch'), findsWidgets);
+    expect(find.text('Miray Haridor'), findsOneWidget);
+    // KG should remain empty
+    final kgField = tester.widget<TextFormField>(
+      find.widgetWithText(TextFormField, 'KG'),
+    );
+    expect(kgField.controller?.text.isEmpty ?? true, isTrue);
   });
 
   testWidgets('calculation result shows size and finished product GSM', (

@@ -44,13 +44,34 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
     if (picked == null || !mounted) {
       return;
     }
-    if (widget.openedOrder == null &&
-        _hasExistingQuickOrderForProduct(picked)) {
+    final existingTemplate = _findExistingQuickOrderForProduct(picked);
+    if (widget.openedOrder == null && existingTemplate != null) {
       if (!mounted) {
         return;
       }
-      final recreate = await _confirmQuickOrderRecreate();
-      if (!mounted || recreate != true) {
+      final action = await _confirmQuickOrderRecreate();
+      if (!mounted ||
+          action == null ||
+          action == QuickOrderRecreateAction.cancel) {
+        return;
+      }
+      if (action == QuickOrderRecreateAction.useTemplate) {
+        final generation = _productCustomerGeneration + 1;
+        _productCustomerGeneration = generation;
+        setState(() {
+          _editingAllFields = true;
+          _applyTemplate(existingTemplate);
+          if (_itemCode.trim().isEmpty) {
+            _itemCode = picked.code;
+          }
+          if (_product.text.trim().isEmpty) {
+            _product.text =
+                picked.name.trim().isEmpty ? picked.code : picked.name.trim();
+          }
+        });
+        if (_customerRef.trim().isEmpty && _customer.text.trim().isEmpty) {
+          unawaited(_autoSelectCustomerForProduct(picked, generation));
+        }
         return;
       }
     }

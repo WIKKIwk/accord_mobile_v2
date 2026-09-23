@@ -282,6 +282,16 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'en': 'Yes',
     'ru': 'Да',
   },
+  'admin.calculate.use_template_question': {
+    'uz': 'Shu tayyor shablonni ishlatasizmi?',
+    'en': 'Would you like to use this template?',
+    'ru': 'Использовать этот готовый шаблон?',
+  },
+  'admin.calculate.use_template': {
+    'uz': 'Ishlatish',
+    'en': 'Use template',
+    'ru': 'Использовать',
+  },
   'admin.calculate.image_label': {
     'uz': 'Rang rasmi',
     'en': 'Color reference',

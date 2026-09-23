@@ -53,6 +53,12 @@ class AdminCalculateScreen extends StatefulWidget {
   State<AdminCalculateScreen> createState() => _AdminCalculateScreenState();
 }
 
+enum QuickOrderRecreateAction {
+  cancel,
+  recreate,
+  useTemplate,
+}
+
 class _QuickOrderRecreateDialog extends StatelessWidget {
   const _QuickOrderRecreateDialog();
 
@@ -97,7 +103,9 @@ class _QuickOrderRecreateDialog extends StatelessWidget {
                         child: Material(
                           color: scheme.errorContainer.withValues(alpha: 0.42),
                           child: InkWell(
-                            onTap: () => Navigator.of(context).pop(false),
+                            onTap: () => Navigator.of(context).pop(
+                              QuickOrderRecreateAction.cancel,
+                            ),
                             child: Center(
                               child: Text(
                                 l10n.adminText('calculate.no'),
@@ -115,7 +123,9 @@ class _QuickOrderRecreateDialog extends StatelessWidget {
                         child: Material(
                           color: scheme.primary,
                           child: InkWell(
-                            onTap: () => Navigator.of(context).pop(true),
+                            onTap: () => Navigator.of(context).pop(
+                              QuickOrderRecreateAction.recreate,
+                            ),
                             child: Center(
                               child: Text(
                                 l10n.adminText('calculate.yes'),
@@ -129,6 +139,44 @@ class _QuickOrderRecreateDialog extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: scheme.outlineVariant.withValues(alpha: 0.4),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                l10n.adminText('calculate.use_template_question'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 14),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: Material(
+                    color: scheme.primaryContainer,
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).pop(
+                        QuickOrderRecreateAction.useTemplate,
+                      ),
+                      child: Center(
+                        child: Text(
+                          l10n.adminText('calculate.use_template'),
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: scheme.onPrimaryContainer,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),

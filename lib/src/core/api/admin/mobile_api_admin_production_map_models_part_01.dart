@@ -111,6 +111,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot {
   const AdminProductionMapLiveSnapshot({
     required super.maps,
     required super.sequences,
+    super.sequenceVersions,
     required super.visibleOrderIds,
     required super.queueStates,
     required super.queuePolicies,
@@ -142,6 +143,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot {
     final completionRequestDecisionsRaw = json['completion_request_decisions'];
     final orderControls = _parseAdminOrderControls(json['order_controls']);
     final snapshot = AdminProductionMapLiveSnapshot(
+      sequenceVersions: _stringMapOfStrings(json['sequence_versions']),
       maps: parseProductionMapSnapshotMaps(mapsRaw),
       sequences: MobileApi.instance.parseApparatusSequenceMap(
         json['sequences'],

@@ -106,6 +106,14 @@ MobileApiException _adminProductionMapException(
         'Avariya ko‘chirish javobi noto‘g‘ri',
       'queue_action_not_allowed' =>
         'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
+      'queue_reorder_conflict' =>
+        'Navbat o‘zgargan. Yangilangan navbatda qayta suring.',
+      'queue_reorder_frozen' =>
+        'Muzlatilgan buyurtmani navbatda surib bo‘lmaydi.',
+      'queue_reorder_blocked' =>
+        'Ishlayotgan buyurtma bu joyga surishga ruxsat bermaydi.',
+      'queue_reorder_invalid' || 'queue_reorder_idempotency_conflict' =>
+        'Navbatni surish so‘rovi mos emas. Navbatni yangilang.',
       'print_preflight_active' =>
           'Buyurtmada rang chiqarish davom etmoqda. Avval “Rang chiqdi” yoki “Rang chiqmadi” natijasini belgilang.',
       'print_preflight_not_found' =>

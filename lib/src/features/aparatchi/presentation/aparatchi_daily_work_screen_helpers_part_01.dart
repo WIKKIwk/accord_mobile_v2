@@ -69,6 +69,71 @@ int adminProgressBatchOrderCount(Iterable<AdminProgressBatch> batches) {
   }.length;
 }
 
+String _cleanDailyWorkOrderTitle(String raw) {
+  var title = raw.trim();
+  if (title.isEmpty) return '';
+  final apparatIdx = title.toLowerCase().indexOf(', apparat:');
+  if (apparatIdx > 0) {
+    title = title.substring(0, apparatIdx).trim();
+  } else {
+    final bareIdx = title.toLowerCase().indexOf('apparat:');
+    if (bareIdx > 0 && title.substring(0, bareIdx).trim().isNotEmpty) {
+      title = title.substring(0, bareIdx).trim();
+    }
+  }
+  title = title
+      .replaceAll(
+        RegExp(r'\s*yarim\s+tayyor\s+mahsulot\s*$', caseSensitive: false),
+        '',
+      )
+      .replaceAll(
+        RegExp(r'\s*tayyor\s+mahsulot\s*$', caseSensitive: false),
+        '',
+      )
+      .replaceAll(
+        RegExp(r'\s*полуфабрикат\s*$', caseSensitive: false),
+        '',
+      )
+      .replaceAll(
+        RegExp(r'\s*готовая\s+продукция\s*$', caseSensitive: false),
+        '',
+      )
+      .replaceAll(
+        RegExp(r'[,;:-]\s*$'),
+        '',
+      )
+      .trim();
+  if (title.toLowerCase() == 'wip' ||
+      RegExp(r'^wip\s*\d*$', caseSensitive: false).hasMatch(title)) {
+    return '';
+  }
+  return title;
+}
+
+String _dailyWorkExtractOrderTitle(AdminProgressBatch batch) {
+  final payloadTitle = (batch.payloadJson['order_title'] ??
+          batch.payloadJson['orderTitle'] ??
+          batch.payloadJson['order_name'] ??
+          batch.payloadJson['orderName'])
+      ?.toString()
+      .trim() ??
+      '';
+  if (payloadTitle.isNotEmpty) {
+    final cleaned = _cleanDailyWorkOrderTitle(payloadTitle);
+    if (cleaned.isNotEmpty) return cleaned;
+  }
+  final fromLabel = _cleanDailyWorkOrderTitle(batch.labelItemName);
+  if (fromLabel.isNotEmpty) return fromLabel;
+
+  final fromCode = _cleanDailyWorkOrderTitle(batch.labelItemCode);
+  if (fromCode.isNotEmpty) return fromCode;
+
+  final fromDesc = _cleanDailyWorkOrderTitle(batch.description);
+  if (fromDesc.isNotEmpty) return fromDesc;
+
+  return '';
+}
+
 List<_DailyWorkOrderGroup> _dailyWorkOrderGroups(
   Iterable<AdminProgressBatch> batches,
 ) {
@@ -85,15 +150,25 @@ List<_DailyWorkOrderGroup> _dailyWorkOrderGroups(
       ),
     );
     group.batches.add(batch);
+    if (group.orderTitle.trim().isEmpty) {
+      final title = _dailyWorkExtractOrderTitle(batch);
+      if (title.isNotEmpty) {
+        group.orderTitle = title;
+      }
+    }
   }
   return groups.values.toList(growable: false);
 }
 
 class _DailyWorkOrderGroup {
-  _DailyWorkOrderGroup({required this.key, required this.orderId});
+  _DailyWorkOrderGroup({
+    required this.key,
+    required this.orderId,
+  });
 
   final String key;
   final String orderId;
+  String orderTitle = '';
   final List<AdminProgressBatch> batches = [];
 }
 

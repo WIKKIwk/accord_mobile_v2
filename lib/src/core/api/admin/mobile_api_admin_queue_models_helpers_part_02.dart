@@ -51,6 +51,7 @@ void _requireProductionMapQueueStates(Object? raw) {
 class AdminApparatusQueueSnapshot {
   const AdminApparatusQueueSnapshot({
     required this.sequences,
+    this.sequenceVersions = const {},
     required this.visibleOrderIds,
     required this.queueStates,
     required this.queuePolicies,
@@ -67,6 +68,7 @@ class AdminApparatusQueueSnapshot {
   });
 
   final Map<String, List<String>> sequences;
+  final Map<String, String> sequenceVersions;
   final Map<String, List<String>> visibleOrderIds;
   final Map<String, Map<String, String>> queueStates;
   final Map<String, Map<String, String>> stageStates;

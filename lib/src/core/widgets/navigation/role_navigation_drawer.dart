@@ -1,5 +1,6 @@
 import '../../localization/app_localizations.dart';
 import '../feedback/logout_prompt.dart';
+import '../feedback/spring_pressable.dart';
 import 'package:flutter/material.dart';
 
 class RoleNavigationDrawerDestination {
@@ -110,21 +111,23 @@ class RoleNavigationDrawer extends StatelessWidget {
             left: 12,
             right: 12,
             bottom: 14,
-            child: FilledButton.tonalIcon(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await Future<void>.delayed(const Duration(milliseconds: 120));
-                if (!context.mounted) {
-                  return;
-                }
-                await showLogoutPrompt(context);
-              },
-              icon: const Icon(Icons.logout_rounded),
-              label: Text(context.l10n.logoutTitle),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
+            child: SpringPressable(
+              child: FilledButton.tonalIcon(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await Future<void>.delayed(const Duration(milliseconds: 120));
+                  if (!context.mounted) {
+                    return;
+                  }
+                  await showLogoutPrompt(context);
+                },
+                icon: const Icon(Icons.logout_rounded),
+                label: Text(context.l10n.logoutTitle),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
               ),
             ),

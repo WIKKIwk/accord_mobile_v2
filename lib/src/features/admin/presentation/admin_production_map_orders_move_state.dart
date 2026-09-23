@@ -155,35 +155,62 @@ extension _AdminProductionMapOrdersMoveState
     int oldIndex,
     int newIndex,
   ) async {
-    if (widget.readOnly || _sequenceReorderPending) {
+    if (widget.readOnly ||
+        _sequenceReorderPending ||
+        _searchQuery.trim().isNotEmpty) {
       return;
     }
     final apparatus = _selectedApparatus;
     if (apparatus == null) {
       return;
     }
+    final expectedVersion = _sequenceVersions[apparatus.id.trim()] ?? '';
+    if (expectedVersion.isEmpty) {
+      showAdminTopNotice(context,
+          'Navbatni xavfsiz surish hali tayyor emas. Server va navbatni yangilang.',
+          icon: Icons.warning_amber_rounded);
+      return;
+    }
     final orders = List<ProductionMapSaved>.from(
       _ordersForApparatus(apparatus),
     );
-    if (oldIndex == newIndex) {
+    if (oldIndex == newIndex ||
+        oldIndex < 0 ||
+        oldIndex >= orders.length ||
+        newIndex < 0 ||
+        newIndex >= orders.length) {
       return;
     }
-    final previousOrderIds =
-        orders.map((order) => order.map.id).toList(growable: false);
+    final previousOrderIds = List<String>.from(
+        _sequenceByApparatus[apparatus.id.trim()] ?? const []);
     final moved = orders.removeAt(oldIndex);
     orders.insert(newIndex, moved);
     final apparatusKey = apparatus.id.trim();
     final orderIds =
         orders.map((order) => order.map.id).toList(growable: false);
+    final optimisticIds = List<String>.from(previousOrderIds)
+      ..remove(moved.map.id);
+    final before =
+        newIndex + 1 < orderIds.length ? orderIds[newIndex + 1] : null;
+    final after =
+        before == null && newIndex > 0 ? orderIds[newIndex - 1] : null;
+    final target = before != null
+        ? optimisticIds.indexOf(before)
+        : after != null
+            ? optimisticIds.indexOf(after) + 1
+            : optimisticIds.length;
+    optimisticIds.insert(
+        target < 0 ? optimisticIds.length : target, moved.map.id);
     _updateScreenState(() {
       _sequenceReorderPending = true;
-      _sequenceByApparatus[apparatusKey] = orderIds;
+      _sequenceByApparatus[apparatusKey] = optimisticIds;
     });
     await _persistApparatusSequence(
       apparatus: apparatusKey,
       orderIds: orderIds,
       previousOrderIds: previousOrderIds,
       movedOrderId: moved.map.id,
+      expectedVersion: expectedVersion,
     );
   }
 
@@ -192,24 +219,40 @@ extension _AdminProductionMapOrdersMoveState
     required List<String> orderIds,
     required List<String> previousOrderIds,
     required String movedOrderId,
+    required String expectedVersion,
   }) async {
+    final epochAtStart = _lastAppliedSnapshotEpoch;
+    final index = orderIds.indexOf(movedOrderId);
+    final before = index + 1 < orderIds.length ? orderIds[index + 1] : null;
+    final after = before == null && index > 0 ? orderIds[index - 1] : null;
+    final random = Random.secure();
+    final key = List.generate(
+            16, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'))
+        .join();
     try {
-      final savedOrderIds =
-          await MobileApi.instance.adminSaveProductionMapSequence(
+      final result = await MobileApi.instance.adminMoveProductionMapSequence(
         apparatus: apparatus,
-        orderIds: orderIds,
-        movedOrderId: movedOrderId,
+        orderId: movedOrderId,
+        beforeOrderId: before,
+        afterOrderId: after,
+        expectedVersion: expectedVersion,
+        idempotencyKey: key,
       );
       if (!mounted) return;
-      _updateScreenState(() {
-        _sequenceByApparatus[apparatus] = savedOrderIds;
-      });
+      final stillCurrent = _lastAppliedSnapshotEpoch == epochAtStart &&
+          _sequenceVersions[apparatus] == expectedVersion;
+      if (stillCurrent) {
+        _updateScreenState(() {
+          _sequenceByApparatus[apparatus] = result.orderIds;
+          _sequenceVersions[apparatus] = result.version;
+        });
+      }
       final visibleIds = orderIds.toSet();
-      final savedIndex = savedOrderIds
+      final savedIndex = result.orderIds
           .where(visibleIds.contains)
           .toList()
           .indexOf(movedOrderId);
-      if (savedIndex != orderIds.indexOf(movedOrderId)) {
+      if (stillCurrent && result.adjusted) {
         showAdminTopNotice(
           context,
           context.l10n.adminText('sequence.nearest_position',
@@ -221,9 +264,12 @@ extension _AdminProductionMapOrdersMoveState
       if (!mounted) {
         return;
       }
-      _updateScreenState(() {
-        _sequenceByApparatus[apparatus] = previousOrderIds;
-      });
+      if (_lastAppliedSnapshotEpoch == epochAtStart &&
+          _sequenceVersions[apparatus] == expectedVersion) {
+        _updateScreenState(() {
+          _sequenceByApparatus[apparatus] = previousOrderIds;
+        });
+      }
       showAdminTopNotice(
         context,
         _adminActionErrorText(
@@ -233,7 +279,15 @@ extension _AdminProductionMapOrdersMoveState
         icon: Icons.warning_amber_rounded,
       );
     } finally {
-      if (mounted) _updateScreenState(() => _sequenceReorderPending = false);
+      if (mounted) {
+        // A timeout can mean "committed but reply lost". Never resend an old
+        // list or overwrite a newer live snapshot; reconcile from the server.
+        _queueSnapshotGeneration++;
+        _queueSnapshotNeedsReconcile = true;
+        _sequenceVersions.remove(apparatus);
+        await _refreshQueueSnapshot();
+        if (mounted) _updateScreenState(() => _sequenceReorderPending = false);
+      }
     }
   }
 

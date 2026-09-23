@@ -227,6 +227,16 @@ void _registerAdminStatusScopeTests() {
         ),
       ));
       await tester.pumpAndSettle();
+      if (localState == 'frozen') {
+        // A frozen row remains an order, but is not a draggable queue member.
+        expect(find.byKey(const ValueKey('sequence-row-$_print7Id-$orderId')), findsNothing);
+        await tester.tap(find.text('Buyurtmalar'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('opened-order-$orderId')), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        return;
+      }
       Color rowColor(String apparatusId) {
         final row = find.byKey(ValueKey('sequence-row-$apparatusId-$orderId'));
         expect(row, findsOneWidget);
