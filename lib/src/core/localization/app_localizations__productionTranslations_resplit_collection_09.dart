@@ -167,6 +167,44 @@ const _app_localizations_declarations__productionTranslations_resplitPart09 = {
     "en": "Print",
     "ru": "Печать",
   },
+  'worker.rezka.print.retry': {
+    'uz': 'Qayta urinish',
+    'en': 'Retry',
+    'ru': 'Повторить',
+  },
+  'worker.rezka.print.printing': {
+    'uz': 'Chop etilmoqda…',
+    'en': 'Printing…',
+    'ru': 'Печатается…',
+  },
+  'worker.rezka.print.queued': {
+    'uz': 'Navbatda · {position}-o‘rin',
+    'en': 'Queued · position {position}',
+    'ru': 'В очереди · место {position}',
+  },
+  'worker.rezka.print.printer_not_selected': {
+    'uz': 'Printer tanlanmadi. Chop etishni qayta bosing.',
+    'en': 'No printer selected. Press Print to retry.',
+    'ru': 'Принтер не выбран. Нажмите «Печать» ещё раз.',
+  },
+  'worker.rezka.print.queue_discard_title': {
+    'uz': 'Chop etish navbati to‘xtatilgan',
+    'en': 'The print queue is paused',
+    'ru': 'Очередь печати приостановлена',
+  },
+  'worker.rezka.print.queue_discard_body': {
+    'uz':
+        'Oynani yopsangiz, qolgan chop etishlar bekor bo‘ladi va navbatdagi saqlanmagan ma’lumotlar yo‘qoladi. Saqlangan rulonni keyin qayta chop etish mumkin.',
+    'en':
+        'Closing this dialog cancels the remaining print jobs and discards unsaved queued data. Any saved roll can be reprinted after reopening.',
+    'ru':
+        'При закрытии оставшиеся задания печати будут отменены, а несохранённые данные из очереди потеряются. Сохранённый рулон можно перепечатать после повторного открытия.',
+  },
+  'worker.rezka.print.queue_discard': {
+    'uz': 'Navbatni bekor qilish',
+    'en': 'Cancel queue',
+    'ru': 'Отменить очередь',
+  },
   'worker.paddon.active.choose': {
     'uz': 'Faol paddonni tanlang', 'en': 'Select active pallet', 'ru': 'Выберите активный поддон',
   },

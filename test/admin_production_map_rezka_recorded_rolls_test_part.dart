@@ -79,7 +79,7 @@ void _registerRezkaRecordedRollTests() {
       expect(find.byKey(const ValueKey('rezka-active-paddon')), findsOneWidget);
       await tester.tap(find.text('Rezka'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(ValueKey('worker-order-$order')));
+      await tester.tap(find.byKey(const ValueKey('worker-order-$order')));
       await tester.pumpAndSettle();
       for (final action in ['Rulonni yechish', 'Tugatish', 'Rulonni yechish']) {
         await tester.tap(find.text(action));
@@ -260,6 +260,8 @@ void _registerRezkaRecordedRollTests() {
             'ok': true,
             'batch': {
               'id': body['progress_batch_id'],
+              'apparatus': _rezkaId,
+              'order_id': order,
               'qr_payload': body['qr_payload'],
             },
           }),
@@ -382,6 +384,202 @@ void _registerRezkaRecordedRollTests() {
       expect(value(2, 'meter'), '1100');
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }, () => client);
+  });
+
+  testWidgets(
+      'Rezka print queue keeps sibling fields active and pauses on failure',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Rezka operatori',
+      legalName: '',
+      ref: 'rezka-print-queue-worker',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+      assignedApparatus: [_rezkaId],
+    );
+    const order = 'zakaz-rezka-print-queue';
+    const cycle = 'rezka-print-queue-cycle';
+    await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
+      id: order,
+      title: 'Queued Rezka rolls',
+      productCode: 'QUEUE',
+      orderNumber: '0023',
+      apparatusId: _rezkaId,
+      product: 'Queued Rezka rolls',
+    ));
+    await MobileApi.instance
+        .adminSaveProductionMapSequence(apparatus: _rezkaId, orderIds: [order]);
+    await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: _rezkaId, orderId: order, action: 'start');
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _rezkaId,
+      orderId: order,
+      control: _inProgressQueueControl(
+        allowRollComplete: true,
+        rezkaOutputKadrCounts: [1, 1],
+        rezkaOutputReport: const AdminRezkaOutputReport(cycleId: cycle),
+      ),
+    );
+    await _usePhoneViewport(tester);
+
+    final frames = <Map<String, dynamic>>[];
+    final events = <String>[];
+    final firstPrintStarted = Completer<void>();
+    final releaseFirstPrint = Completer<void>();
+    var firstPrintAttempts = 0;
+    final client = MockClient((request) async {
+      if (request.method == 'GET') {
+        return http.Response(
+            jsonEncode(_rezkaAutofillSnapshot(order, cycle, frames)), 200);
+      }
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      if (request.url.path.endsWith('/queue-action')) {
+        final index = body['rezka_record_frame_index'] as int;
+        events.add('save:$index');
+        frames.add({
+          'frame_index': index,
+          'batch_id': 'queued-roll-$index',
+          'qr_payload': 'QR-$index',
+          'input': (body['rezka_frames'] as List).single,
+        });
+        return http.Response(
+            jsonEncode({
+              'states': {order: 'in_progress'},
+              'session': {
+                'session_id': cycle,
+                'payload_json': {
+                  'rezka_output_cycle': cycle,
+                  'rezka_output_report': frames,
+                },
+              },
+            }),
+            200);
+      }
+      expect(request.url.path, endsWith('/progress-qr/reprint'));
+      final batchId = body['progress_batch_id']?.toString() ?? '';
+      events.add('print:$batchId');
+      if (batchId == 'queued-roll-1' && firstPrintAttempts++ == 0) {
+        firstPrintStarted.complete();
+        await releaseFirstPrint.future;
+        return http.Response('{"error":"print_failed"}', 500);
+      }
+      return http.Response(
+          jsonEncode({
+            'ok': true,
+            'batch': {
+              'batch_id': batchId,
+              'apparatus': _rezkaId,
+              'order_id': order,
+              'qr_payload': body['qr_payload'],
+            },
+          }),
+          200);
+    });
+
+    Finder field(int index, String name) =>
+        find.byKey(ValueKey('rezka-frame-$index-$name'));
+    Future<void> edit(int index, String name, String value) async {
+      final target = field(index, name);
+      await tester.ensureVisible(target);
+      await tester.enterText(target, value);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> pumpUntil(bool Function() condition) async {
+      for (var attempt = 0; attempt < 50 && !condition(); attempt += 1) {
+        await tester.pump(const Duration(milliseconds: 25));
+      }
+      expect(condition(), isTrue);
+    }
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+          progressDriverUrlPicker: (_) async => 'http://printer.test',
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Rezka'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('worker-order-$order')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Rulonni yechish'));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+
+      await edit(0, 'meter', '1000');
+      await edit(0, 'kg', '20');
+      await edit(0, 'bobina', '0.5');
+      await edit(0, 'diameter', '45');
+      await TestModeController.instance.setEnabled(false);
+
+      final firstPrint = find.byKey(const ValueKey('rezka-frame-0-print'));
+      await tester.ensureVisible(firstPrint);
+      await tester.tap(firstPrint);
+      await pumpUntil(() => firstPrintStarted.isCompleted);
+      expect(tester.widget<TextFormField>(field(1, 'kg')).enabled, isTrue);
+
+      // A sibling can be edited and queued while the first printer job waits.
+      await edit(1, 'kg', '18');
+      await edit(1, 'bobina', '0.75');
+      await edit(1, 'diameter', '40');
+      expect(tester.widget<TextFormField>(field(1, 'meter')).controller!.text,
+          '900');
+      final secondPrint = find.byKey(const ValueKey('rezka-frame-1-print'));
+      await tester.ensureVisible(secondPrint);
+      await tester.tap(secondPrint);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextFormField>(field(1, 'kg')).enabled, isFalse);
+      expect(find.textContaining('Navbatda'), findsOneWidget);
+      expect(events, ['save:1', 'print:queued-roll-1']);
+
+      releaseFirstPrint.complete();
+      await pumpUntil(() => find
+          .text(
+              'Saqlandi. Chop etish tasdiqlanmadi — qayta chop etishingiz mumkin.')
+          .evaluate()
+          .isNotEmpty);
+      expect(events, ['save:1', 'print:queued-roll-1']);
+      expect(frames, hasLength(1));
+      expect(tester.widget<IconButton>(firstPrint).onPressed, isNotNull);
+      expect(tester.widget<IconButton>(secondPrint).onPressed, isNull);
+
+      await tester.tap(firstPrint);
+      await pumpUntil(() => events.length == 5);
+      await pumpUntil(() =>
+          find
+              .text('Chop etildi · QRni shu rulonga yopishtiring')
+              .evaluate()
+              .length ==
+          2);
+      expect(events, [
+        'save:1',
+        'print:queued-roll-1',
+        'print:queued-roll-1',
+        'save:2',
+        'print:queued-roll-2',
+      ]);
+      expect(frames, hasLength(2));
+      final secondInput = frames.last['input'] as Map<String, dynamic>;
+      expect(secondInput['produced_qty'], 900);
+      expect(secondInput['gross_qty'], 18);
       expect(tester.takeException(), isNull);
     }, () => client);
   });

@@ -60,8 +60,8 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
   void _updateRezkaMeterFromWeight(int index, String value) {
     final reference = _rezkaAutofillReference;
     if (reference == null ||
-        _rezkaPrintBusy ||
         _rezkaSyncRequired ||
+        _rezkaQueuedFrameIndexes.contains(index) ||
         _rezkaReport?.frameAt(index) != null) {
       return;
     }
@@ -75,12 +75,16 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
 
   Future<void> _reportRezkaFrameIssue(int index) async {
     if (_rezkaPrintBusy ||
+        _rezkaPrintQueue.isNotEmpty ||
         _rezkaSyncRequired ||
         !_canPrintRezkaFrames ||
         _rezkaReport?.frameAt(index) != null) {
       return;
     }
-    _updateRezkaPrint(() => _rezkaPrintBusy = true);
+    _updateRezkaPrint(() {
+      _rezkaPrintBusy = true;
+      _rezkaIssueBusy = true;
+    });
     try {
       final formKey = GlobalKey<FormState>();
       var draft = '';
@@ -189,24 +193,123 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
                     : 'saved');
       });
     } finally {
-      if (mounted) _updateRezkaPrint(() => _rezkaPrintBusy = false);
+      if (mounted) {
+        _updateRezkaPrint(() {
+          _rezkaPrintBusy = false;
+          _rezkaIssueBusy = false;
+        });
+      }
     }
   }
 
-  Future<void> _printRezkaFrame(int index) async {
-    if (_rezkaPrintBusy ||
-        !_canPrintRezkaFrames ||
+  String? _rezkaFramePrintStatus(int index) {
+    final queuedIndex = _rezkaPrintQueue.indexWhere(
+      (request) => request.index == index,
+    );
+    if (queuedIndex < 0) return _rezkaPrintStatus[index];
+    if (_rezkaPrintQueuePaused && queuedIndex == 0) {
+      return _rezkaPrintStatus[index];
+    }
+    if (_rezkaPrintQueueProcessing && queuedIndex == 0) {
+      return _rezkaText('printing');
+    }
+    final position = queuedIndex + 1 - (_rezkaPrintQueueProcessing ? 1 : 0);
+    return _rezkaText('queued', values: {'position': position});
+  }
+
+  bool _rezkaSavedFrameMatchesRequest(
+    AdminRecordedRezkaFrame saved,
+    _RezkaFrameInput requested,
+  ) {
+    double? savedValue(String key) =>
+        _parseQty(saved.input[key]?.toString() ?? '');
+    return savedValue('produced_qty') == requested.meterQty &&
+        savedValue('gross_qty') == requested.kgQty &&
+        savedValue('bobina_kg') == requested.bobinaKg &&
+        savedValue('diameter') == requested.diameter;
+  }
+
+  void _printRezkaFrame(int index) {
+    if (!_canPrintRezkaFrames || _rezkaSyncRequired || _rezkaIssueBusy) {
+      return;
+    }
+    if (_rezkaPrintQueuePaused) {
+      if (_rezkaPrintQueue.isEmpty ||
+          _rezkaPrintQueue.first.index != index ||
+          _rezkaPrintBusy) {
+        return;
+      }
+      _updateRezkaPrint(() => _rezkaPrintQueuePaused = false);
+      unawaited(_drainRezkaPrintQueue());
+      return;
+    }
+    if (_rezkaPrintBusy && !_rezkaPrintQueueProcessing) return;
+    if (_rezkaQueuedFrameIndexes.contains(index) ||
         _rezkaReport?.frameAt(index)?.isIssue == true) {
       return;
     }
     final frame = _rezkaFrameControllers[index];
-    if (_rezkaReport!.frameAt(index) == null &&
-        !_rezkaFrameMetricsComplete(frame)) {
-      _updateRezkaPrint(
-          () => _rezkaPrintStatus[index] = _rezkaText('fill_roll'));
+    final saved = _rezkaReport!.frameAt(index);
+    _RezkaFrameInput? input;
+    if (saved == null) {
+      if (!_rezkaFrameMetricsComplete(frame)) {
+        _updateRezkaPrint(
+            () => _rezkaPrintStatus[index] = _rezkaText('fill_roll'));
+        return;
+      }
+      input = _RezkaFrameInput(
+        meterQty: _parseQty(frame.meter.text),
+        kgQty: _parseQty(frame.kg.text),
+        bobinaKg: _parseQty(frame.bobina.text),
+        diameter: _parseQty(frame.diameter.text),
+      );
+    }
+    _updateRezkaPrint(() {
+      _rezkaPrintQueue.add(_RezkaPrintRequest(index: index, input: input));
+      _rezkaQueuedFrameIndexes.add(index);
+      _rezkaPrintStatus[index] = _rezkaText('queued', values: {
+        'position': _rezkaPrintQueue.length,
+      });
+    });
+    unawaited(_drainRezkaPrintQueue());
+  }
+
+  Future<void> _drainRezkaPrintQueue() async {
+    if (!mounted ||
+        _rezkaPrintQueueProcessing ||
+        _rezkaPrintQueuePaused ||
+        _rezkaPrintBusy) {
       return;
     }
+    _rezkaPrintQueueProcessing = true;
     _updateRezkaPrint(() => _rezkaPrintBusy = true);
+    try {
+      while (
+          mounted && _rezkaPrintQueue.isNotEmpty && !_rezkaPrintQueuePaused) {
+        final request = _rezkaPrintQueue.first;
+        _updateRezkaPrint(
+            () => _rezkaPrintStatus[request.index] = _rezkaText('printing'));
+        try {
+          await _performRezkaFramePrint(request);
+        } catch (_) {
+          if (!mounted) return;
+          _updateRezkaPrint(() => _rezkaPrintQueuePaused = true);
+          break;
+        }
+        if (!mounted) return;
+        _updateRezkaPrint(() {
+          _rezkaPrintQueue.removeAt(0);
+          _rezkaQueuedFrameIndexes.remove(request.index);
+        });
+      }
+    } finally {
+      _rezkaPrintQueueProcessing = false;
+      if (mounted) _updateRezkaPrint(() => _rezkaPrintBusy = false);
+    }
+  }
+
+  Future<void> _performRezkaFramePrint(_RezkaPrintRequest request) async {
+    final index = request.index;
     try {
       final latest = await widget.reloadRezkaOutputReport?.call();
       if (latest == null ||
@@ -221,26 +324,34 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         _restoreRezkaOutputReport(latest);
         _rezkaSyncRequired = false;
       });
-      if (_rezkaReport?.frameAt(index)?.isIssue == true) return;
+      if (_rezkaReport?.frameAt(index)?.isIssue == true) {
+        _rezkaSyncRequired = true;
+        throw const MobileApiException(
+            code: 'rezka_output_cycle_conflict', message: '');
+      }
       _rezkaPrinter ??=
           await _pickProgressPrinter(context, widget.progressDriverUrlPicker);
-      if (!mounted || _rezkaPrinter == null) return;
+      if (!mounted) return;
+      if (_rezkaPrinter == null) throw const _RezkaPrinterNotSelected();
       var saved = _rezkaReport!.frameAt(index);
+      if (saved != null &&
+          request.input != null &&
+          !_rezkaSavedFrameMatchesRequest(saved, request.input!)) {
+        throw const _RezkaFrameInputConflict();
+      }
       if (saved == null) {
+        final input = request.input;
+        if (input == null) {
+          throw const MobileApiException(
+              code: 'rezka_output_cycle_conflict', message: '');
+        }
         final result = await MobileApi.instance.adminApparatusQueueActionResult(
           apparatus: widget.apparatus,
           orderId: widget.order.map.id,
           action: 'roll_complete',
           rezkaRecordFrameIndex: index + 1,
           rezkaOutputCycle: _rezkaReport!.cycleId,
-          rezkaFrames: [
-            _RezkaFrameInput(
-              meterQty: _parseQty(frame.meter.text),
-              kgQty: _parseQty(frame.kg.text),
-              bobinaKg: _parseQty(frame.bobina.text),
-              diameter: _parseQty(frame.diameter.text),
-            ).toJson()
-          ],
+          rezkaFrames: [input.toJson()],
           uom: 'm',
         );
         if (!mounted) return;
@@ -256,6 +367,16 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
           _rezkaPrintStatus[index] = _rezkaText('saved');
         });
         saved = report.frameAt(index)!;
+        final confirmed = await widget.reloadRezkaOutputReport?.call();
+        if (confirmed == null ||
+            confirmed.cycleId != _rezkaReport!.cycleId ||
+            confirmed.frameAt(index) == null) {
+          _rezkaSyncRequired = true;
+          throw const MobileApiException(
+              code: 'rezka_output_cycle_conflict', message: '');
+        }
+        _updateRezkaPrint(() => _restoreRezkaOutputReport(confirmed));
+        saved = confirmed.frameAt(index)!;
       }
       final printer = _rezkaPrinter!;
       final result = await MobileApi.instance.adminProgressQrReprint(
@@ -282,15 +403,18 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
       }
       _updateRezkaPrint(() => _rezkaPrintStatus[index] = _rezkaText('printed'));
     } catch (error) {
-      // A timed-out save may have committed. Reconcile before unlocking or
-      // submitting the group, and always retry the saved QR via reprint.
+      // A timed-out save may have committed. Reconcile before pausing the
+      // queue so retry always uses the saved QR rather than creating a new one.
       AdminRezkaOutputReport? latest;
       try {
         latest = await widget.reloadRezkaOutputReport?.call();
       } catch (_) {}
       if (!mounted) return;
       _updateRezkaPrint(() {
-        if (latest != null && latest.cycleId == _rezkaReport?.cycleId) {
+        if (error is! _RezkaFrameInputConflict &&
+            latest != null &&
+            latest.cycleId == _rezkaReport?.cycleId &&
+            !latest.frames.any((slot) => slot.index > _rezkaFrameCount)) {
           _restoreRezkaOutputReport(latest);
           _rezkaSyncRequired = false;
         } else {
@@ -298,22 +422,31 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         }
         _rezkaPrintStatus[index] = _rezkaSyncRequired
             ? _rezkaText('sync_failed')
-            : _rezkaReport?.frameAt(index) != null
-                ? _rezkaText(_rezkaReport!.frameAt(index)!.isIssue
-                    ? 'issue_saved'
-                    : 'saved_print_failed')
-                : _rezkaText(error is MobileApiException &&
-                        const {
-                          'paddon_not_found',
-                          'paddon_invalid_input',
-                          'paddon_item_already_assigned'
-                        }.contains(error.code)
-                    ? 'paddon_failed'
-                    : 'save_failed');
+            : error is _RezkaPrinterNotSelected
+                ? _rezkaText('printer_not_selected')
+                : _rezkaReport?.frameAt(index) != null
+                    ? _rezkaText(_rezkaReport!.frameAt(index)!.isIssue
+                        ? 'issue_saved'
+                        : 'saved_print_failed')
+                    : _rezkaText(error is MobileApiException &&
+                            const {
+                              'paddon_not_found',
+                              'paddon_invalid_input',
+                              'paddon_item_already_assigned'
+                            }.contains(error.code)
+                        ? 'paddon_failed'
+                        : 'save_failed');
         _rezkaPrinter = null;
       });
-    } finally {
-      if (mounted) _updateRezkaPrint(() => _rezkaPrintBusy = false);
+      rethrow;
     }
   }
+}
+
+class _RezkaPrinterNotSelected implements Exception {
+  const _RezkaPrinterNotSelected();
+}
+
+class _RezkaFrameInputConflict implements Exception {
+  const _RezkaFrameInputConflict();
 }

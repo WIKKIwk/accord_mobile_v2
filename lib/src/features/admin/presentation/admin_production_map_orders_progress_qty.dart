@@ -41,6 +41,13 @@ class _RezkaFrameControllers {
   }
 }
 
+class _RezkaPrintRequest {
+  const _RezkaPrintRequest({required this.index, this.input});
+
+  final int index;
+  final _RezkaFrameInput? input;
+}
+
 class _ProgressQtyInput {
   const _ProgressQtyInput({
     this.meterQty,
@@ -273,6 +280,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   AdminRezkaOutputReport? _rezkaReport;
   _RezkaFrameInput? _rezkaAutofillReference;
   bool _rezkaPrintBusy = false;
+  bool _rezkaIssueBusy = false;
+  bool _rezkaPrintQueueProcessing = false;
+  bool _rezkaPrintQueuePaused = false;
+  final List<_RezkaPrintRequest> _rezkaPrintQueue = <_RezkaPrintRequest>[];
+  final Set<int> _rezkaQueuedFrameIndexes = <int>{};
   bool _rezkaSyncRequired = false;
   final Map<int, String> _rezkaPrintStatus = {};
 
@@ -280,6 +292,42 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
 
   void _updateRezkaPrint(VoidCallback update) {
     if (mounted) setState(update);
+  }
+
+  Future<void> _cancelProgressQtyDialog() async {
+    if (_rezkaPrintBusy) return;
+    if (_rezkaPrintQueue.isNotEmpty) {
+      final discardQueue = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(context.l10n.productionText(
+            'worker.rezka.print.queue_discard_title',
+          )),
+          content: Text(context.l10n.productionText(
+            'worker.rezka.print.queue_discard_body',
+          )),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(context.l10n.productionText('worker.action.cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(context.l10n.productionText(
+                'worker.rezka.print.queue_discard',
+              )),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || discardQueue != true) return;
+      setState(() {
+        _rezkaPrintQueue.clear();
+        _rezkaQueuedFrameIndexes.clear();
+        _rezkaPrintQueuePaused = false;
+      });
+    }
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -503,7 +551,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   }
 
   void _submit() {
-    if (_rezkaPrintBusy || _rezkaSyncRequired) return;
+    if (_rezkaPrintBusy || _rezkaPrintQueue.isNotEmpty || _rezkaSyncRequired) return;
     setState(() => _completionError = '');
     final description = _descriptionController.text.trim();
     final hasRawOutput = <TextEditingController>[
@@ -896,8 +944,23 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final record = _rezkaReport?.frameAt(index);
     final saved = record != null;
     final savedIssue = record?.isIssue == true;
-    final fieldsEnabled = !saved && !_rezkaPrintBusy && !_rezkaSyncRequired;
+    final fieldsEnabled = !saved &&
+        !_rezkaQueuedFrameIndexes.contains(index) &&
+        !_rezkaSyncRequired;
     final issueAllowed = !saved && _rezkaFrameIssueAllowed(index, frame);
+    final frameStatus = _rezkaFramePrintStatus(index);
+    final isQueueRetry = _rezkaPrintQueuePaused &&
+        _rezkaPrintQueue.isNotEmpty &&
+        _rezkaPrintQueue.first.index == index;
+    final canQueuePrint = !_rezkaIssueBusy &&
+        !_rezkaSyncRequired &&
+        !_rezkaPrintQueuePaused &&
+        (!_rezkaPrintBusy || _rezkaPrintQueueProcessing) &&
+        !_rezkaQueuedFrameIndexes.contains(index);
+    final canRetryPrint = isQueueRetry &&
+        !_rezkaIssueBusy &&
+        !_rezkaSyncRequired &&
+        !_rezkaPrintBusy;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -930,26 +993,32 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
               IconButton(
                 key: ValueKey<String>('rezka-frame-$index-issue'),
                 tooltip: _rezkaText('issue'),
-                onPressed:
-                    fieldsEnabled ? () => _reportRezkaFrameIssue(index) : null,
+                onPressed: fieldsEnabled && !_rezkaPrintBusy
+                    ? () => _reportRezkaFrameIssue(index)
+                    : null,
                 icon: Icon(Icons.report_problem_outlined,
-                    color: fieldsEnabled ? scheme.error : null),
+                    color: fieldsEnabled && !_rezkaPrintBusy
+                        ? scheme.error
+                        : null),
               ),
               IconButton.filledTonal(
                 key: ValueKey<String>('rezka-frame-$index-print'),
-                tooltip: _rezkaText(saved ? 'reprint' : 'print'),
-                onPressed: _rezkaPrintBusy || savedIssue
+                tooltip: _rezkaText(isQueueRetry
+                    ? 'retry'
+                    : saved
+                        ? 'reprint'
+                        : 'print'),
+                onPressed: savedIssue || (!canQueuePrint && !canRetryPrint)
                     ? null
                     : () => _printRezkaFrame(index),
                 icon: const Icon(Icons.print_outlined),
               ),
             ],
           ]),
-          if (_rezkaPrintStatus[index] != null || saved) ...[
+          if (frameStatus != null || saved) ...[
             const SizedBox(height: 6),
             Text(
-                _rezkaPrintStatus[index] ??
-                    _rezkaText(savedIssue ? 'issue_saved' : 'saved'),
+                frameStatus ?? _rezkaText(savedIssue ? 'issue_saved' : 'saved'),
                 style: theme.textTheme.bodySmall),
           ],
           if (savedIssue) ...[
@@ -1752,9 +1821,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _rezkaPrintBusy
-                          ? null
-                          : () => Navigator.of(context).pop(),
+                      onPressed:
+                          _rezkaPrintBusy ? null : _cancelProgressQtyDialog,
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(
@@ -1769,7 +1837,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton(
-                      onPressed: _rezkaPrintBusy || _rezkaSyncRequired
+                      onPressed: _rezkaPrintBusy ||
+                              _rezkaPrintQueue.isNotEmpty ||
+                              _rezkaSyncRequired
                           ? null
                           : _submit,
                       style: FilledButton.styleFrom(
