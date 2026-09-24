@@ -81,8 +81,7 @@ extension __QolipBlockGridAstPart01 on _QolipBlockGrid {
                     ],
                   ),
                 ),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
+                Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: _QolipGridTable(
                     letters: _QolipBlockGrid._letters,
