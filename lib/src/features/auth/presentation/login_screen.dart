@@ -11,6 +11,7 @@ import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/display/motion_widgets.dart';
+import '../../../core/widgets/feedback/spring_pressable.dart';
 import '../../shared/models/app_models.dart';
 import 'welcome_screen.dart';
 import 'package:flutter/material.dart';
@@ -306,27 +307,38 @@ class _LoginScreenState extends State<LoginScreen> {
                                               : const Offset(0, 0.08),
                                           child: IgnorePointer(
                                             ignoring: !_canSubmit && !loading,
-                                            child: FilledButton(
-                                              onPressed: loading
-                                                  ? null
-                                                  : _canSubmit
-                                                      ? () =>
-                                                          submitLogin(context)
-                                                      : null,
-                                              child: loading
-                                                  ? const SizedBox(
-                                                      height: 18,
-                                                      width: 18,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                        strokeWidth: 2.2,
+                                            child: SpringPressable(
+                                              enabled:
+                                                  _canSubmit && !loading,
+                                              child: FilledButton(
+                                                onPressed: loading
+                                                    ? null
+                                                    : _canSubmit
+                                                        ? () =>
+                                                            submitLogin(context)
+                                                        : null,
+                                                style: FilledButton.styleFrom(
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            999),
+                                                  ),
+                                                ),
+                                                child: loading
+                                                    ? const SizedBox(
+                                                        height: 18,
+                                                        width: 18,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                          strokeWidth: 2.2,
+                                                        ),
+                                                      )
+                                                    : Text(
+                                                        widget.addAccountMode
+                                                            ? l10n.accountAdd
+                                                            : l10n.loginAction,
                                                       ),
-                                                    )
-                                                  : Text(
-                                                      widget.addAccountMode
-                                                          ? l10n.accountAdd
-                                                          : l10n.loginAction,
-                                                    ),
+                                              ),
                                             ),
                                           ),
                                         ),

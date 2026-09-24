@@ -6,6 +6,9 @@ import '../../../core/localization/locale_controller.dart';
 import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/display/motion_widgets.dart';
+import '../../../core/widgets/feedback/spring_bottom_sheet.dart';
+import '../../../core/widgets/feedback/spring_pressable.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
 import 'package:androidx_graphics_shapes/material_shapes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -222,23 +225,25 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                               width: primaryButtonWidth,
                               child: SizedBox(
                                 height: 54,
-                                child: FilledButton(
-                                  onPressed: widget.onGetStarted,
-                                  style: FilledButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 28,
-                                      vertical: 15,
+                                child: SpringPressable(
+                                  child: FilledButton(
+                                    onPressed: widget.onGetStarted,
+                                    style: FilledButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 28,
+                                        vertical: 15,
+                                      ),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
                                     ),
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    visualDensity: VisualDensity.compact,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(999),
+                                    child: _buildSoftAnimatedText(
+                                      displayL10n.getStarted,
+                                      style: primaryButtonLabelStyle,
                                     ),
-                                  ),
-                                  child: _buildSoftAnimatedText(
-                                    displayL10n.getStarted,
-                                    style: primaryButtonLabelStyle,
                                   ),
                                 ),
                               ),

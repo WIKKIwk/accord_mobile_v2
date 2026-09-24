@@ -30,31 +30,32 @@ class _SelectionSheet extends StatelessWidget {
           ),
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+          // Account switcher bilan bir xil: tashqi 4px, card'lar to'liq enli.
+          // Title/handle ichkaridan +16/+20 olib avvalgi inset'da qoladi.
+          padding: const EdgeInsets.fromLTRB(4, 14, 4, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: scheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Center(
+                  child: AppSheetHandle(),
                 ),
               ),
               const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(title, style: theme.textTheme.titleLarge),
-                  ),
-                  if (trailing != null) ...[
-                    const SizedBox(width: 12),
-                    trailing!,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(title, style: theme.textTheme.titleLarge),
+                    ),
+                    if (trailing != null) ...[
+                      const SizedBox(width: 12),
+                      trailing!,
+                    ],
                   ],
-                ],
+                ),
               ),
               const SizedBox(height: 16),
               child,
@@ -133,62 +134,110 @@ class _SelectionOption extends StatelessWidget {
     required this.title,
     required this.active,
     required this.onTap,
+    this.subtitle,
     this.trailing,
+    required this.slot,
+    required this.activeLabel,
   });
 
   final String title;
   final bool active;
   final VoidCallback onTap;
+  final String? subtitle;
   final Widget? trailing;
+  final M3SegmentVerticalSlot slot;
+  final String activeLabel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-
+    final initial =
+        title.isEmpty ? '?' : title.characters.first.toUpperCase();
+    // Account switcher (_SavedAccountTile) bilan bir xil til:
+    // segmented radius + surfaceContainerLowest + elevation 2.
+    final radius = M3SegmentedListGeometry.borderRadius(
+      slot,
+      M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+    );
     return Material(
       color: active
-          ? scheme.secondaryContainer.withValues(alpha: 0.92)
-          : scheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(22),
+          ? scheme.primaryContainer.withValues(alpha: 0.55)
+          : scheme.surfaceContainerLowest,
+      elevation: 2,
+      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: radius,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color:
-                        active ? scheme.onSecondaryContainer : scheme.onSurface,
+          padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 45),
+            child: Row(
+              children: [
+                SizedBox.square(
+                  dimension: 30,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        initial,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: scheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              if (trailing != null) ...[const SizedBox(width: 12), trailing!],
-              const SizedBox(width: 12),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                height: 24,
-                width: 24,
-                decoration: BoxDecoration(
-                  color: active ? scheme.primary : Colors.transparent,
-                  shape: BoxShape.circle,
-                  border:
-                      active ? null : Border.all(color: scheme.outlineVariant),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                child: active
-                    ? Icon(
-                        Icons.check_rounded,
-                        size: 16,
-                        color: scheme.onPrimary,
-                      )
-                    : null,
-              ),
-            ],
+                if (trailing != null) ...[
+                  trailing!,
+                  const SizedBox(width: 8),
+                ],
+                if (active)
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(activeLabel),
+                  )
+                else
+                  Icon(Icons.chevron_right_rounded, color: scheme.outline),
+              ],
+            ),
           ),
         ),
       ),
@@ -202,12 +251,16 @@ class _ThemeSelectionOption extends StatelessWidget {
     required this.swatches,
     required this.active,
     required this.onTap,
+    required this.slot,
+    required this.activeLabel,
   });
 
   final String title;
   final List<Color> swatches;
   final bool active;
   final VoidCallback onTap;
+  final M3SegmentVerticalSlot slot;
+  final String activeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -217,6 +270,8 @@ class _ThemeSelectionOption extends StatelessWidget {
       title: title,
       active: active,
       onTap: onTap,
+      slot: slot,
+      activeLabel: activeLabel,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
