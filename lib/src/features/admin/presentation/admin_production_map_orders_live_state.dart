@@ -82,6 +82,11 @@ extension _AdminProductionMapOrdersLiveState
       _lastAppliedSnapshotEpoch = snapshot.epoch;
     }
     _lastAppliedSnapshotRevision = snapshot.revision;
+    if (snapshot.revision != null) {
+      for (final key in snapshot.sequences.keys) {
+        _sequenceRevisions[key] = snapshot.revision!;
+      }
+    }
   }
 
   Future<void> _startWorkerLive() async {
@@ -193,15 +198,19 @@ extension _AdminProductionMapOrdersLiveState
     });
     final subscription =
         (widget.liveEventsLoader?.call() ??
-            MobileApi.instance.adminProductionMapLiveEvents()).listen(
-      (snapshot) {
+            MobileApi.instance.adminProductionMapLiveStream()).listen(
+      (message) {
         if (!mounted || generation != _liveStreamGeneration) {
           return;
         }
-        // A fresh snapshot means the stream is healthy: reset backoff.
+        // A fresh message means the stream is healthy: reset backoff.
         firstSnapshotTimer.cancel();
         _liveReconnectAttempt = 0;
-        _applyCanonicalLiveSnapshot(snapshot);
+        if (message is AdminProductionMapLiveSnapshot) {
+          _applyCanonicalLiveSnapshot(message);
+        } else if (message is AdminProductionMapLiveDelta) {
+          _applyCanonicalLiveDelta(message);
+        }
       },
       onError: (error, _) {
         if (!completer.isCompleted) {
@@ -277,6 +286,112 @@ extension _AdminProductionMapOrdersLiveState
     _showNewRejectedCompletionDecisionNotices(
       snapshot.completionRequestDecisions,
     );
+  }
+
+  void _applyCanonicalLiveDelta(AdminProductionMapLiveDelta delta) {
+    if (delta.epoch.isNotEmpty &&
+        _lastAppliedSnapshotEpoch.isNotEmpty &&
+        delta.epoch != _lastAppliedSnapshotEpoch) {
+      unawaited(_refreshLive());
+      return;
+    }
+
+    final apparatus = delta.apparatus.trim();
+    if (apparatus.isEmpty) return;
+
+    final currentRev = _sequenceRevisions[apparatus] ??
+        _lastAppliedSnapshotRevision ??
+        0;
+
+    // Check revision continuity: delta.baseRevision must match our current revision
+    if (delta.baseRevision != currentRev && currentRev > 0) {
+      if (delta.revision <= currentRev) {
+        // Stale or duplicate delta already applied
+        return;
+      }
+      // Gap detected: delta.baseRevision > currentRev.
+      // Attempt replay recovery via Replay API
+      unawaited(_recoverLiveDeltaGap(apparatus, currentRev + 1, delta.revision));
+      return;
+    }
+
+    _applyDeltaOps(apparatus, delta.ops, delta.version, delta.revision);
+  }
+
+  void _applyDeltaOps(
+    String apparatus,
+    List<AdminProductionMapDeltaOp> ops,
+    String version,
+    int newRevision,
+  ) {
+    final list = _sequenceByApparatus[apparatus];
+    if (list == null) {
+      unawaited(_refreshLive());
+      return;
+    }
+
+    final currentOrderIds = List<String>.from(list);
+    for (final op in ops) {
+      if (op.type == 'move') {
+        currentOrderIds.remove(op.id);
+        if (op.afterId != null && op.afterId!.isNotEmpty) {
+          final idx = currentOrderIds.indexOf(op.afterId!);
+          if (idx != -1) {
+            currentOrderIds.insert(idx + 1, op.id);
+          } else {
+            currentOrderIds.add(op.id);
+          }
+        } else if (op.beforeId != null && op.beforeId!.isNotEmpty) {
+          final idx = currentOrderIds.indexOf(op.beforeId!);
+          if (idx != -1) {
+            currentOrderIds.insert(idx, op.id);
+          } else {
+            currentOrderIds.insert(0, op.id);
+          }
+        } else {
+          currentOrderIds.insert(0, op.id);
+        }
+      }
+    }
+
+    _queueSnapshotGeneration++;
+    _updateScreenState(() {
+      _sequenceByApparatus[apparatus] = currentOrderIds;
+      if (version.isNotEmpty) {
+        _sequenceVersions[apparatus] = version;
+      }
+      _sequenceRevisions[apparatus] = newRevision;
+      _lastAppliedSnapshotRevision = newRevision;
+      _clearOrdersLoadError();
+    });
+  }
+
+  Future<void> _recoverLiveDeltaGap(
+    String apparatus,
+    int fromRev,
+    int toRev,
+  ) async {
+    try {
+      final replayEvents = await MobileApi.instance.adminProductionMapReplay(
+        apparatus: apparatus,
+        fromRev: fromRev,
+        toRev: toRev,
+      );
+      if (replayEvents.isNotEmpty) {
+        for (final event in replayEvents) {
+          _applyDeltaOps(
+            apparatus,
+            event.ops,
+            event.version,
+            event.revision,
+          );
+        }
+        return;
+      }
+    } catch (_) {
+      // Replay failed or gap too large: fallback to full snapshot refresh
+    }
+    unawaited(_refreshLive());
   }
 
   Future<void> _refreshLive({bool initial = false}) async {

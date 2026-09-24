@@ -107,7 +107,12 @@ void _validateProductionMapQueueContract({
   }
 }
 
-class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot {
+abstract class AdminProductionMapLiveMessage {
+  const AdminProductionMapLiveMessage();
+}
+
+class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
+    implements AdminProductionMapLiveMessage {
   const AdminProductionMapLiveSnapshot({
     required super.maps,
     required super.sequences,
@@ -194,3 +199,82 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot {
     return snapshot;
   }
 }
+
+class AdminProductionMapDeltaOp {
+  const AdminProductionMapDeltaOp({
+    required this.type,
+    required this.id,
+    this.beforeId,
+    this.afterId,
+  });
+
+  final String type;
+  final String id;
+  final String? beforeId;
+  final String? afterId;
+
+  factory AdminProductionMapDeltaOp.fromJson(Map<String, dynamic> json) {
+    return AdminProductionMapDeltaOp(
+      type: json['type']?.toString() ?? '',
+      id: json['id']?.toString() ?? '',
+      beforeId: json['before_id']?.toString(),
+      afterId: json['after_id']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'type': type,
+    'id': id,
+    if (beforeId != null) 'before_id': beforeId,
+    if (afterId != null) 'after_id': afterId,
+  };
+}
+
+class AdminProductionMapLiveDelta implements AdminProductionMapLiveMessage {
+  const AdminProductionMapLiveDelta({
+    required this.epoch,
+    required this.apparatus,
+    required this.baseRevision,
+    required this.revision,
+    required this.ops,
+    this.version = '',
+  });
+
+  final String epoch;
+  final String apparatus;
+  final int baseRevision;
+  final int revision;
+  final List<AdminProductionMapDeltaOp> ops;
+  final String version;
+
+  factory AdminProductionMapLiveDelta.fromJson(Map<String, dynamic> json) {
+    final opsRaw = json['ops'];
+    final ops = <AdminProductionMapDeltaOp>[];
+    if (opsRaw is List) {
+      for (final item in opsRaw) {
+        if (item is Map) {
+          ops.add(AdminProductionMapDeltaOp.fromJson(item.cast<String, dynamic>()));
+        }
+      }
+    }
+    final rawBaseRev = json['base_revision'];
+    final baseRev = rawBaseRev is num
+        ? rawBaseRev.toInt()
+        : int.tryParse(rawBaseRev?.toString() ?? '') ?? 0;
+    final rawRev = json['revision'];
+    final rev = rawRev is num
+        ? rawRev.toInt()
+        : int.tryParse(rawRev?.toString() ?? '') ?? 0;
+    final apparatus = (json['apparatus'] ?? json['canonical_apparatus_id'] ?? '').toString();
+
+    return AdminProductionMapLiveDelta(
+      epoch: json['epoch']?.toString() ?? '',
+      apparatus: apparatus,
+      baseRevision: baseRev,
+      revision: rev,
+      ops: ops,
+      version: json['version']?.toString() ?? '',
+    );
+  }
+}
+

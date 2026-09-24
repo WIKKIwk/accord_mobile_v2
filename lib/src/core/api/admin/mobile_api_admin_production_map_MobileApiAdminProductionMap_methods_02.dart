@@ -261,13 +261,17 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
     );
   }
 
-  Uri adminProductionMapLiveUri() {
+  Uri adminProductionMapLiveUri({bool delta = false}) {
     final Uri base = Uri.parse(MobileApi.baseUrl);
     final String scheme = base.scheme == 'https' ? 'wss' : 'ws';
+    final query = <String, String>{'token': requireToken()};
+    if (delta) {
+      query['protocol'] = 'delta';
+    }
     return base.replace(
       scheme: scheme,
       path: '/v1/mobile/admin/production-maps/live',
-      queryParameters: {'token': requireToken()},
+      queryParameters: query,
     );
   }
 
@@ -292,6 +296,64 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
         ),
       );
     }
+  }
+
+  Stream<AdminProductionMapLiveMessage> adminProductionMapLiveStream({
+    bool enableDelta = true,
+  }) async* {
+    if (await TestModeController.instance.isEnabled()) {
+      return;
+    }
+    await for (final event in connectWarehouseLive(
+      adminProductionMapLiveUri(delta: enableDelta),
+    )) {
+      if (event['ok'] == true) {
+        final type = event['type']?.toString();
+        if (type == 'delta') {
+          yield AdminProductionMapLiveDelta.fromJson(event);
+        } else {
+          yield AdminProductionMapLiveSnapshot.fromJson(event);
+        }
+        continue;
+      }
+      final errorCode = event['error']?.toString().trim() ?? '';
+      throw MobileApiException(
+        code: errorCode.isEmpty ? 'production_map_live_failed' : errorCode,
+        message: _adminProductionMapUnknownErrorMessage(
+          code: errorCode,
+          fallbackCode: 'production_map_live_failed',
+          statusCode: 0,
+        ),
+      );
+    }
+  }
+
+  Future<List<AdminProductionMapLiveDelta>> adminProductionMapReplay({
+    required String apparatus,
+    required int fromRev,
+    required int toRev,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/production-maps/replay')
+            .replace(queryParameters: {
+          'apparatus': apparatus,
+          'from_rev': fromRev.toString(),
+          'to_rev': toRev.toString(),
+        }),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'production_map_replay');
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final events = body['events'];
+    if (events is! List) return [];
+    return events
+        .whereType<Map>()
+        .map((e) => AdminProductionMapLiveDelta.fromJson(e.cast<String, dynamic>()))
+        .toList();
   }
 
   Future<ProductionMapRunResult> adminRunProductionMap(

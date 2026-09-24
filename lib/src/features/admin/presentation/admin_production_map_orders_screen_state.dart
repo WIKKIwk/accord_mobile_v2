@@ -31,7 +31,7 @@ class _AdminProductionMapOrdersScreenState
   int _liveStreamGeneration = 0;
   int _queueSnapshotGeneration = 0;
 
-  StreamSubscription<AdminProductionMapLiveSnapshot>? _liveStreamSubscription;
+  StreamSubscription<dynamic>? _liveStreamSubscription;
   Completer<void>? _liveStreamFinished;
   Completer<void>? _liveReconnectFinished;
   Timer? _liveReconnectTimer;
@@ -40,6 +40,7 @@ class _AdminProductionMapOrdersScreenState
   int? _lastAppliedSnapshotRevision;
   String _lastAppliedSnapshotEpoch = '';
   final Set<String> _retiredSnapshotEpochs = {};
+  final Map<String, int> _sequenceRevisions = {};
   int _liveReconnectAttempt = 0;
   String _searchQuery = '';
 
