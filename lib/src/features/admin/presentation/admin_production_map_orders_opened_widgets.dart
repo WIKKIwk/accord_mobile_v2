@@ -154,6 +154,7 @@ class _OpenedOrderRow extends StatelessWidget {
           : null,
       backgroundGradient: _orderCardBackgroundGradient(tone),
       child: InkWell(
+        onTap: onInfo,
         onLongPress: onLongPress,
         child: Stack(
           fit: StackFit.passthrough,
@@ -180,7 +181,7 @@ class _OpenedOrderRow extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(
                 kAdminOrderCoverWidth + 12,
                 8,
-                4,
+                12,
                 8,
               ),
               child: Row(
@@ -211,14 +212,6 @@ class _OpenedOrderRow extends StatelessWidget {
                           ),
                         ],
                       ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: context.l10n.productionText('worker.order.info'),
-                    onPressed: onInfo,
-                    icon: Icon(
-                      Icons.info_outline_rounded,
-                      color: scheme.onSurfaceVariant,
                     ),
                   ),
                 ],

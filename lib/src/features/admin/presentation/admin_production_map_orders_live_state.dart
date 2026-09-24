@@ -330,26 +330,36 @@ extension _AdminProductionMapOrdersLiveState
       return;
     }
 
+    final currentRev = _sequenceRevisions[apparatus] ?? 0;
+    if (newRevision <= currentRev && currentRev > 0) {
+      return;
+    }
+
     final currentOrderIds = List<String>.from(list);
     for (final op in ops) {
       if (op.type == 'move') {
         currentOrderIds.remove(op.id);
+        var inserted = false;
         if (op.afterId != null && op.afterId!.isNotEmpty) {
           final idx = currentOrderIds.indexOf(op.afterId!);
           if (idx != -1) {
             currentOrderIds.insert(idx + 1, op.id);
-          } else {
-            currentOrderIds.add(op.id);
+            inserted = true;
           }
-        } else if (op.beforeId != null && op.beforeId!.isNotEmpty) {
+        }
+        if (!inserted && op.beforeId != null && op.beforeId!.isNotEmpty) {
           final idx = currentOrderIds.indexOf(op.beforeId!);
           if (idx != -1) {
             currentOrderIds.insert(idx, op.id);
+            inserted = true;
+          }
+        }
+        if (!inserted) {
+          if (op.afterId != null && op.afterId!.isNotEmpty) {
+            currentOrderIds.add(op.id);
           } else {
             currentOrderIds.insert(0, op.id);
           }
-        } else {
-          currentOrderIds.insert(0, op.id);
         }
       }
     }

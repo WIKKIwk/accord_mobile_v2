@@ -181,19 +181,47 @@ extension _AdminProductionMapOrdersMoveState
         newIndex >= orders.length) {
       return;
     }
+    final moved = orders[oldIndex];
+    final movedState = _moveOrderQueueState(moved, apparatus);
+    final isMovedFrozen = adminProductionMapOrderControlFor(
+      _orderControlsByOrderId,
+      moved.map.id.trim(),
+    ).isFrozen;
+    if (movedState.isActive || isMovedFrozen) {
+      return;
+    }
+
+    var lastActiveIndex = -1;
+    for (var i = 0; i < orders.length; i++) {
+      if (i == oldIndex) continue;
+      if (_moveOrderQueueState(orders[i], apparatus).isActive) {
+        lastActiveIndex = i;
+      }
+    }
+    var targetIndex = newIndex;
+    if (lastActiveIndex != -1 && targetIndex <= lastActiveIndex) {
+      targetIndex = lastActiveIndex + 1;
+    }
+    if (targetIndex >= orders.length) {
+      targetIndex = orders.length - 1;
+    }
+    if (oldIndex == targetIndex) {
+      return;
+    }
+
     final previousOrderIds = List<String>.from(
         _sequenceByApparatus[apparatus.id.trim()] ?? const []);
-    final moved = orders.removeAt(oldIndex);
-    orders.insert(newIndex, moved);
+    orders.removeAt(oldIndex);
+    orders.insert(targetIndex, moved);
     final apparatusKey = apparatus.id.trim();
     final orderIds =
         orders.map((order) => order.map.id).toList(growable: false);
     final optimisticIds = List<String>.from(previousOrderIds)
       ..remove(moved.map.id);
     final before =
-        newIndex + 1 < orderIds.length ? orderIds[newIndex + 1] : null;
+        targetIndex + 1 < orderIds.length ? orderIds[targetIndex + 1] : null;
     final after =
-        before == null && newIndex > 0 ? orderIds[newIndex - 1] : null;
+        before == null && targetIndex > 0 ? orderIds[targetIndex - 1] : null;
     final target = before != null
         ? optimisticIds.indexOf(before)
         : after != null
@@ -239,12 +267,21 @@ extension _AdminProductionMapOrdersMoveState
         idempotencyKey: key,
       );
       if (!mounted) return;
-      final stillCurrent = _lastAppliedSnapshotEpoch == epochAtStart &&
-          _sequenceVersions[apparatus] == expectedVersion;
+      final currentVer = _sequenceVersions[apparatus];
+      final currentRev = _sequenceRevisions[apparatus] ?? 0;
+      final isSameEpoch = _lastAppliedSnapshotEpoch == epochAtStart;
+      final stillCurrent = isSameEpoch &&
+          (currentVer == expectedVersion ||
+              currentVer == result.version ||
+              (result.revision != null && currentRev <= result.revision!));
       if (stillCurrent) {
         _updateScreenState(() {
           _sequenceByApparatus[apparatus] = result.orderIds;
           _sequenceVersions[apparatus] = result.version;
+          if (result.revision != null && result.revision! > currentRev) {
+            _sequenceRevisions[apparatus] = result.revision!;
+            _lastAppliedSnapshotRevision = result.revision!;
+          }
         });
       }
       final visibleIds = orderIds.toSet();
@@ -265,7 +302,8 @@ extension _AdminProductionMapOrdersMoveState
         return;
       }
       if (_lastAppliedSnapshotEpoch == epochAtStart &&
-          _sequenceVersions[apparatus] == expectedVersion) {
+          (_sequenceVersions[apparatus] == expectedVersion ||
+              _sequenceVersions[apparatus] == null)) {
         _updateScreenState(() {
           _sequenceByApparatus[apparatus] = previousOrderIds;
         });

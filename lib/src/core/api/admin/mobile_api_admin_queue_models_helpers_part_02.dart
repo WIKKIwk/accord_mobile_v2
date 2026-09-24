@@ -114,6 +114,8 @@ enum AdminOrderControlState {
   freezeRequested,
   frozen;
 
+  bool get isFrozen => this == AdminOrderControlState.frozen;
+
   static AdminOrderControlState fromRaw(Object? raw) {
     return switch (raw?.toString().trim()) {
       'freeze_requested' => AdminOrderControlState.freezeRequested,

@@ -66,22 +66,27 @@ void main() {
     List<String> applyMove(List<String> list, AdminProductionMapDeltaOp op) {
       final result = List<String>.from(list);
       result.remove(op.id);
+      var inserted = false;
       if (op.afterId != null && op.afterId!.isNotEmpty) {
         final idx = result.indexOf(op.afterId!);
         if (idx != -1) {
           result.insert(idx + 1, op.id);
-        } else {
-          result.add(op.id);
+          inserted = true;
         }
-      } else if (op.beforeId != null && op.beforeId!.isNotEmpty) {
+      }
+      if (!inserted && op.beforeId != null && op.beforeId!.isNotEmpty) {
         final idx = result.indexOf(op.beforeId!);
         if (idx != -1) {
           result.insert(idx, op.id);
+          inserted = true;
+        }
+      }
+      if (!inserted) {
+        if (op.afterId != null && op.afterId!.isNotEmpty) {
+          result.add(op.id);
         } else {
           result.insert(0, op.id);
         }
-      } else {
-        result.insert(0, op.id);
       }
       return result;
     }
@@ -116,6 +121,34 @@ void main() {
       );
       final updated = applyMove(initial, op);
       expect(updated, ['ORD-1', 'ORD-4', 'ORD-2', 'ORD-3']);
+    });
+
+    test('clamped move preserves active order at head and matches server sequence', () {
+      // Server sequence: ['zakaz-0003', 'zakaz-0018', 'zakaz-0020']
+      // Client dragged 0020 to top, server clamped to: ['zakaz-0003', 'zakaz-0020', 'zakaz-0018']
+      // Server emits canonical delta: id=0020, after_id=0003, before_id=0018
+      final initial = ['zakaz-0003', 'zakaz-0018', 'zakaz-0020'];
+      final op = const AdminProductionMapDeltaOp(
+        type: 'move',
+        id: 'zakaz-0020',
+        afterId: 'zakaz-0003',
+        beforeId: 'zakaz-0018',
+      );
+      final updated = applyMove(initial, op);
+      expect(updated, ['zakaz-0003', 'zakaz-0020', 'zakaz-0018']);
+      expect(updated.first, 'zakaz-0003');
+    });
+
+    test('fallback to beforeId when afterId is missing from queue', () {
+      final initial = ['A', 'B', 'C'];
+      final op = const AdminProductionMapDeltaOp(
+        type: 'move',
+        id: 'C',
+        afterId: 'NON_EXISTENT',
+        beforeId: 'B',
+      );
+      final updated = applyMove(initial, op);
+      expect(updated, ['A', 'C', 'B']);
     });
 
     test('sequence of multiple move operations matches serial reducer', () {

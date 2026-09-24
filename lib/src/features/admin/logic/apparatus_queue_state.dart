@@ -4,7 +4,12 @@ enum ApparatusQueueOrderState {
   inProgress,
   paused,
   frozen,
-  completed,
+  completed;
+
+  bool get isActive =>
+      this == ApparatusQueueOrderState.inProgress ||
+      this == ApparatusQueueOrderState.printPreflight ||
+      this == ApparatusQueueOrderState.paused;
 }
 
 enum OrderQueueActivityState {

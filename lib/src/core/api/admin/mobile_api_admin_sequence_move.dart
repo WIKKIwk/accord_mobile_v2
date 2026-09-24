@@ -1,10 +1,18 @@
 part of '../mobile_api.dart';
 
 class AdminSequenceMoveResult {
-  const AdminSequenceMoveResult(this.orderIds, this.version, this.adjusted);
+  const AdminSequenceMoveResult(
+    this.orderIds,
+    this.version,
+    this.adjusted, {
+    this.revision,
+    this.ops = const [],
+  });
   final List<String> orderIds;
   final String version;
   final bool adjusted;
+  final int? revision;
+  final List<AdminProductionMapDeltaOp> ops;
 }
 
 extension MobileApiAdminSequenceMove on MobileApi {
@@ -81,7 +89,23 @@ extension MobileApiAdminSequenceMove on MobileApi {
       throw _productionMapQueueContractException(
           'invalid sequence move result');
     }
+    final rawRev = data['revision'];
+    final revision = rawRev is num ? rawRev.toInt() : null;
+    final rawOps = data['ops'];
+    final ops = <AdminProductionMapDeltaOp>[];
+    if (rawOps is List) {
+      for (final item in rawOps) {
+        if (item is Map) {
+          ops.add(AdminProductionMapDeltaOp.fromJson(item.cast<String, dynamic>()));
+        }
+      }
+    }
     return AdminSequenceMoveResult(
-        List<String>.from(ids), version, data['adjusted'] as bool);
+      List<String>.from(ids),
+      version,
+      data['adjusted'] as bool,
+      revision: revision,
+      ops: ops,
+    );
   }
 }

@@ -74,6 +74,15 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
       required ProductionMapSaved order,
       required Key key,
     }) {
+      final apparatusState = apparatusQueueOrderStateFromRaw(
+        widget.queueStates[order.map.id.trim()],
+      );
+      final isFrozen = adminProductionMapOrderControlFor(
+        widget.orderControlsByOrderId,
+        order.map.id.trim(),
+      ).isFrozen;
+      final canReorder = !widget.readOnly && !apparatusState.isActive && !isFrozen;
+
       return _SequenceOrderRow(
         key: key,
         slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
@@ -83,6 +92,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
         order: order,
         index: index,
         readOnly: widget.readOnly,
+        canReorder: canReorder,
         customerName: widget.customerNameByMapId[order.map.id.trim()] ?? '',
         tone: _resolveApparatusOrderCardTone(
           printPreflightPassed: _orderPrintPreflightPassed(
@@ -96,9 +106,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
             widget.orderControlsByOrderId,
             order.map.id.trim(),
           ),
-          apparatusState: apparatusQueueOrderStateFromRaw(
-            widget.queueStates[order.map.id.trim()],
-          ),
+          apparatusState: apparatusState,
         ),
         onTap: widget.onInfoOrder == null
             ? null
@@ -371,6 +379,7 @@ class _SequenceOrderRow extends StatelessWidget {
     required this.order,
     required this.index,
     required this.readOnly,
+    this.canReorder = true,
     this.customerName = '',
     this.tone = _OrderCardTone.neutral,
     this.backgroundColor,
@@ -387,6 +396,7 @@ class _SequenceOrderRow extends StatelessWidget {
   final ProductionMapSaved order;
   final int index;
   final bool readOnly;
+  final bool canReorder;
   final String customerName;
   final _OrderCardTone tone;
   final Color? backgroundColor;
@@ -430,7 +440,7 @@ class _SequenceOrderRow extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onTap,
+        onTap: onTap ?? onInfo,
         onLongPress: onLongPress,
         child: Stack(
           children: [
@@ -453,7 +463,7 @@ class _SequenceOrderRow extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(
                 kAdminOrderCoverWidth + 12,
                 8,
-                4,
+                12,
                 8,
               ),
               child: ConstrainedBox(
@@ -521,7 +531,7 @@ class _SequenceOrderRow extends StatelessWidget {
                           ),
                         ),
                       ),
-                    if (!readOnly)
+                    if (!readOnly && canReorder)
                       ReorderableDragStartListener(
                         index: index,
                         child: Padding(
@@ -532,18 +542,6 @@ class _SequenceOrderRow extends StatelessWidget {
                           ),
                         ),
                       ),
-                    if (onInfo != null)
-                      IconButton(
-                        tooltip:
-                            context.l10n.productionText('worker.order.info'),
-                        onPressed: onInfo,
-                        icon: Icon(
-                          Icons.info_outline_rounded,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      )
-                    else
-                      const SizedBox(width: 8),
                   ],
                 ),
               ),
