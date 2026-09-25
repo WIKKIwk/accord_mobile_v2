@@ -528,6 +528,7 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
     this.countNumber,
     this.countUnit,
     this.isLoading = false,
+    this.hideZeroCount = false,
   });
   final String title;
   final String countText;
@@ -543,6 +544,9 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
   // Yuklanish paytida pastga strelka ko'rsatilmaydi: aks holda
   // yuklanish tugab 0 chiqqanda strelka g'oyib bo'lib qator siljiydi.
   final bool isLoading;
+  // Son 0 bo'lganda qobiq + birlik fade bilan yo'qoladi ("0 ta"
+  // ko'rsatilmaydi). Faqat kerakli joyda yoqiladi.
+  final bool hideZeroCount;
 
   @override
   Widget build(BuildContext context) {
@@ -550,6 +554,11 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
     final scheme = theme.colorScheme;
     final expandable = onTap != null && !isLoading;
     final highlightedForeground = highlighted ? const Color(0xFF173B1D) : null;
+    // Yuklanish paytida ".." ko'rinadi; yuklanib 0 chiqsa qobiq
+    // fade bilan yo'qoladi.
+    final countVisible = !(hideZeroCount &&
+        !isLoading &&
+        (countNumber ?? '').trim() == '0');
     return TweenAnimationBuilder<Color?>(
       tween: ColorTween(
         end: highlighted
@@ -605,6 +614,26 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
                     ),
                   ),
                 ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeOut,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: child,
+                  ),
+                  layoutBuilder: (currentChild, previousChildren) => Stack(
+                    alignment: Alignment.centerRight,
+                    children: [
+                      ...previousChildren,
+                      if (currentChild != null) currentChild,
+                    ],
+                  ),
+                  child: countVisible
+                      ? Row(
+                          key: const ValueKey('count-visible'),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                 if (countNumber == null)
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -705,6 +734,12 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
                     ),
                   ],
                 ],
+                          ],
+                        )
+                      : const SizedBox.shrink(
+                          key: ValueKey('count-hidden'),
+                        ),
+                ),
                 if (expandable) ...[
                   const SizedBox(width: 4),
                   AnimatedRotation(

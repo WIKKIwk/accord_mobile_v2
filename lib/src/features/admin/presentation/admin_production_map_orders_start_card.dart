@@ -397,6 +397,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   : '${uiState.intakeCandidateAssignments.length}',
               countUnit: _countUnitForKind(context.l10n, 'materials'),
               isLoading: materialsLoading,
+              // 0 bo'lganda "0 ta" o'rniga qobiq fade bilan yo'qoladi.
+              hideZeroCount: true,
               expanded: intakeCandidatesExpandable && intakeCandidatesExpanded,
               complete: false,
               onTap: intakeCandidatesExpandable

@@ -721,6 +721,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
           find.text('Hali qabul qilinmagan homashyo yo‘q'),
           findsOneWidget,
         );
+        // 0 bo'lganda son qobig'i fade bilan yo'qoladi.
         expect(
           find.descendant(
             of: find.byKey(
@@ -728,7 +729,16 @@ void _registeradmin_production_map_test_screen_testCases16() {
             ),
             matching: find.text('0'),
           ),
-          findsOneWidget,
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(
+              const ValueKey('production-intake-materials-expansion'),
+            ),
+            matching: find.text('ta'),
+          ),
+          findsNothing,
         );
         await _waitForQuickScannerFeedback(tester);
         expect(find.byType(ProductionQuickScannerPanel), findsNothing);
