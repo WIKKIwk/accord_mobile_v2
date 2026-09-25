@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:math' show cos, sin, Random;
+import 'dart:math' show cos, sin, min, Random;
 
 import '../../../app/app_router.dart';
 import 'admin_calculate_screen.dart';

@@ -352,7 +352,10 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
     if (events is! List) return [];
     return events
         .whereType<Map>()
-        .map((e) => AdminProductionMapLiveDelta.fromJson(e.cast<String, dynamic>()))
+        .map((e) => AdminProductionMapLiveDelta.fromJson({
+              ...e.cast<String, dynamic>(),
+              'epoch': body['epoch'] ?? '',
+            }))
         .toList();
   }
 

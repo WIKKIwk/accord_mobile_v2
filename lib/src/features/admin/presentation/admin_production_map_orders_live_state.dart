@@ -82,11 +82,12 @@ extension _AdminProductionMapOrdersLiveState
       _lastAppliedSnapshotEpoch = snapshot.epoch;
     }
     _lastAppliedSnapshotRevision = snapshot.revision;
-    if (snapshot.revision != null) {
-      for (final key in snapshot.sequences.keys) {
-        _sequenceRevisions[key] = snapshot.revision!;
-      }
-    }
+  }
+
+  bool _snapshotBehindSequenceMoves(AdminApparatusQueueSnapshot snapshot) {
+    if (snapshot.epoch != _lastAppliedSnapshotEpoch) return false;
+    return snapshot.sequenceRevisions.entries.any((entry) =>
+        entry.value < (_sequenceRevisions[entry.key] ?? 0));
   }
 
   Future<void> _startWorkerLive() async {
@@ -240,6 +241,11 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   void _applyCanonicalLiveSnapshot(AdminProductionMapLiveSnapshot snapshot) {
+    if (_snapshotBehindSequenceMoves(snapshot)) {
+      _queueSnapshotNeedsReconcile = true;
+      unawaited(_refreshQueueSnapshot());
+      return;
+    }
     final decision = canonicalSnapshotDecision(
       incomingRevision: snapshot.revision,
       lastAppliedRevision: _lastAppliedSnapshotRevision,
@@ -260,7 +266,7 @@ extension _AdminProductionMapOrdersLiveState
       // Legacy live payload without `rev`: only rebuild when content
       // actually changed to avoid duplicate rebuilds.
       if (_ordersRevision(orders) == _ordersRevision(_orders) &&
-          !_queueSnapshotChanged(snapshot)) {
+          !_queueSnapshotChanged(snapshot) && !_queueSnapshotNeedsReconcile) {
         if (_queueSnapshotContractError || _loadError != null || _loading) {
           _updateScreenState(_clearOrdersLoadError);
         }
@@ -289,91 +295,78 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   void _applyCanonicalLiveDelta(AdminProductionMapLiveDelta delta) {
-    if (delta.epoch.isNotEmpty &&
-        _lastAppliedSnapshotEpoch.isNotEmpty &&
-        delta.epoch != _lastAppliedSnapshotEpoch) {
-      unawaited(_refreshLive());
+    if (delta.epoch.isNotEmpty && delta.epoch != _lastAppliedSnapshotEpoch) {
+      if (!_retiredSnapshotEpochs.contains(delta.epoch)) {
+        _requestSequenceReconcile(delta.apparatus);
+      }
       return;
     }
-
     final apparatus = delta.apparatus.trim();
     if (apparatus.isEmpty) return;
-
-    final currentRev = _sequenceRevisions[apparatus] ??
-        _lastAppliedSnapshotRevision ??
-        0;
-
-    // Check revision continuity: delta.baseRevision must match our current revision
-    if (delta.baseRevision != currentRev && currentRev > 0) {
-      if (delta.revision <= currentRev) {
-        // Stale or duplicate delta already applied
-        return;
-      }
-      // Gap detected: delta.baseRevision > currentRev.
-      // Attempt replay recovery via Replay API
-      unawaited(_recoverLiveDeltaGap(apparatus, currentRev + 1, delta.revision));
+    final current = _sequenceRevisions[apparatus];
+    if (current != null && delta.revision <= current) return;
+    if (current != null && delta.baseRevision > current) {
+      unawaited(_recoverLiveDeltaGap(apparatus, current + 1, delta.revision));
       return;
     }
-
-    _applyDeltaOps(apparatus, delta.ops, delta.version, delta.revision);
+    final next = _sequenceAfterDelta(
+      _sequenceByApparatus[apparatus], current, _sequenceVersions[apparatus], delta,
+    );
+    if (next == null) {
+      _requestSequenceReconcile(apparatus);
+      return;
+    }
+    _commitSequenceDelta(apparatus, next, delta.version, delta.revision);
   }
 
-  void _applyDeltaOps(
-    String apparatus,
-    List<AdminProductionMapDeltaOp> ops,
-    String version,
-    int newRevision,
+  List<String>? _sequenceAfterDelta(
+    List<String>? current,
+    int? revision,
+    String? version,
+    AdminProductionMapLiveDelta delta,
   ) {
-    final list = _sequenceByApparatus[apparatus];
-    if (list == null) {
-      unawaited(_refreshLive());
-      return;
+    if (current == null || revision == null || delta.baseRevision != revision ||
+        delta.revision != revision + 1 || version != delta.baseVersion ||
+        !RegExp(r'^[a-f0-9]{64}$').hasMatch(delta.baseVersion) ||
+        !RegExp(r'^[a-f0-9]{64}$').hasMatch(delta.version) || delta.ops.isEmpty) {
+      return null;
     }
-
-    final currentRev = _sequenceRevisions[apparatus] ?? 0;
-    if (newRevision <= currentRev && currentRev > 0) {
-      return;
-    }
-
-    final currentOrderIds = List<String>.from(list);
-    for (final op in ops) {
-      if (op.type == 'move') {
-        currentOrderIds.remove(op.id);
-        var inserted = false;
-        if (op.afterId != null && op.afterId!.isNotEmpty) {
-          final idx = currentOrderIds.indexOf(op.afterId!);
-          if (idx != -1) {
-            currentOrderIds.insert(idx + 1, op.id);
-            inserted = true;
-          }
-        }
-        if (!inserted && op.beforeId != null && op.beforeId!.isNotEmpty) {
-          final idx = currentOrderIds.indexOf(op.beforeId!);
-          if (idx != -1) {
-            currentOrderIds.insert(idx, op.id);
-            inserted = true;
-          }
-        }
-        if (!inserted) {
-          if (op.afterId != null && op.afterId!.isNotEmpty) {
-            currentOrderIds.add(op.id);
-          } else {
-            currentOrderIds.insert(0, op.id);
-          }
-        }
+    final next = List<String>.from(current);
+    for (final op in delta.ops) {
+      if (op.type != 'move' || !next.remove(op.id) ||
+          op.beforeId == op.id || op.afterId == op.id) {
+        return null;
       }
+      final before = op.beforeId;
+      final after = op.afterId;
+      if (before != null && !next.contains(before)) return null;
+      if (after != null && !next.contains(after)) return null;
+      if (before != null && after != null &&
+          next.indexOf(before) != next.indexOf(after) + 1) {
+        return null;
+      }
+      final index = before != null ? next.indexOf(before)
+          : after != null ? next.indexOf(after) + 1 : 0;
+      next.insert(index, op.id);
     }
+    return next;
+  }
 
+  void _commitSequenceDelta(String apparatus, List<String> ids,
+      String version, int revision) {
     _queueSnapshotGeneration++;
+    _queueSnapshotNeedsReconcile = true;
     _updateScreenState(() {
-      _sequenceByApparatus[apparatus] = currentOrderIds;
-      if (version.isNotEmpty) {
-        _sequenceVersions[apparatus] = version;
-      }
-      _sequenceRevisions[apparatus] = newRevision;
-      _lastAppliedSnapshotRevision = newRevision;
-      _clearOrdersLoadError();
+      _sequenceByApparatus[apparatus] = ids;
+      _sequenceVersions[apparatus] = version;
+      _sequenceRevisions[apparatus] = revision;
+      // Global snapshot revision is updated ONLY by a full snapshot.
     });
+    if (widget.workerMode) {
+      // Workers do not poll. A changed first order also changes start/action
+      // permissions, which are carried by the canonical snapshot, not a move.
+      unawaited(_refreshQueueSnapshot());
+    }
   }
 
   Future<void> _recoverLiveDeltaGap(
@@ -381,27 +374,40 @@ extension _AdminProductionMapOrdersLiveState
     int fromRev,
     int toRev,
   ) async {
+    if (!_sequenceReplayInFlight.add(apparatus)) return;
+    final epoch = _lastAppliedSnapshotEpoch;
+    final generation = _queueSnapshotGeneration;
     try {
-      final replayEvents = await MobileApi.instance.adminProductionMapReplay(
-        apparatus: apparatus,
-        fromRev: fromRev,
-        toRev: toRev,
+      if (toRev - fromRev >= 200) return;
+      final events = await MobileApi.instance.adminProductionMapReplay(
+        apparatus: apparatus, fromRev: fromRev, toRev: toRev,
       );
-      if (replayEvents.isNotEmpty) {
-        for (final event in replayEvents) {
-          _applyDeltaOps(
-            apparatus,
-            event.ops,
-            event.version,
-            event.revision,
-          );
-        }
+      if (!mounted || epoch != _lastAppliedSnapshotEpoch ||
+          generation != _queueSnapshotGeneration) {
         return;
       }
+      var ids = _sequenceByApparatus[apparatus];
+      var revision = _sequenceRevisions[apparatus];
+      var version = _sequenceVersions[apparatus];
+      for (final event in events) {
+        if (event.apparatus != apparatus || event.epoch != epoch) return;
+        ids = _sequenceAfterDelta(ids, revision, version, event);
+        if (ids == null) return;
+        revision = event.revision;
+        version = event.version;
+      }
+      if (ids != null && version != null && revision == toRev) {
+        _commitSequenceDelta(apparatus, ids, version, toRev);
+      }
     } catch (_) {
-      // Replay failed or gap too large: fallback to full snapshot refresh
+      // Missing history or a changed queue is recovered by a full snapshot.
+    } finally {
+      _sequenceReplayInFlight.remove(apparatus);
+      if (mounted && epoch == _lastAppliedSnapshotEpoch) {
+        // Also catch events that arrived while this replay was in flight.
+        _requestSequenceReconcile(apparatus);
+      }
     }
-    unawaited(_refreshLive());
   }
 
   Future<void> _refreshLive({bool initial = false}) async {
@@ -512,7 +518,10 @@ extension _AdminProductionMapOrdersLiveState
         lastAppliedEpoch: _lastAppliedSnapshotEpoch,
         retiredEpochs: _retiredSnapshotEpochs,
       );
-      if (decision == CanonicalSnapshotDecision.ignoreStale) return;
+      if (decision == CanonicalSnapshotDecision.ignoreStale ||
+          _snapshotBehindSequenceMoves(queueSnapshot)) {
+        return;
+      }
       if (decision == CanonicalSnapshotDecision.ignoreDuplicate &&
           !_queueSnapshotNeedsReconcile) {
         // Successful fetch still clears a previous transient warning.
@@ -541,12 +550,13 @@ extension _AdminProductionMapOrdersLiveState
         return;
       }
       // Legacy (no rev): fall back to content comparison to avoid rebuilds.
-      if (!_queueSnapshotChanged(queueSnapshot)) {
+      if (!_queueSnapshotChanged(queueSnapshot) && !_queueSnapshotNeedsReconcile) {
         if (_queueSnapshotContractError || _loadError != null || _loading) {
           _updateScreenState(_clearOrdersLoadError);
         }
         return;
       }
+      _queueSnapshotNeedsReconcile = false;
       _updateScreenState(() {
         _replaceQueueSnapshotMaps(queueSnapshot);
         _clearOrdersLoadError();
@@ -592,6 +602,7 @@ extension _AdminProductionMapOrdersLiveState
 
   bool _queueSnapshotChanged(AdminApparatusQueueSnapshot snapshot) {
     if (!mapEquals(_sequenceVersions, snapshot.sequenceVersions)) return true;
+    if (!mapEquals(_sequenceRevisions, snapshot.sequenceRevisions)) return true;
     if (!setEquals(_earlyClosingOrderIds, snapshot.earlyClosingOrderIds)) return true;
     if (_sequenceByApparatus.length != snapshot.sequences.length ||
         _visibleOrderIdsByApparatus.length != snapshot.visibleOrderIds.length ||
@@ -696,6 +707,11 @@ extension _AdminProductionMapOrdersLiveState
     _sequenceVersions
       ..clear()
       ..addAll(snapshot.sequenceVersions);
+    _sequenceRevisions
+      ..clear()
+      ..addAll(snapshot.sequenceRevisions);
+    _sequenceNeedsSnapshot.clear();
+    _resumeSequenceMoves();
     _visibleOrderIdsByApparatus
       ..clear()
       ..addAll(snapshot.visibleOrderIds);
@@ -1035,7 +1051,8 @@ extension _AdminProductionMapOrdersLiveState
         lastAppliedEpoch: _lastAppliedSnapshotEpoch,
         retiredEpochs: _retiredSnapshotEpochs,
       );
-      if (decision == CanonicalSnapshotDecision.ignoreStale) {
+      if (decision == CanonicalSnapshotDecision.ignoreStale ||
+          _snapshotBehindSequenceMoves(queueSnapshot)) {
         _scheduleWorkerRecovery();
         return;
       }

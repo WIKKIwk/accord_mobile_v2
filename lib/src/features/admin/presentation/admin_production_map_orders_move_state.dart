@@ -1,5 +1,26 @@
 part of 'admin_production_map_orders_screen.dart';
 
+class _PendingSequenceMove {
+  _PendingSequenceMove({
+    required this.orderId,
+    required this.beforeId,
+    required this.afterId,
+    required this.scope,
+    required this.visibleOrderIds,
+  });
+
+  final String orderId;
+  final String? beforeId;
+  final String? afterId;
+  final String scope;
+  final Set<String> visibleOrderIds;
+  String? expectedVersion;
+  String? idempotencyKey;
+  int conflicts = 0;
+  int connectionFailures = 0;
+  bool requestedVersion = false;
+}
+
 class _ApparatusTransferReasonDialog extends StatefulWidget {
   const _ApparatusTransferReasonDialog({
     required this.orderCount,
@@ -155,20 +176,11 @@ extension _AdminProductionMapOrdersMoveState
     int oldIndex,
     int newIndex,
   ) async {
-    if (widget.readOnly ||
-        _sequenceReorderPending ||
-        _searchQuery.trim().isNotEmpty) {
+    if (widget.readOnly || _searchQuery.trim().isNotEmpty) {
       return;
     }
     final apparatus = _selectedApparatus;
     if (apparatus == null) {
-      return;
-    }
-    final expectedVersion = _sequenceVersions[apparatus.id.trim()] ?? '';
-    if (expectedVersion.isEmpty) {
-      showAdminTopNotice(context,
-          'Navbatni xavfsiz surish hali tayyor emas. Server va navbatni yangilang.',
-          icon: Icons.warning_amber_rounded);
       return;
     }
     final orders = List<ProductionMapSaved>.from(
@@ -209,122 +221,209 @@ extension _AdminProductionMapOrdersMoveState
       return;
     }
 
-    final previousOrderIds = List<String>.from(
-        _sequenceByApparatus[apparatus.id.trim()] ?? const []);
     orders.removeAt(oldIndex);
     orders.insert(targetIndex, moved);
     final apparatusKey = apparatus.id.trim();
-    final orderIds =
-        orders.map((order) => order.map.id).toList(growable: false);
-    final optimisticIds = List<String>.from(previousOrderIds)
-      ..remove(moved.map.id);
-    final before =
-        targetIndex + 1 < orderIds.length ? orderIds[targetIndex + 1] : null;
-    final after =
-        before == null && targetIndex > 0 ? orderIds[targetIndex - 1] : null;
-    final target = before != null
-        ? optimisticIds.indexOf(before)
-        : after != null
-            ? optimisticIds.indexOf(after) + 1
-            : optimisticIds.length;
-    optimisticIds.insert(
-        target < 0 ? optimisticIds.length : target, moved.map.id);
+    final orderIds = orders.map((order) => order.map.id).toList();
+    final before = targetIndex + 1 < orderIds.length
+        ? orderIds[targetIndex + 1] : null;
+    final after = before == null && targetIndex > 0
+        ? orderIds[targetIndex - 1] : null;
     _updateScreenState(() {
-      _sequenceReorderPending = true;
-      _sequenceByApparatus[apparatusKey] = optimisticIds;
+      _pendingSequenceMoves.putIfAbsent(apparatusKey, () => []).add(
+        _PendingSequenceMove(
+          orderId: moved.map.id, beforeId: before, afterId: after,
+          scope: _sequenceWriteScope,
+          visibleOrderIds: orderIds.toSet(),
+        ),
+      );
     });
-    await _persistApparatusSequence(
-      apparatus: apparatusKey,
-      orderIds: orderIds,
-      previousOrderIds: previousOrderIds,
-      movedOrderId: moved.map.id,
-      expectedVersion: expectedVersion,
-    );
+    await _drainSequenceMoves(apparatusKey);
   }
 
-  Future<void> _persistApparatusSequence({
-    required String apparatus,
-    required List<String> orderIds,
-    required List<String> previousOrderIds,
-    required String movedOrderId,
-    required String expectedVersion,
-  }) async {
-    final epochAtStart = _lastAppliedSnapshotEpoch;
-    final index = orderIds.indexOf(movedOrderId);
-    final before = index + 1 < orderIds.length ? orderIds[index + 1] : null;
-    final after = before == null && index > 0 ? orderIds[index - 1] : null;
-    final random = Random.secure();
-    final key = List.generate(
-            16, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'))
-        .join();
-    try {
-      final result = await MobileApi.instance.adminMoveProductionMapSequence(
-        apparatus: apparatus,
-        orderId: movedOrderId,
-        beforeOrderId: before,
-        afterOrderId: after,
-        expectedVersion: expectedVersion,
-        idempotencyKey: key,
-      );
+  String get _sequenceWriteScope =>
+      '${MobileApi.baseUrl}|${AppSession.instance.profile?.role}|${AppSession.instance.profile?.ref}';
+
+  // Keep server state separate from local drag intentions. A live snapshot or
+  // an acknowledgement must never erase a drag that is still waiting to send.
+  Map<String, List<String>> get _displaySequenceByApparatus => {
+    for (final entry in _sequenceByApparatus.entries)
+      entry.key: _projectSequenceMoves(entry.key, entry.value),
+  };
+
+  List<String> _projectSequenceMoves(String apparatus, List<String> canonical) {
+    final ids = List<String>.from(canonical);
+    for (final move in _pendingSequenceMoves[apparatus] ?? <_PendingSequenceMove>[]) {
+      if (move.scope != _sequenceWriteScope || !ids.contains(move.orderId)) continue;
+      if (move.beforeId != null && !ids.contains(move.beforeId)) continue;
+      if (move.afterId != null && !ids.contains(move.afterId)) continue;
+      ids.remove(move.orderId);
+      final index = move.beforeId != null ? ids.indexOf(move.beforeId!)
+          : move.afterId != null ? ids.indexOf(move.afterId!) + 1 : ids.length;
+      ids.insert(index, move.orderId);
+    }
+    return ids;
+  }
+
+  void _requestSequenceReconcile(String apparatus) {
+    _sequenceNeedsSnapshot.add(apparatus);
+    _queueSnapshotGeneration++;
+    _queueSnapshotNeedsReconcile = true;
+    unawaited(_refreshQueueSnapshot());
+  }
+
+  void _resumeSequenceMoves() {
+    // Snapshot application runs inside setState. Start writes after that
+    // atomic state update, and retain transport backoff across polling reads.
+    scheduleMicrotask(() {
       if (!mounted) return;
-      final currentVer = _sequenceVersions[apparatus];
-      final currentRev = _sequenceRevisions[apparatus] ?? 0;
-      final isSameEpoch = _lastAppliedSnapshotEpoch == epochAtStart;
-      final stillCurrent = isSameEpoch &&
-          (currentVer == expectedVersion ||
-              currentVer == result.version ||
-              (result.revision != null && currentRev <= result.revision!));
-      if (stillCurrent) {
-        _updateScreenState(() {
-          _sequenceByApparatus[apparatus] = result.orderIds;
-          _sequenceVersions[apparatus] = result.version;
-          if (result.revision != null && result.revision! > currentRev) {
-            _sequenceRevisions[apparatus] = result.revision!;
-            _lastAppliedSnapshotRevision = result.revision!;
+      for (final apparatus in _pendingSequenceMoves.keys.toList()) {
+        if (!_sequenceRetryTimers.containsKey(apparatus)) {
+          unawaited(_drainSequenceMoves(apparatus));
+        }
+      }
+    });
+  }
+
+  void _cancelSequenceMoves(String apparatus, String message) {
+    _sequenceRetryTimers.remove(apparatus)?.cancel();
+    _updateScreenState(() => _pendingSequenceMoves.remove(apparatus));
+    showAdminTopNotice(context, message, icon: Icons.warning_amber_rounded);
+    _requestSequenceReconcile(apparatus);
+  }
+
+  Future<void> _drainSequenceMoves(String apparatus) async {
+    if (!mounted || _sequenceRetryTimers.containsKey(apparatus) ||
+        !_sequenceWritesInFlight.add(apparatus)) {
+      return;
+    }
+    try {
+      while (mounted) {
+        final pending = _pendingSequenceMoves[apparatus];
+        if (pending == null || pending.isEmpty) break;
+        final move = pending.first;
+        if (move.scope != _sequenceWriteScope) {
+          _updateScreenState(() => _pendingSequenceMoves.remove(apparatus));
+          break;
+        }
+        if (_sequenceNeedsSnapshot.contains(apparatus)) break;
+        if (move.expectedVersion == null) {
+          final version = _sequenceVersions[apparatus] ?? '';
+          if (version.isEmpty) {
+            if (move.requestedVersion) {
+              _cancelSequenceMoves(apparatus,
+                  'Server navbat versiyasini bermadi. Sahifani yangilang.');
+            } else {
+              move.requestedVersion = true;
+              _requestSequenceReconcile(apparatus);
+            }
+            break;
           }
-        });
+          final ids = _sequenceByApparatus[apparatus] ?? const <String>[];
+          if (!ids.contains(move.orderId) ||
+              (move.beforeId != null && !ids.contains(move.beforeId)) ||
+              (move.afterId != null && !ids.contains(move.afterId))) {
+            _cancelSequenceMoves(apparatus,
+                'Buyurtmalar tarkibi o‘zgardi. Yangilangan navbatda qayta suring.');
+            break;
+          }
+          move.expectedVersion = version;
+          final random = Random.secure();
+          move.idempotencyKey = List.generate(16,
+              (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+        }
+        final epoch = _lastAppliedSnapshotEpoch;
+        try {
+          final result = await MobileApi.instance.adminMoveProductionMapSequence(
+            apparatus: apparatus, orderId: move.orderId,
+            beforeOrderId: move.beforeId, afterOrderId: move.afterId,
+            expectedVersion: move.expectedVersion!,
+            idempotencyKey: move.idempotencyKey!,
+          );
+          if (!mounted) return;
+          if (move.scope != _sequenceWriteScope) {
+            _updateScreenState(() => _pendingSequenceMoves.remove(apparatus));
+            return;
+          }
+          final responseEpoch = result.epoch.isEmpty ? epoch : result.epoch;
+          final currentVersion = _sequenceVersions[apparatus];
+          final currentRevision = _sequenceRevisions[apparatus];
+          final stillCurrent = responseEpoch == _lastAppliedSnapshotEpoch &&
+              (currentRevision == null || result.revision == null ||
+                  result.revision! >= currentRevision) &&
+              (currentVersion == move.expectedVersion || currentVersion == result.version);
+          _queueSnapshotGeneration++;
+          _queueSnapshotNeedsReconcile = true;
+          _updateScreenState(() {
+            if (stillCurrent) {
+              _sequenceByApparatus[apparatus] = result.orderIds;
+              _sequenceVersions[apparatus] = result.version;
+              if (result.revision != null) {
+                _sequenceRevisions[apparatus] = result.revision!;
+              }
+            }
+            pending.removeAt(0);
+            if (pending.isEmpty) _pendingSequenceMoves.remove(apparatus);
+          });
+          if (result.adjusted && stillCurrent) {
+            final position = result.orderIds.where(move.visibleOrderIds.contains)
+                .toList().indexOf(move.orderId) + 1;
+            showAdminTopNotice(context,
+                context.l10n.adminText('sequence.nearest_position',
+                    values: {'position': position}),
+                icon: Icons.info_outline);
+          }
+          if (!stillCurrent) {
+            _requestSequenceReconcile(apparatus);
+            break;
+          }
+        } catch (error) {
+          if (!mounted) return;
+          if (move.scope != _sequenceWriteScope) {
+            _updateScreenState(() => _pendingSequenceMoves.remove(apparatus));
+            break;
+          }
+          if (error is MobileApiException && error.code == 'queue_reorder_conflict' &&
+              move.conflicts++ < 3) {
+            // A 409 definitively did not commit this attempt. Rebase this
+            // intention only after a fresh snapshot, with a NEW command key.
+            move.expectedVersion = null;
+            move.idempotencyKey = null;
+            _requestSequenceReconcile(apparatus);
+            break;
+          }
+          final transient = error is TimeoutException || error is http.ClientException ||
+              (error is MobileApiException &&
+                  (error.statusCode == 408 || error.statusCode == 429 ||
+                   (error.statusCode ?? 0) >= 500));
+          if (transient) {
+            // The write may already have committed. Keep the exact body/key;
+            // retry receipts in PostgreSQL survive backend restarts.
+            move.connectionFailures++;
+            if (move.connectionFailures == 1) {
+              showAdminTopNotice(context,
+                  'Aloqa tiklangach, navbatdagi o‘zgarishlar saqlanadi.',
+                  icon: Icons.info_outline);
+            }
+            final delay = 1 << min(move.connectionFailures - 1, 3);
+            _sequenceRetryTimers.remove(apparatus)?.cancel();
+            _sequenceRetryTimers[apparatus] = Timer(Duration(seconds: delay), () {
+              _sequenceRetryTimers.remove(apparatus);
+              if (mounted) unawaited(_drainSequenceMoves(apparatus));
+            });
+          } else {
+            _cancelSequenceMoves(apparatus, _adminActionErrorText(error,
+                'Ketma-ketlik saqlanmadi. Navbat qayta yuklanmoqda.'));
+          }
+          break;
+        }
       }
-      final visibleIds = orderIds.toSet();
-      final savedIndex = result.orderIds
-          .where(visibleIds.contains)
-          .toList()
-          .indexOf(movedOrderId);
-      if (stillCurrent && result.adjusted) {
-        showAdminTopNotice(
-          context,
-          context.l10n.adminText('sequence.nearest_position',
-              values: {'position': savedIndex + 1}),
-          icon: Icons.info_outline,
-        );
-      }
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      if (_lastAppliedSnapshotEpoch == epochAtStart &&
-          (_sequenceVersions[apparatus] == expectedVersion ||
-              _sequenceVersions[apparatus] == null)) {
-        _updateScreenState(() {
-          _sequenceByApparatus[apparatus] = previousOrderIds;
-        });
-      }
-      showAdminTopNotice(
-        context,
-        _adminActionErrorText(
-          error,
-          context.l10n.adminText('item.loading_failed'),
-        ),
-        icon: Icons.warning_amber_rounded,
-      );
     } finally {
-      if (mounted) {
-        // A timeout can mean "committed but reply lost". Never resend an old
-        // list or overwrite a newer live snapshot; reconcile from the server.
-        _queueSnapshotGeneration++;
-        _queueSnapshotNeedsReconcile = true;
-        _sequenceVersions.remove(apparatus);
-        await _refreshQueueSnapshot();
-        if (mounted) _updateScreenState(() => _sequenceReorderPending = false);
+      _sequenceWritesInFlight.remove(apparatus);
+      if (mounted && !_sequenceNeedsSnapshot.contains(apparatus)) {
+        // Reconcile action controls as well as ordering. Never clear a valid
+        // fingerprint while this read is pending or if the network is down.
+        unawaited(_refreshQueueSnapshot());
       }
     }
   }

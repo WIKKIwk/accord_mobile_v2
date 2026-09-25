@@ -6,12 +6,14 @@ class AdminSequenceMoveResult {
     this.version,
     this.adjusted, {
     this.revision,
+    this.epoch = '',
     this.ops = const [],
   });
   final List<String> orderIds;
   final String version;
   final bool adjusted;
   final int? revision;
+  final String epoch;
   final List<AdminProductionMapDeltaOp> ops;
 }
 
@@ -105,6 +107,7 @@ extension MobileApiAdminSequenceMove on MobileApi {
       version,
       data['adjusted'] as bool,
       revision: revision,
+      epoch: data['epoch'] is String ? data['epoch'] as String : '',
       ops: ops,
     );
   }

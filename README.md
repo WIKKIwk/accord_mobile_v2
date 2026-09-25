@@ -397,6 +397,18 @@ Backend queue snapshot quyidagilarni qaytaradi:
 - orderlarning `pending`, `in_progress`, `paused`, `completed` holati;
 - queue policy.
 
+Navbat oqimida `sequence_revisions` har apparatning bazada saqlanadigan
+hisoblagichi; `rev` esa faqat to'liq snapshotning `epoch` doirasidagi raqami.
+Ular o'zaro solishtirilmaydi. Delta faqat revision va `base_version` mos
+bo'lsa qo'llanadi; replay to'liq bo'lmasa yoki server epoch'i almashsa yangi
+snapshot olinadi. Eski backend/history uchun ham snapshot orqali tiklanadi.
+
+Tez surishlar ekranda darhol ko'rinadi va apparat bo'yicha ketma-ket
+yuboriladi. Kutilayotgan surishlar server holatidan alohida saqlanadi.
+Timeout/aloqa xatosida aynan o'sha body va idempotency key qayta yuboriladi;
+409 javobidan keyingina yangi snapshot asosida yangi key bilan qayta uriniladi.
+Kutilayotgan amallar shu ekran ochiq turgan vaqt davomida saqlanadi.
+
 `strict_sequence`da faqat navbatdagi order boshlanadi. `free_pick`da backend
 ruxsat bergan pending order tanlanishi mumkin. Bosma oilasi uchun policy locked
 bo'lishi va strict sequence'dan chiqmasligi mumkin.

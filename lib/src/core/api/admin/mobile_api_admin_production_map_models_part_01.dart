@@ -111,12 +111,30 @@ abstract class AdminProductionMapLiveMessage {
   const AdminProductionMapLiveMessage();
 }
 
+Map<String, int> _parseSequenceRevisions(Object? raw) {
+  if (raw == null) return const {};
+  if (raw is! Map) {
+    throw _productionMapQueueContractException('invalid sequence revisions');
+  }
+  final result = <String, int>{};
+  for (final entry in raw.entries) {
+    // A scoped snapshot may contain null when no persisted queue exists yet.
+    if (entry.value == null) continue;
+    if (entry.key is! String || entry.value is! int || entry.value < 0) {
+      throw _productionMapQueueContractException('invalid sequence revision');
+    }
+    result[entry.key as String] = entry.value as int;
+  }
+  return result;
+}
+
 class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
     implements AdminProductionMapLiveMessage {
   const AdminProductionMapLiveSnapshot({
     required super.maps,
     required super.sequences,
     super.sequenceVersions,
+    super.sequenceRevisions,
     required super.visibleOrderIds,
     required super.queueStates,
     required super.queuePolicies,
@@ -149,6 +167,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
     final orderControls = _parseAdminOrderControls(json['order_controls']);
     final snapshot = AdminProductionMapLiveSnapshot(
       sequenceVersions: _stringMapOfStrings(json['sequence_versions']),
+      sequenceRevisions: _parseSequenceRevisions(json['sequence_revisions']),
       maps: parseProductionMapSnapshotMaps(mapsRaw),
       sequences: MobileApi.instance.parseApparatusSequenceMap(
         json['sequences'],
@@ -238,6 +257,7 @@ class AdminProductionMapLiveDelta implements AdminProductionMapLiveMessage {
     required this.revision,
     required this.ops,
     this.version = '',
+    this.baseVersion = '',
   });
 
   final String epoch;
@@ -246,6 +266,7 @@ class AdminProductionMapLiveDelta implements AdminProductionMapLiveMessage {
   final int revision;
   final List<AdminProductionMapDeltaOp> ops;
   final String version;
+  final String baseVersion;
 
   factory AdminProductionMapLiveDelta.fromJson(Map<String, dynamic> json) {
     final opsRaw = json['ops'];
@@ -274,7 +295,7 @@ class AdminProductionMapLiveDelta implements AdminProductionMapLiveMessage {
       revision: rev,
       ops: ops,
       version: json['version']?.toString() ?? '',
+      baseVersion: json['base_version']?.toString() ?? '',
     );
   }
 }
-

@@ -92,6 +92,7 @@ extension MobileApiAdminQueueState on MobileApi {
     final orderControls = _parseAdminOrderControls(payload['order_controls']);
     final snapshot = AdminApparatusQueueSnapshot(
       sequenceVersions: _stringMapOfStrings(payload['sequence_versions']),
+      sequenceRevisions: _parseSequenceRevisions(payload['sequence_revisions']),
       sequences: parseApparatusSequenceMap(payload['sequences']),
       visibleOrderIds: visibleOrderIds,
       queueStates: parseApparatusQueueStateMap(payload['queue_states']),
