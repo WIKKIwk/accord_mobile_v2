@@ -429,14 +429,15 @@ class _AdminSummaryList extends StatelessWidget {
           elevation: 4,
         ),
         if (showWorkMapAction)
-          _AdminActionCard(
+          AdminSummaryCard(
             slot: M3SegmentVerticalSlot.bottom,
-            action: _AdminHomeAction(
-              title: workMapTitle,
-              icon: Icons.account_tree_outlined,
-              routeName: AppRoutes.adminProductionMapOrders,
-            ),
-            onTap: onTapWorkMap ?? () {},
+            cornerRadius: M3SegmentedListGeometry.cornerLarge,
+            backgroundColor:
+                Theme.of(context).colorScheme.surfaceContainerLowest,
+            title: workMapTitle,
+            value: '',
+            onTap: onTapWorkMap,
+            elevation: 4,
           ),
       ],
     );
