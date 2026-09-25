@@ -444,6 +444,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 : '${uiState.assignedMaterialAssignments.length}',
             countUnit: _countUnitForKind(context.l10n, 'materials'),
             isLoading: materialsLoading,
+            // 0 bo'lganda "0 ta" o'rniga qobiq fade bilan yo'qoladi.
+            hideZeroCount: true,
             expanded: attachedMaterialsExpandable && materialsExpanded,
             complete: false,
             highlighted:
@@ -507,6 +509,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                           : '${attachedQolips.length}',
                       countUnit: _countUnitForKind(context.l10n, 'molds'),
                       isLoading: attachedQolipsLoading,
+                      // 0 bo'lganda "0 ta" o'rniga qobiq fade bilan yo'qoladi.
+                      hideZeroCount: true,
                       expanded: attachedExpandable && attachedQolipsExpanded,
                       complete: false,
                       onTap: attachedExpandable
