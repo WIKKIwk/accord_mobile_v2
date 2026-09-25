@@ -333,8 +333,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               countUnit: '',
               isLoading: materialsLoading,
               expanded: startMaterialsExpandable && startMaterialsExpanded,
-              complete: uiState.materialRequiredCount > 0 &&
-                  uiState.allMaterialsScanned,
               highlighted:
                   quickScanHighlight == ProductionQuickScanHighlight.materials,
               onTap: startMaterialsExpandable
@@ -400,7 +398,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               // 0 bo'lganda "0 ta" o'rniga qobiq fade bilan yo'qoladi.
               hideZeroCount: true,
               expanded: intakeCandidatesExpandable && intakeCandidatesExpanded,
-              complete: false,
               onTap: intakeCandidatesExpandable
                   ? onToggleIntakeCandidatesExpanded
                   : null,
@@ -447,7 +444,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             // 0 bo'lganda "0 ta" o'rniga qobiq fade bilan yo'qoladi.
             hideZeroCount: true,
             expanded: attachedMaterialsExpandable && materialsExpanded,
-            complete: false,
             highlighted:
                 quickScanHighlight == ProductionQuickScanHighlight.materials,
             onTap:
@@ -512,7 +508,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                       // 0 bo'lganda "0 ta" o'rniga qobiq fade bilan yo'qoladi.
                       hideZeroCount: true,
                       expanded: attachedExpandable && attachedQolipsExpanded,
-                      complete: false,
                       onTap: attachedExpandable
                           ? onToggleAttachedQolipsExpanded
                           : null,
@@ -550,7 +545,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   ? _countUnitForKind(context.l10n, 'molds')
                   : (context.l10n.isUzbek ? 'ta' : ''),
               expanded: qolipsExpandable && qolipsExpanded,
-              complete: qolipScanned,
               highlighted:
                   quickScanHighlight == ProductionQuickScanHighlight.qolips,
               onTap: qolipsExpandable ? onToggleQolipsExpanded : null,

@@ -522,7 +522,6 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
     required this.title,
     required this.countText,
     required this.expanded,
-    required this.complete,
     this.highlighted = false,
     this.onTap,
     this.countNumber,
@@ -533,7 +532,6 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
   final String title;
   final String countText;
   final bool expanded;
-  final bool complete;
   final bool highlighted;
   final VoidCallback? onTap;
   // Stable count rejimi: son alohida fade bilan almashadi,
@@ -634,106 +632,48 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
                           key: const ValueKey('count-visible'),
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                if (countNumber == null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: highlighted
-                          ? Colors.white.withValues(alpha: 0.58)
-                          : complete
-                              ? scheme.primaryContainer
-                              : scheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      switchInCurve: Curves.easeOut,
-                      switchOutCurve: Curves.easeOut,
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: child,
-                      ),
-                      layoutBuilder: (currentChild, previousChildren) => Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          ...previousChildren,
-                          if (currentChild != null) currentChild,
-                        ],
-                      ),
-                      child: Text(
-                        countText,
-                        key: ValueKey<String>(countText),
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: highlighted
-                              ? highlightedForeground
-                              : complete
-                                  ? scheme.onPrimaryContainer
-                                  : scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  )
-                else ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: highlighted
-                          ? Colors.white.withValues(alpha: 0.58)
-                          : complete
-                              ? scheme.primaryContainer
-                              : scheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      switchInCurve: Curves.easeOut,
-                      switchOutCurve: Curves.easeOut,
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: child,
-                      ),
-                      layoutBuilder: (currentChild, previousChildren) => Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          ...previousChildren,
-                          if (currentChild != null) currentChild,
-                        ],
-                      ),
-                      child: Text(
-                        countNumber!,
-                        key: ValueKey<String>(countNumber!),
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: highlighted
-                              ? highlightedForeground
-                              : complete
-                                  ? scheme.onPrimaryContainer
-                                  : scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Birlik ("ta") qobiqdan tashqarida — doim ko'rinib turadi.
-                  if ((countUnit ?? '').isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      countUnit!,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: highlighted
-                            ? highlightedForeground
-                            : scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ],
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeOut,
+                              transitionBuilder: (child, animation) =>
+                                  FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              ),
+                              layoutBuilder:
+                                  (currentChild, previousChildren) => Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  ...previousChildren,
+                                  if (currentChild != null) currentChild,
+                                ],
+                              ),
+                              child: Text(
+                                countNumber ?? countText,
+                                key: ValueKey<String>(
+                                    countNumber ?? countText),
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: highlighted
+                                      ? highlightedForeground
+                                      : scheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if ((countUnit ?? '').isNotEmpty &&
+                                countNumber != null) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                countUnit!,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: highlighted
+                                      ? highlightedForeground
+                                      : scheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ],
                         )
                       : const SizedBox.shrink(
