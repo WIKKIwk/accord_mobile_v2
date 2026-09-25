@@ -952,11 +952,6 @@ class _WorkerWipHistoryCard extends StatelessWidget {
                 label: context.l10n.productionText('worker.wip.info.worker'),
                 value: worker,
               ),
-              if (batch.batchId.trim().isNotEmpty)
-                _WorkerWipInfoRow(
-                  label: context.l10n.productionText('worker.wip.info.id'),
-                  value: batch.batchId,
-                ),
               if (batch.qrPayload.trim().isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
