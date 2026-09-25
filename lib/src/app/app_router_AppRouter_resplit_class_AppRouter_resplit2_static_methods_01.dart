@@ -502,7 +502,7 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
     case AppRoutes.adminItemBulkMove:
       return AppRouter._buildRoute(
         settings,
-        const AdminItemCreateScreen(initialTabIndex: 2),
+        const AdminItemCreateScreen(initialTabIndex: 0),
       );
     case AppRoutes.adminSupplierDetail:
       final args = settings.arguments;
