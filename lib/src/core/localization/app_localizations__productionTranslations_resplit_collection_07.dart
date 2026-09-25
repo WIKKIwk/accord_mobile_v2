@@ -151,6 +151,14 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'ru':
         'На аппарате выполняется другой заказ. Чтобы начать или продолжить работу, дождитесь освобождения аппарата.',
   },
+  'worker.waiting.apparatus_busy_detail': {
+    'uz':
+        'Uskuna {apparatus} — “{order}” buyurtmasi bilan band. Ushbu buyurtmani boshlash yoki davom ettirish uchun uskuna bo‘shashini kuting.',
+    'en':
+        'Machine {apparatus} is busy with the “{order}” order. Wait until the machine is free to start or resume this order.',
+    'ru':
+        'Аппарат {apparatus} занят заказом «{order}». Чтобы начать или продолжить этот заказ, дождитесь освобождения аппарата.',
+  },
   'worker.error.previous_stage_not_configured': {
     'uz':
         'Buyurtmaning oldingi ishlab chiqarish bosqichi sozlanmagan. Adminga murojaat qiling.',

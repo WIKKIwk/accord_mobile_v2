@@ -41,6 +41,7 @@ class _AdminProductionMapOrdersScreenState
   String _lastAppliedSnapshotEpoch = '';
   final Set<String> _retiredSnapshotEpochs = {};
   final Map<String, int> _sequenceRevisions = {};
+  final Set<String> _sequenceReplayInFlight = {};
   int _liveReconnectAttempt = 0;
   String _searchQuery = '';
 
@@ -116,7 +117,10 @@ class _AdminProductionMapOrdersScreenState
   List<AdminApparatus> _apparatus = const [];
   final Map<String, List<String>> _sequenceByApparatus = {};
   final Map<String, String> _sequenceVersions = {};
-  bool _sequenceReorderPending = false;
+  final Map<String, List<_PendingSequenceMove>> _pendingSequenceMoves = {};
+  final Set<String> _sequenceWritesInFlight = {};
+  final Set<String> _sequenceNeedsSnapshot = {};
+  final Map<String, Timer> _sequenceRetryTimers = {};
   final Map<String, List<String>> _visibleOrderIdsByApparatus = {};
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
   // Kept separately from action permissions, which are invalidated on a
@@ -180,6 +184,11 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void dispose() {
+    for (final timer in _sequenceRetryTimers.values) {
+      timer.cancel();
+    }
+    _sequenceRetryTimers.clear();
+    _pendingSequenceMoves.clear();
     _pendingOrderTimer?.cancel();
     _workerRecoveryTimer?.cancel();
     if (widget.workerMode) {
@@ -458,7 +467,7 @@ class _AdminProductionMapOrdersScreenState
                                   const <String>[],
                               orders: _orders,
                               completedOrders: _completedWorkerOrders,
-                              sequenceByApparatus: _sequenceByApparatus,
+                              sequenceByApparatus: _displaySequenceByApparatus,
                               visibleOrderIdsByApparatus:
                                   _visibleOrderIdsByApparatus,
                               queueStatesByApparatus: _queueStatesByApparatus,
@@ -773,7 +782,7 @@ class _AdminProductionMapOrdersScreenState
         ),
         sequenceOrderIds: _sequenceOrderIdsForApparatus(
           apparatus,
-          sequenceByApparatus: _sequenceByApparatus,
+          sequenceByApparatus: _displaySequenceByApparatus,
         ),
         visibleOrderIds: _ordersForApparatus(
           apparatus,
@@ -921,6 +930,7 @@ class _AdminProductionMapOrdersScreenState
                 queueState: targetQueueState,
               ) !=
               true) {
+        final busyOrder = _workerCurrentOrderForApparatus(apparatus: station);
         showAdminTopNotice(
           context,
           _queueActionUnavailableText(
@@ -928,6 +938,13 @@ class _AdminProductionMapOrdersScreenState
             control: targetControl,
             orderControlState: targetOrderControl,
             queueState: targetQueueState,
+            busyApparatusLabel: canonicalApparatusDisplayLabel(
+              station.id,
+              _apparatus,
+            ),
+            busyOrderLabel: busyOrder == null
+                ? ''
+                : _busyOrderDisplayLabel(busyOrder, context.l10n),
           ),
           icon: Icons.warning_amber_rounded,
         );
@@ -970,6 +987,13 @@ class _AdminProductionMapOrdersScreenState
             control: targetControl,
             orderControlState: targetOrderControl,
             queueState: targetQueueState,
+            busyApparatusLabel: canonicalApparatusDisplayLabel(
+              station.id,
+              _apparatus,
+            ),
+            busyOrderLabel: currentOrder == null
+                ? ''
+                : _busyOrderDisplayLabel(currentOrder, context.l10n),
           ),
           icon: Icons.warning_amber_rounded,
         );
@@ -1709,7 +1733,7 @@ class _AdminProductionMapOrdersScreenState
       orders: _supplyFilteredOrders,
       apparatus: apparatus,
       visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
-      sequenceByApparatus: _sequenceByApparatus,
+      sequenceByApparatus: _displaySequenceByApparatus,
       queueStatesByApparatus: _queueStatesByApparatus,
       stageStatesByOrderId: _stageStatesByOrderId,
       queueActionControlsByApparatus: _queueActionControlsByApparatus,

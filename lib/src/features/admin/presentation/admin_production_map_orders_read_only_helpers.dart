@@ -682,16 +682,45 @@ String _queueActionUnavailableText({
   required AdminApparatusQueueOrderActionControl? control,
   required AdminOrderControlState orderControlState,
   required String? queueState,
+  String busyApparatusLabel = '',
+  String busyOrderLabel = '',
 }) {
   if (control?.isConsistentWith(orderControlState, queueState: queueState) !=
       true) {
     return l10n.productionText('worker.error.sync');
   }
+  final reason = control?.interaction?.blockingReasonCode ?? '';
+  // Uskuna band bo'lsa qaysi uskuna va qaysi buyurtma ishlayotganini
+  // aniq ko'rsatamiz ("boshqa buyurtma" degan umumiy gap o'rniga).
+  if (reason.trim().toLowerCase() == 'apparatus_busy' &&
+      busyApparatusLabel.trim().isNotEmpty &&
+      busyOrderLabel.trim().isNotEmpty) {
+    return l10n.productionText(
+      'worker.waiting.apparatus_busy_detail',
+      values: {
+        'apparatus': busyApparatusLabel.trim(),
+        'order': busyOrderLabel.trim(),
+      },
+    );
+  }
   // An unavailable action is a normal server decision, not a sync failure.
   return l10n.productionErrorMessage(
-    control?.interaction?.blockingReasonCode ?? '',
+    reason,
     fallback: l10n.productionText('worker.queue.action_unavailable'),
   );
+}
+
+/// Band uskunada ishlayotgan buyurtmaning ko'rinadigan nomi
+/// (mahsulot nomi, bo'lmasa buyurtma kodi).
+String _busyOrderDisplayLabel(
+  ProductionMapSaved order,
+  AppLocalizations l10n,
+) {
+  final title = _openedOrderPrimaryTitle(order.map, l10n: l10n).trim();
+  if (title.isNotEmpty) {
+    return title;
+  }
+  return _openedOrderDisplayCode(order.map).trim();
 }
 
 ProductionMapNode? _rezkaNodeForStation({
