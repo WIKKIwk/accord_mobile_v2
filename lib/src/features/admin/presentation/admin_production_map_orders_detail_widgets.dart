@@ -25,6 +25,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.materialsError,
     required this.materialStartReady,
     required this.materialStartBlockingText,
+    this.blockingBusyDetailText,
     required this.actionInFlight,
     required this.materialIntakeInFlight,
     required this.materialIntakeMode,
@@ -105,6 +106,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final String materialsError;
   final bool materialStartReady;
   final String materialStartBlockingText;
+  // Uskuna band bo'lsa qaysi buyurtma ishlayotganini ko'rsatadigan
+  // batafsil matn (topilmasa null).
+  final String? blockingBusyDetailText;
   final bool actionInFlight;
   final bool materialIntakeInFlight;
   final bool materialIntakeMode;
@@ -314,6 +318,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       materialsError: materialsError,
                       materialStartReady: materialStartReady,
                       materialStartBlockingText: materialStartBlockingText,
+                      blockingBusyDetailText: blockingBusyDetailText,
                       actionInFlight: actionInFlight,
                       materialIntakeInFlight: materialIntakeInFlight,
                       materialIntakeMode: materialIntakeMode,

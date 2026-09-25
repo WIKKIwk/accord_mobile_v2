@@ -292,4 +292,93 @@ void _registerWorkerNoticeTests() {
       _freshStartQueueControl(),
       omitControl: true,
       syncWarning: true);
+
+  testWidgets('busy machine names the running order', (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    resetMobileApiTestModeData();
+    const busyOrderId = 'zakaz-busy-running';
+    const waitingOrderId = 'zakaz-busy-waiting';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Worker',
+      legalName: '',
+      ref: 'worker-notice',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+      assignedApparatus: [_print7Id],
+    );
+    await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
+      id: busyOrderId,
+      title: 'Running order',
+      productCode: 'BUSY',
+      apparatusId: _print7Id,
+      product: 'Running product',
+    ));
+    await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
+      id: waitingOrderId,
+      title: 'Waiting order',
+      productCode: 'WAITING',
+      apparatusId: _print7Id,
+      product: 'Waiting product',
+    ));
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: _print7Id,
+      orderIds: const [busyOrderId, waitingOrderId],
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _print7Id,
+      orderId: busyOrderId,
+      control: _inProgressQueueControl(),
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _print7Id,
+      orderId: waitingOrderId,
+      control: control(reason: 'apparatus_busy'),
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(useMaterial3: true),
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const AdminProductionMapOrdersScreen(
+        readOnly: true,
+        workerMode: true,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('7 ta rangli bosma aparat'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('worker-order-$waitingOrderId')));
+    await tester.pumpAndSettle();
+
+    final card = find.byWidgetPredicate(
+      (widget) => widget.runtimeType.toString() == '_OrderStartUnifiedCard',
+    );
+    expect(card, findsOneWidget);
+    Finder textInCard(String text) =>
+        find.descendant(of: card, matching: find.text(text));
+    expect(
+      textInCard(
+        'Uskuna 7 ta rangli bosma aparat — “Running order” buyurtmasi '
+        'bilan band. Ushbu buyurtmani boshlash yoki davom ettirish '
+        'uchun uskuna bo‘shashini kuting.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      textInCard(l10n.productionText('worker.waiting.apparatus_busy')),
+      findsNothing,
+    );
+    resetMobileApiTestModeData();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 }

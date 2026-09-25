@@ -718,6 +718,14 @@ class _AdminProductionMapOrdersScreenState
       builder: (context) => _ReadOnlyOrderDetailSheet(
         order: order,
         apparatusCatalog: _apparatus,
+        busyOrderTitleLookup: (orderId) {
+          for (final candidate in _orders) {
+            if (candidate.map.id.trim() == orderId.trim()) {
+              return _busyOrderDisplayLabel(candidate, context.l10n);
+            }
+          }
+          return null;
+        },
         baseMetraj: _baseMetrajByMapId[mapId] ?? order.map.baseLength,
         orderKg: _orderKgByMapId[mapId] ?? order.map.orderKg,
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
@@ -756,6 +764,14 @@ class _AdminProductionMapOrdersScreenState
         order: order,
         apparatus: apparatus,
         apparatusCatalog: _apparatus,
+        busyOrderTitleLookup: (orderId) {
+          for (final candidate in _orders) {
+            if (candidate.map.id.trim() == orderId.trim()) {
+              return _busyOrderDisplayLabel(candidate, context.l10n);
+            }
+          }
+          return null;
+        },
         workerMode: widget.workerMode,
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
         canManageQueue: widget.workerMode &&
@@ -931,6 +947,8 @@ class _AdminProductionMapOrdersScreenState
               ) !=
               true) {
         final busyOrder = _workerCurrentOrderForApparatus(apparatus: station);
+        final busyIsOther = busyOrder != null &&
+            busyOrder.map.id.trim() != targetOrderId;
         showAdminTopNotice(
           context,
           _queueActionUnavailableText(
@@ -942,9 +960,9 @@ class _AdminProductionMapOrdersScreenState
               station.id,
               _apparatus,
             ),
-            busyOrderLabel: busyOrder == null
-                ? ''
-                : _busyOrderDisplayLabel(busyOrder, context.l10n),
+            busyOrderLabel: busyIsOther
+                ? _busyOrderDisplayLabel(busyOrder, context.l10n)
+                : '',
           ),
           icon: Icons.warning_amber_rounded,
         );
@@ -980,6 +998,8 @@ class _AdminProductionMapOrdersScreenState
       final canPrepareSwitch = canFinishCurrent &&
           targetControl?.interaction?.blockingReasonCode == 'apparatus_busy';
       if (targetControl?.allows('start') != true && !canPrepareSwitch) {
+        final busyIsOther = currentOrder != null &&
+            currentOrder.map.id.trim() != targetOrderId;
         showAdminTopNotice(
           context,
           _queueActionUnavailableText(
@@ -991,9 +1011,9 @@ class _AdminProductionMapOrdersScreenState
               station.id,
               _apparatus,
             ),
-            busyOrderLabel: currentOrder == null
-                ? ''
-                : _busyOrderDisplayLabel(currentOrder, context.l10n),
+            busyOrderLabel: busyIsOther
+                ? _busyOrderDisplayLabel(currentOrder, context.l10n)
+                : '',
           ),
           icon: Icons.warning_amber_rounded,
         );

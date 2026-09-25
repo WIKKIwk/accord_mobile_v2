@@ -16,6 +16,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.materialsError,
     required this.materialStartReady,
     required this.materialStartBlockingText,
+    this.blockingBusyDetailText,
     required this.actionInFlight,
     required this.materialIntakeInFlight,
     required this.materialIntakeMode,
@@ -76,6 +77,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final String materialsError;
   final bool materialStartReady;
   final String materialStartBlockingText;
+  // Uskuna band bo'lsa batafsil matn (topilmasa null).
+  final String? blockingBusyDetailText;
   final bool actionInFlight;
   final bool materialIntakeInFlight;
   final bool materialIntakeMode;
@@ -163,10 +166,15 @@ class _OrderStartUnifiedCard extends StatelessWidget {
         !orderControlBlocked &&
         !showPreviousStageWaitingNotice &&
         !uiState.showWaitingForSequence;
-    final backendBlockingText = context.l10n.productionErrorMessage(
-      uiState.blockingReasonCode,
-      fallback: context.l10n.productionText('worker.queue.action_unavailable'),
-    );
+    final backendBlockingText =
+        uiState.blockingReasonCode.trim().toLowerCase() == 'apparatus_busy' &&
+                (blockingBusyDetailText?.trim().isNotEmpty == true)
+            ? blockingBusyDetailText!
+            : context.l10n.productionErrorMessage(
+                uiState.blockingReasonCode,
+                fallback: context.l10n
+                    .productionText('worker.queue.action_unavailable'),
+              );
     final showRezkaInputProgressScan =
         uiState.previousProgressRequired && uiState.showStart;
     final hasIntakeCandidates = uiState.intakeCandidateAssignments.isNotEmpty;

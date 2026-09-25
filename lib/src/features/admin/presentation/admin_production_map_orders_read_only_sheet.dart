@@ -384,6 +384,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         materialsError: _materialsError,
         materialStartReady: materialStartReady,
         materialStartBlockingText: materialStartBlockingText,
+        blockingBusyDetailText: _apparatusBusyDetailText(),
         actionInFlight: _actionInFlight || _initialQrScanPending,
         materialIntakeInFlight: _materialIntakeInFlight,
         materialIntakeMode: _materialIntakeMode,
@@ -1070,7 +1071,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (!mounted) return null;
       setState(() => _actionInFlight = false);
       unawaited(_refreshQueueActionControlAfterWrite());
-      _showSheetNotice(_readOnlyQueueActionErrorText(error, context.l10n));
+      _showSheetNotice(_sheetActionErrorText(error));
       return null;
     }
   }
@@ -1302,7 +1303,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _showSheetNotice(
         error is TimeoutException
             ? context.l10n.productionText('worker.notice.action_sent')
-            : _readOnlyQueueActionErrorText(error, context.l10n),
+            : _sheetActionErrorText(error),
       );
       return false;
     } finally {
@@ -1809,6 +1810,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         control: targetControl,
         orderControlState: targetOrderControl,
         queueState: targetQueueState,
+        busyApparatusLabel: _unavailableBusyLabels().apparatus,
+        busyOrderLabel: _unavailableBusyLabels().order,
       ));
       return false;
     }
@@ -1969,7 +1972,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     } catch (error) {
       if (mounted) {
         setState(() => _actionInFlight = false);
-        _showSheetNotice(_readOnlyQueueActionErrorText(error, context.l10n));
+        _showSheetNotice(_sheetActionErrorText(error));
       }
       return _ProgressActionOutcome.failed;
     }
@@ -2041,6 +2044,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             control: latest,
             orderControlState: _orderControlState,
             queueState: _queueStates[widget.order.map.id.trim()],
+            busyApparatusLabel: _unavailableBusyLabels().apparatus,
+            busyOrderLabel: _unavailableBusyLabels().order,
           ));
           return _ProgressActionOutcome.failed;
         }
@@ -2342,7 +2347,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             context.l10n,
           );
         });
-        _showSheetNotice(_readOnlyQueueActionErrorText(error, context.l10n));
+        _showSheetNotice(_sheetActionErrorText(error));
       }
       return false;
     } finally {
@@ -2491,6 +2496,96 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       anchorKey: _noticeAnchorKey,
     );
   }
+
+  /// Uskunada hozir band bo'lgan BOSHQA buyurtma: avval boshqa
+  /// ishlayotgan buyurtma qidiriladi. Topilmasa null — shunda
+  /// umumiy matn ishlatiladi (joriy buyurtmani o'zi nomlanmaydi).
+  ({String apparatusLabel, String orderTitle})? _busyOrderLabels() {
+    final station = _detailUiState.station.trim();
+    if (station.isEmpty) {
+      return null;
+    }
+    final lookup = widget.busyOrderTitleLookup;
+    if (lookup == null) {
+      return null;
+    }
+    final currentId = _detailUiState.orderId.trim();
+    String? busyId;
+    final controls =
+        widget.queueActionControlsByApparatus[station] ?? const {};
+    for (final entry in controls.entries) {
+      if (entry.key.trim().isEmpty || entry.key.trim() == currentId) {
+        continue;
+      }
+      final mode = entry.value.interaction?.mode;
+      if (mode == AdminQueueInteractionMode.inProgress ||
+          mode == AdminQueueInteractionMode.freezeRequested) {
+        busyId = entry.key.trim();
+        break;
+      }
+    }
+    busyId ??= () {
+      final states =
+          widget.queueStatesByApparatus[station] ?? const <String, String>{};
+      for (final entry in states.entries) {
+        if (entry.key.trim().isEmpty || entry.key.trim() == currentId) {
+          continue;
+        }
+        if (apparatusQueueOrderStateFromRaw(entry.value) ==
+            ApparatusQueueOrderState.inProgress) {
+          return entry.key.trim();
+        }
+      }
+      return null;
+    }();
+    if (busyId == null || busyId.isEmpty) {
+      return null;
+    }
+    final title = lookup(busyId)?.trim() ?? '';
+    final apparatusLabel =
+        canonicalApparatusDisplayLabel(station, widget.apparatusCatalog).trim();
+    if (title.isEmpty || apparatusLabel.isEmpty) {
+      return null;
+    }
+    return (apparatusLabel: apparatusLabel, orderTitle: title);
+  }
+
+  /// "Uskuna X — “Y” buyurtmasi bilan band..." batafsil matni.
+  /// Ma'lumot topilmasa null qaytadi.
+  String? _apparatusBusyDetailText() {
+    final labels = _busyOrderLabels();
+    if (labels == null) {
+      return null;
+    }
+    return context.l10n.productionText(
+      'worker.waiting.apparatus_busy_detail',
+      values: {
+        'apparatus': labels.apparatusLabel,
+        'order': labels.orderTitle,
+      },
+    );
+  }
+
+  /// apparatus_busy xatoligi uchun batafsil matn, qolganida eski matn.
+  String _sheetActionErrorText(Object error) {
+    if (error is MobileApiException &&
+        error.code.trim().toLowerCase() == 'apparatus_busy') {
+      final detail = _apparatusBusyDetailText();
+      if (detail != null) {
+        return detail;
+      }
+    }
+    return _readOnlyQueueActionErrorText(error, context.l10n);
+  }
+
+  /// _queueActionUnavailableText chaqiriqlari uchun bandlik yorliqlari.
+  ({String apparatus, String order}) _unavailableBusyLabels() {
+    final labels = _busyOrderLabels();
+    if (labels == null) {
+      return (apparatus: '', order: '');
+    }
+    return (apparatus: labels.apparatusLabel, order: labels.orderTitle);
+  }
 }
 
 bool _sameMergeInputLineage(
@@ -2580,6 +2675,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.startBosmaFinishOnOpen = false,
     this.startRollRemovalOnOpen = false,
     this.startResumeOnOpen = false,
+    this.busyOrderTitleLookup,
   });
   final ProductionMapSaved order;
   final List<AdminApparatus> apparatusCatalog;
@@ -2611,6 +2707,9 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final bool startBosmaFinishOnOpen;
   final bool startRollRemovalOnOpen;
   final bool startResumeOnOpen;
+  // Uskuna band bo'lganda qaysi buyurtma ishlayotganini ko'rsatish uchun:
+  // orderId -> ko'rinadigan buyurtma nomi (topilmasa null).
+  final String? Function(String orderId)? busyOrderTitleLookup;
 
   @override
   State<_ReadOnlyOrderDetailSheet> createState() =>
