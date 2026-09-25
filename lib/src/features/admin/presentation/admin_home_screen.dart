@@ -130,6 +130,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                           _openAndReload(AppRoutes.adminSuppliers),
                       onTapBlocked: () =>
                           _openAndReload(AppRoutes.adminInactiveSuppliers),
+                      // "Ish xaritasi" yuqoridagi 3 ta card bilan bitta
+                      // guruhda turadi (alohida uzilgan card emas).
+                      showWorkMapAction: AppRouter.canOpenRoute(
+                        AppRoutes.adminProductionMapOrders,
+                      ),
+                      workMapTitle: context.l10n.adminWorkMapNavTitle,
+                      onTapWorkMap: () => _openAndReload(
+                        AppRoutes.adminProductionMapOrders,
+                      ),
                     ),
                     if (summaryValue.blockedSuppliers > 0) ...[
                       const SizedBox(height: 16),
@@ -137,29 +146,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         count: summaryValue.blockedSuppliers,
                         onTap: () =>
                             _openAndReload(AppRoutes.adminInactiveSuppliers),
-                      ),
-                    ],
-                    // Uy sahifasida "Ish xaritasi" yorlig'i: drawer ochmasdan
-                    // ishlab chiqarish xaritasiga o'tish uchun.
-                    if (AppRouter.canOpenRoute(
-                      AppRoutes.adminProductionMapOrders,
-                    )) ...[
-                      const SizedBox(height: 16),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: _adminHomePanelCardGap,
-                        ),
-                        child: _AdminActionCard(
-                          slot: _slotFor(0, 1),
-                          action: _AdminHomeAction(
-                            title: context.l10n.adminWorkMapNavTitle,
-                            icon: Icons.account_tree_outlined,
-                            routeName: AppRoutes.adminProductionMapOrders,
-                          ),
-                          onTap: () => _openAndReload(
-                            AppRoutes.adminProductionMapOrders,
-                          ),
-                        ),
                       ),
                     ],
                   ] else
@@ -391,12 +377,18 @@ class _AdminSummaryList extends StatelessWidget {
     required this.onTapTotal,
     required this.onTapActive,
     required this.onTapBlocked,
+    this.showWorkMapAction = false,
+    this.workMapTitle = '',
+    this.onTapWorkMap,
   });
 
   final AdminSupplierSummary summary;
   final VoidCallback onTapTotal;
   final VoidCallback onTapActive;
   final VoidCallback onTapBlocked;
+  final bool showWorkMapAction;
+  final String workMapTitle;
+  final VoidCallback? onTapWorkMap;
 
   @override
   Widget build(BuildContext context) {
@@ -424,14 +416,28 @@ class _AdminSummaryList extends StatelessWidget {
           elevation: 4,
         ),
         AdminSummaryCard(
-          slot: M3SegmentVerticalSlot.bottom,
-          cornerRadius: M3SegmentedListGeometry.cornerLarge,
+          slot: showWorkMapAction
+              ? M3SegmentVerticalSlot.middle
+              : M3SegmentVerticalSlot.bottom,
+          cornerRadius: showWorkMapAction
+              ? M3SegmentedListGeometry.cornerMiddle
+              : M3SegmentedListGeometry.cornerLarge,
           backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
           title: context.l10n.adminBlockedUsersTitle,
           value: summary.blockedSuppliers.toString(),
           onTap: onTapBlocked,
           elevation: 4,
         ),
+        if (showWorkMapAction)
+          _AdminActionCard(
+            slot: M3SegmentVerticalSlot.bottom,
+            action: _AdminHomeAction(
+              title: workMapTitle,
+              icon: Icons.account_tree_outlined,
+              routeName: AppRoutes.adminProductionMapOrders,
+            ),
+            onTap: onTapWorkMap ?? () {},
+          ),
       ],
     );
   }
