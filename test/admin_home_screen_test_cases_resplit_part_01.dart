@@ -323,7 +323,7 @@ void _registeradmin_home_screen_testCases01() {
     expect(find.text('Xavfsizlik'), findsNothing);
   });
 
-  testWidgets('admin home summary labels follow selected language', (
+  testWidgets('admin home shortcut labels follow selected language', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
@@ -367,14 +367,19 @@ void _registeradmin_home_screen_testCases01() {
         ),
       );
       for (var i = 0;
-          i < 20 && find.text('Total users').evaluate().isEmpty;
+          i < 20 && find.text('Work map').evaluate().isEmpty;
           i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
-      expect(find.text('Total users'), findsOneWidget);
-      expect(find.text('Active users'), findsOneWidget);
-      expect(find.text('Blocked users'), findsOneWidget);
+      expect(find.text('Users'), findsOneWidget);
+      expect(find.text('Quick orders'), findsOneWidget);
+      expect(find.text('Open order'), findsOneWidget);
+      expect(find.text('Work map'), findsOneWidget);
+      expect(find.text('Total users'), findsNothing);
+      expect(find.text('Active users'), findsNothing);
+      expect(find.text('Blocked users'), findsNothing);
+      expect(find.text('Products'), findsNothing);
       expect(find.text('Jami users'), findsNothing);
     }, createHttpClient: (_) => _SummaryHttpClient(<String>[]));
   });

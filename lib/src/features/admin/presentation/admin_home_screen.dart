@@ -8,7 +8,6 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart' show AppRefreshIndicator;
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
-import '../../shared/models/app_models.dart';
 import '../state/admin_store.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_shell.dart';
@@ -112,7 +111,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               return AppRetryState(onRetry: _reload);
             }
 
-            final summaryValue = store.summary;
             return AppRefreshIndicator(
               onRefresh: _reload,
               allowRefreshOnShortContent: true,
@@ -122,32 +120,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 children: [
                   const SizedBox(height: _adminHomePanelCardGap),
                   if (canLoadSummary) ...[
-                    _AdminSummaryList(
-                      summary: summaryValue,
-                      onTapTotal: () =>
-                          _openAndReload(AppRoutes.adminSuppliers),
-                      onTapActive: () =>
-                          _openAndReload(AppRoutes.adminSuppliers),
-                      onTapBlocked: () =>
-                          _openAndReload(AppRoutes.adminInactiveSuppliers),
-                      // "Ish xaritasi" yuqoridagi 3 ta card bilan bitta
-                      // guruhda turadi (alohida uzilgan card emas).
-                      showWorkMapAction: AppRouter.canOpenRoute(
-                        AppRoutes.adminProductionMapOrders,
-                      ),
-                      workMapTitle: context.l10n.adminWorkMapNavTitle,
-                      onTapWorkMap: () => _openAndReload(
-                        AppRoutes.adminProductionMapOrders,
-                      ),
-                    ),
-                    if (summaryValue.blockedSuppliers > 0) ...[
-                      const SizedBox(height: 16),
-                      _AdminBlockedSuppliersSection(
-                        count: summaryValue.blockedSuppliers,
-                        onTap: () =>
-                            _openAndReload(AppRoutes.adminInactiveSuppliers),
-                      ),
-                    ],
+                    _AdminHomeShortcutList(onOpenRoute: _openAndReload),
                   ] else
                     _AdminActionList(onOpenRoute: _openAndReload),
                 ],
@@ -371,151 +344,65 @@ M3SegmentVerticalSlot _slotFor(int index, int length) {
   return M3SegmentVerticalSlot.middle;
 }
 
-class _AdminSummaryList extends StatelessWidget {
-  const _AdminSummaryList({
-    required this.summary,
-    required this.onTapTotal,
-    required this.onTapActive,
-    required this.onTapBlocked,
-    this.showWorkMapAction = false,
-    this.workMapTitle = '',
-    this.onTapWorkMap,
-  });
+class _AdminHomeShortcut {
+  const _AdminHomeShortcut({required this.title, required this.routeName});
 
-  final AdminSupplierSummary summary;
-  final VoidCallback onTapTotal;
-  final VoidCallback onTapActive;
-  final VoidCallback onTapBlocked;
-  final bool showWorkMapAction;
-  final String workMapTitle;
-  final VoidCallback? onTapWorkMap;
+  final String title;
+  final String routeName;
+}
+
+/// Uy sahifasidagi 5 ta shortcut: Foydalanuvchilar, Mahsulotlar,
+/// Tezkor buyurtmalar, Buyurtma ochish, Ish xaritasi (oxirida).
+/// Har biri capability bo'yicha ko'rinadi.
+class _AdminHomeShortcutList extends StatelessWidget {
+  const _AdminHomeShortcutList({required this.onOpenRoute});
+
+  final ValueChanged<String> onOpenRoute;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final shortcuts = [
+      _AdminHomeShortcut(
+        title: l10n.adminUsersTitle,
+        routeName: AppRoutes.adminSuppliers,
+      ),
+      _AdminHomeShortcut(
+        title: l10n.adminProductsTitle,
+        routeName: AppRoutes.adminItemBulkMove,
+      ),
+      _AdminHomeShortcut(
+        title: l10n.adminQuickOrdersTitle,
+        routeName: AppRoutes.adminCalculateOrders,
+      ),
+      _AdminHomeShortcut(
+        title: l10n.adminOpenOrderTitle,
+        routeName: AppRoutes.adminCalculate,
+      ),
+      _AdminHomeShortcut(
+        title: l10n.adminWorkMapNavTitle,
+        routeName: AppRoutes.adminProductionMapOrders,
+      ),
+    ].where((s) => AppRouter.canOpenRoute(s.routeName)).toList(growable: false);
+    final scheme = Theme.of(context).colorScheme;
     return M3SegmentSpacedColumn(
       padding: const EdgeInsets.symmetric(
         horizontal: _adminHomePanelCardGap,
       ),
       children: [
-        AdminSummaryCard(
-          slot: M3SegmentVerticalSlot.top,
-          cornerRadius: M3SegmentedListGeometry.cornerLarge,
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-          title: context.l10n.adminTotalUsersTitle,
-          value: summary.totalSuppliers.toString(),
-          onTap: onTapTotal,
-          elevation: 4,
-        ),
-        AdminSummaryCard(
-          slot: M3SegmentVerticalSlot.middle,
-          cornerRadius: M3SegmentedListGeometry.cornerMiddle,
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-          title: context.l10n.adminActiveUsersTitle,
-          value: summary.activeSuppliers.toString(),
-          onTap: onTapActive,
-          elevation: 4,
-        ),
-        AdminSummaryCard(
-          slot: showWorkMapAction
-              ? M3SegmentVerticalSlot.middle
-              : M3SegmentVerticalSlot.bottom,
-          cornerRadius: showWorkMapAction
-              ? M3SegmentedListGeometry.cornerMiddle
-              : M3SegmentedListGeometry.cornerLarge,
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-          title: context.l10n.adminBlockedUsersTitle,
-          value: summary.blockedSuppliers.toString(),
-          onTap: onTapBlocked,
-          elevation: 4,
-        ),
-        if (showWorkMapAction)
+        for (var i = 0; i < shortcuts.length; i++)
           AdminSummaryCard(
-            slot: M3SegmentVerticalSlot.bottom,
-            cornerRadius: M3SegmentedListGeometry.cornerLarge,
-            backgroundColor:
-                Theme.of(context).colorScheme.surfaceContainerLowest,
-            title: workMapTitle,
+            slot: _slotFor(i, shortcuts.length),
+            cornerRadius: (i == 0 || i == shortcuts.length - 1)
+                ? M3SegmentedListGeometry.cornerLarge
+                : M3SegmentedListGeometry.cornerMiddle,
+            backgroundColor: scheme.surfaceContainerLowest,
+            title: shortcuts[i].title,
             value: '',
-            onTap: onTapWorkMap,
+            onTap: () => onOpenRoute(shortcuts[i].routeName),
             elevation: 4,
           ),
       ],
-    );
-  }
-}
-
-class _AdminBlockedSuppliersSection extends StatelessWidget {
-  const _AdminBlockedSuppliersSection({
-    required this.count,
-    required this.onTap,
-  });
-
-  final int count;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final l10n = context.l10n;
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: _adminHomePanelCardGap,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          M3SegmentFilledSurface(
-            slot: M3SegmentVerticalSlot.top,
-            cornerRadius: M3SegmentedListGeometry.cornerLarge,
-            backgroundColor: scheme.surfaceContainerLowest,
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      l10n.adminBlockedUsersControlTitle,
-                      style: theme.textTheme.titleLarge,
-                    ),
-                  ),
-                  Icon(
-                    Icons.block_rounded,
-                    size: 22,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: M3SegmentedListGeometry.gap),
-          M3SegmentFilledSurface(
-            slot: M3SegmentVerticalSlot.bottom,
-            cornerRadius: M3SegmentedListGeometry.cornerLarge,
-            backgroundColor: scheme.surfaceContainerLowest,
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      l10n.adminBlockedUsersCountLabel(count),
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 22,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
