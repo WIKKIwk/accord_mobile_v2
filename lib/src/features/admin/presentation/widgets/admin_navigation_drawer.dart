@@ -54,6 +54,18 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.adminHome,
     ),
     RoleNavigationDrawerDestination(
+      icon: Icons.people_outline_rounded,
+      selectedIcon: Icons.people_rounded,
+      label: l10n.adminUsersTitle,
+      routeName: AppRoutes.adminSuppliers,
+    ),
+    RoleNavigationDrawerDestination(
+      icon: Icons.grid_view_outlined,
+      selectedIcon: Icons.grid_view_rounded,
+      label: l10n.adminProductsTitle,
+      routeName: AppRoutes.adminItemBulkMove,
+    ),
+    RoleNavigationDrawerDestination(
       icon: Icons.account_tree_outlined,
       selectedIcon: Icons.account_tree_rounded,
       label: l10n.adminWorkMapNavTitle,
@@ -148,12 +160,6 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       selectedIcon: Icons.monitor_heart_rounded,
       label: l10n.adminServerStatusNavTitle,
       routeName: AppRoutes.adminServerMonitor,
-    ),
-    RoleNavigationDrawerDestination(
-      icon: Icons.view_in_ar_outlined,
-      selectedIcon: Icons.view_in_ar_rounded,
-      label: l10n.adminFactoryMapNavTitle,
-      routeName: AppRoutes.adminFactoryMap,
     ),
     RoleNavigationDrawerDestination(
       icon: Icons.person_outline_rounded,

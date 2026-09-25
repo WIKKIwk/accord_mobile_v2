@@ -351,7 +351,7 @@ class _AdminHomeShortcut {
   final String routeName;
 }
 
-/// Uy sahifasidagi 5 ta shortcut: Foydalanuvchilar, Mahsulotlar,
+/// Uy sahifasidagi shortcut'lar: Zavod kartasi (eng tepada),
 /// Tezkor buyurtmalar, Buyurtma ochish, Ish xaritasi (oxirida).
 /// Har biri capability bo'yicha ko'rinadi.
 class _AdminHomeShortcutList extends StatelessWidget {
@@ -364,12 +364,8 @@ class _AdminHomeShortcutList extends StatelessWidget {
     final l10n = context.l10n;
     final shortcuts = [
       _AdminHomeShortcut(
-        title: l10n.adminUsersTitle,
-        routeName: AppRoutes.adminSuppliers,
-      ),
-      _AdminHomeShortcut(
-        title: l10n.adminProductsTitle,
-        routeName: AppRoutes.adminItemBulkMove,
+        title: l10n.adminFactoryMapNavTitle,
+        routeName: AppRoutes.adminFactoryMap,
       ),
       _AdminHomeShortcut(
         title: l10n.adminQuickOrdersTitle,

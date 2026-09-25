@@ -372,13 +372,14 @@ void _registeradmin_home_screen_testCases01() {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
-      expect(find.text('Users'), findsOneWidget);
+      expect(find.text('Factory map'), findsOneWidget);
       expect(find.text('Quick orders'), findsOneWidget);
       expect(find.text('Open order'), findsOneWidget);
       expect(find.text('Work map'), findsOneWidget);
       expect(find.text('Total users'), findsNothing);
       expect(find.text('Active users'), findsNothing);
       expect(find.text('Blocked users'), findsNothing);
+      expect(find.text('Users'), findsNothing);
       expect(find.text('Products'), findsNothing);
       expect(find.text('Jami users'), findsNothing);
     }, createHttpClient: (_) => _SummaryHttpClient(<String>[]));
