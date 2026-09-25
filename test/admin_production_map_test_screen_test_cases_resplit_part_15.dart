@@ -68,7 +68,7 @@ void _registeradmin_production_map_test_screen_testCases15() {
     await tester.pumpAndSettle();
 
     expect(find.text('Buyurtmalar'), findsNothing);
-    expect(find.text('Ochilgan zakaz qidirish'), findsOneWidget);
+    expect(find.text('Buyurtmani izlash'), findsOneWidget);
     expect(find.text('Godex aparat - DEMO'), findsOneWidget);
     expect(find.text('7 ta rangli bosma aparat'), findsOneWidget);
     expect(find.text('Aparatlar'), findsNothing);

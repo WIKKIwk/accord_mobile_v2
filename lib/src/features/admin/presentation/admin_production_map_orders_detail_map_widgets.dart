@@ -123,12 +123,6 @@ class _OrderMapProgressCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.account_tree_outlined,
-                    color: scheme.primary,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

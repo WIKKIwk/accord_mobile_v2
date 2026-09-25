@@ -83,12 +83,12 @@ void _registeradmin_production_map_test_screen_testCases09() {
 
     await tester.tap(orderFinder);
     await tester.pumpAndSettle();
-    expect(find.text('Zakaz kodi'), findsOneWidget);
+    expect(find.text('Buyurtma kodi'), findsOneWidget);
     expect(
       find.text('Qolip yoki homashyo QR kodini tirqishga olib keling'),
       findsNothing,
     );
-    Navigator.of(tester.element(find.text('Zakaz kodi'))).pop();
+    Navigator.of(tester.element(find.text('Buyurtma kodi'))).pop();
     await tester.pumpAndSettle();
 
     await tester.longPress(find.textContaining('Material action order'));

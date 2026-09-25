@@ -216,8 +216,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                             Text(
                               context.l10n.productionText('worker.order.code'),
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w700,
+                                color: scheme.onSurface,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -317,8 +317,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                     : 'worker.materials.start.empty',
               ),
               countText: materialsLoading
-                  ? '...'
+                  ? '..'
                   : '${uiState.scannedCount}/${uiState.materialRequiredCount}',
+              countNumber: materialsLoading
+                  ? '..'
+                  : '${uiState.scannedCount}/${uiState.materialRequiredCount}',
+              countUnit: '',
+              isLoading: materialsLoading,
               expanded: startMaterialsExpandable && startMaterialsExpanded,
               complete: uiState.materialRequiredCount > 0 &&
                   uiState.allMaterialsScanned,
@@ -374,11 +379,16 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                     : 'worker.materials.pending.empty',
               ),
               countText: materialsLoading
-                  ? '...'
+                  ? '..'
                   : context.l10n.productionCount(
                       uiState.intakeCandidateAssignments.length,
                       kind: 'materials',
                     ),
+              countNumber: materialsLoading
+                  ? '..'
+                  : '${uiState.intakeCandidateAssignments.length}',
+              countUnit: _countUnitForKind(context.l10n, 'materials'),
+              isLoading: materialsLoading,
               expanded: intakeCandidatesExpandable && intakeCandidatesExpanded,
               complete: false,
               onTap: intakeCandidatesExpandable
@@ -414,11 +424,16 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   : 'worker.materials.attached.empty',
             ),
             countText: materialsLoading
-                ? '...'
+                ? '..'
                 : context.l10n.productionCount(
                     uiState.assignedMaterialAssignments.length,
                     kind: 'materials',
                   ),
+            countNumber: materialsLoading
+                ? '..'
+                : '${uiState.assignedMaterialAssignments.length}',
+            countUnit: _countUnitForKind(context.l10n, 'materials'),
+            isLoading: materialsLoading,
             expanded: attachedMaterialsExpandable && materialsExpanded,
             complete: false,
             highlighted:
@@ -472,11 +487,16 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                             : 'worker.molds.attached.empty',
                       ),
                       countText: attachedQolipsLoading
-                          ? '...'
+                          ? '..'
                           : context.l10n.productionCount(
                               attachedQolips.length,
                               kind: 'molds',
                             ),
+                      countNumber: attachedQolipsLoading
+                          ? '..'
+                          : '${attachedQolips.length}',
+                      countUnit: _countUnitForKind(context.l10n, 'molds'),
+                      isLoading: attachedQolipsLoading,
                       expanded: attachedExpandable && attachedQolipsExpanded,
                       complete: false,
                       onTap: attachedExpandable
@@ -509,6 +529,12 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   ? context.l10n.productionText('worker.molds')
                   : qolipRequirementsStatusText,
               countText: qolipProgressText,
+              countNumber: requiredQolips.isEmpty
+                  ? '${qolipCodes.length}'
+                  : '${qolipCodes.length}/${requiredQolips.length}',
+              countUnit: requiredQolips.isEmpty
+                  ? _countUnitForKind(context.l10n, 'molds')
+                  : (context.l10n.isUzbek ? 'ta' : ''),
               expanded: qolipsExpandable && qolipsExpanded,
               complete: qolipScanned,
               highlighted:

@@ -139,6 +139,29 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                             _openAndReload(AppRoutes.adminInactiveSuppliers),
                       ),
                     ],
+                    // Uy sahifasida "Ish xaritasi" yorlig'i: drawer ochmasdan
+                    // ishlab chiqarish xaritasiga o'tish uchun.
+                    if (AppRouter.canOpenRoute(
+                      AppRoutes.adminProductionMapOrders,
+                    )) ...[
+                      const SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: _adminHomePanelCardGap,
+                        ),
+                        child: _AdminActionCard(
+                          slot: _slotFor(0, 1),
+                          action: _AdminHomeAction(
+                            title: context.l10n.adminWorkMapNavTitle,
+                            icon: Icons.account_tree_outlined,
+                            routeName: AppRoutes.adminProductionMapOrders,
+                          ),
+                          onTap: () => _openAndReload(
+                            AppRoutes.adminProductionMapOrders,
+                          ),
+                        ),
+                      ),
+                    ],
                   ] else
                     _AdminActionList(onOpenRoute: _openAndReload),
                 ],

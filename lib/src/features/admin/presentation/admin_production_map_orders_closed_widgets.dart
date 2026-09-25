@@ -87,7 +87,7 @@ class _ClosedOrderTile extends StatelessWidget {
     );
 
     return Material(
-      color: scheme.surface,
+      color: scheme.surfaceContainerLowest,
       elevation: 2,
       shadowColor: scheme.shadow.withValues(alpha: 0.16),
       surfaceTintColor: Colors.transparent,

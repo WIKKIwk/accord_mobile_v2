@@ -163,7 +163,7 @@ void main() {
           titleWidget: AdminCatalogSearchField(
             controller: controller,
             focusNode: focusNode,
-            hintText: 'Ochilgan zakaz qidirish',
+            hintText: 'Buyurtmani izlash',
             onChanged: (_) {},
             onClear: controller.clear,
             onBackWithContext: (context) =>

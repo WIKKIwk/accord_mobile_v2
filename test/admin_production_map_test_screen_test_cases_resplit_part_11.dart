@@ -183,7 +183,7 @@ void _registeradmin_production_map_test_screen_testCases11() {
     await tester.tap(find.text('Ketma-ketlik'));
     await tester.pumpAndSettle();
 
-    expect(find.text('1 ta zakaz'), findsOneWidget);
+    expect(find.text('1 ta buyurtma'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('sequence-$apparatus-$completedOrderId')),
       findsNothing,
@@ -204,7 +204,7 @@ void _registeradmin_production_map_test_screen_testCases11() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('1 ta zakaz'), findsOneWidget);
+    expect(find.text('1 ta buyurtma'), findsOneWidget);
     expect(
       find.byKey(
         const ValueKey('sequence-$_lamination1Id-$completedOrderId'),

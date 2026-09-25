@@ -377,7 +377,15 @@ void _registeradmin_production_map_test_screen_testCases10() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
-      expect(find.text('1/1 ta'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey('production-qolips-expansion'),
+          ),
+          matching: find.text('1/1'),
+        ),
+        findsOneWidget,
+      );
 
       await tester.enterText(manualInput, materialBarcode);
       await tester.tap(find.byTooltip('Qabul qilish'));

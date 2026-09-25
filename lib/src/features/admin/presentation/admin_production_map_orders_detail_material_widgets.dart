@@ -506,6 +506,16 @@ String _inputProgressBatchTitle(
   );
 }
 
+String _countUnitForKind(AppLocalizations l10n, String kind) {
+  // productionCount(0) dan birlik qismini ajratib olamiz:
+  // uz: "0 ta" -> "ta", en: "0 molds" -> "molds", ru: "0 ..." -> suffix.
+  // Yuklanish paytida ham birlik ko'rinib turadi — layout sakramaydi.
+  final sample = l10n.productionCount(0, kind: kind);
+  final spaceIndex = sample.indexOf(' ');
+  if (spaceIndex < 0) return '';
+  return sample.substring(spaceIndex + 1).trim();
+}
+
 class _ScannedItemsExpansionHeader extends StatelessWidget {
   const _ScannedItemsExpansionHeader({
     super.key,
@@ -515,6 +525,9 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
     required this.complete,
     this.highlighted = false,
     this.onTap,
+    this.countNumber,
+    this.countUnit,
+    this.isLoading = false,
   });
   final String title;
   final String countText;
@@ -522,12 +535,20 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
   final bool complete;
   final bool highlighted;
   final VoidCallback? onTap;
+  // Stable count rejimi: son alohida fade bilan almashadi,
+  // birlik ("ta") esa doim ko'rinib turadi — layout sakramaydi.
+  // countNumber == null bo'lsa eski countText rejimi ishlaydi.
+  final String? countNumber;
+  final String? countUnit;
+  // Yuklanish paytida pastga strelka ko'rsatilmaydi: aks holda
+  // yuklanish tugab 0 chiqqanda strelka g'oyib bo'lib qator siljiydi.
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final expandable = onTap != null;
+    final expandable = onTap != null && !isLoading;
     final highlightedForeground = highlighted ? const Color(0xFF173B1D) : null;
     return TweenAnimationBuilder<Color?>(
       tween: ColorTween(
@@ -550,46 +571,140 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
         button: expandable,
         expanded: expandable ? expanded : null,
         child: InkWell(
-          onTap: onTap,
+          onTap: expandable ? onTap : null,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: highlightedForeground,
-                      fontWeight: FontWeight.w700,
+                  // Sarlavha almashganda ("Biriktirilgan homashyolar" ->
+                  // "Homashyo biriktirilmagan") keskin o'zgarmasdan fade bo'ladi.
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeOut,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: child,
+                    ),
+                    layoutBuilder: (currentChild, previousChildren) => Stack(
+                      alignment: Alignment.centerLeft,
+                      children: [
+                        ...previousChildren,
+                        if (currentChild != null) currentChild,
+                      ],
+                    ),
+                    child: Text(
+                      title,
+                      key: ValueKey<String>(title),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: highlightedForeground,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: highlighted
-                        ? Colors.white.withValues(alpha: 0.58)
-                        : complete
-                            ? scheme.primaryContainer
-                            : scheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    countText,
-                    style: theme.textTheme.labelLarge?.copyWith(
+                if (countNumber == null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
                       color: highlighted
-                          ? highlightedForeground
+                          ? Colors.white.withValues(alpha: 0.58)
                           : complete
-                              ? scheme.onPrimaryContainer
-                              : scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
+                              ? scheme.primaryContainer
+                              : scheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeOut,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: child,
+                      ),
+                      layoutBuilder: (currentChild, previousChildren) => Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          ...previousChildren,
+                          if (currentChild != null) currentChild,
+                        ],
+                      ),
+                      child: Text(
+                        countText,
+                        key: ValueKey<String>(countText),
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: highlighted
+                              ? highlightedForeground
+                              : complete
+                                  ? scheme.onPrimaryContainer
+                                  : scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  )
+                else ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: highlighted
+                          ? Colors.white.withValues(alpha: 0.58)
+                          : complete
+                              ? scheme.primaryContainer
+                              : scheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeOut,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: child,
+                      ),
+                      layoutBuilder: (currentChild, previousChildren) => Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          ...previousChildren,
+                          if (currentChild != null) currentChild,
+                        ],
+                      ),
+                      child: Text(
+                        countNumber!,
+                        key: ValueKey<String>(countNumber!),
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: highlighted
+                              ? highlightedForeground
+                              : complete
+                                  ? scheme.onPrimaryContainer
+                                  : scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  // Birlik ("ta") qobiqdan tashqarida — doim ko'rinib turadi.
+                  if ((countUnit ?? '').isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      countUnit!,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: highlighted
+                            ? highlightedForeground
+                            : scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
                 if (expandable) ...[
                   const SizedBox(width: 4),
                   AnimatedRotation(

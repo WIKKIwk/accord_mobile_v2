@@ -293,7 +293,7 @@ const _app_localizations_declarations__productionTranslations_resplitPart04 = {
     'ru': 'Штрихкод',
   },
   'worker.order.code': {
-    'uz': 'Zakaz kodi',
+    'uz': 'Buyurtma kodi',
     'en': 'Order code',
     'ru': 'Код заказа',
   },

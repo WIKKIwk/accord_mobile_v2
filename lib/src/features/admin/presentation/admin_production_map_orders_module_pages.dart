@@ -388,6 +388,7 @@ class _WorkflowAuditModulePage extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(8, 8, 8, bottomPadding),
       children: [
         Card(
+          color: scheme.surfaceContainerLowest,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -498,6 +499,7 @@ class _WorkflowAuditModulePage extends StatelessWidget {
         if (currentReport?.violations.isNotEmpty == true)
           for (final violation in currentReport!.violations)
             Card(
+              color: scheme.surfaceContainerLowest,
               child: ListTile(
                 leading: Icon(Icons.error_outline, color: scheme.error),
                 title: Text(
@@ -522,6 +524,7 @@ class _WorkflowAuditModulePage extends StatelessWidget {
             ),
         if (currentReport?.ok == true)
           Card(
+            color: scheme.surfaceContainerLowest,
             child: ListTile(
               leading: Icon(Icons.check_circle_outline, color: scheme.primary),
               title: Text(

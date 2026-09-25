@@ -207,7 +207,7 @@ void _registeradmin_production_map_test_screen_testCases06() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Ochilgan zakaz qidirish'), findsOneWidget);
+    expect(find.text('Buyurtmani izlash'), findsOneWidget);
     expect(find.textContaining('Zenit opened'), findsOneWidget);
     expect(find.textContaining('Customer 2'), findsOneWidget);
     expect(find.textContaining('ITEM-002'), findsNothing);
@@ -316,7 +316,7 @@ void _registeradmin_production_map_test_screen_testCases06() {
     await tester.pumpAndSettle();
 
     expect(find.text('Yopilgan orderlar yuklanmadi'), findsOneWidget);
-    expect(find.text('Ochilgan zakaz qidirish'), findsOneWidget);
+    expect(find.text('Buyurtmani izlash'), findsOneWidget);
 
     await tester.tap(find.text('Qayta urinish'));
     await tester.pumpAndSettle();
@@ -360,7 +360,7 @@ void _registeradmin_production_map_test_screen_testCases06() {
     await tester.pumpAndSettle();
 
     expect(find.text('Tugatish so‘rovlari yuklanmadi'), findsOneWidget);
-    expect(find.text('Ochilgan zakaz qidirish'), findsOneWidget);
+    expect(find.text('Buyurtmani izlash'), findsOneWidget);
 
     await tester.tap(find.text('Qayta urinish'));
     await tester.pumpAndSettle();

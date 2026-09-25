@@ -512,7 +512,7 @@ class _PreparationOrderFormulaScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Zakaz kodi: ${widget.orderCode.isEmpty ? '-' : widget.orderCode}',
+                            'Buyurtma kodi: ${widget.orderCode.isEmpty ? '-' : widget.orderCode}',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w800,
                             ),

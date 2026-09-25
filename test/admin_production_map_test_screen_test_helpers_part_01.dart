@@ -36,7 +36,11 @@ Future<void> _completeQolipScan(WidgetTester tester) async {
   );
   expect(qolipsHeader, findsOneWidget);
   expect(
-    find.descendant(of: qolipsHeader, matching: find.text('1/1 ta')),
+    find.descendant(of: qolipsHeader, matching: find.text('1/1')),
+    findsOneWidget,
+  );
+  expect(
+    find.descendant(of: qolipsHeader, matching: find.text('ta')),
     findsOneWidget,
   );
   await tester.tap(qolipsHeader);

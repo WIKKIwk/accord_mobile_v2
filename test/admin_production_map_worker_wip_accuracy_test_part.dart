@@ -300,7 +300,13 @@ void _registerWorkerWipAccuracyTests() {
           isEmpty);
       expect(find.byKey(const ValueKey('production-qolips-expansion')),
           findsOneWidget);
-      expect(find.text('0/3 ta'), findsOneWidget);
+      expect(
+          find.descendant(
+            of: find.byKey(
+                const ValueKey('production-qolips-expansion')),
+            matching: find.text('0/3'),
+          ),
+          findsOneWidget);
       for (var n = 1; n <= 3; n++) {
         tester
             .widget<ProductionQuickScannerPanel>(
@@ -308,7 +314,13 @@ void _registerWorkerWipAccuracyTests() {
             .onCodeDetected('mold-$n');
         await tester.pumpAndSettle();
       }
-      expect(find.text('3/3 ta'), findsOneWidget);
+      expect(
+          find.descendant(
+            of: find.byKey(
+                const ValueKey('production-qolips-expansion')),
+            matching: find.text('3/3'),
+          ),
+          findsOneWidget);
       expect(
           tester
               .widget<FilledButton>(

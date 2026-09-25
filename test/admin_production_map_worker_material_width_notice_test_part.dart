@@ -180,7 +180,9 @@ void _registerWorkerMaterialWidthNoticeTests() {
         }
         final attached =
             find.byKey(const ValueKey('production-materials-expansion'));
-        expect(find.descendant(of: attached, matching: find.text('2 ta')),
+        expect(find.descendant(of: attached, matching: find.text('2')),
+            findsOneWidget);
+        expect(find.descendant(of: attached, matching: find.text('ta')),
             findsOneWidget);
         expect(
             requests.where((request) =>

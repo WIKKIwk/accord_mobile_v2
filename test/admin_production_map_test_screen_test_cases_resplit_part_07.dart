@@ -64,7 +64,7 @@ void _registeradmin_production_map_test_screen_testCases07() {
         const BorderRadius.vertical(top: Radius.circular(28)),
       );
       expect(detailBottomSheet.clipBehavior, Clip.antiAlias);
-      expect(find.text('Zakaz kodi'), findsOneWidget);
+      expect(find.text('Buyurtma kodi'), findsOneWidget);
       expect(
         find.text('Kutilayotgan buyurtma ko‘rsatkichlari'),
         findsOneWidget,
@@ -78,11 +78,11 @@ void _registeradmin_production_map_test_screen_testCases07() {
 
       await tester.tapAt(const Offset(20, 20));
       await tester.pumpAndSettle();
-      expect(find.text('Zakaz kodi'), findsOneWidget);
+      expect(find.text('Buyurtma kodi'), findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.text('Zakaz kodi'), findsOneWidget);
+      expect(find.text('Buyurtma kodi'), findsOneWidget);
 
       final detailSheet = find.byType(DraggableScrollableSheet);
       expect(detailSheet, findsOneWidget);
@@ -92,13 +92,13 @@ void _registeradmin_production_map_test_screen_testCases07() {
         const Offset(0, 500),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Zakaz kodi'), findsOneWidget);
+      expect(find.text('Buyurtma kodi'), findsOneWidget);
 
       await tester.tap(
         find.byKey(const ValueKey('production-order-detail-close')),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Zakaz kodi'), findsNothing);
+      expect(find.text('Buyurtma kodi'), findsNothing);
 
       await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
       await tester.pumpAndSettle();
@@ -110,7 +110,7 @@ void _registeradmin_production_map_test_screen_testCases07() {
         find.byKey(const ValueKey('production-order-detail-close')),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Zakaz kodi'), findsNothing);
+      expect(find.text('Buyurtma kodi'), findsNothing);
     },
   );
 
@@ -192,7 +192,7 @@ void _registeradmin_production_map_test_screen_testCases07() {
 
       await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Mapni ko‘rish'));
+      await tester.tap(find.text('Mahsulot ishlab chiqarish xaritasi'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('7 ta rangli bosma aparat'));
       await tester.pumpAndSettle();
@@ -330,7 +330,7 @@ void _registeradmin_production_map_test_screen_testCases07() {
     expect(find.byIcon(Icons.add_rounded), findsNothing);
 
     expect(find.textContaining('Godex aparat - DEMO'), findsOneWidget);
-    expect(find.textContaining('2 ta zakaz'), findsOneWidget);
+    expect(find.textContaining('2 ta buyurtma'), findsOneWidget);
 
     expect(find.textContaining('Paket order A'), findsOneWidget);
     expect(find.textContaining('Paket order B'), findsOneWidget);

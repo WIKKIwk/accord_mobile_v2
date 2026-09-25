@@ -28,7 +28,7 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'ru': 'Действия',
   },
   'worker.queue.search.open': {
-    'uz': 'Ochilgan zakaz qidirish',
+    'uz': 'Buyurtmani izlash',
     'en': 'Search open orders',
     'ru': 'Поиск открытых заказов',
   },
@@ -229,7 +229,7 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'ru': 'Отчитаться о работе',
   },
   'worker.action.view_map': {
-    'uz': 'Mapni ko‘rish',
+    'uz': 'Mahsulot ishlab chiqarish xaritasi',
     'en': 'View map',
     'ru': 'Открыть карту',
   },

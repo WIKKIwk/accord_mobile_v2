@@ -406,7 +406,7 @@ class _MoveOrderTile extends StatelessWidget {
                             Padding(
                               padding: const EdgeInsets.only(top: 6),
                               child: Text(
-                                '$batchCount ta zakaz',
+                                '$batchCount ta buyurtma',
                                 style: Theme.of(context)
                                     .textTheme
                                     .labelMedium

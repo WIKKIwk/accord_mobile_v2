@@ -65,14 +65,14 @@ void _registeradmin_production_map_test_screen_testCases08() {
     expect(find.byType(ReorderableListView), findsNothing);
     expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
     expect(
-      find.text('Tartibni o‘zgartirish uchun zakazni ushlab torting'),
+      find.text('Tartibni o‘zgartirish uchun buyurtmani ushlab torting'),
       findsNothing,
     );
     expect(find.byTooltip('Buyurtma ma’lumotlari'), findsOneWidget);
     await tester.tap(find.byTooltip('Buyurtma ma’lumotlari'));
     await tester.pumpAndSettle();
-    expect(find.text('Zakaz kodi'), findsOneWidget);
-    Navigator.of(tester.element(find.text('Zakaz kodi'))).pop();
+    expect(find.text('Buyurtma kodi'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Buyurtma kodi'))).pop();
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.menu_rounded));

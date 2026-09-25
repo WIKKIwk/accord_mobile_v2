@@ -375,7 +375,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                             )
                           : null,
                     ),
-                  if (!summaryOnlyMode) const SizedBox(height: 10),
+                  if (!summaryOnlyMode) const SizedBox(height: 4),
                   _OrderSummaryCard(
                     map: map,
                     workerMode: workerMode,
@@ -392,7 +392,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       noticeAnchorKey: noticeAnchorKey,
                     ),
                   if (!summaryOnlyMode && (!workerMode || summaryExpanded))
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 4),
                   if (!summaryOnlyMode)
                     _OrderMapProgressCard(
                       workerMode: workerMode,
@@ -573,8 +573,8 @@ class _TayyorlovSummaryOrderHeader extends StatelessWidget {
                 Text(
                   context.l10n.productionText('worker.order.code'),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -931,12 +931,6 @@ class _OrderSummaryCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.analytics_outlined,
-                    color: scheme.primary,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

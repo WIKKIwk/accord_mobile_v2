@@ -221,8 +221,8 @@ void _registerWorkerActivityTests() {
               await tester.tap(find.descendant(
                   of: row, matching: find.byTooltip('Buyurtma ma’lumotlari')));
               await tester.pumpAndSettle();
-              await tester.ensureVisible(find.text('Mapni ko‘rish'));
-              await tester.tap(find.text('Mapni ko‘rish'));
+              await tester.ensureVisible(find.text('Mahsulot ishlab chiqarish xaritasi'));
+              await tester.tap(find.text('Mahsulot ishlab chiqarish xaritasi'));
               await tester.pumpAndSettle();
               expect(
                   find.descendant(

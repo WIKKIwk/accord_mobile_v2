@@ -168,7 +168,7 @@ void main() {
       await _openOrderSheet(tester);
 
       // Sarlavha + ko'rsatkichlar darhol ko'rinadi (bosmasdan).
-      expect(find.text('Zakaz kodi'), findsOneWidget);
+      expect(find.text('Buyurtma kodi'), findsOneWidget);
       expect(
         find.text('Kutilayotgan buyurtma ko‘rsatkichlari'),
         findsOneWidget,
@@ -180,7 +180,7 @@ void main() {
       // Ortiqcha bo'limlar bu rol uchun yashiriladi.
       expect(find.text('Biriktirilgan homashyolar'), findsNothing);
       expect(find.text('Biriktirilgan qoliplar'), findsNothing);
-      expect(find.text('Mapni ko‘rish'), findsNothing);
+      expect(find.text('Mahsulot ishlab chiqarish xaritasi'), findsNothing);
       expect(
         find.byKey(const ValueKey('production-materials-expansion')),
         findsNothing,
@@ -242,7 +242,7 @@ void main() {
                       .map((text) => text.data)
                       .join(' | '));
               expect(find.byType(SnackBar), findsNothing);
-              expect(find.text('Zakaz kodi'), findsOneWidget);
+              expect(find.text('Buyurtma kodi'), findsOneWidget);
               final sheetRect = tester.getRect(find.byType(BottomSheet).last);
               expect(sheetRect.contains(tester.getCenter(notice)), isTrue);
               // Notices live in the root overlay, not in the covered page scaffold.
@@ -283,7 +283,7 @@ void main() {
       await _openOrderSheet(tester);
 
       // Boshqa rollar uchun to'liq sheet o'zgarishsiz qoladi.
-      expect(find.text('Zakaz kodi'), findsOneWidget);
+      expect(find.text('Buyurtma kodi'), findsOneWidget);
       // Homashyo bo'limi sarlavhasi yuklanish holatiga qarab o'zgaradi,
       // shuning uchun mavjudligini kalit orqali tekshiramiz.
       expect(
@@ -297,7 +297,7 @@ void main() {
       );
       // Qolipchida ko'rsatkichlar yig'ilgan holda ochiladi.
       expect(find.text('Metraj'), findsNothing);
-      expect(find.text('Mapni ko‘rish'), findsOneWidget);
+      expect(find.text('Mahsulot ishlab chiqarish xaritasi'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();

@@ -38,12 +38,12 @@ const _app_localizations_declarations__productionTranslations_resplitPart09 = {
     'ru': 'Не выбран',
   },
   'worker.queue.orders_count': {
-    'uz': '{count} ta zakaz',
+    'uz': '{count} ta buyurtma',
     'en': '{count} orders',
     'ru': '{count} заказов',
   },
   'worker.queue.reorder_hint': {
-    'uz': 'Tartibni o‘zgartirish uchun zakazni ushlab torting',
+    'uz': 'Tartibni o‘zgartirish uchun buyurtmani ushlab torting',
     'en': 'Press and drag an order to change its position',
     'ru': 'Нажмите и перетащите заказ, чтобы изменить его позицию',
   },

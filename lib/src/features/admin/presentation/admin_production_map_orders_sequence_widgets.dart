@@ -432,7 +432,8 @@ class _SequenceOrderRow extends StatelessWidget {
     return Material(
       color: backgroundColor ??
           (resolvedGradient == null
-              ? _orderCardBackgroundColor(context, tone) ?? scheme.surface
+              ? _orderCardBackgroundColor(context, tone) ??
+                  scheme.surfaceContainerLowest
               : Colors.transparent),
       elevation: 2,
       shadowColor: scheme.shadow.withValues(alpha: 0.16),
