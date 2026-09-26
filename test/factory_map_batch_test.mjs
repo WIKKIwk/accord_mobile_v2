@@ -43,13 +43,18 @@ test('static batching preserves exact world vertices, normals, and picking ident
 
 test('reels, mirrored meshes and transparent surfaces are never merged', () => {
   const root = new Group();
-  for (const kind of ['reel', 'mirrored', 'transparent']) {
+  for (const kind of ['reel', 'reel-group', 'mirrored', 'transparent']) {
     for (let i = 0; i < 2; i++) {
       const mesh = new Mesh(new BoxGeometry(), new MeshStandardMaterial());
       if (kind === 'reel') mesh.userData.animation_role = 'supply';
       if (kind === 'mirrored') mesh.scale.x = -1;
       if (kind === 'transparent') mesh.material.transparent = true;
-      root.add(mesh);
+      if (kind === 'reel-group') {
+        const group = new Group();
+        group.userData.animation_role = 'rewind';
+        group.add(mesh);
+        root.add(group);
+      } else root.add(mesh);
     }
   }
   assert.deepEqual(batchStaticMap(root), {meshesBefore: 0, meshesAfter: 0});

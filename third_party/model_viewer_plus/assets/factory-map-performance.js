@@ -10,8 +10,11 @@ export function batchStaticMap(root) {
   const center = new Vector3();
   root.traverseVisible(object => {
     const { geometry, material } = object;
+    for (let parent = object; parent && parent !== root; parent = parent.parent) {
+      if (parent.userData.animation_role) return;
+    }
     if (!object.isMesh || object.isInstancedMesh || object.isSkinnedMesh ||
-        object.userData.animation_role || object.userData.factoryMapRenderOnly ||
+        object.userData.factoryMapRenderOnly ||
         !material?.isMeshStandardMaterial || material.transparent ||
         material.onBeforeCompile !== Material.prototype.onBeforeCompile ||
         geometry.morphAttributes.position ||
