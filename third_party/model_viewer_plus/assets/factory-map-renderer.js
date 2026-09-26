@@ -874,13 +874,18 @@ function renderFrame(now) {
   const animated = liveView?.frame(now, changed || flying,
     lastState.reducedMotion || reducedMotionQuery.matches) || false;
   stockView?.frame(changed || flying);
+  const continuing = tween || interacting || changed || animated || settleFrames > 0;
+  // Final stills and the focus handshake are drawn sharply before Flutter
+  // freezes the view behind the details sheet.
+  if ((!continuing || finished) && renderer.getPixelRatio() !== fullPixelRatio) {
+    renderer.setPixelRatio(fullPixelRatio);
+  }
   renderer.render(scene, camera);
   renderCount++;
-  if (frameBudget.sample(now)) renderer.setPixelRatio(interacting
+  if (continuing && !finished && frameBudget.sample(now)) renderer.setPixelRatio(interacting
     ? Math.min(frameBudget.ratio, 1) : frameBudget.ratio);
   // Frame intervals (not CPU submission time) expose actual browser pacing.
   // Throttle diagnostics/labels; only reels update during stationary animation.
-  const continuing = tween || interacting || changed || animated || settleFrames > 0;
   animationOnly = animated && !tween && !interacting && !changed && settleFrames <= 0;
   if (now - diagnosticsAt > 250 || !continuing) {
   diagnosticsAt = now;
@@ -929,7 +934,9 @@ controls.addEventListener('start', () => {
 });
 controls.addEventListener('end', () => {
   interacting = false;
-  settleFrames = 30;
+  // OrbitControls keeps requesting frames while damping actually changes.
+  // Thirty unconditional frames can waste 10–15 seconds on an overloaded GPU.
+  settleFrames = 2;
   fullQualityTimer = window.setTimeout(() => {
     // A completed gesture must not leave a still map at the overload ratio.
     renderer.setPixelRatio(fullPixelRatio);
@@ -941,12 +948,21 @@ window.addEventListener('resize', resize);
 const resizeObserver = new ResizeObserver(resize);
 resizeObserver.observe(canvas);
 const visibilityObserver = new IntersectionObserver(entries => {
-  viewportVisible = entries[0]?.isIntersecting !== false;
+  const visible = entries[0]?.isIntersecting !== false;
+  if (visible !== viewportVisible) frameBudget.resetTiming();
+  viewportVisible = visible;
   requestRender();
 });
 visibilityObserver.observe(canvas);
 stateHost.addEventListener('model-viewer-state', handleRendererState);
-document.addEventListener('visibilitychange', requestRender);
+function handleVisibilityChange() {
+  frameBudget.resetTiming();
+  if (document.hidden) {
+    cancelAnimationFrame(frameId);
+    frameId = 0;
+  } else requestRender();
+}
+document.addEventListener('visibilitychange', handleVisibilityChange);
 
 function disposeScene(root) {
   const geometries = new Set(), materials = new Set(), textures = new Set();
@@ -970,7 +986,7 @@ function dispose() {
   cancelAnimationFrame(frameId);
   window.clearTimeout(fullQualityTimer);
   window.removeEventListener('resize', resize);
-  document.removeEventListener('visibilitychange', requestRender);
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
   stateHost.removeEventListener('model-viewer-state', handleRendererState);
   stateHost.removeEventListener('model-viewer-dispose', dispose);
   resizeObserver.disconnect();

@@ -80,7 +80,7 @@ class AdminFactoryMapViewer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    const scriptVersion = '20260926_factory_map_perf3';
+    const scriptVersion = '20260926_factory_map_perf4';
     final rendererScript = kIsWeb
         ? './assets/packages/model_viewer_plus/assets/factory-map-renderer.js?v=$scriptVersion'
         : './factory-map-renderer.js?v=$scriptVersion';
