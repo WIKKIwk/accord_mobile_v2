@@ -128,9 +128,9 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'ru': 'Сдать отчёт об остатках',
   },
   'worker.bosma.finish.description': {
-    'uz': 'Bu amal orderning bosma apparatidagi ishini tugatadi.',
-    'en': 'This completes the order’s work on the printing machine.',
-    'ru': 'Это завершает работу по заказу на печатном аппарате.',
+    'uz': 'Bu amal buyurtmaning bosma uskunasidagi ish jarayonini yakunlaydi.',
+    'en': 'This finishes the order’s work process on the printing machine.',
+    'ru': 'Это завершает рабочий процесс по заказу на печатной машине.',
   },
   'worker.finish.description': {
     'uz':
