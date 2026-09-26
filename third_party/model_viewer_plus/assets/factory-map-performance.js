@@ -1,4 +1,67 @@
-import { Box3, InstancedMesh, Matrix4, Vector3 } from './three.module.js';
+import { Box3, InstancedMesh, Material, Matrix4, Mesh, Vector3 } from './three.module.js';
+import { mergeGeometries } from './utils/BufferGeometryUtils.js';
+
+// Render copies only: original meshes, hierarchy and raycast IDs stay intact.
+// Spatial buckets retain useful frustum culling instead of one factory-wide mesh.
+export function batchStaticMap(root) {
+  root.updateMatrixWorld(true);
+  const inverse = root.matrixWorld.clone().invert();
+  const buckets = new Map(), materialKeys = new WeakMap();
+  const center = new Vector3();
+  root.traverseVisible(object => {
+    const { geometry, material } = object;
+    if (!object.isMesh || object.isInstancedMesh || object.isSkinnedMesh ||
+        object.userData.animation_role || object.userData.factoryMapRenderOnly ||
+        !material?.isMeshStandardMaterial || material.transparent ||
+        material.onBeforeCompile !== Material.prototype.onBeforeCompile ||
+        geometry.morphAttributes.position ||
+        geometry.drawRange.start !== 0 || geometry.drawRange.count !== Infinity ||
+        geometry.attributes.position.array.constructor !== Float32Array ||
+        object.matrixWorld.determinant() <= 0) return;
+    if (!materialKeys.has(material)) {
+      const json = material.toJSON();
+      for (const name of ['uuid', 'name', 'metadata', 'userData']) delete json[name];
+      materialKeys.set(material, JSON.stringify(json));
+    }
+    geometry.computeBoundingBox();
+    geometry.boundingBox.getCenter(center).applyMatrix4(object.matrixWorld);
+    const attributes = Object.entries(geometry.attributes).sort().map(([name, a]) =>
+      [name, a.itemSize, a.normalized, a.array.constructor.name]);
+    const key = JSON.stringify([materialKeys.get(material),
+      Math.floor(center.x / 16), Math.floor(center.z / 16),
+      object.castShadow, object.receiveShadow, object.renderOrder,
+      object.layers.mask, Boolean(geometry.index), attributes]);
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(object);
+  });
+  let meshesBefore = 0, meshesAfter = 0;
+  for (const objects of buckets.values()) {
+    if (objects.length < 2) continue;
+    const geometries = objects.map(object => object.geometry.clone().applyMatrix4(
+      new Matrix4().multiplyMatrices(inverse, object.matrixWorld)));
+    const merged = mergeGeometries(geometries);
+    geometries.forEach(geometry => geometry.dispose());
+    if (!merged) continue;
+    merged.computeBoundingBox();
+    merged.computeBoundingSphere();
+    const first = objects[0];
+    const proxy = new Mesh(merged, first.material);
+    proxy.name = 'factory-static-batch';
+    proxy.castShadow = first.castShadow;
+    proxy.receiveShadow = first.receiveShadow;
+    proxy.renderOrder = first.renderOrder;
+    proxy.layers.mask = first.layers.mask;
+    proxy.userData.factoryMapRenderOnly = true;
+    root.add(proxy);
+    for (const object of objects) {
+      object.visible = false;
+      object.userData.factoryMapRenderProxy = proxy;
+    }
+    meshesBefore += objects.length;
+    meshesAfter++;
+  }
+  return { meshesBefore, meshesAfter };
+}
 
 // Rendering may deduplicate exact coincident instances, but picking and saved
 // IDs continue to use the untouched original instance table.
@@ -35,6 +98,7 @@ export function optimizeStaticMap(root) {
     object.visible = false;
     object.userData.factoryMapRenderProxy = proxy;
   }
+  const batches = batchStaticMap(root);
   root.updateMatrixWorld(true);
   // Freeze static geometry. The live layer explicitly updates only tagged
   // reel matrices, never hundreds of unchanged bodies/walls every frame.
@@ -42,7 +106,7 @@ export function optimizeStaticMap(root) {
     object.matrixAutoUpdate = false;
     object.matrixWorldAutoUpdate = false;
   });
-  return { instancesBefore, instancesAfter };
+  return { instancesBefore, instancesAfter, ...batches };
 }
 
 export function buildPickBounds(meshes) {

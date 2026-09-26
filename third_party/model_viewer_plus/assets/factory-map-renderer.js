@@ -2,7 +2,7 @@ import * as THREE from './three.module.js';
 import { GLTFLoader } from './GLTFLoader.js';
 import { OrbitControls } from './OrbitControls.js';
 import { CAMERA_LIMITS, constrainCamera, focusCamera, overviewCamera, smoothStep, visibleWorldBoxes } from './factory-map-navigation.js?v=20260907near4';
-import { buildPickBounds, closestMapHits, loadMapBytes, optimizeStaticMap } from './factory-map-performance.js?v=20260907live2';
+import { buildPickBounds, closestMapHits, loadMapBytes, optimizeStaticMap } from './factory-map-performance.js?v=20260926perf2';
 import { apparatusHit, apparatusObjectId, cleanFactoryMapGeometry, FACTORY_MAP_CLUTTER_BASE_IDS, isFactoryMapApparatus } from './factory-map-scene-policy.js?v=20260907live2';
 import { createFactoryLive, FrameBudget } from './factory-map-live.js?v=20260926perf1';
 import { createFactoryStock } from './factory-map-stock.js?v=20260926map2';
@@ -1027,8 +1027,12 @@ async function loadModel() {
           const optimized = optimizeStaticMap(root);
           canvas.dataset.instancesBefore = String(optimized.instancesBefore);
           canvas.dataset.instancesAfter = String(optimized.instancesAfter);
+          canvas.dataset.batchedMeshes = String(optimized.meshesBefore);
+          canvas.dataset.staticBatches = String(optimized.meshesAfter);
           mapBounds = bounds;
-          obstacles = visibleWorldBoxes(root);
+          // A batch's broad box may span an aisle. Camera collision must use
+          // each original solid, just like stock placement and picking.
+          obstacles = stockObstacles;
           if (canvas.dataset.selectionMode !== 'true') {
             const getMachineBox = id => {
               const target = selectableTargetForId(id);
