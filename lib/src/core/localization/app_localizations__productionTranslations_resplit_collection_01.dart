@@ -134,11 +134,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
   },
   'worker.finish.description': {
     'uz':
-        'Bu amal faqat order astatkasini qayd qiladi. Pauza ham, Tugatish ham bosilmaydi; queue va WIP holati o‘zgarmaydi.',
+        'Bu amal faqat buyurtma bo‘yicha qoldiqni qayd etadi. Ish jarayoni to‘xtatilmaydi yoki yakunlanmaydi, navbat va WIP holati o‘zgarishsiz qoladi.',
     'en':
-        'This only records the order remainder. It does not pause or complete the order, and the queue and WIP status stay unchanged.',
+        'This only records the leftover for the order. The work process is neither paused nor finished; queue and WIP status stay unchanged.',
     'ru':
-        'Это только фиксирует остаток по заказу. Заказ не ставится на паузу и не завершается, а состояние очереди и WIP не меняется.',
+        'Это только фиксирует остаток по заказу. Рабочий процесс не останавливается и не завершается, состояние очереди и WIP остаётся без изменений.',
   },
   'worker.handoff.title': {
     'uz': 'Apparatdagi rulon',
