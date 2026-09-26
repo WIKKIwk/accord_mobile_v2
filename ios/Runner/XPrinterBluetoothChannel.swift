@@ -1389,11 +1389,8 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   }
 
   private func formatLabelQty(_ value: Double) -> String {
-    let rounded = (value * 10).rounded() / 10
-    if rounded == rounded.rounded() {
-      return String(Int(rounded))
-    }
-    return String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), rounded)
+    let rounded = (value * 100).rounded() / 100
+    return String(format: "%.2f", locale: Locale(identifier: "en_US_POSIX"), rounded)
   }
 
   private func compactLabelQty(_ value: Double) -> String {

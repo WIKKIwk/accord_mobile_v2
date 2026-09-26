@@ -1215,12 +1215,8 @@ class BluetoothPrinterChannel(
     }
 
     private fun formatLabelQty(value: Double): String {
-        val rounded = (value * 10).roundToInt() / 10.0
-        return if (rounded == rounded.toInt().toDouble()) {
-            rounded.toInt().toString()
-        } else {
-            String.format(Locale.US, "%.1f", rounded)
-        }
+        val rounded = (value * 100).roundToInt() / 100.0
+        return String.format(Locale.US, "%.2f", rounded)
     }
 
     private fun compactLabelQty(value: Double): String {
