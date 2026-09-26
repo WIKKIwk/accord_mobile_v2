@@ -348,52 +348,7 @@ const _admin_localization_adminTranslations_resplitPart08 = {
     'en': 'Back to overview',
     'ru': 'Вернуться к общему виду',
   },
-  'admin.factory_map.directory.title': {
-    'uz': "Apparatlar",
-    'en': "Machines",
-    'ru': "Аппараты",
-  },
-  'admin.factory_map.directory.search': {
-    'uz': "Apparat yoki buyurtmani qidirish",
-    'en': "Search machines or orders",
-    'ru': "Поиск аппарата или заказа",
-  },
-  'admin.factory_map.directory.clear': {
-    'uz': "Qidiruvni tozalash",
-    'en': "Clear search",
-    'ru': "Очистить поиск",
-  },
-  'admin.factory_map.directory.all': {
-    'uz': "Barchasi",
-    'en': "All",
-    'ru': "Все",
-  },
-  'admin.factory_map.directory.working': {
-    'uz': "Jarayonda",
-    'en': "In progress",
-    'ru': "В работе",
-  },
-  'admin.factory_map.directory.queued': {
-    'uz': "Navbatda",
-    'en': "Queued",
-    'ru': "В очереди",
-  },
-  'admin.factory_map.directory.paused': {
-    'uz': "Pauzada",
-    'en': "Paused",
-    'ru': "На паузе",
-  },
-  'admin.factory_map.directory.empty': {
-    'uz': "Mos apparat topilmadi. Qidiruv yoki filtrni o‘zgartiring.",
-    'en': "No matching machines. Change the search or filter.",
-    'ru': "Аппараты не найдены. Измените поиск или фильтр.",
-  },
-  'admin.factory_map.directory.unmapped': {
-    'uz': "Xaritaga ulanmagan",
-    'en': "Not mapped yet",
-    'ru': "Не привязан к карте",
-  },
-  'admin.factory_map.directory.machine': {
+  'admin.factory_map.machine': {
     'uz': "Apparat",
     'en': "Machine",
     'ru': "Аппарат",

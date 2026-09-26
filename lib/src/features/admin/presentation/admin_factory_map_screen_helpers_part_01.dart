@@ -154,49 +154,6 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
 
   Future<void> _loadMappings() => _bindings.refresh();
 
-  Future<void> _openDirectory() async {
-    if (!_factoryMapInteractionEnabled || !_bindings.ready) return;
-    setState(() {
-      _sheetVisible = true;
-      _factoryMapInteractionEnabled = false;
-    });
-    AdminApparatus? selected;
-    ModalRoute<AdminApparatus>? route;
-    try {
-      selected = await showModalBottomSheet<AdminApparatus>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        showDragHandle: true,
-        builder: (context) {
-          route = ModalRoute.of<AdminApparatus>(context);
-          return FractionallySizedBox(
-            heightFactor: .82,
-            child: FactoryMapDirectory(bindings: _bindings, live: _live),
-          );
-        },
-      );
-    } finally {
-      await route?.completed;
-      if (mounted) {
-        setState(() {
-          _sheetVisible = false;
-          _factoryMapInteractionEnabled = true;
-        });
-      }
-    }
-    if (!mounted || selected == null) return;
-    if (selected.factoryMapObjectId.isNotEmpty && !_modelFailed) {
-      _handleObjectTap(FactoryMapObjectSelection(
-        objectId: canonicalFactoryMapObjectId(selected.factoryMapObjectId),
-        label: selected.name,
-      ));
-    } else {
-      setState(() => _factoryMapInteractionEnabled = false);
-      await _showApparatusLiveSheet(selected);
-    }
-  }
-
   void _refreshMap() {
     if (_modelFailed) {
       setState(() {
@@ -514,23 +471,6 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
                         child: Padding(
                           padding: const EdgeInsets.all(6),
                           child: Row(children: [
-                            Expanded(
-                                child: FilledButton.icon(
-                              key: const ValueKey('factory-map-directory'),
-                              onPressed: _bindings.ready &&
-                                      _factoryMapInteractionEnabled
-                                  ? _openDirectory
-                                  : null,
-                              icon: const Icon(Icons.search_rounded, size: 20),
-                              label: Text(
-                                  l10n.adminText('factory_map.directory.title'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                              style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12)),
-                            )),
-                            const SizedBox(width: 4),
                             IconButton(
                               key: const ValueKey('factory-map-reset-camera'),
                               tooltip: l10n.adminText('factory_map.overview'),

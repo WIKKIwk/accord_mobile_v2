@@ -24,7 +24,6 @@ import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_shell.dart';
 import 'widgets/admin_top_notice.dart';
 import 'widgets/factory_map_unlink_dialog.dart';
-import 'widgets/factory_map_directory.dart';
 
 part 'admin_factory_map_screen_helpers_part_01.dart';
 part 'admin_factory_map_screen_models_part_02.dart';

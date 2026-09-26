@@ -30,7 +30,7 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
     final statusColor = Color(widget.status.colorValue);
     String readable(String value) => factoryMapReadableText(value,
         apparatusNames: widget.apparatusNames,
-        fallback: l10n.adminText('factory_map.directory.machine'));
+        fallback: l10n.adminText('factory_map.machine'));
     final subtitle = [
       l10n.adminText(widget.status.labelKey),
       if ((map?.customerName.trim() ?? '').isNotEmpty) map!.customerName.trim(),
