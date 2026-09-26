@@ -87,15 +87,32 @@ test('initial pause does not move; unknown/frozen/idle cancel a coast immediatel
 
 test('frame budget measures pacing, adapts with hysteresis and ignores idle gaps', () => {
   const slow = new FrameBudget(1.35);
-  for (let i = 1; i < 600; i++) slow.sample(i * 33.33);
-  assert.equal(slow.ratio, .75);
-  assert(Math.abs(slow.metrics.fps - 30) < .1);
-  assert(slow.metrics.p95 > 33);
+  for (let i = 1; i < 600; i++) slow.sample(i * 66.67);
+  assert.equal(slow.ratio, 1);
+  assert(Math.abs(slow.metrics.fps - 15) < .1);
+  assert(slow.metrics.p95 > 66);
   slow.sample(999999); assert.equal(slow.metrics.fps, 0);
   const fast = new FrameBudget(1.35);
   for (let i = 1; i < 180; i++) fast.sample(i * 1000 / 60);
   assert.equal(fast.ratio, 1.35);
   assert(Math.abs(fast.metrics.fps - 60) < .01);
+});
+
+test('severe 2–3 FPS overload is measured and a stable 30 FPS keeps its detail', () => {
+  for (const interval of [333.33, 500]) {
+    const budget = new FrameBudget(1.75);
+    for (let i = 0; i < 90; i++) budget.sample(i * interval);
+    assert.equal(budget.ratio, 1);
+    assert(Math.abs(budget.metrics.fps - 1000 / interval) < .01);
+    assert(budget.metrics.p95 >= 333);
+    budget.resetTiming();
+    budget.sample(1000000);
+    assert.equal(budget.metrics.fps, 0, 'idle time is not a slow frame');
+  }
+  const steady = new FrameBudget(1.75);
+  for (let i = 0; i < 600; i++) steady.sample(i * 1000 / 30);
+  assert.equal(steady.ratio, 1.75);
+  assert(Math.abs(steady.metrics.fps - 30) < .01);
 });
 
 test('native serves the live module and renderer skips offscreen/idle animation work', () => {

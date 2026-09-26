@@ -34,6 +34,7 @@ test('sheet suspension keeps ERP overlays current without scheduling GPU frames'
     const cancelAnimationFrame = id => cancelled.push(id);
     const requestAnimationFrame = () => ++scheduled;
     const mapBounds = {}, controls = {}, focusId = '';
+    const frameBudget = {resetTiming() {}};
     const liveView = {setState: () => updates++, frame: () => {}}, stockView = {setState: () => updates++, frame: () => {}};
     ${stateFunction}
     ${requestFunction}

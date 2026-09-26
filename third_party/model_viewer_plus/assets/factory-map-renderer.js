@@ -4,7 +4,7 @@ import { OrbitControls } from './OrbitControls.js';
 import { CAMERA_LIMITS, constrainCamera, focusCamera, overviewCamera, smoothStep, visibleWorldBoxes } from './factory-map-navigation.js?v=20260907near4';
 import { buildPickBounds, closestMapHits, loadMapBytes, optimizeStaticMap } from './factory-map-performance.js?v=20260907live2';
 import { apparatusHit, apparatusObjectId, cleanFactoryMapGeometry, FACTORY_MAP_CLUTTER_BASE_IDS, isFactoryMapApparatus } from './factory-map-scene-policy.js?v=20260907live2';
-import { createFactoryLive, FrameBudget } from './factory-map-live.js?v=20260926map2';
+import { createFactoryLive, FrameBudget } from './factory-map-live.js?v=20260926perf1';
 import { createFactoryStock } from './factory-map-stock.js?v=20260926map2';
 import { lockFactoryMapGestures } from './factory-map-gestures.js?v=20260907touch1';
 
@@ -50,8 +50,10 @@ let stockView = null;
 let viewportVisible = true;
 let diagnosticsAt = 0;
 let renderCount = 0;
+let previousDrawAt = 0;
+let animationOnly = false;
 const requestController = new AbortController();
-const fullPixelRatio = Math.min(window.devicePixelRatio || 1, 1.35);
+const fullPixelRatio = Math.min(window.devicePixelRatio || 1, 1.75);
 const frameBudget = new FrameBudget(fullPixelRatio);
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 const stateHost = canvas.closest('[data-model-viewer-state]') || factoryMapHost;
@@ -72,7 +74,8 @@ const FACTORY_PALETTE = Object.freeze({
 const renderer = new THREE.WebGLRenderer({
   canvas,
   antialias: true,
-  alpha: true,
+  alpha: false,
+  powerPreference: 'high-performance',
 });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -790,6 +793,7 @@ function handleRendererState() {
   if (state.renderSuspended === true) {
     cancelAnimationFrame(frameId);
     frameId = 0;
+    frameBudget.resetTiming();
     // Lay out HTML badges only. No reel animation or WebGL draw behind a sheet.
     liveView?.frame(performance.now(), true, true);
     stockView?.frame(true);
@@ -841,6 +845,14 @@ function requestRender() {
 function renderFrame(now) {
   frameId = 0;
   if (disposed || document.hidden || !viewportVisible || lastState.renderSuspended) return;
+  // Stationary reels need 30 updates/second. Gestures and camera flights remain
+  // responsive to every RAF; elapsed time still drives the reel rotation.
+  if (animationOnly && !interacting && !tween && settleFrames <= 0 &&
+      now - previousDrawAt < 1000 / 30 - 1) {
+    requestRender();
+    return;
+  }
+  previousDrawAt = now;
   const started = performance.now();
   const flying = Boolean(tween);
   let finished = null;
@@ -869,6 +881,7 @@ function renderFrame(now) {
   // Frame intervals (not CPU submission time) expose actual browser pacing.
   // Throttle diagnostics/labels; only reels update during stationary animation.
   const continuing = tween || interacting || changed || animated || settleFrames > 0;
+  animationOnly = animated && !tween && !interacting && !changed && settleFrames <= 0;
   if (now - diagnosticsAt > 250 || !continuing) {
   diagnosticsAt = now;
   canvas.dataset.renderCount = String(renderCount);
@@ -887,6 +900,7 @@ function renderFrame(now) {
   }
   finished?.();
   if (tween || interacting || changed || animated || settleFrames-- > 0) requestRender();
+  else frameBudget.resetTiming();
 }
 
 function resize() {
@@ -917,7 +931,8 @@ controls.addEventListener('end', () => {
   interacting = false;
   settleFrames = 30;
   fullQualityTimer = window.setTimeout(() => {
-    renderer.setPixelRatio(frameBudget.ratio);
+    // A completed gesture must not leave a still map at the overload ratio.
+    renderer.setPixelRatio(fullPixelRatio);
     requestRender();
   }, 250);
   requestRender();

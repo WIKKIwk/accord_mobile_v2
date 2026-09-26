@@ -81,27 +81,35 @@ export function stepReel(reel, seconds, state = 'in_progress') {
 }
 
 export class FrameBudget {
-  constructor(maxRatio = 1.35) {
+  constructor(maxRatio = 1.75) {
     this.maxRatio = maxRatio;
     this.ratio = maxRatio;
     this.samples = [];
-    this.previous = 0;
+    this.previous = null;
     this.lastAdjustment = 0;
   }
   sample(now) {
-    const delta = now - this.previous;
+    const delta = this.previous === null ? 0 : now - this.previous;
     this.previous = now;
-    if (delta > 250 || delta <= 0) { this.samples = []; return false; }
+    // 2–3 FPS is a real overloaded frame, not an idle gap. Idle rendering
+    // explicitly resets the clock; only a long background gap is discarded.
+    if (delta > 10000 || delta <= 0) { this.samples = []; return false; }
     this.samples.push(delta);
     if (this.samples.length > 120) this.samples.shift();
-    if (this.samples.length < 60 || now - this.lastAdjustment < 2500) return false;
+    if (this.samples.length < 12 || now - this.lastAdjustment < 1500) return false;
     const sorted = [...this.samples].sort((a, b) => a - b);
     const p90 = sorted[Math.floor(sorted.length * .9)];
     const old = this.ratio;
-    if (p90 > 21) this.ratio = Math.max(.75, this.ratio - .15);
-    else if (p90 < 17.5) this.ratio = Math.min(this.maxRatio, this.ratio + .05);
+    // A steady 30 FPS must not trigger an endless resolution downgrade.
+    // Never upscale a raster smaller than its CSS viewport.
+    if (p90 > 40) this.ratio = Math.max(Math.min(1, this.maxRatio), this.ratio - .15);
+    else if (p90 < 28) this.ratio = Math.min(this.maxRatio, this.ratio + .05);
     this.lastAdjustment = now;
     return old !== this.ratio;
+  }
+  resetTiming() {
+    this.previous = null;
+    this.samples = [];
   }
   get metrics() {
     if (!this.samples.length) return { fps: 0, p95: 0, slowFrames: 0 };
