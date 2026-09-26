@@ -1,0 +1,715 @@
+{
+  "sourceSha256": "b04438ed5f4945ca98f75cdd20cff9d4706f112262a7fa396e782956cfd2d538",
+  "tool": "meshoptimizer 1.3.0 (build only)",
+  "estimatedRelativeErrorLimit": 0.002,
+  "sourceBytes": 31195912,
+  "sourceTriangles": 788129,
+  "runtimeTriangles": 400835,
+  "simplifiedPrimitives": 100,
+  "animatedMeshesPreserved": 17,
+  "parts": [
+    {
+      "mesh": 109,
+      "primitive": 0,
+      "before": 1136,
+      "after": 284,
+      "estimatedRelativeError": 0.0003339446848258376
+    },
+    {
+      "mesh": 110,
+      "primitive": 0,
+      "before": 6676,
+      "after": 1668,
+      "estimatedRelativeError": 0.0010065368842333555
+    },
+    {
+      "mesh": 111,
+      "primitive": 0,
+      "before": 108,
+      "after": 100,
+      "estimatedRelativeError": 0.0014589923666790128
+    },
+    {
+      "mesh": 112,
+      "primitive": 0,
+      "before": 108,
+      "after": 32,
+      "estimatedRelativeError": 0.0011381055228412151
+    },
+    {
+      "mesh": 113,
+      "primitive": 0,
+      "before": 2816,
+      "after": 704,
+      "estimatedRelativeError": 0.0005750636919401586
+    },
+    {
+      "mesh": 115,
+      "primitive": 0,
+      "before": 980,
+      "after": 244,
+      "estimatedRelativeError": 0.00023088580928742886
+    },
+    {
+      "mesh": 116,
+      "primitive": 0,
+      "before": 8908,
+      "after": 2226,
+      "estimatedRelativeError": 0.0010870529804378748
+    },
+    {
+      "mesh": 117,
+      "primitive": 0,
+      "before": 22816,
+      "after": 5672,
+      "estimatedRelativeError": 0.0006454205140471458
+    },
+    {
+      "mesh": 118,
+      "primitive": 0,
+      "before": 108,
+      "after": 34,
+      "estimatedRelativeError": 0.0017244230257347226
+    },
+    {
+      "mesh": 120,
+      "primitive": 0,
+      "before": 7964,
+      "after": 1988,
+      "estimatedRelativeError": 0.0019289067713543773
+    },
+    {
+      "mesh": 121,
+      "primitive": 0,
+      "before": 1136,
+      "after": 284,
+      "estimatedRelativeError": 0.00039293323061428964
+    },
+    {
+      "mesh": 122,
+      "primitive": 0,
+      "before": 7568,
+      "after": 1892,
+      "estimatedRelativeError": 0.0012626933166757226
+    },
+    {
+      "mesh": 123,
+      "primitive": 0,
+      "before": 108,
+      "after": 100,
+      "estimatedRelativeError": 0.0014421185478568077
+    },
+    {
+      "mesh": 124,
+      "primitive": 0,
+      "before": 108,
+      "after": 32,
+      "estimatedRelativeError": 0.0019921555649489164
+    },
+    {
+      "mesh": 125,
+      "primitive": 0,
+      "before": 3172,
+      "after": 792,
+      "estimatedRelativeError": 0.0006308925221674144
+    },
+    {
+      "mesh": 127,
+      "primitive": 0,
+      "before": 1120,
+      "after": 280,
+      "estimatedRelativeError": 0.00028042838675901294
+    },
+    {
+      "mesh": 128,
+      "primitive": 0,
+      "before": 10084,
+      "after": 2520,
+      "estimatedRelativeError": 0.0012426703469827771
+    },
+    {
+      "mesh": 129,
+      "primitive": 0,
+      "before": 25940,
+      "after": 6434,
+      "estimatedRelativeError": 0.000771757448092103
+    },
+    {
+      "mesh": 130,
+      "primitive": 0,
+      "before": 108,
+      "after": 34,
+      "estimatedRelativeError": 0.0019501675851643085
+    },
+    {
+      "mesh": 132,
+      "primitive": 0,
+      "before": 8732,
+      "after": 2224,
+      "estimatedRelativeError": 0.001994027756154537
+    },
+    {
+      "mesh": 133,
+      "primitive": 0,
+      "before": 1136,
+      "after": 284,
+      "estimatedRelativeError": 0.0003203223168384284
+    },
+    {
+      "mesh": 134,
+      "primitive": 0,
+      "before": 8460,
+      "after": 2114,
+      "estimatedRelativeError": 0.0008463545236736536
+    },
+    {
+      "mesh": 135,
+      "primitive": 0,
+      "before": 108,
+      "after": 100,
+      "estimatedRelativeError": 0.0014360396889969707
+    },
+    {
+      "mesh": 136,
+      "primitive": 0,
+      "before": 108,
+      "after": 28,
+      "estimatedRelativeError": 0.00196272530592978
+    },
+    {
+      "mesh": 137,
+      "primitive": 0,
+      "before": 3528,
+      "after": 882,
+      "estimatedRelativeError": 0.0004556515486910939
+    },
+    {
+      "mesh": 139,
+      "primitive": 0,
+      "before": 1260,
+      "after": 314,
+      "estimatedRelativeError": 0.00018004601588472724
+    },
+    {
+      "mesh": 140,
+      "primitive": 0,
+      "before": 11260,
+      "after": 2814,
+      "estimatedRelativeError": 0.001063764444552362
+    },
+    {
+      "mesh": 141,
+      "primitive": 0,
+      "before": 28872,
+      "after": 7188,
+      "estimatedRelativeError": 0.0005520571139641106
+    },
+    {
+      "mesh": 142,
+      "primitive": 0,
+      "before": 108,
+      "after": 34,
+      "estimatedRelativeError": 0.0014964793808758259
+    },
+    {
+      "mesh": 144,
+      "primitive": 0,
+      "before": 9500,
+      "after": 2374,
+      "estimatedRelativeError": 0.0019186551216989756
+    },
+    {
+      "mesh": 145,
+      "primitive": 0,
+      "before": 964,
+      "after": 232,
+      "estimatedRelativeError": 0.0012902312446385622
+    },
+    {
+      "mesh": 146,
+      "primitive": 0,
+      "before": 3856,
+      "after": 964,
+      "estimatedRelativeError": 0.00082709378330037
+    },
+    {
+      "mesh": 147,
+      "primitive": 0,
+      "before": 2304,
+      "after": 576,
+      "estimatedRelativeError": 0.0016768085770308971
+    },
+    {
+      "mesh": 149,
+      "primitive": 0,
+      "before": 280,
+      "after": 70,
+      "estimatedRelativeError": 0.0010604715207591653
+    },
+    {
+      "mesh": 150,
+      "primitive": 0,
+      "before": 108,
+      "after": 54,
+      "estimatedRelativeError": 0.0018885654862970114
+    },
+    {
+      "mesh": 151,
+      "primitive": 0,
+      "before": 1210,
+      "after": 302,
+      "estimatedRelativeError": 0.0006384170847013593
+    },
+    {
+      "mesh": 154,
+      "primitive": 0,
+      "before": 5888,
+      "after": 3026,
+      "estimatedRelativeError": 0.0019973383750766516
+    },
+    {
+      "mesh": 155,
+      "primitive": 0,
+      "before": 676,
+      "after": 160,
+      "estimatedRelativeError": 0.001636661239899695
+    },
+    {
+      "mesh": 156,
+      "primitive": 0,
+      "before": 1660,
+      "after": 414,
+      "estimatedRelativeError": 0.0014786104438826442
+    },
+    {
+      "mesh": 157,
+      "primitive": 0,
+      "before": 4720,
+      "after": 1204,
+      "estimatedRelativeError": 0.0019970715511590242
+    },
+    {
+      "mesh": 158,
+      "primitive": 0,
+      "before": 35752,
+      "after": 8886,
+      "estimatedRelativeError": 0.0010635346407070756
+    },
+    {
+      "mesh": 162,
+      "primitive": 0,
+      "before": 1960,
+      "after": 456,
+      "estimatedRelativeError": 0.0018789084861055017
+    },
+    {
+      "mesh": 163,
+      "primitive": 0,
+      "before": 648,
+      "after": 400,
+      "estimatedRelativeError": 0.0018754727207124233
+    },
+    {
+      "mesh": 164,
+      "primitive": 0,
+      "before": 1536,
+      "after": 552,
+      "estimatedRelativeError": 0.0019997740164399147
+    },
+    {
+      "mesh": 166,
+      "primitive": 0,
+      "before": 408,
+      "after": 102,
+      "estimatedRelativeError": 0.0006047847564332187
+    },
+    {
+      "mesh": 167,
+      "primitive": 0,
+      "before": 108,
+      "after": 54,
+      "estimatedRelativeError": 0.0018885654862970114
+    },
+    {
+      "mesh": 168,
+      "primitive": 0,
+      "before": 6118,
+      "after": 1528,
+      "estimatedRelativeError": 0.0004022186913061887
+    },
+    {
+      "mesh": 170,
+      "primitive": 0,
+      "before": 8144,
+      "after": 3810,
+      "estimatedRelativeError": 0.0019832218531519175
+    },
+    {
+      "mesh": 171,
+      "primitive": 0,
+      "before": 1168,
+      "after": 292,
+      "estimatedRelativeError": 0.000886449299287051
+    },
+    {
+      "mesh": 172,
+      "primitive": 0,
+      "before": 1328,
+      "after": 332,
+      "estimatedRelativeError": 0.0013271690113469958
+    },
+    {
+      "mesh": 173,
+      "primitive": 0,
+      "before": 16456,
+      "after": 4110,
+      "estimatedRelativeError": 0.0007521499646827579
+    },
+    {
+      "mesh": 174,
+      "primitive": 0,
+      "before": 39188,
+      "after": 9788,
+      "estimatedRelativeError": 0.00103572488296777
+    },
+    {
+      "mesh": 179,
+      "primitive": 0,
+      "before": 1704,
+      "after": 530,
+      "estimatedRelativeError": 0.0019906782545149326
+    },
+    {
+      "mesh": 180,
+      "primitive": 0,
+      "before": 216,
+      "after": 88,
+      "estimatedRelativeError": 0.0008828522404655814
+    },
+    {
+      "mesh": 181,
+      "primitive": 0,
+      "before": 568,
+      "after": 172,
+      "estimatedRelativeError": 0.001863453653641045
+    },
+    {
+      "mesh": 182,
+      "primitive": 0,
+      "before": 2532,
+      "after": 632,
+      "estimatedRelativeError": 0.0014480380341410637
+    },
+    {
+      "mesh": 183,
+      "primitive": 0,
+      "before": 308,
+      "after": 88,
+      "estimatedRelativeError": 0.00185706268530339
+    },
+    {
+      "mesh": 185,
+      "primitive": 0,
+      "before": 10676,
+      "after": 2668,
+      "estimatedRelativeError": 0.0009739887900650501
+    },
+    {
+      "mesh": 186,
+      "primitive": 0,
+      "before": 884,
+      "after": 220,
+      "estimatedRelativeError": 0.0005818705540150404
+    },
+    {
+      "mesh": 187,
+      "primitive": 0,
+      "before": 648,
+      "after": 162,
+      "estimatedRelativeError": 0.0012380988337099552
+    },
+    {
+      "mesh": 188,
+      "primitive": 0,
+      "before": 760,
+      "after": 190,
+      "estimatedRelativeError": 0.0012364746071398258
+    },
+    {
+      "mesh": 189,
+      "primitive": 0,
+      "before": 5328,
+      "after": 1332,
+      "estimatedRelativeError": 0.0019526744727045298
+    },
+    {
+      "mesh": 190,
+      "primitive": 0,
+      "before": 356,
+      "after": 86,
+      "estimatedRelativeError": 0.000899109523743391
+    },
+    {
+      "mesh": 191,
+      "primitive": 0,
+      "before": 1140,
+      "after": 300,
+      "estimatedRelativeError": 0.001943502458743751
+    },
+    {
+      "mesh": 192,
+      "primitive": 0,
+      "before": 13452,
+      "after": 3362,
+      "estimatedRelativeError": 0.001285318867303431
+    },
+    {
+      "mesh": 195,
+      "primitive": 0,
+      "before": 1048,
+      "after": 262,
+      "estimatedRelativeError": 0.0012646674877032638
+    },
+    {
+      "mesh": 196,
+      "primitive": 0,
+      "before": 432,
+      "after": 108,
+      "estimatedRelativeError": 0.0013172159669920802
+    },
+    {
+      "mesh": 197,
+      "primitive": 0,
+      "before": 2240,
+      "after": 974,
+      "estimatedRelativeError": 0.0019967546686530113
+    },
+    {
+      "mesh": 198,
+      "primitive": 0,
+      "before": 5584,
+      "after": 1396,
+      "estimatedRelativeError": 0.0012403156142681837
+    },
+    {
+      "mesh": 200,
+      "primitive": 0,
+      "before": 10272,
+      "after": 2560,
+      "estimatedRelativeError": 0.0005031790933571756
+    },
+    {
+      "mesh": 201,
+      "primitive": 0,
+      "before": 660,
+      "after": 164,
+      "estimatedRelativeError": 0.0006318448577076197
+    },
+    {
+      "mesh": 202,
+      "primitive": 0,
+      "before": 180,
+      "after": 46,
+      "estimatedRelativeError": 0.0013600955717265606
+    },
+    {
+      "mesh": 203,
+      "primitive": 0,
+      "before": 2164,
+      "after": 540,
+      "estimatedRelativeError": 0.0009226671536453068
+    },
+    {
+      "mesh": 204,
+      "primitive": 0,
+      "before": 7940,
+      "after": 1984,
+      "estimatedRelativeError": 0.0016506219981238246
+    },
+    {
+      "mesh": 205,
+      "primitive": 0,
+      "before": 6040,
+      "after": 1510,
+      "estimatedRelativeError": 0.0008964623557403684
+    },
+    {
+      "mesh": 206,
+      "primitive": 0,
+      "before": 864,
+      "after": 288,
+      "estimatedRelativeError": 0.0019527412950992584
+    },
+    {
+      "mesh": 207,
+      "primitive": 0,
+      "before": 324,
+      "after": 80,
+      "estimatedRelativeError": 0.0005015897913835943
+    },
+    {
+      "mesh": 208,
+      "primitive": 0,
+      "before": 11152,
+      "after": 2788,
+      "estimatedRelativeError": 0.0008457188378088176
+    },
+    {
+      "mesh": 211,
+      "primitive": 0,
+      "before": 13644,
+      "after": 3380,
+      "estimatedRelativeError": 0.0006538412417285144
+    },
+    {
+      "mesh": 212,
+      "primitive": 0,
+      "before": 30572,
+      "after": 7642,
+      "estimatedRelativeError": 0.0012674781028181314
+    },
+    {
+      "mesh": 213,
+      "primitive": 0,
+      "before": 6552,
+      "after": 2240,
+      "estimatedRelativeError": 0.001985847717151046
+    },
+    {
+      "mesh": 214,
+      "primitive": 0,
+      "before": 42004,
+      "after": 32832,
+      "estimatedRelativeError": 0.0019504644442349672
+    },
+    {
+      "mesh": 215,
+      "primitive": 0,
+      "before": 3404,
+      "after": 850,
+      "estimatedRelativeError": 0.0001032442960422486
+    },
+    {
+      "mesh": 216,
+      "primitive": 0,
+      "before": 4511,
+      "after": 1127,
+      "estimatedRelativeError": 0.0007105931872501969
+    },
+    {
+      "mesh": 217,
+      "primitive": 0,
+      "before": 14928,
+      "after": 3624,
+      "estimatedRelativeError": 0.0003951453254558146
+    },
+    {
+      "mesh": 218,
+      "primitive": 0,
+      "before": 5336,
+      "after": 1654,
+      "estimatedRelativeError": 0.0019649192690849304
+    },
+    {
+      "mesh": 219,
+      "primitive": 0,
+      "before": 4776,
+      "after": 1194,
+      "estimatedRelativeError": 0.00011361586803104728
+    },
+    {
+      "mesh": 220,
+      "primitive": 0,
+      "before": 740,
+      "after": 240,
+      "estimatedRelativeError": 0.0019556183833628893
+    },
+    {
+      "mesh": 221,
+      "primitive": 0,
+      "before": 176,
+      "after": 50,
+      "estimatedRelativeError": 0.0016770620131865144
+    },
+    {
+      "mesh": 222,
+      "primitive": 0,
+      "before": 32565,
+      "after": 29271,
+      "estimatedRelativeError": 0.0019445294747129083
+    },
+    {
+      "mesh": 223,
+      "primitive": 0,
+      "before": 2212,
+      "after": 772,
+      "estimatedRelativeError": 0.0019260590197518468
+    },
+    {
+      "mesh": 224,
+      "primitive": 0,
+      "before": 1068,
+      "after": 266,
+      "estimatedRelativeError": 0.0013714695814996958
+    },
+    {
+      "mesh": 225,
+      "primitive": 0,
+      "before": 1888,
+      "after": 472,
+      "estimatedRelativeError": 0.0012680188519880176
+    },
+    {
+      "mesh": 226,
+      "primitive": 0,
+      "before": 5112,
+      "after": 1278,
+      "estimatedRelativeError": 0.001720209838822484
+    },
+    {
+      "mesh": 227,
+      "primitive": 0,
+      "before": 6796,
+      "after": 1762,
+      "estimatedRelativeError": 0.001991017023101449
+    },
+    {
+      "mesh": 228,
+      "primitive": 0,
+      "before": 188,
+      "after": 46,
+      "estimatedRelativeError": 0.0009361616102978587
+    },
+    {
+      "mesh": 229,
+      "primitive": 0,
+      "before": 524,
+      "after": 130,
+      "estimatedRelativeError": 0.0012611732818186283
+    },
+    {
+      "mesh": 230,
+      "primitive": 0,
+      "before": 1716,
+      "after": 428,
+      "estimatedRelativeError": 0.001882572309114039
+    },
+    {
+      "mesh": 231,
+      "primitive": 0,
+      "before": 152,
+      "after": 38,
+      "estimatedRelativeError": 0.001303392113186419
+    },
+    {
+      "mesh": 232,
+      "primitive": 0,
+      "before": 7008,
+      "after": 1752,
+      "estimatedRelativeError": 0.0014510020846500993
+    }
+  ],
+  "runtimeBytes": 10511568,
+  "webTransferBytes": 3791662,
+  "runtimeSha256": "b3ec59fee7267bd7a00f990a2346b181464626de241f57add04135db55fbc90d"
+}

@@ -334,6 +334,6 @@ test('Flutter bundles and displays the assembled clay model', () => {
   const pubspec = fs.readFileSync(path.join(repo, 'pubspec.yaml'), 'utf8');
   // Release web assets gain Flutter's assets/ URL prefix; native uses its
   // rootBundle key. Both point to the exact same approved source model.
-  assert.match(viewer, /src: kIsWeb\s*\? 'assets\/assets\/models\/zavod6-clay\.glb\?v=\$scriptVersion'\s*: 'assets\/models\/zavod6-clay\.glb'/);
-  assert.match(pubspec, /- assets\/models\/zavod6-clay\.glb/);
+  assert.match(viewer, /src: kIsWeb\s*\? 'assets\/assets\/models\/zavod6-runtime\.glb\?v=\$scriptVersion'\s*: 'assets\/models\/zavod6-runtime\.glb'/);
+  assert.match(pubspec, /- assets\/models\/zavod6-runtime\.glb/);
 });

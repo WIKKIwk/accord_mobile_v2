@@ -1,5 +1,8 @@
 # Accord clay bosma study
 
+Mobile/web runtime optimization and reproducible build instructions:
+[runtime-optimization.md](runtime-optimization.md).
+
 ## Five approved rezka placements (2026-09-17)
 
 `rezka-placements.json` records replacement of the four user-indicated blocks

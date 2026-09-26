@@ -69,7 +69,7 @@ flutter:
     - assets/icons/
     - assets/images/
     - assets/models/zavod6-phone.glb
-    - assets/models/zavod6-clay.glb
+    - assets/models/zavod6-runtime.glb
 
 flutter_launcher_icons:
   android: true
