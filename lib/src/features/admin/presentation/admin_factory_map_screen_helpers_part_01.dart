@@ -460,7 +460,6 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
                         ),
                       ),
                     Positioned(
-                      left: 12,
                       right: 12,
                       bottom: 12,
                       child: Material(
@@ -470,7 +469,7 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
                         borderRadius: BorderRadius.circular(24),
                         child: Padding(
                           padding: const EdgeInsets.all(6),
-                          child: Row(children: [
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
                             IconButton(
                               key: const ValueKey('factory-map-reset-camera'),
                               tooltip: l10n.adminText('factory_map.overview'),
