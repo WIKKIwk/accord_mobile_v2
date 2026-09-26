@@ -7,10 +7,13 @@ void _registerWorkerFabQrTests() {
 
   for (final scenario in [
     'idle',
+    'mixed-input',
     'duplicate-scan',
     'other-order',
     'busy-other-order',
     'reported-handoff',
+    'paused-reported',
+    'report-required',
     'queue-blocked',
     'unassigned',
     'unknown',
@@ -59,35 +62,58 @@ void _registerWorkerFabQrTests() {
       final input = (await MobileApi.instance.adminProgressQrHistory())
           .firstWhere((batch) => batch.orderId == targetId);
       var qr = scenario.startsWith('unknown') ? 'UNKNOWN-WIP' : input.qrPayload;
+      if (scenario == 'mixed-input') {
+        await MobileApi.instance
+            .adminCreateOpeningWip(const AdminOpeningWipCreateInput(
+          idempotencyKey: 'fab-opening',
+          orderId: targetId,
+          sourceApparatus: _print9Id,
+          sourceStageNodeId: 'first-apparatus',
+          batches: [
+            AdminOpeningWipBatchInput(
+                quantityBasis: AdminOpeningWipQuantityBasis.measured,
+                finishedGoodsMeter: 12,
+                finishedGoodsKg: 12,
+                bobinaKg: 1)
+          ],
+        ));
+      }
 
       final hasCurrent = scenario == 'other-order' ||
           scenario == 'busy-other-order' ||
-          scenario == 'reported-handoff';
+          scenario == 'reported-handoff' ||
+          scenario == 'paused-reported' ||
+          scenario == 'report-required';
       if (hasCurrent) {
-        await MobileApi.instance.adminSaveProductionMap(
-            scenario == 'reported-handoff'
-                ? _twoStageProductionOrderMap(
-                        id: currentId,
-                        title: 'Current work',
-                        productCode: 'CURRENT',
-                        product: 'Current product',
-                        firstApparatusId: _lamination1Id,
-                        secondApparatusId: _rezkaId)
-                    .copyWith(orderNumber: '0001')
-                : _productionOrderMap(
+        await MobileApi.instance.adminSaveProductionMap([
+          'reported-handoff',
+          'paused-reported',
+          'report-required'
+        ].contains(scenario)
+            ? _twoStageProductionOrderMap(
                     id: currentId,
                     title: 'Current work',
                     productCode: 'CURRENT',
-                    apparatusId: _lamination1Id,
                     product: 'Current product',
-                    orderNumber: '0001'));
+                    firstApparatusId: _lamination1Id,
+                    secondApparatusId: _rezkaId)
+                .copyWith(orderNumber: '0001')
+            : _productionOrderMap(
+                id: currentId,
+                title: 'Current work',
+                productCode: 'CURRENT',
+                apparatusId: _lamination1Id,
+                product: 'Current product',
+                orderNumber: '0001'));
         await MobileApi.instance.adminApparatusQueueActionResult(
             apparatus: _lamination1Id, orderId: currentId, action: 'start');
-        if (scenario == 'reported-handoff') {
+        if (['reported-handoff', 'paused-reported', 'report-required']
+            .contains(scenario)) {
           await MobileApi.instance.adminApparatusQueueActionResult(
               apparatus: _lamination1Id,
               orderId: currentId,
-              action: 'complete',
+              action:
+                  scenario == 'paused-reported' ? 'detach_roll' : 'complete',
               producedQty: 100,
               grossQty: 20,
               uom: 'm',
@@ -100,9 +126,43 @@ void _registerWorkerFabQrTests() {
         setMobileApiTestModeQueueActionControlFixture(
             apparatus: _lamination1Id,
             orderId: currentId,
-            control: scenario == 'reported-handoff'
-                ? _completedQueueControl()
+            control: ['reported-handoff', 'paused-reported', 'report-required']
+                    .contains(scenario)
+                ? AdminApparatusQueueOrderActionControl(
+                    state:
+                        scenario == 'paused-reported' ? 'paused' : 'completed',
+                    allowedActions: scenario == 'paused-reported'
+                        ? const {'resume'}
+                        : const {},
+                    hasOnlyKnownActions: true,
+                    stageWork: AdminStageWorkControl(
+                      upstreamClosed: true,
+                      astatkaAvailable: true,
+                      astatkaRequired: scenario == 'report-required',
+                      reportSessionId: 'previous-session',
+                    ),
+                    interaction: AdminQueueWorkerInteraction(
+                      mode: scenario == 'paused-reported'
+                          ? AdminQueueInteractionMode.paused
+                          : AdminQueueInteractionMode.completed,
+                      startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+                      materialScanRequired: false,
+                      assignedMaterialsDisplayOnly: true,
+                      materialIntakeAllowed: false,
+                      previousWipMode: AdminQueuePreviousWipMode.notRequired,
+                      qolipMode: AdminQueueQolipMode.notRequired,
+                    ),
+                  )
                 : _inProgressQueueControl());
+        if (scenario == 'paused-reported') {
+          await MobileApi.instance.adminLaminatsiyaAstatkaReport(
+            apparatus: _lamination1Id,
+            orderId: currentId,
+            laminationPrintLeftoverRolls: 0,
+            laminationFilmLeftoverRolls: 0,
+            totalWaste: 0,
+          );
+        }
       }
       final blocked =
           scenario == 'queue-blocked' || scenario == 'busy-other-order';
@@ -124,6 +184,9 @@ void _registerWorkerFabQrTests() {
             assignedMaterialsDisplayOnly: true,
             materialIntakeAllowed: false,
             previousWipMode: AdminQueuePreviousWipMode.scanRequired,
+            openingWipMode: scenario == 'mixed-input'
+                ? AdminQueuePreviousWipMode.scanRequired
+                : AdminQueuePreviousWipMode.notRequired,
             qolipMode: AdminQueueQolipMode.notRequired,
             blockingReasonCode: blocked
                 ? (scenario == 'busy-other-order'
@@ -174,6 +237,11 @@ void _registerWorkerFabQrTests() {
             liveEventsLoader: () => const Stream.empty()),
       ));
       await tester.pumpAndSettle();
+      if (scenario == 'report-required') {
+        await tester
+            .tap(find.text(l10n.productionText('worker.stage.astatka.later')));
+        await tester.pumpAndSettle();
+      }
       final scanFuture = tester
           .widget<AparatchiDock>(find.byType(AparatchiDock))
           .onQrScanRequested!();
@@ -204,7 +272,7 @@ void _registerWorkerFabQrTests() {
       expect(
           find.text(l10n.productionText('worker.error.current_order_missing')),
           findsNothing);
-      if (scenario == 'reported-handoff') {
+      if (scenario == 'report-required') {
         await tester
             .tap(find.byKey(const ValueKey('production-switch-order-confirm')));
         await tester.pumpAndSettle();
@@ -223,8 +291,11 @@ void _registerWorkerFabQrTests() {
         await tester.pumpAndSettle();
       }
       if (scenario == 'idle' ||
+          scenario == 'mixed-input' ||
           scenario == 'duplicate-scan' ||
-          scenario == 'reported-handoff') {
+          scenario == 'reported-handoff' ||
+          scenario == 'paused-reported' ||
+          scenario == 'report-required') {
         expect(find.text('0003'), findsWidgets);
         expect(
             find.text(
@@ -248,6 +319,27 @@ void _registerWorkerFabQrTests() {
             find.byWidgetPredicate((widget) =>
                 widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet'),
             findsNothing);
+      }
+      if (scenario == 'reported-handoff' || scenario == 'paused-reported') {
+        expect(find.byKey(const ValueKey('production-switch-order-confirm')),
+            findsNothing);
+        Navigator.of(
+                tester.element(find.widgetWithText(FilledButton, 'Boshlash')))
+            .pop(false);
+        await tester.pumpAndSettle();
+        final retry = tester
+            .widget<AparatchiDock>(find.byType(AparatchiDock))
+            .onQrScanRequested!();
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('return-fab-qr')));
+        await tester.pumpAndSettle();
+        await retry;
+        expect(find.byKey(const ValueKey('production-switch-order-confirm')),
+            findsNothing);
+        expect(
+            find.text(
+                l10n.productionText('worker.progress.previous.confirmed')),
+            findsOneWidget);
       }
       if (scenario == 'unknown-retry') {
         dismissAdminTopNotice();

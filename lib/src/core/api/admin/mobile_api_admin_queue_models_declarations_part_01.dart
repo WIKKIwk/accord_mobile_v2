@@ -299,7 +299,9 @@ class AdminApparatusQueueOrderActionControl {
       return false;
     }
     if (value.openingWipMode != AdminQueuePreviousWipMode.notRequired &&
-        value.previousWipMode != AdminQueuePreviousWipMode.notRequired) {
+        value.previousWipMode != AdminQueuePreviousWipMode.notRequired &&
+        !(value.openingWipMode == AdminQueuePreviousWipMode.scanRequired &&
+            value.previousWipMode == AdminQueuePreviousWipMode.scanRequired)) {
       return false;
     }
     final expectedActions = switch (value.mode) {

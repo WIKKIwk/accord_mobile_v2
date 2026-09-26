@@ -488,15 +488,14 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
       interaction.openingWipMode == AdminQueuePreviousWipMode.scanRequired;
   final previousWipRequired =
       interaction.previousWipMode == AdminQueuePreviousWipMode.scanRequired;
-  final inputWipReady = openingWipRequired
-      ? startInputOpeningWipBatch != null
-      : !previousWipRequired || startInputProgressBatch != null;
-  final startInputBatchId = openingWipRequired
-      ? startInputOpeningWipBatch?.batchId ?? ''
-      : startInputProgressBatch?.batchId ?? '';
-  final startInputQrPayload = openingWipRequired
-      ? startInputOpeningWipBatch?.qrPayload ?? ''
-      : startInputProgressBatch?.qrPayload ?? '';
+  final openingInput = openingWipRequired ? startInputOpeningWipBatch : null;
+  final productionInput = previousWipRequired ? startInputProgressBatch : null;
+  final inputWipReady = (!openingWipRequired && !previousWipRequired) ||
+      openingInput != null || productionInput != null;
+  final startInputBatchId =
+      openingInput?.batchId ?? productionInput?.batchId ?? '';
+  final startInputQrPayload =
+      openingInput?.qrPayload ?? productionInput?.qrPayload ?? '';
   return _PreparedReadOnlyQueueAction(
     apparatus: apparatus,
     onQueueAction: onQueueAction,
@@ -578,9 +577,9 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
       interaction?.openingWipMode == AdminQueuePreviousWipMode.scanRequired;
   final previousProgressRequired =
       normalPreviousProgressRequired || openingWipRequired;
-  final acceptedPreviousWip = openingWipRequired
-      ? startInputOpeningWipBatch != null
-      : normalPreviousProgressRequired && startInputProgressBatch != null;
+  final acceptedPreviousWip =
+      (openingWipRequired && startInputOpeningWipBatch != null) ||
+      (normalPreviousProgressRequired && startInputProgressBatch != null);
   final showStart = contractSynchronized &&
       canManageQueue &&
       queueActionControl.allows('start');

@@ -580,6 +580,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   ready: uiState.previousProgressReady,
                   batch: openingWipBatch,
                   availableBatches: openingWipBatches,
+                  productionBatch: previousProgressBatch,
+                  productionBatches: inputProgressBatches,
                   loading: inputProgressLoading,
                   error: inputProgressError,
                 )

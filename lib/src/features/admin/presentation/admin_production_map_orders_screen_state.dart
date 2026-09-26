@@ -1117,8 +1117,13 @@ class _AdminProductionMapOrdersScreenState
         continue;
       }
       final mode = modeFor(order);
-      if (mode == AdminQueueInteractionMode.paused ||
-          mode == AdminQueueInteractionMode.completed) {
+      final needsReport = _queueActionControlForApparatus(
+            apparatus: apparatus,
+            orderId: order.map.id,
+          )?.stageWork?.astatkaRequired == true;
+      if (needsReport &&
+          (mode == AdminQueueInteractionMode.paused ||
+              mode == AdminQueueInteractionMode.completed)) {
         return order;
       }
     }

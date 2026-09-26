@@ -49,8 +49,10 @@ void main() {
     expect(prepareEnd, greaterThan(prepareStart));
     final prepare = source.substring(prepareStart, prepareEnd);
 
-    expect(prepare, contains('startInputOpeningWipBatch?.batchId'));
-    expect(prepare, contains('startInputOpeningWipBatch?.qrPayload'));
+    expect(prepare, contains('openingWipRequired ? startInputOpeningWipBatch : null'));
+    expect(prepare, contains('previousWipRequired ? startInputProgressBatch : null'));
+    expect(prepare, contains('openingInput?.batchId ?? productionInput?.batchId'));
+    expect(prepare, contains('openingInput?.qrPayload ?? productionInput?.qrPayload'));
     expect(prepare, isNot(contains('AdminProgressBatch(')));
 
     final requestStart = source.indexOf(

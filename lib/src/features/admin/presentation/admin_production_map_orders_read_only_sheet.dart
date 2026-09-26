@@ -286,9 +286,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         !uiState.previousProgressReady &&
         !_inputProgressLoading &&
         _inputProgressError.isEmpty &&
-        (uiState.openingWipRequired
-            ? _availableOpeningWipBatches.isNotEmpty
-            : true);
+        (_queueActionControl?.interaction?.previousWipMode ==
+                AdminQueuePreviousWipMode.scanRequired ||
+            _availableOpeningWipBatches.isNotEmpty);
     final materialIntake = _materialIntakeMode &&
         uiState.materialIntakeAllowed &&
         !_materialsLoading &&
@@ -480,7 +480,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _queueActionControl?.interaction?.openingWipMode ==
             AdminQueuePreviousWipMode.scanRequired;
     final waitingCount = _availableOpeningWipBatches.length;
-    if (openingWipRequired && waitingCount > 0) {
+    if (openingWipRequired && waitingCount > 0 &&
+        _queueActionControl?.interaction?.previousWipMode !=
+            AdminQueuePreviousWipMode.scanRequired) {
       return context.l10n.productionText(
         'worker.opening_wip.scanner_prompt',
         values: {'count': waitingCount},
@@ -1496,7 +1498,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       final orderId = widget.order.map.id.trim();
       final station = widget.apparatus?.id.trim() ?? '';
       if (_queueActionControl?.interaction?.openingWipMode ==
-          AdminQueuePreviousWipMode.scanRequired) {
+              AdminQueuePreviousWipMode.scanRequired &&
+          (_matchingOpeningWipBatch(
+                    batches: _availableOpeningWipBatches,
+                    qrPayload: rawValue.trim(),
+                  ) != null ||
+              _queueActionControl?.interaction?.previousWipMode !=
+                  AdminQueuePreviousWipMode.scanRequired)) {
         final accepted = _acceptOpeningWipQr(
           orderId: orderId,
           apparatus: station,
@@ -1769,6 +1777,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     setState(() {
       _startInputProgressBatch = match;
+      _startInputOpeningWipBatch = null;
       _inputProgressLoading = false;
       _inputProgressError = '';
       _quickScanStatus = context.l10n.productionText(
@@ -1852,6 +1861,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         return false;
       }
     } else if (usesTimelineAstatka &&
+        _queueActionControl?.stageWork?.astatkaRequired == true &&
         (currentInteraction?.mode == AdminQueueInteractionMode.paused ||
             currentInteraction?.mode == AdminQueueInteractionMode.completed)) {
       final outcome = await _runAstatkaReport();
@@ -2381,50 +2391,39 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _inputProgressLoading = true;
       _inputProgressError = '';
     });
+    final orderId = widget.order.map.id.trim();
     try {
-      if (openingWipRequired) {
-        final batches = await MobileApi.instance.adminOpeningWipCandidates(
-          apparatus: station,
-          orderId: widget.order.map.id.trim(),
-        );
-        if (!mounted) return;
-        setState(() {
-          _availableOpeningWipBatches = batches;
-          _availableInputProgressBatches = const [];
-          _inputProgressLoading = false;
-          _inputProgressError = '';
-          _quickScanStatus = context.l10n.productionText(
-            'worker.opening_wip.scanner_prompt',
-            values: {'count': batches.length},
-          );
-          final currentBatch = _startInputOpeningWipBatch;
-          _startInputOpeningWipBatch = currentBatch == null
-              ? null
-              : _matchingOpeningWipBatch(
-                  batches: batches,
-                  batchId: currentBatch.batchId,
-                  qrPayload: currentBatch.qrPayload,
-                );
-        });
-        return;
-      }
-      final batches = await _fetchInputProgressBatches(previousStage);
-      if (!mounted) {
-        return;
-      }
+      final inputs = await Future.wait<Object>([
+        openingWipRequired
+            ? MobileApi.instance.adminOpeningWipCandidates(
+                apparatus: station, orderId: orderId)
+            : Future.value(const <AdminOpeningWipBatch>[]),
+        previousWipRequired
+            ? _fetchInputProgressBatches(previousStage)
+            : Future.value(const <AdminProgressBatch>[]),
+      ]);
+      if (!mounted || !_materialContextIsCurrent(orderId, station)) return;
+      final openingBatches = inputs[0] as List<AdminOpeningWipBatch>;
+      final productionBatches = inputs[1] as List<AdminProgressBatch>;
       setState(() {
-        _availableInputProgressBatches = batches;
-        _availableOpeningWipBatches = const [];
+        _availableOpeningWipBatches = openingBatches;
+        _availableInputProgressBatches = productionBatches;
         _inputProgressLoading = false;
         _inputProgressError = '';
-        final currentBatch = _startInputProgressBatch;
-        final matchingCurrentBatch = currentBatch == null
+        final currentOpening = _startInputOpeningWipBatch;
+        _startInputOpeningWipBatch = currentOpening == null
+            ? null
+            : _matchingOpeningWipBatch(
+                batches: openingBatches,
+                batchId: currentOpening.batchId,
+                qrPayload: currentOpening.qrPayload,
+              );
+        final currentProduction = _startInputProgressBatch;
+        _startInputProgressBatch = currentProduction == null
             ? null
             : _matchingInputProgressBatch(
-                batches: batches,
-                batch: currentBatch,
-              );
-        _startInputProgressBatch = matchingCurrentBatch;
+                batches: productionBatches, batch: currentProduction);
+        _quickScanStatus = _defaultQuickScanStatus();
       });
     } catch (error) {
       if (!mounted) {

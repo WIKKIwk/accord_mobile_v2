@@ -42,6 +42,29 @@ void _registeradmin_production_map_queue_snapshot_testCases03() {
     );
   });
 
+  test('opening and production WIP are valid scan alternatives', () {
+    for (final previous in ['scan_required', 'waiting']) {
+      final control = AdminApparatusQueueOrderActionControl.fromJson({
+        'state': 'pending',
+        'allowed_actions': ['start'],
+        'interaction': {
+          'mode': 'fresh_start',
+          'start_materials_mode': 'hidden',
+          'material_scan_required': false,
+          'assigned_materials_display_only': true,
+          'material_intake_allowed': false,
+          'previous_wip_mode': previous,
+          'opening_wip_mode': 'scan_required',
+          'qolip_mode': 'not_required',
+        },
+        'previous_stage': 'apparatus:default:asset-007',
+        'previous_stage_ready': true,
+        'complete_requires_full_report': false,
+      });
+      expect(control.contractValid, previous == 'scan_required');
+    }
+  });
+
   test('worker action controls reject contradictory action modes', () {
     final freezeOnPaused = AdminApparatusQueueOrderActionControl.fromJson({
       'state': 'paused',

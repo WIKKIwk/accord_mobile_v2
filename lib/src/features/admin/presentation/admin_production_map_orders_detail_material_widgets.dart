@@ -9,6 +9,8 @@ class _OpeningWipQrTile extends StatelessWidget {
     required this.availableBatches,
     required this.loading,
     required this.error,
+    this.productionBatch,
+    this.productionBatches = const [],
   });
   final String previousStage;
   final List<AdminApparatus> apparatusCatalog;
@@ -17,6 +19,8 @@ class _OpeningWipQrTile extends StatelessWidget {
   final List<AdminOpeningWipBatch> availableBatches;
   final bool loading;
   final String error;
+  final AdminProgressBatch? productionBatch;
+  final List<AdminProgressBatch> productionBatches;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +28,7 @@ class _OpeningWipQrTile extends StatelessWidget {
         .map((item) => _openingWipAsProgressBatch(item, previousStage))
         .toList(growable: false);
     final selectedProgressBatch = batch == null
-        ? null
+        ? productionBatch
         : _openingWipAsProgressBatch(batch!, previousStage);
     return _PreviousProgressQrTile(
       key: const ValueKey('production-order-opening-wip-input'),
@@ -32,7 +36,7 @@ class _OpeningWipQrTile extends StatelessWidget {
       apparatusCatalog: apparatusCatalog,
       ready: ready,
       batch: selectedProgressBatch,
-      availableBatches: progressBatches,
+      availableBatches: [...productionBatches, ...progressBatches],
       loading: loading,
       error: error,
     );
