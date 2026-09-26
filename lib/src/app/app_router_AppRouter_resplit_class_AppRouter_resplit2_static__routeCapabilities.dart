@@ -67,6 +67,7 @@ const _app_router_AppRouter_resplit_class_AppRouter__routeCapabilities_resplit2V
   AppRoutes.qolipHome: {'qolip.manage'},
   AppRoutes.qolipBlocks: {'qolip.manage'},
   AppRoutes.qolipProducts: {'qolip.manage'},
+  AppRoutes.qolipTasks: {'qolip.manage'},
   AppRoutes.qolipCheckouts: {'qolip.manage'},
   AppRoutes.qolipLocationTransfer: {'qolip.manage'},
   AppRoutes.boyoqchiHome: {'boyoqchi.access'},

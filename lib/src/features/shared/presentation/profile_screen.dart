@@ -203,7 +203,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 showPrimaryFab: false,
               ),
             _ProfileShellKind.qolip => const QolipDock(
-                activeTab: QolipDockTab.profile,
+                activeTab: null,
               ),
             _ProfileShellKind.boyoqchi => const BoyoqchiDock(
                 activeTab: BoyoqchiDockTab.profile,

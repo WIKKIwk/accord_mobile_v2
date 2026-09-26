@@ -5,7 +5,7 @@ import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/widgets/navigation/role_dock.dart';
 import 'package:flutter/material.dart';
 
-enum QolipDockTab { home, products, profile }
+enum QolipDockTab { home, products, tasks }
 
 class QolipDock extends StatelessWidget {
   const QolipDock({
@@ -77,14 +77,14 @@ class QolipDock extends StatelessWidget {
               onTap: onPrimaryFabTap!,
             ),
           RoleDockDestination(
-            id: 'qolip-profile',
-            label: l10n.profileTitle,
-            icon: Icons.person_outline_rounded,
-            selectedIcon: Icons.person_rounded,
-            active: activeTab == QolipDockTab.profile,
-            routeName: onTabSelected == null ? AppRoutes.profile : null,
+            id: 'qolip-tasks',
+            label: l10n.qolipText('nav.tasks'),
+            icon: Icons.task_alt_outlined,
+            selectedIcon: Icons.task_alt_rounded,
+            active: activeTab == QolipDockTab.tasks,
+            routeName: onTabSelected == null ? AppRoutes.qolipTasks : null,
             replaceStack: onTabSelected == null,
-            onTap: () => selectTab(QolipDockTab.profile, AppRoutes.profile),
+            onTap: () => selectTab(QolipDockTab.tasks, AppRoutes.qolipTasks),
           ),
         ];
         final selectedIndex = activeTab == null

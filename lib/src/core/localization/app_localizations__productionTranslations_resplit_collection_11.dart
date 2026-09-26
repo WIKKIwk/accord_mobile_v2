@@ -2,6 +2,51 @@
 part of 'app_localizations.dart';
 
 const _app_localizations_declarations__productionTranslations_resplitPart11 = {
+  'qolip.nav.tasks': {
+    'uz': 'Vazifalar',
+    'en': 'Tasks',
+    'ru': 'Задачи',
+  },
+  'qolip.tasks.check': {
+    'uz': 'Tekshirish',
+    'en': 'Check',
+    'ru': 'Проверить',
+  },
+  'qolip.tasks.count': {
+    'uz': '{count} ta',
+    'en': '{count} orders',
+    'ru': '{count} заказов',
+  },
+  'qolip.tasks.summary': {
+    'uz': 'Dastlabki {count} ta orderdan {missing} tasiga qolip QR’i biriktirilmagan.',
+    'en': 'Of the first {count} orders, {missing} have no mold QR assigned.',
+    'ru': 'Из первых {count} заказов у {missing} не привязан QR формы.',
+  },
+  'qolip.tasks.attach': {
+    'uz': 'Biriktirish',
+    'en': 'Assign',
+    'ru': 'Привязать',
+  },
+  'qolip.tasks.ready': {
+    'uz': 'Tanlangan orderlarning barchasiga qolip QR’i biriktirilgan.',
+    'en': 'All orders in this window have a mold QR assigned.',
+    'ru': 'Для всех выбранных заказов QR формы привязан.',
+  },
+  'qolip.tasks.no_orders': {
+    'uz': 'Bu apparat navbatida order yo‘q.',
+    'en': 'No orders in this machine’s queue.',
+    'ru': 'В очереди этого аппарата нет заказов.',
+  },
+  'qolip.tasks.load_failed': {
+    'uz': 'Qolip QR holatini tekshirib bo‘lmadi. Qayta urinib ko‘ring.',
+    'en': 'Could not check mold QR status. Please retry.',
+    'ru': 'Не удалось проверить QR форм. Повторите попытку.',
+  },
+  'qolip.tasks.product_missing': {
+    'uz': 'Order mahsuloti yoki guruhi topilmadi. Adminga murojaat qiling.',
+    'en': 'The order product or group was not found. Contact an admin.',
+    'ru': 'Товар или группа заказа не найдены. Обратитесь к администратору.',
+  },
   'qolip.nav.transfer': {
     'uz': 'Joylashuv transferi',
     'en': 'Location transfer',

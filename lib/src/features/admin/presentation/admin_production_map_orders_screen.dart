@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' show cos, sin, min, Random;
 
 import '../../../app/app_router.dart';
@@ -48,6 +49,7 @@ import '../../preparation/models/preparation_models.dart';
 import '../../preparation/presentation/preparation_navigation.dart';
 import '../../preparation/presentation/preparation_order_formula_screen.dart';
 import '../../qolip/presentation/widgets/qolip_dock.dart';
+import '../../qolip/state/qolip_data_revision.dart';
 import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../logic/apparatus_queue_state.dart';
@@ -99,6 +101,7 @@ part 'admin_production_map_orders_completion_widgets.dart';
 part 'admin_production_map_orders_sequence_widgets.dart';
 part 'admin_production_map_orders_sequence_assignment_sheet.dart';
 part 'admin_production_map_orders_sequence_qolip_sheet.dart';
+part 'admin_production_map_orders_qolip_tasks.dart';
 part 'admin_production_map_orders_move_module.dart';
 part 'admin_production_map_orders_progress_printer.dart';
 part 'admin_production_map_orders_progress_qty.dart';

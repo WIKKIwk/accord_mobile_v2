@@ -304,6 +304,15 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
           settings, const AdminProductionMapOrdersScreen());
     case AppRoutes.adminOpeningWip:
       return AppRouter._buildRoute(settings, const AdminOpeningWipScreen());
+    case AppRoutes.qolipTasks:
+      return AppRouter._buildRoute(
+        settings,
+        const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          supplyViewerMode: true,
+          qolipTasksMode: true,
+        ),
+      );
     case AppRoutes.supplySequence:
       return AppRouter._buildRoute(
         settings,

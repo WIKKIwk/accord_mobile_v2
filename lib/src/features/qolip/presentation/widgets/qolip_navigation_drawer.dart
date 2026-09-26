@@ -60,6 +60,12 @@ class QolipNavigationDrawer extends StatelessWidget {
           routeName: AppRoutes.supplySequence,
         ),
         RoleNavigationDrawerDestination(
+          icon: Icons.task_alt_outlined,
+          selectedIcon: Icons.task_alt_rounded,
+          label: l10n.qolipText('nav.tasks'),
+          routeName: AppRoutes.qolipTasks,
+        ),
+        RoleNavigationDrawerDestination(
           icon: Icons.person_outline_rounded,
           selectedIcon: Icons.person_rounded,
           label: l10n.profileTitle,

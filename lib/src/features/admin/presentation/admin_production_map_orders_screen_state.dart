@@ -306,7 +306,8 @@ class _AdminProductionMapOrdersScreenState
     final supplyDrawer = switch (role) {
       UserRole.qolipchi => QolipNavigationDrawer(
           selectedIndex: 0,
-          selectedRouteName: AppRoutes.supplySequence,
+          selectedRouteName: widget.qolipTasksMode
+              ? AppRoutes.qolipTasks : AppRoutes.supplySequence,
           onNavigate: _openDrawerRoute,
         ),
       UserRole.materialTaminotchi => MaterialTaminotchiNavigationDrawer(
@@ -320,7 +321,8 @@ class _AdminProductionMapOrdersScreenState
       _ => null,
     };
     final supplyDock = switch (role) {
-      UserRole.qolipchi => const QolipDock(activeTab: null),
+      UserRole.qolipchi => QolipDock(
+          activeTab: widget.qolipTasksMode ? QolipDockTab.tasks : null),
       UserRole.materialTaminotchi =>
         const MaterialTaminotchiDock(activeTab: null),
       UserRole.tayyorlovMasteri => const PreparationDock(),
@@ -357,7 +359,9 @@ class _AdminProductionMapOrdersScreenState
       titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,
-        hintText: widget.supplyViewerMode
+        hintText: widget.qolipTasksMode
+            ? context.l10n.qolipText('nav.tasks')
+            : widget.supplyViewerMode
             ? context.l10n.productionText('worker.queue.search.sequence')
             : context.l10n.productionText('worker.queue.search.open'),
         onChanged: (value) => setState(() => _searchQuery = value),
@@ -492,7 +496,9 @@ class _AdminProductionMapOrdersScreenState
                               onTapWatchOrder: _showWatchOrderInfo,
                               onLongPressWatchOrder: _showWatchOrderLongPress,
                             )
-                          : _AdminModulesBody(
+                          : widget.qolipTasksMode
+                              ? _buildQolipTasks(bottomPadding)
+                              : _AdminModulesBody(
                               stageStatesByOrderId: _stageStatesByOrderId,
                               queueActionControlsByApparatus:
                                   _queueActionControlsByApparatus,

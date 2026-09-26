@@ -209,6 +209,7 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
     this.readOnly = false,
     this.workerMode = false,
     this.supplyViewerMode = false,
+    this.qolipTasksMode = false,
     this.progressDriverUrlPicker,
     this.closedOrdersLoader,
     this.completionRequestsLoader,
@@ -219,6 +220,7 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
   final bool readOnly;
   final bool workerMode;
   final bool supplyViewerMode;
+  final bool qolipTasksMode;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final Future<List<AdminClosedProductionOrder>> Function()? closedOrdersLoader;
   final Future<List<AdminCompletionRequestNotification>> Function()?
