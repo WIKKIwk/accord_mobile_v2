@@ -47,3 +47,22 @@ mode. Compare the same overview and focused machine, gestures, labels, reels,
 panel opening/closing and route re-entry. Record WebView version, device/GPU,
 frame intervals, triangle/draw counts and sustained behavior after warm-up.
 Desktop preview FPS does not establish Android FPS.
+
+### Recorded desktop check — 2026-09-26
+
+Checkpoint `ea7178ea` compared with runtime-asset commit `0dab155f`, using
+the same overview camera `(30.304, 78.802, 106.878)`, target
+`(20.871, 0, 28.642)`, and renderer pixel ratio `1.20` in the Flutter device
+preview. Values below are the renderer's per-frame counters, not GPU timings.
+
+| Measurement | Before | After |
+| --- | ---: | ---: |
+| Bundled map bytes | 31,195,912 | 10,511,568 |
+| Rendered triangles | 777,349 | 311,155 |
+| Draw calls | 229 | 173 |
+
+The overview retained the factory layout and equipment appearance. Selecting
+Laminatsiya 1 focused its model and opened the matching live details sheet.
+Validation: 67 JavaScript tests, 51 Flutter tests, and the viewer's Dart analysis
+passed. No physical Android device was attached, so Android FPS, sustained
+thermal behavior and WebView composition performance remain unmeasured.
