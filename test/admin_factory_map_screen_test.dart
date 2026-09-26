@@ -14,6 +14,44 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_s
 
 void main() {
   testWidgets(
+      'failed model can be retried without remounting on ordinary refresh',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final bindings = FactoryMapBindings(load: () async => []);
+    late AdminFactoryMapViewer viewer;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('uz'),
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate
+      ],
+      home: AdminFactoryMapScreen(
+          bindings: bindings,
+          viewerBuilder: (value) {
+            viewer = value;
+            return const SizedBox();
+          }),
+    ));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    final originalKey = viewer.key;
+    await bindings.refresh();
+    await tester.pump();
+    expect(viewer.key, originalKey);
+    viewer.onLoadError!();
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('factory-map-retry-model')));
+    await tester.pump();
+    expect(viewer.key, isNot(originalKey));
+    expect(find.byKey(const ValueKey('factory-map-retry-model')), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    bindings.dispose();
+  });
+
+  testWidgets(
       'loading blocks attachment, confirmed unlink and reattach use one save each',
       (tester) async {
     Future<void> settleSheet() async {

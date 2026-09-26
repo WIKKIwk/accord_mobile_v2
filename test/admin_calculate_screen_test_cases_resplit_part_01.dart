@@ -344,9 +344,12 @@ void _registeradmin_calculate_screen_testCases01() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
+    final template = await CalculateOrderTemplateStore.instance.upsert(
+      _template(itemCode: 'ITEM-1', sourceMapId: 'zakaz-1953'),
+    );
     await _pumpCalculateScreen(
       tester,
-      template: _template(itemCode: 'ITEM-1', sourceMapId: 'zakaz-1953'),
+      template: template,
     );
 
     await tester.drag(find.byType(ListView), const Offset(0, -900));
@@ -371,15 +374,24 @@ void _registeradmin_calculate_screen_testCases01() {
     expect(find.text('Zakaz topilmadi'), findsNothing);
     expect(
         find.text('Tezkor zakaz mapi topilmadi. Qayta ulang'), findsOneWidget);
+    final attachMapText = tester
+        .element(find.byType(AdminCalculateScreen))
+        .l10n.adminText('calculate.map_attach');
     await tester.scrollUntilVisible(
-      find.text('Production mapga ulash'),
+      find.text(attachMapText),
       240,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    expect(find.text('Production mapga ulash'), findsOneWidget);
+    expect(find.text(attachMapText), findsOneWidget);
     expect(find.text('Zakaz ochish'), findsNothing);
-    await tester.pump(const Duration(seconds: 3));
+    final templates = await MobileApi.instance.calculateOrderTemplates();
+    expect(
+      templates.singleWhere((saved) => saved.id == template.id).sourceMapId,
+      'zakaz-1953',
+      reason: 'A failed map read must not erase the saved source reference',
+    );
+    await tester.pump(const Duration(seconds: 6));
   });
 
   testWidgets('saved quick order shows stored map read-only from result card', (

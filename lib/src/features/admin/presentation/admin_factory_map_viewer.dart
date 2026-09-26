@@ -27,6 +27,7 @@ class AdminFactoryMapViewer extends StatelessWidget {
     this.focusedObjectId = '',
     this.resetRevision = 0,
     this.onFocusComplete,
+    this.onLoadError,
     this.liveState = const {},
     this.stockState = const {},
     this.showLabels = true,
@@ -40,6 +41,7 @@ class AdminFactoryMapViewer extends StatelessWidget {
   final String focusedObjectId;
   final int resetRevision;
   final ValueChanged<String>? onFocusComplete;
+  final VoidCallback? onLoadError;
   final Map<String, dynamic> liveState;
   final Map<String, dynamic> stockState;
   final bool showLabels;
@@ -48,6 +50,10 @@ class AdminFactoryMapViewer extends StatelessWidget {
     try {
       final payload = jsonDecode(message);
       if (payload is! Map) {
+        return;
+      }
+      if (payload['type'] == 'load_error') {
+        onLoadError?.call();
         return;
       }
       final objectId = payload['objectId']?.toString().trim() ?? '';
@@ -74,7 +80,7 @@ class AdminFactoryMapViewer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    const scriptVersion = '20260917_five_rezka_facing_v2';
+    const scriptVersion = '20260926_factory_map_v2';
     final rendererScript = kIsWeb
         ? './assets/packages/model_viewer_plus/assets/factory-map-renderer.js?v=$scriptVersion'
         : './factory-map-renderer.js?v=$scriptVersion';
@@ -145,6 +151,12 @@ class AdminFactoryMapViewer extends StatelessWidget {
             status.title = String(error);
             status.hidden = false;
             status.style.display = 'grid';
+            const message = JSON.stringify({type:'load_error'});
+            if (window.FactoryMapChannel?.postMessage) {
+              window.FactoryMapChannel.postMessage(message);
+            } else {
+              host?.querySelector('[data-factory-map-bridge]')?.setAttribute('data-model-viewer-message', message);
+            }
           });
         </script>
       ''',

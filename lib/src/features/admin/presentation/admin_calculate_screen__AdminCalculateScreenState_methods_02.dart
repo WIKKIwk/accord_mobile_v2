@@ -252,7 +252,9 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
   }
 
   bool _isProductionMapMissing(Object error) {
-    return error is MobileApiException && error.code == 'map_not_found';
+    return error is MobileApiException &&
+        error.code == 'map_not_found' &&
+        (error.statusCode == 404 || error.statusCode == null);
   }
 
   Future<void> _handleMissingSourceMap() async {
@@ -263,26 +265,8 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       _sourceMapId = '';
       _editingAllFields = true;
     });
-    try {
-      final saved = await CalculateOrderTemplateStore.instance.upsert(
-        _buildTemplateDraft().copyWith(
-          kg: 0,
-          orderNumber: '',
-          sourceMapId: '',
-        ),
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _templateId = saved.id;
-        _orderCode = saved.code;
-        _sourceMapId = saved.sourceMapId;
-        _editingAllFields = true;
-      });
-    } catch (_) {
-      // The screen can still recover locally and let the user relink the map.
-    }
+    // Let the user relink locally. A failed read must never erase the saved
+    // reference: it is needed for retry/recovery and may have been repaired.
     if (mounted) {
       showAdminTopNotice(
         context,

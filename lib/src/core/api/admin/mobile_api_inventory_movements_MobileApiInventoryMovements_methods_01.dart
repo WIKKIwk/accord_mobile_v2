@@ -41,6 +41,7 @@ extension MobileApiInventoryMovementsAstPart01 on MobileApi {
     String warehouseId = '',
     String query = '',
     InventoryAssetKind? assetKind,
+    // Legacy API name: shared state inventory within the user's access scope.
     bool currentUserStatesOnly = false,
     int limit = 100,
     int offset = 0,
@@ -55,7 +56,6 @@ extension MobileApiInventoryMovementsAstPart01 on MobileApi {
           )
           .map((location) => location.id)
           .toSet();
-      final currentProfileRef = AppSession.instance.profile?.ref.trim() ?? '';
       return _testModeInventoryAssets
           .where(
             (asset) =>
@@ -66,14 +66,8 @@ extension MobileApiInventoryMovementsAstPart01 on MobileApi {
                           asset.physicalLocation.id,
                         ))) &&
                 (!currentUserStatesOnly ||
-                    (asset.physicalLocation.kind ==
-                            InventoryLocationKind.state &&
-                        currentProfileRef.isNotEmpty &&
-                        _testModeInventoryPlacementOwnerRefs[_inventoryAssetKey(
-                              asset.kind,
-                              asset.assetRef,
-                            )] ==
-                            currentProfileRef)) &&
+                    asset.physicalLocation.kind ==
+                        InventoryLocationKind.state) &&
                 (assetKind == null || asset.kind == assetKind) &&
                 (needle.isEmpty ||
                     [

@@ -12,7 +12,9 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   List<QolipBlock> _orderedBlocks = const <QolipBlock>[];
-  Map<String, int> _blockSearchMatchCounts = const <String, int>{};
+  final _blockSearchMatchCounts = ValueNotifier<Map<String, int>>(const {});
+  final Map<String, ValueNotifier<Map<String, int>>> _cellSearchMatchCounts =
+      {};
   String _searchQuery = '';
   TabController? _blockTabController;
   Timer? _searchDebounce;
@@ -29,6 +31,11 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
   @override
   void dispose() {
     QolipDataRevision.locations.removeListener(_handleLocationsChanged);
+    _searchGeneration++;
+    _blockSearchMatchCounts.dispose();
+    for (final counts in _cellSearchMatchCounts.values) {
+      counts.dispose();
+    }
     _blockTabController?.dispose();
     _searchDebounce?.cancel();
     _searchController.dispose();
@@ -106,28 +113,31 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
             children: [
               Column(
                 children: [
-                  _QolipBlockTabBar(
-                    controller: tabController,
-                    blocks: blocks,
-                    searchMatchCounts: _blockSearchMatchCounts,
-                    onTap: (index) {
-                      lastBlockIndex = index;
-                    },
-                    onReorder: (oldIndex, newIndex) => _reorderBlocks(
-                      tabController,
-                      oldIndex,
-                      newIndex,
+                  ValueListenableBuilder<Map<String, int>>(
+                    valueListenable: _blockSearchMatchCounts,
+                    builder: (context, counts, _) => _QolipBlockTabBar(
+                      controller: tabController,
+                      blocks: blocks,
+                      searchMatchCounts: counts,
+                      onTap: (index) {
+                        lastBlockIndex = index;
+                      },
+                      onReorder: (oldIndex, newIndex) => _reorderBlocks(
+                        tabController,
+                        oldIndex,
+                        newIndex,
+                      ),
+                      onAdd: () {
+                        final selectedBlock = blocks[lastBlockIndex];
+                        tabController.index = lastBlockIndex;
+                        unawaited(
+                          _openBlockCreateSheet(
+                            warehouses: data.warehouses,
+                            initialWarehouse: selectedBlock.warehouse,
+                          ),
+                        );
+                      },
                     ),
-                    onAdd: () {
-                      final selectedBlock = blocks[lastBlockIndex];
-                      tabController.index = lastBlockIndex;
-                      unawaited(
-                        _openBlockCreateSheet(
-                          warehouses: data.warehouses,
-                          initialWarehouse: selectedBlock.warehouse,
-                        ),
-                      );
-                    },
                   ),
                   Expanded(
                     child: TabBarView(
@@ -140,7 +150,10 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                             future: _locationsFor(block.name),
                             initialLocations:
                                 _resolvedLocations[_blockKey(block)],
-                            searchQuery: _searchQuery,
+                            searchCounts: _cellSearchMatchCounts.putIfAbsent(
+                              _blockKey(block),
+                              () => ValueNotifier(const <String, int>{}),
+                            ),
                             onRefresh: () async {
                               _refreshBlock(block.name);
                               await _locationsFor(block.name);

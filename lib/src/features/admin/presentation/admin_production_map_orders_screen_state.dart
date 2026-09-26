@@ -30,6 +30,8 @@ class _AdminProductionMapOrdersScreenState
   String? _completionRequestsErrorMessage;
   int _liveStreamGeneration = 0;
   int _queueSnapshotGeneration = 0;
+  int _workerCompletedOrdersGeneration = 0;
+  int _completionRequestsGeneration = 0;
 
   StreamSubscription<dynamic>? _liveStreamSubscription;
   Completer<void>? _liveStreamFinished;
@@ -1616,12 +1618,19 @@ class _AdminProductionMapOrdersScreenState
     }
     setState(() {});
     try {
+      final snapshotGeneration = _queueSnapshotGeneration;
       final next = await MobileApi.instance.adminProductionMapOrderControl(
         orderId: orderId,
         action: action,
       );
       if (!mounted) return;
       setState(() {
+        final applyState = snapshotGeneration == _queueSnapshotGeneration;
+        // Discard reads started before this mutation and force a fresh full
+        // snapshot even if its global revision was already seen over live.
+        _queueSnapshotGeneration++;
+        _queueSnapshotNeedsReconcile = true;
+        if (!applyState) return;
         if (action == AdminOrderControlAction.delete) {
           _orders = [
             for (final item in _orders)
@@ -1760,8 +1769,6 @@ class _AdminProductionMapOrdersScreenState
       orderStatusesByOrderId: _orderStatusesByOrderId,
       workerMode: widget.workerMode,
       orderControlsByOrderId: _orderControlsByOrderId,
-      excludeFrozen: _module == _OpenedOrderModule.sequence &&
-          !widget.workerMode && !widget.readOnly && !widget.supplyViewerMode,
       query: _searchQuery,
     );
   }

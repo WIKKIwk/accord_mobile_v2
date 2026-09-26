@@ -199,7 +199,8 @@ extension _AdminProductionMapOrdersMoveState
       _orderControlsByOrderId,
       moved.map.id.trim(),
     ).isFrozen;
-    if (movedState.isActive || isMovedFrozen) {
+    if (movedState.isActive || isMovedFrozen ||
+        movedState == ApparatusQueueOrderState.frozen) {
       return;
     }
 
@@ -221,14 +222,26 @@ extension _AdminProductionMapOrdersMoveState
       return;
     }
 
+    // Frozen rows remain visible with their status color, but the server's
+    // editable queue excludes them. Never use one as a before/after anchor.
+    bool isSequenceMember(ProductionMapSaved order) =>
+        !adminProductionMapOrderControlFor(
+          _orderControlsByOrderId, order.map.id.trim(),
+        ).isFrozen &&
+        _moveOrderQueueState(order, apparatus) != ApparatusQueueOrderState.frozen;
+    final previousIds = orders.where(isSequenceMember)
+        .map((order) => order.map.id).toList();
     orders.removeAt(oldIndex);
     orders.insert(targetIndex, moved);
     final apparatusKey = apparatus.id.trim();
-    final orderIds = orders.map((order) => order.map.id).toList();
-    final before = targetIndex + 1 < orderIds.length
-        ? orderIds[targetIndex + 1] : null;
-    final after = before == null && targetIndex > 0
-        ? orderIds[targetIndex - 1] : null;
+    final orderIds = orders.where(isSequenceMember)
+        .map((order) => order.map.id).toList();
+    if (listEquals(previousIds, orderIds)) return;
+    final movedIndex = orderIds.indexOf(moved.map.id);
+    final before = movedIndex + 1 < orderIds.length
+        ? orderIds[movedIndex + 1] : null;
+    final after = before == null && movedIndex > 0
+        ? orderIds[movedIndex - 1] : null;
     _updateScreenState(() {
       _pendingSequenceMoves.putIfAbsent(apparatusKey, () => []).add(
         _PendingSequenceMove(

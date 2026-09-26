@@ -131,7 +131,7 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
                 ),
                 if (stateIds.isEmpty)
                   const _MaterialStateEmpty(
-                    message: 'Siz joylashtirgan State’dagi mahsulot topilmadi',
+                    message: 'State’dagi mahsulot topilmadi',
                   )
                 else if (selectedStateId.isEmpty)
                   const _MaterialStateEmpty(message: 'State tanlanmagan')

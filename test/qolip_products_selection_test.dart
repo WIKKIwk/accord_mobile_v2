@@ -415,4 +415,42 @@ void main() {
     expect(original.qolipSize, 41);
     expect(original.qolipColor, isEmpty);
   });
+  testWidgets(
+      'debounced product search keeps typo and code results and clears immediately',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(useMaterial3: true),
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const QolipProductsScreen(),
+    ));
+    await tester.pumpAndSettle();
+    final input = find.byType(EditableText).first;
+    await tester.enterText(input, 'unrelatedxyz');
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.enterText(input, 'hotlunchh');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(find.text('Hotlunch'), findsOneWidget);
+    expect(find.text('Salat set'), findsNothing);
+
+    await tester.enterText(input, 'Q-PRODUCT');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(find.text('Salat set'), findsOneWidget);
+    expect(find.text('Hotlunch'), findsNothing);
+
+    await tester.enterText(input, 'unrelatedxyz');
+    await tester.enterText(input, '');
+    await tester.pumpAndSettle();
+    expect(find.text('Salat set'), findsOneWidget);
+    expect(find.text('Hotlunch'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

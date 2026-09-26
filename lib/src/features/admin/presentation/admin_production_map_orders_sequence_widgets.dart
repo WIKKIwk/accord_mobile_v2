@@ -80,7 +80,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
       final isFrozen = adminProductionMapOrderControlFor(
         widget.orderControlsByOrderId,
         order.map.id.trim(),
-      ).isFrozen;
+      ).isFrozen || apparatusState == ApparatusQueueOrderState.frozen;
       final canReorder = !widget.readOnly && !apparatusState.isActive && !isFrozen;
 
       return _SequenceOrderRow(
@@ -161,10 +161,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
             ),
             Expanded(
               child: ReorderableListView.builder(
-                key: ValueKey(
-                  'sequence-list-${selected.id}-'
-                  '${orders.map((order) => order.map.id).join(',')}',
-                ),
+                key: ValueKey('sequence-list-${selected.id}'),
                 padding: EdgeInsets.fromLTRB(
                   _openedOrderPanelCardGap,
                   8,

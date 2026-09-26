@@ -92,6 +92,7 @@ class _FactoryApparatusLiveSheetState
       'factory_map.live_load_failed',
     );
     _refreshing = true;
+    unawaited(widget.live.refresh());
     if (!silent && mounted) {
       setState(() {
         _loading = true;
@@ -159,10 +160,6 @@ class _FactoryApparatusLiveSheetState
     return ids;
   }
 
-  Map<String, String> get _queueStates => _snapshot == null
-      ? const <String, String>{}
-      : _forStation(_snapshot!.queueStates) ?? const <String, String>{};
-
   ProductionMapSaved? _orderForId(String orderId) {
     for (final order in _orders) {
       if (order.map.id.trim() == orderId.trim()) {
@@ -214,22 +211,41 @@ class _FactoryApparatusLiveSheetState
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
-    final states = _queueStates;
-    final orderIds = filterFactoryMapOrderIds(
-      orderIds: _orderIds,
-      states: states,
-      filter: _orderFilter,
+    final machine = factoryMapMachineStatus(
+      snapshot: _snapshot,
+      apparatusId: widget.apparatus.id,
     );
+    final machineStatus =
+        widget.live.fresh ? machine.status : FactoryMapStatus.unknown;
+    final visibleQueueIds =
+        (_snapshot?.visibleOrderIds[widget.apparatus.id.trim()] ??
+                const <String>[])
+            .map((id) => id.trim())
+            .toSet();
+    final statuses = {
+      for (final id in _orderIds)
+        id: factoryMapOrderStatus(
+          snapshot: _snapshot,
+          apparatusId: widget.apparatus.id,
+          orderId: id,
+        ),
+    };
+    final orderIds = statuses.keys
+        .where((id) => switch (_orderFilter) {
+              FactoryMapOrderFilter.inProgress =>
+                (visibleQueueIds.contains(id) && statuses[id]!.isCurrentWork) ||
+                    id == machine.orderId,
+              FactoryMapOrderFilter.completed =>
+                statuses[id] == FactoryMapStatus.completed,
+              FactoryMapOrderFilter.all => true,
+            })
+        .toList(growable: false);
     final visibleMaterials = [
       for (final orderId in orderIds) ..._materialsForOrder(orderId),
     ];
     final visibleWipBatches = [
       for (final orderId in orderIds) ..._wipForOrder(orderId),
     ];
-    final activeOrderId = firstActiveQueueOrderId(
-      sequence: orderIds,
-      states: states,
-    );
     return PopScope(
       canPop: !_unlinking,
       child: Column(
@@ -242,15 +258,7 @@ class _FactoryApparatusLiveSheetState
                   width: 10,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: !widget.live.fresh
-                        ? Colors.grey
-                        : states.values.contains('print_preflight')
-                            ? const Color(0xFF7E86A8)
-                            : states.values.contains('in_progress')
-                                ? const Color(0xFF278263)
-                                : states.values.contains('paused')
-                                    ? const Color(0xFFB37B22)
-                                    : Colors.blueGrey,
+                    color: Color(machineStatus.colorValue),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -268,9 +276,7 @@ class _FactoryApparatusLiveSheetState
                             ),
                       ),
                       Text(
-                        l10n.adminText(widget.live.fresh
-                            ? 'factory_map.live_status'
-                            : 'factory_map.live.unknown'),
+                        l10n.adminText(machineStatus.labelKey),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: scheme.onSurfaceVariant,
                             ),
@@ -344,6 +350,11 @@ class _FactoryApparatusLiveSheetState
                             actionLabel: l10n.adminText('factory_map.retry'),
                             onAction: _load,
                           ),
+                        if (_wipBatches.length >= 250)
+                          _FactoryMapNoticeCard(
+                            icon: Icons.info_outline_rounded,
+                            message: l10n.adminText('factory_map.wip_limited'),
+                          ),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -395,13 +406,14 @@ class _FactoryApparatusLiveSheetState
                                   ),
                                   orderId: orderIds[index],
                                   order: _orderForId(orderIds[index]),
-                                  state: apparatusQueueOrderStateFromRaw(
-                                    states[orderIds[index]],
-                                  ),
-                                  isActive: activeOrderId == orderIds[index],
+                                  status: widget.live.fresh
+                                      ? statuses[orderIds[index]]!
+                                      : FactoryMapStatus.unknown,
+                                  isActive: machine.orderId == orderIds[index],
                                   materials:
                                       _materialsForOrder(orderIds[index]),
                                   wipBatches: _wipForOrder(orderIds[index]),
+                                  apparatusNames: widget.apparatusNames,
                                   onOpenDetail: _orderForId(orderIds[index]) ==
                                           null
                                       ? null
@@ -433,20 +445,22 @@ class _FactoryOrderCard extends StatefulWidget {
     required this.slot,
     required this.orderId,
     required this.order,
-    required this.state,
+    required this.status,
     required this.isActive,
     required this.materials,
     required this.wipBatches,
+    required this.apparatusNames,
     required this.onOpenDetail,
   });
 
   final M3SegmentVerticalSlot slot;
   final String orderId;
   final ProductionMapSaved? order;
-  final ApparatusQueueOrderState state;
+  final FactoryMapStatus status;
   final bool isActive;
   final List<AdminRawMaterialAssignment> materials;
   final List<AdminProgressBatch> wipBatches;
+  final Map<String, String> apparatusNames;
   final VoidCallback? onOpenDetail;
 
   @override

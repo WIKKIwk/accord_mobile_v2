@@ -47,6 +47,9 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
   bool _sheetVisible = false;
   String _focusedObjectId = '';
   AdminApparatus? _pendingApparatus;
+  Timer? _focusTimer;
+  bool _modelFailed = false;
+  int _modelRevision = 0;
   int _resetRevision = 0;
   late final FactoryMapBindings _bindings;
   late final FactoryMapLive _live;
@@ -102,6 +105,7 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
 
   @override
   void dispose() {
+    _focusTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _stock.removeListener(_bindingsChanged);
     if (widget.stock == null) {
@@ -150,6 +154,61 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
 
   Future<void> _loadMappings() => _bindings.refresh();
 
+  Future<void> _openDirectory() async {
+    if (!_factoryMapInteractionEnabled || !_bindings.ready) return;
+    setState(() {
+      _sheetVisible = true;
+      _factoryMapInteractionEnabled = false;
+    });
+    AdminApparatus? selected;
+    ModalRoute<AdminApparatus>? route;
+    try {
+      selected = await showModalBottomSheet<AdminApparatus>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (context) {
+          route = ModalRoute.of<AdminApparatus>(context);
+          return FractionallySizedBox(
+            heightFactor: .82,
+            child: FactoryMapDirectory(bindings: _bindings, live: _live),
+          );
+        },
+      );
+    } finally {
+      await route?.completed;
+      if (mounted) {
+        setState(() {
+          _sheetVisible = false;
+          _factoryMapInteractionEnabled = true;
+        });
+      }
+    }
+    if (!mounted || selected == null) return;
+    if (selected.factoryMapObjectId.isNotEmpty && !_modelFailed) {
+      _handleObjectTap(FactoryMapObjectSelection(
+        objectId: canonicalFactoryMapObjectId(selected.factoryMapObjectId),
+        label: selected.name,
+      ));
+    } else {
+      setState(() => _factoryMapInteractionEnabled = false);
+      await _showApparatusLiveSheet(selected);
+    }
+  }
+
+  void _refreshMap() {
+    if (_modelFailed) {
+      setState(() {
+        _modelFailed = false;
+        _modelRevision++;
+      });
+    }
+    unawaited(_loadMappings());
+    unawaited(_live.refresh());
+    unawaited(_stock.refresh());
+  }
+
   void _handleObjectTap(FactoryMapObjectSelection selection) {
     if (!_factoryMapInteractionEnabled) return;
     if (_loadingMappings || !_bindings.ready) {
@@ -179,11 +238,16 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
       _focusedObjectId = selection.objectId;
       _pendingApparatus = mapped;
     });
+    // Missing model objects or an interrupted camera animation must not lock UI.
+    _focusTimer?.cancel();
+    _focusTimer = Timer(const Duration(seconds: 2),
+        () => _handleFocusComplete(selection.objectId));
   }
 
   void _handleFocusComplete(String objectId) {
     final apparatus = _pendingApparatus;
     if (!mounted || apparatus == null || objectId != _focusedObjectId) return;
+    _focusTimer?.cancel();
     _pendingApparatus = null;
     unawaited(_showApparatusLiveSheet(apparatus));
   }
@@ -211,14 +275,17 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
           return DraggableScrollableSheet(
             expand: false,
             shouldCloseOnMinExtent: false,
-            initialChildSize: 0.38,
+            initialChildSize: 0.58,
             minChildSize: 0.28,
             maxChildSize: 0.92,
             snap: true,
-            snapSizes: const [0.38, 0.68, 0.92],
+            snapSizes: const [0.58, 0.92],
             builder: (context, scrollController) => _FactoryApparatusLiveSheet(
               apparatus: apparatus,
               live: _live,
+              apparatusNames: {
+                for (final item in _apparatus) item.id: item.name
+              },
               scrollController: scrollController,
               onUnlink: () => _savePlacement(apparatus, ''),
             ),
@@ -324,12 +391,16 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
         .where((item) => item.factoryMapObjectId.trim().isNotEmpty)
         .length;
     final viewer = AdminFactoryMapViewer(
+      key: ValueKey('factory-map-model-$_modelRevision'),
       interactionEnabled: _factoryMapInteractionEnabled,
       renderSuspended: _sheetVisible,
       focusedObjectId: _focusedObjectId,
       resetRevision: _resetRevision,
       onObjectTap: _handleObjectTap,
       onFocusComplete: _handleFocusComplete,
+      onLoadError: () {
+        if (mounted) setState(() => _modelFailed = true);
+      },
       showLabels: _showLabels,
       stockState: _stock.payload(_apparatus, (key) => l10n.adminText(key)),
       liveState: _live.payload(_apparatus, (key) => l10n.adminText(key),
@@ -354,90 +425,144 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
                       child: widget.viewerBuilder?.call(viewer) ?? viewer,
                     ),
                     Positioned(
-                      top: 10,
-                      left: 10,
-                      right: 10,
+                      top: 12,
+                      left: 12,
+                      right: 12,
                       child: IgnorePointer(
                         child: Align(
                           alignment: Alignment.topLeft,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: const Color(0xD91B1F21),
-                              borderRadius: BorderRadius.circular(14),
+                              color: scheme.surface.withValues(alpha: .96),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                  color: scheme.outlineVariant
+                                      .withValues(alpha: .5)),
                             ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 7,
-                              ),
-                              child: Text(
-                                _loadingMappings
-                                    ? l10n.adminText(
-                                        'factory_map.loading_equipment',
-                                      )
-                                    : _mappingError.isNotEmpty
-                                        ? _mappingError
-                                        : '${l10n.adminText('factory_map.live.summary', values: {
-                                                'count': mappedCount
-                                              })} · ${l10n.adminText(_live.fresh ? 'factory_map.live.synced' : 'factory_map.live.unknown')}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                                  horizontal: 12, vertical: 9),
+                              child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                        _live.fresh
+                                            ? Icons.check_circle_rounded
+                                            : Icons.cloud_off_rounded,
+                                        size: 16,
+                                        color: _live.fresh
+                                            ? const Color(0xFF278263)
+                                            : scheme.onSurfaceVariant),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                        child: Text(
+                                      _loadingMappings
+                                          ? l10n.adminText(
+                                              'factory_map.loading_equipment')
+                                          : _mappingError.isNotEmpty
+                                              ? _mappingError
+                                              : '${l10n.adminText('factory_map.live.summary', values: {
+                                                      'count': mappedCount
+                                                    })} · ${l10n.adminText(_live.fresh ? 'factory_map.live.synced' : 'factory_map.live.unknown')}',
+                                      style: TextStyle(
+                                          color: scheme.onSurface,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600),
+                                    )),
+                                  ]),
                             ),
                           ),
                         ),
                       ),
                     ),
-                    Positioned(
-                      left: 10,
-                      bottom: 10,
-                      child: IconButton.filledTonal(
-                        key: const ValueKey('factory-map-reset-camera'),
-                        tooltip: l10n.adminText('factory_map.overview'),
-                        onPressed: _factoryMapInteractionEnabled
-                            ? () => setState(() => _resetRevision++)
-                            : null,
-                        icon: const Icon(Icons.center_focus_strong_rounded),
-                      ),
-                    ),
-                    Positioned(
-                      left: 62,
-                      bottom: 10,
-                      child: IconButton.filledTonal(
-                        key: const ValueKey('factory-map-labels'),
-                        tooltip: l10n.adminText('factory_map.live.labels'),
-                        isSelected: _showLabels,
-                        onPressed: () =>
-                            setState(() => _showLabels = !_showLabels),
-                        icon: const Icon(Icons.label_outline_rounded),
-                        selectedIcon: const Icon(Icons.label_rounded),
-                      ),
-                    ),
-                    Positioned(
-                      right: 10,
-                      bottom: 10,
-                      child: IconButton.filledTonal(
-                        tooltip: l10n.adminText(
-                          'factory_map.refresh_mappings',
+                    if (_modelFailed)
+                      Positioned(
+                        top: 68,
+                        left: 12,
+                        right: 12,
+                        child: Material(
+                          color: scheme.errorContainer,
+                          borderRadius: BorderRadius.circular(18),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                            child: Row(children: [
+                              Expanded(
+                                  child: Text(
+                                      l10n.adminText(
+                                          'factory_map.model_failed'),
+                                      style: TextStyle(
+                                          color: scheme.onErrorContainer))),
+                              TextButton(
+                                  key:
+                                      const ValueKey('factory-map-retry-model'),
+                                  onPressed: _refreshMap,
+                                  child: Text(
+                                      l10n.adminText('factory_map.retry'))),
+                            ]),
+                          ),
                         ),
-                        onPressed: _loadingMappings
-                            ? null
-                            : () {
-                                unawaited(_loadMappings());
-                                unawaited(_live.refresh());
-                                unawaited(_stock.refresh());
-                              },
-                        icon: _loadingMappings
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.refresh_rounded),
+                      ),
+                    Positioned(
+                      left: 12,
+                      right: 12,
+                      bottom: 12,
+                      child: Material(
+                        elevation: 2,
+                        shadowColor: Colors.black.withValues(alpha: .14),
+                        color: scheme.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Row(children: [
+                            Expanded(
+                                child: FilledButton.icon(
+                              key: const ValueKey('factory-map-directory'),
+                              onPressed: _bindings.ready &&
+                                      _factoryMapInteractionEnabled
+                                  ? _openDirectory
+                                  : null,
+                              icon: const Icon(Icons.search_rounded, size: 20),
+                              label: Text(
+                                  l10n.adminText('factory_map.directory.title'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12)),
+                            )),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              key: const ValueKey('factory-map-reset-camera'),
+                              tooltip: l10n.adminText('factory_map.overview'),
+                              onPressed: _factoryMapInteractionEnabled
+                                  ? () => setState(() => _resetRevision++)
+                                  : null,
+                              icon:
+                                  const Icon(Icons.center_focus_strong_rounded),
+                            ),
+                            IconButton(
+                              key: const ValueKey('factory-map-labels'),
+                              tooltip:
+                                  l10n.adminText('factory_map.live.labels'),
+                              isSelected: _showLabels,
+                              onPressed: () =>
+                                  setState(() => _showLabels = !_showLabels),
+                              icon: const Icon(Icons.label_outline_rounded),
+                              selectedIcon: const Icon(Icons.label_rounded),
+                            ),
+                            IconButton(
+                              tooltip: l10n
+                                  .adminText('factory_map.refresh_mappings'),
+                              onPressed: _loadingMappings ? null : _refreshMap,
+                              icon: _loadingMappings
+                                  ? const SizedBox.square(
+                                      dimension: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2))
+                                  : const Icon(Icons.refresh_rounded),
+                            ),
+                          ]),
+                        ),
                       ),
                     ),
                   ],
@@ -453,12 +578,14 @@ class _FactoryApparatusLiveSheet extends StatefulWidget {
   const _FactoryApparatusLiveSheet({
     required this.apparatus,
     required this.live,
+    required this.apparatusNames,
     required this.scrollController,
     required this.onUnlink,
   });
 
   final AdminApparatus apparatus;
   final FactoryMapLive live;
+  final Map<String, String> apparatusNames;
   final ScrollController scrollController;
   final Future<AdminApparatus?> Function() onUnlink;
 

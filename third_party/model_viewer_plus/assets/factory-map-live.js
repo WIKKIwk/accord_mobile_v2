@@ -112,7 +112,7 @@ export class FrameBudget {
   }
 }
 
-const COLORS = { print_preflight: '#7e86a8', in_progress: '#278263', paused: '#b37b22', frozen: '#925f84',
+const COLORS = { print_preflight: '#7e86a8', print_preflight_passed: '#568326', in_progress: '#278263', paused: '#b37b22', frozen: '#c62828',
   pending: '#597ba3', idle: '#77827d', unknown: '#8b8984' };
 
 export function createFactoryLive({ host, root, camera, canvas, getBox, onSelect, requestRender }) {
@@ -121,19 +121,19 @@ export function createFactoryLive({ host, root, camera, canvas, getBox, onSelect
   const style = document.createElement('style');
   style.textContent = `
     .factory-live-layer { position:absolute;inset:0;overflow:hidden;pointer-events:none;font-family:system-ui,sans-serif; }
-    .factory-live-label { position:absolute;left:0;top:0;width:142px;box-sizing:border-box;pointer-events:auto;
-      border:1px solid #ffffffd9;border-radius:11px;background:#fffffff2;color:#263b38;padding:6px 8px;
-      box-shadow:0 3px 10px #253e3a20;text-align:left;cursor:pointer;line-height:1.25; }
+    .factory-live-label { position:absolute;left:0;top:0;width:152px;box-sizing:border-box;pointer-events:auto;
+      border:1px solid #ffffff;border-left:3px solid var(--state-color,#8b8984);border-radius:12px;background:#fffffff5;color:#263b38;padding:7px 9px;
+      box-shadow:0 2px 6px #253e3a16;text-align:left;cursor:pointer;line-height:1.25; }
     .factory-live-label:focus-visible {outline:3px solid #4f6fb5;outline-offset:2px;}
     .factory-live-label[data-focused=true] {border-color:#4f6fb5;box-shadow:0 3px 14px #4f6fb53d;}
     .factory-live-label b,.factory-live-label small,.factory-live-label span {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .factory-live-label b {font-size:11px;font-weight:750;}
-    .factory-live-label small {font-size:10px;margin-top:2px;color:#5d6f68;}
-    .factory-live-label span {font-size:10px;margin-top:3px;color:var(--state-color);font-weight:650;}
+    .factory-live-label b {font-size:12px;font-weight:700;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+    .factory-live-label small {font-size:11px;margin-top:3px;color:#5d6f68;}
+    .factory-live-label span {font-size:11px;margin-top:4px;color:var(--state-color);font-weight:650;white-space:normal;overflow-wrap:break-word;}
     .factory-live-label span::before {content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--state-color);margin-right:4px;}
-    .factory-live-route {position:absolute;top:42px;left:10px;right:10px;text-align:center;font-size:10px;color:#475e73;background:#ffffffdb;border-radius:9px;padding:5px;}
+    .factory-live-route {position:absolute;top:58px;left:12px;right:12px;text-align:center;font-size:11px;color:#475e73;background:#ffffffeb;border-radius:9px;padding:5px;}
     .factory-live-layer svg {position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
-    @media(max-width:420px) {.factory-live-label{width:122px;padding:5px 7px;}.factory-live-label b{font-size:10px;}}
+    @media(max-width:420px) {.factory-live-label{width:136px;padding:6px 8px;}}
   `;
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('aria-hidden', 'true');
@@ -164,8 +164,11 @@ export function createFactoryLive({ host, root, camera, canvas, getBox, onSelect
     const valid = fresh();
     for (const entry of entries.values()) {
       const actualState = valid ? entry.data.state : 'unknown';
-      entry.button.style.setProperty('--state-color', COLORS[actualState] || COLORS.unknown);
+      const color = valid && /^#[0-9a-f]{6}$/i.test(entry.data.statusColor || '')
+        ? entry.data.statusColor : COLORS[actualState] || COLORS.unknown;
+      entry.button.style.setProperty('--state-color', color);
       entry.status.textContent = valid ? entry.data.statusLabel : live.unknownLabel || '—';
+      entry.labelHeight = null;
       entry.button.dataset.focused = String(entry.data.objectId === state.focusedObjectId);
       entry.button.disabled = state.enabled === false;
       entry.button.setAttribute('aria-label', [entry.data.name, entry.status.textContent, entry.data.orderLabel].filter(Boolean).join(' · '));
@@ -202,7 +205,8 @@ export function createFactoryLive({ host, root, camera, canvas, getBox, onSelect
       }
       entry.data = data;
       entry.name.textContent = data.name;
-      entry.order.textContent = data.orderLabel;
+      entry.order.textContent = data.orderNumber ? `№ ${data.orderNumber}` : data.orderLabel;
+      entry.button.title = [data.name, data.orderLabel, data.statusLabel].filter(Boolean).join(' · ');
       entry.order.hidden = !data.orderLabel;
     }
     for (const [id, entry] of entries) if (!keep.has(id)) {
@@ -239,17 +243,31 @@ export function createFactoryLive({ host, root, camera, canvas, getBox, onSelect
     });
     for (const entry of sorted) {
       const p = project(entry.anchor);
-      let visible = state.showLabels !== false && p.visible && p.x > 0 && p.x < width && p.y > 35 && p.y < height - 55;
+      let visible = state.showLabels !== false && p.visible && p.x > 0 && p.x < width && p.y > 48 && p.y < height - 78;
       if (state.focusedObjectId && state.focusedObjectId !== entry.data.objectId) visible = false;
-      const w = width <= 420 ? 122 : 142, h = entry.data.orderLabel ? 58 : 43;
+      if (!visible) {
+        entry.button.hidden = true;
+        entry.line.style.display = 'none';
+        continue;
+      }
+      const w = width <= 420 ? 136 : 152;
+      // Passed colour matching has a longer status. Measure wrapped labels
+      // when content/width changes so decluttering uses their actual height.
+      if (entry.labelWidth !== w || entry.labelHeight == null) {
+        entry.button.style.width = `${w}px`;
+        entry.button.hidden = false;
+        entry.labelHeight = entry.button.offsetHeight || (entry.data.orderLabel ? 58 : 43);
+        entry.labelWidth = w;
+      }
+      const h = entry.labelHeight;
       let left = Math.max(6, Math.min(width - w - 6, p.x - w / 2));
-      let top = Math.max(42, p.y - h - 14);
+      let top = Math.max(58, p.y - h - 14);
       // Bounded decluttering: working/focused machines win. Hidden labels remain
       // reachable by tapping the original machine, never by moving the model.
       let fit = false;
       for (const shift of [0, -h - 7, h + 7, -2 * (h + 7)]) {
         const y = top + shift;
-        if (y < (routes.length ? 72 : 40) || y + h > height - 62) continue;
+        if (y < (routes.length ? 92 : 58) || y + h > height - 82) continue;
         if (occupied.some(r => left < r.x + r.w + 5 && left + w + 5 > r.x && y < r.y + r.h + 5 && y + h + 5 > r.y)) continue;
         top = y; fit = true; break;
       }

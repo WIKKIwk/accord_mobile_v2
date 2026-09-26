@@ -18,31 +18,6 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
     }
   }
 
-  String _statusLabel(AppLocalizations l10n) => switch (widget.state) {
-        ApparatusQueueOrderState.printPreflight =>
-          l10n.productionText('worker.queue.status.print_preflight'),
-        ApparatusQueueOrderState.inProgress =>
-          l10n.adminText('factory_map.filter.in_progress'),
-        ApparatusQueueOrderState.paused =>
-          l10n.adminText('training.status_paused'),
-        ApparatusQueueOrderState.frozen => l10n.productionText(
-            'worker.freeze.active',
-          ),
-        ApparatusQueueOrderState.completed =>
-          l10n.adminText('factory_map.filter.completed'),
-        ApparatusQueueOrderState.pending =>
-          l10n.adminText('wip.status.waiting'),
-      };
-
-  Color _statusColor(ColorScheme scheme) => switch (widget.state) {
-        ApparatusQueueOrderState.printPreflight => const Color(0xFF7E86A8),
-        ApparatusQueueOrderState.inProgress => const Color(0xFF2E7D32),
-        ApparatusQueueOrderState.paused => const Color(0xFFC62828),
-        ApparatusQueueOrderState.frozen => const Color(0xFF1565C0),
-        ApparatusQueueOrderState.completed => scheme.outline,
-        ApparatusQueueOrderState.pending => scheme.primary,
-      };
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -52,9 +27,12 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
     final title = orderNumber.isEmpty
         ? widget.orderId
         : '${l10n.adminText('calculate.order')} №$orderNumber';
-    final statusColor = _statusColor(scheme);
+    final statusColor = Color(widget.status.colorValue);
+    String readable(String value) => factoryMapReadableText(value,
+        apparatusNames: widget.apparatusNames,
+        fallback: l10n.adminText('factory_map.directory.machine'));
     final subtitle = [
-      _statusLabel(l10n),
+      l10n.adminText(widget.status.labelKey),
       if ((map?.customerName.trim() ?? '').isNotEmpty) map!.customerName.trim(),
       if ((map?.productCode.trim() ?? '').isNotEmpty) map!.productCode.trim(),
     ].join(' · ');
@@ -74,7 +52,7 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
-                widget.isActive
+                widget.status == FactoryMapStatus.inProgress
                     ? Icons.play_arrow_rounded
                     : Icons.schedule_rounded,
                 size: 18,
@@ -99,11 +77,11 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
-                  maxLines: 2,
+                  maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
-                        height: 1.05,
+                        height: 1.35,
                       ),
                 ),
               ],
@@ -180,16 +158,16 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
                   title: Text(
                     batch.labelItemName.trim().isEmpty
                         ? batch.batchId
-                        : batch.labelItemName,
+                        : readable(batch.labelItemName),
                   ),
                   subtitle: Text(
                     [
                       if (batch.currentLocation.trim().isNotEmpty)
-                        batch.currentLocation,
+                        readable(batch.currentLocation),
                       if (batch.nextApparatus.trim().isNotEmpty)
                         l10n.adminText(
                           'factory_map.next',
-                          values: {'apparatus': batch.nextApparatus},
+                          values: {'apparatus': readable(batch.nextApparatus)},
                         ),
                     ].join(' · '),
                   ),

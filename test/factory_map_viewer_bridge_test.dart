@@ -17,6 +17,7 @@ void main() {
     late ModelViewer viewer;
     String? tapped;
     String? focused;
+    var loadErrors = 0;
     String selected = 'node:7';
     bool suspended = false;
     Future<void> build() => tester.pumpWidget(MaterialApp(
@@ -53,6 +54,7 @@ void main() {
               },
               onObjectTap: (selection) => tapped = selection.objectId,
               onFocusComplete: (id) => focused = id,
+              onLoadError: () => loadErrors++,
             ).build(context) as ModelViewer;
             return const SizedBox();
           }),
@@ -79,6 +81,9 @@ void main() {
     channel.onMessageReceived(const JavaScriptMessage(
         message: '{"type":"focus_complete","objectId":"node:7"}'));
     expect(focused, 'node:7');
+    channel.onMessageReceived(
+        const JavaScriptMessage(message: '{"type":"load_error"}'));
+    expect(loadErrors, 1);
     channel.onMessageReceived(const JavaScriptMessage(message: 'invalid'));
     channel.onMessageReceived(const JavaScriptMessage(
         message: '{"type":"unrelated","objectId":"node:99"}'));

@@ -24,6 +24,7 @@ class FactoryMapStock extends ChangeNotifier {
         _loadPage = loadPage ??
             ((offset) => MobileApi.instance.inventoryAssets(
                 assetKind: InventoryAssetKind.rawMaterial,
+                currentUserStatesOnly: true,
                 limit: pageSize,
                 offset: offset)),
         _loadItems = loadItems ?? MobileApi.instance.adminItems,

@@ -75,6 +75,9 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
 
   Future<void> _pickProduct() async {
     final l10n = context.l10n;
+    Future<List<QolipProduct>>? availableFuture;
+    final searchPages = <String, Future<List<QolipProduct>?>>{};
+    var pickerOpen = true;
     final picked = await showModalBottomSheet<_QolipProductSelection>(
       context: context,
       isDismissible: true,
@@ -112,17 +115,21 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
                 limit: limit,
               );
             }
-            final products = await _loadProducts();
-            final available = isCellPlacement
-                ? qolipProductsAvailableForCellPlacement(
-                    products,
-                    await _placedQolipCodesFuture,
-                  )
-                : products;
-            final filtered = available.where(
-              (product) => qolipProductSearchMatches(query, product),
-            );
-            return filtered.skip(offset).take(limit).toList(growable: false);
+            availableFuture ??= () async {
+              return qolipProductsAvailableForCellPlacement(
+                  await _loadProducts(), await _placedQolipCodesFuture);
+            }();
+            final available = await availableFuture!;
+            if (searchPages.length >= 8 && !searchPages.containsKey(query)) {
+              searchPages.clear();
+            }
+            final filtered = await searchPages.putIfAbsent(
+                query,
+                () => filterQolipSearch(
+                    available, query, qolipProductSearchDocument,
+                    isCurrent: () => mounted && pickerOpen));
+            return filtered?.skip(offset).take(limit).toList(growable: false) ??
+                const <QolipProduct>[];
           },
           itemTitle: (item) {
             final name = item.name.trim();
@@ -171,6 +178,7 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
         );
       },
     );
+    pickerOpen = false;
     if (picked != null && mounted) {
       if (picked.isMultiSelection) {
         await _confirmAndSaveSelectedProducts(picked.products);

@@ -6,6 +6,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../shared/models/app_models.dart';
 import '../models/production_map_models.dart';
 import 'factory_map_mapping.dart';
+import 'factory_map_status.dart';
 
 /// Read-only ERP projection. Animation describes queue state, not PLC telemetry.
 class FactoryMapLive extends ChangeNotifier {
@@ -31,6 +32,7 @@ class FactoryMapLive extends ChangeNotifier {
   int? _request;
   Timer? _poll;
   Timer? _expiry;
+  final Set<String> _retiredEpochs = {};
 
   bool get fresh =>
       _active &&
@@ -62,14 +64,20 @@ class FactoryMapLive extends ChangeNotifier {
     try {
       final next = await _load().timeout(const Duration(seconds: 12));
       if (_disposed || generation != _generation) return;
-      if (snapshot?.revision != null &&
+      if (_retiredEpochs.contains(next.epoch) ||
+          (snapshot?.epoch == next.epoch && snapshot?.revision != null &&
           next.revision != null &&
-          next.revision! < snapshot!.revision!) {
+          next.revision! < snapshot!.revision!)) {
         throw StateError('Older queue snapshot');
+      }
+      final previousEpoch = snapshot?.epoch ?? '';
+      if (previousEpoch.isNotEmpty && next.epoch.isNotEmpty &&
+          next.epoch != previousEpoch) {
+        _retiredEpochs.add(previousEpoch);
       }
       // Order metadata is optional; it must never delay or invalidate status.
       snapshot = next;
-      if (next.maps.isNotEmpty) maps = next.maps;
+      if (next.maps.isNotEmpty || next.epoch.isNotEmpty) maps = next.maps;
       receivedAt = _clock();
       failed = false;
       _expiry?.cancel();
@@ -80,7 +88,7 @@ class FactoryMapLive extends ChangeNotifier {
       final known = maps.map((item) => item.map.id).toSet();
       final missing = next.queueStates.values
           .any((states) => states.keys.any((id) => !known.contains(id)));
-      if (next.maps.isEmpty && missing) {
+      if (next.epoch.isEmpty && next.maps.isEmpty && missing) {
         try {
           final fallback =
               await _loadMaps().timeout(const Duration(seconds: 8));
@@ -114,24 +122,11 @@ class FactoryMapLive extends ChangeNotifier {
         continue;
       }
       objectByApparatus[item.id] = objectId;
-      final states = snapshot?.queueStates[item.id] ?? const <String, String>{};
-      final ids = <String>{...?(snapshot?.sequences[item.id]), ...states.keys};
-      String state = fresh ? 'idle' : 'unknown';
-      String orderId = '';
-      for (final candidate in const [
-        'print_preflight',
-        'in_progress',
-        'paused',
-        'frozen',
-        'pending'
-      ]) {
-        final matching = ids.where((id) => states[id] == candidate);
-        if (matching.isNotEmpty) {
-          orderId = matching.first;
-          if (fresh) state = candidate;
-          break;
-        }
-      }
+      final machine = factoryMapMachineStatus(
+        snapshot: snapshot, apparatusId: item.id,
+      );
+      final status = fresh ? machine.status : FactoryMapStatus.unknown;
+      final orderId = machine.orderId;
       if (objectId == canonicalFactoryMapObjectId(focusedObjectId)) {
         focusedOrder = orderId;
       }
@@ -146,10 +141,12 @@ class FactoryMapLive extends ChangeNotifier {
         'objectId': objectId,
         'apparatusId': item.id,
         'name': item.name,
-        'state': state,
-        'statusLabel': text('factory_map.live.$state'),
+        'state': status.value,
+        'statusLabel': text(status.labelKey),
+        'statusColor': status.cssColor,
         'orderId': orderId,
         'orderLabel': orderLabel,
+        'orderNumber': order?.orderNumber ?? '',
       });
     }
     return {

@@ -6,7 +6,7 @@ class _QolipBlockGrid extends StatelessWidget {
     required this.block,
     required this.future,
     required this.initialLocations,
-    required this.searchQuery,
+    required this.searchCounts,
     required this.onRefresh,
     required this.onAttachAt,
     required this.onPrintCellQr,
@@ -19,7 +19,7 @@ class _QolipBlockGrid extends StatelessWidget {
   final QolipBlock block;
   final Future<List<QolipLocationEntry>> future;
   final List<QolipLocationEntry>? initialLocations;
-  final String searchQuery;
+  final ValueNotifier<Map<String, int>> searchCounts;
   final Future<void> Function() onRefresh;
   final Future<void> Function(
     QolipBlock block,

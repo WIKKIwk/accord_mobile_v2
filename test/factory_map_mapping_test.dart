@@ -8,6 +8,24 @@ AdminApparatus _apparatus(String name, String objectId) {
 }
 
 void main() {
+  test(
+      'WIP display resolves known apparatus names and hides unknown internal IDs',
+      () {
+    expect(
+        factoryMapReadableText(
+            'Material, apparat: apparatus:default:asset-010, rulon tugatildi',
+            apparatusNames: {'apparatus:default:asset-010': 'Rezka'},
+            fallback: 'Apparat'),
+        'Material, apparat: Rezka, rulon tugatildi');
+    expect(
+        factoryMapReadableText('apparatus:missing:one chiqim',
+            apparatusNames: const {}, fallback: 'Apparat'),
+        'Apparat chiqim');
+    expect(
+        factoryMapReadableText('Laminatsiya 1',
+            apparatusNames: const {}, fallback: 'Apparat'),
+        'Laminatsiya 1');
+  });
   test('verified coincident extruder taps resolve the saved apparatus', () {
     final extruder = _apparatus('Extruder laminatsiya', 'node:7');
     final neighbour = _apparatus('Boshqa aparat', 'node:18:instance:2');

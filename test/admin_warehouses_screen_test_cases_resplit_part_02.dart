@@ -367,7 +367,7 @@ void _registeradmin_warehouses_screen_testCases02() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Siz joylashtirgan State’dagi mahsulot topilmadi'),
+      find.text('State’dagi mahsulot topilmadi'),
       findsOneWidget,
     );
   });

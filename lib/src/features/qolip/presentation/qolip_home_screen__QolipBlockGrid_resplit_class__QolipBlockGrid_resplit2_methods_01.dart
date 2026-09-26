@@ -87,7 +87,7 @@ extension __QolipBlockGridAstPart01 on _QolipBlockGrid {
                     letters: _QolipBlockGrid._letters,
                     rowCount: _QolipBlockGrid._gridRowCount,
                     byCell: byCell,
-                    searchQuery: searchQuery,
+                    searchCounts: searchCounts,
                     onCellTap: (cellLabel, items) =>
                         _openCellAction(context, cellLabel, items, locations),
                     onCellLongPress: (cellLabel) =>

@@ -22,7 +22,7 @@ const modelPath = path.join(
 );
 const rendererSource = fs.readFileSync(rendererPath, 'utf8');
 
-test('sheet suspension cancels rendering and defers scene updates until resume', () => {
+test('sheet suspension keeps ERP overlays current without scheduling GPU frames', () => {
   const stateFunction = rendererSource.match(/function handleRendererState\(\) \{[\s\S]*?\n\}/)[0];
   const requestFunction = rendererSource.match(/function requestRender\(\) \{[\s\S]*?\n\}/)[0];
   const frameFunction = rendererSource.match(/function renderFrame\(now\) \{[\s\S]*?\n\}/)[0];
@@ -34,7 +34,7 @@ test('sheet suspension cancels rendering and defers scene updates until resume',
     const cancelAnimationFrame = id => cancelled.push(id);
     const requestAnimationFrame = () => ++scheduled;
     const mapBounds = {}, controls = {}, focusId = '';
-    const liveView = {setState: () => updates++}, stockView = {setState: () => updates++};
+    const liveView = {setState: () => updates++, frame: () => {}}, stockView = {setState: () => updates++, frame: () => {}};
     ${stateFunction}
     ${requestFunction}
     ${frameFunction}
@@ -48,9 +48,12 @@ test('sheet suspension cancels rendering and defers scene updates until resume',
   harness.state({renderSuspended: true});
   harness.request();
   harness.frame(100); // A frame already dispatched must also bail out.
-  assert.deepEqual(harness.metrics(), {cancelled: [7], scheduled: 0, updates: 0, frameId: 0, paused: 'true'});
+  assert.deepEqual(harness.metrics(), {cancelled: [7], scheduled: 0, updates: 2, frameId: 0, paused: 'true'});
+  harness.state({renderSuspended: true, live: {fresh: true}});
+  assert.equal(harness.metrics().updates, 4, 'periodic snapshots still reach both overlays');
+  assert.equal(harness.metrics().scheduled, 0, 'refreshing behind a sheet must not draw');
   harness.state({renderSuspended: false});
-  assert.equal(harness.metrics().updates, 2);
+  assert.equal(harness.metrics().updates, 6);
   assert.equal(harness.metrics().scheduled, 1);
   assert.equal(harness.metrics().paused, 'false');
 });

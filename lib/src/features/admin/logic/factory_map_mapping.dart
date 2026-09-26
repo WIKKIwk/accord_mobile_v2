@@ -107,6 +107,15 @@ String factoryMapLoadErrorMessage(Object error, String fallback) {
   return detail.isEmpty ? fallback : '$fallback: $detail';
 }
 
+/// Resolve identifiers embedded in older WIP labels without changing ERP data.
+String factoryMapReadableText(String value,
+    {required Map<String, String> apparatusNames, required String fallback}) {
+  return value.replaceAllMapped(RegExp(r'apparatus:[a-zA-Z0-9:_-]+'), (match) {
+    final name = apparatusNames[match.group(0)]?.trim() ?? '';
+    return name.isEmpty ? fallback : name;
+  });
+}
+
 String? _legacyFactoryMapObjectId(String objectId) {
   final match = RegExp(r'^(.*):instance:\d+$').firstMatch(objectId.trim());
   final legacyObjectId = match?.group(1)?.trim();

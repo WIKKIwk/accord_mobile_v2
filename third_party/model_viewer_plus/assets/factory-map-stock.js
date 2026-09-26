@@ -60,7 +60,7 @@ const EMPTY_RECTS = Object.freeze([]);
 export function placeStockBadge(x, y, width, height, w, occupied) {
   for (const shift of [0, -26, 26, -52, 52]) {
     const rect = { x: x - w / 2, y: y - 22 + shift, w, h: 22 };
-    if (rect.x < 6 || rect.x + w > width - 6 || rect.y < 35 || rect.y + 22 > height - 42) continue;
+    if (rect.x < 6 || rect.x + w > width - 6 || rect.y < 54 || rect.y + 22 > height - 82) continue;
     if (occupied.some(p => rect.x < p.x + p.w + 4 && rect.x + w + 4 > p.x &&
         rect.y < p.y + p.h + 4 && rect.y + 26 > p.y)) continue;
     return rect;

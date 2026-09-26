@@ -4,8 +4,8 @@ import { OrbitControls } from './OrbitControls.js';
 import { CAMERA_LIMITS, constrainCamera, focusCamera, overviewCamera, smoothStep, visibleWorldBoxes } from './factory-map-navigation.js?v=20260907near4';
 import { buildPickBounds, closestMapHits, loadMapBytes, optimizeStaticMap } from './factory-map-performance.js?v=20260907live2';
 import { apparatusHit, apparatusObjectId, cleanFactoryMapGeometry, FACTORY_MAP_CLUTTER_BASE_IDS, isFactoryMapApparatus } from './factory-map-scene-policy.js?v=20260907live2';
-import { createFactoryLive, FrameBudget } from './factory-map-live.js?v=20260907stock2';
-import { createFactoryStock } from './factory-map-stock.js?v=20260907stock2';
+import { createFactoryLive, FrameBudget } from './factory-map-live.js?v=20260926map2';
+import { createFactoryStock } from './factory-map-stock.js?v=20260926map2';
 import { lockFactoryMapGestures } from './factory-map-gestures.js?v=20260907touch1';
 
 // The module is cached by the browser; mounting is explicit so route re-entry
@@ -781,14 +781,21 @@ function handleRendererState() {
   const previous = lastState;
   lastState = state;
   canvas.dataset.renderSuspended = String(state.renderSuspended === true);
+  // A sheet pauses GPU work, not the ERP labels visible behind it.
+  // Both projections retain their expiry timers and update their DOM here.
+  if (mapBounds) {
+    liveView?.setState(state);
+    stockView?.setState(state);
+  }
   if (state.renderSuspended === true) {
     cancelAnimationFrame(frameId);
     frameId = 0;
+    // Lay out HTML badges only. No reel animation or WebGL draw behind a sheet.
+    liveView?.frame(performance.now(), true, true);
+    stockView?.frame(true);
     return;
   }
   if (!mapBounds) return;
-  liveView?.setState(state);
-  stockView?.setState(state);
   controls.enabled = state.enabled !== false;
   if (state.resetRevision !== previous.resetRevision && state.resetRevision > 0) {
     beforeFocus = null;
@@ -969,6 +976,7 @@ function showError(error) {
   status.title = message;
   status.hidden = false;
   status.style.display = 'grid';
+  postFactoryMapMessage({ type: 'load_error' });
   console.error('Factory map load failed', error);
 }
 

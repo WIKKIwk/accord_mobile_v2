@@ -226,4 +226,49 @@ void main() {
       orderedEquals(const ['A', 'B']),
     );
   });
+  testWidgets('search updates only matching cells and ignores replaced queries',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(useMaterial3: true),
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const QolipHomeScreen(),
+    ));
+    await tester.pumpAndSettle();
+    final input = find.byType(EditableText).first;
+    await tester.showKeyboard(input);
+    await tester.pumpAndSettle();
+    final emptyCell = find.byKey(const ValueKey('qolip-grid-cell-Z13'));
+    final originalEmptyCell = tester.widget<Material>(emptyCell);
+    final filledCell = find.byKey(const ValueKey('qolip-grid-cell-A1'));
+    final originalColor = tester.widget<Material>(filledCell).color;
+
+    await tester.enterText(input, 'Unopened block target');
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.enterText(input, 'Cross-block move target');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    // No full-table rebuild while typing or when the result is published.
+    expect(identical(tester.widget<Material>(emptyCell), originalEmptyCell),
+        isTrue);
+    expect(tester.widget<Material>(filledCell).color, isNot(originalColor));
+    final blockB = find.descendant(
+        of: find.byKey(const ValueKey('qolip-tab-b')),
+        matching: find.text('B'));
+    expect(tester.widget<Text>(blockB).style?.color,
+        isNot(const Color(0xFF2E7D32)));
+
+    await tester.enterText(input, 'Unopened block target');
+    await tester.enterText(input, '');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Material>(filledCell).color, originalColor);
+    expect(tester.takeException(), isNull);
+  });
 }

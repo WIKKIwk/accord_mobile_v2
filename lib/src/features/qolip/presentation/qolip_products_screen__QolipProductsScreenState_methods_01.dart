@@ -2,18 +2,27 @@
 part of 'qolip_products_screen.dart';
 
 extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
-  Future<List<QolipProduct>> _load() {
-    return MobileApi.instance.qolipProducts(
+  Future<List<QolipProduct>> _load() async {
+    final generation = ++_loadGeneration;
+    final products = await MobileApi.instance.qolipProducts(
       limit: 20000,
       withQolipOnly: true,
     );
+    if (!mounted || generation != _loadGeneration) return products;
+    _cachedProducts = products;
+    // Group/sort once per data revision, never once per typed character.
+    _allContainers = groupQolipProductsByContainer(products);
+    _cachedContainers = _allContainers;
+    await _applySearch(_search.text.trim(), ++_searchGeneration);
+    return products;
   }
 
   Future<void> _reload({String? preserveExpandedContainerKey}) async {
     final next = _load();
     setState(() {
       _cachedProducts = null;
-      _cachedQuery = '';
+      _searchGeneration++;
+      _allContainers = const [];
       _cachedContainers = const [];
       _expandedContainerKey = preserveExpandedContainerKey;
       _selectionMode = null;
@@ -70,33 +79,46 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     );
   }
 
-  void _searchChanged(String _) {
+  void _searchChanged(String value) {
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(
-      const Duration(milliseconds: 160),
-      () {
-        if (mounted) {
-          setState(() {});
-        }
-      },
-    );
+    final generation = ++_searchGeneration;
+    final query = value.trim();
+    if (query.isEmpty) {
+      setState(() => _cachedContainers = _allContainers);
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 160), () {
+      unawaited(_applySearch(query, generation));
+    });
   }
 
-  List<QolipProductContainer> _visibleContainers(
-    List<QolipProduct> products,
-  ) {
-    final query = _search.text.trim();
-    if (identical(_cachedProducts, products) && _cachedQuery == query) {
-      return _cachedContainers;
-    }
-    final visibleProducts = products
-        .where((product) => qolipProductSearchMatches(query, product))
-        .toList(growable: false);
-    final containers = groupQolipProductsByContainer(visibleProducts);
-    _cachedProducts = products;
-    _cachedQuery = query;
-    _cachedContainers = containers;
-    return containers;
+  Future<void> _applySearch(String query, int generation) async {
+    final products = _cachedProducts;
+    if (products == null) return;
+    bool current() => mounted && generation == _searchGeneration;
+    final matches = await filterQolipSearch(
+      products,
+      query,
+      qolipProductSearchDocument,
+      isCurrent: current,
+    );
+    if (matches == null || !current()) return;
+    final matched = matches.toSet();
+    final containers = query.isEmpty
+        ? _allContainers
+        : [
+            for (final container in _allContainers)
+              if (container.children.any(matched.contains))
+                QolipProductContainer(
+                  code: container.code,
+                  name: container.name,
+                  itemGroup: container.itemGroup,
+                  children: container.children
+                      .where(matched.contains)
+                      .toList(growable: false),
+                ),
+          ];
+    setState(() => _cachedContainers = containers);
   }
 
   void _cancelSelection() {

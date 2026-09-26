@@ -348,6 +348,66 @@ const _admin_localization_adminTranslations_resplitPart08 = {
     'en': 'Back to overview',
     'ru': 'Вернуться к общему виду',
   },
+  'admin.factory_map.directory.title': {
+    'uz': "Apparatlar",
+    'en': "Machines",
+    'ru': "Аппараты",
+  },
+  'admin.factory_map.directory.search': {
+    'uz': "Apparat yoki buyurtmani qidirish",
+    'en': "Search machines or orders",
+    'ru': "Поиск аппарата или заказа",
+  },
+  'admin.factory_map.directory.clear': {
+    'uz': "Qidiruvni tozalash",
+    'en': "Clear search",
+    'ru': "Очистить поиск",
+  },
+  'admin.factory_map.directory.all': {
+    'uz': "Barchasi",
+    'en': "All",
+    'ru': "Все",
+  },
+  'admin.factory_map.directory.working': {
+    'uz': "Jarayonda",
+    'en': "In progress",
+    'ru': "В работе",
+  },
+  'admin.factory_map.directory.queued': {
+    'uz': "Navbatda",
+    'en': "Queued",
+    'ru': "В очереди",
+  },
+  'admin.factory_map.directory.paused': {
+    'uz': "Pauzada",
+    'en': "Paused",
+    'ru': "На паузе",
+  },
+  'admin.factory_map.directory.empty': {
+    'uz': "Mos apparat topilmadi. Qidiruv yoki filtrni o‘zgartiring.",
+    'en': "No matching machines. Change the search or filter.",
+    'ru': "Аппараты не найдены. Измените поиск или фильтр.",
+  },
+  'admin.factory_map.directory.unmapped': {
+    'uz': "Xaritaga ulanmagan",
+    'en': "Not mapped yet",
+    'ru': "Не привязан к карте",
+  },
+  'admin.factory_map.directory.machine': {
+    'uz': "Apparat",
+    'en': "Machine",
+    'ru': "Аппарат",
+  },
+  'admin.factory_map.model_failed': {
+    'uz': "Zavod modeli yuklanmadi. Qayta urinib ko‘ring.",
+    'en': "Could not load the factory model. Try again.",
+    'ru': "Не удалось загрузить модель завода. Повторите попытку.",
+  },
+  'admin.factory_map.wip_limited': {
+    'uz': "So‘nggi 250 ta WIP ko‘rsatilmoqda; oldingi yozuvlar bu ro‘yxatga kirmagan bo‘lishi mumkin.",
+    'en': "Showing the latest 250 WIP records; earlier records may be outside this list.",
+    'ru': "Показаны последние 250 записей НЗП; более ранние записи могут отсутствовать.",
+  },
   'admin.factory_map.live.summary': {
     'uz': '{count} apparat', 'en': '{count} machines', 'ru': '{count} аппаратов',
   },
@@ -373,6 +433,11 @@ const _admin_localization_adminTranslations_resplitPart08 = {
   'admin.factory_map.live.print_preflight': {
     'uz': 'Rang chiqaryapti', 'en': 'Colour matching', 'ru': 'Подбор цвета',
   },
+  'admin.factory_map.live.print_preflight_passed': {
+    'uz': 'Rang chiqarib bo‘lingan — ish boshlanishi kutilmoqda',
+    'en': 'Colour matching complete — awaiting production start',
+    'ru': 'Подбор цвета завершён — ожидается начало работы',
+  },
   'admin.factory_map.live.paused': {
     'uz': 'Pauzada', 'en': 'Paused', 'ru': 'На паузе',
   },
@@ -383,7 +448,7 @@ const _admin_localization_adminTranslations_resplitPart08 = {
     'uz': 'Navbat kutmoqda', 'en': 'Queued', 'ru': 'В очереди',
   },
   'admin.factory_map.live.idle': {
-    'uz': 'Faol buyurtma yo‘q', 'en': 'No active order', 'ru': 'Нет активного заказа',
+    'uz': 'Faol navbat yo‘q', 'en': 'No active queue', 'ru': 'Нет активной очереди',
   },
   'admin.factory_map.live.unknown': {
     'uz': 'Holat tasdiqlanmagan', 'en': 'Status unconfirmed', 'ru': 'Статус не подтверждён',

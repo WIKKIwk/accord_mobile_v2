@@ -23,7 +23,7 @@ Map<String, dynamic> row(FactoryMapLive live) =>
 
 void main() {
   test(
-      'running order wins over paused queue entries; pause/freeze/idle are distinct',
+      'running order wins over paused entries; frozen orders leave the machine idle',
       () async {
     var states = {'paused-order': 'paused', 'current-order': 'in_progress'};
     final live = FactoryMapLive(
@@ -36,7 +36,7 @@ void main() {
     for (final state in ['print_preflight', 'paused', 'frozen', 'pending']) {
       states = {'order': state};
       await live.refresh();
-      expect(row(live)['state'], state);
+      expect(row(live)['state'], state == 'frozen' ? 'idle' : state);
     }
     states = {};
     await live.refresh();

@@ -58,13 +58,15 @@ extension __QolipHomeScreenStateAstPart01 on _QolipHomeScreenState {
   }
 
   Future<void> _reloadBlocks() async {
+    _searchGeneration++;
+    _searchDebounce?.cancel();
     setState(() {
       for (final key in _locationGenerations.keys.toList(growable: false)) {
         _locationGenerations[key] = _locationGenerations[key]! + 1;
       }
       _locations.clear();
       _resolvedLocations.clear();
-      _blockSearchMatchCounts = const <String, int>{};
+      _clearSearchCounts();
       _orderedBlocks = const <QolipBlock>[];
       _blocksFuture = _loadBlocks();
     });
@@ -228,65 +230,65 @@ extension __QolipHomeScreenStateAstPart01 on _QolipHomeScreenState {
     Navigator.of(context).pushReplacementNamed(route);
   }
 
-  void _onSearchChanged(String value) {
-    final query = value.trim();
-    _searchDebounce?.cancel();
-    _searchGeneration++;
-    setState(() {
-      _searchQuery = query;
-      _blockSearchMatchCounts = query.isEmpty
-          ? const <String, int>{}
-          : qolipBlockSearchMatchCounts(_resolvedLocations, query);
-    });
-    if (query.isNotEmpty) {
-      final generation = _searchGeneration;
-      _searchDebounce = Timer(
-        const Duration(milliseconds: 160),
-        () => unawaited(_loadBlockSearchMatches(query, generation)),
-      );
+  void _clearSearchCounts() {
+    _blockSearchMatchCounts.value = const {};
+    for (final counts in _cellSearchMatchCounts.values) {
+      counts.value = const {};
     }
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    final generation = ++_searchGeneration;
+    _searchQuery = value.trim();
+    if (_searchQuery.isEmpty) {
+      _clearSearchCounts();
+      return;
+    }
+    // No scan and no grid rebuild until the user pauses typing.
+    final query = _searchQuery;
+    _searchDebounce = Timer(const Duration(milliseconds: 160),
+        () => unawaited(_loadBlockSearchMatches(query, generation)));
   }
 
   void _refreshSearchMatches() {
-    final query = _searchQuery;
-    if (!mounted || query.isEmpty) {
-      return;
-    }
-    final generation = ++_searchGeneration;
-    unawaited(_loadBlockSearchMatches(query, generation));
+    if (!mounted || _searchQuery.isEmpty) return;
+    _searchDebounce?.cancel();
+    unawaited(_loadBlockSearchMatches(_searchQuery, ++_searchGeneration));
   }
 
-  Future<void> _loadBlockSearchMatches(
-    String query,
-    int generation,
-  ) async {
+  Future<void> _loadBlockSearchMatches(String query, int generation) async {
+    bool current() => mounted && generation == _searchGeneration;
     final blocks = List<QolipBlock>.of(_orderedBlocks);
-    final entries = await Future.wait(
-      blocks.map((block) async {
-        final key = _blockKey(block);
-        try {
-          return MapEntry<String, List<QolipLocationEntry>?>(
-            key,
-            await _locationsFor(block.name),
-          );
-        } catch (_) {
-          return MapEntry<String, List<QolipLocationEntry>?>(key, null);
-        }
-      }),
+    final entries = await Future.wait(blocks.map((block) async {
+      try {
+        return MapEntry(_blockKey(block), await _locationsFor(block.name));
+      } catch (_) {
+        return MapEntry(_blockKey(block), const <QolipLocationEntry>[]);
+      }
+    }));
+    if (!current()) return;
+    final matches = await filterQolipSearch(
+      entries.expand((entry) => entry.value),
+      query,
+      qolipLocationSearchDocument,
+      isCurrent: current,
     );
-    if (!mounted || generation != _searchGeneration || query != _searchQuery) {
-      return;
+    if (matches == null || !current()) return;
+    final blockCounts = <String, int>{};
+    final cellCounts = <String, Map<String, int>>{};
+    for (final location in matches) {
+      final block = location.block.trim().toLowerCase();
+      blockCounts.update(block, (count) => count + 1, ifAbsent: () => 1);
+      final cells = cellCounts.putIfAbsent(block, () => {});
+      cells.update(
+          location.locationLabel.trim().toUpperCase(), (count) => count + 1,
+          ifAbsent: () => 1);
     }
-    final locationsByBlock = <String, List<QolipLocationEntry>>{
-      for (final entry in entries)
-        if (entry.value != null) entry.key: entry.value!,
-    };
-    setState(() {
-      _blockSearchMatchCounts = qolipBlockSearchMatchCounts(
-        locationsByBlock,
-        query,
-      );
-    });
+    _blockSearchMatchCounts.value = blockCounts;
+    for (final entry in _cellSearchMatchCounts.entries) {
+      entry.value.value = cellCounts[entry.key] ?? const {};
+    }
   }
 
   Future<void> _printCellQr(

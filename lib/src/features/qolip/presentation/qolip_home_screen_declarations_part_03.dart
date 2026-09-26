@@ -6,7 +6,7 @@ class _QolipGridTable extends StatefulWidget {
     required this.letters,
     required this.rowCount,
     required this.byCell,
-    required this.searchQuery,
+    required this.searchCounts,
     required this.onCellTap,
     required this.onCellLongPress,
   });
@@ -14,7 +14,7 @@ class _QolipGridTable extends StatefulWidget {
   final List<String> letters;
   final int rowCount;
   final Map<String, List<QolipLocationEntry>> byCell;
-  final String searchQuery;
+  final ValueNotifier<Map<String, int>> searchCounts;
   final void Function(String cellLabel, List<QolipLocationEntry> items)
       onCellTap;
   final void Function(String cellLabel) onCellLongPress;
@@ -104,7 +104,8 @@ class _QolipGridTableState extends State<_QolipGridTable> {
                           height: 64,
                           child: Center(
                             child: _GridHeaderCell(
-                              key: ValueKey<String>('qolip-row-header-$rowNumber'),
+                              key: ValueKey<String>(
+                                  'qolip-row-header-$rowNumber'),
                               label: '$rowNumber',
                               isColumn: false,
                             ),
@@ -151,10 +152,9 @@ class _QolipGridTableState extends State<_QolipGridTable> {
                                     const EdgeInsets.symmetric(horizontal: 2),
                                 child: _GridDataCell(
                                   cellLabel: '$letter$rowNumber',
-                                  items: widget
-                                          .byCell['$letter$rowNumber'] ??
+                                  items: widget.byCell['$letter$rowNumber'] ??
                                       const [],
-                                  searchQuery: widget.searchQuery,
+                                  searchCounts: widget.searchCounts,
                                   onTap: widget.onCellTap,
                                   onLongPress: () => widget
                                       .onCellLongPress('$letter$rowNumber'),
@@ -261,29 +261,68 @@ class _GridHeaderCell extends StatelessWidget {
   }
 }
 
-class _GridDataCell extends StatelessWidget {
+class _GridDataCell extends StatefulWidget {
   const _GridDataCell({
     required this.cellLabel,
     required this.items,
-    required this.searchQuery,
+    required this.searchCounts,
     required this.onTap,
     required this.onLongPress,
   });
 
   final String cellLabel;
   final List<QolipLocationEntry> items;
-  final String searchQuery;
+  final ValueNotifier<Map<String, int>> searchCounts;
   final void Function(String cellLabel, List<QolipLocationEntry> items) onTap;
   final VoidCallback onLongPress;
 
   @override
+  State<_GridDataCell> createState() => _GridDataCellState();
+}
+
+class _GridDataCellState extends State<_GridDataCell> {
+  int _matchCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _matchCount = widget.searchCounts.value[widget.cellLabel] ?? 0;
+    widget.searchCounts.addListener(_updateCount);
+  }
+
+  @override
+  void didUpdateWidget(_GridDataCell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchCounts != widget.searchCounts) {
+      oldWidget.searchCounts.removeListener(_updateCount);
+      widget.searchCounts.addListener(_updateCount);
+    }
+    _matchCount = widget.searchCounts.value[widget.cellLabel] ?? 0;
+  }
+
+  void _updateCount() {
+    final next = widget.searchCounts.value[widget.cellLabel] ?? 0;
+    if (next != _matchCount) setState(() => _matchCount = next);
+  }
+
+  @override
+  void dispose() {
+    widget.searchCounts.removeListener(_updateCount);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final items = widget.items;
+    final cellLabel = widget.cellLabel;
+    final onTap = widget.onTap;
+    final onLongPress = widget.onLongPress;
     final scheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
     final filled = items.isNotEmpty;
     final qty = items.fold<int>(0, (sum, item) => sum + item.quantity);
     final title = filled ? items.first.itemName : '';
-    final matchCount = qolipContainerSearchMatchCount(items, searchQuery);
+    final matchCount = _matchCount;
     final highlighted = matchCount > 0;
     final green = const Color(0xFF2E7D32);
     final background = highlighted

@@ -353,6 +353,8 @@ MobileApiException _adminProductionMapException(
       'schedule_reservation_locked' =>
         'Bu jadval bandlovini bekor qilib bo‘lmaydi',
       'map_not_found' => 'Zakaz topilmadi',
+      'production_map_load_failed' =>
+        'Production map yuklanmadi. Qayta urinib ko‘ring',
       _ => _adminProductionMapUnknownErrorMessage(
           code: code,
           fallbackCode: fallbackCode,

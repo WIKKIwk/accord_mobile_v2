@@ -39,7 +39,9 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   late Future<List<QolipProduct>> _future;
   Timer? _searchDebounce;
   List<QolipProduct>? _cachedProducts;
-  String _cachedQuery = '';
+  List<QolipProductContainer> _allContainers = const [];
+  int _searchGeneration = 0;
+  int _loadGeneration = 0;
   List<QolipProductContainer> _cachedContainers = const [];
   String? _expandedContainerKey;
   _QolipSelectionMode? _selectionMode;
@@ -56,6 +58,8 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
 
   @override
   void dispose() {
+    _searchGeneration++;
+    _loadGeneration++;
     _searchDebounce?.cancel();
     _searchFocusNode.dispose();
     _search.dispose();
@@ -80,8 +84,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
               onChanged: _searchChanged,
               onClear: () {
                 _search.clear();
-                _searchDebounce?.cancel();
-                setState(() {});
+                _searchChanged('');
               },
               onBackWithContext: (context) =>
                   AppShellDrawerScope.maybeOf(context)?.openDrawer(),
@@ -119,7 +122,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
             if (products.isEmpty) {
               return Center(child: Text(l10n.qolipText('products.empty')));
             }
-            final containers = _visibleContainers(products);
+            final containers = _cachedContainers;
             if (containers.isEmpty) {
               return Center(
                 child: Text(l10n.qolipText('products.search_empty')),

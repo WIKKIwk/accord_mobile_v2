@@ -171,7 +171,7 @@ void main() {
     expect(sourceAssets, isEmpty);
   });
 
-  test('state assets only include placements made by the current user',
+  test('state assets are shared regardless of who placed them',
       () async {
     await MobileApi.instance.inventoryRelocate(
       assetKind: InventoryAssetKind.rawMaterial,
@@ -199,7 +199,7 @@ void main() {
     final otherStateAssets = await MobileApi.instance.inventoryAssets(
       currentUserStatesOnly: true,
     );
-    expect(otherStateAssets, isEmpty);
+    expect(otherStateAssets.single.assetRef, asset.assetRef);
   });
 
   test('state-located asset cannot be transferred from a warehouse', () async {
@@ -1113,7 +1113,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Siz joylashtirgan State’dagi mahsulot topilmadi'),
+      find.text('State’dagi mahsulot topilmadi'),
       findsOneWidget,
     );
     final sourceAssets = await MobileApi.instance.inventoryAssets(
@@ -1336,7 +1336,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Siz joylashtirgan State’dagi mahsulot topilmadi'),
+      find.text('State’dagi mahsulot topilmadi'),
       findsOneWidget,
     );
   });

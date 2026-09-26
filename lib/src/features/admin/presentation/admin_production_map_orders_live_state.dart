@@ -256,9 +256,13 @@ extension _AdminProductionMapOrdersLiveState
     if (decision == CanonicalSnapshotDecision.ignoreStale) return;
     if (decision == CanonicalSnapshotDecision.ignoreDuplicate &&
         !_queueSnapshotNeedsReconcile) {
-      if (_queueSnapshotContractError || _loadError != null || _loading) {
-        _updateScreenState(_clearOrdersLoadError);
-      }
+      // REST snapshots do not contain these lists. Seeing the queue revision
+      // over REST must not discard the live-only history and notifications.
+      _updateScreenState(() {
+        _replaceLiveSnapshotExtras(snapshot);
+        _clearOrdersLoadError();
+      });
+      _showNewRejectedCompletionDecisionNotices(snapshot.completionRequestDecisions);
       return;
     }
     final orders = _productionMapZakazOrders(snapshot.maps);
@@ -267,9 +271,11 @@ extension _AdminProductionMapOrdersLiveState
       // actually changed to avoid duplicate rebuilds.
       if (_ordersRevision(orders) == _ordersRevision(_orders) &&
           !_queueSnapshotChanged(snapshot) && !_queueSnapshotNeedsReconcile) {
-        if (_queueSnapshotContractError || _loadError != null || _loading) {
-          _updateScreenState(_clearOrdersLoadError);
-        }
+        _updateScreenState(() {
+          _replaceLiveSnapshotExtras(snapshot);
+          _clearOrdersLoadError();
+        });
+        _showNewRejectedCompletionDecisionNotices(snapshot.completionRequestDecisions);
         return;
       }
     }
@@ -282,16 +288,24 @@ extension _AdminProductionMapOrdersLiveState
     _updateScreenState(() {
       _orders = orders;
       _replaceQueueSnapshotMaps(snapshot);
-      _completedWorkerOrders = snapshot.completedOrders;
-      _workerCompletedHistoryError = false;
-      _workerCompletedHistoryErrorMessage = null;
-      _completionRequests = snapshot.completionRequests;
-      _completionRequestsErrorMessage = null;
+      _replaceLiveSnapshotExtras(snapshot);
       _clearOrdersLoadError();
     });
     _showNewRejectedCompletionDecisionNotices(
       snapshot.completionRequestDecisions,
     );
+  }
+
+  void _replaceLiveSnapshotExtras(AdminProductionMapLiveSnapshot snapshot) {
+    // A delayed REST response must not restore history or requests that a
+    // newer live message has already replaced (including an empty list).
+    _workerCompletedOrdersGeneration++;
+    _completionRequestsGeneration++;
+    _completedWorkerOrders = snapshot.completedOrders;
+    _workerCompletedHistoryError = false;
+    _workerCompletedHistoryErrorMessage = null;
+    _completionRequests = snapshot.completionRequests;
+    _completionRequestsErrorMessage = null;
   }
 
   void _applyCanonicalLiveDelta(AdminProductionMapLiveDelta delta) {
@@ -796,9 +810,10 @@ extension _AdminProductionMapOrdersLiveState
     if (!widget.workerMode) {
       return;
     }
+    final generation = ++_workerCompletedOrdersGeneration;
     try {
       final completed = await _loadCompletedProductionMapOrders();
-      if (!mounted) {
+      if (!mounted || generation != _workerCompletedOrdersGeneration) {
         return;
       }
       _updateScreenState(() {
@@ -807,7 +822,7 @@ extension _AdminProductionMapOrdersLiveState
         _workerCompletedHistoryErrorMessage = null;
       });
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || generation != _workerCompletedOrdersGeneration) {
         return;
       }
       _updateScreenState(() {
@@ -901,11 +916,12 @@ extension _AdminProductionMapOrdersLiveState
     if (widget.workerMode) {
       return;
     }
+    final generation = ++_completionRequestsGeneration;
     try {
       final loader = widget.completionRequestsLoader ??
           MobileApi.instance.adminProductionMapCompletionRequests;
       final requests = await loader();
-      if (!mounted) {
+      if (!mounted || generation != _completionRequestsGeneration) {
         return;
       }
       _updateScreenState(() {
@@ -913,7 +929,7 @@ extension _AdminProductionMapOrdersLiveState
         _completionRequestsErrorMessage = null;
       });
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || generation != _completionRequestsGeneration) {
         return;
       }
       _updateScreenState(() {

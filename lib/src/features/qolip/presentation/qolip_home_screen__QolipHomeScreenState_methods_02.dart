@@ -339,6 +339,8 @@ extension __QolipHomeScreenStateAstPart02 on _QolipHomeScreenState {
       );
       return;
     }
+    final searchPages = <String, Future<List<QolipLocationEntry>?>>{};
+    var pickerOpen = true;
     final selection = await showModalBottomSheet<_QolipLocationSelection>(
       context: context,
       isDismissible: true,
@@ -354,10 +356,16 @@ extension __QolipHomeScreenStateAstPart02 on _QolipHomeScreenState {
           hintText: l10n.qolipText('home.mold_code_or_product_search'),
           pageSize: 80,
           loadPage: (query, offset, limit) async {
-            final filtered = locations.where((item) {
-              return qolipLocationSearchMatches(query, item);
-            }).toList(growable: false);
-            return filtered.skip(offset).take(limit).toList(growable: false);
+            if (searchPages.length >= 8 && !searchPages.containsKey(query)) {
+              searchPages.clear();
+            }
+            final filtered = await searchPages.putIfAbsent(
+                query,
+                () => filterQolipSearch(
+                    locations, query, qolipLocationSearchDocument,
+                    isCurrent: () => mounted && pickerOpen));
+            return filtered?.skip(offset).take(limit).toList(growable: false) ??
+                const <QolipLocationEntry>[];
           },
           itemTitle: (item) =>
               item.itemName.trim().isEmpty ? item.qolipCode : item.itemName,
@@ -391,6 +399,7 @@ extension __QolipHomeScreenStateAstPart02 on _QolipHomeScreenState {
         );
       },
     );
+    pickerOpen = false;
     if (!mounted || selection == null || selection.locations.isEmpty) {
       return;
     }

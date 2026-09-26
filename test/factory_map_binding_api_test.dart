@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/features/admin/logic/factory_map_bindings.dart';
+import 'package:accord_mobile_v2/src/features/admin/logic/factory_map_stock.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -24,6 +26,37 @@ void main() {
             capabilities: ['admin.access', 'production.map.manage']));
   });
   tearDown(() => AppSession.instance.clear());
+
+  test('map stock requests only state inventory with bounded pages', () async {
+    final ready = Completer<void>();
+    final stock = FactoryMapStock(
+      loadLocations: () async => [],
+      loadItems: () async => [],
+      loadGroups: () async => [],
+      events: () => const Stream.empty(),
+    );
+    addTearDown(stock.dispose);
+    stock.addListener(() {
+      if (stock.fresh && !ready.isCompleted) ready.complete();
+    });
+    var reads = 0;
+    await http.runWithClient(() async {
+      stock.start();
+      await ready.future.timeout(const Duration(seconds: 2));
+      stock.stop();
+    },
+        () => MockClient((request) async {
+              reads++;
+              expect(request.url.path, '/v1/mobile/admin/inventory/assets');
+              expect(request.url.queryParameters['current_user_states_only'],
+                  'true');
+              expect(request.url.queryParameters['asset_kind'], 'raw_material');
+              expect(request.url.queryParameters['limit'], '500');
+              expect(request.headers['Authorization'], 'Bearer map-test-token');
+              return http.Response('[]', 200);
+            }));
+    expect(reads, 1);
+  });
 
   test(
       'real API facade sends authenticated revision PATCH with explicit null; reload persists',

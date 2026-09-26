@@ -144,11 +144,21 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
       final occurrences = productionMapLinearWorkStages(order.map)
           .where((stage) => stage.apparatusId == apparatus.id).toList();
       final ownControl = queueActionControlsByApparatus[apparatus.id]?[orderId];
-      if (occurrences.isNotEmpty && occurrences.every((stage) =>
-          stageStatesByOrderId[orderId]?[stage.nodeId] == 'completed' ||
-          (ownControl?.stageNodeId == stage.nodeId &&
-              ownControl?.stageWork?.localCompleted == true))) {
+      final stageStates = stageStatesByOrderId[orderId] ?? const <String, String>{};
+      bool stageCompleted(String nodeId) =>
+          stageStates[nodeId] == 'completed' ||
+          (ownControl?.stageNodeId == nodeId &&
+              ownControl?.stageWork?.localCompleted == true);
+      if (occurrences.isNotEmpty &&
+          occurrences.every((stage) => stageCompleted(stage.nodeId))) {
         return false;
+      }
+      // A machine can occur again later in the route. Its previous queue
+      // completion must not hide a stage the snapshot still marks unfinished.
+      if (occurrences.any((stage) =>
+          stageStates.containsKey(stage.nodeId) &&
+          !stageCompleted(stage.nodeId))) {
+        return true;
       }
       final state = apparatusQueueOrderStateFromRaw(states[orderId]);
       return state != ApparatusQueueOrderState.completed;

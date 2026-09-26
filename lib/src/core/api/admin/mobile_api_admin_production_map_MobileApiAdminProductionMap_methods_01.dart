@@ -132,7 +132,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw _adminProductionMapException(response, 'map_not_found');
+      throw _adminProductionMapException(response, 'production_map_load_failed');
     }
     return ProductionMapSaved.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
