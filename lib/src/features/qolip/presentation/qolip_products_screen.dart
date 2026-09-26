@@ -33,6 +33,9 @@ part 'qolip_products_screen__QolipProductsScreenState_methods_01.dart';
 part 'qolip_products_screen__QolipProductsScreenState_methods_02.dart';
 part 'qolip_products_screen_widgets_part_01.dart';
 
+// Weak keys retain prepared containers only while their API snapshot is alive.
+final _preparedQolipContainers = Expando<List<QolipProductContainer>>();
+
 class _QolipProductsScreenState extends State<QolipProductsScreen> {
   final TextEditingController _search = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -53,6 +56,10 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   @override
   void initState() {
     super.initState();
+    final cached = MobileApi.instance.cachedQolipProducts;
+    if (cached != null) {
+      _setProducts(cached);
+    }
     _future = _load();
   }
 
@@ -112,13 +119,13 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done &&
-                !snapshot.hasData) {
+                _cachedProducts == null) {
               return const Center(child: AppLoadingIndicator());
             }
             if (snapshot.hasError) {
               return AppRetryState(onRetry: _reload);
             }
-            final products = snapshot.data ?? const <QolipProduct>[];
+            final products = _cachedProducts ?? const <QolipProduct>[];
             if (products.isEmpty) {
               return Center(child: Text(l10n.qolipText('products.empty')));
             }

@@ -2,6 +2,13 @@
 part of 'qolip_products_screen.dart';
 
 extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
+  void _setProducts(List<QolipProduct> products) {
+    _cachedProducts = products;
+    _allContainers = _preparedQolipContainers[products] ??=
+        groupQolipProductsByContainer(products);
+    _cachedContainers = _allContainers;
+  }
+
   Future<List<QolipProduct>> _load() async {
     final generation = ++_loadGeneration;
     final products = await MobileApi.instance.qolipProducts(
@@ -9,10 +16,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
       withQolipOnly: true,
     );
     if (!mounted || generation != _loadGeneration) return products;
-    _cachedProducts = products;
-    // Group/sort once per data revision, never once per typed character.
-    _allContainers = groupQolipProductsByContainer(products);
-    _cachedContainers = _allContainers;
+    _setProducts(products);
     await _applySearch(_search.text.trim(), ++_searchGeneration);
     return products;
   }

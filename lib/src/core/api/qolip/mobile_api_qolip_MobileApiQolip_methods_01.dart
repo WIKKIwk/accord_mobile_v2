@@ -356,28 +356,11 @@ extension MobileApiQolipAstPart01 on MobileApi {
       }
       return products.take(limit).toList(growable: false);
     }
-    final response = await _sendAuthorized(
-      () => _get(
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/products').replace(
-          queryParameters: {
-            if (query.trim().isNotEmpty) 'q': query.trim(),
-            if (limit > 0) 'limit': '$limit',
-            if (withQolipOnly) 'with_qolip': 'true',
-          },
-        ),
-        headers: _headers(requireToken()),
-      ),
+    return _readQolipProducts(
+      query: query,
+      limit: limit,
+      withQolipOnly: withQolipOnly,
     );
-    if (response.statusCode != 200) {
-      throw Exception('Qolip products failed');
-    }
-    final data = await decodeJsonMapPayload(response.body);
-    final raw = data['products'];
-    return [
-      if (raw is List)
-        for (final item in raw)
-          QolipProduct.fromJson((item as Map).cast<String, dynamic>()),
-    ];
   }
 
   Future<QolipProduct> qolipProductByQr(String qrPayload) async {

@@ -94,6 +94,7 @@ part 'customer/mobile_api_customer.dart';
 part 'gscale/mobile_api_gscale.dart';
 part 'qolip/mobile_api_qolip.dart';
 part 'qolip/mobile_api_qolip_order_products.dart';
+part 'qolip/mobile_api_qolip_products_cache.dart';
 part 'rezka/mobile_api_rezka.dart';
 part 'server/mobile_api_server.dart';
 part 'supplier/mobile_api_supplier_notifications.dart';
@@ -228,6 +229,7 @@ class MobileApi {
   final _queueSnapshotReads =
       Expando<Map<String, Future<AdminApparatusQueueSnapshot>>>();
   int _queueSnapshotReadEpoch = 0;
+  _QolipProductsCache? _qolipProductsSnapshot;
 
   Future<http.Response> _mutationRequest(
     Future<http.Response> Function() send,
