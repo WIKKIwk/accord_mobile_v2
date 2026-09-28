@@ -2,6 +2,7 @@ import 'package:accord_mobile_v2/src/core/native_bluetooth_printer.dart';
 import 'package:accord_mobile_v2/src/core/native_usb_printer.dart';
 import 'package:accord_mobile_v2/src/core/print_service.dart';
 import 'package:accord_mobile_v2/src/core/print_transport.dart';
+import 'package:accord_mobile_v2/src/core/printing/material_data_matrix.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -94,7 +95,64 @@ void main() {
     expect(captured?.arguments, containsPair('progress_qty', 125.0));
     expect(captured?.arguments, containsPair('progress_unit', 'M'));
     expect(captured?.arguments, isNot(contains('bytes')));
+    expect(captured?.arguments, isNot(contains('material_data_matrix')));
   });
+
+  for (final scenario in [
+    (kind: 'material_product', meters: false, enabled: true, expected: true),
+    (kind: 'material_product', meters: true, enabled: true, expected: true),
+    (kind: 'material_product', meters: true, enabled: false, expected: false),
+    (kind: 'qolip_code', meters: false, enabled: true, expected: false),
+    (kind: 'progress', meters: true, enabled: true, expected: false),
+  ]) {
+    test('Bluetooth material Data Matrix is opt-in: $scenario', () async {
+      MethodCall? captured;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        captured = call;
+        return <String, Object?>{'ok': true};
+      });
+      const epc = '30D97A14CEB04D30B156968F';
+      final response = await PrintService.printRps(
+        UsbRpsPrintRequest(
+          epc: epc,
+          itemCode: 'OPP',
+          itemName: 'OPP 815/30',
+          warehouse: 'Kalidor',
+          printer: 'xp-p323b',
+          printMode: 'label',
+          grossQty: 100,
+          labelKind: scenario.kind,
+          progressQty: scenario.meters ? 125 : null,
+          progressUnit: scenario.meters ? 'm' : '',
+        ),
+        bluetoothPrinter: const BluetoothPrinterProfile(
+          name: 'XP-P323B',
+          address: 'printer-ios-uuid',
+        ),
+        transport: PrintTransport.bluetooth,
+        materialDataMatrix: scenario.enabled,
+      );
+
+      expect(response.ok, isTrue);
+      final payload = captured!.arguments as Map;
+      expect(payload['epc'], epc);
+      expect(payload['label_kind'], scenario.kind);
+      expect(payload['print_count'], 1);
+      expect(payload['gross_qty'], 100);
+      expect(payload['material_data_matrix'] == true, scenario.expected);
+      if (scenario.expected) {
+        expect(
+            payload['material_data_matrix_bars'], materialDataMatrixBars(epc));
+      } else {
+        expect(payload, isNot(contains('material_data_matrix_bars')));
+      }
+      if (scenario.meters) {
+        expect(payload['progress_qty'], 125);
+        expect(payload['progress_unit'], 'M');
+      }
+    });
+  }
 
   test('passes production-style training progress QR unchanged over Bluetooth',
       () async {

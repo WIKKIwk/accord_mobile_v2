@@ -128,7 +128,7 @@ class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
         // native no-duplicates gate consume a frame before scanWindow or the
         // listener is ready.
         detectionSpeed: DetectionSpeed.normal,
-        formats: const [BarcodeFormat.qrCode],
+        formats: const [BarcodeFormat.qrCode, BarcodeFormat.dataMatrix],
       );
     }
   }

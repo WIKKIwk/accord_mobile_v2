@@ -48,6 +48,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
                 .timeout(const Duration(seconds: 15));
             final printResult = await PrintService.printRps(
               prepared.toUsbPrintRequest(labelKind: 'material_product'),
+              materialDataMatrix: true,
               printerProfile: widget.offlinePrinter,
               bluetoothPrinter: widget.bluetoothPrinter,
               transport: widget.printTransport,

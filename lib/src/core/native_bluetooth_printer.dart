@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 import 'native_usb_printer.dart';
+import 'printing/material_data_matrix.dart';
 
 class NativeBluetoothPrinter {
   const NativeBluetoothPrinter._();
@@ -36,12 +37,17 @@ class NativeBluetoothPrinter {
   static Future<Map<String, Object?>> printLabel(
     UsbRpsPrintRequest request, {
     required BluetoothPrinterProfile printer,
+    bool materialDataMatrix = false,
   }) async {
     final raw = await _channel.invokeMapMethod<String, Object?>(
       'printLabel',
       {
         ..._bluetoothLabelPayload(request),
         'mac_address': printer.address,
+        if (materialDataMatrix && request.isMaterialProductLabel) ...{
+          'material_data_matrix': true,
+          'material_data_matrix_bars': materialDataMatrixBars(request.epc),
+        },
       },
     );
     return raw ?? const {};

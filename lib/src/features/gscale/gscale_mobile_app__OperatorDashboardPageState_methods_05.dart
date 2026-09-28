@@ -90,6 +90,7 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
     if (widget.printTransport.isLocal) {
       final result = await PrintService.printRps(
         request,
+        materialDataMatrix: true,
         printerProfile: widget.offlinePrinter,
         bluetoothPrinter: widget.bluetoothPrinter,
         transport: widget.printTransport,

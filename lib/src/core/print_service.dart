@@ -23,6 +23,7 @@ class PrintService {
     UsbPrinterProfile? printerProfile,
     BluetoothPrinterProfile? bluetoothPrinter,
     PrintTransport transport = PrintTransport.offline,
+    bool materialDataMatrix = false,
   }) async {
     if (request.isMaterialProductLabel && request.printCount > 1) {
       throw StateError(
@@ -60,6 +61,7 @@ class PrintService {
         result = await NativeBluetoothPrinter.printLabel(
           effectiveRequest,
           printer: printer,
+          materialDataMatrix: materialDataMatrix,
         );
       } catch (_) {
         // Eski/boshqa printer keshi keyingi safar qayta so'ralishi uchun.

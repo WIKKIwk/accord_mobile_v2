@@ -50,7 +50,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
       _scannerSession = ReliableScannerSession(
         facing: CameraFacing.back,
         detectionSpeed: DetectionSpeed.noDuplicates,
-        formats: const <BarcodeFormat>[BarcodeFormat.qrCode],
+        formats: const [BarcodeFormat.qrCode, BarcodeFormat.dataMatrix],
       );
     }
   }

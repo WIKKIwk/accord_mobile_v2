@@ -19,7 +19,7 @@ class _ProductionQuickScannerPanelState
         autoZoom: false,
         facing: CameraFacing.back,
         detectionSpeed: DetectionSpeed.noDuplicates,
-        formats: const [BarcodeFormat.qrCode],
+        formats: const [BarcodeFormat.qrCode, BarcodeFormat.dataMatrix],
       );
       _scannerSession = session;
       session.addListener(_syncScannerPhase);

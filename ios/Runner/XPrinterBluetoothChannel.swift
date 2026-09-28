@@ -32,6 +32,10 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private static let materialTitleLineHeightDots = 26
   private static let materialTitleFontHeightDots = 19
   private static let materialTitleQrGapDots = 8
+  // Three copies at 60% of the former 174-dot receipt symbol.
+  private static let materialDataMatrixSizeDots = 104
+  private static let materialDataMatrixCount = 3
+  private static let materialDataMatrixGapDots = 16
   private static let packQrX = 278
   private static let packQrY = 166
   private static let packEpcY = 328
@@ -526,14 +530,19 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   ) -> XTSPLCommand? {
     let payload = requiredPayload(label.epc)
     let rawTitle = label.itemName.isEmpty ? label.itemCode : label.itemName
+    let useDataMatrix = label.materialDataMatrix && label.labelKind == "material_product"
     let titleLines = largeQrTitleLines(label, rawTitle: rawTitle)
     let titleFont = label.labelKind == "material_product" ? kFNT_14_19 : kFNT_12_20
     let cellWidth = label.labelKind == "material_product"
       ? materialQrCellWidth(payload)
       : largeQrCellWidth(payload)
     let qrX = centeredQrX(payload, cellWidth: cellWidth)
-    let qrSize = qrSymbolSizeDots(payload, cellWidth: cellWidth)
-    let baseQrY = centeredQrY(payload, cellWidth: cellWidth)
+    let qrSize = useDataMatrix
+      ? Self.materialDataMatrixSizeDots
+      : qrSymbolSizeDots(payload, cellWidth: cellWidth)
+    let baseQrY = useDataMatrix
+      ? (Self.labelHeightDots - qrSize) / 2
+      : centeredQrY(payload, cellWidth: cellWidth)
     let qrY: Int
     if label.labelKind == "qolip_code" {
       let latestQrY = max(
@@ -606,13 +615,13 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
         }
       }
     }
-    result = qr(
-      result,
-      x: qrX,
-      y: qrY,
-      value: payload,
-      cellWidth: cellWidth
-    )
+    if useDataMatrix {
+      result = materialDataMatrixRow(
+        result, y: qrY, bars: label.materialDataMatrixBars
+      )
+    } else {
+      result = qr(result, x: qrX, y: qrY, value: payload, cellWidth: cellWidth)
+    }
     if label.labelKind == "qolip_code" {
       return appendQolipField(
         result,
@@ -775,7 +784,9 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     }
 
     let qrCellWidth = splitQrCellWidth(payload)
-    let qrSize = qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
+    let qrSize = label.materialDataMatrix
+      ? Self.materialDataMatrixSizeDots
+      : qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
     let latestQrY = Self.labelHeightDots - Self.largeQrFooterHeightDots -
       Self.progressPackEpcGapDots - qrSize
     let qrY = max(Self.splitQrBaseY, min(y + 8, latestQrY))
@@ -783,13 +794,19 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       Self.labelHeightDots - 24,
       qrY + qrSize + Self.progressPackEpcGapDots
     )
-    result = qr(
-      result,
-      x: Self.progressPackQrX,
-      y: qrY,
-      value: payload,
-      cellWidth: qrCellWidth
-    )
+    if label.materialDataMatrix {
+      result = materialDataMatrixRow(
+        result, y: qrY, bars: label.materialDataMatrixBars
+      )
+    } else {
+      result = qr(
+        result,
+        x: Self.progressPackQrX,
+        y: qrY,
+        value: payload,
+        cellWidth: qrCellWidth
+      )
+    }
     let epcIsLarge = payload.count <= 32
     let epcFont = epcIsLarge ? kFNT_12_20 : kFNT_8_12
     let epcText = fitLabelText(payload, maxLength: epcIsLarge ? 32 : 46)
@@ -1214,6 +1231,49 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     )
   }
 
+  private func materialDataMatrixRow(
+    _ command: XTSPLCommand?,
+    y: Int,
+    bars: [[Double]]
+  ) -> XTSPLCommand? {
+    let rowWidth = Self.materialDataMatrixCount * Self.materialDataMatrixSizeDots +
+      (Self.materialDataMatrixCount - 1) * Self.materialDataMatrixGapDots
+    let startX = (Self.labelWidthDots - rowWidth) / 2
+    var result = command
+    for index in 0..<Self.materialDataMatrixCount {
+      result = dataMatrix(
+        result,
+        x: startX + index * (Self.materialDataMatrixSizeDots + Self.materialDataMatrixGapDots),
+        y: y,
+        bars: bars,
+        sizeDots: Self.materialDataMatrixSizeDots
+      )
+    }
+    return result
+  }
+
+  private func dataMatrix(
+    _ command: XTSPLCommand?,
+    x: Int,
+    y: Int,
+    bars: [[Double]],
+    sizeDots: Int
+  ) -> XTSPLCommand? {
+    // Explicit dot bounds keep firmware from auto-sizing the ECC 200 symbol.
+    var result = command
+    for bar in bars {
+      let left = Int((bar[0] * Double(sizeDots)).rounded())
+      let top = Int((bar[1] * Double(sizeDots)).rounded())
+      let right = Int((bar[2] * Double(sizeDots)).rounded())
+      let bottom = Int((bar[3] * Double(sizeDots)).rounded())
+      result = result?.barAt(
+        x: Int32(x + left), andY: Int32(y + top),
+        width: Int32(right - left), height: Int32(bottom - top)
+      )
+    }
+    return result
+  }
+
   private func requiredPayload(_ value: String) -> String {
     let payload = cleanLabelText(value)
     return payload.isEmpty ? "?" : payload
@@ -1302,6 +1362,14 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
         : ["NET VAZNI: \(netWeight) \(unit)"]
       let weightLines = weights.flatMap {
         wrapLabelText(cleanLabelText($0), width: Self.materialTitleWidthChars)
+      }
+      if label.materialDataMatrix {
+        // Reserve the complete code row and footer before placing the name.
+        let maxTitleLines = 1 + (Self.labelHeightDots - Self.materialDataMatrixSizeDots -
+          Self.largeQrFooterGapDots - Self.largeQrFooterHeightDots -
+          Self.materialTitleQrGapDots - Self.materialTitleTopY -
+          Self.materialTitleFontHeightDots) / Self.materialTitleLineHeightDots
+        return Array(productLines.prefix(max(0, maxTitleLines - weightLines.count))) + weightLines
       }
       return productLines + weightLines
     }
@@ -1570,6 +1638,8 @@ private struct BluetoothLabelRequest {
   let tareKg: Double
   let printCount: Int
   let labelKind: String
+  let materialDataMatrix: Bool
+  let materialDataMatrixBars: [[Double]]
   let materialNameLines: [String]
   let progressQty: Double?
   let progressUnit: String
@@ -1600,6 +1670,15 @@ private struct BluetoothLabelRequest {
     self.printCount = printCount
     labelKind = ((arguments["label_kind"] as? String) ?? "")
       .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    materialDataMatrix = (arguments["material_data_matrix"] as? NSNumber)?.boolValue == true
+    materialDataMatrixBars = ((arguments["material_data_matrix_bars"] as? [[NSNumber]]) ?? [])
+      .map { row in row.map { $0.doubleValue } }
+    if materialDataMatrix && (materialDataMatrixBars.isEmpty || materialDataMatrixBars.contains {
+      $0.count != 4 || $0.contains { !$0.isFinite || $0 < 0 || $0 > 1 } ||
+        $0[0] >= $0[2] || $0[1] >= $0[3]
+    }) {
+      return nil
+    }
     materialNameLines = ((arguments["material_name_lines"] as? [Any]) ?? [])
       .compactMap { value in
         guard let line = value as? String else { return nil }

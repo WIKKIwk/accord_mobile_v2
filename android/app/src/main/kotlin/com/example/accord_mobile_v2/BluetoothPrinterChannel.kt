@@ -49,6 +49,10 @@ class BluetoothPrinterChannel(
         private const val MATERIAL_TITLE_LINE_HEIGHT_DOTS = 26
         private const val MATERIAL_TITLE_FONT_HEIGHT_DOTS = 19
         private const val MATERIAL_TITLE_QR_GAP_DOTS = 8
+        // Three copies at 60% of the former 174-dot receipt symbol.
+        private const val MATERIAL_DATA_MATRIX_SIZE_DOTS = 104
+        private const val MATERIAL_DATA_MATRIX_COUNT = 3
+        private const val MATERIAL_DATA_MATRIX_GAP_DOTS = 16
         private const val PACK_QR_X = 278
         private const val PACK_QR_Y = 166
         private const val PACK_EPC_Y = 328
@@ -392,6 +396,7 @@ class BluetoothPrinterChannel(
     ) {
         val payload = requiredPayload(label.epc)
         val rawTitle = label.itemName.ifBlank { label.itemCode }
+        val useDataMatrix = label.materialDataMatrix && label.isMaterialProduct
         val titleLines = largeQrTitleLines(label, rawTitle)
         val titleFont = if (label.isMaterialProduct) {
             TSPLConst.FNT_14_19
@@ -404,8 +409,16 @@ class BluetoothPrinterChannel(
             largeQrCellSize(payload)
         }
         val qrX = centeredQrX(payload, cellSize)
-        val qrSize = qrSymbolSizeDots(payload, cellSize)
-        val baseQrY = centeredQrY(payload, cellSize)
+        val qrSize = if (useDataMatrix) {
+            MATERIAL_DATA_MATRIX_SIZE_DOTS
+        } else {
+            qrSymbolSizeDots(payload, cellSize)
+        }
+        val baseQrY = if (useDataMatrix) {
+            (LABEL_HEIGHT_DOTS - qrSize) / 2
+        } else {
+            centeredQrY(payload, cellSize)
+        }
         val latestQrY = (LABEL_HEIGHT_DOTS - qrSize -
             LARGE_QR_FOOTER_GAP_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS)
             .coerceAtLeast(baseQrY)
@@ -466,13 +479,11 @@ class BluetoothPrinterChannel(
                 }
             }
         }
-        sdkQr(
-            printer,
-            qrX,
-            qrY,
-            payload,
-            cellSize = cellSize,
-        )
+        if (useDataMatrix) {
+            sdkMaterialDataMatrixRow(printer, qrY, label.materialDataMatrixBars)
+        } else {
+            sdkQr(printer, qrX, qrY, payload, cellSize = cellSize)
+        }
         if (label.isQolipProductCode) {
             printQolipField(
                 printer,
@@ -628,19 +639,27 @@ class BluetoothPrinterChannel(
         }
 
         val qrCellSize = splitQrCellWidth(payload)
-        val qrSize = qrSymbolSizeDots(payload, qrCellSize)
+        val qrSize = if (label.materialDataMatrix) {
+            MATERIAL_DATA_MATRIX_SIZE_DOTS
+        } else {
+            qrSymbolSizeDots(payload, qrCellSize)
+        }
         val latestQrY = LABEL_HEIGHT_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS -
             PROGRESS_PACK_EPC_GAP_DOTS - qrSize
         val qrY = maxOf(SPLIT_QR_BASE_Y, minOf(y + 8, latestQrY))
         val epcY = (qrY + qrSize + PROGRESS_PACK_EPC_GAP_DOTS)
             .coerceAtMost(LABEL_HEIGHT_DOTS - 24)
-        sdkQr(
-            printer,
-            PROGRESS_PACK_QR_X,
-            qrY,
-            payload,
-            cellSize = qrCellSize,
-        )
+        if (label.materialDataMatrix) {
+            sdkMaterialDataMatrixRow(printer, qrY, label.materialDataMatrixBars)
+        } else {
+            sdkQr(
+                printer,
+                PROGRESS_PACK_QR_X,
+                qrY,
+                payload,
+                cellSize = qrCellSize,
+            )
+        }
         val epcFont = if (payload.length <= 32) {
             TSPLConst.FNT_12_20
         } else {
@@ -1045,6 +1064,45 @@ class BluetoothPrinterChannel(
         )
     }
 
+    private fun sdkMaterialDataMatrixRow(
+        printer: TSPLPrinter,
+        y: Int,
+        bars: List<List<Double>>,
+    ) {
+        val rowWidth = MATERIAL_DATA_MATRIX_COUNT * MATERIAL_DATA_MATRIX_SIZE_DOTS +
+            (MATERIAL_DATA_MATRIX_COUNT - 1) * MATERIAL_DATA_MATRIX_GAP_DOTS
+        val startX = (LABEL_WIDTH_DOTS - rowWidth) / 2
+        repeat(MATERIAL_DATA_MATRIX_COUNT) { index ->
+            sdkDataMatrix(
+                printer,
+                startX + index * (MATERIAL_DATA_MATRIX_SIZE_DOTS + MATERIAL_DATA_MATRIX_GAP_DOTS),
+                y,
+                bars,
+                MATERIAL_DATA_MATRIX_SIZE_DOTS,
+            )
+        }
+    }
+
+    private fun sdkDataMatrix(
+        printer: TSPLPrinter,
+        x: Int,
+        y: Int,
+        bars: List<List<Double>>,
+        sizeDots: Int,
+    ) {
+        // Explicit dot bounds keep firmware from auto-sizing the ECC 200 symbol.
+        val commands = buildString {
+            for (bar in bars) {
+                val left = (bar[0] * sizeDots).roundToInt()
+                val top = (bar[1] * sizeDots).roundToInt()
+                val right = (bar[2] * sizeDots).roundToInt()
+                val bottom = (bar[3] * sizeDots).roundToInt()
+                append("BAR ${x + left},${y + top},${right - left},${bottom - top}\r\n")
+            }
+        }
+        printer.sendData(commands.toByteArray(Charsets.US_ASCII))
+    }
+
     private fun requiredPayload(value: String): String {
         return cleanLabelText(value).takeIf { it.isNotBlank() }
             ?: throw IllegalArgumentException("XP-P323B QR payload is empty")
@@ -1135,6 +1193,15 @@ class BluetoothPrinterChannel(
             }
             val weightLines = (weights + meterPart).flatMap {
                 wrapLabelText(cleanLabelText(it), MATERIAL_TITLE_WIDTH_CHARS)
+            }
+            if (label.materialDataMatrix) {
+                // Reserve the complete code row and footer before placing the name.
+                val maxTitleLines = 1 + (LABEL_HEIGHT_DOTS - MATERIAL_DATA_MATRIX_SIZE_DOTS -
+                    LARGE_QR_FOOTER_GAP_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS -
+                    MATERIAL_TITLE_QR_GAP_DOTS - MATERIAL_TITLE_TOP_Y -
+                    MATERIAL_TITLE_FONT_HEIGHT_DOTS) / MATERIAL_TITLE_LINE_HEIGHT_DOTS
+                return productLines.take((maxTitleLines - weightLines.size).coerceAtLeast(0)) +
+                    weightLines
             }
             return productLines + weightLines
         }
@@ -1379,6 +1446,8 @@ private data class BluetoothLabelRequest(
     val tareKg: Double,
     val printCount: Int,
     val labelKind: String,
+    val materialDataMatrix: Boolean,
+    val materialDataMatrixBars: List<List<Double>>,
     val materialNameLines: List<String>,
     val progressQty: Double?,
     val progressUnit: String,
@@ -1416,6 +1485,15 @@ private data class BluetoothLabelRequest(
             val grossQty = call.argument<Number>("gross_qty")?.toDouble() ?: 0.0
             val tareKg = call.argument<Number>("tare_kg")?.toDouble() ?: 0.0
             val printCount = call.argument<Number>("print_count")?.toInt() ?: 1
+            val materialDataMatrix = call.argument<Boolean>("material_data_matrix") == true
+            val bars = call.argument<List<List<Number>>>("material_data_matrix_bars")
+                .orEmpty().map { row -> row.map { it.toDouble() } }
+            if (materialDataMatrix && (bars.isEmpty() || bars.any { bar ->
+                    bar.size != 4 || bar.any { !it.isFinite() || it !in 0.0..1.0 } ||
+                        bar[0] >= bar[2] || bar[1] >= bar[3]
+                })) {
+                return null
+            }
             if (epc.isEmpty() || !grossQty.isFinite() || !tareKg.isFinite() ||
                 printCount !in 1..100
             ) {
@@ -1440,6 +1518,8 @@ private data class BluetoothLabelRequest(
                     .orEmpty()
                     .trim()
                     .lowercase(Locale.US),
+                materialDataMatrix = materialDataMatrix,
+                materialDataMatrixBars = bars,
                 materialNameLines = call.argument<List<Any?>>("material_name_lines")
                     .orEmpty()
                     .mapNotNull { value ->
