@@ -13,7 +13,7 @@ extension __OperatorDashboardPageStateAstPart06 on _OperatorDashboardPageState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 20),
+        SizedBox(height: widget.controlOnly ? 12 : 20),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -21,14 +21,18 @@ extension __OperatorDashboardPageStateAstPart06 on _OperatorDashboardPageState {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    sectionTitle,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
+                  // controlOnly (Print tarixi tab) da katta title keraksiz —
+                  // tabning o'zida "Print tarixi" yozig'i bor.
+                  if (!widget.controlOnly) ...[
+                    Text(
+                      sectionTitle,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
+                    const SizedBox(height: 4),
+                  ],
                   Text(
                     [
                       '${sessions.length} ta batch',
@@ -42,12 +46,15 @@ extension __OperatorDashboardPageStateAstPart06 on _OperatorDashboardPageState {
                 ],
               ),
             ),
-            IconButton(
-              onPressed:
-                  _archiveLoading ? null : () => unawaited(_refreshArchive()),
-              icon: const Icon(Icons.refresh_rounded),
-              tooltip: '$sectionTitle yangilash',
-            ),
+            // Homashyo kirimi (controlOnly) Print tarixi tabida refresh
+            // tugmasi keraksiz — arxiv tab ochilganda avtomatik yangilanadi.
+            if (!widget.controlOnly)
+              IconButton(
+                onPressed:
+                    _archiveLoading ? null : () => unawaited(_refreshArchive()),
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: '$sectionTitle yangilash',
+              ),
           ],
         ),
         if (_archiveError.isNotEmpty) ...[

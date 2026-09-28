@@ -108,6 +108,9 @@ class AdminOrderPickerField extends StatelessWidget {
           labelText: labelText,
         ).copyWith(
           suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
+          // Bo'sh holatda label field ichiga tushib, selectText bilan
+          // ustma-ust chiqmasligi uchun label har doim tepada turadi.
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
         isEmpty: empty,
         child: Text(

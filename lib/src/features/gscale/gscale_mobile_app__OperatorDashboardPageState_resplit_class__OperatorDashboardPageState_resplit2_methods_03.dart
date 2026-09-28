@@ -27,7 +27,19 @@ extension __OperatorDashboardPageStateAstPartResplit2_03
                 ],
               ),
             ),
-            if (widget.orderSection != null) widget.orderSection!,
+            // Order field faqat Print tabida ko'rinadi.
+            // Print tarixi tabida qolib ketmasligi kerak.
+            if (widget.orderSection != null)
+              AnimatedBuilder(
+                animation: _controlTabController,
+                builder: (context, child) {
+                  if (_controlTabController.index != 0) {
+                    return const SizedBox.shrink();
+                  }
+                  return child!;
+                },
+                child: widget.orderSection!,
+              ),
             Expanded(
               child: TabBarView(
                 controller: _controlTabController,
