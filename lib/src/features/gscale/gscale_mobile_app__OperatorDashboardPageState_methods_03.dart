@@ -322,9 +322,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3AsyncPickerSheet<SupplierItem>(
-          title: linkedOrderId.isEmpty
-              ? 'Mahsulot tanlang'
-              : 'Mahsulot tanlang (order bo‘yicha)',
+          title: 'Mahsulot tanlang',
           hintText: 'Mahsulot qidiring',
           showScanIcon: true,
           pageSize: _catalogPickerPageSize,
