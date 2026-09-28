@@ -81,6 +81,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.unlinkingMaterialBarcode,
     this.summaryOnlyMode = false,
     this.onMaterialsLinked,
+    this.onReceiveMaterial,
   });
   final GlobalKey noticeAnchorKey;
   final VoidCallback onClose;
@@ -167,6 +168,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   // Boshqa rollar uchun false bo'lib qoladi — ularga ta'sir qilmaydi.
   final bool summaryOnlyMode;
   final VoidCallback? onMaterialsLinked;
+  final VoidCallback? onReceiveMaterial;
 
   @override
   Widget build(BuildContext context) {
@@ -316,6 +318,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       showContractWarning: showContractWarning,
                       materialsLoading: materialsLoading,
                       materialsError: materialsError,
+                      onReceiveMaterial: onReceiveMaterial,
                       materialStartReady: materialStartReady,
                       materialStartBlockingText: materialStartBlockingText,
                       blockingBusyDetailText: blockingBusyDetailText,

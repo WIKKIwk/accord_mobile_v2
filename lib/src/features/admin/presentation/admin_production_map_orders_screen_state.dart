@@ -311,7 +311,8 @@ class _AdminProductionMapOrdersScreenState
           onNavigate: _openDrawerRoute,
         ),
       UserRole.materialTaminotchi => MaterialTaminotchiNavigationDrawer(
-          selectedRouteName: AppRoutes.supplySequence,
+          selectedRouteName: widget.materialTasksMode
+              ? AppRoutes.materialTasks : AppRoutes.supplySequence,
           onNavigate: _openDrawerRoute,
         ),
       UserRole.tayyorlovMasteri => PreparationDrawer(
@@ -324,7 +325,7 @@ class _AdminProductionMapOrdersScreenState
       UserRole.qolipchi => QolipDock(
           activeTab: widget.qolipTasksMode ? QolipDockTab.tasks : null),
       UserRole.materialTaminotchi =>
-        const MaterialTaminotchiDock(activeTab: null),
+        MaterialTaminotchiDock(activeTab: widget.materialTasksMode ? MaterialTaminotchiDockTab.tasks : null),
       UserRole.tayyorlovMasteri => const PreparationDock(),
       _ => null,
     };
@@ -359,7 +360,7 @@ class _AdminProductionMapOrdersScreenState
       titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,
-        hintText: widget.qolipTasksMode
+        hintText: widget.materialTasksMode ? 'Material vazifalari' : widget.qolipTasksMode
             ? context.l10n.qolipText('nav.tasks')
             : widget.supplyViewerMode
             ? context.l10n.productionText('worker.queue.search.sequence')
@@ -496,7 +497,7 @@ class _AdminProductionMapOrdersScreenState
                               onTapWatchOrder: _showWatchOrderInfo,
                               onLongPressWatchOrder: _showWatchOrderLongPress,
                             )
-                          : widget.qolipTasksMode
+                          : widget.qolipTasksMode || widget.materialTasksMode
                               ? _buildQolipTasks(bottomPadding)
                               : _AdminModulesBody(
                               stageStatesByOrderId: _stageStatesByOrderId,
@@ -712,9 +713,9 @@ class _AdminProductionMapOrdersScreenState
     AdminDrawerNavigation.openRoute(context, routeName);
   }
 
-  void _showOrderDetail(ProductionMapSaved order) {
+  Future<void> _showOrderDetail(ProductionMapSaved order) async {
     final mapId = order.map.id.trim();
-    showModalBottomSheet<void>(
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

@@ -63,6 +63,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.onUnlinkMaterial,
     required this.unlinkingMaterialBarcode,
     this.materialLinkRequestPanel,
+    this.onReceiveMaterial,
   });
   final List<AdminApparatus> apparatusCatalog;
   final String orderCode;
@@ -125,6 +126,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final void Function(AdminRawMaterialAssignment assignment)? onUnlinkMaterial;
   final String unlinkingMaterialBarcode;
   final Widget? materialLinkRequestPanel;
+  final VoidCallback? onReceiveMaterial;
 
   final _ReadOnlyOrderDetailUiState uiState;
 
@@ -448,6 +450,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 quickScanHighlight == ProductionQuickScanHighlight.materials,
             onTap:
                 attachedMaterialsExpandable ? onToggleMaterialsExpanded : null,
+            trailing: !attachedMaterialsExpandable && onReceiveMaterial != null
+                ? TextButton(
+                    key: const ValueKey('production-material-receive'),
+                    onPressed: onReceiveMaterial,
+                    child: Text(context.l10n.adminText('action.assign')),
+                  )
+                : null,
           ),
           if (attachedMaterialsExpandable && materialsExpanded) ...[
             const SizedBox(height: 12),

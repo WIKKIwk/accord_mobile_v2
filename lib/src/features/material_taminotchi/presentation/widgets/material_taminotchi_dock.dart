@@ -5,7 +5,7 @@ import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/widgets/navigation/role_dock.dart';
 import 'package:flutter/material.dart';
 
-enum MaterialTaminotchiDockTab { home, scale, profile }
+enum MaterialTaminotchiDockTab { home, scale, tasks, profile }
 
 class MaterialTaminotchiDock extends StatelessWidget {
   const MaterialTaminotchiDock({
@@ -28,7 +28,8 @@ class MaterialTaminotchiDock extends StatelessWidget {
         final selectedIndex = switch (activeTab) {
           MaterialTaminotchiDockTab.home => 0,
           MaterialTaminotchiDockTab.scale => 1,
-          MaterialTaminotchiDockTab.profile => 2,
+          MaterialTaminotchiDockTab.tasks => 2,
+          MaterialTaminotchiDockTab.profile => 3,
           null => 0,
         };
 
@@ -47,6 +48,11 @@ class MaterialTaminotchiDock extends StatelessWidget {
             return;
           }
           if (index == 2) {
+            if (activeTab == MaterialTaminotchiDockTab.tasks) return;
+            AppRootNavigation.replaceRootRoute(context, AppRoutes.materialTasks);
+            return;
+          }
+          if (index == 3) {
             if (activeTab == MaterialTaminotchiDockTab.profile) return;
             AppRootNavigation.replaceRootRoute(context, AppRoutes.profile);
           }
@@ -78,6 +84,15 @@ class MaterialTaminotchiDock extends StatelessWidget {
               onTap: () => handleSelection(1),
             ),
             RoleDockDestination(
+              id: 'material-tasks',
+              label: 'Vazifalar',
+              icon: Icons.assignment_outlined,
+              selectedIcon: Icons.assignment_rounded,
+              active: activeTab == MaterialTaminotchiDockTab.tasks,
+              routeName: AppRoutes.materialTasks,
+              onTap: () => handleSelection(2),
+            ),
+            RoleDockDestination(
               id: 'material-profile',
               label: l10n.profileTitle,
               icon: Icons.person_outline_rounded,
@@ -85,7 +100,7 @@ class MaterialTaminotchiDock extends StatelessWidget {
               active: activeTab == MaterialTaminotchiDockTab.profile,
               routeName: AppRoutes.profile,
               replaceStack: false,
-              onTap: () => handleSelection(2),
+              onTap: () => handleSelection(3),
             ),
           ],
         );

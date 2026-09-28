@@ -3,7 +3,10 @@ part of '../mobile_api.dart';
 
 extension MobileApiAdminItemsAstPart03 on MobileApi {
   Future<AdminRawMaterialStockReprintPreparation>
-      adminPrepareRawMaterialStockReprint({required String barcode}) async {
+      adminPrepareRawMaterialStockReprint({
+        required String barcode,
+        String orderId = '',
+      }) async {
     final normalizedBarcode = barcode.trim();
     if (normalizedBarcode.isEmpty) {
       throw const MobileApiException(
@@ -24,8 +27,13 @@ extension MobileApiAdminItemsAstPart03 on MobileApi {
         );
       }
       final stock = matches.first;
-      if (stock.status.trim().toLowerCase() != 'available' ||
-          stock.reservedOrderId.trim().isNotEmpty) {
+      final forAssignedOrder = orderId.trim().isNotEmpty &&
+          stock.reservedOrderId.trim() == orderId.trim() &&
+          const ['reserved', 'in_use', 'consumed'].contains(stock.status) &&
+          (await adminRawMaterialAssignments(orderId: orderId)).any((item) =>
+              item.barcode.trim().toLowerCase() == normalizedBarcode.toLowerCase());
+      if (!forAssignedOrder && (stock.status.trim().toLowerCase() != 'available' ||
+          stock.reservedOrderId.trim().isNotEmpty)) {
         throw const MobileApiException(
           code: 'raw_material_stock_locked',
           message: 'Band qilingan homashyo QR kodini qayta chop etib bo‘lmaydi',
@@ -54,7 +62,10 @@ extension MobileApiAdminItemsAstPart03 on MobileApi {
         ),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({'barcode': normalizedBarcode}),
+        body: jsonEncode({
+          'barcode': normalizedBarcode,
+          if (orderId.trim().isNotEmpty) 'order_id': orderId.trim(),
+        }),
       ),
     );
     if (response.statusCode != 200) {

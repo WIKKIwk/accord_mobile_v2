@@ -19,10 +19,17 @@ import '../../preparation/presentation/widgets/preparation_kirim_order_section.d
 import '../../shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 
+class GScaleModeArgs {
+  const GScaleModeArgs({this.order, this.warehouse});
+  final PreparationOrder? order;
+  final String? warehouse;
+}
+
 class GScaleModeScreen extends StatelessWidget {
-  const GScaleModeScreen({super.key, this.initialWarehouse});
+  const GScaleModeScreen({super.key, this.initialWarehouse, this.initialOrder});
 
   final String? initialWarehouse;
+  final PreparationOrder? initialOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +45,8 @@ class GScaleModeScreen extends StatelessWidget {
         ),
         linkPrintsToOrder: true,
         orderLoader: _loadMaterialTaminotchiKirimOrders,
+        initialOrder: initialOrder,
+        initialWarehouse: initialWarehouse,
       );
     }
     if (role == UserRole.tayyorlovMasteri) {
@@ -81,6 +90,7 @@ class _MaterialGScaleControlScreen extends StatefulWidget {
     this.linkPrintsToOrder = false,
     this.orderLoader,
     this.initialWarehouse,
+    this.initialOrder,
   });
 
   final Widget drawer;
@@ -91,6 +101,7 @@ class _MaterialGScaleControlScreen extends StatefulWidget {
   final bool linkPrintsToOrder;
   final Future<List<PreparationOrder>> Function()? orderLoader;
   final String? initialWarehouse;
+  final PreparationOrder? initialOrder;
 
   @override
   State<_MaterialGScaleControlScreen> createState() =>
@@ -110,6 +121,8 @@ class _MaterialGScaleControlScreenState
   @override
   void initState() {
     super.initState();
+    _linkedOrderId = widget.initialOrder?.id;
+    _linkedOrderWidthMm = widget.initialOrder?.widthMm;
     unawaited(_restoreLastPrintDevice());
     // Backend yangilangandan keyin eski sessiyada capability/omborlar
     // eskirgan bo'lishi mumkin — kirim ochilganda yangilab olamiz.
@@ -221,6 +234,7 @@ class _MaterialGScaleControlScreenState
     final orderSection = widget.linkPrintsToOrder
         ? PreparationKirimOrderSection(
             loadOrders: widget.orderLoader,
+            initialOrder: widget.initialOrder,
             onOrderChanged: (order) => setState(() {
               _linkedOrderId = order?.id;
               final width = order?.widthMm;

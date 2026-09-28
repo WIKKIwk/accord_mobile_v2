@@ -787,13 +787,23 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     let qrSize = label.materialDataMatrix
       ? Self.materialDataMatrixSizeDots
       : qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
-    let latestQrY = Self.labelHeightDots - Self.largeQrFooterHeightDots -
-      Self.progressPackEpcGapDots - qrSize
-    let qrY = max(Self.splitQrBaseY, min(y + 8, latestQrY))
+    // Keep the EPC where the former single QR placed it. The compact row is
+    // then positioned immediately above that stable footer instead of
+    // pulling EPC upward by the difference in symbol sizes.
+    let previousQrSize = qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
+    let previousLatestQrY = Self.labelHeightDots - Self.largeQrFooterHeightDots -
+      Self.progressPackEpcGapDots - previousQrSize
+    let previousQrY = max(Self.splitQrBaseY, min(y + 8, previousLatestQrY))
     let epcY = min(
       Self.labelHeightDots - 24,
-      qrY + qrSize + Self.progressPackEpcGapDots
+      previousQrY + previousQrSize + Self.progressPackEpcGapDots
     )
+    let qrY = label.materialDataMatrix
+      ? max(
+          Self.splitQrBaseY,
+          epcY - Self.progressPackEpcGapDots - qrSize
+        )
+      : previousQrY
     if label.materialDataMatrix {
       result = materialDataMatrixRow(
         result, y: qrY, bars: label.materialDataMatrixBars

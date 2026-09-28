@@ -70,6 +70,7 @@ class AppRoutes {
   static const String adminProductionMapOrders = '/admin-production-map-orders';
   static const String adminOpeningWip = '/admin-opening-wip';
   static const String supplySequence = '/supply-sequence';
+  static const String materialTasks = '/material-tasks';
   static const String adminProgressQrScan = '/admin-progress-qr-scan';
   static const String adminServerMonitor = '/admin-server-monitor';
   static const String adminFactoryMap = '/admin-factory-map';

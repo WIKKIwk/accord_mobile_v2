@@ -2,6 +2,29 @@
 part of '../mobile_api.dart';
 
 extension MobileApiGScale on MobileApi {
+  Future<Map<String, List<GScaleOrderMaterialTask>>> gscaleMaterialTasks(
+    List<String> orderIds,
+  ) async {
+    if (orderIds.isEmpty) return const {};
+    final response = await _sendAuthorized(() => _post(
+      Uri.parse('${MobileApi.baseUrl}/v1/mobile/gscale/material-tasks'),
+      headers: _headers(requireToken())..['Content-Type'] = 'application/json',
+      body: jsonEncode({'order_ids': orderIds}),
+    ));
+    if (response.statusCode != 200) {
+      throw MobileApiException(code: 'material_tasks_failed',
+          message: 'Material vazifalari yuklanmadi', statusCode: response.statusCode);
+    }
+    final body = _gscaleDecodeObject(response.body);
+    return {
+      for (final order in (body['orders'] as List? ?? const []).whereType<Map>())
+        order['order_id'].toString(): [
+          for (final material in (order['materials'] as List? ?? const []).whereType<Map>())
+            GScaleOrderMaterialTask.fromJson(material),
+        ],
+    };
+  }
+
   Future<List<SupplierItem>> gscaleItemsPage({
     String query = '',
     String group = '',

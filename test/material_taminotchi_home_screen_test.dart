@@ -3,6 +3,7 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_raw_material_assignment_screen.dart';
 import 'package:accord_mobile_v2/src/features/gscale/presentation/gscale_mode_screen.dart';
+import 'package:accord_mobile_v2/src/features/gscale/material_receipt_defaults.dart';
 import 'package:accord_mobile_v2/src/features/material_taminotchi/presentation/material_taminotchi_home_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/werka/presentation/widgets/m3_picker_sheet.dart';
@@ -108,6 +109,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('uz'),
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: const [
           AppLocalizations.delegate,
@@ -261,8 +263,8 @@ void main() {
     await tester.tap(find.text('Mahsulot tanlang'), warnIfMissed: false);
     await tester.pump();
 
-    final picker = tester.widget<M3AsyncPickerSheet<SupplierItem>>(
-      find.byType(M3AsyncPickerSheet<SupplierItem>),
+    final picker = tester.widget<M3AsyncPickerSheet<MaterialReceiptChoice>>(
+      find.byType(M3AsyncPickerSheet<MaterialReceiptChoice>),
     );
     expect(picker.pageSize, 50);
 

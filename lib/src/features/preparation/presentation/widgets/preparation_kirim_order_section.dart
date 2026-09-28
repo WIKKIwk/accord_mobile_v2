@@ -16,10 +16,12 @@ class PreparationKirimOrderSection extends StatefulWidget {
   const PreparationKirimOrderSection({
     super.key,
     this.loadOrders,
+    this.initialOrder,
     this.onOrderChanged,
   });
 
   final Future<List<PreparationOrder>> Function()? loadOrders;
+  final PreparationOrder? initialOrder;
   final ValueChanged<PreparationOrder?>? onOrderChanged;
 
   @override
@@ -37,6 +39,7 @@ class _PreparationKirimOrderSectionState
   @override
   void initState() {
     super.initState();
+    _selectedOrderId = widget.initialOrder?.id;
     _loadOrders();
   }
 
@@ -62,10 +65,10 @@ class _PreparationKirimOrderSectionState
             _orders.any((order) => order.id == _selectedOrderId);
         if (!stillThere) {
           _selectedOrderId = null;
-          widget.onOrderChanged?.call(null);
         }
         _loadingOrders = false;
       });
+      widget.onOrderChanged?.call(_selectedOrder);
     } catch (e) {
       if (mounted) {
         setState(() {

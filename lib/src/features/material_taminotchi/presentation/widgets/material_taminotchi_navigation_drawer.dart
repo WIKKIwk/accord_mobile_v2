@@ -29,6 +29,13 @@ class MaterialTaminotchiNavigationDrawer extends StatelessWidget {
           routeName: AppRoutes.materialHome,
         ),
         const RoleNavigationDrawerDestination(
+          icon: Icons.assignment_outlined,
+          selectedIcon: Icons.assignment_rounded,
+          label: 'Vazifalar',
+          routeName: AppRoutes.materialTasks,
+          push: true,
+        ),
+        const RoleNavigationDrawerDestination(
           icon: Icons.format_list_numbered_outlined,
           selectedIcon: Icons.format_list_numbered_rounded,
           label: 'Ketma-ketlik',

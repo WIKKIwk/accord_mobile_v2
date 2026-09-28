@@ -27,31 +27,29 @@ extension __OperatorDashboardPageStateAstPartResplit2_03
                 ],
               ),
             ),
-            // Order field faqat Print tabida ko'rinadi.
-            // Print tarixi tabida qolib ketmasligi kerak.
-            if (widget.orderSection != null)
-              AnimatedBuilder(
-                animation: _controlTabController,
-                builder: (context, child) {
-                  if (_controlTabController.index != 0) {
-                    return const SizedBox.shrink();
-                  }
-                  return child!;
-                },
-                child: widget.orderSection!,
-              ),
             Expanded(
               child: TabBarView(
                 controller: _controlTabController,
                 children: [
                   _DashboardScrollView(
                     key: const ValueKey('control-section'),
-                    horizontalPadding: 8,
-                    child: _buildControlSection(
-                      context,
-                      theme,
-                      scheme,
-                      server,
+                    horizontalPadding: 0,
+                    topPadding: 0,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (widget.orderSection != null) widget.orderSection!,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: _buildControlSection(
+                            context,
+                            theme,
+                            scheme,
+                            server,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   _DashboardScrollView(

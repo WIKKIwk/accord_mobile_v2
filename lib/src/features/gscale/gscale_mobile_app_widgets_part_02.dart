@@ -422,11 +422,13 @@ class _DashboardScrollView extends StatelessWidget {
   const _DashboardScrollView({
     required this.child,
     this.horizontalPadding = 18,
+    this.topPadding = 8,
     super.key,
   });
 
   final Widget child;
   final double horizontalPadding;
+  final double topPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -434,7 +436,7 @@ class _DashboardScrollView extends StatelessWidget {
     return ListView(
       padding: EdgeInsets.fromLTRB(
         horizontalPadding,
-        8,
+        topPadding,
         horizontalPadding,
         24 + bottomInset + 96,
       ),

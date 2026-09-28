@@ -337,6 +337,11 @@ class _MaterialHomeAction {
 List<_MaterialHomeAction> _materialHomeActions(bool hasMaterialGroupScope) {
   final candidates = [
     const _MaterialHomeAction(
+      icon: Icons.assignment_outlined,
+      title: 'Vazifalar',
+      routeName: AppRoutes.materialTasks,
+    ),
+    const _MaterialHomeAction(
       icon: Icons.scale_outlined,
       title: 'Kirim',
       routeName: AppRoutes.gscaleMode,

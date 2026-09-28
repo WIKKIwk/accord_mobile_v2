@@ -130,7 +130,9 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
 
     _runWithoutSavingControlPrefs(() {
       setState(() {
-        if (draft.itemCode.trim().isNotEmpty) {
+        if (!_prefillMaterialOrder &&
+            _authoritativeRsBatch?.active != true &&
+            draft.itemCode.trim().isNotEmpty) {
           _selectedItem = MobileItem(
             itemCode: draft.itemCode,
             itemName:
@@ -138,11 +140,14 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
             requiresDimensions: draft.itemRequiresDimensions,
           );
         }
-        if (_selectedItem != null && draft.warehouse.trim().isNotEmpty) {
+        if (!_prefillMaterialOrder &&
+            _authoritativeRsBatch?.active != true &&
+            _selectedItem != null &&
+            draft.warehouse.trim().isNotEmpty) {
           _selectedWarehouse = MobileWarehouse(warehouse: draft.warehouse);
         }
         if (_authoritativeRsBatch?.active != true) {
-          _draftContextSaved = draft.contextSaved;
+          _draftContextSaved = !_prefillMaterialOrder && draft.contextSaved;
           _batchPrintMode =
               draft.printMode.isNotEmpty ? draft.printMode : _batchPrintMode;
           _batchPrinter =
@@ -155,14 +160,20 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
               : _quantitySource;
           _babinaEnabled = draft.babinaEnabled;
           _babinaWeightController.text = draft.babinaText;
-          _widthController.text = draft.widthText;
-          _micronController.text = draft.micronText;
-          _lengthController.text = draft.lengthText;
+          if (_prefillMaterialOrder) {
+            _resetMaterialOrderFields();
+          } else {
+            _widthController.text = draft.widthText;
+            _micronController.text = draft.micronText;
+            _lengthController.text = draft.lengthText;
+          }
         }
         _manualQtyController.text = draft.manualQtyText;
         _manualDuplicateController.text = draft.manualDuplicateText;
         _warehouseMode =
-            draft.warehouseMode == 'default' ? 'default' : 'manual';
+            !_prefillMaterialOrder && draft.warehouseMode == 'default'
+                ? 'default'
+                : 'manual';
         _defaultWarehouse = draft.defaultWarehouse;
         _defaultWarehouseController.text = draft.defaultWarehouse;
         // An explicit preparation destination takes precedence over a saved
@@ -177,8 +188,62 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
       });
     });
 
+    if (_isMaterialReceipt) {
+      unawaited(_restoreMaterialWarehouse());
+    }
+    if (_prefillMaterialOrder) {
+      unawaited(_prefillSingleMaterialOrderChoice());
+    }
     if (_selectedItem != null && _selectedWarehouse != null) {
       unawaited(_validateSelectedWarehouse(itemCode: _selectedItem!.itemCode));
+    }
+  }
+
+  bool get _isMaterialReceipt =>
+      widget.controlOnly &&
+      AppSession.instance.profile?.role == UserRole.materialTaminotchi;
+
+  bool get _prefillMaterialOrder =>
+      _isMaterialReceipt && widget.linkedOrderId.trim().isNotEmpty;
+
+  String get _materialWarehouseUserKey => jsonEncode([
+        MobileApi.baseUrl,
+        AppSession.instance.profile?.role.name,
+        AppSession.instance.profile?.ref,
+      ]);
+
+  void _resetMaterialOrderFields() {
+    _selectedItem = null;
+    _draftContextSaved = false;
+    _batchContextEditing = false;
+    final width = widget.linkedOrderWidthMm;
+    _widthController.text = width != null && width.isFinite && width > 0
+        ? formatCompactKg(width)
+        : '';
+    _micronController.clear();
+    _lengthController.clear();
+  }
+
+  Future<void> _restoreMaterialWarehouse() async {
+    if (!_isMaterialReceipt ||
+        _selectedWarehouse != null ||
+        _authoritativeRsBatch?.active == true ||
+        AppSession.instance.profile?.ref.isNotEmpty != true) return;
+    final userKey = _materialWarehouseUserKey;
+    try {
+      final warehouses = await _fetchAllWarehouses();
+      final preferred = await MaterialWarehousePreferences(userKey)
+          .preferred(warehouses.map((item) => item.warehouse));
+      if (!mounted ||
+          preferred == null ||
+          _selectedWarehouse != null ||
+          _authoritativeRsBatch?.active == true ||
+          userKey != _materialWarehouseUserKey) return;
+      setState(() => _selectedWarehouse =
+          warehouses.firstWhere((item) => item.warehouse == preferred));
+      _scheduleSaveControlPrefs();
+    } catch (_) {
+      // The existing picker remains available if the catalog is offline.
     }
   }
 

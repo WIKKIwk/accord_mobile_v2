@@ -644,11 +644,23 @@ class BluetoothPrinterChannel(
         } else {
             qrSymbolSizeDots(payload, qrCellSize)
         }
-        val latestQrY = LABEL_HEIGHT_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS -
-            PROGRESS_PACK_EPC_GAP_DOTS - qrSize
-        val qrY = maxOf(SPLIT_QR_BASE_Y, minOf(y + 8, latestQrY))
-        val epcY = (qrY + qrSize + PROGRESS_PACK_EPC_GAP_DOTS)
+        // Preserve the EPC position from the former single-QR layout. Put
+        // the compact row immediately above that stable footer so the smaller
+        // symbols do not make EPC jump upward.
+        val previousQrSize = qrSymbolSizeDots(payload, qrCellSize)
+        val previousLatestQrY = LABEL_HEIGHT_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS -
+            PROGRESS_PACK_EPC_GAP_DOTS - previousQrSize
+        val previousQrY = maxOf(SPLIT_QR_BASE_Y, minOf(y + 8, previousLatestQrY))
+        val epcY = (previousQrY + previousQrSize + PROGRESS_PACK_EPC_GAP_DOTS)
             .coerceAtMost(LABEL_HEIGHT_DOTS - 24)
+        val qrY = if (label.materialDataMatrix) {
+            maxOf(
+                SPLIT_QR_BASE_Y,
+                epcY - PROGRESS_PACK_EPC_GAP_DOTS - qrSize,
+            )
+        } else {
+            previousQrY
+        }
         if (label.materialDataMatrix) {
             sdkMaterialDataMatrixRow(printer, qrY, label.materialDataMatrixBars)
         } else {

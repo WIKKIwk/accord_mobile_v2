@@ -12,6 +12,24 @@ enum _OrderLongPressAction {
   closeEarly,
 }
 
+Future<void> _openMaterialOrderReceipt(
+  BuildContext context,
+  ProductionMapSaved order,
+) async {
+  final map = order.map;
+  await Navigator.of(context).pushNamed(
+    AppRoutes.gscaleMode,
+    arguments: GScaleModeArgs(order: PreparationOrder.fromJson({
+      'id': map.id,
+      'code': map.code.trim().isNotEmpty ? map.code : map.orderNumber,
+      'title': map.title,
+      'width_mm': map.widthMm,
+      'order_kg': (map.orderKg ?? 0).toString(),
+      'saved': false,
+    })),
+  );
+}
+
 Future<String?> showProductionMapEarlyCloseDialog(BuildContext context) {
   return showDialog<String>(context: context,
     builder: (_) => const _EarlyCloseOrderDialog());
@@ -210,6 +228,7 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
     this.workerMode = false,
     this.supplyViewerMode = false,
     this.qolipTasksMode = false,
+    this.materialTasksMode = false,
     this.progressDriverUrlPicker,
     this.closedOrdersLoader,
     this.completionRequestsLoader,
@@ -221,6 +240,7 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
   final bool workerMode;
   final bool supplyViewerMode;
   final bool qolipTasksMode;
+  final bool materialTasksMode;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final Future<List<AdminClosedProductionOrder>> Function()? closedOrdersLoader;
   final Future<List<AdminCompletionRequestNotification>> Function()?

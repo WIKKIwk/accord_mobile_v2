@@ -47,6 +47,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   List<MobileArchiveSession> _archiveSessions = const [];
   MobileItem? _selectedItem;
   MobileWarehouse? _selectedWarehouse;
+  Future<List<MaterialReceiptChoice>>? _materialOrderChoicesFuture;
+  String _materialOrderChoicesOrderId = '';
+  bool _materialItemPickerOpened = false;
   Timer? _pingTimer;
   Timer? _printerStatusTimer;
   Timer? _controlPrefsDebounce;
@@ -73,7 +76,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   }
 
   @override
-  void initState() {    super.initState();
+  void initState() {
+    super.initState();
     _controlTabController = TabController(length: 2, vsync: this)
       ..addListener(_handleControlTabChanged);
     _manualQtyController.addListener(_scheduleSaveControlPrefs);
@@ -107,15 +111,36 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     final nextLinkedOrderId = widget.linkedOrderId.trim();
     if (previousLinkedOrderId != nextLinkedOrderId &&
         _authoritativeRsBatch?.active != true) {
+      _materialOrderChoicesFuture = null;
+      _materialOrderChoicesOrderId = '';
+      _materialItemPickerOpened = false;
       setState(() {
         _selectedItem = null;
-        _selectedWarehouse = null;
+        if (_isMaterialReceipt) {
+          _resetMaterialOrderFields();
+        } else {
+          _selectedWarehouse = null;
+        }
         _draftContextSaved = false;
         _batchContextEditing = false;
         _errorText = '';
         _warehousesError = '';
       });
       _scheduleSaveControlPrefs();
+      if (_prefillMaterialOrder) {
+        unawaited(_prefillSingleMaterialOrderChoice());
+      }
+    }
+    if (_isMaterialReceipt &&
+        _authoritativeRsBatch?.active != true &&
+        oldWidget.linkedOrderWidthMm != widget.linkedOrderWidthMm &&
+        (_widthController.text.trim().isEmpty ||
+            _widthController.text ==
+                formatCompactKg(oldWidget.linkedOrderWidthMm ?? 0))) {
+      final width = widget.linkedOrderWidthMm;
+      _widthController.text = width != null && width.isFinite && width > 0
+          ? formatCompactKg(width)
+          : '';
     }
     final previous = oldWidget.server?.endpoint.baseUrl;
     final next = widget.server?.endpoint.baseUrl;

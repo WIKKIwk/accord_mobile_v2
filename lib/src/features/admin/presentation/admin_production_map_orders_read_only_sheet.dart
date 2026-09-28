@@ -47,6 +47,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   bool _mergeScanMode = false;
   bool _mergeConfirmationPending = false;
   bool _materialsLoading = true;
+  bool _openingMaterialReceipt = false;
   String _materialsError = '';
   bool _inputProgressLoading = false;
   String _inputProgressError = '';
@@ -307,6 +308,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     );
   }
 
+  Future<void> _receiveMaterial() async {
+    if (_openingMaterialReceipt) return;
+    setState(() => _openingMaterialReceipt = true);
+    try {
+      await _openMaterialOrderReceipt(context, widget.order);
+      if (mounted) await _loadMaterialAssignments();
+    } finally {
+      if (mounted) setState(() => _openingMaterialReceipt = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final map = widget.order.map;
@@ -339,6 +351,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         noticeAnchorKey: _noticeAnchorKey,
         onMaterialsLinked: () =>
             unawaited(_loadInteractionContractAndSections()),
+        onReceiveMaterial: !widget.workerMode &&
+                AppSession.instance.profile?.role == UserRole.materialTaminotchi &&
+                !_openingMaterialReceipt
+            ? () => unawaited(_receiveMaterial())
+            : null,
         onClose: () => Navigator.of(context).pop(),
         map: map,
         orderImageBytes: _orderImageBytes,
@@ -612,11 +629,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       });
     }
     try {
-      final products = await MobileApi.instance.qolipProducts(
-        query: itemCode,
-        limit: 200,
-        withQolipOnly: true,
-      );
+      final products = AppSession.instance.profile?.role == UserRole.materialTaminotchi
+          ? (await MobileApi.instance.qolipOrderProducts([widget.order.map.id]))
+              .values.whereType<QolipProduct>().toList()
+          : await MobileApi.instance.qolipProducts(
+              query: itemCode,
+              limit: 200,
+              withQolipOnly: true,
+            );
       if (!mounted || generation != _attachedQolipsLoadGeneration) return;
       final seen = <String>{};
       final qolips = [

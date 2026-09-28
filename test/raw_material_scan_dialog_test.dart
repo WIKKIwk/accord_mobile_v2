@@ -47,42 +47,47 @@ void main() {
 
     final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
     expect(scanner.controller!.detectionSpeed, DetectionSpeed.normal);
+    expect(scanner.controller!.formats,
+        containsAll([BarcodeFormat.qrCode, BarcodeFormat.dataMatrix]));
   });
 
-  testWidgets('raw material scanner forwards a camera barcode', (tester) async {
-    String? scannedBarcode;
-    await tester.pumpWidget(
-      _testApp(
-        Builder(
-          builder: (context) => TextButton(
-            key: const ValueKey('open-raw-material-scanner'),
-            onPressed: () {
-              unawaited(
-                showRawMaterialScanDialog(context).then((value) {
-                  scannedBarcode = value;
-                }),
-              );
-            },
-            child: const Text('Open scanner'),
+  for (final format in [BarcodeFormat.qrCode, BarcodeFormat.dataMatrix]) {
+    testWidgets('raw material scanner forwards a camera $format',
+        (tester) async {
+      String? scannedBarcode;
+      await tester.pumpWidget(
+        _testApp(
+          Builder(
+            builder: (context) => TextButton(
+              key: const ValueKey('open-raw-material-scanner'),
+              onPressed: () {
+                unawaited(
+                  showRawMaterialScanDialog(context).then((value) {
+                    scannedBarcode = value;
+                  }),
+                );
+              },
+              child: const Text('Open scanner'),
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('open-raw-material-scanner')));
-    await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('open-raw-material-scanner')));
+      await tester.pumpAndSettle();
 
-    final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
-    scanner.onDetect!(
-      const BarcodeCapture(
-        barcodes: [Barcode(rawValue: '30AA')],
-      ),
-    );
-    await tester.pumpAndSettle();
+      final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
+      scanner.onDetect!(
+        BarcodeCapture(
+          barcodes: [Barcode(rawValue: '30AA', format: format)],
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(scannedBarcode, '30AA');
-  });
+      expect(scannedBarcode, '30AA');
+    });
+  }
 
   testWidgets('quick scanner leaves automatic zoom disabled', (tester) async {
     await tester.pumpWidget(
@@ -97,6 +102,8 @@ void main() {
 
     final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
     expect(scanner.controller!.autoZoom, isFalse);
+    expect(scanner.controller!.formats,
+        containsAll([BarcodeFormat.qrCode, BarcodeFormat.dataMatrix]));
   });
 
   testWidgets('quick scanner keeps continuous autofocus active',

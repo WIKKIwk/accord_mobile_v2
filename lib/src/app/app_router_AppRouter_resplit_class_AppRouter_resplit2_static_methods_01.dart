@@ -313,6 +313,15 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
           qolipTasksMode: true,
         ),
       );
+    case AppRoutes.materialTasks:
+      return AppRouter._buildRoute(
+        settings,
+        const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          supplyViewerMode: true,
+          materialTasksMode: true,
+        ),
+      );
     case AppRoutes.supplySequence:
       return AppRouter._buildRoute(
         settings,
@@ -550,7 +559,11 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
       );
     case AppRoutes.gscaleMode:
       return AppRouter._buildRoute(settings, GScaleModeScreen(
-        initialWarehouse: settings.arguments is String
+        initialOrder: settings.arguments is GScaleModeArgs
+            ? (settings.arguments as GScaleModeArgs).order : null,
+        initialWarehouse: settings.arguments is GScaleModeArgs
+            ? (settings.arguments as GScaleModeArgs).warehouse
+            : settings.arguments is String
             ? settings.arguments as String
             : null,
       ));

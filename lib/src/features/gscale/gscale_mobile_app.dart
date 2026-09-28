@@ -30,6 +30,7 @@ import '../shared/models/app_models.dart';
 import '../admin/presentation/widgets/admin_summary_card.dart';
 import '../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'gscale_catalog.dart';
+import 'material_receipt_defaults.dart';
 import 'network_candidates_stub.dart'
     if (dart.library.io) 'network_candidates_io.dart' as network_candidates;
 

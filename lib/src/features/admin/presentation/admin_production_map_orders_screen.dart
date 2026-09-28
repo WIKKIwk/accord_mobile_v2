@@ -39,6 +39,7 @@ import '../../boyoqchi/models/returned_paint_models.dart';
 import '../../boyoqchi/presentation/widgets/returned_paint_sheet.dart';
 import '../../boyoqchi/state/returned_paint_draft_store.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
+import '../../gscale/presentation/gscale_mode_screen.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../qolip/presentation/qolip_home_screen.dart'
     show

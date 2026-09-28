@@ -532,6 +532,7 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
     this.countUnit,
     this.isLoading = false,
     this.hideZeroCount = false,
+    this.trailing,
   });
   final String title;
   final String countText;
@@ -549,6 +550,7 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
   // Son 0 bo'lganda qobiq + birlik fade bilan yo'qoladi ("0 ta"
   // ko'rsatilmaydi). Faqat kerakli joyda yoqiladi.
   final bool hideZeroCount;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -684,6 +686,10 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
                           key: ValueKey('count-hidden'),
                         ),
                 ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 8),
+                  trailing!,
+                ],
                 if (expandable) ...[
                   const SizedBox(width: 4),
                   AnimatedRotation(
@@ -1118,9 +1124,14 @@ void _showAssignedMaterialReprintSheet(
           assignment.stockStatus,
         ),
       ],
-      onReprint: () => _reprintAssignedMaterialStock(sheetContext, barcode),
+      onReprint: () => _reprintAssignedMaterialStock(
+        sheetContext, barcode, orderId: assignment.orderId),
       errorMessage: (error) => error is MobileApiException
           ? error.message
+          : error is PlatformException && error.message?.trim().isNotEmpty == true
+          ? error.message!
+          : error is StateError
+          ? error.message.toString()
           : sheetContext.l10n.adminText('warehouse.qr_print_failed'),
     ),
   );
@@ -1128,11 +1139,12 @@ void _showAssignedMaterialReprintSheet(
 
 Future<String?> _reprintAssignedMaterialStock(
   BuildContext context,
-  String barcode,
-) async {
+  String barcode, {
+  required String orderId,
+}) async {
   final l10n = context.l10n;
   final prepared = await MobileApi.instance
-      .adminPrepareRawMaterialStockReprint(barcode: barcode);
+      .adminPrepareRawMaterialStockReprint(barcode: barcode, orderId: orderId);
   final expectedBarcode = barcode.trim().toUpperCase();
   if (prepared.reprintId.trim().isEmpty ||
       prepared.stock.barcode.trim().toUpperCase() != expectedBarcode ||
@@ -1142,9 +1154,45 @@ Future<String?> _reprintAssignedMaterialStock(
       message: l10n.adminText('warehouse.qr_identity_mismatch'),
     );
   }
-  final result = await PrintService.printRps(prepared.printRequest);
-  if (!result.ok) {
-    throw StateError(l10n.adminText('warehouse.qr_printer_failed'));
+  if (!context.mounted) throw const RpsQrReprintCancelled();
+  final printer = await _pickProgressPrinter(context, null);
+  if (!context.mounted || printer == null) {
+    throw const RpsQrReprintCancelled();
+  }
+  if (printer.transport.isLocal) {
+    final result = await PrintService.printRps(
+      prepared.printRequest,
+      materialDataMatrix: true,
+      printerProfile: printer.offlinePrinter,
+      bluetoothPrinter: printer.bluetoothPrinter,
+      transport: printer.transport,
+    );
+    if (!result.ok) {
+      throw StateError(l10n.adminText('warehouse.qr_printer_failed'));
+    }
+  } else {
+    final server = printer.server;
+    if (server == null) {
+      throw StateError(l10n.adminText('training.printer_server_missing'));
+    }
+    final response = await http.post(
+      Uri.parse('${server.endpoint.baseUrl}/v1/mobile/driver/print'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        ...prepared.printRequest.toJson(),
+        if (printer.printer.isNotEmpty) 'printer': printer.printer,
+        if (printer.printMode.isNotEmpty) 'print_mode': printer.printMode,
+      }),
+    ).timeout(const Duration(seconds: 15));
+    final payload = jsonDecode(response.body);
+    if (response.statusCode < 200 || response.statusCode > 299 ||
+        payload is! Map || payload['ok'] != true) {
+      final detail = payload is Map
+          ? (payload['detail'] ?? payload['error'])?.toString().trim() ?? ''
+          : '';
+      throw StateError(detail.isNotEmpty
+          ? detail : l10n.adminText('warehouse.qr_printer_failed'));
+    }
   }
   try {
     await MobileApi.instance.adminConfirmRawMaterialStockReprint(
@@ -1364,7 +1412,9 @@ void _showAttachedQolipQrSheet(BuildContext context, QolipProduct product) {
             product.customerNames.join(', '),
           ),
       ],
-      onReprint: () => _reprintAttachedQolipCodeQr(sheetContext, product),
+      onReprint: AppSession.instance.profile?.role == UserRole.materialTaminotchi
+          ? null
+          : () => _reprintAttachedQolipCodeQr(sheetContext, product),
       errorMessage: (error) => qolipErrorMessage(
         error,
         fallback: l10n.qolipText('products.qr_failed'),

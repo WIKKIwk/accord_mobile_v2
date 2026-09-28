@@ -34,8 +34,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
   bool _isTayyorlovSimpleWarehouse(String warehouse) {
     return widget.controlOnly &&
         AppSession.instance.profile?.role == UserRole.tayyorlovMasteri &&
-        _tayyorlovMaterialWarehouses
-            .contains(warehouse.trim().toLowerCase());
+        _tayyorlovMaterialWarehouses.contains(warehouse.trim().toLowerCase());
   }
 
   Future<void> _submitSimpleReceipt() async {
@@ -71,13 +70,11 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       _errorText = '';
     });
     try {
-      await MobileApi.instance
-          .gscaleSimpleMaterialReceipt({
-            'item_code': item.itemCode,
-            'warehouse': warehouse,
-            'kg': formatCompactKg(kg),
-          })
-          .timeout(const Duration(seconds: 30));
+      await MobileApi.instance.gscaleSimpleMaterialReceipt({
+        'item_code': item.itemCode,
+        'warehouse': warehouse,
+        'kg': formatCompactKg(kg),
+      }).timeout(const Duration(seconds: 30));
       if (!mounted) {
         return;
       }
@@ -97,9 +94,8 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       }
       setState(() {
         _simpleReceiptLoading = false;
-        _errorText = error is MobileApiException
-            ? error.message
-            : error.toString();
+        _errorText =
+            error is MobileApiException ? error.message : error.toString();
       });
     }
   }
@@ -257,8 +253,9 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
         _draftContextSaved = false;
       }
       if (changedItem) {
-        _widthController.clear();
+        if (!_prefillMaterialOrder) _widthController.clear();
         _micronController.clear();
+        if (_isMaterialReceipt) _lengthController.clear();
       }
       if (!_warehouseIndependentOfItem) {
         _selectedWarehouse = null;
@@ -269,6 +266,9 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
   }
 
   Future<void> _openItemPicker() async {
+    if (_prefillMaterialOrder) {
+      _materialItemPickerOpened = true;
+    }
     if (!AppSession.instance.isLoggedIn) {
       await AppSession.instance.load();
     }
@@ -289,25 +289,42 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     // qavatlaridagi materiallarni qidirish va pagination bilan qaytaradi.
     final linkedOrderId = widget.linkedOrderId.trim();
 
-    Future<List<SupplierItem>> loadFilteredPage(
+    final materialOrder = _isMaterialReceipt && linkedOrderId.isNotEmpty;
+    Future<List<MaterialReceiptChoice>> loadFilteredPage(
       String query,
       int offset,
       int limit,
     ) async {
-      if (linkedOrderId.isEmpty ||
-          AppSession.instance.profile?.role == UserRole.materialTaminotchi) {
-        return _loadGScaleCatalogItems(query, offset, limit);
+      if (materialOrder) {
+        // Fetch the order's few material types once; paginate after expanding
+        // their micron variants so repeated types remain selectable.
+        final choices = await _loadMaterialOrderChoices(linkedOrderId);
+        final needle = query.trim().toLowerCase();
+        return choices
+            .where((choice) =>
+                '${choice.item.name} ${choice.item.code} ${choice.micron ?? ''}'
+                    .toLowerCase()
+                    .contains(needle))
+            .skip(offset)
+            .take(limit)
+            .toList();
       }
-      // Backend pagination filtrdan oldin qo'llanilgani uchun katta sahifa
-      // olib, client'da filtrlab, keyin offset/limit bilan kesamiz.
+      if (linkedOrderId.isEmpty || _isMaterialReceipt) {
+        return (await _loadGScaleCatalogItems(query, offset, limit))
+            .map((item) => MaterialReceiptChoice(item, null))
+            .toList();
+      }
       final fetched = await _loadGScaleCatalogItems(query, 0, 200);
-      final filtered = fetched
+      return fetched
           .where((item) => item.orderApparatusOptions.isNotEmpty)
-          .toList(growable: false);
-      return filtered.skip(offset).take(limit).toList(growable: false);
+          .skip(offset)
+          .take(limit)
+          .map((item) => MaterialReceiptChoice(item,
+              item.orderMicrons.length == 1 ? item.orderMicrons.single : null))
+          .toList();
     }
 
-    final option = await showModalBottomSheet<SupplierItem>(
+    final option = await showModalBottomSheet<MaterialReceiptChoice>(
       context: context,
       isDismissible: true,
       enableDrag: true,
@@ -317,40 +334,48 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       barrierColor: Colors.black.withValues(alpha: 0.32),
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
-        return M3AsyncPickerSheet<SupplierItem>(
+        return M3AsyncPickerSheet<MaterialReceiptChoice>(
           title: 'Mahsulot tanlang',
           hintText: 'Mahsulot qidiring',
           showScanIcon: true,
           pageSize: _catalogPickerPageSize,
           loadPage: loadFilteredPage,
-          itemTitle: (item) => item.name,
-          itemSubtitle: (item) => item.orderMicrons.isEmpty
-              ? item.code
-              : '${item.code} • ${item.orderMicrons.map(formatCompactKg).join(', ')} mkm',
+          itemTitle: (choice) => choice.micron == null
+              ? choice.item.name
+              : '${choice.item.name} — ${formatCompactKg(choice.micron!)} mkm',
+          itemSubtitle: (choice) => choice.item.code,
+          itemKey: (choice) => '${choice.item.code}:${choice.micron}',
           onSelected: (item) => Navigator.of(context).pop(item),
         );
       },
     );
-    if (option == null || !mounted || widget.linkedOrderId.trim() != linkedOrderId) {
+    if (option == null ||
+        !mounted ||
+        widget.linkedOrderId.trim() != linkedOrderId) {
       return;
     }
-    _selectItem(
-      MobileItem(
-        itemCode: option.code,
-        itemName: option.name.trim().isEmpty ? option.code : option.name.trim(),
-        requiresDimensions: option.requiresDimensions,
-      ),
-    );
-    if (option.orderMicrons.length == 1) {
-      _micronController.text = formatCompactKg(option.orderMicrons.single);
+    final item = option.item;
+    if (_isMaterialReceipt &&
+        _micronController.text !=
+            (option.micron == null ? '' : formatCompactKg(option.micron!))) {
+      _lengthController.clear();
+    }
+    _selectItem(MobileItem(
+      itemCode: item.code,
+      itemName: item.name.trim().isEmpty ? item.code : item.name.trim(),
+      requiresDimensions: item.requiresDimensions,
+    ));
+    if (option.micron != null) {
+      _micronController.text = formatCompactKg(option.micron!);
     }
   }
 
   Future<List<SupplierItem>> _loadGScaleCatalogItems(
     String query,
     int offset,
-    int limit,
-  ) {
+    int limit, {
+    String? orderId,
+  }) {
     switch (gscaleCatalogItemSourceForProfile(AppSession.instance.profile)) {
       case GScaleCatalogItemSource.adminItems:
         return MobileApi.instance.adminItemsPage(
@@ -361,10 +386,67 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       case GScaleCatalogItemSource.gscaleItems:
         return MobileApi.instance.gscaleItemsPage(
           query: query,
-          orderId: widget.linkedOrderId,
+          orderId: orderId ?? widget.linkedOrderId,
           offset: offset,
           limit: limit,
         );
+    }
+  }
+
+  Future<List<MaterialReceiptChoice>> _loadMaterialOrderChoices(
+      String orderId) async {
+    if (_materialOrderChoicesOrderId != orderId ||
+        _materialOrderChoicesFuture == null) {
+      _materialOrderChoicesOrderId = orderId;
+      _materialOrderChoicesFuture =
+          _loadGScaleCatalogItems('', 0, 200, orderId: orderId)
+              .then(MaterialReceiptChoice.fromItems);
+    }
+    final future = _materialOrderChoicesFuture!;
+    try {
+      return await future;
+    } catch (_) {
+      if (identical(_materialOrderChoicesFuture, future)) {
+        _materialOrderChoicesFuture = null;
+        _materialOrderChoicesOrderId = '';
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _prefillSingleMaterialOrderChoice() async {
+    if (!_prefillMaterialOrder || _authoritativeRsBatch?.active == true) return;
+    final orderId = widget.linkedOrderId.trim();
+    try {
+      final choices = await _loadMaterialOrderChoices(orderId);
+      if (!mounted ||
+          !_prefillMaterialOrder ||
+          widget.linkedOrderId.trim() != orderId ||
+          _authoritativeRsBatch?.active == true ||
+          _materialItemPickerOpened ||
+          _selectedItem != null ||
+          choices.isEmpty ||
+          choices
+                  .map((choice) => choice.item.code.trim().toLowerCase())
+                  .toSet()
+                  .length !=
+              1) {
+        return;
+      }
+      final choice = choices.first;
+      _selectItem(MobileItem(
+        itemCode: choice.item.code,
+        itemName: choice.item.name.trim().isEmpty
+            ? choice.item.code
+            : choice.item.name.trim(),
+        requiresDimensions: choice.item.requiresDimensions,
+      ));
+      final microns = choices.map((item) => item.micron).toSet();
+      if (microns.length == 1 && choice.micron != null) {
+        _micronController.text = formatCompactKg(choice.micron!);
+      }
+    } catch (_) {
+      // Leave the picker available when the order catalog cannot load.
     }
   }
 
@@ -373,6 +455,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     if (!mounted) {
       return;
     }
+    final warehouseUserKey = _materialWarehouseUserKey;
     final selectedItem = _selectedItem;
     // Material rolida ombor mahsulotga bog'liq emas: mahsulotsiz ham ochiladi.
     if (selectedItem == null && !_warehouseIndependentOfItem) {
@@ -416,6 +499,12 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       _selectedWarehouse = warehouse;
     });
     _scheduleSaveControlPrefs();
+    if (_isMaterialReceipt &&
+        warehouseUserKey == _materialWarehouseUserKey &&
+        AppSession.instance.profile?.ref.isNotEmpty == true) {
+      await MaterialWarehousePreferences(warehouseUserKey)
+          .record(warehouse.warehouse);
+    }
   }
 
   String? _selectedPrintWarehouse() {
@@ -517,26 +606,39 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     return started;
   }
 
-  Future<String> _chooseReceiptApparatus(MobileItem item, String orderId) async {
+  Future<String> _chooseReceiptApparatus(
+      MobileItem item, String orderId) async {
     if (orderId.isEmpty) return '';
     // Refresh options for this exact order/item; restored drafts may have old
     // catalog data and must not guess the first printing/laminating station.
     final items = await MobileApi.instance.gscaleItemsPage(
-      query: item.itemCode, orderId: orderId, offset: 0, limit: 200,
+      query: item.itemCode,
+      orderId: orderId,
+      offset: 0,
+      limit: 200,
     );
     final matches = items.where((entry) => entry.code == item.itemCode);
-    final options = matches.isEmpty ? <String, String>{} : matches.first.orderApparatusOptions;
-    if (options.isEmpty) throw StateError('Bu homashyo uchun orderda mos apparat yo‘q');
+    final options = matches.isEmpty
+        ? <String, String>{}
+        : matches.first.orderApparatusOptions;
+    if (options.isEmpty)
+      throw StateError('Bu homashyo uchun orderda mos apparat yo‘q');
     if (options.length == 1) return options.keys.single;
     if (!mounted) throw StateError('Ekran yopildi');
     final selected = await showModalBottomSheet<String>(
-      context: context, useSafeArea: true, isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(child: SingleChildScrollView(child: Column(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+          child: SingleChildScrollView(
+              child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const ListTile(title: Text('Homashyo qaysi apparat uchun?')),
           for (final option in options.entries)
-            ListTile(title: Text(option.value), onTap: () => Navigator.of(sheetContext).pop(option.key)),
+            ListTile(
+                title: Text(option.value),
+                onTap: () => Navigator.of(sheetContext).pop(option.key)),
         ],
       ))),
     );

@@ -446,7 +446,8 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             onTap: contextFieldsLocked ? null : _openItemPicker,
           ),
           const SizedBox(height: 8),
-          if (!simpleReceiptMode && selectedProduct?.requiresDimensions == true) ...[
+          if (!simpleReceiptMode && (selectedProduct?.requiresDimensions == true ||
+              (_prefillMaterialOrder && selectedProduct == null))) ...[
             Row(
               children: [
                 Expanded(
@@ -524,7 +525,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               ),
             const SizedBox(height: 8),
           ],
-          if (!simpleReceiptMode && selectedProduct != null) ...[
+          if (!simpleReceiptMode && (selectedProduct != null || _prefillMaterialOrder)) ...[
             TextField(
               controller: _lengthController,
               enabled: !contextFieldsLocked,

@@ -52,6 +52,7 @@ const _app_router_AppRouter_resplit_class_AppRouter_staticDockRoutes_resplit2Val
   AppRoutes.customerNotifications,
   AppRoutes.materialHome,
   AppRoutes.materialHistory,
+  AppRoutes.materialTasks,
   AppRoutes.inventoryMovements,
   AppRoutes.qolipHome,
   AppRoutes.qolipBlocks,
