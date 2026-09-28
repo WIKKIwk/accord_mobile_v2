@@ -286,24 +286,39 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       return;
     }
     // Order tanlangan bo'lsa (Homashyo kirimi) — picker'da faqat shu
-    // orderga biriktirilgan homashyolar ko'rinadi. Birikmalar
-    // adminRawMaterialAssignments dan olinadi (item_code + item_group).
+    // orderga biriktirilgan homashyolar ko'rinadi. Birikmalar sheet
+    // ochilishidan OLDIN yuklanadi (race bo'lmasligi uchun).
     // Order tanlanmagan bo'lsa — hozirgidek hamma homashyo.
     final linkedOrderId = widget.linkedOrderId.trim();
     List<AdminRawMaterialAssignment>? linkedAssignments;
-    var linkedScopeLoaded = false;
-    Future<void> ensureLinkedScope() async {
-      if (linkedOrderId.isEmpty || linkedScopeLoaded) {
-        return;
-      }
-      linkedScopeLoaded = true;
+    String linkedScopeDebug = '';
+    if (linkedOrderId.isNotEmpty) {
       try {
         linkedAssignments = await MobileApi.instance
             .adminRawMaterialAssignments(orderId: linkedOrderId)
             .timeout(const Duration(seconds: 5));
-      } catch (_) {
+        final codes = linkedAssignments
+            .map((a) => a.itemCode.trim())
+            .where((c) => c.isNotEmpty)
+            .toSet();
+        final groups = linkedAssignments
+            .map((a) => a.itemGroup.trim())
+            .where((g) => g.isNotEmpty)
+            .toSet();
+        // ignore: avoid_print
+        print(
+          'LINKED_SCOPE order=$linkedOrderId count=${linkedAssignments.length} codes=$codes groups=$groups',
+        );
+        linkedScopeDebug = ' (${linkedAssignments.length} birikma)';
+      } catch (e) {
+        // ignore: avoid_print
+        print('LINKED_SCOPE order=$linkedOrderId FAILED: $e');
         linkedAssignments = null;
+        linkedScopeDebug = ' (scope xato)';
       }
+    }
+    if (!mounted) {
+      return;
     }
 
     bool matchesLinkedScope(SupplierItem item) {
@@ -331,7 +346,6 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       int offset,
       int limit,
     ) async {
-      await ensureLinkedScope();
       final assignments = linkedAssignments;
       // Scope yo'q (order tanlanmagan / birikma yo'q / API xato) —
       // fallback: hamma homashyo (eski xulq).
@@ -341,8 +355,14 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       // Backend pagination filtrdan oldin qo'llanilgani uchun katta sahifa
       // olib, client'da filtrlab, keyin offset/limit bilan kesamiz.
       final fetched = await _loadGScaleCatalogItems(query, 0, 200);
+      // ignore: avoid_print
+      print(
+        'LINKED_FILTER catalog=${fetched.length} sample=${fetched.take(5).map((i) => '${i.code}|${i.itemGroup}').toList()}',
+      );
       final filtered =
           fetched.where(matchesLinkedScope).toList(growable: false);
+      // ignore: avoid_print
+      print('LINKED_FILTER matched=${filtered.length}');
       return filtered.skip(offset).take(limit).toList(growable: false);
     }
 
@@ -359,7 +379,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
         return M3AsyncPickerSheet<SupplierItem>(
           title: linkedOrderId.isEmpty
               ? 'Mahsulot tanlang'
-              : 'Mahsulot tanlang (order bo‘yicha)',
+              : 'Mahsulot tanlang (order bo‘yicha$linkedScopeDebug)',
           hintText: 'Mahsulot qidiring',
           showScanIcon: true,
           pageSize: _catalogPickerPageSize,
