@@ -170,6 +170,7 @@ bool createdLabelIsAfter(String candidate, String current) {
 class SupplierItem {
   const SupplierItem({
     this.orderApparatusOptions = const {},
+    this.orderMicrons = const [],
     required this.code,
     required this.name,
     required this.uom,
@@ -186,10 +187,15 @@ class SupplierItem {
   final String itemGroup;
   final bool requiresDimensions;
   final Map<String, String> orderApparatusOptions;
+  final List<double> orderMicrons;
   final List<String> customerNames;
 
   factory SupplierItem.fromJson(Map<String, dynamic> json) {
     return SupplierItem(
+      orderMicrons: (json['order_microns'] as List<dynamic>? ?? const [])
+          .whereType<num>()
+          .map((value) => value.toDouble())
+          .toList(growable: false),
       orderApparatusOptions: (json['order_apparatus_options'] as Map?)
           ?.map((key, value) => MapEntry(key.toString(), value.toString())) ?? const {},
       code: json['code'] as String? ?? '',

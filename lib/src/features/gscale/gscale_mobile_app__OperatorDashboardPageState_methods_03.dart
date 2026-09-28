@@ -285,13 +285,8 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     if (!mounted) {
       return;
     }
-    // Order tanlangan bo'lsa (Homashyo kirimi) — picker'da faqat shu
-    // orderga mos homashyolar ko'rinadi. Moslikni backend har bir itemga
-    // `order_apparatus_options` da hisoblab beradi (bo'sh bo'lmasa — mos).
-    // Bu chop etishdagi `_chooseReceiptApparatus` tekshiruvi bilan bir xil
-    // signal, qo'shimcha API kerak emas. Fallback yo'q: order tanlangan
-    // bo'lsa faqat mos kelganlar chiqadi.
-    // Order tanlanmagan bo'lsa — hamma homashyo.
+    // Material taminotchi uchun server tanlangan orderning saqlangan
+    // qavatlaridagi materiallarni qidirish va pagination bilan qaytaradi.
     final linkedOrderId = widget.linkedOrderId.trim();
 
     Future<List<SupplierItem>> loadFilteredPage(
@@ -299,7 +294,8 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       int offset,
       int limit,
     ) async {
-      if (linkedOrderId.isEmpty) {
+      if (linkedOrderId.isEmpty ||
+          AppSession.instance.profile?.role == UserRole.materialTaminotchi) {
         return _loadGScaleCatalogItems(query, offset, limit);
       }
       // Backend pagination filtrdan oldin qo'llanilgani uchun katta sahifa
@@ -328,12 +324,14 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
           pageSize: _catalogPickerPageSize,
           loadPage: loadFilteredPage,
           itemTitle: (item) => item.name,
-          itemSubtitle: (item) => item.code,
+          itemSubtitle: (item) => item.orderMicrons.isEmpty
+              ? item.code
+              : '${item.code} • ${item.orderMicrons.map(formatCompactKg).join(', ')} mkm',
           onSelected: (item) => Navigator.of(context).pop(item),
         );
       },
     );
-    if (option == null) {
+    if (option == null || !mounted || widget.linkedOrderId.trim() != linkedOrderId) {
       return;
     }
     _selectItem(
@@ -343,6 +341,9 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
         requiresDimensions: option.requiresDimensions,
       ),
     );
+    if (option.orderMicrons.length == 1) {
+      _micronController.text = formatCompactKg(option.orderMicrons.single);
+    }
   }
 
   Future<List<SupplierItem>> _loadGScaleCatalogItems(

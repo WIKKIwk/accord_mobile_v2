@@ -14,9 +14,11 @@ void main() {
       'warehouse': '',
       'item_group': 'Rulon eni',
       'requires_dimensions': true,
+      'order_microns': [12, 20.5],
     });
 
     expect(item.requiresDimensions, isTrue);
+    expect(item.orderMicrons, [12.0, 20.5]);
   });
 
   TestWidgetsFlutterBinding.ensureInitialized();
