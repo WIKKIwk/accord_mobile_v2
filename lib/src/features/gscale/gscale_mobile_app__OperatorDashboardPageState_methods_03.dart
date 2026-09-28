@@ -285,6 +285,67 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     if (!mounted) {
       return;
     }
+    // Order tanlangan bo'lsa (Homashyo kirimi) — picker'da faqat shu
+    // orderga biriktirilgan homashyolar ko'rinadi. Birikmalar
+    // adminRawMaterialAssignments dan olinadi (item_code + item_group).
+    // Order tanlanmagan bo'lsa — hozirgidek hamma homashyo.
+    final linkedOrderId = widget.linkedOrderId.trim();
+    List<AdminRawMaterialAssignment>? linkedAssignments;
+    var linkedScopeLoaded = false;
+    Future<void> ensureLinkedScope() async {
+      if (linkedOrderId.isEmpty || linkedScopeLoaded) {
+        return;
+      }
+      linkedScopeLoaded = true;
+      try {
+        linkedAssignments = await MobileApi.instance
+            .adminRawMaterialAssignments(orderId: linkedOrderId)
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {
+        linkedAssignments = null;
+      }
+    }
+
+    bool matchesLinkedScope(SupplierItem item) {
+      final assignments = linkedAssignments;
+      if (linkedOrderId.isEmpty || assignments == null || assignments.isEmpty) {
+        return true;
+      }
+      final code = item.code.trim().toLowerCase();
+      final group = item.itemGroup.trim().toLowerCase();
+      for (final assignment in assignments) {
+        final assignedCode = assignment.itemCode.trim().toLowerCase();
+        if (assignedCode.isNotEmpty && assignedCode == code) {
+          return true;
+        }
+        final assignedGroup = assignment.itemGroup.trim().toLowerCase();
+        if (assignedGroup.isNotEmpty && assignedGroup == group) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    Future<List<SupplierItem>> loadFilteredPage(
+      String query,
+      int offset,
+      int limit,
+    ) async {
+      await ensureLinkedScope();
+      final assignments = linkedAssignments;
+      // Scope yo'q (order tanlanmagan / birikma yo'q / API xato) —
+      // fallback: hamma homashyo (eski xulq).
+      if (linkedOrderId.isEmpty || assignments == null || assignments.isEmpty) {
+        return _loadGScaleCatalogItems(query, offset, limit);
+      }
+      // Backend pagination filtrdan oldin qo'llanilgani uchun katta sahifa
+      // olib, client'da filtrlab, keyin offset/limit bilan kesamiz.
+      final fetched = await _loadGScaleCatalogItems(query, 0, 200);
+      final filtered =
+          fetched.where(matchesLinkedScope).toList(growable: false);
+      return filtered.skip(offset).take(limit).toList(growable: false);
+    }
+
     final option = await showModalBottomSheet<SupplierItem>(
       context: context,
       isDismissible: true,
@@ -296,11 +357,13 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3AsyncPickerSheet<SupplierItem>(
-          title: 'Mahsulot tanlang',
+          title: linkedOrderId.isEmpty
+              ? 'Mahsulot tanlang'
+              : 'Mahsulot tanlang (order bo‘yicha)',
           hintText: 'Mahsulot qidiring',
           showScanIcon: true,
           pageSize: _catalogPickerPageSize,
-          loadPage: _loadGScaleCatalogItems,
+          loadPage: loadFilteredPage,
           itemTitle: (item) => item.name,
           itemSubtitle: (item) => item.code,
           onSelected: (item) => Navigator.of(context).pop(item),
