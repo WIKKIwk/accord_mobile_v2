@@ -137,6 +137,7 @@ class AdminApparatus {
   bool get isDefault => id.startsWith('apparatus:default:');
   bool get isPechat => operation == 'print';
   bool get isFlexo => technology == 'flexographic';
+  bool get usesLaminationWorkflow => apparatusUsesLaminationWorkflow(operation);
   bool get isActive => lifecycleState == 'active';
 
   factory AdminApparatus.fromJson(Map<String, dynamic> json) {

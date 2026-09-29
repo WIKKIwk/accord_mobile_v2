@@ -270,7 +270,7 @@ String progressQrHumanStatusLabel({
         ? _qrText(
             l10n,
             'worker.qr.status.completed_pending_stock',
-            'Ishlab chiqarish tugagan, omborga topshirishni kutmoqda',
+            'Ushbu rulon omborga qabulni kutmoqda',
           )
         : _qrText(
             l10n,

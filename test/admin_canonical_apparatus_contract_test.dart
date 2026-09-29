@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/features/admin/logic/canonical_apparatus_groups.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -62,6 +63,47 @@ void main() {
     expect(apparatus.factoryMapObjectId, 'factory-node:flexo-01');
     expect(apparatus.trainingEnabled, isTrue);
   });
+
+  test(
+    'cold glue shares the lamination workflow and keeps a separate group',
+    () {
+      final glue = AdminApparatus.fromJson({
+        ...projection,
+        'apparatus_id': 'apparatus:default:holodniy_kley',
+        'display': {'display_name': 'Holodniy kley aparat'},
+        'capabilities': {'glue': 1},
+        'execution_profile': {'operation': 'glue', 'technology': 'cold_glue'},
+      });
+      final lamination = AdminApparatus.fromJson({
+        ...projection,
+        'apparatus_id': 'apparatus:default:asset-007',
+        'display': {'display_name': 'Laminatsiya 1'},
+        'capabilities': {'laminate': 1},
+        'execution_profile': {
+          'operation': 'laminate',
+          'technology': 'adhesive_lamination',
+        },
+      });
+      expect(glue.usesLaminationWorkflow, isTrue);
+      expect(lamination.usesLaminationWorkflow, isTrue);
+      expect(
+        AdminApparatus.fromJson(projection).usesLaminationWorkflow,
+        isFalse,
+      );
+      expect(glue.operation, 'glue');
+      expect(glue.technology, 'cold_glue');
+      expect(glue.family, 'kley');
+      expect(glue.kind, 'holodniy_kley');
+      final groups = canonicalApparatusGroups([glue, lamination]);
+      expect(groups.map((group) => group.operation), ['laminate', 'glue']);
+      expect(groups.last.apparatus.single.id, glue.id);
+      expect(groups.last.apparatus.single.name, 'Holodniy kley aparat');
+      expect(
+        glue.toJson()['execution_profile'],
+        containsPair('operation', 'glue'),
+      );
+    },
+  );
 
   test('committed canonical response reads its runtime projection', () {
     final apparatus = AdminApparatus.fromJson({

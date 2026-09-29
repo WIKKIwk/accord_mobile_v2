@@ -1,4 +1,5 @@
 import '../../../core/api/mobile_api.dart';
+import '../../../app/app_router.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -136,6 +137,13 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
               physics: const ClampingScrollPhysics(),
               padding: EdgeInsets.fromLTRB(0, 4, 0, bottomPadding),
               children: [
+                if (AppRouter.canOpenRoute(AppRoutes.adminPushConfig))
+                  ListTile(
+                    leading: const Icon(Icons.notifications_active_outlined),
+                    title: Text(context.l10n.adminText('push.title')),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).pushNamed(AppRoutes.adminPushConfig),
+                  ),
                 SmoothAppear(
                   delay: const Duration(milliseconds: 20),
                   child: Column(

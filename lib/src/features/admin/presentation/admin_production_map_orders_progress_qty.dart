@@ -181,7 +181,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     order: order,
     apparatus: apparatusId,
     isBosma: operation == 'print',
-    isLaminatsiya: operation == 'laminate',
+    isLaminatsiya: apparatus?.usesLaminationWorkflow ?? false,
     isRezka: operation == 'cut',
     returnedPaintDraft: returnedPaintDraft,
     fullCompletionReportRequired: fullCompletionReportRequired,

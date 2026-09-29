@@ -263,6 +263,8 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
           settings, const AdminCalculateOrdersScreen());
     case AppRoutes.adminCreateHub:
       return AppRouter._buildRoute(settings, const AdminCreateHubScreen());
+    case AppRoutes.adminPushConfig:
+      return AppRouter._buildAdminSettingsRoute(settings, const AdminPushConfigScreen());
     case AppRoutes.adminSettings:
       return AppRouter._buildAdminSettingsRoute(
           settings, const AdminSettingsScreen());

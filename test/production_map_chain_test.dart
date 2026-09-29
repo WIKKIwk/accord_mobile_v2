@@ -110,6 +110,22 @@ void main() {
       nextApparatus: _lamination2Id, nextStageNodeId: 'lam2'),
       unorderedEquals([_lamination1Id, _lamination2Id]));
     expect(productionMapWipConsumerIds(map: map,
+      nextApparatus: _lamination1Id, nextStageNodeId: 'lam2'),
+      unorderedEquals([_lamination1Id, _lamination2Id]));
+    expect(productionMapWipConsumerIds(map: map,
+      nextApparatus: '', nextStageNodeId: 'lam2'),
+      unorderedEquals([_lamination1Id, _lamination2Id]));
+    expect(productionMapWipConsumerIds(map: map,
+      nextApparatus: _lamination1Id, nextStageNodeId: 'lam2-again'), isEmpty);
+    expect(productionMapWipConsumerIds(map: map,
+      nextApparatus: '', nextStageNodeId: ''), isEmpty);
+    expect(productionMapWipConsumerIds(map: map,
+      nextApparatus: _lamination1Id, nextStageNodeId: 'lam2', consumerStageNodeId: 'lam1'),
+      unorderedEquals([_lamination1Id, _lamination2Id]));
+    expect(productionMapWipConsumerIds(map: map,
+      nextApparatus: _lamination2Id, nextStageNodeId: 'lam2-again', consumerStageNodeId: 'lam2'),
+      isEmpty);
+    expect(productionMapWipConsumerIds(map: map,
       nextApparatus: _lamination2Id, nextStageNodeId: 'lam2-again'), [_lamination2Id]);
     for (final node in ['', 'missing', 'print']) {
       expect(productionMapWipConsumerIds(map: map,

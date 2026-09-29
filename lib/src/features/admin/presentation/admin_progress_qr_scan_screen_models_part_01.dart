@@ -236,9 +236,22 @@ class _QrReportView extends StatelessWidget {
                   [
                     if (passport.orderNumber.isNotEmpty)
                       '${context.l10n.productionText('worker.qr.report.order')} ${passport.orderNumber}',
-                    passport.status,
+                    passport.orderStatus,
                   ].where((item) => item.trim().isNotEmpty).join(' • '),
+                  key: const ValueKey('qr-passport-order-status'),
                 ),
+                const SizedBox(height: 6),
+                Text(
+                  '${context.l10n.productionText('worker.qr.passport.scanned_batch')}: ${passport.scannedBatchStatus}',
+                  key: const ValueKey('qr-passport-scanned-batch-status'),
+                ),
+                if (passport.currentBatchStatus case final status?) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '${context.l10n.productionText('worker.qr.passport.current_batch')}: $status',
+                    key: const ValueKey('qr-passport-current-batch-status'),
+                  ),
+                ],
               ],
             ),
           ),

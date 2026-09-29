@@ -1,3 +1,4 @@
+part 'admin_push_config_translations.dart';
 part 'admin_localization_adminTranslations_resplit_collection_01.dart';
 part 'admin_localization_adminTranslations_resplit_collection_02.dart';
 part 'admin_localization_adminTranslations_resplit_collection_03.dart';
@@ -23,6 +24,7 @@ part 'admin_localization_adminTranslations_resplit_collection_22.dart';
 part 'admin_localization_adminTranslations_resplit_collection_23.dart';
 
 const Map<String, Map<String, String>> adminTranslations = {
+  ..._adminPushConfigTranslations,
   ..._admin_localization_adminTranslations_resplitPart01,
   ..._admin_localization_adminTranslations_resplitPart02,
   ..._admin_localization_adminTranslations_resplitPart03,

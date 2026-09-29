@@ -11,6 +11,7 @@ MobileApiException _adminProductionMapException(
   var details = const <String>[];
   var assignedOrderTitle = '';
   var rawMaterialStatus = '';
+  var progressApparatusName = '';
   double? orderWidthMm;
   double? rollWidthMm;
   double? minimumWidthMm;
@@ -40,6 +41,7 @@ MobileApiException _adminProductionMapException(
       ];
     }
     if (payload is Map) {
+      progressApparatusName = payload['apparatus_name']?.toString().trim() ?? '';
       assignedOrderTitle = payload['order_title']?.toString().trim() ?? '';
       rawMaterialStatus =
           payload['raw_material_status']?.toString().trim() ?? '';
@@ -164,7 +166,7 @@ MobileApiException _adminProductionMapException(
       'bosma_completion_metrics_required' =>
         'Bosma tugatish uchun barcha majburiy fieldlarni kiriting',
       'laminatsiya_completion_metrics_required' =>
-        'Laminatsiyani tugatish uchun barcha majburiy qiymatlarni kiriting',
+        'Ishni tugatish uchun barcha majburiy qiymatlarni kiriting',
       'laminatsiya_astatka_metrics_required' =>
         'Bosmadan, plyonkadan ortgan rulon va chiqindini kiriting',
       'laminatsiya_rubber_too_large' =>
@@ -242,6 +244,10 @@ MobileApiException _adminProductionMapException(
       'progress_batch_not_found' => 'Progress QR topilmadi',
       'progress_batch_not_accepted' =>
         'Bu QR oldingi bosqich mahsulotiga mos emas',
+      'progress_batch_already_used' =>
+        'Bu rulon ${progressApparatusName.isEmpty ? '' : '$progressApparatusName apparatida '}allaqachon ishlatilgan. Qayta ish boshlash uchun ishlatilmagan rulon QR sini skanerlang.',
+      'progress_batch_in_use' =>
+        'Bu rulon hozir ${progressApparatusName.isEmpty ? '' : '$progressApparatusName apparatida '}ishlatilmoqda. Uni qayta ishga olib bo‘lmaydi.',
       'opening_wip_invalid_input' => 'Opening WIP ma’lumotlari to‘liq emas',
       'opening_wip_entry_mismatch' =>
         'Opening WIP faqat production mapning birinchi aparatidan boshlanishi mumkin',

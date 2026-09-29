@@ -75,12 +75,14 @@ part 'admin_production_map_order_image_zoom_test_part.dart';
 part 'admin_production_map_worker_wip_accuracy_test_part.dart';
 part 'admin_production_map_worker_completed_wip_test_part.dart';
 part 'admin_production_map_worker_map_wip_test_part.dart';
+part 'admin_production_map_wip_facts_test_part.dart';
 part 'admin_production_map_admin_status_scope_test_part.dart';
 part 'admin_production_map_merge_confirmation_test_part.dart';
 part 'admin_production_map_sequence_reorder_test_part.dart';
 part 'admin_production_map_early_close_test_part.dart';
 part 'admin_production_map_order_delete_test_part.dart';
 part 'admin_production_map_closed_sync_test_part.dart';
+part 'admin_production_map_order_alert_test_part.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
 const _print7Id = 'apparatus:default:bosma_7';
@@ -89,6 +91,7 @@ const _print9Id = 'apparatus:default:bosma_9';
 const _flexoId = 'apparatus:default:asset-005';
 const _lamination1Id = 'apparatus:default:asset-007';
 const _lamination2Id = 'apparatus:default:asset-008';
+const _coldGlueId = 'apparatus:default:holodniy_kley';
 const _rezkaId = 'apparatus:default:asset-010';
 
 void main() {
@@ -137,6 +140,7 @@ void main() {
   _registerEarlyCloseMenuTests();
   _registerOrderDeleteTests();
   _registerClosedOrdersSyncTests();
+  _registerOrderAlertTests();
   _registerPrintMethodRoutingTests();
 
   _registeradmin_production_map_test_screen_testCases02();
@@ -196,4 +200,5 @@ void main() {
   _registerWorkerWipAccuracyTests();
   _registerWorkerCompletedWipTests();
   _registerWorkerMapWipTests();
+  _registerAdminMapWipFactsTests();
 }

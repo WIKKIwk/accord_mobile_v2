@@ -90,6 +90,13 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.adminNotifications,
     ),
     RoleNavigationDrawerDestination(
+      icon: Icons.notifications_active_outlined,
+      selectedIcon: Icons.notifications_active_rounded,
+      label: l10n.adminText('push.title'),
+      routeName: AppRoutes.adminPushConfig,
+      push: true,
+    ),
+    RoleNavigationDrawerDestination(
       icon: Icons.precision_manufacturing_outlined,
       selectedIcon: Icons.precision_manufacturing_rounded,
       label: l10n.adminEquipmentNavTitle,

@@ -383,6 +383,31 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
     'en': 'The paddon could not be created',
     'ru': 'Не удалось создать паддон',
   },
+  'worker.paddon.delete.title': {
+    'uz': 'Paddonni o‘chirish',
+    'en': 'Delete paddon',
+    'ru': 'Удалить паддон',
+  },
+  'worker.paddon.delete.body': {
+    'uz': '{code} paddoni o‘chirilsinmi? Faqat bo‘sh va harakat tarixi yo‘q paddonni o‘chirish mumkin.',
+    'en': 'Delete paddon {code}? Only empty paddons without activity history can be deleted.',
+    'ru': 'Удалить паддон {code}? Можно удалить только пустой паддон без истории операций.',
+  },
+  'worker.paddon.deleted': {
+    'uz': 'Paddon o‘chirildi',
+    'en': 'Paddon deleted',
+    'ru': 'Паддон удалён',
+  },
+  'worker.paddon.delete_failed': {
+    'uz': 'Paddonni o‘chirib bo‘lmadi',
+    'en': 'The paddon could not be deleted',
+    'ru': 'Не удалось удалить паддон',
+  },
+  'worker.paddon.delete_locked': {
+    'uz': 'Paddon bo‘sh emas yoki unda harakat bo‘lgan. Uni o‘chirib bo‘lmaydi.',
+    'en': 'The paddon is not empty or has activity history. It cannot be deleted.',
+    'ru': 'Паддон не пуст или имеет историю операций. Удаление невозможно.',
+  },
   'worker.paddon.load_failed': {
     'uz': 'Paddonlar ma’lumoti yuklanmadi',
     'en': 'Paddon data could not be loaded',

@@ -178,9 +178,9 @@ const _admin_localization_adminTranslations_resplitPart02 = {
     'ru': 'Пакетное оборудование',
   },
   'admin.apparatus.group.glue': {
-    'uz': 'Kley apparati',
-    'en': 'Adhesive equipment',
-    'ru': 'Клеевое оборудование',
+    'uz': 'Holodniy kley aparat',
+    'en': 'Cold glue equipment',
+    'ru': 'Аппарат холодного клея',
   },
   'admin.apparatus.group.unclassified': {
     'uz': 'Tasniflanmagan aparatlar',

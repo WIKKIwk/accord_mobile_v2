@@ -41,6 +41,8 @@ import '../cache/order_image_cache.dart';
 
 part 'admin/mobile_api_admin.dart';
 part 'admin/mobile_api_material_link.dart';
+part 'admin/mobile_api_order_alert.dart';
+part 'admin/mobile_api_push_config.dart';
 part 'admin/mobile_api_order_images.dart';
 part 'admin/mobile_api_admin_settings_monitor.dart';
 part 'admin/mobile_api_admin_production_queue_runtime.dart';
@@ -283,6 +285,7 @@ class MobileApi {
     Uri uri, {
     Map<String, String>? headers,
     Object? body,
+    Duration timeout = _requestTimeout,
   }) => _mutationRequest(() {
     if (NativeIrohTransport.canUseFor(uri)) {
       return NativeIrohTransport.send(
@@ -291,17 +294,18 @@ class MobileApi {
         uri: uri,
         headers: headers,
         body: body,
-      ).timeout(_requestTimeout);
+      ).timeout(timeout);
     }
     return _httpClient
         .post(uri, headers: headers, body: body)
-        .timeout(_requestTimeout);
+        .timeout(timeout);
   });
 
   Future<http.Response> _put(
     Uri uri, {
     Map<String, String>? headers,
     Object? body,
+    Duration timeout = _requestTimeout,
   }) => _mutationRequest(() {
     if (NativeIrohTransport.canUseFor(uri)) {
       return NativeIrohTransport.send(
@@ -310,9 +314,9 @@ class MobileApi {
         uri: uri,
         headers: headers,
         body: body,
-      ).timeout(_requestTimeout);
+      ).timeout(timeout);
     }
-    return _httpClient.put(uri, headers: headers, body: body).timeout(_requestTimeout);
+    return _httpClient.put(uri, headers: headers, body: body).timeout(timeout);
   });
 
   Future<http.Response> _patch(

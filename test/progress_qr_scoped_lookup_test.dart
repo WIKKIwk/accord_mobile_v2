@@ -1,8 +1,10 @@
 import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -19,6 +21,34 @@ void main() {
     AppSession.instance.token = 'test-session';
   });
   tearDown(() { AppSession.instance.token = null; });
+  for (final entry in {
+    'progress_batch_already_used': 'allaqachon ishlatilgan',
+    'progress_batch_in_use': 'ishlatilmoqda',
+  }.entries) {
+    for (final apparatusName in ['Rezka 5', '']) {
+      test('scoped QR explains ${entry.key} with owner "$apparatusName"', () async {
+        await http.runWithClient(() async {
+          try {
+            await MobileApi.instance.adminProgressQrLookup(qr,
+                apparatus: station, orderId: order);
+            fail('An unavailable roll must remain blocked');
+          } on MobileApiException catch (error) {
+            expect(error.code, entry.key);
+            expect(error.message, contains(entry.value));
+            expect(error.message, isNot(contains('oldingi bosqich mahsulotiga mos emas')));
+            expect(AppLocalizations(const Locale('uz')).productionErrorMessage(
+                error.code, fallback: error.message), error.message);
+            if (apparatusName.isNotEmpty) {
+              expect(error.message, contains('Rezka 5 apparatida'));
+            }
+          }
+        }, () => MockClient((_) async => http.Response(jsonEncode({
+          'error': entry.key,
+          if (apparatusName.isNotEmpty) 'apparatus_name': apparatusName,
+        }), 400)));
+      });
+    }
+  }
   for (final validation in ['valid', 'missing', 'wrong_apparatus', 'wrong_order']) {
     test('scoped QR lookup requires exact server confirmation: $validation', () async {
       Object? sent;

@@ -2,6 +2,41 @@
 part of 'app_localizations.dart';
 
 const _app_localizations_declarations__productionTranslations_resplitPart14 = {
+  'worker.alert.material': {
+    'uz': 'Ta’minotchini ogohlantirish',
+    'en': 'Notify material supplier',
+    'ru': 'Уведомить снабженца',
+  },
+  'worker.alert.qolip': {
+    'uz': 'Qolipchini ogohlantirish',
+    'en': 'Notify mold operator',
+    'ru': 'Уведомить формовщика',
+  },
+  'worker.alert.sent': {
+    'uz': 'Xabar yuborildi',
+    'en': 'Message sent',
+    'ru': 'Сообщение отправлено',
+  },
+  'worker.alert.sending': {
+    'uz': 'Yuborilmoqda…',
+    'en': 'Sending…',
+    'ru': 'Отправка…',
+  },
+  'worker.alert.no_recipients': {
+    'uz': 'Xabar yuboriladigan faol xodim topilmadi',
+    'en': 'No active employee found to notify',
+    'ru': 'Нет активного сотрудника для уведомления',
+  },
+  'worker.alert.failed': {
+    'uz': 'Xabar yuborilmadi. Qayta urinib ko‘ring',
+    'en': 'Message could not be sent. Try again',
+    'ru': 'Не удалось отправить сообщение. Попробуйте ещё раз',
+  },
+  'worker.alert.test_mode': {
+    'uz': 'Sinov rejimida xabar yuborilmaydi',
+    'en': 'Messages are not sent in test mode',
+    'ru': 'В тестовом режиме сообщения не отправляются',
+  },
   'qolip.home.product_customer_search': {
     'uz': 'Mahsulot yoki customer nomi bilan qidiring',
     'en': 'Search by product or customer',

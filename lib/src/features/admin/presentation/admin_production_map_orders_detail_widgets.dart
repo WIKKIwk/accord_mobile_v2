@@ -2,6 +2,7 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _ReadOnlyOrderDetailContent extends StatelessWidget {
   const _ReadOnlyOrderDetailContent({
+    required this.order,
     required this.noticeAnchorKey,
     required this.onClose,
     required this.map,
@@ -160,6 +161,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onComplete;
   final VoidCallback onResume;
   final AdminOrderControlState orderControlState;
+  final ProductionMapSaved order;
   final bool allowMaterialUnlink;
   final void Function(AdminRawMaterialAssignment assignment)? onUnlinkMaterial;
   final String unlinkingMaterialBarcode;
@@ -403,6 +405,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     const SizedBox(height: 4),
                   if (!summaryOnlyMode)
                     _OrderMapProgressCard(
+                      order: order,
+                      map: map,
+                      orderControlState: orderControlState,
                       workerMode: workerMode,
                       steps: steps,
                       apparatusCatalog: apparatusCatalog,
@@ -1006,6 +1011,8 @@ class _SequenceStepTile extends StatelessWidget {
     required this.current,
     required this.isDone,
     this.printPreflightPassed = false,
+    this.displayStatus,
+    this.wipFacts,
     this.onTap,
   });
   final ProductionMapNode node;
@@ -1016,6 +1023,8 @@ class _SequenceStepTile extends StatelessWidget {
   final bool current;
   final bool isDone;
   final bool printPreflightPassed;
+  final FactoryMapStatus? displayStatus;
+  final ProductionMapStageWipFacts? wipFacts;
   bool get _colourMatched =>
       status == ApparatusQueueOrderState.printPreflight && printPreflightPassed;
   final VoidCallback? onTap;
@@ -1091,19 +1100,32 @@ class _SequenceStepTile extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                if ((status != null || displayStatus != null) && node.kind == 'apparatus')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: _MapStatusChip(
+                      label: _statusLabel(context, status ?? ApparatusQueueOrderState.pending),
+                      foreground: _statusForeground(scheme),
+                      background: _statusBackground(scheme),
+                    ),
+                  ),
+                if (wipFacts case final facts?) ...[
+                  if (facts.produced > 0)
+                    Text(context.l10n.adminText('factory_map.wip.produced',
+                      values: {'count': facts.produced}),
+                      key: ValueKey('map-wip-produced-${node.id}'),
+                      style: theme.textTheme.bodySmall),
+                  if (facts.waitingInput + facts.inUseInput + facts.processedInput > 0)
+                    Text(context.l10n.adminText('factory_map.wip.input', values: {
+                      'waiting': facts.waitingInput, 'inUse': facts.inUseInput,
+                      'processed': facts.processedInput,
+                    }), key: ValueKey('map-wip-input-${node.id}'),
+                      style: theme.textTheme.bodySmall),
+                ],
               ],
             ),
           ),
         ),
-        if (status != null && node.kind == 'apparatus')
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: _MapStatusChip(
-              label: _statusLabel(context, status!),
-              foreground: _statusForeground(scheme),
-              background: _statusBackground(scheme),
-            ),
-          ),
       ],
     );
 
@@ -1140,7 +1162,7 @@ class _SequenceStepTile extends StatelessWidget {
     return switch (node.kind) {
       'start' => Icons.play_circle_outline_rounded,
       'end' => Icons.flag_circle_outlined,
-      'apparatus' => operation == 'laminate'
+      'apparatus' => apparatusUsesLaminationWorkflow(operation)
           ? Icons.layers_outlined
           : operation == 'cut'
               ? Icons.content_cut_outlined
@@ -1150,6 +1172,7 @@ class _SequenceStepTile extends StatelessWidget {
   }
 
   Color _statusForeground(ColorScheme scheme) {
+    if (displayStatus != null) return Color(displayStatus!.colorValue);
     if (_colourMatched) return const Color(0xFF163311);
     return switch (status) {
       ApparatusQueueOrderState.printPreflight => const Color(0xFF343D60),
@@ -1163,6 +1186,9 @@ class _SequenceStepTile extends StatelessWidget {
   }
 
   Color _statusBackground(ColorScheme scheme) {
+    if (displayStatus != null) {
+      return Color(displayStatus!.colorValue).withValues(alpha: 0.12);
+    }
     if (_colourMatched) return const Color(0xFFEAF6DA);
     return switch (status) {
       ApparatusQueueOrderState.printPreflight => const Color(0xFFE5BFC4),
@@ -1179,6 +1205,9 @@ class _SequenceStepTile extends StatelessWidget {
     BuildContext context,
     ApparatusQueueOrderState status,
   ) {
+    if (displayStatus != null) {
+      return context.l10n.adminText(displayStatus!.labelKey);
+    }
     if (_colourMatched) {
       return context.l10n
           .productionText('worker.queue.status.print_preflight_passed');
@@ -1208,11 +1237,13 @@ class _SequenceStepTile extends StatelessWidget {
   String _kindLabel(BuildContext context, ProductionMapNode node) {
     return switch (node.kind) {
       'start' => context.l10n.productionText('worker.detail.kind.start'),
-      'apparatus' => operation == 'laminate'
-          ? context.l10n.productionText('worker.detail.kind.lamination')
-          : operation == 'cut'
-              ? context.l10n.productionText('worker.detail.kind.cutting')
-              : context.l10n.productionText('worker.detail.kind.machine'),
+      'apparatus' => operation == 'glue'
+          ? context.l10n.adminText('apparatus.group.glue')
+          : operation == 'laminate'
+              ? context.l10n.productionText('worker.detail.kind.lamination')
+              : operation == 'cut'
+                  ? context.l10n.productionText('worker.detail.kind.cutting')
+                  : context.l10n.productionText('worker.detail.kind.machine'),
       'end' => context.l10n.productionText('worker.detail.kind.end'),
       _ => node.kind,
     };

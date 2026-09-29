@@ -2,6 +2,86 @@
 part of 'app_localizations.dart';
 
 const _app_localizations_declarations__productionTranslations_resplitPart04 = {
+  'worker.qr.passport.order_status': {
+    'uz': 'Buyurtma holati',
+    'en': 'Order status',
+    'ru': 'Статус заказа',
+  },
+  'worker.qr.passport.scanned_batch': {
+    'uz': 'Skanerlangan rulon',
+    'en': 'Scanned roll',
+    'ru': 'Отсканированный рулон',
+  },
+  'worker.qr.passport.current_batch': {
+    'uz': 'Undan chiqqan mahsulot',
+    'en': 'Output from this roll',
+    'ru': 'Продукция из этого рулона',
+  },
+  'worker.qr.order_status.in_progress': {
+    'uz': 'Ish jarayonida',
+    'en': 'In production',
+    'ru': 'В производстве',
+  },
+  'worker.qr.order_status.completed': {
+    'uz': 'Ishlab chiqarish tugagan',
+    'en': 'Production completed',
+    'ru': 'Производство завершено',
+  },
+  'worker.qr.order_status.completed_with_issue': {
+    'uz': 'Muammo bilan tugagan',
+    'en': 'Completed with an issue',
+    'ru': 'Завершено с проблемой',
+  },
+  'worker.qr.order_status.partially_completed': {
+    'uz': 'Qisman bajarilgan',
+    'en': 'Partially completed',
+    'ru': 'Частично выполнен',
+  },
+  'worker.qr.order_status.paused': {
+    'uz': 'Vaqtincha to‘xtatilgan',
+    'en': 'Paused',
+    'ru': 'Приостановлен',
+  },
+  'worker.qr.order_status.frozen': {
+    'uz': 'Muzlatilgan',
+    'en': 'Frozen',
+    'ru': 'Заморожен',
+  },
+  'worker.qr.order_status.print_preflight': {
+    'uz': 'Bosmaga tayyorlash',
+    'en': 'Print preparation',
+    'ru': 'Подготовка к печати',
+  },
+  'worker.qr.order_status.waiting_next_stage': {
+    'uz': 'Keyingi bosqichni kutmoqda',
+    'en': 'Waiting for the next stage',
+    'ru': 'Ожидает следующего этапа',
+  },
+  'worker.qr.order_status.ready': {
+    'uz': 'Ish boshlashga tayyor',
+    'en': 'Ready to start',
+    'ru': 'Готов к запуску',
+  },
+  'worker.qr.order_status.not_started': {
+    'uz': 'Boshlanmagan',
+    'en': 'Not started',
+    'ru': 'Не начат',
+  },
+  'worker.qr.order_status.closed': {
+    'uz': 'Yopilgan',
+    'en': 'Closed',
+    'ru': 'Закрыт',
+  },
+  'worker.qr.order_status.cancelled': {
+    'uz': 'Bekor qilingan',
+    'en': 'Cancelled',
+    'ru': 'Отменён',
+  },
+  'worker.qr.order_status.unknown': {
+    'uz': 'Buyurtma holati tasdiqlanmagan',
+    'en': 'Order status unconfirmed',
+    'ru': 'Статус заказа не подтверждён',
+  },
   'worker.qr.material.status_generic': {
     'uz': 'Homashyo holati: {status}.',
     'en': 'Material status: {status}.',
@@ -33,9 +113,9 @@ const _app_localizations_declarations__productionTranslations_resplitPart04 = {
     'ru': 'Там выполняется следующая производственная операция.',
   },
   'worker.qr.status.completed_pending_stock': {
-    'uz': 'Ishlab chiqarish tugagan, omborga topshirishni kutmoqda',
-    'en': 'Production is complete and the output is awaiting warehouse receipt',
-    'ru': 'Производство завершено, выпуск ожидает передачи на склад',
+    'uz': 'Ushbu rulon omborga qabulni kutmoqda',
+    'en': 'This roll is awaiting warehouse receipt',
+    'ru': 'Этот рулон ожидает приёмки на склад',
   },
   'worker.qr.status.waiting_stock': {
     'uz': 'Omborga topshirishni kutmoqda',

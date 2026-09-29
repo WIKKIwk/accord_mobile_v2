@@ -1530,7 +1530,9 @@ double? _sequenceMinimumAcceptedRollWidthMmForOrder(
     return null;
   }
   final operation = apparatus?.operation.trim().toLowerCase();
-  return operation == 'print' || operation == 'laminate' ? width : null;
+  return operation == 'print' || (apparatus?.usesLaminationWorkflow ?? false)
+      ? width
+      : null;
 }
 
 double? _sequenceMaximumAcceptedRollWidthMm(
@@ -1544,7 +1546,7 @@ double? _sequenceMaximumAcceptedRollWidthMm(
   if (operation == 'print') {
     return minimumAcceptedRollWidthMm + 20;
   }
-  if (operation == 'laminate') {
+  if (apparatus?.usesLaminationWorkflow ?? false) {
     return minimumAcceptedRollWidthMm + 30;
   }
   return null;

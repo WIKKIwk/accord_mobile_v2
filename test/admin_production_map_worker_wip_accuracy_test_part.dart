@@ -140,7 +140,8 @@ void _registerWorkerWipAccuracyTests() {
     'malformed',
     'network',
     'loading',
-    'available'
+    'available',
+    'stage-only',
   ]) {
     testWidgets('worker WIP accuracy: $scenario has one truthful state',
         (tester) async {
@@ -153,6 +154,11 @@ void _registerWorkerWipAccuracyTests() {
         }
         expect(requests.where((r) => r.url.path.endsWith('/wip-batches')),
             hasLength(1));
+        final wipQuery = requests.singleWhere((r) =>
+            r.url.path.endsWith('/wip-batches')).url.queryParameters;
+        expect(wipQuery['order_id'], orderId);
+        expect(wipQuery.containsKey('apparatus'), isFalse);
+        expect(wipQuery.containsKey('next_apparatus'), isFalse);
         expect(requests.where((r) => r.url.path.endsWith('/qolip/products')),
             isEmpty);
         expect(
@@ -181,7 +187,7 @@ void _registerWorkerWipAccuracyTests() {
         expect(start, findsOneWidget);
         expect(tester.widget<FilledButton>(start).onPressed, isNull);
         expect(find.byType(ProductionQuickScannerPanel),
-            ['available', 'empty'].contains(scenario) ? findsOneWidget : findsNothing);
+            ['available', 'stage-only', 'empty'].contains(scenario) ? findsOneWidget : findsNothing);
         if (scenario == 'loading') {
           expect(find.byType(LinearProgressIndicator), findsWidgets);
           pending.complete(http.Response('{"batches":[]}', 200));
@@ -208,6 +214,7 @@ void _registerWorkerWipAccuracyTests() {
                   case 'malformed':
                     return http.Response('{"ok":true}', 200);
                   case 'available':
+                  case 'stage-only':
                     return http.Response(
                         jsonEncode({
                           'batches': [
@@ -216,7 +223,8 @@ void _registerWorkerWipAccuracyTests() {
                               'order_id': orderId,
                               'apparatus': _print7Id,
                               'current_apparatus': _print7Id,
-                              'next_apparatus': _lamination1Id,
+                              'next_apparatus': scenario == 'stage-only' ? '' : _lamination1Id,
+                              'payload_json': {'next_stage_node_id': 'second-apparatus'},
                               'wip_status': 'waiting',
                               'status': 'roll_detached',
                               'action': 'detach_roll',

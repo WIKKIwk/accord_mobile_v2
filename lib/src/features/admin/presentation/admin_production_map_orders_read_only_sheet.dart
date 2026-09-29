@@ -385,6 +385,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               )
             : context.l10n.productionText('worker.action.pause'),
         queueStates: _queueStates,
+        order: widget.order,
         queueStatesByApparatus: widget.queueStatesByApparatus,
         queueActionControlsByApparatus: {
           ...widget.queueActionControlsByApparatus,
@@ -1846,7 +1847,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     final currentInteraction = _queueActionControl?.interaction;
     final operation = widget.apparatus?.operation.trim() ?? '';
-    final usesTimelineAstatka = operation == 'laminate' || operation == 'cut';
+    final usesTimelineAstatka =
+        (widget.apparatus?.usesLaminationWorkflow ?? false) || operation == 'cut';
     final confirmed = await showM3ConfirmDialog(
           context: context,
           title: context.l10n.productionText('worker.order.switch.title'),
@@ -2470,14 +2472,27 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     String previousStage,
   ) async {
     final station = widget.apparatus?.id.trim() ?? '';
+    final orderId = widget.order.map.id.trim();
+    final training = orderId.startsWith('training-');
     final batches = await MobileApi.instance.adminWipBatches(
       status: 'waiting',
-      apparatus: previousStage,
-      nextApparatus: station,
-      orderId: widget.order.map.id.trim(),
-      limit: 250,
+      apparatus: training ? previousStage : '',
+      nextApparatus: training ? station : '',
+      orderId: orderId,
+      limit: 500,
     );
-    return batches;
+    if (training) return batches;
+    // Source/destination machine filters can omit an alternative candidate.
+    // Read this order's waiting rolls and keep the concrete consumer stage.
+    // Scan acceptance still requires the server's scoped QR validation.
+    return batches.where((batch) => batch.orderId.trim() == orderId &&
+        batch.wipStatus.trim().toLowerCase() == 'waiting' &&
+        productionMapWipConsumerIds(
+          map: widget.order.map,
+          nextApparatus: batch.nextApparatus,
+          nextStageNodeId: batch.payloadJson['next_stage_node_id']?.toString() ?? '',
+          consumerStageNodeId: _queueActionControl?.stageNodeId ?? '',
+        ).contains(station)).toList(growable: false);
   }
 
   void _showMapApparatusWipHistory(ProductionMapNode node) {

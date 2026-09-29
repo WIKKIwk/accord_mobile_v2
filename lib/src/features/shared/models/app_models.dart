@@ -9,6 +9,14 @@ part 'app_models_declarations_part_08.dart';
 
 const String customerDeliveryResultEventPrefix = 'customer_delivery_result:';
 
+/// Operator workflow only; canonical operation still controls names, groups
+/// and production-map routing. The canonical glue technology is cold_glue.
+bool apparatusUsesLaminationWorkflow(String operation) =>
+    switch (operation.trim().toLowerCase()) {
+      'laminate' || 'glue' => true,
+      _ => false,
+    };
+
 const List<String> materialTaminotchiWorkspaceCapabilities = [
   'gscale.catalog.read',
   'gscale.print',

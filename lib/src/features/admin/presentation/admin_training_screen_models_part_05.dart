@@ -214,7 +214,8 @@ bool _trainingOrderNeedsGeneratedInputBatch(
   return map.nodes.any((node) {
     final operation = operationById[node.apparatusId.trim()];
     if (node.kind != 'apparatus' ||
-        (operation != 'laminate' && operation != 'cut')) {
+        (!apparatusUsesLaminationWorkflow(operation ?? '') &&
+            operation != 'cut')) {
       return false;
     }
     return productionMapPreviousWorkStageStation(

@@ -402,6 +402,53 @@ const _admin_localization_adminTranslations_resplitPart08 = {
   'admin.factory_map.live.pending': {
     'uz': 'Navbat kutmoqda', 'en': 'Queued', 'ru': 'В очереди',
   },
+  'admin.factory_map.live.wip_ready': {
+    'uz': 'WIP tayyor · skanerlang',
+    'en': 'WIP ready · scan to start',
+    'ru': 'WIP готов · сканируйте для запуска',
+  },
+  'admin.factory_map.live.wip_produced': {
+    'uz': 'WIP chiqarilgan', 'en': 'WIP produced', 'ru': 'WIP произведён',
+  },
+  'admin.factory_map.live.wip_available': {
+    'uz': 'Kirish WIP mavjud', 'en': 'Input WIP available', 'ru': 'Входящий WIP доступен',
+  },
+  'admin.factory_map.live.wip_received': {
+    'uz': 'WIP qabul qilingan', 'en': 'WIP received', 'ru': 'WIP принят',
+  },
+  'admin.factory_map.wip.produced': {
+    'uz': 'Chiqarilgan WIP: {count} ta', 'en': 'WIP produced: {count}', 'ru': 'Произведено WIP: {count}',
+  },
+  'admin.factory_map.wip.input': {
+    'uz': 'Kirish WIP: {waiting} kutmoqda · {inUse} ishlatilmoqda · {processed} ishlatilgan',
+    'en': 'Input WIP: {waiting} waiting · {inUse} in use · {processed} processed',
+    'ru': 'Входящий WIP: {waiting} ожидает · {inUse} в работе · {processed} использовано',
+  },
+  'admin.factory_map.wip.load_error': {
+    'uz': 'Xarita holati va WIP ma’lumotlari yuklanmadi',
+    'en': 'Could not load map status and WIP data',
+    'ru': 'Не удалось загрузить состояние карты и данные WIP',
+  },
+  'admin.factory_map.live.wip_waiting': {
+    'uz': 'WIP bor · boshlash cheklangan',
+    'en': 'WIP available · start blocked',
+    'ru': 'WIP есть · запуск ограничен',
+  },
+  'admin.factory_map.live.waiting_wip': {
+    'uz': 'WIP kutilmoqda',
+    'en': 'Waiting for WIP',
+    'ru': 'Ожидается WIP',
+  },
+  'admin.factory_map.live.requeued_ready': {
+    'uz': 'Qayta navbatda · davom ettirish mumkin',
+    'en': 'Requeued · ready to resume',
+    'ru': 'Возвращён в очередь · можно продолжить',
+  },
+  'admin.factory_map.live.requeued_waiting': {
+    'uz': 'Qayta navbatda · davom ettirish kutilmoqda',
+    'en': 'Requeued · waiting to resume',
+    'ru': 'Возвращён в очередь · ожидает продолжения',
+  },
   'admin.factory_map.live.idle': {
     'uz': 'Faol navbat yo‘q', 'en': 'No active queue', 'ru': 'Нет активной очереди',
   },

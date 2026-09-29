@@ -76,7 +76,11 @@ class PushMessagingService {
       );
     }
 
-    await syncCurrentToken();
+    try {
+      await syncCurrentToken();
+    } catch (_) {
+      debugPrint('push token synchronization is not ready');
+    }
 
     messaging.onTokenRefresh.listen((token) async {
       debugPrint(
@@ -106,6 +110,14 @@ class PushMessagingService {
         return;
       }
       if (targetRef.isNotEmpty && targetRef != profile.ref) {
+        return;
+      }
+      if ((data['event_type'] ?? '').trim() == 'push.configuration.test') {
+        await LocalNotificationService.instance.showChatNotification(
+          id: message.messageId ?? 'push-configuration-test',
+          title: message.notification?.title ?? 'Accord',
+          body: message.notification?.body ?? 'Bildirishnomalar ulandi',
+        );
         return;
       }
       if ((data['event_type'] ?? '').trim() == 'chat.message.created') {
@@ -183,6 +195,7 @@ class PushMessagingService {
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       final apnsToken = await messaging.getAPNSToken();
       debugPrint('push sync apns token=${maskPushToken(apnsToken ?? '')}');
+      if (apnsToken == null) return;
     }
     final token = await messaging.getToken();
     if (token == null || token.trim().isEmpty) {
@@ -196,6 +209,54 @@ class PushMessagingService {
     debugPrint(
       'push sync stored platform=$_platformName token=${maskPushToken(token)}',
     );
+  }
+
+  String? get firebaseProjectId =>
+      Firebase.apps.isEmpty ? null : Firebase.app().options.projectId;
+
+  Future<String> prepareConfigurationTest() async {
+    if (AppSession.instance.isTestModeSession) {
+      throw const MobileApiException(
+          code: 'push_config_test_mode', message: 'Test mode');
+    }
+    if (!_supportsRemotePush || !_shouldInitializePushOnThisDevice) {
+      throw const MobileApiException(
+          code: 'push_config_device_unavailable',
+          message: 'Physical mobile device required');
+    }
+    try {
+      await initialize();
+      final messaging = FirebaseMessaging.instance;
+      final permission = await messaging.requestPermission();
+      if (permission.authorizationStatus != AuthorizationStatus.authorized &&
+          permission.authorizationStatus != AuthorizationStatus.provisional) {
+        throw const MobileApiException(
+            code: 'push_config_permission_denied',
+            message: 'Notification permission required');
+      }
+      if (defaultTargetPlatform == TargetPlatform.iOS &&
+          await messaging.getAPNSToken() == null) {
+        throw const MobileApiException(
+            code: 'push_config_apns_unavailable',
+            message: 'APNs registration not ready');
+      }
+      final token = await messaging.getToken();
+      if (token == null || token.isEmpty) {
+        throw const MobileApiException(
+            code: 'push_config_device_unavailable',
+            message: 'FCM registration not ready');
+      }
+      // Do not report successful registration if the backend rejected the token.
+      await MobileApi.instance
+          .chatRegisterDeviceToken(tokenValue: token, platform: _platformName);
+      return token;
+    } on MobileApiException {
+      rethrow;
+    } catch (_) {
+      throw const MobileApiException(
+          code: 'push_config_device_unavailable',
+          message: 'Firebase initialization failed');
+    }
   }
 
   Future<void> unregisterCurrentToken() async {
@@ -221,13 +282,13 @@ class PushMessagingService {
       'push unregister platform=$_platformName token=${maskPushToken(token)}',
     );
     try {
-      await MobileApi.instance.unregisterPushToken(token);
+      await MobileApi.instance.chatUnregisterDeviceToken(token);
     } catch (_) {}
   }
 
   Future<void> _registerToken(String token) async {
     try {
-      await MobileApi.instance.registerPushToken(
+      await MobileApi.instance.chatRegisterDeviceToken(
         tokenValue: token,
         platform: _platformName,
       );

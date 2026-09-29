@@ -127,7 +127,9 @@ void main() {
       passport,
       '''MAHSULOT PASPORTI
 Zakaz 9993 • 90 гр сочная курица
-Holati: Keyingi bosqichni kutmoqda
+Buyurtma holati: Ish jarayonida
+Skanerlangan rulon: Keyingi bosqichni kutmoqda
+Undan chiqqan mahsulot: Keyingi bosqichni kutmoqda
 Eslatma: skan qilingan QR oldingi bosqichniki. Quyida mahsulotning hozirgi holati berilgan.
 
 BUYURTMA REJASI

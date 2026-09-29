@@ -328,10 +328,12 @@ class _ApparatusGuide {
         completionFields: _guideItems(l10n, 'worker.guide.print.complete', 3),
       );
     }
-    if (operation == 'laminate') {
+    if (apparatus.usesLaminationWorkflow) {
       return _ApparatusGuide(
         apparatus: apparatus.name,
-        kindLabel: l10n.productionText('worker.guide.kind.lamination'),
+        kindLabel: operation == 'glue'
+            ? apparatus.name
+            : l10n.productionText('worker.guide.kind.lamination'),
         startChecks: _guideItems(l10n, 'worker.guide.lamination.start', 3),
         pauseSteps: _guideItems(l10n, 'worker.guide.lamination.pause', 3),
         completionFields: _guideItems(

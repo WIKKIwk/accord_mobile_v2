@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
@@ -7,6 +9,8 @@ import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 AdminPaddon _paddon({int itemCount = 2}) {
@@ -72,16 +76,19 @@ AdminPaddonSnapshot _snapshotWithAssignedWips(int count) {
   );
 }
 
-void _setSession() {
+void _setSession({bool canManage = false}) {
   AppSession.instance.token = 'token';
-  AppSession.instance.profile = const SessionProfile(
+  AppSession.instance.profile = SessionProfile(
     role: UserRole.aparatchi,
     displayName: 'Rezka operatori',
     legalName: '',
     ref: 'worker-1',
     phone: '',
     avatarUrl: '',
-    capabilities: ['apparatus.queue.read'],
+    capabilities: [
+      'apparatus.queue.read',
+      if (canManage) 'apparatus.queue.manage',
+    ],
     assignedApparatus: ['apparatus:default:asset-010'],
   );
 }
@@ -106,6 +113,80 @@ void main() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
   });
+
+  testWidgets('empty paddon deletion requires long press and confirmation', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    _setSession(canManage: true);
+    var deleted = false;
+    var requests = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app(AparatchiPaddonsScreen(
+        loader: () async => deleted ? [] : [_paddon(itemCount: 0)],
+      )));
+      await tester.pumpAndSettle();
+
+      Future<void> openDeleteDialog() async {
+        await tester.longPress(find.byKey(const ValueKey('paddon-card-00001')));
+        await tester.pumpAndSettle();
+        expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+        await tester.tap(find.text('O‘chirish'));
+        await tester.pumpAndSettle();
+        expect(find.text('Paddonni o‘chirish'), findsOneWidget);
+        expect(requests, 0);
+      }
+
+      await openDeleteDialog();
+      await tester.tap(find.text('Bekor qilish'));
+      await tester.pumpAndSettle();
+      expect(requests, 0);
+      expect(find.byKey(const ValueKey('paddon-card-00001')), findsOneWidget);
+
+      await openDeleteDialog();
+      await tester.tap(find.byKey(const ValueKey('paddon-delete-confirm')));
+      await tester.pumpAndSettle();
+      expect(requests, 1);
+      expect(find.byKey(const ValueKey('paddon-card-00001')), findsNothing);
+      expect(find.text('Paddon o‘chirildi'), findsOneWidget);
+    }, () => MockClient((request) async {
+      requests++;
+      expect(request.method, 'POST');
+      expect(request.url.path, '/v1/mobile/admin/production-maps/paddons/delete');
+      expect(request.headers['Authorization'], 'Bearer token');
+      expect(jsonDecode(request.body), {'code': '00001'});
+      deleted = true;
+      return http.Response('{"ok":true}', 200);
+    }));
+  });
+
+  for (final count in [0, 2]) {
+    testWidgets('paddon with $count rolls remains when server rejects history', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      _setSession(canManage: true);
+      var requests = 0;
+      await http.runWithClient(() async {
+        await tester.pumpWidget(_app(AparatchiPaddonsScreen(
+          loader: () async => [_paddon(itemCount: count)],
+        )));
+        await tester.pumpAndSettle();
+        await tester.longPress(find.byKey(const ValueKey('paddon-card-00001')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('O‘chirish'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('paddon-delete-confirm')));
+        await tester.pumpAndSettle();
+        expect(requests, 1);
+        expect(find.byKey(const ValueKey('paddon-card-00001')), findsOneWidget);
+        expect(find.text('Paddon bo‘sh emas yoki unda harakat bo‘lgan. Uni o‘chirib bo‘lmaydi.'), findsOneWidget);
+      }, () => MockClient((_) async {
+        requests++;
+        return http.Response('{"error":"paddon_delete_locked"}', 409);
+      }));
+    });
+  }
 
   test('paddon snapshot hides WIPs already in the paddon', () {
     final snapshot = AdminPaddonSnapshot.fromJson({

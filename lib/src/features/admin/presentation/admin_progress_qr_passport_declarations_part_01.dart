@@ -68,7 +68,9 @@ class ProgressQrPassport {
   const ProgressQrPassport({
     required this.productName,
     required this.orderNumber,
-    required this.status,
+    required this.orderStatus,
+    required this.scannedBatchStatus,
+    required this.currentBatchStatus,
     required this.isOldQr,
     required this.plan,
     required this.stages,
@@ -78,7 +80,9 @@ class ProgressQrPassport {
 
   final String productName;
   final String orderNumber;
-  final String status;
+  final String orderStatus;
+  final String scannedBatchStatus;
+  final String? currentBatchStatus;
   final bool isOldQr;
   final List<ProgressQrPassportLine> plan;
   final List<ProgressQrPassportStage> stages;
@@ -92,7 +96,11 @@ class ProgressQrPassport {
         if (orderNumber.isNotEmpty) 'Zakaz $orderNumber',
         productName,
       ].where((value) => value.isNotEmpty).join(' • '))
-      ..writeln('Holati: $status');
+      ..writeln('Buyurtma holati: $orderStatus')
+      ..writeln('Skanerlangan rulon: $scannedBatchStatus');
+    if (currentBatchStatus != null) {
+      buffer.writeln('Undan chiqqan mahsulot: $currentBatchStatus');
+    }
     if (isOldQr) {
       buffer.writeln(
         'Eslatma: skan qilingan QR oldingi bosqichniki. Quyida mahsulotning hozirgi holati berilgan.',
@@ -181,14 +189,12 @@ ProgressQrPassport buildProgressQrPassport(
         ? order!.title.trim()
         : current.labelItemName.trim(),
     orderNumber: order?.orderNumber.trim() ?? '',
-    status: progressQrPassportStatus(
-      workStatus: current.statusDetail.workStatus.isNotEmpty
-          ? current.statusDetail.workStatus
-          : current.status,
-      flowStatus: current.statusDetail.flowStatus,
-      wipStatus: current.wipStatus,
-      l10n: l10n,
-    ),
+    orderStatus: progressQrOrderStatus(report.orderStatus, l10n: l10n),
+    scannedBatchStatus: _passportBatchStatus(report.scannedBatch, l10n: l10n),
+    currentBatchStatus:
+        current.batchId.trim() == report.scannedBatch.batchId.trim()
+            ? null
+            : _passportBatchStatus(current, l10n: l10n),
     isOldQr: report.isStale,
     plan: [
       if (order?.customerName.trim().isNotEmpty == true)

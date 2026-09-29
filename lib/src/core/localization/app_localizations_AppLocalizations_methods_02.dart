@@ -81,6 +81,8 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
       'paddons_list' => 'worker.paddon.load_failed',
       'paddon_not_found' => 'worker.paddon.not_found',
       'paddon_create' => 'worker.paddon.create_failed',
+      'paddon_delete' => 'worker.paddon.delete_failed',
+      'paddon_delete_locked' => 'worker.paddon.delete_locked',
       'paddon_item_add' => 'worker.paddon.add_failed',
       'paddon_items_add' => 'worker.paddon.add_failed',
       'paddon_item_remove' => 'worker.paddon.remove_failed',

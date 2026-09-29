@@ -7,6 +7,7 @@ void _registerWorkerFabQrTests() {
 
   for (final scenario in [
     'idle',
+    'upstream-requeued',
     'mixed-input',
     'duplicate-scan',
     'other-order',
@@ -42,7 +43,8 @@ void _registerWorkerFabQrTests() {
         product: 'Apachi',
         firstApparatusId: _print9Id,
         secondApparatusId: _lamination1Id,
-      ).copyWith(orderNumber: '0003'));
+      ).copyWith(orderNumber: '0003',
+        baseLength: scenario == 'upstream-requeued' ? 1000 : null));
       await MobileApi.instance.adminSaveProductionMapSequence(
           apparatus: _print9Id, orderIds: const [targetId]);
       await MobileApi.instance.adminSaveProductionMapSequence(
@@ -62,6 +64,32 @@ void _registerWorkerFabQrTests() {
       final input = (await MobileApi.instance.adminProgressQrHistory())
           .firstWhere((batch) => batch.orderId == targetId);
       var qr = scenario.startsWith('unknown') ? 'UNKNOWN-WIP' : input.qrPayload;
+      if (scenario == 'upstream-requeued') {
+        final frozen = await MobileApi.instance.adminProductionMapOrderControl(
+          orderId: targetId, action: AdminOrderControlAction.freeze);
+        if (frozen == AdminOrderControlState.freezeRequested) {
+          await MobileApi.instance.adminApparatusQueueActionResult(
+            apparatus: _print9Id, orderId: targetId, action: 'pause',
+            completionRequestNote: 'Requeue regression');
+        }
+        await MobileApi.instance.adminProductionMapOrderControl(
+          orderId: targetId, action: AdminOrderControlAction.unfreeze);
+        setMobileApiTestModeQueueActionControlFixture(
+          apparatus: _print9Id, orderId: targetId,
+          control: const AdminApparatusQueueOrderActionControl(
+            state: 'pending', stageNodeId: 'first-apparatus',
+            allowedActions: {'resume'}, hasOnlyKnownActions: true,
+            interaction: AdminQueueWorkerInteraction(
+              mode: AdminQueueInteractionMode.requeuedReady,
+              startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+              materialScanRequired: false, assignedMaterialsDisplayOnly: true,
+              materialIntakeAllowed: false,
+              previousWipMode: AdminQueuePreviousWipMode.notRequired,
+              qolipMode: AdminQueueQolipMode.notRequired,
+            ),
+          ),
+        );
+      }
       if (scenario == 'mixed-input') {
         await MobileApi.instance
             .adminCreateOpeningWip(const AdminOpeningWipCreateInput(
@@ -174,7 +202,7 @@ void _registerWorkerFabQrTests() {
           allowedActions: blocked ? const {} : const {'start'},
           hasOnlyKnownActions: true,
           previousStage: _print9Id,
-          previousStageReady: true,
+          previousStageReady: scenario != 'upstream-requeued',
           interaction: AdminQueueWorkerInteraction(
             mode: blocked
                 ? AdminQueueInteractionMode.freshStartBlocked
@@ -237,6 +265,13 @@ void _registerWorkerFabQrTests() {
             liveEventsLoader: () => const Stream.empty()),
       ));
       await tester.pumpAndSettle();
+      if (scenario == 'upstream-requeued') {
+        await tester.tap(find.text(_fixtureApparatusName(_lamination1Id)));
+        await tester.pumpAndSettle();
+        expect(find.text('WIP tayyor · skanerlang'), findsNothing);
+        final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+        expect(snapshot.queueStates[_print9Id]?[targetId], 'pending');
+      }
       if (scenario == 'report-required') {
         await tester
             .tap(find.text(l10n.productionText('worker.stage.astatka.later')));
@@ -291,6 +326,7 @@ void _registerWorkerFabQrTests() {
         await tester.pumpAndSettle();
       }
       if (scenario == 'idle' ||
+          scenario == 'upstream-requeued' ||
           scenario == 'mixed-input' ||
           scenario == 'duplicate-scan' ||
           scenario == 'reported-handoff' ||
@@ -305,6 +341,16 @@ void _registerWorkerFabQrTests() {
         final start = find.widgetWithText(FilledButton, 'Boshlash');
         expect(start, findsOneWidget);
         expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+        if (scenario == 'upstream-requeued') {
+          final summary = find.byWidgetPredicate((widget) =>
+              widget.runtimeType.toString() == '_OrderSummaryCard');
+          final toggle = find.descendant(of: summary, matching: find.byType(InkWell)).first;
+          await tester.ensureVisible(toggle);
+          await tester.tap(toggle);
+          await tester.pumpAndSettle();
+          expect(find.text('Qayta navbatda · davom ettirish mumkin'), findsOneWidget);
+          expect(find.text('WIP tayyor · skanerlang'), findsWidgets);
+        }
       } else if (hasCurrent) {
         expect(find.byKey(const ValueKey('production-switch-order-confirm')),
             findsOneWidget);

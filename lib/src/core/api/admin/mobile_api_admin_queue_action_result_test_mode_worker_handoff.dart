@@ -9,7 +9,7 @@ if (!isLaminatsiya ||
                 current != ApparatusQueueOrderState.paused)) {
           throw const MobileApiException(
             code: 'queue_action_not_allowed',
-            message: 'Bu laminatsiya worker handoff amali hozir mumkin emas',
+            message: 'Bu aparatda ishni topshirish amali hozir mumkin emas',
           );
         }
         bool isNonNegative(double? value) =>
@@ -29,7 +29,7 @@ if (!isLaminatsiya ||
             handoffInput.wipStatus.trim().toLowerCase() != 'in_use') {
           throw const MobileApiException(
             code: 'progress_batch_not_accepted',
-            message: 'Apparatdagi joriy laminatsiya ruloni topilmadi',
+            message: 'Apparatdagi joriy rulon topilmadi',
           );
         }
         final isHandoff = handoffInput.payloadJson['worker_handoff'] == true;

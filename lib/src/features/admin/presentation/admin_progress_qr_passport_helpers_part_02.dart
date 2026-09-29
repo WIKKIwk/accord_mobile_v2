@@ -114,6 +114,52 @@ List<ProgressQrPassportIssue> _passportIssues(
   return issues;
 }
 
+String progressQrOrderStatus(
+  AdminProductionOrderStatusDetail status, {
+  AppLocalizations? l10n,
+}) {
+  // Only the order projection may declare an order finished. Batch flow and
+  // warehouse receipt describe individual outputs, never the whole order.
+  final lifecycle = status.lifecycleStatus.trim().toLowerCase();
+  final raw =
+      const {'production_completed', 'closed', 'cancelled'}.contains(lifecycle)
+          ? lifecycle
+          : status.orderStatus.trim().toLowerCase();
+  final (key, fallback) = switch (raw) {
+    'in_progress' => ('in_progress', 'Ish jarayonida'),
+    'completed' || 'production_completed' => (
+        'completed',
+        'Ishlab chiqarish tugagan'
+      ),
+    'completed_with_issue' => ('completed_with_issue', 'Muammo bilan tugagan'),
+    'partially_completed' => ('partially_completed', 'Qisman bajarilgan'),
+    'paused' => ('paused', 'Vaqtincha to‘xtatilgan'),
+    'frozen' => ('frozen', 'Muzlatilgan'),
+    'print_preflight' => ('print_preflight', 'Bosmaga tayyorlash'),
+    'waiting_next_stage' => (
+        'waiting_next_stage',
+        'Keyingi bosqichni kutmoqda'
+      ),
+    'ready' => ('ready', 'Ish boshlashga tayyor'),
+    'not_started' || 'pending' => ('not_started', 'Boshlanmagan'),
+    'closed' => ('closed', 'Yopilgan'),
+    'cancelled' => ('cancelled', 'Bekor qilingan'),
+    _ => ('unknown', 'Buyurtma holati tasdiqlanmagan'),
+  };
+  return _passportText(l10n, 'worker.qr.order_status.$key', fallback);
+}
+
+String _passportBatchStatus(AdminProgressBatch batch,
+        {AppLocalizations? l10n}) =>
+    progressQrPassportStatus(
+      workStatus: batch.statusDetail.workStatus.isNotEmpty
+          ? batch.statusDetail.workStatus
+          : batch.status,
+      flowStatus: batch.statusDetail.flowStatus,
+      wipStatus: batch.wipStatus,
+      l10n: l10n,
+    );
+
 String progressQrPassportStatus({
   required String workStatus,
   required String flowStatus,
@@ -261,7 +307,7 @@ String _passportText(
 String _passportStatusFallback(String key) {
   return switch (key) {
     'worker.qr.status.completed_pending_stock' =>
-      'Ishlab chiqarish tugagan, omborga topshirishni kutmoqda',
+      'Ushbu rulon omborga qabulni kutmoqda',
     'worker.qr.status.accepted_stock' => 'Omborga qabul qilingan',
     'worker.qr.status.waiting_next' => 'Keyingi bosqichni kutmoqda',
     'worker.qr.status.consumed_next' => 'Keyingi bosqichda ishlatilgan',

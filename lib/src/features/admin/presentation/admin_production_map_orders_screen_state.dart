@@ -890,7 +890,7 @@ class _AdminProductionMapOrdersScreenState
       if (!mounted) return;
       final targetOrderId = batch.orderId.trim();
       final stationId = batch.nextApparatus.trim();
-      if (targetOrderId.isEmpty || stationId.isEmpty) {
+      if (targetOrderId.isEmpty) {
         showAdminTopNotice(
           context,
           context.l10n.productionText('worker.error.qr_other_order'),
@@ -1176,10 +1176,10 @@ class _AdminProductionMapOrdersScreenState
     required ProductionMapSaved order,
   }) async {
     final operation = apparatus.operation.trim().toLowerCase();
-    final isLaminatsiya = operation == 'laminate';
+    final isLaminatsiya = apparatus.usesLaminationWorkflow;
     final isBosma = operation == 'print';
     final supportsAstatka =
-        operation == 'laminate' || operation == 'cut' || isBosma;
+        isLaminatsiya || operation == 'cut' || isBosma;
     if (!widget.workerMode ||
         !_isAssignedWatchApparatus(
           apparatus,

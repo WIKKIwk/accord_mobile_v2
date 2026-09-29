@@ -149,6 +149,14 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           );
     final orderControlBlocked =
         orderControlState != AdminOrderControlState.active;
+    final canSendOrderAlert = workerMode &&
+        !orderControlBlocked &&
+        uiState.contractSynchronized &&
+        !uiState.orderId.startsWith('training-') &&
+        (uiState.showStart ||
+            uiState.showBackendBlockingState ||
+            uiState.showPrintPreflightHold ||
+            uiState.showPrintPreflightOutcome);
     final hasActions = uiState.showPrintPreflightHold ||
         uiState.showPrintPreflightOutcome ||
         uiState.showPrintPreflightFreeze ||
@@ -481,6 +489,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               // Keep polling while collapsed so approval refreshes the start card.
               child: materialLinkRequestPanel!,
             ),
+          if (canSendOrderAlert && uiState.showStartMaterials)
+            OrderAlertButton(
+              key: ValueKey('material-alert:${uiState.orderId}:${uiState.station}'),
+              orderId: uiState.orderId,
+              apparatusId: uiState.station,
+              kind: OrderAlertKind.rawMaterial,
+            ),
           if (!workerMode)
             Builder(
               builder: (context) {
@@ -577,6 +592,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               ),
             ],
           ],
+          if (canSendOrderAlert && requiresQolipScan)
+            OrderAlertButton(
+              key: ValueKey('qolip-alert:${uiState.orderId}:${uiState.station}'),
+              orderId: uiState.orderId,
+              apparatusId: uiState.station,
+              kind: OrderAlertKind.qolip,
+            ),
           if (hasActions) ...[
             Divider(
                 height: 28,

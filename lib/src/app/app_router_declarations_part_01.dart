@@ -61,6 +61,7 @@ class AppRoutes {
   static const String adminCalculateOrders = '/admin-calculate-orders';
   static const String adminCreateHub = '/admin-create-hub';
   static const String adminSettings = '/admin-settings';
+  static const String adminPushConfig = '/admin-push-config';
   static const String adminTraining = '/admin-training';
   static const String adminEmergencyReset = '/admin-emergency-reset';
   static const String adminTelegram = '/admin-telegram';

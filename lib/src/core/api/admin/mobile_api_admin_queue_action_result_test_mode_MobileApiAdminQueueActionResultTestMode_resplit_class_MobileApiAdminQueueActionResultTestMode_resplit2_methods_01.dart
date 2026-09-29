@@ -122,7 +122,7 @@ extension MobileApiAdminQueueActionResultTestModeAstPart01 on MobileApi {
                 ? (_testModeActiveProgressInputByQueue[queueInputKey] ?? '')
                 : progressKey,
           );
-    final isLaminatsiya = operation == 'laminate';
+    final isLaminatsiya = canonicalApparatus.usesLaminationWorkflow;
     final laminatsiyaWipCanReuseMaterial = isLaminatsiya &&
         startInputBatch != null &&
         startInputBatch.wipStatus.trim().toLowerCase() == 'waiting' &&

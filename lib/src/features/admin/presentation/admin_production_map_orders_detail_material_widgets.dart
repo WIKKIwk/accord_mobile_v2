@@ -102,7 +102,10 @@ AdminProgressBatch _openingWipAsProgressBatch(
     processedByApparatus: batch.processedByApparatus,
     startedAtUnix: batch.createdAtUnix,
     completedAtUnix: batch.updatedAtUnix,
-    payloadJson: const {'input_wip_source_kind': 'opening_wip'},
+    payloadJson: {
+      'input_wip_source_kind': 'opening_wip',
+      if (intake != null) 'stage_node_id': intake.sourceStageNodeId,
+    },
   );
 }
 

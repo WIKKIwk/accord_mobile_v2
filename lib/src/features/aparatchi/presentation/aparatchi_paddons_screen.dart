@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/session/session.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../../core/widgets/feedback/spring_bottom_sheet.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -28,6 +31,11 @@ class AparatchiPaddonsScreen extends StatefulWidget {
 class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
   late Future<List<AdminPaddon>> _future;
   bool _creatingPaddon = false;
+  bool _deletingPaddon = false;
+
+  bool get _canDeletePaddon => AppSession.instance.profile?.hasAnyCapability(
+        const ['admin.access', 'production.map.manage', 'apparatus.queue.manage'],
+      ) ?? false;
 
   @override
   void initState() {
@@ -42,7 +50,9 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
 
   Future<void> _retry() async {
     final future = _load();
-    setState(() => _future = future);
+    setState(() {
+      _future = future;
+    });
     try {
       await future;
     } catch (_) {
@@ -107,6 +117,59 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
       if (mounted) {
         setState(() => _creatingPaddon = false);
       }
+    }
+  }
+
+  Future<void> _paddonActions(AdminPaddon paddon) async {
+    if (_deletingPaddon || !_canDeletePaddon) return;
+    setState(() => _deletingPaddon = true);
+    try {
+      final action = await showSpringBottomSheet<String>(
+        context: context,
+        builder: (_) => AppActionSheet<String>(
+          title: paddon.code,
+          actions: [
+            AppActionSheetAction(
+              title: context.l10n.adminText('action.delete'),
+              icon: Icons.delete_outline_rounded,
+              value: 'delete',
+              destructive: true,
+            ),
+          ],
+        ),
+      );
+      if (!mounted || action != 'delete') return;
+      final confirmed = await showM3ConfirmDialog(
+        context: context,
+        title: context.l10n.productionText('worker.paddon.delete.title'),
+        message: context.l10n.productionText(
+          'worker.paddon.delete.body',
+          values: {'code': paddon.code},
+        ),
+        cancelLabel: context.l10n.productionText('worker.action.cancel'),
+        confirmLabel: context.l10n.adminText('action.delete'),
+        confirmButtonKey: const ValueKey('paddon-delete-confirm'),
+        destructive: true,
+      );
+      if (!mounted || confirmed != true) return;
+      await MobileApi.instance.adminPaddonDelete(paddon.code);
+      if (!mounted) return;
+      await _retry();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(context.l10n.productionText('worker.paddon.deleted')),
+        ));
+    } catch (error) {
+      if (mounted) {
+        _showError(
+          error,
+          fallback: context.l10n.productionText('worker.paddon.delete_failed'),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _deletingPaddon = false);
     }
   }
 
@@ -233,6 +296,9 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
                         ),
                         paddon: paddons[index],
                         onTap: () => _openPaddon(paddons[index]),
+                        onLongPress: _canDeletePaddon && !_deletingPaddon
+                            ? () => _paddonActions(paddons[index])
+                            : null,
                       ),
                   ],
                 ),
@@ -335,11 +401,13 @@ class _PaddonCard extends StatelessWidget {
     required this.slot,
     required this.paddon,
     required this.onTap,
+    this.onLongPress,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminPaddon paddon;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -349,6 +417,7 @@ class _PaddonCard extends StatelessWidget {
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
         child: Row(

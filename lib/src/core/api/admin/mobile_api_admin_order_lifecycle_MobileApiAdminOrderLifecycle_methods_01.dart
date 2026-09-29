@@ -315,18 +315,17 @@ extension MobileApiAdminOrderLifecycleAstPart01 on MobileApi {
       );
     }
     if (await TestModeController.instance.isEnabled()) {
-      if (_testModeRequiredApparatus(normalizedApparatus)
-              .operation
-              .trim()
-              .toLowerCase() !=
-          'laminate') {
+      if (!_testModeRequiredApparatus(normalizedApparatus)
+          .usesLaminationWorkflow) {
         throw const MobileApiException(
           code: 'laminatsiya_astatka_metrics_required',
-          message: 'Tanlangan aparat laminatsiya apparati emas',
+          message: 'Tanlangan aparat bu astatka oqimini qo‘llamaydi',
         );
       }
       final previous = _testModeLaminatsiyaAstatkaReports
-          .where((report) => report.orderId.trim() == normalizedOrderId)
+          .where((report) =>
+              report.orderId.trim() == normalizedOrderId &&
+              report.apparatus.trim() == normalizedApparatus)
           .fold<AdminLaminatsiyaAstatkaReport?>(null, (current, report) {
         if (current == null || report.toAtUnix > current.toAtUnix) {
           return report;

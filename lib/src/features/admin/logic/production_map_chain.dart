@@ -24,24 +24,39 @@ List<String> productionMapWipConsumerIds({
   required ProductionMapDefinition map,
   required String nextApparatus,
   required String nextStageNodeId,
+  String consumerStageNodeId = '',
 }) {
   final stages = productionMapLinearWorkStages(map);
+  final apparatus = nextApparatus.trim();
+  final nodeId = nextStageNodeId.trim();
   final targets = map.nodes.where((node) =>
       node.kind == 'apparatus' &&
-      node.apparatusId.trim() == nextApparatus.trim() &&
-      (nextStageNodeId.trim().isEmpty || node.id == nextStageNodeId.trim()) &&
+      (nodeId.isNotEmpty
+          ? node.id == nodeId
+          : apparatus.isNotEmpty && node.apparatusId.trim() == apparatus) &&
       stages.any((stage) => stage.nodeId == node.id));
   if (targets.length != 1) return const [];
   final target = targets.single;
   final group = target.alternativeGroupId.trim();
-  return [
+  final consumerNodeId = consumerStageNodeId.trim();
+  if (consumerNodeId.isNotEmpty && consumerNodeId != target.id &&
+      !(group.isNotEmpty && map.nodes.any((node) =>
+          node.id == consumerNodeId && node.kind == 'apparatus' &&
+          node.alternativeGroupId.trim() == group))) {
+    return const [];
+  }
+  final candidates = <String>{
     for (final stage in stages)
       if (stage.apparatusId != null &&
           (stage.nodeId == target.id ||
               (group.isNotEmpty && map.nodes.any((node) =>
                   node.id == stage.nodeId && node.alternativeGroupId.trim() == group))))
         stage.apparatusId!,
-  ];
+  };
+  // Destination fields may name different candidates of the same alternative
+  // stage. The node still pins the occurrence when a machine appears twice.
+  if (apparatus.isNotEmpty && !candidates.contains(apparatus)) return const [];
+  return candidates.toList(growable: false);
 }
 
 List<ProductionMapChainStage> productionMapLinearWorkStages(

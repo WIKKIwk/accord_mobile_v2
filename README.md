@@ -582,6 +582,27 @@ QR validity, duplicate dispatch va stock movement backend-owned.
 
 ### Admin
 
+Admin menyusi yoki Sozlamalar orqali **Bildirishnoma sozlamalari** sahifasi ochiladi.
+Firebase service-account JSON faylini tanlash yoki matnini joylashtirish mumkin.
+“Tekshirish va saqlash” serverda Google/FCM ulanishini tekshiradi va kalitni
+darhol qo'llaydi. Sahifa faqat loyiha, service-account email va ulanish holatini
+qaytaradi; saqlangan maxfiy kalit qayta yuklanmaydi. Telefon FCM tokenlari avtomatik
+olinadi. “Shu telefonga test yuborish” faqat joriy admin qurilmasiga yuboradi;
+test xabari Bildirishnomalar tarixiga saqlanmaydi. FCM qabul qilgani haqidagi
+natijadan so'ng bildirishnomaning telefonda ko'ringanini tekshirish kerak.
+Sinov rejimida server kalitlari o'zgartirilmaydi va haqiqiy push yuborilmaydi.
+
+iOS uchun bir martalik sozlash: Android bilan bir xil Firebase loyihasida
+`com.example.accordMobileV2.mirsaid.uzkingshark` ilovasini ro'yxatdan o'tkazing;
+`GoogleService-Info.plist` faylini `ios/Runner/` ichiga qo'ying yoki CI'dagi
+`IOS_GOOGLE_SERVICE_INFO_PLIST` secret'iga kiriting. Build faylni tekshiradi va
+ilovaga joylaydi; fayl yo'q bo'lsa push ishlamasligi haqida ogohlantiradi.
+Push Notifications va Background Modes loyihada yoqilgan. Apple App ID va
+signing profile ham push'ni qo'llashi, APNs `.p8` kaliti esa Firebase Console'ga
+yuklanishi kerak. iOS build qayta o'rnatilgach, service-account kalitini keyingi
+almashtirishlar shu admin sahifasidan serverni restart qilmasdan bajariladi.
+Haqiqiy yetkazishni Android va iPhone'da alohida tekshirish zarur.
+
 - dashboard, activity va notification;
 - user, worker, role va capability;
 - supplier/customer va item assignment;
@@ -600,6 +621,15 @@ QR validity, duplicate dispatch va stock movement backend-owned.
 - homashyo va Qolip scan;
 - progress/WIP QR;
 - completion metriclari.
+
+Orderni boshlash bottom sheet'ida homashyo yoki Qolip kerak bo'lsa,
+`Ta’minotchini ogohlantirish` va `Qolipchini ogohlantirish` tugmalari mavjud.
+Tugma order raqami, apparat va ishchi nomi bilan tegishli roldagi faol xodimlarga
+chat xabari yuboradi; bildirishnoma mavjud push tizimidan keladi. Resurs tanlash
+talab qilinmaydi. Yuborilayotganda va muvaffaqiyatdan keyin tugma bloklanadi;
+xatodan keyingi qayta urinish bir xil `request_id` bilan yuboriladi.
+Sinov rejimida haqiqiy xabar yuborilmaydi. API:
+`POST /v1/mobile/admin/production-maps/order-alert`.
 
 ### Qolipchi
 

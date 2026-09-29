@@ -309,6 +309,22 @@ extension MobileApiPaddons on MobileApi {
     return AdminPaddon.fromJson(rawPaddon.cast<String, dynamic>());
   }
 
+  Future<void> adminPaddonDelete(String code) async {
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/delete',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'code': code.trim()}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'paddon_delete');
+    }
+  }
+
   Future<AdminPaddonSnapshot> adminPaddonAddWip({
     required String paddonCode,
     String progressBatchId = '',

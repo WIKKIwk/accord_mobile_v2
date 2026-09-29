@@ -30,7 +30,7 @@ void main() {
         flowStatus: 'free_wip',
         wipStatus: 'waiting',
       ),
-      'Ishlab chiqarish tugagan, omborga topshirishni kutmoqda',
+      'Ushbu rulon omborga qabulni kutmoqda',
     );
 
     expect(

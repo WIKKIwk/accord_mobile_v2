@@ -19,9 +19,21 @@ class AdminProgressQrScanPdf {
         _pdfText(l10n, 'worker.qr.report.product_status', 'Mahsulot holati'),
         [
           _field(
-            _pdfText(l10n, 'worker.qr.report.status', 'Holati'),
-            passport.status,
+            _pdfText(
+                l10n, 'worker.qr.passport.order_status', 'Buyurtma holati'),
+            passport.orderStatus,
           ),
+          _field(
+            _pdfText(
+                l10n, 'worker.qr.passport.scanned_batch', 'Skanerlangan rulon'),
+            passport.scannedBatchStatus,
+          ),
+          if (passport.currentBatchStatus case final status?)
+            _field(
+              _pdfText(l10n, 'worker.qr.passport.current_batch',
+                  'Undan chiqqan mahsulot'),
+              status,
+            ),
           if (passport.isOldQr)
             _pdfText(
               l10n,

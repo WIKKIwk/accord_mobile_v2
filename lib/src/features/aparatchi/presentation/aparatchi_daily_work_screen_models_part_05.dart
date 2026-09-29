@@ -19,7 +19,7 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
   AdminProgressBatch get _batch => widget.batch;
   bool get _isPechat => widget.operation.trim().toLowerCase() == 'print';
   bool get _isLaminatsiya =>
-      widget.operation.trim().toLowerCase() == 'laminate';
+      apparatusUsesLaminationWorkflow(widget.operation);
   bool get _isRezka => widget.operation.trim().toLowerCase() == 'cut';
   bool get _showStandardWeights => _isPechat || _isLaminatsiya || _isRezka;
   bool get _showTotalWaste => _batch.totalWaste != null;

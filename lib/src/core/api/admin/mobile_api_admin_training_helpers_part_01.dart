@@ -130,7 +130,7 @@ String? _testModeVirtualTrainingInputStage({
   final operation = _testModeRequiredApparatus(
     target.apparatusId,
   ).operation.trim().toLowerCase();
-  if (operation == 'laminate') {
+  if (apparatusUsesLaminationWorkflow(operation)) {
     return _trainingInputApparatus;
   }
   if (operation == 'cut') {

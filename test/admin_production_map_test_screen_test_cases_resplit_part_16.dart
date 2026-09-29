@@ -348,130 +348,147 @@ void _registeradmin_production_map_test_screen_testCases16() {
       await tester.pumpAndSettle();
     });
   }
-  testWidgets(
-    'worker laminatsiya long press records astatka without changing queue state',
-    (tester) async {
-      await TestModeController.instance.setEnabled(true);
-      const logicalApparatus = _lamination1Id;
-      const physicalApparatus = 'Laminatsiya 1';
-      const orderId = 'zakaz-worker-laminatsiya-handoff-card';
-      await AppSession.instance.setSession(
-        token: 'worker-laminatsiya-handoff-card-token',
-        profile: const SessionProfile(
-          role: UserRole.aparatchi,
-          displayName: 'Laminatsiya operatori',
-          legalName: '',
-          ref: 'worker-laminatsiya-handoff-card',
-          phone: '',
-          avatarUrl: '',
-          capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-          assignedApparatus: [logicalApparatus],
-        ),
-      );
-      await MobileApi.instance.adminSaveProductionMap(
-        _productionOrderMap(
-          id: orderId,
-          title: 'Worker laminatsiya handoff card',
-          productCode: 'WLHC',
-          apparatusId: logicalApparatus,
-          product: 'worker laminatsiya mahsuloti',
-        ),
-      );
-      await MobileApi.instance.adminSaveProductionMapSequence(
-        apparatus: logicalApparatus,
-        orderIds: const [orderId],
-      );
-      await MobileApi.instance.adminApparatusQueueActionResult(
-        apparatus: logicalApparatus,
-        orderId: orderId,
-        action: 'start',
-      );
-      final beforeAstatka =
-          await MobileApi.instance.adminProductionMapQueueSnapshot();
-      setMobileApiTestModeQueueActionControlFixture(
-        apparatus: logicalApparatus,
-        orderId: orderId,
-        control: _inProgressQueueControl(completeRequiresFullReport: true),
-      );
-
-      await _usePhoneViewport(tester);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData(useMaterial3: true),
-          locale: const Locale('uz'),
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const AdminProductionMapOrdersScreen(
-            readOnly: true,
-            workerMode: true,
+  for (final coldGlue in [false, true]) {
+    testWidgets(
+      'worker ${coldGlue ? "cold glue" : "laminatsiya"} long press records astatka without changing queue state',
+      (tester) async {
+        await TestModeController.instance.setEnabled(true);
+        final logicalApparatus = coldGlue ? _coldGlueId : _lamination1Id;
+        final physicalApparatus = coldGlue
+            ? 'Holodniy kley aparat'
+            : 'Laminatsiya 1';
+        if (coldGlue) {
+          await MobileApi.instance.adminCreateApparatus(
+            physicalApparatus,
+            id: logicalApparatus,
+            family: 'kley',
+            kind: 'holodniy_kley',
+            capabilities: ['glue'],
+          );
+        }
+        const orderId = 'zakaz-worker-laminatsiya-handoff-card';
+        await AppSession.instance.setSession(
+          token: 'worker-laminatsiya-handoff-card-token',
+          profile: SessionProfile(
+            role: UserRole.aparatchi,
+            displayName: 'Laminatsiya operatori',
+            legalName: '',
+            ref: 'worker-laminatsiya-handoff-card',
+            phone: '',
+            avatarUrl: '',
+            capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+            assignedApparatus: [logicalApparatus],
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await MobileApi.instance.adminSaveProductionMap(
+          _productionOrderMap(
+            id: orderId,
+            title: 'Worker laminatsiya handoff card',
+            productCode: 'WLHC',
+            apparatusId: logicalApparatus,
+            product: 'worker laminatsiya mahsuloti',
+          ).copyWith(orderNumber: '0004'),
+        );
+        await MobileApi.instance.adminSaveProductionMapSequence(
+          apparatus: logicalApparatus,
+          orderIds: const [orderId],
+        );
+        await MobileApi.instance.adminApparatusQueueActionResult(
+          apparatus: logicalApparatus,
+          orderId: orderId,
+          action: 'start',
+        );
+        final beforeAstatka = await MobileApi.instance
+            .adminProductionMapQueueSnapshot();
+        setMobileApiTestModeQueueActionControlFixture(
+          apparatus: logicalApparatus,
+          orderId: orderId,
+          control: _inProgressQueueControl(completeRequiresFullReport: true),
+        );
 
-      expect(find.text(physicalApparatus), findsOneWidget);
-      final orderFinder = find.byKey(ValueKey('worker-order-$orderId'));
-      expect(orderFinder, findsOneWidget);
-      await tester.longPress(orderFinder);
-      await tester.pumpAndSettle();
+        await _usePhoneViewport(tester);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(useMaterial3: true),
+            locale: const Locale('uz'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const AdminProductionMapOrdersScreen(
+              readOnly: true,
+              workerMode: true,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('Ishimni tugatish'), findsNothing);
-      expect(find.text('Astatka hisobotini topshirish'), findsNWidgets(2));
-      expect(find.text('Metraj'), findsNothing);
-      expect(find.text('Og‘irlik'), findsNothing);
+        expect(find.text(physicalApparatus), findsWidgets);
+        if (coldGlue) expect(find.text('Laminatsiya'), findsNothing);
+        final orderFinder = find.byKey(ValueKey('worker-order-$orderId'));
+        expect(orderFinder, findsOneWidget);
+        await tester.longPress(orderFinder);
+        await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.widgetWithText(FilledButton, 'Astatka hisobotini topshirish'),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Bosmadan ortgan rulon'), findsOneWidget);
-      expect(find.text('Plyonkadan ortgan rulon'), findsOneWidget);
-      expect(find.text('Jami chiqindi'), findsOneWidget);
-      expect(find.text('Astatka hisobotini topshirish'), findsOneWidget);
-      for (final label in ['Babina', 'Metraj', 'Og‘irlik', 'Diametr']) {
-        expect(find.widgetWithText(TextFormField, label), findsNothing);
-      }
-      expect(find.byType(TextFormField), findsNWidgets(3));
-      await tester.tap(find.text('Tasdiqlash'));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextFormField, 'Jami chiqindi'), findsOneWidget);
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Bosmadan ortgan rulon'),
-        '0',
-      );
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Plyonkadan ortgan rulon'),
-        '0',
-      );
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Jami chiqindi'),
-        '0',
-      );
-      await tester.tap(find.text('Tasdiqlash'));
-      await tester.pumpAndSettle();
-      expect(find.byType(BottomSheet), findsNothing);
+        expect(find.text('Ishimni tugatish'), findsNothing);
+        expect(find.text('Astatka hisobotini topshirish'), findsNWidgets(2));
+        expect(find.text('Metraj'), findsNothing);
+        expect(find.text('Og‘irlik'), findsNothing);
 
-      final afterAstatka =
-          await MobileApi.instance.adminProductionMapQueueSnapshot();
-      expect(
-        beforeAstatka.queueStates.values.any(
-          (states) => states[orderId] == 'in_progress',
-        ),
-        isTrue,
-      );
-      expect(
-        afterAstatka.queueStates.values.any(
-          (states) => states[orderId] == 'in_progress',
-        ),
-        isTrue,
-      );
-    },
-  );
+        await tester.tap(
+          find.widgetWithText(FilledButton, 'Astatka hisobotini topshirish'),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Bosmadan ortgan rulon'), findsOneWidget);
+        expect(find.text('Plyonkadan ortgan rulon'), findsOneWidget);
+        expect(find.text('Jami chiqindi'), findsOneWidget);
+        expect(find.text('Astatka hisobotini topshirish'), findsOneWidget);
+        for (final label in ['Babina', 'Metraj', 'Og‘irlik', 'Diametr']) {
+          expect(find.widgetWithText(TextFormField, label), findsNothing);
+        }
+        expect(find.byType(TextFormField), findsNWidgets(3));
+        await tester.tap(find.text('Tasdiqlash'));
+        await tester.pumpAndSettle();
+        expect(
+          find.widgetWithText(TextFormField, 'Jami chiqindi'),
+          findsOneWidget,
+        );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Bosmadan ortgan rulon'),
+          '0',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Plyonkadan ortgan rulon'),
+          '0',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Jami chiqindi'),
+          '0',
+        );
+        await tester.tap(find.text('Tasdiqlash'));
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+
+        final afterAstatka = await MobileApi.instance
+            .adminProductionMapQueueSnapshot();
+        expect(
+          beforeAstatka.queueStates.values.any(
+            (states) => states[orderId] == 'in_progress',
+          ),
+          isTrue,
+        );
+        expect(
+          afterAstatka.queueStates.values.any(
+            (states) => states[orderId] == 'in_progress',
+          ),
+          isTrue,
+        );
+      },
+    );
+  }
 
   for (final receiptScenario in [
     'sequential',
