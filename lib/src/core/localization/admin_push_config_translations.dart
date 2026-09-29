@@ -1,18 +1,125 @@
 part of 'admin_localization.dart';
 
 const _adminPushConfigTranslations = {
+  "admin.push.device_title": {
+    "uz": "Shu telefonning holati",
+    "en": "This device",
+    "ru": "Это устройство"
+  },
+  "admin.push.device_not_checked": {
+    "uz":
+        "Telefonda push hali tekshirilmagan. Server tekshiruvi telefon tayyorligini anglatmaydi.",
+    "en":
+        "Device push has not been checked. Server verification does not confirm device readiness.",
+    "ru":
+        "Push на устройстве ещё не проверен. Проверка сервера не подтверждает готовность телефона."
+  },
+  "admin.push.device_registered": {
+    "uz":
+        "Telefonning push tokeni serverga ulandi. Yetkazishni test xabari bilan tekshiring.",
+    "en": "Device push token registered. Use a test message to check delivery.",
+    "ru": "Push-токен зарегистрирован. Проверьте доставку тестовым сообщением."
+  },
+  "admin.push.apply_device": {
+    "uz": "Shu telefon sozlamasini yangilash",
+    "en": "Apply settings to this device",
+    "ru": "Применить настройки на устройстве"
+  },
+  "admin.push.mobile_title": {
+    "uz": "Telefonlar uchun Firebase sozlamalari",
+    "en": "Firebase settings for mobile apps",
+    "ru": "Настройки Firebase для приложений"
+  },
+  "admin.push.mobile_instructions": {
+    "uz":
+        "Shu Firebase loyihasidan Android va iOS konfiguratsiya fayllarini yuklang. Telefonlar ularni serverdan avtomatik oladi. Fayllarni buildga qo‘lda qo‘shish kerak emas.",
+    "en":
+        "Upload Android and iOS client files from this Firebase project. Devices fetch them automatically; no build-time files are needed.",
+    "ru":
+        "Загрузите файлы Android и iOS этого проекта Firebase. Устройства получат их с сервера; добавлять файлы в сборку не нужно."
+  },
+  "admin.push.mobile_configured": {
+    "uz": "Ilova konfiguratsiyasi saqlangan",
+    "en": "Client configuration saved",
+    "ru": "Конфигурация приложения сохранена"
+  },
+  "admin.push.mobile_missing": {
+    "uz": "Konfiguratsiya fayli hali yuklanmagan",
+    "en": "Client configuration is missing",
+    "ru": "Файл конфигурации ещё не загружен"
+  },
+  "admin.push.mobile_saved": {
+    "uz":
+        "Mobil sozlama saqlandi. Telefonlar ilova ochilganda yoki qayta faollashganda oladi.",
+    "en":
+        "Mobile settings saved. Devices fetch them when the app starts or resumes.",
+    "ru":
+        "Настройки сохранены. Устройства получат их при запуске или возобновлении приложения."
+  },
+  "admin.push.invalid_client": {
+    "uz":
+        "Fayl bu ilovaga mos emas yoki to‘liq emas. Android uchun google-services.json, iPhone uchun GoogleService-Info.plist yuklang.",
+    "en":
+        "Invalid client file or application ID. Upload google-services.json for Android or GoogleService-Info.plist for iPhone.",
+    "ru":
+        "Файл неполный или не соответствует приложению. Загрузите google-services.json для Android или GoogleService-Info.plist для iPhone."
+  },
+  "admin.push.client_missing": {
+    "uz":
+        "Bu platformaning Firebase fayli serverga yuklanmagan. Pastdagi telefonlar sozlamalari bo‘limida yuklang.",
+    "en":
+        "Firebase client settings for this platform are missing. Upload them in the mobile settings section below.",
+    "ru":
+        "Настройки Firebase этой платформы отсутствуют. Загрузите файл в разделе настроек приложений ниже."
+  },
+  "admin.push.client_save_failed": {
+    "uz": "Telefon konfiguratsiyani saqlay olmadi. Qayta urinib ko‘ring.",
+    "en": "Could not save configuration on this device. Try again.",
+    "ru": "Не удалось сохранить настройки на устройстве. Повторите попытку."
+  },
+  "admin.push.client_sync_failed": {
+    "uz":
+        "Telefon Firebase sozlamalarini serverdan ololmadi. Serverga ulanishni tekshiring.",
+    "en": "Could not fetch Firebase settings. Check the server connection.",
+    "ru":
+        "Не удалось получить настройки Firebase. Проверьте соединение с сервером."
+  },
+  "admin.push.firebase_failed": {
+    "uz":
+        "Telefonda Firebase ishga tushmadi. Yuklangan ilova konfiguratsiyasini tekshiring.",
+    "en":
+        "Firebase could not initialize on this device. Check the uploaded client configuration.",
+    "ru":
+        "Не удалось запустить Firebase. Проверьте загруженную конфигурацию приложения."
+  },
+  "admin.push.restart_required": {
+    "uz":
+        "Yangi Firebase sozlamasi telefonga saqlandi. Uni qo‘llash uchun ilovani to‘liq yopib, qayta oching.",
+    "en":
+        "New Firebase settings saved on the device. Fully close and reopen the app to apply them.",
+    "ru":
+        "Новые настройки Firebase сохранены. Полностью закройте и откройте приложение."
+  },
+  "admin.push.token_unavailable": {
+    "uz":
+        "Firebase telefon tokenini bermadi. Internetni tekshirib, qayta urinib ko‘ring.",
+    "en":
+        "Firebase did not return a device token. Check the network and retry.",
+    "ru":
+        "Firebase не вернул токен устройства. Проверьте сеть и повторите попытку."
+  },
   "admin.push.title": {
     "uz": "Bildirishnoma sozlamalari",
     "en": "Notification settings",
     "ru": "Настройки уведомлений",
   },
   "admin.push.configured": {
-    "uz": "Firebase kaliti saqlangan",
-    "en": "Firebase credentials saved",
-    "ru": "Ключ Firebase сохранён",
+    "uz": "Server: Firebase kaliti saqlangan",
+    "en": "Server: Firebase credentials saved",
+    "ru": "Сервер: ключ Firebase сохранён",
   },
   "admin.push.not_configured": {
-    "uz": "Firebase hali sozlanmagan",
+    "uz": "Server: Firebase hali sozlanmagan",
     "en": "Firebase is not configured",
     "ru": "Firebase ещё не настроен",
   },
@@ -22,9 +129,9 @@ const _adminPushConfigTranslations = {
     "ru": "Проект Firebase",
   },
   "admin.push.verified": {
-    "uz": "Google bilan ulanish tekshirildi",
-    "en": "Google connection verified",
-    "ru": "Соединение с Google проверено",
+    "uz": "Server → Firebase ulanishi tekshirildi",
+    "en": "Server → Firebase connection verified",
+    "ru": "Соединение сервер → Firebase проверено",
   },
   "admin.push.not_checked": {
     "uz": "Joriy ulanish hali tekshirilmagan",
@@ -55,9 +162,9 @@ const _adminPushConfigTranslations = {
     "ru": "Проверить и сохранить",
   },
   "admin.push.check": {
-    "uz": "Ulanishni tekshirish",
-    "en": "Check connection",
-    "ru": "Проверить соединение",
+    "uz": "Server ulanishini tekshirish",
+    "en": "Check server connection",
+    "ru": "Проверить соединение сервера",
   },
   "admin.push.test": {
     "uz": "Shu telefonga test yuborish",
@@ -148,10 +255,25 @@ const _adminPushConfigTranslations = {
   },
   "admin.push.apns_unavailable": {
     "uz":
-        "iPhone APNs tokeni hali tayyor emas. APNs sozlamalarini tekshiring va qayta urinib ko‘ring.",
-    "en": "The iPhone APNs token is not ready. Check APNs setup and try again.",
+        "Apple push ro‘yxatidan javob kutilmoqda. Internetni tekshirib, telefon sozlamasini yangilash tugmasini bosing.",
+    "en": "Waiting for Apple push registration. Check your connection and refresh this phone's settings.",
     "ru":
-        "Токен APNs ещё не готов. Проверьте настройки APNs и повторите попытку.",
+        "Ожидается ответ регистрации Apple push. Проверьте интернет и обновите настройки телефона.",
+  },
+  "admin.push.apns_registering": {
+    "uz": "iPhone Apple push xizmatida ro‘yxatdan o‘tmoqda…",
+    "en": "Registering this iPhone with Apple push…",
+    "ru": "Регистрация iPhone в Apple push…",
+  },
+  "admin.push.apns_entitlement_missing": {
+    "uz": "O‘rnatilgan ilova imzosida Push Notifications huquqi yo‘q. Push huquqi bilan imzolangan yangi iOS build kerak.",
+    "en": "The installed app signature has no Push Notifications entitlement. Install an iOS build signed with push enabled.",
+    "ru": "В подписи приложения нет права Push Notifications. Установите iOS-сборку, подписанную с поддержкой push.",
+  },
+  "admin.push.apns_registration_failed": {
+    "uz": "Apple push ro‘yxatidan o‘tish amalga oshmadi. Apple qaytargan sabab telefon holatida ko‘rsatilgan.",
+    "en": "Apple push registration failed. Apple's error is shown in this phone's status.",
+    "ru": "Регистрация Apple push не удалась. Причина указана в состоянии телефона.",
   },
   "admin.push.test_mode": {
     "uz":

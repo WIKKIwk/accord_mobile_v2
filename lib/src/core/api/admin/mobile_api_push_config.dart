@@ -7,6 +7,8 @@ class AdminPushConfig {
       this.clientEmail = '',
       this.source = '',
       this.lastVerifiedAt,
+      this.android,
+      this.ios,
       this.error = ''});
   final bool configured;
   final String projectId;
@@ -14,6 +16,7 @@ class AdminPushConfig {
   final String source;
   final int? lastVerifiedAt;
   final String error;
+  final FirebaseClientConfig? android, ios;
 
   factory AdminPushConfig.fromJson(Map<String, dynamic> json) =>
       AdminPushConfig(
@@ -23,6 +26,14 @@ class AdminPushConfig {
         source: json['source']?.toString() ?? '',
         lastVerifiedAt: (json['last_verified_at'] as num?)?.toInt(),
         error: json['error']?.toString() ?? '',
+        android: json['mobile']?['android'] == null
+            ? null
+            : FirebaseClientConfig.fromJson(
+                Map<String, dynamic>.from(json['mobile']['android'])),
+        ios: json['mobile']?['ios'] == null
+            ? null
+            : FirebaseClientConfig.fromJson(
+                Map<String, dynamic>.from(json['mobile']['ios'])),
       );
 }
 
@@ -34,8 +45,22 @@ extension MobileApiPushConfig on MobileApi {
           Map<String, dynamic> account) async =>
       AdminPushConfig.fromJson(await _pushConfigRequest('PUT', '', {
         'service_account': account,
-        'client_project_id': PushMessagingService.instance.firebaseProjectId
       }));
+
+  Future<AdminPushConfig> saveMobilePushConfig(
+          String platform, FirebaseClientConfig config) async =>
+      AdminPushConfig.fromJson(await _pushConfigRequest(
+          'PUT', '/mobile', {'platform': platform, 'config': config.toJson()}));
+
+  Future<FirebaseClientConfig?> mobilePushConfig(String platform) async {
+    final json = await _pushConfigRequest('GET', '', null, true);
+    final value = json[platform];
+    if (value == null) return null;
+    final config =
+        FirebaseClientConfig.fromJson(Map<String, dynamic>.from(value));
+    config.validate(platform);
+    return config;
+  }
 
   Future<AdminPushConfig> checkAdminPushConfig() async =>
       AdminPushConfig.fromJson(await _pushConfigRequest('POST', '/check'));
@@ -51,14 +76,14 @@ extension MobileApiPushConfig on MobileApi {
   }
 
   Future<Map<String, dynamic>> _pushConfigRequest(String method, String suffix,
-      [Map<String, dynamic>? body]) async {
+      [Map<String, dynamic>? body, bool client = false]) async {
     if (AppSession.instance.isTestModeSession ||
         await TestModeController.instance.isEnabled()) {
       throw const MobileApiException(
           code: 'push_config_test_mode', message: 'Unavailable in test mode');
     }
-    final uri =
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/push-config$suffix');
+    final uri = Uri.parse(
+        '${MobileApi.baseUrl}/v1/mobile/${client ? '' : 'admin/'}push-config$suffix');
     final response = await _sendAuthorized(() {
       final headers = {
         ..._headers(requireToken()),

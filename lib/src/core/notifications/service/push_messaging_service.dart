@@ -10,6 +10,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+import 'dart:async';
+import 'firebase_client_bootstrap.dart';
+import 'ios_push_registration.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -17,14 +21,25 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       defaultTargetPlatform != TargetPlatform.iOS) {
     return;
   }
-  await Firebase.initializeApp();
+  await FirebaseClientBootstrap.initializeBackground();
 }
 
-class PushMessagingService {
+class PushMessagingService with WidgetsBindingObserver {
   PushMessagingService._();
 
   static final PushMessagingService instance = PushMessagingService._();
   bool _initialized = false;
+  bool _observing = false;
+  bool _configurationReady = false;
+  Future<void>? _initializing;
+  final ValueNotifier<String> deviceStatus =
+      ValueNotifier('device_not_checked');
+  final ValueNotifier<String?> deviceErrorDetail = ValueNotifier(null);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(initialize());
+  }
 
   bool get _supportsRemotePush =>
       defaultTargetPlatform == TargetPlatform.android ||
@@ -50,16 +65,44 @@ class PushMessagingService {
   }
 
   Future<void> initialize() async {
-    if (_initialized ||
-        !_supportsRemotePush ||
-        !_shouldInitializePushOnThisDevice) {
+    if (!_observing && !kIsWeb) {
+      WidgetsBinding.instance.addObserver(this);
+      _observing = true;
+    }
+    return _initializing ??= _initialize().catchError((Object error) {
+      deviceStatus.value = _deviceErrorCode(error);
+    }).whenComplete(() {
+      _initializing = null;
+    });
+  }
+
+  Future<void> _initialize() async {
+    _configurationReady = false;
+    deviceErrorDetail.value = null;
+    if (kIsWeb || !_supportsRemotePush || !_shouldInitializePushOnThisDevice) {
+      deviceStatus.value = 'push_config_device_unavailable';
+      return;
+    }
+    if (!AppSession.instance.isLoggedIn ||
+        AppSession.instance.isTestModeSession) {
+      deviceStatus.value = AppSession.instance.isTestModeSession
+          ? 'push_config_test_mode'
+          : 'device_not_checked';
       return;
     }
 
     debugPrint('push initialize start platform=$_platformName');
-    await Firebase.initializeApp();
+    await FirebaseClientBootstrap.initialize(_platformName);
+    _configurationReady = true;
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     final messaging = FirebaseMessaging.instance;
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      // Bind an early APNs token before the messaging plugin makes SDK calls.
+      deviceStatus.value = 'push_config_apns_registering';
+      await IosPushRegistration.ensureReady(onReady: () {
+        if (_configurationReady) unawaited(initialize());
+      });
+    }
     await messaging.requestPermission();
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       // Foreground notifications are surfaced below through the local
@@ -70,28 +113,34 @@ class PushMessagingService {
         badge: false,
         sound: false,
       );
-      final apnsToken = await messaging.getAPNSToken();
-      debugPrint(
-        'push initialize apns token=${maskPushToken(apnsToken ?? '')}',
-      );
     }
 
     try {
-      await syncCurrentToken();
-    } catch (_) {
-      debugPrint('push token synchronization is not ready');
+      await _syncReadyToken();
+    } catch (error) {
+      deviceStatus.value = _deviceErrorCode(error);
     }
+
+    if (_initialized) return;
 
     messaging.onTokenRefresh.listen((token) async {
       debugPrint(
         'push token refresh platform=$_platformName token=${maskPushToken(token)}',
       );
-      if (AppSession.instance.isLoggedIn) {
-        await _registerToken(token);
+      if (_configurationReady &&
+          AppSession.instance.isLoggedIn &&
+          !AppSession.instance.isTestModeSession) {
+        try {
+          await _registerToken(token);
+          deviceStatus.value = 'device_registered';
+        } catch (error) {
+          deviceStatus.value = _deviceErrorCode(error);
+        }
       }
     });
 
     FirebaseMessaging.onMessage.listen((message) async {
+      if (!_configurationReady) return;
       final data = message.data;
       final profile = AppSession.instance.profile;
       final targetRole = (data['target_role'] ?? '').trim();
@@ -170,7 +219,9 @@ class PushMessagingService {
     debugPrint('push initialize complete platform=$_platformName');
   }
 
-  Future<void> syncCurrentToken() async {
+  Future<void> syncCurrentToken() => initialize();
+
+  Future<void> _syncReadyToken() async {
     final profile = AppSession.instance.profile;
     debugPrint(
       'push sync start logged_in=${AppSession.instance.isLoggedIn} '
@@ -192,20 +243,33 @@ class PushMessagingService {
       return;
     }
     final messaging = FirebaseMessaging.instance;
+    final permission = await messaging.getNotificationSettings();
+    if (permission.authorizationStatus == AuthorizationStatus.denied) {
+      throw const MobileApiException(
+          code: 'push_config_permission_denied',
+          message: 'Notifications denied');
+    }
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       final apnsToken = await messaging.getAPNSToken();
       debugPrint('push sync apns token=${maskPushToken(apnsToken ?? '')}');
-      if (apnsToken == null) return;
+      if (apnsToken == null) {
+        throw const MobileApiException(
+            code: 'push_config_apns_unavailable',
+            message: 'APNs token is missing');
+      }
     }
     final token = await messaging.getToken();
     if (token == null || token.trim().isEmpty) {
       debugPrint('push sync skipped: Firebase token is empty');
-      return;
+      throw const MobileApiException(
+          code: 'push_config_token_unavailable',
+          message: 'FCM token is missing');
     }
     debugPrint(
       'push sync obtained platform=$_platformName token=${maskPushToken(token)}',
     );
     await _registerToken(token);
+    deviceStatus.value = 'device_registered';
     debugPrint(
       'push sync stored platform=$_platformName token=${maskPushToken(token)}',
     );
@@ -226,6 +290,11 @@ class PushMessagingService {
     }
     try {
       await initialize();
+      if (deviceStatus.value != 'device_registered') {
+        throw MobileApiException(
+            code: deviceStatus.value,
+            message: 'Device registration is incomplete');
+      }
       final messaging = FirebaseMessaging.instance;
       final permission = await messaging.requestPermission();
       if (permission.authorizationStatus != AuthorizationStatus.authorized &&
@@ -252,10 +321,9 @@ class PushMessagingService {
       return token;
     } on MobileApiException {
       rethrow;
-    } catch (_) {
-      throw const MobileApiException(
-          code: 'push_config_device_unavailable',
-          message: 'Firebase initialization failed');
+    } catch (error) {
+      throw MobileApiException(
+          code: _deviceErrorCode(error), message: 'Device push setup failed');
     }
   }
 
@@ -287,12 +355,35 @@ class PushMessagingService {
   }
 
   Future<void> _registerToken(String token) async {
-    try {
-      await MobileApi.instance.chatRegisterDeviceToken(
-        tokenValue: token,
-        platform: _platformName,
-      );
-    } catch (_) {}
+    await MobileApi.instance.chatRegisterDeviceToken(
+      tokenValue: token,
+      platform: _platformName,
+    );
+  }
+
+  String _deviceErrorCode(Object error) {
+    if (error is MobileApiException) return error.code;
+    if (error is PlatformException && error.code.startsWith('push_config_')) {
+      if (error.code == 'push_config_apns_entitlement_missing' ||
+          error.code == 'push_config_apns_registration_failed') {
+        final details = error.details;
+        deviceErrorDetail.value = details is Map
+            ? '${details['domain']} (${details['code']}): ${error.message ?? ''}'
+            : error.message;
+      }
+      return error.code;
+    }
+    if (error is FirebaseException) {
+      if (error.code == 'apns-token-not-set') {
+        return 'push_config_apns_unavailable';
+      }
+      if (error.code == 'duplicate-app') return 'push_config_restart_required';
+      if (error.code == 'network-request-failed') {
+        return 'push_config_unreachable';
+      }
+      return 'push_config_firebase_failed';
+    }
+    return 'push_config_client_sync_failed';
   }
 }
 

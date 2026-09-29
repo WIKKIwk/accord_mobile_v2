@@ -6,6 +6,7 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/notifications/service/push_messaging_service.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_push_config_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,9 @@ final account = {
 };
 
 class JsonFilePicker extends FilePicker {
+  JsonFilePicker({this.raw, this.name = 'service-account.json'});
+  final String? raw;
+  final String name;
   @override
   Future<FilePickerResult?> pickFiles({
     String? dialogTitle,
@@ -42,11 +46,9 @@ class JsonFilePicker extends FilePicker {
     expect(type, FileType.custom);
     expect(allowedExtensions, ['json']);
     expect(withData, isTrue);
-    final bytes = Uint8List.fromList(utf8.encode(jsonEncode(account)));
-    return FilePickerResult([
-      PlatformFile(
-          name: 'service-account.json', size: bytes.length, bytes: bytes)
-    ]);
+    final bytes = Uint8List.fromList(utf8.encode(raw ?? jsonEncode(account)));
+    return FilePickerResult(
+        [PlatformFile(name: name, size: bytes.length, bytes: bytes)]);
   }
 }
 
@@ -77,9 +79,16 @@ Widget app() => MaterialApp(
           deviceTokenProvider: () async => 'this-phone-token'),
     );
 
+Future<void> pumpApp(WidgetTester tester) async {
+  await tester.binding.setSurfaceSize(const Size(1000, 2200));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await tester.pumpWidget(app());
+}
+
 Future<void> tap(WidgetTester tester, String key) async {
   final button = find.byKey(ValueKey(key));
-  await tester.ensureVisible(button);
+  await tester.scrollUntilVisible(button, 200,
+      scrollable: find.byType(Scrollable).first);
   await tester.tap(button);
   await tester.pumpAndSettle();
 }
@@ -90,8 +99,10 @@ void main() {
     await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = 'admin-token';
     AppSession.instance.profile = profile(UserRole.admin);
+    PushMessagingService.instance.deviceStatus.value = 'device_not_checked';
+    PushMessagingService.instance.deviceErrorDetail.value = null;
   });
-  tearDown(() {
+  tearDown(() async {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
   });
@@ -101,9 +112,9 @@ void main() {
       (tester) async {
     final requests = <http.Request>[];
     await http.runWithClient(() async {
-      await tester.pumpWidget(app());
+      await pumpApp(tester);
       await tester.pumpAndSettle();
-      expect(find.text('Firebase hali sozlanmagan'), findsOneWidget);
+      expect(find.text('Server: Firebase hali sozlanmagan'), findsOneWidget);
       expect(
           tester
               .widget<OutlinedButton>(
@@ -113,7 +124,7 @@ void main() {
       await tester.enterText(
           find.byKey(const ValueKey('push-config-json')), jsonEncode(account));
       await tap(tester, 'push-config-save');
-      expect(find.text('Firebase kaliti saqlangan'), findsOneWidget);
+      expect(find.text('Server: Firebase kaliti saqlangan'), findsOneWidget);
       expect(
           tester
               .widget<TextField>(find.byKey(const ValueKey('push-config-json')))
@@ -147,7 +158,7 @@ void main() {
       (tester) async {
     var mutations = 0;
     await http.runWithClient(() async {
-      await tester.pumpWidget(app());
+      await pumpApp(tester);
       await tester.pumpAndSettle();
       await tester.enterText(
           find.byKey(const ValueKey('push-config-json')), 'fcm-device-token');
@@ -167,7 +178,7 @@ void main() {
     FilePicker.platform = JsonFilePicker();
     Map<String, dynamic>? uploaded;
     await http.runWithClient(() async {
-      await tester.pumpWidget(app());
+      await pumpApp(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.text('JSON faylni tanlash'));
       await tester.pumpAndSettle();
@@ -190,7 +201,7 @@ void main() {
   testWidgets('a failed save keeps the previous status and lets admin retry',
       (tester) async {
     await http.runWithClient(() async {
-      await tester.pumpWidget(app());
+      await pumpApp(tester);
       await tester.pumpAndSettle();
       await tester.enterText(
           find.byKey(const ValueKey('push-config-json')), jsonEncode(account));
@@ -198,7 +209,7 @@ void main() {
       expect(find.byKey(const ValueKey('push-config-error')), findsOneWidget);
       await tester.drag(find.byType(ListView), const Offset(0, 900));
       await tester.pumpAndSettle();
-      expect(find.text('Firebase kaliti saqlangan'), findsOneWidget);
+      expect(find.text('Server: Firebase kaliti saqlangan'), findsOneWidget);
       expect(
           tester
               .widget<TextField>(find.byKey(const ValueKey('push-config-json')))
@@ -217,13 +228,114 @@ void main() {
     AppSession.instance.profile = profile(UserRole.aparatchi);
     expect(AppRouter.canOpenRoute(AppRoutes.adminPushConfig), isFalse);
     await http.runWithClient(() async {
-      await tester.pumpWidget(app());
+      await pumpApp(tester);
       await tester.pumpAndSettle();
       expect(find.text('Bu sahifa faqat admin uchun'), findsOneWidget);
       expect(find.byKey(const ValueKey('push-config-json')), findsNothing);
     },
         () => MockClient(
             (_) async => throw StateError('must not request configuration')));
+  });
+
+  testWidgets(
+      'verified server never reports that an unconfigured phone is ready',
+      (tester) async {
+    PushMessagingService.instance.deviceStatus.value =
+        'push_config_client_missing';
+    await http.runWithClient(() async {
+      await pumpApp(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('Server: Firebase kaliti saqlangan'), findsOneWidget);
+      expect(find.text('Shu telefonning holati'), findsOneWidget);
+      final device =
+          tester.widget<Text>(find.byKey(const ValueKey('push-device-status')));
+      expect(device.data, contains('Firebase fayli serverga yuklanmagan'));
+      expect(device.data, isNot(contains('tokeni serverga ulandi')));
+    },
+        () => MockClient(
+            (_) async => http.Response(jsonEncode(status(true)), 200)));
+  });
+
+  testWidgets('shows Apple registration failure separately from server status',
+      (tester) async {
+    PushMessagingService.instance.deviceStatus.value =
+        'push_config_apns_entitlement_missing';
+    PushMessagingService.instance.deviceErrorDetail.value =
+        'NSCocoaErrorDomain (3000): No valid aps-environment entitlement';
+    await http.runWithClient(() async {
+      await pumpApp(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('Server: Firebase kaliti saqlangan'), findsOneWidget);
+      final device =
+          tester.widget<Text>(find.byKey(const ValueKey('push-device-status')));
+      expect(device.data, contains('Push Notifications huquqi yo‘q'));
+      expect(find.textContaining('NSCocoaErrorDomain (3000)'), findsOneWidget);
+    },
+        () => MockClient(
+            (_) async => http.Response(jsonEncode(status(true)), 200)));
+  });
+
+  testWidgets('clears an APNs test error after late device registration',
+      (tester) async {
+    PushMessagingService.instance.deviceStatus.value =
+        'push_config_apns_unavailable';
+    await http.runWithClient(() async {
+      await pumpApp(tester);
+      await tester.pumpAndSettle();
+      await tap(tester, 'push-config-test');
+      expect(find.textContaining('Apple push ro‘yxatidan javob'),
+          findsAtLeastNWidgets(1));
+      PushMessagingService.instance.deviceStatus.value = 'device_registered';
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Apple push ro‘yxatidan javob'), findsNothing);
+    }, () => MockClient((request) async {
+          if (request.url.path.endsWith('/test')) {
+            return http.Response(
+                jsonEncode({'error': 'push_config_apns_unavailable'}), 409);
+          }
+          return http.Response(jsonEncode(status(true)), 200);
+        }));
+  });
+
+  testWidgets('admin saves Android client options from the same settings page',
+      (tester) async {
+    final androidFile = {
+      'project_info': {'project_id': 'demo-project', 'project_number': '123'},
+      'client': [
+        {
+          'client_info': {
+            'mobilesdk_app_id': '1:123:android:abc',
+            'android_client_info': {
+              'package_name': 'com.example.accord_mobile_v2'
+            }
+          },
+          'api_key': [
+            {'current_key': 'AIzaPublicKey'}
+          ]
+        }
+      ]
+    };
+    FilePicker.platform = JsonFilePicker(
+        raw: jsonEncode(androidFile), name: 'google-services.json');
+    Map<String, dynamic>? saved;
+    await http.runWithClient(() async {
+      await pumpApp(tester);
+      await tester.pumpAndSettle();
+      await tap(tester, 'push-config-android');
+      expect(saved?['platform'], 'android');
+      expect(saved?['config']['project_id'], 'demo-project');
+      expect(saved?['config'].containsKey('private_key'), isFalse);
+      expect(find.text('Ilova konfiguratsiyasi saqlangan'), findsOneWidget);
+    },
+        () => MockClient((request) async {
+              final result = status(true);
+              if (request.method == 'PUT') {
+                expect(request.url.path, '/v1/mobile/admin/push-config/mobile');
+                saved = jsonDecode(request.body) as Map<String, dynamic>;
+                result['mobile'] = {'android': saved!['config'], 'ios': null};
+              }
+              return http.Response(jsonEncode(result), 200);
+            }));
   });
 
   test('test mode cannot upload credentials or send a real test', () async {

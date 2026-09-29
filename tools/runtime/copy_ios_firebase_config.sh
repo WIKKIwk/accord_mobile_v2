@@ -8,7 +8,7 @@ firebase_destination="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/G
 if [ ! -f "$firebase_source" ]; then
   # Avoid retaining configuration from an earlier incremental build.
   rm -f "$firebase_destination"
-  echo "warning: GoogleService-Info.plist is missing; iOS FCM push is unavailable."
+  echo "Firebase client settings will be loaded from the Accord server."
   exit 0
 fi
 

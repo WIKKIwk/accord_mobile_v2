@@ -24,7 +24,7 @@
     <uses-feature android:name="android.hardware.usb.host" android:required="false"/>
     <application
         android:label="Accord Mobile"
-        android:name="${applicationName}"
+        android:name=".AccordApplication"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true">

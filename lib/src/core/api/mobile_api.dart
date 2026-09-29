@@ -16,6 +16,7 @@ import '../../features/raw_material_split/models/raw_material_split_models.dart'
 import '../../features/shared/models/stock_entry_lookup.dart';
 import '../customer/customer_priority.dart';
 import '../notifications/service/push_messaging_service.dart';
+import '../notifications/service/firebase_client_config.dart';
 import '../native_iroh_transport.dart';
 import '../native_usb_printer.dart';
 import '../print_transport.dart';

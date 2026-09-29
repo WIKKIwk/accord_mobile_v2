@@ -592,16 +592,30 @@ test xabari Bildirishnomalar tarixiga saqlanmaydi. FCM qabul qilgani haqidagi
 natijadan so'ng bildirishnomaning telefonda ko'ringanini tekshirish kerak.
 Sinov rejimida server kalitlari o'zgartirilmaydi va haqiqiy push yuborilmaydi.
 
-iOS uchun bir martalik sozlash: Android bilan bir xil Firebase loyihasida
-`com.example.accordMobileV2.mirsaid.uzkingshark` ilovasini ro'yxatdan o'tkazing;
-`GoogleService-Info.plist` faylini `ios/Runner/` ichiga qo'ying yoki CI'dagi
-`IOS_GOOGLE_SERVICE_INFO_PLIST` secret'iga kiriting. Build faylni tekshiradi va
-ilovaga joylaydi; fayl yo'q bo'lsa push ishlamasligi haqida ogohlantiradi.
+Shu sahifadagi **Telefonlar uchun Firebase sozlamalari** bo'limiga Android uchun
+`google-services.json`, iPhone uchun `GoogleService-Info.plist` yuklanadi.
+Ikkala fayl server kalitidagi Firebase loyihasiga mos bo'lishi kerak.
+Android package `com.example.accord_mobile_v2`, iOS bundle
+`com.example.accordMobileV2.mirsaid.uzkingshark` tekshiriladi.
+Ilovalar login, ochilish va qayta faollashishda ommaviy SDK sozlamalarini
+serverdan olib, lokal saqlaydi. Native Android/iOS ishga tushishida ham shu
+sozlama yuklanadi, shu sabab app yopiq paytdagi push ham uni ishlatadi.
+Service-account maxfiy kaliti telefonlarga tarqatilmaydi. Firebase loyihasi
+almashtirilsa, SDK'ni almashtirish uchun ilovani to'liq yopib qayta ochish so'raladi.
+Bu imkoniyatli mobile build bir marta o'rnatiladi; keyingi konfiguratsiya fayllari
+admin sahifasidan beriladi va ularni buildga qo'lda qo'shish talab qilinmaydi.
 Push Notifications va Background Modes loyihada yoqilgan. Apple App ID va
 signing profile ham push'ni qo'llashi, APNs `.p8` kaliti esa Firebase Console'ga
-yuklanishi kerak. iOS build qayta o'rnatilgach, service-account kalitini keyingi
-almashtirishlar shu admin sahifasidan serverni restart qilmasdan bajariladi.
+yuklanishi kerak. Server va telefon holati sahifada alohida ko'rsatiladi.
 Haqiqiy yetkazishni Android va iPhone'da alohida tekshirish zarur.
+
+iOS `UIScene` uchun `firebase_messaging 16.7.0` va `firebase_core 4.15.0`
+birga ishlatiladi. `AppDelegate.didFinishLaunchingWithOptions` ichida
+`FLTFirebaseMessagingPlugin.configureNotificationCenterDelegate()` Flutter engine
+yaratilishidan oldin chaqiriladi. Bu kech yaratiladigan engine va serverdan keyinroq
+olingan Firebase sozlamalarida APNs hamda xabar callbacklari ulanishini ta'minlaydi.
+Ikkala plagin SPM orqali Firebase iOS SDK `12.19.0` ni ishlatadi.
+Android native bootstrap BoM versiyasi `firebase_core` bilan mos: `34.19.0`.
 
 - dashboard, activity va notification;
 - user, worker, role va capability;
