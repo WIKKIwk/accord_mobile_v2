@@ -1,0 +1,1199 @@
+
+import Foundation
+let kFNT_8_12="1", kFNT_12_20="2", kFNT_16_24="3", kFNT_24_32="4", kFNT_14_19="TSS24.BF2", kECLevelH="H", kQRCodeModeAuto="A"
+enum Rotation { case rotation0 }
+enum PrintError: Error { case commandGenerationFailed }
+final class XTSPLCommand {
+ var commands: [String] = []
+ func add(_ s:String) -> XTSPLCommand { commands.append(s); return self }
+ func setCharEncoding(_ v:UInt) -> XTSPLCommand { self }
+ func sizeMm(_ w:Double,height:Double) -> XTSPLCommand { add("SIZE \(w) mm,\(height) mm") }
+ func speed(_ v:Double) -> XTSPLCommand { add("SPEED \(v)") }
+ func density(_ v:Int32) -> XTSPLCommand { add("DENSITY \(v)") }
+ func referenceAt(x:Int32,y:Int32) -> XTSPLCommand { add("REFERENCE \(x),\(y)") }
+ func cls() -> XTSPLCommand { add("CLS") }
+ func codePage(_ v:String) -> XTSPLCommand { add("CODEPAGE \(v)") }
+ func print(_ m:Int32,n:Int32,taskId:String) -> XTSPLCommand { add("PRINT \(m)") }
+ func getCommand() -> Data { commands.joined(separator:"\r\n").data(using:.ascii)! }
+ func textAt(x:Int32,y:Int32,font:String,rotation:Rotation,xRatio:Int32,yRatio:Int32,content:String) -> XTSPLCommand {
+  add("TEXT \(x),\(y),\"\(font)\",0,\(xRatio),\(yRatio),\"\(content)\"")
+ }
+ func qrCodeAt(x:Int32,andY:Int32,ecLevel:String,cellWidth:Int32,mode:String,rotation:Rotation,content:String) -> XTSPLCommand {
+  add("QRCODE \(x),\(andY),\(ecLevel),\(cellWidth),\(mode),0,\"\(content)\"")
+ }
+ func barAt(x:Int32,andY:Int32,width:Int32,height:Int32) -> XTSPLCommand { add("BAR \(x),\(andY),\(width),\(height)") }
+}
+
+class NativeBefore {
+  private static let labelWidthMm: Double = 56.0
+  private static let labelHeightMm: Double = 60.0
+  // XP-P323B is 203 dpi, so a 56 x 60 mm label is approximately
+  // 448 x 480 dots. The printer's physical label origin is a few
+  // dots left of the adhesive label, so compensate it at the TSPL
+  // origin rather than moving individual objects independently.
+  private static let labelWidthDots = 448
+  private static let labelHeightDots = 480
+  private static let labelReferenceXDots: Int32 = 72
+  private static let labelLeftMarginDots = 24
+  private static let labelRightMarginDots = 24
+  private static let defaultPrintDensity: Int32 = 10
+  private static let materialPrintDensity: Int32 = 12
+  private static let materialTextBoldOffsetDots = 1
+  private static let materialTitleWidthChars = 28
+  private static let materialTitleTopY = 6
+  private static let materialTitleLineHeightDots = 26
+  private static let materialTitleFontHeightDots = 19
+  private static let materialTitleQrGapDots = 8
+  // Three copies at 60% of the former 174-dot receipt symbol.
+  private static let materialDataMatrixSizeDots = 104
+  private static let materialDataMatrixCount = 3
+  private static let materialDataMatrixGapDots = 16
+  private static let packQrX = 278
+  private static let packQrY = 166
+  private static let packEpcY = 328
+  private static let progressPackQrX = 250
+  private static let progressPackQrY = 285
+  private static let progressPackEpcGapDots = 16
+  private static let progressTextCharWidthDots = 16
+  private static let progressTextLineHeightDots = 24
+  private static let progressTextTopY = 36
+  private static let progressFieldGapDots = 4
+  private static let progressBoldOffsetDots = 1
+  private static let progressFieldWidthChars = 24
+  // Homashyo split yorlig'i: kattaroq matn (kFNT_24_32) va kattaroq QR.
+  // 16 char/en = 400 dot ichiga sig'adi, qator balandligi 36 dot.
+  private static let splitTextCharWidthDots = 24
+  private static let splitTextLineHeightDots = 36
+  private static let splitFieldWidthChars = 16
+  private static let splitQrBaseY = 250
+  // FNT_12_20 is rendered slightly wider by XP-P323B than its name
+  // suggests. Use a conservative width estimate for wrapping. The
+  // actual field line is emitted as one string so the printer itself
+  // owns the single-space separation after the colon.
+  private static let qolipFieldCharWidthDots = 16
+  private static let qolipFieldLineHeightDots = 24
+  private static let qolipFieldTopY = 24
+  private static let qolipFieldRowGapDots = 8
+  private static let qolipFieldQrGapDots = 16
+  private static let largeQrFooterGapDots = 28
+  private static let largeQrFooterLeftShiftDots = 16
+  private static let largeQrFooterHeightDots = 24
+  private static let qrAlphanumeric = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:"
+  private static let labelCodePage = "0"
+
+  func buildLabelCommand(_ label: BluetoothLabelRequest) throws -> Data {
+    var command: XTSPLCommand? = XTSPLCommand()
+    command = command?.setCharEncoding(String.Encoding.ascii.rawValue)
+    command = command?.sizeMm(Self.labelWidthMm, height: Self.labelHeightMm)
+    command = command?.speed(4.0)
+    let printDensity = label.labelKind == "material_product"
+      ? Self.materialPrintDensity
+      : Self.defaultPrintDensity
+    command = command?.density(printDensity)
+    command = command?.referenceAt(x: Self.labelReferenceXDots, y: Int32(0))
+    command = command?.cls()
+    command = command?.codePage(Self.labelCodePage)
+
+    switch label.labelKind {
+    case "qolip_cell", "qr_center":
+      command = appendQolipCell(command, label: label)
+    case "qolip_code", "paddon_code", "material_product":
+      // Homashyo rezkachisi split chiqishi WIP uslubida (kichik o'ng-past
+      // QR). Uzunliksiz generic material_product eski katta markaziy QR da.
+      if label.isMaterialSplit {
+        command = appendMaterialSplitLabel(command, label: label)
+      } else {
+        command = appendLargeQr(command, label: label)
+      }
+    default:
+      command = appendPackLabel(command, label: label)
+    }
+
+    command = command?.print(Int32(label.printCount), n: 1, taskId: UUID().uuidString)
+    guard let data = command?.getCommand(), !data.isEmpty else {
+      throw PrintError.commandGenerationFailed
+    }
+    return data
+  }
+
+  private func appendQolipCell(
+    _ command: XTSPLCommand?,
+    label: BluetoothLabelRequest
+  ) -> XTSPLCommand? {
+    let payload = requiredPayload(label.epc)
+    let title = fitLabelText(
+      cleanLabelText(label.itemName.isEmpty ? label.itemCode : label.itemName),
+      maxLength: 16
+    )
+    let titleX = centeredLabelX(title, charWidth: 24)
+    let cellWidth = largeQrCellWidth(payload)
+    var result = command
+    result = text(result, x: titleX, y: 12, font: kFNT_16_24, value: title)
+    result = qr(
+      result,
+      x: centeredQrX(payload, cellWidth: cellWidth),
+      y: centeredQrY(payload, cellWidth: cellWidth),
+      value: payload,
+      cellWidth: cellWidth
+    )
+    return result
+  }
+
+  private func appendLargeQr(
+    _ command: XTSPLCommand?,
+    label: BluetoothLabelRequest
+  ) -> XTSPLCommand? {
+    let payload = requiredPayload(label.epc)
+    let rawTitle = label.itemName.isEmpty ? label.itemCode : label.itemName
+    let useDataMatrix = label.materialDataMatrix && label.labelKind == "material_product"
+    let titleLines = largeQrTitleLines(label, rawTitle: rawTitle)
+    let titleFont = label.labelKind == "material_product" ? kFNT_14_19 : kFNT_12_20
+    let cellWidth = label.labelKind == "material_product"
+      ? materialQrCellWidth(payload)
+      : largeQrCellWidth(payload)
+    let qrX = centeredQrX(payload, cellWidth: cellWidth)
+    let qrSize = useDataMatrix
+      ? Self.materialDataMatrixSizeDots
+      : qrSymbolSizeDots(payload, cellWidth: cellWidth)
+    let baseQrY = useDataMatrix
+      ? (Self.labelHeightDots - qrSize) / 2
+      : centeredQrY(payload, cellWidth: cellWidth)
+    let qrY: Int
+    if label.labelKind == "qolip_code" {
+      let latestQrY = max(
+        baseQrY,
+        Self.labelHeightDots - qrSize - Self.largeQrFooterGapDots -
+          Self.largeQrFooterHeightDots
+      )
+      let requestedQrY = qolipFieldsEndY(label, rawTitle: rawTitle) +
+        Self.qolipFieldQrGapDots
+      qrY = min(max(requestedQrY, baseQrY), latestQrY)
+    } else if label.labelKind == "material_product" {
+      let latestQrY = max(
+        baseQrY,
+        Self.labelHeightDots - qrSize - Self.largeQrFooterGapDots -
+          Self.largeQrFooterHeightDots
+      )
+      let titleEndY = Self.materialTitleTopY +
+        max(0, titleLines.count - 1) * Self.materialTitleLineHeightDots +
+        Self.materialTitleFontHeightDots
+      let requestedQrY = titleEndY + Self.materialTitleQrGapDots
+      qrY = min(max(requestedQrY, baseQrY), latestQrY)
+    } else {
+      qrY = baseQrY
+    }
+
+    var result = command
+    if label.labelKind == "qolip_code" {
+      var field = appendQolipField(
+        result,
+        y: Self.qolipFieldTopY,
+        fieldLabel: "MIJOZ",
+        value: label.customerName
+      )
+      result = field.command
+      field = appendQolipField(
+        result,
+        y: field.nextY,
+        fieldLabel: "MAHSULOT NOMI",
+        value: rawTitle
+      )
+      result = field.command
+      field = appendQolipField(
+        result,
+        y: field.nextY,
+        fieldLabel: "QOLIP RANGI",
+        value: label.qolipColor
+      )
+      result = field.command
+    } else {
+      for (index, line) in titleLines.enumerated() {
+        let titleX = Self.labelLeftMarginDots
+        let titleY = label.labelKind == "material_product"
+          ? Self.materialTitleTopY + index * Self.materialTitleLineHeightDots
+          : 6 + index * 26
+        result = text(
+          result,
+          x: titleX,
+          y: titleY,
+          font: titleFont,
+          value: line
+        )
+        if label.labelKind == "material_product" {
+          result = text(
+            result,
+            x: titleX + Self.materialTextBoldOffsetDots,
+            y: titleY,
+            font: titleFont,
+            value: line
+          )
+        }
+      }
+    }
+    if useDataMatrix {
+      result = materialDataMatrixRow(
+        result, y: qrY, bars: label.materialDataMatrixBars
+      )
+    } else {
+      result = qr(result, x: qrX, y: qrY, value: payload, cellWidth: cellWidth)
+    }
+    if label.labelKind == "qolip_code" {
+      return appendQolipField(
+        result,
+        y: centeredQrFooterY(qrY: qrY, qrSize: qrSize),
+        fieldLabel: "EPC",
+        value: payload
+      ).command
+    }
+    let footerLimit = label.labelKind == "material_product" ? 32 : 46
+    let footer = fitLabelText(
+      largeQrFooter(label, payload: payload),
+      maxLength: footerLimit
+    )
+    let footerIsLarge =
+      (label.labelKind == "material_product" ||
+        label.labelKind == "qolip_code" ||
+        label.labelKind == "paddon_code") &&
+      footer.count <= 32
+    let footerFont = footerIsLarge ? kFNT_12_20 : kFNT_8_12
+    let footerX = label.labelKind == "material_product" ||
+      label.labelKind == "qolip_code" ||
+      label.labelKind == "paddon_code"
+      ? max(
+          Self.labelLeftMarginDots,
+          centeredLabelX(footer, charWidth: footerIsLarge ? 12 : 8) -
+            Self.largeQrFooterLeftShiftDots
+        )
+      : Self.labelLeftMarginDots
+    result = text(
+      result,
+      x: footerX,
+      y: centeredQrFooterY(qrY: qrY, qrSize: qrSize),
+      font: footerFont,
+      value: footer
+    )
+    return result
+  }
+
+  private func appendPackLabel(
+    _ command: XTSPLCommand?,
+    label: BluetoothLabelRequest
+  ) -> XTSPLCommand? {
+    if label.isProgress {
+      return appendProgressPackLabel(command, label: label)
+    }
+    let payload = requiredPayload(label.epc)
+    let product = cleanLabelText(label.itemName.isEmpty ? label.itemCode : label.itemName)
+    let productLines = wrapLabelText(product, width: 24).prefix(3)
+    let quantityUnit = cleanLabelText(
+      label.isProgress && !label.progressUnit.isEmpty
+        ? label.progressUnit
+        : (label.unit.isEmpty ? "kg" : label.unit)
+    )
+    let grossUnit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
+    let quantityLabel = label.isProgress ? "METRAJ" : "NETTO"
+    let quantity = label.isProgress ? (label.progressQty ?? label.netQty) : label.netQty
+
+    var result = text(
+      command,
+      x: Self.labelLeftMarginDots,
+      y: 4,
+      font: kFNT_16_24,
+      value: "ACCORD"
+    )
+    for (index, line) in productLines.enumerated() {
+      result = text(
+        result,
+        x: Self.labelLeftMarginDots,
+        y: 34 + index * 24,
+        font: kFNT_12_20,
+        value: line
+      )
+    }
+    result = text(
+      result,
+      x: Self.labelLeftMarginDots,
+      y: 112,
+      font: kFNT_12_20,
+      value: "\(quantityLabel): \(formatLabelQty(quantity)) \(quantityUnit)"
+    )
+    result = text(
+      result,
+      x: Self.labelLeftMarginDots,
+      y: 138,
+      font: kFNT_12_20,
+      value: "BRUTTO: \(formatLabelQty(label.grossQty)) \(grossUnit)"
+    )
+    result = qr(
+      result,
+      x: Self.packQrX,
+      y: Self.packQrY,
+      value: payload,
+      cellWidth: packQrCellWidth(payload)
+    )
+    let epcIsLarge = payload.count <= 32
+    let epcFont = epcIsLarge ? kFNT_12_20 : kFNT_8_12
+    let epcText = fitLabelText(payload, maxLength: epcIsLarge ? 32 : 46)
+    result = text(
+      result,
+      x: centeredLabelX(
+        epcText,
+        charWidth: epcIsLarge ? 12 : 8
+      ),
+      y: Self.packEpcY,
+      font: epcFont,
+      value: epcText
+    )
+    return result
+  }
+
+  // Homashyo rezkachisi split chiqishi: katta matn (kFNT_24_32 bold) va
+  // pastda kattaroq QR. Matn balandligiga qarab QR pastga suriladi, lekin
+  // EPC footer bilan birga yorliqdan chiqib ketmaydi. Faqat isMaterialSplit
+  // uchun ishlaydi, boshqa chop etishlarga tegmaydi.
+  private func appendMaterialSplitLabel(
+    _ command: XTSPLCommand?,
+    label: BluetoothLabelRequest
+  ) -> XTSPLCommand? {
+    let payload = requiredPayload(label.epc)
+    let product = cleanLabelText(
+      label.itemName.isEmpty
+        ? (label.itemCode.isEmpty ? "-" : label.itemCode)
+        : label.itemName
+    )
+    let weightUnit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
+    let meterUnit = cleanLabelText(label.progressUnit.isEmpty ? "m" : label.progressUnit)
+
+    var result = command
+    var y = Self.progressTextTopY
+    var lines = splitFieldLines("HOMASHYO", value: product, maxLines: 3)
+    result = appendSplitLines(result, lines: lines, y: y)
+    y += lines.count * Self.splitTextLineHeightDots + Self.progressFieldGapDots
+
+    lines = splitFieldLines(
+      "BRUTTO",
+      value: "\(formatLabelQty(label.grossQty)) \(weightUnit)",
+      maxLines: 1
+    )
+    result = appendSplitLines(result, lines: lines, y: y)
+    y += lines.count * Self.splitTextLineHeightDots + Self.progressFieldGapDots
+
+    lines = splitFieldLines(
+      "NETTO",
+      value: "\(formatLabelQty(label.netQty)) \(weightUnit)",
+      maxLines: 1
+    )
+    result = appendSplitLines(result, lines: lines, y: y)
+    y += lines.count * Self.splitTextLineHeightDots + Self.progressFieldGapDots
+
+    // Tizimga kiritilgan metraj (lengthM) bo'lsa chiqar, bo'lmasa qatorni
+    // tashlab ket — QR baribir pastda katta qoladi.
+    if let length = label.progressQty, length.isFinite, length > 0 {
+      lines = splitFieldLines(
+        "METRAJ",
+        value: "\(formatLabelQty(length)) \(meterUnit)",
+        maxLines: 1
+      )
+      result = appendSplitLines(result, lines: lines, y: y)
+      y += lines.count * Self.splitTextLineHeightDots + Self.progressFieldGapDots
+    }
+
+    let qrCellWidth = splitQrCellWidth(payload)
+    let qrSize = label.materialDataMatrix
+      ? Self.materialDataMatrixSizeDots
+      : qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
+    // Keep the EPC where the former single QR placed it. The compact row is
+    // then positioned immediately above that stable footer instead of
+    // pulling EPC upward by the difference in symbol sizes.
+    let previousQrSize = qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
+    let previousLatestQrY = Self.labelHeightDots - Self.largeQrFooterHeightDots -
+      Self.progressPackEpcGapDots - previousQrSize
+    let previousQrY = max(Self.splitQrBaseY, min(y + 8, previousLatestQrY))
+    let epcY = min(
+      Self.labelHeightDots - 24,
+      previousQrY + previousQrSize + Self.progressPackEpcGapDots
+    )
+    let qrY = label.materialDataMatrix
+      ? max(
+          Self.splitQrBaseY,
+          epcY - Self.progressPackEpcGapDots - qrSize
+        )
+      : previousQrY
+    if label.materialDataMatrix {
+      result = materialDataMatrixRow(
+        result, y: qrY, bars: label.materialDataMatrixBars
+      )
+    } else {
+      result = qr(
+        result,
+        x: Self.progressPackQrX,
+        y: qrY,
+        value: payload,
+        cellWidth: qrCellWidth
+      )
+    }
+    let epcIsLarge = payload.count <= 32
+    let epcFont = epcIsLarge ? kFNT_12_20 : kFNT_8_12
+    let epcText = fitLabelText(payload, maxLength: epcIsLarge ? 32 : 46)
+    result = text(
+      result,
+      x: centeredLabelX(epcText, charWidth: epcIsLarge ? 12 : 8),
+      y: epcY,
+      font: epcFont,
+      value: epcText
+    )
+    return result
+  }
+
+  private func splitQrCellWidth(_ value: String) -> Int {
+    min(packQrCellWidth(value) + 1, 6)
+  }
+
+  private func splitFieldLines(
+    _ fieldLabel: String,
+    value: String,
+    maxLines: Int
+  ) -> [String] {
+    Array(
+      wrapLabelText(
+        "\(fieldLabel): \(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "-" : value)",
+        width: Self.splitFieldWidthChars
+      ).prefix(max(1, maxLines))
+    )
+  }
+
+  private func appendSplitLines(
+    _ command: XTSPLCommand?,
+    lines: [String],
+    y: Int
+  ) -> XTSPLCommand? {
+    var result = command
+    for (index, line) in lines.enumerated() {
+      result = appendSplitStyledLine(
+        result,
+        line: line,
+        y: y + index * Self.splitTextLineHeightDots
+      )
+    }
+    return result
+  }
+
+  private func appendSplitStyledLine(
+    _ command: XTSPLCommand?,
+    line: String,
+    y: Int
+  ) -> XTSPLCommand? {
+    guard let separator = line.firstIndex(of: ":") else {
+      return appendBoldText(
+        command,
+        x: Self.labelLeftMarginDots,
+        y: y,
+        value: line,
+        font: kFNT_24_32
+      )
+    }
+    let labelEnd = line.index(after: separator)
+    let labelPart = String(line[..<labelEnd])
+    let valuePart = String(line[line.index(after: separator)...])
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    var result = text(
+      command,
+      x: Self.labelLeftMarginDots,
+      y: y,
+      font: kFNT_24_32,
+      value: labelPart
+    )
+    if !valuePart.isEmpty {
+      result = appendBoldText(
+        result,
+        x: Self.labelLeftMarginDots +
+          (labelPart.count + 1) * Self.splitTextCharWidthDots,
+        y: y,
+        value: valuePart,
+        font: kFNT_24_32
+      )
+    }
+    return result
+  }
+
+  private func appendProgressPackLabel(
+    _ command: XTSPLCommand?,
+    label: BluetoothLabelRequest
+  ) -> XTSPLCommand? {
+    let payload = requiredPayload(label.epc)
+    let customer = cleanLabelText(label.customerName.isEmpty ? "-" : label.customerName)
+    let rawProduct = cleanLabelText(
+      label.itemName.isEmpty
+        ? (label.itemCode.isEmpty ? "-" : label.itemCode)
+        : label.itemName
+    )
+    let product = progressProductName(rawProduct, fallback: label.itemCode)
+    let apparatus = progressApparatusName(
+      label.apparatusDisplayName,
+      canonicalApparatus: label.apparatus,
+      fallback: rawProduct
+    )
+    let status = progressStatusLabel(rawProduct)
+
+    var result = command
+    var y = Self.progressTextTopY
+    let customerLines = progressFieldLines("MIJOZ", value: customer, maxLines: 2)
+    result = appendProgressLines(result, lines: customerLines, y: y)
+    y += customerLines.count * Self.progressTextLineHeightDots + Self.progressFieldGapDots
+
+    let productLines = progressFieldLines("MAHSULOT NOMI", value: product, maxLines: 3)
+    result = appendProgressLines(result, lines: productLines, y: y)
+    y += productLines.count * Self.progressTextLineHeightDots +
+      Self.progressFieldGapDots * 3
+
+    let apparatusLines = progressFieldLines("APARAT", value: apparatus, maxLines: 2)
+    result = appendProgressLines(result, lines: apparatusLines, y: y)
+    y += apparatusLines.count * Self.progressTextLineHeightDots +
+      Self.progressFieldGapDots * 2
+
+    let statusLines = progressFieldLines("HOLAT", value: status, maxLines: 2)
+    result = appendProgressLines(result, lines: statusLines, y: y)
+    y += statusLines.count * Self.progressTextLineHeightDots +
+      Self.progressFieldGapDots * 2
+
+    let meterUnit = cleanLabelText(label.progressUnit.isEmpty ? "m" : label.progressUnit)
+    let weightUnit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
+    let metricLines = [
+      ("METRAJ", "\(formatLabelQty(label.progressQty ?? label.netQty)) \(meterUnit)"),
+      ("NETTO", "\(formatLabelQty(label.netQty)) \(weightUnit)"),
+      ("BRUTTO", "\(formatLabelQty(label.grossQty)) \(weightUnit)")
+    ]
+    for (fieldLabel, value) in metricLines {
+      let lines = progressFieldLines(fieldLabel, value: value, maxLines: 1)
+      result = appendProgressLines(result, lines: lines, y: y)
+      y += lines.count * Self.progressTextLineHeightDots + Self.progressFieldGapDots
+    }
+
+    let qrCellWidth = packQrCellWidth(payload)
+    let qrSize = qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
+    let epcY = min(
+      Self.labelHeightDots - 24,
+      Self.progressPackQrY + qrSize + Self.progressPackEpcGapDots
+    )
+    result = qr(
+      result,
+      x: Self.progressPackQrX,
+      y: Self.progressPackQrY,
+      value: payload,
+      cellWidth: qrCellWidth
+    )
+    let epcIsLarge = payload.count <= 32
+    let epcFont = epcIsLarge ? kFNT_12_20 : kFNT_8_12
+    let epcText = fitLabelText(payload, maxLength: epcIsLarge ? 32 : 46)
+    result = text(
+      result,
+      x: centeredLabelX(epcText, charWidth: epcIsLarge ? 12 : 8),
+      y: epcY,
+      font: epcFont,
+      value: epcText
+    )
+    return result
+  }
+
+  private func progressFieldLines(
+    _ fieldLabel: String,
+    value: String,
+    maxLines: Int
+  ) -> [String] {
+    Array(
+      wrapLabelText(
+        "\(fieldLabel): \(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "-" : value)",
+        width: Self.progressFieldWidthChars
+      ).prefix(max(1, maxLines))
+    )
+  }
+
+  private func appendProgressLines(
+    _ command: XTSPLCommand?,
+    lines: [String],
+    y: Int
+  ) -> XTSPLCommand? {
+    var result = command
+    for (index, line) in lines.enumerated() {
+      result = appendProgressStyledLine(
+        result,
+        line: line,
+        y: y + index * Self.progressTextLineHeightDots
+      )
+    }
+    return result
+  }
+
+  private func appendProgressStyledLine(
+    _ command: XTSPLCommand?,
+    line: String,
+    y: Int
+  ) -> XTSPLCommand? {
+    guard let separator = line.firstIndex(of: ":") else {
+      return appendBoldText(
+        command,
+        x: Self.labelLeftMarginDots,
+        y: y,
+        value: line
+      )
+    }
+    let labelEnd = line.index(after: separator)
+    let labelPart = String(line[..<labelEnd])
+    let valuePart = String(line[line.index(after: separator)...])
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    var result = text(
+      command,
+      x: Self.labelLeftMarginDots,
+      y: y,
+      font: kFNT_16_24,
+      value: labelPart
+    )
+    if !valuePart.isEmpty {
+      result = appendBoldText(
+        result,
+        x: Self.labelLeftMarginDots +
+          (labelPart.count + 1) * Self.progressTextCharWidthDots,
+        y: y,
+        value: valuePart
+      )
+    }
+    return result
+  }
+
+  private func appendBoldText(
+    _ command: XTSPLCommand?,
+    x: Int,
+    y: Int,
+    value: String,
+    font: String = kFNT_16_24
+  ) -> XTSPLCommand? {
+    var result = text(command, x: x, y: y, font: font, value: value)
+    result = text(
+      result,
+      x: x + Self.progressBoldOffsetDots,
+      y: y,
+      font: font,
+      value: value
+    )
+    return result
+  }
+
+  private func appendQolipField(
+    _ command: XTSPLCommand?,
+    y: Int,
+    fieldLabel: String,
+    value: String
+  ) -> (command: XTSPLCommand?, nextY: Int) {
+    let labelPart = "\(fieldLabel): "
+    let normalizedValue = cleanLabelText(value)
+    let displayValue = normalizedValue.isEmpty ? "-" : normalizedValue
+    let fullLineChars = max(
+      1,
+      (Self.labelWidthDots - Self.labelLeftMarginDots - Self.labelRightMarginDots) /
+        Self.qolipFieldCharWidthDots
+    )
+    let inlineFits = displayValue.count + labelPart.count <= fullLineChars
+    let valueLines = wrapLabelText(displayValue, width: fullLineChars)
+    var result = command
+    if inlineFits {
+      result = text(
+        result,
+        x: Self.labelLeftMarginDots,
+        y: y,
+        font: kFNT_12_20,
+        value: "\(labelPart)\(displayValue)"
+      )
+    } else {
+      result = text(
+        result,
+        x: Self.labelLeftMarginDots,
+        y: y,
+        font: kFNT_12_20,
+        value: labelPart
+      )
+      for (index, line) in valueLines.enumerated() {
+        result = appendBoldText(
+          result,
+          x: Self.labelLeftMarginDots,
+          y: y + Self.qolipFieldLineHeightDots * (index + 1),
+          value: line,
+          font: kFNT_12_20
+        )
+      }
+    }
+    let lineCount = inlineFits ? 1 : valueLines.count + 1
+    return (
+      command: result,
+      nextY: y + Self.qolipFieldLineHeightDots * lineCount +
+        Self.qolipFieldRowGapDots
+    )
+  }
+
+  private func qolipFieldsEndY(
+    _ label: BluetoothLabelRequest,
+    rawTitle: String
+  ) -> Int {
+    var y = Self.qolipFieldTopY
+    y = qolipFieldNextY(y, fieldLabel: "MIJOZ", value: label.customerName)
+    y = qolipFieldNextY(y, fieldLabel: "MAHSULOT NOMI", value: rawTitle)
+    return qolipFieldNextY(y, fieldLabel: "QOLIP RANGI", value: label.qolipColor)
+  }
+
+  private func qolipFieldNextY(
+    _ y: Int,
+    fieldLabel: String,
+    value: String
+  ) -> Int {
+    let labelPart = "\(fieldLabel): "
+    let normalizedValue = cleanLabelText(value)
+    let displayValue = normalizedValue.isEmpty ? "-" : normalizedValue
+    let fullLineChars = max(
+      1,
+      (Self.labelWidthDots - Self.labelLeftMarginDots - Self.labelRightMarginDots) /
+        Self.qolipFieldCharWidthDots
+    )
+    let inlineFits = displayValue.count + labelPart.count <= fullLineChars
+    let valueLineCount = inlineFits
+      ? 1
+      : wrapLabelText(displayValue, width: fullLineChars).count + 1
+    return y + Self.qolipFieldLineHeightDots * valueLineCount +
+      Self.qolipFieldRowGapDots
+  }
+
+  private func progressProductName(_ itemName: String, fallback: String) -> String {
+    let value = cleanLabelText(itemName.isEmpty ? (fallback.isEmpty ? "-" : fallback) : itemName)
+    let markers = [
+      " YARIM TAYYOR MAHSULOT",
+      " YARIM TAYYOR",
+      " TAYYOR MAHSULOT",
+      ", APPARAT:",
+      ", REZKA HOLATDA"
+    ]
+    var cutIndex: String.Index?
+    for marker in markers {
+      if let range = value.range(of: marker, options: [.caseInsensitive]),
+         cutIndex == nil || range.lowerBound < cutIndex! {
+        cutIndex = range.lowerBound
+      }
+    }
+    let product = (cutIndex == nil ? value : String(value[..<cutIndex!]))
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .trimmingCharacters(in: CharacterSet(charactersIn: " ,-"))
+    return product.isEmpty ? value : product
+  }
+
+  private func progressStatusLabel(_ itemName: String) -> String {
+    if itemName.range(of: "YARIM TAYYOR", options: [.caseInsensitive]) != nil {
+      return "YARIM TAYYOR MAHSULOT"
+    }
+    if itemName.range(of: "TAYYOR MAHSULOT", options: [.caseInsensitive]) != nil {
+      return "TAYYOR MAHSULOT"
+    }
+    if itemName.range(of: "TAYYOR", options: [.caseInsensitive]) != nil {
+      return "TAYYOR MAHSULOT"
+    }
+    return "YARIM TAYYOR MAHSULOT"
+  }
+
+  private func progressApparatusName(
+    _ displayName: String,
+    canonicalApparatus: String,
+    fallback itemName: String
+  ) -> String {
+    let explicit = cleanLabelText(displayName).trimmingCharacters(in: .whitespacesAndNewlines)
+    if !explicit.isEmpty {
+      return explicit
+    }
+    let canonical = cleanLabelText(canonicalApparatus)
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    if !canonical.isEmpty {
+      return canonical
+    }
+    guard let marker = itemName.range(of: ", APPARAT:", options: [.caseInsensitive]) else {
+      return "-"
+    }
+    let value = itemName[marker.upperBound...]
+      .split(separator: ",", maxSplits: 1, omittingEmptySubsequences: true)
+      .first
+      .map(String.init)?
+      .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return value.isEmpty ? "-" : value
+  }
+
+  private func text(
+    _ command: XTSPLCommand?,
+    x: Int,
+    y: Int,
+    font: String,
+    value: String
+  ) -> XTSPLCommand? {
+    command?.textAt(
+      x: Int32(x),
+      y: Int32(y),
+      font: font,
+      rotation: .rotation0,
+      xRatio: 1,
+      yRatio: 1,
+      content: cleanLabelText(value)
+    )
+  }
+
+  private func qr(
+    _ command: XTSPLCommand?,
+    x: Int,
+    y: Int,
+    value: String,
+    cellWidth: Int
+  ) -> XTSPLCommand? {
+    command?.qrCodeAt(
+      x: Int32(x),
+      andY: Int32(y),
+      ecLevel: kECLevelH,
+      cellWidth: Int32(cellWidth),
+      mode: kQRCodeModeAuto,
+      rotation: .rotation0,
+      content: value
+    )
+  }
+
+  private func materialDataMatrixRow(
+    _ command: XTSPLCommand?,
+    y: Int,
+    bars: [[Double]]
+  ) -> XTSPLCommand? {
+    let rowWidth = Self.materialDataMatrixCount * Self.materialDataMatrixSizeDots +
+      (Self.materialDataMatrixCount - 1) * Self.materialDataMatrixGapDots
+    let startX = (Self.labelWidthDots - rowWidth) / 2
+    var result = command
+    for index in 0..<Self.materialDataMatrixCount {
+      result = dataMatrix(
+        result,
+        x: startX + index * (Self.materialDataMatrixSizeDots + Self.materialDataMatrixGapDots),
+        y: y,
+        bars: bars,
+        sizeDots: Self.materialDataMatrixSizeDots
+      )
+    }
+    return result
+  }
+
+  private func dataMatrix(
+    _ command: XTSPLCommand?,
+    x: Int,
+    y: Int,
+    bars: [[Double]],
+    sizeDots: Int
+  ) -> XTSPLCommand? {
+    // Explicit dot bounds keep firmware from auto-sizing the ECC 200 symbol.
+    var result = command
+    for bar in bars {
+      let left = Int((bar[0] * Double(sizeDots)).rounded())
+      let top = Int((bar[1] * Double(sizeDots)).rounded())
+      let right = Int((bar[2] * Double(sizeDots)).rounded())
+      let bottom = Int((bar[3] * Double(sizeDots)).rounded())
+      result = result?.barAt(
+        x: Int32(x + left), andY: Int32(y + top),
+        width: Int32(right - left), height: Int32(bottom - top)
+      )
+    }
+    return result
+  }
+
+  private func requiredPayload(_ value: String) -> String {
+    let payload = cleanLabelText(value)
+    return payload.isEmpty ? "?" : payload
+  }
+
+  private func largeQrCellWidth(_ value: String) -> Int {
+    if value.count <= 32 {
+      return 8
+    }
+    if value.count <= 46 {
+      return 7
+    }
+    return 6
+  }
+
+  private func materialQrCellWidth(_ value: String) -> Int {
+    min(largeQrCellWidth(value) + 1, 9)
+  }
+
+  private func centeredQrX(_ value: String, cellWidth: Int) -> Int {
+    let qrSize = qrSymbolSizeDots(value, cellWidth: cellWidth)
+    return max(0, (Self.labelWidthDots - qrSize) / 2)
+  }
+
+  private func centeredQrY(_ value: String, cellWidth: Int) -> Int {
+    let qrSize = qrSymbolSizeDots(value, cellWidth: cellWidth)
+    return max(0, (Self.labelHeightDots - qrSize) / 2)
+  }
+
+  private func qrSymbolSizeDots(_ value: String, cellWidth: Int) -> Int {
+    qrModuleCount(value) * cellWidth
+  }
+
+  private func qrModuleCount(_ value: String) -> Int {
+    let normalized = value.uppercased()
+    let dataLength = normalized.utf8.count
+    let isNumeric = normalized.unicodeScalars.allSatisfy { scalar in
+      scalar.value >= 48 && scalar.value <= 57
+    }
+    let isAlphanumeric = normalized.allSatisfy {
+      Self.qrAlphanumeric.contains($0)
+    }
+    let capacities: [Int]
+    if isNumeric {
+      capacities = [17, 34, 58, 82, 106, 139, 154, 202, 235, 288]
+    } else if isAlphanumeric {
+      capacities = [10, 20, 35, 50, 64, 84, 93, 122, 143, 174]
+    } else {
+      capacities = [7, 14, 24, 34, 44, 58, 64, 84, 98, 119]
+    }
+    let versionIndex = capacities.firstIndex(where: { dataLength <= $0 }) ??
+      (capacities.count - 1)
+    return 21 + versionIndex * 4
+  }
+
+  private func centeredQrFooterY(qrY: Int, qrSize: Int) -> Int {
+    min(
+      qrY + qrSize + Self.largeQrFooterGapDots,
+      Self.labelHeightDots - Self.largeQrFooterHeightDots
+    )
+  }
+
+  private func packQrCellWidth(_ value: String) -> Int {
+    value.count <= 32 ? 5 : 4
+  }
+
+  private func largeQrTitleLines(
+    _ label: BluetoothLabelRequest,
+    rawTitle: String
+  ) -> [String] {
+    if label.labelKind == "material_product" {
+      let productName = cleanLabelText(label.itemName.isEmpty ? label.itemCode : label.itemName)
+      let unit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
+      let netWeight = compactLabelQty(label.netQty)
+      let productLines = label.materialNameLines.isEmpty
+        ? wrapLabelText(
+            cleanLabelText("MAHSULOT: \(productName)"),
+            width: Self.materialTitleWidthChars
+          )
+        : label.materialNameLines.flatMap {
+            wrapLabelText(cleanLabelText($0), width: Self.materialTitleWidthChars)
+          }
+      let weights = label.tareEnabled
+        ? ["BRUTTO: \(compactLabelQty(label.grossQty)) \(unit)",
+           "NETTO: \(netWeight) \(unit)"]
+        : ["NET VAZNI: \(netWeight) \(unit)"]
+      let weightLines = weights.flatMap {
+        wrapLabelText(cleanLabelText($0), width: Self.materialTitleWidthChars)
+      }
+      if label.materialDataMatrix {
+        // Reserve the complete code row and footer before placing the name.
+        let maxTitleLines = 1 + (Self.labelHeightDots - Self.materialDataMatrixSizeDots -
+          Self.largeQrFooterGapDots - Self.largeQrFooterHeightDots -
+          Self.materialTitleQrGapDots - Self.materialTitleTopY -
+          Self.materialTitleFontHeightDots) / Self.materialTitleLineHeightDots
+        return Array(productLines.prefix(max(0, maxTitleLines - weightLines.count))) + weightLines
+      }
+      return productLines + weightLines
+    }
+    if label.labelKind == "qolip_code" && !label.customerName.isEmpty {
+      return [
+        fitLabelText(cleanLabelText(label.customerName), maxLength: 25),
+        fitLabelText(cleanLabelText(rawTitle), maxLength: 25)
+      ].filter { !$0.isEmpty }
+    }
+    return Array(wrapLabelText(cleanLabelText(rawTitle), width: 25).prefix(2))
+  }
+
+  private func largeQrFooter(_ label: BluetoothLabelRequest, payload: String) -> String {
+    if label.labelKind == "material_product" {
+      return payload
+    }
+    if label.labelKind == "qolip_code" {
+      return "EPC: \(payload)"
+    }
+    if label.labelKind == "qolip_code", payload.hasPrefix("RPS-BATCH:") {
+      return "BATCH ID: \(payload.dropFirst("RPS-BATCH:".count))"
+    }
+    return label.itemCode.isEmpty ? payload : label.itemCode
+  }
+
+  private func centeredLabelX(_ value: String, charWidth: Int) -> Int {
+    let availableWidth = Self.labelWidthDots -
+      Self.labelLeftMarginDots - Self.labelRightMarginDots
+    let textWidth = min(value.count * charWidth, availableWidth)
+    let maxX = Self.labelWidthDots - Self.labelRightMarginDots - textWidth
+    return max(
+      Self.labelLeftMarginDots,
+      min((Self.labelWidthDots - textWidth) / 2, maxX)
+    )
+  }
+
+  private func cleanLabelText(_ value: String) -> String {
+    let replacements = value
+      .replacingOccurrences(of: "‘", with: "'")
+      .replacingOccurrences(of: "’", with: "'")
+      .replacingOccurrences(of: "`", with: "'")
+      .replacingOccurrences(of: "\"", with: "'")
+      .replacingOccurrences(of: "\n", with: " ")
+      .replacingOccurrences(of: "\r", with: " ")
+      .replacingOccurrences(of: "\t", with: " ")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .uppercased(with: Locale(identifier: "en_US_POSIX"))
+
+    return replacements.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+  }
+
+  private func fitLabelText(_ value: String, maxLength: Int) -> String {
+    String(value.prefix(maxLength))
+  }
+
+  private func wrapLabelText(_ value: String, width: Int) -> [String] {
+    var lines: [String] = []
+    var current = ""
+
+    for wordSubstring in value.split(whereSeparator: { $0.isWhitespace }) {
+      var rest = String(wordSubstring)
+      while rest.count > width {
+        if !current.isEmpty {
+          lines.append(current)
+          current = ""
+        }
+        lines.append(String(rest.prefix(width)))
+        rest = String(rest.dropFirst(width))
+      }
+
+      let candidate = current.isEmpty ? rest : "\(current) \(rest)"
+      if candidate.count <= width {
+        current = candidate
+      } else {
+        if !current.isEmpty {
+          lines.append(current)
+        }
+        current = rest
+      }
+    }
+    if !current.isEmpty {
+      lines.append(current)
+    }
+    return lines
+  }
+
+  private func formatLabelQty(_ value: Double) -> String {
+    let rounded = (value * 100).rounded() / 100
+    return String(format: "%.2f", locale: Locale(identifier: "en_US_POSIX"), rounded)
+  }
+
+  private func compactLabelQty(_ value: Double) -> String {
+    var text = String(format: "%.3f", locale: Locale(identifier: "en_US_POSIX"), value)
+    while text.last == "0" {
+      text.removeLast()
+    }
+    if text.last == "." {
+      text.removeLast()
+    }
+    return text
+  }
+
+
+}
+struct BluetoothLabelRequest {
+  let epc: String
+  let itemCode: String
+  let itemName: String
+  let apparatus: String
+  let apparatusDisplayName: String
+  let customerName: String
+  let qolipColor: String
+  let grossQty: Double
+  let unit: String
+  let tareEnabled: Bool
+  let tareKg: Double
+  let printCount: Int
+  let labelKind: String
+  let materialDataMatrix: Bool
+  let materialDataMatrixBars: [[Double]]
+  let materialNameLines: [String]
+  let progressQty: Double?
+  let progressUnit: String
+
+  init?(arguments: [String: Any]) {
+    let epc = (arguments["epc"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let grossQty = (arguments["gross_qty"] as? NSNumber)?.doubleValue ?? 0
+    let tareKg = (arguments["tare_kg"] as? NSNumber)?.doubleValue ?? 0
+    let printCount = (arguments["print_count"] as? NSNumber)?.intValue ?? 1
+    guard !epc.isEmpty, grossQty.isFinite, tareKg.isFinite, (1...100).contains(printCount) else {
+      return nil
+    }
+
+    self.epc = epc
+    itemCode = (arguments["item_code"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    itemName = (arguments["item_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    apparatus = (arguments["apparatus"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    apparatusDisplayName = (arguments["apparatus_display_name"] as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    customerName = (arguments["customer_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    qolipColor = (arguments["qolip_color"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    self.grossQty = max(0, grossQty)
+    unit = (arguments["unit"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+      ? (arguments["unit"] as? String)!.trimmingCharacters(in: .whitespacesAndNewlines)
+      : "kg"
+    self.tareKg = max(0, tareKg)
+    tareEnabled = (arguments["tare_enabled"] as? NSNumber)?.boolValue == true || tareKg > 0
+    self.printCount = printCount
+    labelKind = ((arguments["label_kind"] as? String) ?? "")
+      .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    materialDataMatrix = (arguments["material_data_matrix"] as? NSNumber)?.boolValue == true
+    materialDataMatrixBars = ((arguments["material_data_matrix_bars"] as? [[NSNumber]]) ?? [])
+      .map { row in row.map { $0.doubleValue } }
+    if materialDataMatrix && (materialDataMatrixBars.isEmpty || materialDataMatrixBars.contains {
+      $0.count != 4 || $0.contains { !$0.isFinite || $0 < 0 || $0 > 1 } ||
+        $0[0] >= $0[2] || $0[1] >= $0[3]
+    }) {
+      return nil
+    }
+    materialNameLines = ((arguments["material_name_lines"] as? [Any]) ?? [])
+      .compactMap { value in
+        guard let line = value as? String else { return nil }
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+      }
+    let progressQty = (arguments["progress_qty"] as? NSNumber)?.doubleValue
+    self.progressQty = progressQty?.isFinite == true ? progressQty : nil
+    progressUnit = (arguments["progress_unit"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+  }
+
+  var netQty: Double {
+    max(0, grossQty - tareKg)
+  }
+
+  var isProgress: Bool {
+    labelKind == "progress"
+  }
+
+  // Faqat homashyo rezkachisi split chiqishi (progressUnit='m' yoki HOMASHYO
+  // sarlavha): yangi zich tartib + WIP dagi kichik o'ng-past QR.
+  // Uzunliksiz generic material_product eski katta markaziy QR yo'lida qoladi.
+  var isMaterialSplit: Bool {
+    guard labelKind == "material_product" else {
+      return false
+    }
+    if progressUnit.lowercased() == "m" {
+      return true
+    }
+    return materialNameLines.first?.hasPrefix("HOMASHYO") == true
+  }
+}
+
+
+let dir=URL(fileURLWithPath:CommandLine.arguments[1])
+for sample in ["known","unknown","empty","partial","legacy"] {
+ var values: [String:Any] = ["epc":"00001","item_code":"00001","item_name":"PADDON 00001","gross_qty":1.0,"label_kind":"paddon_code","print_count":2]
+ let file=dir.appendingPathComponent(sample+"-header.txt")
+ if let header=try? String(contentsOf:file,encoding:.utf8) { values["paddon_label_lines"]=header.components(separatedBy:"\n") }
+ let label=BluetoothLabelRequest(arguments:values)!
+ let bytes=try NativeBefore().buildLabelCommand(label)
+ try bytes.write(to:dir.appendingPathComponent("ios-before-"+sample+".tspl"))
+}
