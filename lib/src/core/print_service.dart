@@ -55,6 +55,7 @@ class PrintService {
         qolipColor: request.qolipColor,
         progressQty: request.progressQty,
         progressUnit: request.progressUnit,
+        paddonLabelLines: request.paddonLabelLines,
       );
       final Map<String, Object?> result;
       try {

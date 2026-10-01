@@ -287,8 +287,14 @@ extension MobileApiPaddons on MobileApi {
       ok: payload['ok'] == true,
       paddon: AdminPaddon.fromJson(rawPaddon.cast<String, dynamic>()),
       qrPayload: payload['qr_payload']?.toString() ?? normalizedCode,
-      printJob:
-          printMap.isEmpty ? null : UsbRpsPrintRequest.fromPrintJson(printMap),
+      printJob: printMap.isEmpty
+          ? null
+          : UsbRpsPrintRequest.fromPrintJson(
+              printMap,
+              paddonLabelLines: printTransport.isBluetooth
+                  ? _paddonBluetoothLabelLines(rawPaddon.cast<String, dynamic>())
+                  : const [],
+            ),
       printStatus: printMap['status']?.toString() ?? '',
     );
   }
@@ -447,4 +453,26 @@ extension MobileApiPaddons on MobileApi {
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
+}
+
+List<String> _paddonBluetoothLabelLines(Map<String, dynamic> paddon) {
+  // Use the same authoritative summary that prepared this label, including
+  // frozen receipt totals. Never infer kilograms from WIP lengths/quantities.
+  final rawCount = paddon['item_count'];
+  final count = rawCount is num && rawCount.isFinite && rawCount >= 0 &&
+          rawCount == rawCount.toInt()
+      ? rawCount.toInt().toString()
+      : '—';
+  String weight(Object? raw) {
+    final kg = _paddonWeight(raw);
+    return kg == null
+        ? '—'
+        : kg.toStringAsFixed(6).replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+  return [
+    'Paddon ${paddon['code']?.toString().trim() ?? ''}',
+    'Mahsulot soni: $count',
+    'Brutto: ${weight(paddon['total_gross_kg'])} kg',
+    'Netto: ${weight(paddon['total_net_kg'])} kg',
+  ];
 }

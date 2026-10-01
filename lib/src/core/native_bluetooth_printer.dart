@@ -56,6 +56,12 @@ class NativeBluetoothPrinter {
 
 Map<String, Object> _bluetoothLabelPayload(UsbRpsPrintRequest request) {
   final payload = request.toJson();
+  if (request.isPaddonCodeLabel && request.paddonLabelLines.isNotEmpty) {
+    payload['paddon_label_lines'] =
+        request.paddonLabelLines
+            .map((line) => bluetoothPrinterText(line.replaceAll('—', '-')))
+            .toList();
+  }
   for (final key in const <String>[
     'item_code',
     'item_name',

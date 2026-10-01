@@ -597,11 +597,14 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
         let titleY = label.labelKind == "material_product"
           ? Self.materialTitleTopY + index * Self.materialTitleLineHeightDots
           : 6 + index * 26
+        let lineFont = label.labelKind == "paddon_code" && line.count > 25
+          ? kFNT_8_12
+          : titleFont
         result = text(
           result,
           x: titleX,
           y: titleY,
-          font: titleFont,
+          font: lineFont,
           value: line
         )
         if label.labelKind == "material_product" {
@@ -1354,6 +1357,9 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     _ label: BluetoothLabelRequest,
     rawTitle: String
   ) -> [String] {
+    if label.labelKind == "paddon_code" && label.paddonLabelLines.count == 4 {
+      return label.paddonLabelLines.map { cleanLabelText($0) }
+    }
     if label.labelKind == "material_product" {
       let productName = cleanLabelText(label.itemName.isEmpty ? label.itemCode : label.itemName)
       let unit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
@@ -1653,6 +1659,7 @@ private struct BluetoothLabelRequest {
   let materialNameLines: [String]
   let progressQty: Double?
   let progressUnit: String
+  let paddonLabelLines: [String]
 
   init?(arguments: [String: Any]) {
     let epc = (arguments["epc"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -1698,6 +1705,7 @@ private struct BluetoothLabelRequest {
     let progressQty = (arguments["progress_qty"] as? NSNumber)?.doubleValue
     self.progressQty = progressQty?.isFinite == true ? progressQty : nil
     progressUnit = (arguments["progress_unit"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    paddonLabelLines = (arguments["paddon_label_lines"] as? [String]) ?? []
   }
 
   var netQty: Double {

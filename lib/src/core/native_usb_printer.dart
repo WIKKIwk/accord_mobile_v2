@@ -168,6 +168,7 @@ class UsbRpsPrintRequest {
     this.qolipColor = '',
     this.progressQty,
     this.progressUnit = '',
+    this.paddonLabelLines = const [],
   });
 
   factory UsbRpsPrintRequest.test({required String epc}) {
@@ -182,7 +183,10 @@ class UsbRpsPrintRequest {
     );
   }
 
-  factory UsbRpsPrintRequest.fromPrintJson(Map<String, dynamic> json) {
+  factory UsbRpsPrintRequest.fromPrintJson(
+    Map<String, dynamic> json, {
+    List<String> paddonLabelLines = const [],
+  }) {
     final executorName = json['executor_name']?.toString().trim() ?? '';
     final apparatus = json['apparatus']?.toString().trim() ?? '';
     if (apparatus.isNotEmpty && !canonicalApparatusIdIsValid(apparatus)) {
@@ -220,6 +224,9 @@ class UsbRpsPrintRequest {
       qolipColor: json['qolip_color']?.toString() ?? '',
       progressQty: progressQty,
       progressUnit: json['progress_unit']?.toString() ?? '',
+      paddonLabelLines: normalizedLabelKind == 'paddon_code'
+          ? List.unmodifiable(paddonLabelLines)
+          : const [],
     );
   }
 
@@ -242,6 +249,9 @@ class UsbRpsPrintRequest {
   final String qolipColor;
   final double? progressQty;
   final String progressUnit;
+  /// Optional Bluetooth header from the server's current pallet print summary.
+  /// Kept out of the USB/LAN printer JSON contract.
+  final List<String> paddonLabelLines;
 
   double get netQty => (grossQty - tareKg).clamp(0, double.infinity).toDouble();
 

@@ -475,7 +475,12 @@ class BluetoothPrinterChannel(
                         line,
                     )
                 } else {
-                    sdkText(printer, titleX, titleY, titleFont, line)
+                    val lineFont = if (label.labelKind == "paddon_code" && line.length > 25) {
+                        TSPLConst.FNT_8_12
+                    } else {
+                        titleFont
+                    }
+                    sdkText(printer, titleX, titleY, lineFont, line)
                 }
             }
         }
@@ -1176,6 +1181,9 @@ class BluetoothPrinterChannel(
         label: BluetoothLabelRequest,
         rawTitle: String,
     ): List<String> {
+        if (label.labelKind == "paddon_code" && label.paddonLabelLines.size == 4) {
+            return label.paddonLabelLines.map(::cleanLabelText)
+        }
         if (label.isMaterialProduct) {
             val productName = cleanLabelText(
                 label.itemName.ifBlank { label.itemCode },
@@ -1463,6 +1471,7 @@ private data class BluetoothLabelRequest(
     val materialNameLines: List<String>,
     val progressQty: Double?,
     val progressUnit: String,
+    val paddonLabelLines: List<String>,
 ) {
     val netQty: Double
         get() = (grossQty - tareKg).coerceAtLeast(0.0)
@@ -1540,6 +1549,7 @@ private data class BluetoothLabelRequest(
                 progressQty = call.argument<Number>("progress_qty")?.toDouble()
                     ?.takeIf { it.isFinite() },
                 progressUnit = call.argument<String>("progress_unit").orEmpty().trim(),
+                paddonLabelLines = call.argument<List<String>>("paddon_label_lines").orEmpty(),
             )
         }
     }
