@@ -44,6 +44,11 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
           'worker.waiting.print_preflight_other_order_active',
       'previous_stage_not_configured' =>
         'worker.error.previous_stage_not_configured',
+      'wip_route_source_unresolved' => 'worker.error.wip_route_source',
+      'wip_route_destination_unresolved' =>
+        'worker.error.wip_route_destination',
+      'wip_route_ambiguous' => 'worker.error.wip_route_ambiguous',
+      'wip_route_changed' => 'worker.error.wip_route_changed',
       'raw_material_assignment_required' =>
         'worker.error.incomplete_material_groups',
       'waiting_sequence' => 'worker.waiting.sequence',

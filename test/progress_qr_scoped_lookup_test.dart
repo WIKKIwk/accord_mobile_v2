@@ -80,4 +80,103 @@ void main() {
       expect(sent, {'qr_payload': qr, 'apparatus': station, 'order_id': order});
     });
   }
+
+  test('lookup route metadata preserves original printed QR and historical nodes', () async {
+    const printedQr = '400118DA2F17C3617F59DDC6';
+    final originalPayload = {
+      'production_stage_node_id': 'laminatsiya_4',
+      'next_stage_node_id': 'rezka_5',
+      'gross_qty': 120,
+    };
+    await http.runWithClient(() async {
+      final batch = await MobileApi.instance.adminProgressQrLookup(printedQr);
+      expect(batch.qrPayload, printedQr);
+      expect(batch.batchId, 'original-roll');
+      expect(batch.payloadJson, originalPayload);
+      expect(batch.nextApparatus, station);
+      expect(batch.hasInputRouteMetadata, isTrue);
+      expect(batch.inputRouteError, isEmpty);
+      expect(batch.inputRoute!.stageNodeId, 'apparatus_6');
+      expect(batch.inputRoute!.consumerApparatusIds, [station, 'apparatus:default:asset-008']);
+      expect(batch.inputRoute!.remapped, isTrue);
+      expect(batch.copyWith(wipStatus: 'in_use').inputRoute, same(batch.inputRoute));
+    }, () => MockClient((request) async => http.Response(jsonEncode({
+      'batch': {
+        'batch_id': 'original-roll', 'apparatus': 'apparatus:default:bosma_9',
+        'order_id': order, 'qr_payload': printedQr, 'produced_qty': 6170,
+        'uom': 'm', 'wip_status': 'waiting', 'next_apparatus': station,
+        'payload_json': originalPayload,
+      },
+      'input_route': {
+        'source_stage_node_id': 'laminatsiya_4',
+        'stage_node_id': 'apparatus_6',
+        'consumer_apparatus_ids': [station, 'apparatus:default:asset-008'],
+        'map_fingerprint': 'current-map', 'remapped': true,
+      },
+    }), 200)));
+  });
+
+  for (final metadata in [
+    <String, dynamic>{},
+    {'input_route': null},
+    {'input_route_error': 'wip_route_source_unresolved'},
+    {'input_route_error': 'wip_route_ambiguous'},
+  ]) {
+    test('lookup preserves authoritative route presence/error: $metadata', () async {
+      await http.runWithClient(() async {
+        final batch = await MobileApi.instance.adminProgressQrLookup(qr);
+        expect(batch.hasInputRouteMetadata, metadata.isNotEmpty);
+        expect(batch.inputRoute, isNull);
+        expect(batch.inputRouteError, metadata.isEmpty ? '' :
+          metadata['input_route_error'] ?? 'wip_route_destination_unresolved');
+      }, () => MockClient((_) async => http.Response(jsonEncode({
+        'batch': {'batch_id': 'roll', 'apparatus': station}, ...metadata,
+      }), 200)));
+    });
+  }
+
+  for (final code in [
+    'wip_route_source_unresolved', 'wip_route_destination_unresolved',
+    'wip_route_ambiguous', 'wip_route_changed',
+  ]) {
+    test('scoped route failure $code explains map recovery in every locale', () async {
+      await http.runWithClient(() async {
+        try {
+          await MobileApi.instance.adminProgressQrLookup(qr, apparatus: station, orderId: order);
+          fail('Route error must stay blocked');
+        } on MobileApiException catch (error) {
+          expect(error.code, code);
+          expect(error.message, isNot(contains('oldingi bosqich mahsulotiga mos emas')));
+          for (final locale in ['uz', 'ru', 'en']) {
+            final localized = AppLocalizations(Locale(locale)).productionErrorMessage(code);
+            expect(localized, isNotEmpty);
+            expect(localized, isNot(code));
+          }
+        }
+      }, () => MockClient((_) async => http.Response(jsonEncode({'error': code}), 400)));
+    });
+  }
+  for (final scenario in ['route-error', 'null-route', 'wrong-consumer', 'empty-consumers']) {
+    test('scoped lookup rejects contradictory authoritative metadata: $scenario', () async {
+      final route = {
+        'source_stage_node_id': 'source', 'stage_node_id': 'target',
+        'map_fingerprint': 'current-map', 'remapped': true,
+        'consumer_apparatus_ids': scenario == 'empty-consumers' ? <String>[] :
+          ['apparatus:default:asset-008'],
+      };
+      final expectedCode = scenario == 'route-error' ? 'wip_route_ambiguous' :
+        scenario == 'wrong-consumer' ? 'progress_batch_not_accepted' :
+        'wip_route_destination_unresolved';
+      await http.runWithClient(() async {
+        await expectLater(MobileApi.instance.adminProgressQrLookup(qr,
+          apparatus: station, orderId: order), throwsA(isA<MobileApiException>().having(
+            (error) => error.code, 'route error', expectedCode)));
+      }, () => MockClient((_) async => http.Response(jsonEncode({
+        'validated_apparatus': station, 'validated_order_id': order,
+        'batch': {'batch_id': 'roll', 'apparatus': station},
+        if (scenario == 'route-error') 'input_route_error': 'wip_route_ambiguous'
+        else 'input_route': scenario == 'null-route' ? null : route,
+      }), 200)));
+    });
+  }
 }

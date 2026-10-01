@@ -2454,10 +2454,16 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       setState(() {
         _availableInputProgressBatches = const [];
         _availableOpeningWipBatches = const [];
+        _startInputProgressBatch = null;
         _inputProgressLoading = false;
-        _inputProgressError = error is TimeoutException ||
-                error is http.ClientException
+        _inputProgressError =
+            error is TimeoutException || error is http.ClientException
             ? context.l10n.productionText('worker.error.network_timeout')
+            : error is MobileApiException && error.code.startsWith('wip_route_')
+            ? context.l10n.productionErrorMessage(
+                error.code,
+                fallback: error.message,
+              )
             : context.l10n.productionText(
                 error is MobileApiException &&
                         (error.statusCode == 403 || error.code == 'forbidden')
@@ -2485,14 +2491,37 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     // Source/destination machine filters can omit an alternative candidate.
     // Read this order's waiting rolls and keep the concrete consumer stage.
     // Scan acceptance still requires the server's scoped QR validation.
-    return batches.where((batch) => batch.orderId.trim() == orderId &&
-        batch.wipStatus.trim().toLowerCase() == 'waiting' &&
-        productionMapWipConsumerIds(
-          map: widget.order.map,
-          nextApparatus: batch.nextApparatus,
-          nextStageNodeId: batch.payloadJson['next_stage_node_id']?.toString() ?? '',
-          consumerStageNodeId: _queueActionControl?.stageNodeId ?? '',
-        ).contains(station)).toList(growable: false);
+    final eligible = batches
+        .where(
+          (batch) =>
+              batch.orderId.trim() == orderId &&
+              batch.wipStatus.trim().toLowerCase() == 'waiting' &&
+              productionMapWipConsumerIds(
+                map: widget.order.map,
+                nextApparatus: batch.nextApparatus,
+                nextStageNodeId:
+                    batch.payloadJson['next_stage_node_id']?.toString() ?? '',
+                consumerStageNodeId: _queueActionControl?.stageNodeId ?? '',
+              ).contains(station),
+        )
+        .toList();
+    final accepted = _startInputProgressBatch;
+    if (accepted != null &&
+        !eligible.any((batch) => batch.batchId == accepted.batchId)) {
+      // List rows retain immutable historical route IDs. A map edit can make
+      // the display filter omit a scanned roll, and pagination can omit its
+      // row entirely. Revalidate that QR independently of list membership
+      // against the current backend route and ownership rules.
+      final validated = await MobileApi.instance.adminProgressQrLookup(
+        accepted.qrPayload,
+        apparatus: station,
+        orderId: orderId,
+      );
+      if (validated.wipStatus.trim().toLowerCase() == 'waiting') {
+        eligible.add(validated);
+      }
+    }
+    return eligible;
   }
 
   void _showMapApparatusWipHistory(ProductionMapNode node) {

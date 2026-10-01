@@ -436,6 +436,15 @@ Keyingi stansiya oldingi progress QR'ni scan qiladi; backend batch, order,
 apparat, status va lineage mosligini tekshiradi. Pause qilingan batch faqat mos
 order/apparatda resume qilinadi.
 
+Xarita tahrirlangandan keyin ham chiqarilgan WIPning batch ID, QR va tarixiy
+payload'i o'zgarmaydi. Yangi backend lookup javobidagi `input_route` amaldagi
+bosqich va canonical consumer aparat IDlarini beradi; worker FAB shu server
+yo'nalishidan foydalanadi va scope bilan qayta tekshirtiradi. Eski backend
+metadata bermasa, mavjud aniq node filtri saqlanadi. Yo'nalish yo'q yoki noaniq
+bo'lsa `wip_route_*` xatolari admin xaritani tekshirishi kerakligini ko'rsatadi;
+aparat nomi yoki turi orqali ruxsat kengaytirilmaydi. Start navbat, assignment
+va WIP foydalanish holatini backend transactionda yana tekshiradi.
+
 Admin WIP ekranlari waiting/in-use/processed holatlarni, current/next location
 va order bog'lanishini backenddan oladi. Mobile bu ma'lumotni lokal taxmin bilan
 almashtirmaydi.

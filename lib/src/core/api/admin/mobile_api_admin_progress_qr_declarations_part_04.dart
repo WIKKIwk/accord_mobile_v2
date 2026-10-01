@@ -68,7 +68,43 @@ extension MobileApiAdminProgressQr on MobileApi {
         message: 'Progress QR topilmadi',
       );
     }
-    return AdminProgressBatch.fromJson(raw.cast<String, dynamic>());
+    final hasInputRouteMetadata =
+        payload.containsKey('input_route') ||
+        payload.containsKey('input_route_error');
+    final rawRoute = payload['input_route'];
+    final routeError = payload['input_route_error']?.toString().trim() ?? '';
+    if (rawRoute != null && (rawRoute is! Map || routeError.isNotEmpty)) {
+      throw const MobileApiException(
+        code: 'wip_route_ambiguous',
+        message: 'Server WIP yo‘nalishini aniq tasdiqlamadi',
+      );
+    }
+    final route = rawRoute is Map
+        ? AdminProgressInputRoute.fromJson(rawRoute.cast<String, dynamic>())
+        : null;
+    final effectiveRouteError =
+        routeError.isEmpty && hasInputRouteMetadata && route == null
+        ? 'wip_route_destination_unresolved'
+        : routeError;
+    if (scoped && effectiveRouteError.isNotEmpty) {
+      throw MobileApiException(
+        code: effectiveRouteError,
+        message: 'Server WIP yo‘nalishini tasdiqlamadi',
+      );
+    }
+    if (scoped && route != null &&
+        !route.consumerApparatusIds.contains(apparatus.trim())) {
+      throw const MobileApiException(
+        code: 'progress_batch_not_accepted',
+        message: 'Server QR yo‘nalishini tasdiqlamadi',
+      );
+    }
+    return AdminProgressBatch.fromJson(
+      raw.cast<String, dynamic>(),
+      inputRoute: route,
+      inputRouteError: effectiveRouteError,
+      hasInputRouteMetadata: hasInputRouteMetadata,
+    );
   }
 
   Future<List<AdminProgressBatch>> adminProgressQrHistory({

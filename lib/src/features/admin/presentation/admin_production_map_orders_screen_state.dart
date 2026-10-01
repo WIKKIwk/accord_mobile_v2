@@ -888,6 +888,32 @@ class _AdminProductionMapOrdersScreenState
     try {
       final batch = await MobileApi.instance.adminProgressQrLookup(qrPayload);
       if (!mounted) return;
+      final usageError = switch (batch.wipStatus.trim().toLowerCase()) {
+        'in_use' => 'progress_batch_in_use',
+        'processed' => 'progress_batch_already_used',
+        _ => '',
+      };
+      if (usageError.isNotEmpty) {
+        showAdminTopNotice(
+          context,
+          context.l10n.productionText(
+            usageError == 'progress_batch_in_use'
+                ? 'worker.error.wip_in_use'
+                : 'worker.error.wip_used',
+          ),
+          icon: Icons.warning_amber_rounded,
+        );
+        return;
+      }
+      if (batch.inputRouteError.isNotEmpty) {
+        throw MobileApiException(
+          code: batch.inputRouteError,
+          message: context.l10n.productionErrorMessage(
+            batch.inputRouteError,
+            fallback: context.l10n.productionErrorMessage('wip_route_destination_unresolved'),
+          ),
+        );
+      }
       final targetOrderId = batch.orderId.trim();
       final stationId = batch.nextApparatus.trim();
       if (targetOrderId.isEmpty) {
@@ -907,11 +933,17 @@ class _AdminProductionMapOrdersScreenState
         return;
       }
       final targetOrder = targetMaps.first;
-      final candidates = productionMapWipConsumerIds(
-        map: targetOrder.map,
-        nextApparatus: stationId,
-        nextStageNodeId: batch.payloadJson['next_stage_node_id']?.toString() ?? '',
-      );
+      // The printed payload keeps its original node IDs after a map edit.
+      // Current eligibility comes from the backend resolver. Only older
+      // servers without route metadata use the existing explicit-node filter.
+      final candidates = batch.hasInputRouteMetadata
+          ? batch.inputRoute?.consumerApparatusIds ?? const <String>[]
+          : productionMapWipConsumerIds(
+              map: targetOrder.map,
+              nextApparatus: stationId,
+              nextStageNodeId:
+                  batch.payloadJson['next_stage_node_id']?.toString() ?? '',
+            );
       final assigned = AppSession.instance.profile?.assignedApparatus ?? const <String>[];
       AdminApparatus? station;
       for (final candidate in _apparatus) {

@@ -244,6 +244,14 @@ MobileApiException _adminProductionMapException(
       'progress_batch_not_found' => 'Progress QR topilmadi',
       'progress_batch_not_accepted' =>
         'Bu QR oldingi bosqich mahsulotiga mos emas',
+      'wip_route_source_unresolved' =>
+        'WIP chiqarilgan bosqich xaritada aniqlanmadi. Admin xaritadagi yo‘nalishni tekshirsin; shu QR saqlanadi.',
+      'wip_route_destination_unresolved' =>
+        'WIP uchun keyingi bosqich xaritada aniqlanmadi. Admin yo‘nalishni tekshirsin; shu QR saqlanadi.',
+      'wip_route_ambiguous' =>
+        'WIP yo‘nalishini bir ma’noda aniqlab bo‘lmadi. Admin xaritadagi bosqichlarni tekshirsin; shu QR saqlanadi.',
+      'wip_route_changed' =>
+        'Ishlab chiqarish xaritasi yangilandi. Oynani yangilang va shu QRni qayta skanerlang.',
       'progress_batch_already_used' =>
         'Bu rulon ${progressApparatusName.isEmpty ? '' : '$progressApparatusName apparatida '}allaqachon ishlatilgan. Qayta ish boshlash uchun ishlatilmagan rulon QR sini skanerlang.',
       'progress_batch_in_use' =>

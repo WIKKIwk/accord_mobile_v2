@@ -131,6 +131,52 @@ class AdminRezkaAstatkaReport {
   }
 }
 
+/// The server's current route for an immutable, already printed WIP batch.
+/// This is lookup metadata; it must never replace the batch's original payload.
+class AdminProgressInputRoute {
+  const AdminProgressInputRoute({
+    required this.sourceStageNodeId,
+    required this.stageNodeId,
+    required this.consumerApparatusIds,
+    required this.mapFingerprint,
+    required this.remapped,
+  });
+
+  final String sourceStageNodeId;
+  final String stageNodeId;
+  final List<String> consumerApparatusIds;
+  final String mapFingerprint;
+  final bool remapped;
+
+  factory AdminProgressInputRoute.fromJson(Map<String, dynamic> json) {
+    final source = json['source_stage_node_id']?.toString().trim() ?? '';
+    final stage = json['stage_node_id']?.toString().trim() ?? '';
+    final fingerprint = json['map_fingerprint']?.toString().trim() ?? '';
+    final rawConsumers = json['consumer_apparatus_ids'];
+    if (source.isEmpty ||
+        stage.isEmpty ||
+        fingerprint.isEmpty ||
+        rawConsumers is! List ||
+        rawConsumers.isEmpty) {
+      throw const MobileApiException(
+        code: 'wip_route_destination_unresolved',
+        message: 'Server WIP yo‘nalishini tasdiqlamadi',
+      );
+    }
+    final consumers = <String>{
+      for (final value in rawConsumers)
+        _requireCanonicalApparatusId(value?.toString() ?? ''),
+    };
+    return AdminProgressInputRoute(
+      sourceStageNodeId: source,
+      stageNodeId: stage,
+      consumerApparatusIds: List.unmodifiable(consumers),
+      mapFingerprint: fingerprint,
+      remapped: json['remapped'] == true,
+    );
+  }
+}
+
 class AdminProgressBatch {
   const AdminProgressBatch({
     required this.batchId,
@@ -174,6 +220,9 @@ class AdminProgressBatch {
     this.startedAtUnix = 0,
     this.completedAtUnix = 0,
     this.payloadJson = const {},
+    this.inputRoute,
+    this.inputRouteError = '',
+    this.hasInputRouteMetadata = false,
   });
 
   final String batchId;
@@ -217,8 +266,16 @@ class AdminProgressBatch {
   final int startedAtUnix;
   final int completedAtUnix;
   final Map<String, dynamic> payloadJson;
+  final AdminProgressInputRoute? inputRoute;
+  final String inputRouteError;
+  final bool hasInputRouteMetadata;
 
-  factory AdminProgressBatch.fromJson(Map<String, dynamic> json) {
+  factory AdminProgressBatch.fromJson(
+    Map<String, dynamic> json, {
+    AdminProgressInputRoute? inputRoute,
+    String inputRouteError = '',
+    bool hasInputRouteMetadata = false,
+  }) {
     final currentApparatus = _requireCanonicalApparatusId(
       json['current_apparatus']?.toString() ?? '',
       allowEmpty: true,
@@ -294,6 +351,9 @@ class AdminProgressBatch {
       startedAtUnix: (json['started_at_unix'] as num?)?.toInt() ?? 0,
       completedAtUnix: (json['completed_at_unix'] as num?)?.toInt() ?? 0,
       payloadJson: _jsonObject(json['payload_json']),
+      inputRoute: inputRoute,
+      inputRouteError: inputRouteError,
+      hasInputRouteMetadata: hasInputRouteMetadata,
     );
   }
 
@@ -352,6 +412,9 @@ class AdminProgressBatch {
       startedAtUnix: startedAtUnix,
       completedAtUnix: completedAtUnix,
       payloadJson: payloadJson ?? this.payloadJson,
+      inputRoute: inputRoute,
+      inputRouteError: inputRouteError,
+      hasInputRouteMetadata: hasInputRouteMetadata,
     );
   }
 }

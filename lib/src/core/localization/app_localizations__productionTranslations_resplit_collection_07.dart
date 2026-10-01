@@ -249,6 +249,36 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'en': 'This QR code does not belong to your assigned machine',
     'ru': 'Этот QR-код не относится к назначенному вам аппарату',
   },
+  'worker.error.wip_route_source': {
+    'uz': 'WIP chiqarilgan bosqich xaritada aniqlanmadi. Admin xaritadagi yo‘nalishni tekshirsin; shu QR saqlanadi.',
+    'en': 'The WIP source stage cannot be found in the map. Ask an admin to check the route; keep this QR code.',
+    'ru': 'Не удалось определить исходный этап WIP в карте. Попросите администратора проверить маршрут; сохраните этот QR-код.',
+  },
+  'worker.error.wip_route_destination': {
+    'uz': 'WIP uchun keyingi bosqich xaritada aniqlanmadi. Admin yo‘nalishni tekshirsin; shu QR saqlanadi.',
+    'en': 'The next stage for this WIP cannot be found in the map. Ask an admin to check the route; keep this QR code.',
+    'ru': 'Не удалось определить следующий этап WIP в карте. Попросите администратора проверить маршрут; сохраните этот QR-код.',
+  },
+  'worker.error.wip_route_ambiguous': {
+    'uz': 'WIP yo‘nalishini bir ma’noda aniqlab bo‘lmadi. Admin xaritadagi bosqichlarni tekshirsin; shu QR saqlanadi.',
+    'en': 'This WIP route is ambiguous. Ask an admin to check the map stages; keep this QR code.',
+    'ru': 'Маршрут WIP неоднозначен. Попросите администратора проверить этапы карты; сохраните этот QR-код.',
+  },
+  'worker.error.wip_route_changed': {
+    'uz': 'Ishlab chiqarish xaritasi yangilandi. Oynani yangilang va shu QRni qayta skanerlang.',
+    'en': 'The production map changed. Refresh and scan this QR code again.',
+    'ru': 'Карта производства изменилась. Обновите данные и снова отсканируйте этот QR-код.',
+  },
+  'worker.error.wip_in_use': {
+    'uz': 'Bu rulon hozir ishlatilmoqda. Uni qayta ishga olib bo‘lmaydi.',
+    'en': 'This roll is already in use and cannot be started again.',
+    'ru': 'Этот рулон уже используется. Его нельзя запустить повторно.',
+  },
+  'worker.error.wip_used': {
+    'uz': 'Bu rulon allaqachon ishlatilgan. Ishlatilmagan rulon QR sini skanerlang.',
+    'en': 'This roll has already been consumed. Scan an unused roll QR code.',
+    'ru': 'Этот рулон уже использован. Отсканируйте QR-код неиспользованного рулона.',
+  },
   'worker.error.machine_flow': {
     'uz': 'Bu QR ushbu apparat oqimiga mos emas',
     'en': 'This QR code does not belong to this machine flow',
