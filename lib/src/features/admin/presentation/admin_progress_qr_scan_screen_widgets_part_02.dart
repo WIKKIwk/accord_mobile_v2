@@ -64,6 +64,11 @@ class _PaddonQrReportView extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                const SizedBox(height: 12),
+                PaddonWeightTotals(
+                  key: const ValueKey('admin-paddon-qr-weights'),
+                  paddon: paddon,
+                ),
                 if (paddon.location.trim().isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(

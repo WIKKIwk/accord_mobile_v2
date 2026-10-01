@@ -9,6 +9,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/widgets/paddon_weight_totals.dart';
 import '../../../core/scanner/reliable_mobile_scanner.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
