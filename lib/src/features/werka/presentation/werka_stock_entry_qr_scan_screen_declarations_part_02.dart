@@ -122,9 +122,10 @@ class _ScannerErrorView extends StatelessWidget {
 }
 
 class _UnsupportedScannerView extends StatelessWidget {
-  const _UnsupportedScannerView({required this.onBack});
+  const _UnsupportedScannerView({required this.onBack, required this.onManual});
 
   final VoidCallback onBack;
+  final VoidCallback? onManual;
 
   @override
   Widget build(BuildContext context) {
@@ -158,13 +159,13 @@ class _UnsupportedScannerView extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'QR scan faqat mobil qurilmalarda ishlaydi',
+                    'Bu qurilmada kamera mavjud emas',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Bu ekranda kamera ochish Android yoki iOS qurilmada ishlaydi.',
+                    'QR kodni qo‘lda kiriting yoki mobil qurilmada skanerlang.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
@@ -172,6 +173,13 @@ class _UnsupportedScannerView extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   FilledButton.icon(
+                    key: const ValueKey('werka-qr-manual-entry'),
+                    onPressed: onManual,
+                    icon: const Icon(Icons.keyboard_outlined),
+                    label: const Text('QR kodni kiritish'),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
                     onPressed: onBack,
                     icon: const Icon(Icons.arrow_back_rounded),
                     label: const Text('Ortga'),
@@ -184,4 +192,58 @@ class _UnsupportedScannerView extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ManualQrCodeDialog extends StatefulWidget {
+  const _ManualQrCodeDialog();
+
+  @override
+  State<_ManualQrCodeDialog> createState() => _ManualQrCodeDialogState();
+}
+
+class _ManualQrCodeDialogState extends State<_ManualQrCodeDialog> {
+  final _controller = TextEditingController();
+  bool _closed = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _close([String? value]) {
+    if (_closed) return;
+    _closed = true;
+    Navigator.of(context).pop(value);
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    if (value.isNotEmpty) _close(value);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('QR kodni kiritish'),
+        content: TextField(
+          key: const ValueKey('werka-qr-manual-code'),
+          controller: _controller,
+          autofocus: true,
+          autocorrect: false,
+          enableSuggestions: false,
+          textInputAction: TextInputAction.done,
+          decoration: const InputDecoration(
+              labelText: 'Paddon, WIP yoki stock QR kodi'),
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _submit(),
+        ),
+        actions: [
+          TextButton(onPressed: _close, child: const Text('Bekor qilish')),
+          FilledButton(
+            key: const ValueKey('werka-qr-manual-submit'),
+            onPressed: _controller.text.trim().isEmpty ? null : _submit,
+            child: const Text('Tekshirish'),
+          ),
+        ],
+      );
 }

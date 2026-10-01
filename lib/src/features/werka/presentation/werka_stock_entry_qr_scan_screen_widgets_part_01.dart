@@ -14,6 +14,7 @@ class _WerkaStockEntryQrScanScreenState
   final bool _scannerSupported = _supportsLiveScanner;
   ReliableScannerSession? _scannerSession;
   bool _processing = false;
+  bool _manualEntry = false;
   String _statusText = 'QR kodni ramkaga keltiring';
 
   @override
@@ -52,11 +53,10 @@ class _WerkaStockEntryQrScanScreenState
       return;
     }
     final started = await session.retry();
-    if (!mounted) {
+    if (!mounted || _processing) {
       return;
     }
     setState(() {
-      _processing = false;
       _statusText = started || session.phase != ReliableScannerPhase.error
           ? 'QR kodni ramkaga keltiring'
           : 'Kamera ochilmadi';
@@ -71,12 +71,35 @@ class _WerkaStockEntryQrScanScreenState
     await session.stop();
   }
 
-  Future<void> _handleDetect(BarcodeCapture capture) async {
-    if (_processing) {
-      return;
-    }
+  Future<void> _handleDetect(BarcodeCapture capture) =>
+      _handleCode(_firstBarcodeValue(capture));
 
-    final rawValue = _firstBarcodeValue(capture);
+  Future<void> _enterCode() async {
+    if (_processing) return;
+    setState(() {
+      _processing = true;
+      _manualEntry = true;
+    });
+    await _stopScanner();
+    if (!mounted) return;
+    final code = await showDialog<String>(
+      context: context,
+      builder: (_) => const _ManualQrCodeDialog(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _processing = false;
+      _manualEntry = false;
+    });
+    if (code == null) {
+      await _startScanner();
+    } else {
+      await _handleCode(code);
+    }
+  }
+
+  Future<void> _handleCode(String rawValue) async {
+    if (_processing) return;
     final archivePayload = WerkaArchiveBatchQrPayload.tryParse(rawValue);
     if (archivePayload != null) {
       if (!mounted) {
@@ -106,6 +129,7 @@ class _WerkaStockEntryQrScanScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('QR kodi noto‘g‘ri.')),
       );
+      await _startScanner();
       return;
     }
 
@@ -176,9 +200,11 @@ class _WerkaStockEntryQrScanScreenState
         'qr_ambiguous' =>
           'QR bir nechta yozuvga mos keldi. Mas’ul xodimga murojaat qiling.',
         'progress_input_invalid' => 'QR kodi bo‘sh yoki noto‘g‘ri.',
-        'qr_preview_failed' || 'qr_preview_invalid' =>
+        'qr_preview_failed' ||
+        'qr_preview_invalid' =>
           'QR ma’lumotini olib bo‘lmadi. Qayta urinib ko‘ring.',
-        'progress_batch_not_found' || 'progress_qr_invalid' =>
+        'progress_batch_not_found' ||
+        'progress_qr_invalid' =>
           'WIP topilmadi yoki QR kodi noto‘g‘ri.',
         'stock_entry_not_found' => 'Bu barcode bo‘yicha stock entry topilmadi.',
         'direct_db_lookup_unavailable' =>
@@ -383,7 +409,14 @@ class _WerkaStockEntryQrScanScreenState
                           const SizedBox(height: 18),
                           _ScanStatusPill(
                             text: _statusText,
-                            isBusy: _processing,
+                            isBusy: _processing && !_manualEntry,
+                          ),
+                          const SizedBox(height: 12),
+                          FilledButton.tonalIcon(
+                            key: const ValueKey('werka-qr-manual-entry'),
+                            onPressed: _processing ? null : _enterCode,
+                            icon: const Icon(Icons.keyboard_outlined),
+                            label: const Text('QR kodni kiritish'),
                           ),
                         ],
                       ),
@@ -392,6 +425,7 @@ class _WerkaStockEntryQrScanScreenState
                 ],
               )
             : _UnsupportedScannerView(
+                onManual: _processing ? null : _enterCode,
                 onBack: () => Navigator.of(context).maybePop(),
               ),
       ),

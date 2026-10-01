@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/scanner/reliable_mobile_scanner.dart';
 import 'package:accord_mobile_v2/src/features/werka/presentation/werka_qr_preview_screen.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
@@ -12,6 +13,7 @@ import 'package:accord_mobile_v2/src/features/werka/presentation/werka_paddon_re
 import 'package:accord_mobile_v2/src/features/werka/presentation/werka_stock_entry_lookup_screen.dart';
 import 'package:accord_mobile_v2/src/features/werka/presentation/werka_stock_entry_qr_scan_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -53,6 +55,7 @@ Future<void> _openScanner(
   await tester.binding.setSurfaceSize(const Size(430, 1000));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(MaterialApp(
+    navigatorObservers: [reliableScannerRouteObserver],
     locale: const Locale('uz'),
     supportedLocales: AppLocalizations.supportedLocales,
     localizationsDelegates: const [
@@ -376,6 +379,116 @@ void main() {
               return http.Response(jsonEncode(data), 200);
             }));
   });
+
+  testWidgets(
+      'manual cancel performs no read and camera frames wait for dialog',
+      (tester) async {
+    final routes = <RouteSettings>[];
+    await http.runWithClient(() async {
+      await _openScanner(tester, routes);
+      await tester.tap(find.byKey(const ValueKey('werka-qr-manual-entry')));
+      await tester.pumpAndSettle();
+      expectSync(
+          tester
+              .widget<FilledButton>(
+                  find.byKey(const ValueKey('werka-qr-manual-submit')))
+              .onPressed,
+          isNull);
+      _detect(tester, '00002');
+      await tester.pumpAndSettle();
+      expectSync(
+          find.byKey(const ValueKey('werka-qr-manual-code')), findsOneWidget);
+      await tester.tap(find.text('Bekor qilish'));
+      await tester.pumpAndSettle();
+      expectSync(routes, isEmpty);
+      expectSync(
+          find.byKey(const ValueKey('werka-qr-manual-code')), findsNothing);
+      expectSync(tester.takeException(), isNull);
+    },
+        () => MockClient(
+            (_) async => throw StateError('Cancel must not read or receive')));
+  });
+
+  testWidgets('invalid manual archive QR resumes camera for next valid scan',
+      (tester) async {
+    var reads = 0;
+    final routes = <RouteSettings>[];
+    await http.runWithClient(() async {
+      await _openScanner(tester, routes);
+      await tester.tap(find.byKey(const ValueKey('werka-qr-manual-entry')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('werka-qr-manual-code')),
+          'https://scan.wspace.sbs/A/not-valid-base64');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('werka-qr-manual-submit')));
+      await tester.pumpAndSettle();
+      expectSync(reads, 0);
+      expectSync(routes, isEmpty);
+      expectSync(
+          tester
+              .widget<MobileScanner>(find.byType(MobileScanner))
+              .controller!
+              .value
+              .isRunning,
+          isTrue);
+      _detect(tester, '00002');
+      await tester.pumpAndSettle();
+      expectSync(reads, 1);
+      expectSync(routes.single.name, AppRoutes.werkaQrPreview);
+      expectSync(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+        () => MockClient((request) async {
+              reads++;
+              expectSync(request.method, 'GET');
+              return http.Response(jsonEncode(_preview()), 200);
+            }));
+  });
+
+  for (final desktop in [false, true]) {
+    testWidgets(
+        'manual QR submits once through read-only resolver, desktop=$desktop',
+        (tester) async {
+      if (desktop) debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      var reads = 0;
+      final routes = <RouteSettings>[];
+      try {
+        await http.runWithClient(() async {
+          await _openScanner(tester, routes);
+          if (desktop) expectSync(find.byType(MobileScanner), findsNothing);
+          await tester.tap(find.byKey(const ValueKey('werka-qr-manual-entry')));
+          await tester.pumpAndSettle();
+          await tester.enterText(
+              find.byKey(const ValueKey('werka-qr-manual-code')), ' 00002 ');
+          await tester.pump();
+          final submit = tester
+              .widget<FilledButton>(
+                  find.byKey(const ValueKey('werka-qr-manual-submit')))
+              .onPressed!;
+          submit();
+          submit();
+          await tester.pumpAndSettle();
+          expectSync(reads, 1);
+          expectSync(routes.single.name, AppRoutes.werkaQrPreview);
+          expectSync(find.byType(WerkaPaddonReceiveScreen), findsOneWidget);
+          expectSync(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        },
+            () => MockClient((request) async {
+                  reads++;
+                  expectSync(request.method, 'GET');
+                  expectSync(request.url.path, _previewPath);
+                  expectSync(
+                      request.url.queryParameters['qr_payload'], '00002');
+                  return http.Response(jsonEncode(_preview()), 200);
+                }));
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  }
 
   testWidgets('invalid WIP remains on scanner and does not become stock',
       (tester) async {
