@@ -16,17 +16,19 @@ const receipt = <String, dynamic>{
 WerkaPaddonPreview preview(
         {List<String> warehouses = const ['WH-1'],
         bool ready = true,
-        Map<String, dynamic>? received}) =>
+        Map<String, dynamic>? received,
+        String location = 'Rezka',
+        List<Map<String, dynamic>>? items}) =>
     WerkaPaddonPreview.fromJson({
       'paddon': {
         'id': 'p1',
         'code': '00001',
-        'location': 'Rezka',
+        'location': location,
         'total_gross_kg': 21,
         'total_net_kg': 19.875,
         'item_count': 2
       },
-      'items': [
+      'items': items ?? [
         for (var i = 0; i < 2; i++)
           {
             'batch_id': 'roll-$i',
@@ -49,16 +51,18 @@ Future<void> showScreen(
   String? initialCode = '00001',
   Future<WerkaPaddonPreview> Function(String)? load,
   Future<Map<String, dynamic>> Function(WerkaPaddonPreview, String)? receive,
+  Future<Map<String, String>> Function()? loadApparatusNames,
+  Locale locale = const Locale('uz'),
 }) async {
   SharedPreferences.setMockInitialValues({});
   await tester.runAsync(() async {
-    await GlobalMaterialLocalizations.delegate.load(const Locale('uz'));
-    await GlobalCupertinoLocalizations.delegate.load(const Locale('uz'));
+    await GlobalMaterialLocalizations.delegate.load(locale);
+    await GlobalCupertinoLocalizations.delegate.load(locale);
   });
   await tester.binding.setSurfaceSize(const Size(430, 1000));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(MaterialApp(
-    locale: const Locale('uz'),
+    locale: locale,
     supportedLocales: AppLocalizations.supportedLocales,
     localizationsDelegates: const [
       AppLocalizations.delegate,
@@ -69,7 +73,8 @@ Future<void> showScreen(
     home: WerkaPaddonReceiveScreen(
         initialCode: initialCode,
         loadPreview: load ?? (_) async => preview(),
-        receive: receive),
+        receive: receive,
+        loadApparatusNames: loadApparatusNames ?? () async => {}),
   ));
   await tester.pumpAndSettle();
 }
@@ -84,6 +89,103 @@ Future<void> confirm(WidgetTester tester) async {
 }
 
 void main() {
+  const apparatusId = 'apparatus:default:asset-010';
+  const removedLabel =
+      'Avella 120 sht tayyor mahsulot, apparat: $apparatusId, rulon yechildi';
+  const finishedLabel =
+      'Avella 120 sht tayyor mahsulot, apparat: $apparatusId, ish tugatildi';
+  final legacyRolls = [
+    for (final (index, label) in [removedLabel, finishedLabel].indexed)
+      <String, dynamic>{
+        'batch_id': 'roll-$index',
+        'apparatus': apparatusId,
+        'order_id': 'order-1',
+        'qr_payload': 'QR-$index',
+        'finished_goods_kg': 10.0 + index,
+        'finished_goods_meter': 100.0 + index,
+        'label_item_name': label,
+      },
+  ];
+
+  testWidgets('legacy titles use business names and retain receipt behavior',
+      (tester) async {
+    var calls = 0;
+    await showScreen(tester,
+        load: (_) async => preview(items: legacyRolls, location: apparatusId),
+        loadApparatusNames: () async => {apparatusId: 'Rezka 1'},
+        receive: (p, warehouse) async {
+          calls++;
+          expect(warehouse, 'WH-1');
+          expect(p.snapshot.items.first.labelItemName, removedLabel);
+          expect(p.snapshot.items.last.labelItemName, finishedLabel);
+          expect(p.snapshot.items.first.apparatus, apparatusId);
+          expect(p.snapshotToken, 'token');
+          return receipt;
+        });
+    expect(find.text('2 ta rulon • Rezka 1'), findsOneWidget);
+    expect(find.text(removedLabel.replaceAll(apparatusId, 'Rezka 1')),
+        findsOneWidget);
+    expect(find.text(finishedLabel.replaceAll(apparatusId, 'Rezka 1')),
+        findsOneWidget);
+    expect(find.textContaining('apparatus:'), findsNothing);
+    expect(find.text('Jami brutto: 21 kg'), findsOneWidget);
+    expect(find.text('Jami netto: 19.875 kg'), findsOneWidget);
+    expect(find.text('Buyurtma: order-1\nQR: QR-0\n10 kg • 100 m'),
+        findsOneWidget);
+    await confirm(tester);
+    expect(calls, 1);
+    expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
+    expect(find.text('Ombor: WH-1'), findsOneWidget);
+    expect(accept, findsNothing);
+  });
+
+  for (final (language, fallback) in [
+    ('uz', 'Apparat nomi mavjud emas'),
+    ('en', 'Machine name unavailable'),
+    ('ru', 'Название аппарата недоступно'),
+  ]) {
+    testWidgets('unavailable apparatus names have a $language fallback',
+        (tester) async {
+      await showScreen(tester,
+          locale: Locale(language),
+          load: (_) async => preview(items: legacyRolls, location: apparatusId),
+          loadApparatusNames: () async {
+            if (language == 'uz') {
+              throw const MobileApiException(code: 'forbidden', message: '');
+            }
+            return {apparatusId: language == 'en' ? '  ' : apparatusId};
+          });
+      expect(find.text('2 ta rulon • $fallback'), findsOneWidget);
+      expect(find.text(removedLabel.replaceAll(apparatusId, fallback)),
+          findsOneWidget);
+      expect(find.text(finishedLabel.replaceAll(apparatusId, fallback)),
+          findsOneWidget);
+      expect(find.textContaining('apparatus:'), findsNothing);
+      expect(find.byKey(const ValueKey('werka-paddon-error')), findsNothing);
+      expect(tester.widget<FilledButton>(accept).onPressed, isNotNull);
+    });
+  }
+
+  testWidgets('pending name lookup leaves receipt actions usable',
+      (tester) async {
+    final names = Completer<Map<String, String>>();
+    await showScreen(tester,
+        load: (_) async => preview(items: legacyRolls),
+        loadApparatusNames: () => names.future,
+        receive: (_, warehouse) async => receipt);
+    expect(find.textContaining('apparatus:'), findsNothing);
+    expect(find.textContaining('Apparat nomi mavjud emas'), findsNWidgets(2));
+    await confirm(tester);
+    expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
+    names.complete({apparatusId: 'Rezka 1'});
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Apparat nomi mavjud emas'), findsNothing);
+    expect(find.text(removedLabel.replaceAll(apparatusId, 'Rezka 1')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
+    expect(accept, findsNothing);
+  });
+
   testWidgets('shared QR scanner opens the pallet preview', (tester) async {
     var scans = 0;
     await showScreen(tester, initialCode: null, load: (code) async {

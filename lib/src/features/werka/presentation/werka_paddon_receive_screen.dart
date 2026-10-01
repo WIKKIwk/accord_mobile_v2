@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../core/widgets/paddon_weight_totals.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
@@ -9,11 +12,16 @@ import 'widgets/werka_dock.dart';
 
 class WerkaPaddonReceiveScreen extends StatefulWidget {
   const WerkaPaddonReceiveScreen(
-      {super.key, this.initialCode, this.loadPreview, this.receive});
+      {super.key,
+      this.initialCode,
+      this.loadPreview,
+      this.receive,
+      this.loadApparatusNames});
   final String? initialCode;
   final Future<WerkaPaddonPreview> Function(String)? loadPreview;
   final Future<Map<String, dynamic>> Function(WerkaPaddonPreview, String)?
       receive;
+  final Future<Map<String, String>> Function()? loadApparatusNames;
   @override
   State<WerkaPaddonReceiveScreen> createState() =>
       _WerkaPaddonReceiveScreenState();
@@ -25,10 +33,50 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
   String? _warehouse;
   String _error = '', _code = '';
   bool _busy = false, _mustReload = false, _confirming = false;
+  Map<String, String> _apparatusNames = const {};
+  static final _apparatusIdPattern = RegExp(
+    r'apparatus:[^\s,;•()\[\]{}]+',
+    caseSensitive: false,
+  );
   @override
   void initState() {
     super.initState();
+    unawaited(_loadApparatusNames());
     if (widget.initialCode != null) _load(widget.initialCode!);
+  }
+
+  Future<void> _loadApparatusNames() async {
+    try {
+      final names = widget.loadApparatusNames != null
+          ? await widget.loadApparatusNames!()
+          : {
+              for (final apparatus
+                  in await MobileApi.instance.adminApparatus(limit: 500))
+                apparatus.id: apparatus.name,
+            };
+      if (!mounted) return;
+      setState(() {
+        _apparatusNames = {
+          for (final entry in names.entries)
+            if (entry.value.trim().isNotEmpty &&
+                !_apparatusIdPattern.hasMatch(entry.value))
+              entry.key.trim(): entry.value.trim(),
+        };
+      });
+    } catch (_) {
+      // Catalog access is optional; pallet actions use the original preview.
+    }
+  }
+
+  String _displayLabel(String value) {
+    final l10n = context.l10n;
+    final unavailable = l10n.isUzbek
+        ? 'Apparat nomi mavjud emas'
+        : l10n.isRussian
+            ? 'Название аппарата недоступно'
+            : 'Machine name unavailable';
+    return value.replaceAllMapped(_apparatusIdPattern,
+        (match) => _apparatusNames[match.group(0)!] ?? unavailable);
   }
 
   Future<void> _load(String raw) async {
@@ -119,7 +167,7 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
         context: context,
         title: 'Paddonni kirim qilish',
         message:
-            '${preview.snapshot.paddon.code} paddonidagi ${preview.snapshot.items.length} ta rulon «$warehouse» omboriga qabul qilinadi.',
+            '${preview.snapshot.paddon.code} paddonidagi ${preview.snapshot.items.length} ta rulon «${_displayLabel(warehouse)}» omboriga qabul qilinadi.',
         cancelLabel: 'Bekor qilish',
         confirmLabel: 'Kirim qilish',
         confirmButtonKey: const ValueKey('werka-paddon-confirm'));
@@ -182,13 +230,14 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
             ListTile(
                 title: Text('Paddon ${preview.snapshot.paddon.code}'),
                 subtitle: Text(
-                    '${preview.snapshot.items.length} ta rulon • ${receipt?['warehouse'] ?? preview.snapshot.paddon.location}')),
+                    '${preview.snapshot.items.length} ta rulon • ${_displayLabel('${receipt?['warehouse'] ?? preview.snapshot.paddon.location}')}')),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: PaddonWeightTotals(
                 key: const ValueKey('werka-paddon-weights'),
                 paddon: receipt?['paddon'] is Map
-                    ? AdminPaddon.fromJson((receipt!['paddon'] as Map).cast<String, dynamic>())
+                    ? AdminPaddon.fromJson(
+                        (receipt!['paddon'] as Map).cast<String, dynamic>())
                     : preview.snapshot.paddon,
               ),
             ),
@@ -201,7 +250,8 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
                           children: [
                             const Text('Omborga kirim qilingan',
                                 key: ValueKey('werka-paddon-received')),
-                            Text('Ombor: ${receipt['warehouse']}'),
+                            Text(
+                                'Ombor: ${_displayLabel('${receipt['warehouse']}')}'),
                             Text(
                                 'Qabul qildi: ${receipt['accepted_by_display_name']}'),
                             if (receipt['accepted_at_unix'] is num)
@@ -220,7 +270,8 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
                   decoration:
                       const InputDecoration(labelText: 'Qabul qiluvchi ombor'),
                   items: preview.warehouses
-                      .map((w) => DropdownMenuItem(value: w, child: Text(w)))
+                      .map((w) => DropdownMenuItem(
+                          value: w, child: Text(_displayLabel(w))))
                       .toList(),
                   onChanged: _busy
                       ? null
@@ -230,9 +281,10 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
               Card.filled(
                   child: ListTile(
                       key: ValueKey('werka-paddon-roll-${batch.batchId}'),
-                      title: Text(batch.labelItemName.isEmpty
-                          ? batch.labelItemCode
-                          : batch.labelItemName),
+                      title: Text(_displayLabel(
+                          batch.labelItemName.trim().isEmpty
+                              ? batch.labelItemCode
+                              : batch.labelItemName)),
                       subtitle: Text(
                           'Buyurtma: ${batch.orderId}\nQR: ${batch.qrPayload}\n${_batchQuantity(batch)}'),
                       isThreeLine: true)),
