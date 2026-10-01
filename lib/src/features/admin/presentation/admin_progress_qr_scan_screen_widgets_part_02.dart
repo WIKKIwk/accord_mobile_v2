@@ -21,7 +21,8 @@ class _PaddonQrReportView extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
       children: [
         Card.filled(
-          color: scheme.primaryContainer,
+          key: const ValueKey('admin-paddon-qr-card'),
+          color: scheme.surfaceContainerLowest,
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Column(
@@ -29,10 +30,7 @@ class _PaddonQrReportView extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.inventory_2_rounded,
-                      color: scheme.onPrimaryContainer,
-                    ),
+                    Icon(Icons.inventory_2_rounded, color: scheme.primary),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -41,7 +39,6 @@ class _PaddonQrReportView extends StatelessWidget {
                         ),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
-                          color: scheme.onPrimaryContainer,
                         ),
                       ),
                     ),
@@ -81,48 +78,48 @@ class _PaddonQrReportView extends StatelessWidget {
                     '${context.l10n.productionText('worker.qr.report.note')}: ${paddon.note}',
                   ),
                 ],
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        _InfoSection(
-          title: context.l10n.productionText(
-            'worker.qr.report.paddon_wips',
-            values: {'count': report.items.length},
-          ),
-          children: report.items.isEmpty
-              ? [
+                const Divider(height: 32),
+                Text(
+                  context.l10n.productionText(
+                    'worker.qr.report.paddon_wips',
+                    values: {'count': report.items.length},
+                  ),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (report.items.isEmpty)
                   _SentenceLine(
                     text: context.l10n.productionText(
                       'worker.qr.report.paddon_empty',
                     ),
                   ),
-                ]
-              : [
-                  for (var index = 0; index < report.items.length; index++)
-                    _PaddonScannedWipCard(
-                      index: index + 1,
-                      batch: report.items[index],
-                      apparatusNamesById: apparatusNamesById,
-                    ),
+                for (var index = 0; index < report.items.length; index++) ...[
+                  if (index > 0) const Divider(height: 32),
+                  _PaddonScannedWipRow(
+                    index: index + 1,
+                    batch: report.items[index],
+                    apparatusNamesById: apparatusNamesById,
+                  ),
                 ],
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 8),
         FilledButton.icon(
           onPressed: onScanAgain,
           icon: const Icon(Icons.qr_code_scanner_rounded),
-          label: Text(
-            context.l10n.productionText('worker.scanner.scan_again'),
-          ),
+          label: Text(context.l10n.productionText('worker.scanner.scan_again')),
         ),
       ],
     );
   }
 }
 
-class _PaddonScannedWipCard extends StatelessWidget {
-  const _PaddonScannedWipCard({
+class _PaddonScannedWipRow extends StatelessWidget {
+  const _PaddonScannedWipRow({
     required this.index,
     required this.batch,
     required this.apparatusNamesById,
@@ -134,65 +131,177 @@ class _PaddonScannedWipCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = batch.labelItemName.trim().isNotEmpty
-        ? batch.labelItemName.trim()
-        : batch.labelItemCode.trim().isNotEmpty
-            ? batch.labelItemCode.trim()
-            : batch.batchId.trim();
-    final status = progressQrHumanStatusLabel(
-      workStatus: batch.statusDetail.workStatus,
-      flowStatus: batch.statusDetail.flowStatus,
-      wipStatus: batch.wipStatus,
-      l10n: context.l10n,
-    );
-    final location = [
-      batch.currentLocation.trim(),
-      batch.currentApparatus.trim().isNotEmpty
-          ? _canonicalApparatusLabel(
-              batch.currentApparatus,
-              apparatusNamesById,
-            )
-          : _canonicalApparatusLabel(batch.apparatus, apparatusNamesById),
-    ].where((item) => item.isNotEmpty).join(' • ');
-    return Card.outlined(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '$index. ${title.isEmpty ? context.l10n.productionText('worker.daily.wip') : title}',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            _InfoRow(
-              label: context.l10n.productionText('worker.qr.report.order'),
-              value: batch.orderId,
-            ),
-            _InfoRow(
-              label: context.l10n.productionText('worker.qr.report.epc'),
-              value: batch.qrPayload,
-            ),
-            _InfoRow(
-              label: context.l10n.productionText('worker.qr.report.batch_id'),
-              value: batch.batchId,
-            ),
-            _InfoRow(
-              label: context.l10n.productionText('worker.qr.report.status'),
-              value: status.isEmpty ? batch.status : status,
-            ),
-            _InfoRow(
-              label: context.l10n.productionText('worker.qr.report.location'),
-              value: location,
-            ),
-          ],
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final l10n = context.l10n;
+    String apparatusName(String id) => apparatusNamesById[id.trim()] ?? '';
+    final location = {
+      if (!batch.currentLocation.contains('apparatus:'))
+        batch.currentLocation.trim(),
+      apparatusName(
+        batch.currentApparatus.trim().isNotEmpty
+            ? batch.currentApparatus
+            : batch.apparatus,
+      ),
+    }.where((item) => item.isNotEmpty).join(' • ');
+    return Column(
+      key: ValueKey('admin-paddon-wip-$index'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$index. ${_paddonWipProductTitle(batch, l10n)}',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            '${l10n.productionText('worker.qr.report.status')}: ${_paddonWipStatusLabel(batch, l10n)}',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: scheme.onSecondaryContainer,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _PaddonWipInfoRow(
+          label: l10n.productionText('worker.qr.report.order'),
+          value: batch.orderId,
+        ),
+        _PaddonWipInfoRow(
+          label: l10n.adminText('wip.quantity'),
+          value: formatQuantityWithUnit(
+            batch.producedQty,
+            batch.uom,
+            trimTrailingZeros: true,
+          ),
+        ),
+        _PaddonWipInfoRow(
+          label: l10n.adminText('wip.source'),
+          value: apparatusName(batch.apparatus),
+        ),
+        _PaddonWipInfoRow(
+          label: l10n.productionText('worker.qr.report.location'),
+          value: location,
+        ),
+        _PaddonWipInfoRow(
+          label: l10n.productionText('worker.qr.report.epc'),
+          value: batch.qrPayload,
+        ),
+      ],
+    );
+  }
+}
+
+class _PaddonWipInfoRow extends StatelessWidget {
+  const _PaddonWipInfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    if (value.trim().isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 4,
+            child: SelectableText(
+              value.trim(),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+String _paddonWipProductTitle(AdminProgressBatch batch, AppLocalizations l10n) {
+  // Legacy labels append an apparatus identity and work status to the product.
+  for (final raw in [batch.labelItemName, batch.labelItemCode]) {
+    final suffix = RegExp(
+      r',?\s*apparat:',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    final title = (suffix == null ? raw : raw.substring(0, suffix.start))
+        .trim();
+    if (title.isNotEmpty &&
+        title != batch.batchId.trim() &&
+        !title.contains('progress-batch:') &&
+        !title.contains('apparatus:')) {
+      return title;
+    }
+  }
+  return l10n.productionText('worker.daily.wip');
+}
+
+String _paddonWipStatusLabel(AdminProgressBatch batch, AppLocalizations l10n) {
+  final detail = batch.statusDetail;
+  final flow = switch (detail.flowStatus.trim()) {
+    'free_wip' ||
+    'finished_pending_acceptance' ||
+    'accepted_to_stock' ||
+    'waiting_next_stage' ||
+    'consumed_by_next_stage' ||
+    'in_progress' => detail.flowStatus.trim(),
+    _ => '',
+  };
+  final rawWip = detail.wipStatus.trim().isNotEmpty
+      ? detail.wipStatus.trim()
+      : batch.wipStatus.trim();
+  final wip = switch (rawWip) {
+    'waiting' || 'in_use' || 'processed' => rawWip,
+    _ => '',
+  };
+  final rawWork = detail.workStatus.trim().isNotEmpty
+      ? detail.workStatus.trim()
+      : batch.status.trim();
+  final work = switch (rawWork) {
+    'resumed' => 'in_progress',
+    'completed' ||
+    'complete' ||
+    'paused' ||
+    'pause' ||
+    'roll_detached' ||
+    'detach_roll' ||
+    'in_progress' ||
+    'active' ||
+    'start' ||
+    'resume' ||
+    'pending' ||
+    'waiting' => rawWork,
+    _ => '',
+  };
+  // A batch's completed work does not mean its WIP has been consumed.
+  final status = progressQrHumanStatusLabel(
+    workStatus: flow.isNotEmpty || wip.isEmpty ? work : '',
+    flowStatus: flow,
+    wipStatus: wip,
+    l10n: l10n,
+  );
+  return status.isEmpty ? l10n.adminText('wip.unspecified') : status;
 }
 
 class _ReportShareButton extends StatelessWidget {
