@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 Map<String, dynamic> payload({bool received = false}) => {
       'paddon': {
         'id': 'p1',
+        'total_gross_kg': 12,
+        'total_net_kg': 11.25,
         'code': '00001',
         'location': received ? 'WH-1' : 'Rezka'
       },
@@ -51,6 +53,8 @@ void main() {
     await http.runWithClient(() async {
       final preview = await MobileApi.instance.werkaPaddonPreview(' 00001 ');
       expect(preview.snapshot.items.single.batchId, 'b1');
+      expect(preview.snapshot.paddon.totalGrossKg, 12);
+      expect(preview.snapshot.paddon.totalNetKg, 11.25);
       final receipt =
           await MobileApi.instance.werkaReceivePaddon(preview, 'WH-1');
       expect(receipt['warehouse'], 'WH-1');

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
@@ -13,7 +14,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-AdminPaddon _paddon({int itemCount = 2}) {
+AdminPaddon _paddon({int itemCount = 2, double? totalGrossKg = 24.375, double? totalNetKg = 23.125}) {
   return AdminPaddon(
     id: 'paddon-1',
     code: '00001',
@@ -24,6 +25,8 @@ AdminPaddon _paddon({int itemCount = 2}) {
     createdAtUnix: 1,
     updatedAtUnix: 2,
     itemCount: itemCount,
+    totalGrossKg: totalGrossKg,
+    totalNetKg: totalNetKg,
   );
 }
 
@@ -231,6 +234,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('00001'), findsOneWidget);
+    expect(find.text('Jami brutto: 24.375 kg'), findsOneWidget);
+    expect(find.text('Jami netto: 23.125 kg'), findsOneWidget);
     expect(find.text('Rezka yonidagi 2-qator'), findsOneWidget);
     expect(find.text('2 ta WIP'), findsOneWidget);
     expect(
@@ -373,4 +378,62 @@ void main() {
       expect(find.text('Qo‘shish (1)'), findsOneWidget);
     },
   );
+  testWidgets('cutting cards preserve unknown weights', (tester) async {
+    SharedPreferences.setMockInitialValues({}); _setSession();
+    await tester.pumpWidget(_app(AparatchiPaddonsScreen(loader: () async =>
+      [_paddon(totalGrossKg: null, totalNetKg: 0)])));
+    await tester.pumpAndSettle();
+    expect(find.text('Jami brutto: —'), findsOneWidget);
+    expect(find.text('Jami netto: 0 kg'), findsOneWidget);
+  });
+  for (final responseLost in [false, true]) {
+    for (final removing in [false, true]) {
+      testWidgets('${removing ? 'remove' : 'add'} refreshes totals, response lost: $responseLost', (tester) async {
+        SharedPreferences.setMockInitialValues({}); _setSession();
+        await tester.binding.setSurfaceSize(const Size(430, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        var writes = 0; var loads = 0;
+        final payload = <String, dynamic>{
+          'paddon': {'code':'00001', 'item_count': removing ? 0 : 2,
+            'total_gross_kg': removing ? 0 : 44.375, 'total_net_kg': removing ? 0 : 42.125},
+          'items': [if (!removing) for (final id in ['wip-001','free-wip-001'])
+            {'batch_id':id, 'apparatus':'apparatus:default:asset-010'}],
+        };
+        await http.runWithClient(() async {
+          await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(code:'00001', loader:() async {
+            loads++; return writes == 0 ? _snapshot() : AdminPaddonSnapshot.fromJson(payload);
+          })));
+          await tester.pumpAndSettle();
+          expect(find.text('Jami brutto: 24.375 kg'), findsOneWidget);
+          await tester.tap(find.byKey(const ValueKey('paddon-edit-mode-action')));
+          await tester.pumpAndSettle();
+          if (removing) {
+            await tester.ensureVisible(find.byKey(const ValueKey('paddon-edit-mode-action')));
+            await tester.tap(find.byKey(const ValueKey('paddon-edit-mode-action')));
+            await tester.pumpAndSettle();
+          }
+          await tester.tap(find.byKey(ValueKey(removing ? 'paddon-wip-card-wip-001' : 'paddon-available-wip-card-free-wip-001')));
+          await tester.pumpAndSettle();
+          await tester.ensureVisible(find.byKey(const ValueKey('paddon-edit-mode-action')));
+          await tester.tap(find.byKey(const ValueKey('paddon-edit-mode-action')));
+          await tester.pumpAndSettle();
+          if (removing) {
+            await tester.tap(find.widgetWithText(FilledButton, 'Olib tashlash'));
+            await tester.pumpAndSettle();
+          }
+          expect(writes,1); expect(loads,responseLost ? 2 : 1);
+          await tester.ensureVisible(find.byKey(const ValueKey('paddon-detail-weights')));
+          await tester.pumpAndSettle();
+          expect(find.text('Jami brutto: ${removing ? '0' : '44.375'} kg'), findsOneWidget);
+          expect(find.text('Jami netto: ${removing ? '0' : '42.125'} kg'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        }, () => MockClient((request) async {
+          writes++; expect(request.url.path, '/v1/mobile/admin/production-maps/paddons/items/${removing ? 'remove' : 'add'}-batch');
+          if (responseLost) throw TimeoutException('response lost');
+          return http.Response(jsonEncode(payload),200);
+        }));
+      });
+    }
+  }
+
 }

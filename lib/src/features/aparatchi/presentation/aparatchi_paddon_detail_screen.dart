@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/paddon_weight_totals.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';

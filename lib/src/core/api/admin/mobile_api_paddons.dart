@@ -11,6 +11,8 @@ class AdminPaddon {
     required this.createdAtUnix,
     required this.updatedAtUnix,
     required this.itemCount,
+    this.totalGrossKg,
+    this.totalNetKg,
   });
 
   final String id;
@@ -22,6 +24,8 @@ class AdminPaddon {
   final int createdAtUnix;
   final int updatedAtUnix;
   final int itemCount;
+  final double? totalGrossKg;
+  final double? totalNetKg;
 
   factory AdminPaddon.fromJson(Map<String, dynamic> json) {
     return AdminPaddon(
@@ -34,8 +38,19 @@ class AdminPaddon {
       createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
       updatedAtUnix: (json['updated_at_unix'] as num?)?.toInt() ?? 0,
       itemCount: (json['item_count'] as num?)?.toInt() ?? 0,
+      totalGrossKg: _paddonWeight(json['total_gross_kg']),
+      totalNetKg: _paddonWeight(json['total_net_kg']),
     );
   }
+}
+
+double? _paddonWeight(Object? value) {
+  final weight = value is num
+      ? value.toDouble()
+      : value is String
+          ? double.tryParse(value)
+          : null;
+  return weight != null && weight.isFinite && weight >= 0 ? weight : null;
 }
 
 class AdminPaddonSnapshot {

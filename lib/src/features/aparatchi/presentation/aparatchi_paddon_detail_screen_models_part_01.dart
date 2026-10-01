@@ -74,6 +74,8 @@ class _PaddonDetailHeader extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 14),
+            PaddonWeightTotals(key: const ValueKey('paddon-detail-weights'), paddon: paddon),
+            const SizedBox(height: 14),
             Wrap(
               spacing: 8,
               runSpacing: 8,

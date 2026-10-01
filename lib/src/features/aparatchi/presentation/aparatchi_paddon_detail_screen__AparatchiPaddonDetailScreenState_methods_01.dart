@@ -260,7 +260,9 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
         return false;
       }
       _clearMessages();
-      setState(() => _future = Future<AdminPaddonSnapshot>.value(snapshot));
+      setState(() {
+        _future = Future<AdminPaddonSnapshot>.value(snapshot);
+      });
       return true;
     } catch (error) {
       if (mounted && confirmsApplied != null) {
@@ -270,13 +272,9 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
             return false;
           }
           final applied = confirmsApplied(refreshed);
-          try {
-            setState(
-              () => _future = Future<AdminPaddonSnapshot>.value(refreshed),
-            );
-          } catch (_) {
-            // The confirmation below is still authoritative for the mutation.
-          }
+          setState(() {
+            _future = Future<AdminPaddonSnapshot>.value(refreshed);
+          });
           if (applied) {
             _clearMessages();
             return true;

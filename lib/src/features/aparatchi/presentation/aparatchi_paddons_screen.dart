@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/paddon_weight_totals.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
@@ -447,6 +448,8 @@ class _PaddonCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  PaddonWeightTotals(key: ValueKey('paddon-card-weights-${paddon.code}'), paddon: paddon),
                   if (paddon.location.trim().isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(

@@ -22,6 +22,8 @@ WerkaPaddonPreview preview(
         'id': 'p1',
         'code': '00001',
         'location': 'Rezka',
+        'total_gross_kg': 21,
+        'total_net_kg': 19.875,
         'item_count': 2
       },
       'items': [
@@ -98,6 +100,8 @@ void main() {
     await scanner.onCodeDetected('00001');
     await tester.pumpAndSettle();
     expect(scans, 1);
+    expect(find.text('Jami brutto: 21 kg'), findsOneWidget);
+    expect(find.text('Jami netto: 19.875 kg'), findsOneWidget);
     expect(accept, findsOneWidget);
   });
   testWidgets('preview shows all rolls; confirm receives whole pallet once',
@@ -182,4 +186,24 @@ void main() {
     expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
     expect(accept, findsNothing);
   });
+  testWidgets('warehouse reload refreshes unknown totals', (tester) async {
+    var loads = 0;
+    await showScreen(tester, load: (_) async {
+      loads++; final initial = preview();
+      return WerkaPaddonPreview(snapshot: AdminPaddonSnapshot(
+        paddon: AdminPaddon.fromJson({'code':'00001', 'item_count':2,
+          'total_gross_kg':loads == 1 ? null : 22.125,
+          'total_net_kg':loads == 1 ? null : 20.875}), items:initial.snapshot.items),
+        warehouses:initial.warehouses, canReceive:initial.canReceive, snapshotToken:initial.snapshotToken);
+    });
+    expect(find.text('Jami brutto: —'), findsOneWidget);
+    await tester.ensureVisible(find.text('Qayta tekshirish'));
+    await tester.tap(find.text('Qayta tekshirish')); await tester.pumpAndSettle();
+    expect(loads,2);
+    await tester.ensureVisible(find.byKey(const ValueKey('werka-paddon-weights')));
+    await tester.pumpAndSettle();
+    expect(find.text('Jami brutto: 22.125 kg'),findsOneWidget);
+    expect(find.text('Jami netto: 20.875 kg'),findsOneWidget);
+  });
+
 }

@@ -918,3 +918,13 @@ aniq matn qo'shing; backend validation'ni mobile'da takrorlamang.
 | `accord_mobile_server_rs` | Eski/compatibility backend; yangi biznes rivoji uchun primary emas. |
 | Go backend | Arxivlangan, rivojlantirilmaydi. |
 | `gscale-zebra` | GScale/RPS LAN scale va printer runtime. |
+
+
+### Pallet product weights
+
+Cutting pallet cards/details and the warehouse pallet scan preview show localized
+product gross and net totals in kg, excluding pallet tare. The nullable backend
+`total_gross_kg` / `total_net_kg` fields are authoritative: the app does not sum
+meters, available WIP or the paginated list. Unknown weights display `—`, and
+explicit empty totals display `0 kg`. Values retain all six API decimal places.
+Add/remove responses and confirmation reloads refresh each pallet's totals.

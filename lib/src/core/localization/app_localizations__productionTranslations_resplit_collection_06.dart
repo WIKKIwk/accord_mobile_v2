@@ -152,6 +152,16 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'en': 'No WIP found for this order',
     'ru': 'WIP по этому заказу не найден',
   },
+  'worker.paddon.total_gross': {
+    'uz': 'Jami brutto',
+    'ru': 'Всего брутто',
+    'en': 'Total gross',
+  },
+  'worker.paddon.total_net': {
+    'uz': 'Jami netto',
+    'ru': 'Всего нетто',
+    'en': 'Total net',
+  },
   'worker.paddon.subtitle': {
     'uz': 'WIP va rulonlarni fizik paddonlar bo‘yicha boshqarish',
     'en': 'Manage WIPs and rolls by physical paddons',

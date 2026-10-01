@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/paddon_weight_totals.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
@@ -182,6 +183,15 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
                 title: Text('Paddon ${preview.snapshot.paddon.code}'),
                 subtitle: Text(
                     '${preview.snapshot.items.length} ta rulon • ${receipt?['warehouse'] ?? preview.snapshot.paddon.location}')),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: PaddonWeightTotals(
+                key: const ValueKey('werka-paddon-weights'),
+                paddon: receipt?['paddon'] is Map
+                    ? AdminPaddon.fromJson((receipt!['paddon'] as Map).cast<String, dynamic>())
+                    : preview.snapshot.paddon,
+              ),
+            ),
             if (receipt != null)
               Card.filled(
                   child: Padding(
