@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../core/widgets/paddon_weight_totals.dart';
 
@@ -14,6 +16,8 @@ import '../../../core/print_service.dart';
 import '../../admin/presentation/admin_progress_qr_scan_screen.dart';
 import '../../admin/presentation/progress_printer_picker.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
+import '../../shared/models/app_models.dart';
+import 'aparatchi_paddon_display.dart';
 import 'widgets/aparatchi_dock.dart';
 import 'widgets/aparatchi_navigation_drawer.dart';
 
@@ -24,6 +28,7 @@ part 'aparatchi_paddon_detail_screen_models_part_01.dart';
 class _AparatchiPaddonDetailScreenState
     extends State<AparatchiPaddonDetailScreen> {
   late Future<AdminPaddonSnapshot> _future;
+  List<AdminApparatus> _apparatus = const [];
   final _selectionListKey = GlobalKey();
   final Set<String> _selectedAvailableBatchIds = <String>{};
   final Set<String> _selectedAssignedBatchIds = <String>{};
@@ -36,6 +41,17 @@ class _AparatchiPaddonDetailScreenState
   void initState() {
     super.initState();
     _future = _load();
+    unawaited(_loadApparatus());
+  }
+
+  Future<void> _loadApparatus() async {
+    try {
+      final catalog = await (widget.apparatusLoader?.call() ??
+          MobileApi.instance.adminApparatus(limit: 10000));
+      if (mounted) setState(() => _apparatus = catalog);
+    } catch (_) {
+      // The pallet remains usable with localized labels if the catalog fails.
+    }
   }
 
   Set<String> get _selectedBatchIds => _editMode == _PaddonEditMode.add

@@ -138,7 +138,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
               MediaQuery.viewPaddingOf(context).bottom + 120,
             ),
             children: [
-              _PaddonDetailHeader(snapshot: data),
+              _PaddonDetailHeader(snapshot: data, apparatus: _apparatus),
               const SizedBox(height: 12),
               FilledButton.icon(
                 key: const ValueKey('paddon-add-wip-scan'),

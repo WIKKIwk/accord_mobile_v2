@@ -16,10 +16,12 @@ class AparatchiPaddonDetailScreen extends StatefulWidget {
     super.key,
     required this.code,
     this.loader,
+    this.apparatusLoader,
   });
 
   final String code;
   final AparatchiPaddonDetailLoader? loader;
+  final PaddonApparatusLoader? apparatusLoader;
 
   @override
   State<AparatchiPaddonDetailScreen> createState() =>
@@ -27,9 +29,10 @@ class AparatchiPaddonDetailScreen extends StatefulWidget {
 }
 
 class _PaddonDetailHeader extends StatelessWidget {
-  const _PaddonDetailHeader({required this.snapshot});
+  const _PaddonDetailHeader({required this.snapshot, required this.apparatus});
 
   final AdminPaddonSnapshot snapshot;
+  final List<AdminApparatus> apparatus;
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +67,11 @@ class _PaddonDetailHeader extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      paddon.location,
+                      AparatchiPaddonDisplay.apparatusOrLocation(
+                        paddon.location,
+                        apparatus,
+                        context.l10n,
+                      ),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onPrimaryContainer,
                       ),
@@ -158,13 +165,7 @@ class _PaddonWipCard extends StatelessWidget {
     final theme = Theme.of(context);
     final orderId = batch.orderId.trim().isEmpty ? '—' : batch.orderId.trim();
     final qr = batch.qrPayload.trim();
-    final epc = qr.isNotEmpty
-        ? qr
-        : (batch.batchId.trim().isEmpty
-              ? '—'
-              : (batch.batchId.trim().length <= 24
-                    ? batch.batchId.trim()
-                    : '…${batch.batchId.trim().substring(batch.batchId.trim().length - 12)}'));
+    final epc = qr.isNotEmpty ? qr : '—';
     final lengthM = batch.finishedGoodsMeter;
     final hasLength =
         lengthM != null && lengthM.isFinite && lengthM > 0 ||

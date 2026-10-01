@@ -125,7 +125,7 @@ void main() {
     var deleted = false;
     var requests = 0;
     await http.runWithClient(() async {
-      await tester.pumpWidget(_app(AparatchiPaddonsScreen(
+      await tester.pumpWidget(_app(AparatchiPaddonsScreen(apparatusLoader: () async => const [],
         loader: () async => deleted ? [] : [_paddon(itemCount: 0)],
       )));
       await tester.pumpAndSettle();
@@ -171,7 +171,7 @@ void main() {
       _setSession(canManage: true);
       var requests = 0;
       await http.runWithClient(() async {
-        await tester.pumpWidget(_app(AparatchiPaddonsScreen(
+        await tester.pumpWidget(_app(AparatchiPaddonsScreen(apparatusLoader: () async => const [],
           loader: () async => [_paddon(itemCount: count)],
         )));
         await tester.pumpAndSettle();
@@ -226,7 +226,7 @@ void main() {
 
     await tester.pumpWidget(
       _app(
-        AparatchiPaddonsScreen(
+        AparatchiPaddonsScreen(apparatusLoader: () async => const [],
           loader: () async => [_paddon()],
         ),
       ),
@@ -252,7 +252,7 @@ void main() {
 
     await tester.pumpWidget(
       _app(
-        AparatchiPaddonDetailScreen(
+        AparatchiPaddonDetailScreen(apparatusLoader: () async => const [],
           code: '00001',
           loader: () async => _snapshot(),
         ),
@@ -310,7 +310,7 @@ void main() {
 
     await tester.pumpWidget(
       _app(
-        AparatchiPaddonDetailScreen(
+        AparatchiPaddonDetailScreen(apparatusLoader: () async => const [],
           code: '00001',
           loader: () async => _snapshotWithAssignedWips(18),
         ),
@@ -342,7 +342,7 @@ void main() {
 
       await tester.pumpWidget(
         _app(
-          AparatchiPaddonDetailScreen(
+          AparatchiPaddonDetailScreen(apparatusLoader: () async => const [],
             code: '00001',
             loader: () async {
               loadCount += 1;
@@ -380,12 +380,92 @@ void main() {
   );
   testWidgets('cutting cards preserve unknown weights', (tester) async {
     SharedPreferences.setMockInitialValues({}); _setSession();
-    await tester.pumpWidget(_app(AparatchiPaddonsScreen(loader: () async =>
+    await tester.pumpWidget(_app(AparatchiPaddonsScreen(apparatusLoader: () async => const [], loader: () async =>
       [_paddon(totalGrossKg: null, totalNetKg: 0)])));
     await tester.pumpAndSettle();
     expect(find.text('Jami brutto: —'), findsOneWidget);
     expect(find.text('Jami netto: 0 kg'), findsOneWidget);
   });
+  testWidgets('missing EPC never exposes an internal cutting batch ID',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    _setSession();
+    const id = 'progress-batch:17894018964434500:apparatus-default-asset-010';
+    await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+      code: '00001',
+      apparatusLoader: () async => const [],
+      loader: () async => AdminPaddonSnapshot(
+        paddon: _paddon(itemCount: 1),
+        items: [
+          AdminProgressBatch.fromJson({
+            'batch_id': id,
+            'order_id': 'order-001',
+            'apparatus': 'apparatus:default:asset-010',
+          })
+        ],
+      ),
+    )));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Order: order-001'), findsOneWidget);
+    expect(find.text('EPC: —'), findsOneWidget);
+    expect(find.textContaining('progress-batch:'), findsNothing);
+    expect(find.textContaining('…'), findsNothing);
+    expect(find.byKey(const ValueKey('paddon-add-wip-scan')), findsOneWidget);
+    expect(find.byKey(const ValueKey('paddon-print-qr')), findsOneWidget);
+  });
+
+  for (final catalogUnavailable in [false, true]) {
+    testWidgets(
+        'cutting pallet locations hide IDs, catalog unavailable: $catalogUnavailable',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      _setSession();
+      const paddon = AdminPaddon(
+        id: 'paddon-1',
+        code: '00001',
+        location: '2-qator • apparatus:default:asset-010',
+        note: '',
+        createdByRef: '',
+        createdByDisplayName: '',
+        createdAtUnix: 1,
+        updatedAtUnix: 1,
+        itemCount: 1,
+        totalGrossKg: 24.375,
+        totalNetKg: 23.125,
+      );
+      Future<List<AdminApparatus>> catalog() async {
+        if (catalogUnavailable) throw StateError('catalog unavailable');
+        return const [
+          AdminApparatus(
+            id: 'apparatus:default:asset-010',
+            name: 'Rezka 1',
+          )
+        ];
+      }
+
+      final expectedLocation =
+          '2-qator • ${catalogUnavailable ? 'Belgilanmagan' : 'Rezka 1'}';
+      for (final screen in [
+        AparatchiPaddonsScreen(
+            loader: () async => [paddon], apparatusLoader: catalog),
+        AparatchiPaddonDetailScreen(
+          code: paddon.code,
+          apparatusLoader: catalog,
+          loader: () async =>
+              const AdminPaddonSnapshot(paddon: paddon, items: []),
+        ),
+      ]) {
+        await tester.pumpWidget(_app(screen));
+        await tester.pumpAndSettle();
+        expect(find.text(expectedLocation), findsOneWidget);
+        expect(find.textContaining('apparatus:'), findsNothing);
+        expect(find.text('Jami brutto: 24.375 kg'), findsOneWidget);
+        expect(find.text('Jami netto: 23.125 kg'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
   for (final responseLost in [false, true]) {
     for (final removing in [false, true]) {
       testWidgets('${removing ? 'remove' : 'add'} refreshes totals, response lost: $responseLost', (tester) async {
@@ -400,7 +480,7 @@ void main() {
             {'batch_id':id, 'apparatus':'apparatus:default:asset-010'}],
         };
         await http.runWithClient(() async {
-          await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(code:'00001', loader:() async {
+          await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(apparatusLoader: () async => const [], code:'00001', loader:() async {
             loads++; return writes == 0 ? _snapshot() : AdminPaddonSnapshot.fromJson(payload);
           })));
           await tester.pumpAndSettle();
