@@ -41,6 +41,12 @@ Map<String, dynamic> _report(String flow,
     'status_detail': {'work_status': 'roll_detached', 'flow_status': flow},
   };
   return {
+    'history_scope': 'batch_lineage',
+    'lineage_complete': true,
+    'lineage_edges': [
+      {'parent_batch_id': 'lam-roll', 'child_batch_id': 'cut-output'}
+    ],
+    'current_batches': [current],
     'scanned_batch': scanned,
     'current_batch': current,
     'is_stale': true,
@@ -117,6 +123,7 @@ void main() {
   test('completed roll without order status cannot complete the order', () {
     final data = _report('', orderStatus: '');
     data['current_batch'] = data['scanned_batch'];
+    data['current_batches'] = [data['scanned_batch']];
     final passport =
         buildProgressQrPassport(AdminProgressQrReport.fromJson(data));
     expect(passport.orderStatus, 'Buyurtma holati tasdiqlanmagan');

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'admin_localization.dart';
 
+part 'app_localizations_qr_history.dart';
 part 'app_localizations_AppLocalizations_methods_01.dart';
 part 'app_localizations_AppLocalizations_methods_02.dart';
 part 'app_localizations_declarations_part_01.dart';

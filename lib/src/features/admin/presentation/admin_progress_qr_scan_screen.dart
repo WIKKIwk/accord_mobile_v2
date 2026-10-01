@@ -16,6 +16,7 @@ import '../../shared/models/app_models.dart';
 import '../logic/canonical_apparatus_display.dart';
 import '../models/production_map_models.dart';
 import 'admin_progress_qr_passport.dart';
+import 'admin_progress_qr_history_view.dart';
 import 'admin_progress_qr_scan_pdf.dart';
 
 part 'admin_progress_qr_scan_screen__AdminProgressQrScanScreenState_methods_01.dart';

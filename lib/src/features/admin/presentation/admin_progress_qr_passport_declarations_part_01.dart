@@ -16,12 +16,23 @@ class ProgressQrPassportStage {
     required this.status,
     required this.lines,
     required this.isCurrent,
+    this.batchId = '',
+    this.workerNames = const [],
+    this.isScanned = false,
+    this.workStatus = '',
   });
 
   final String title;
   final String status;
   final List<ProgressQrPassportLine> lines;
   final bool isCurrent;
+  final String batchId;
+  final List<String> workerNames;
+  final bool isScanned;
+  final String workStatus;
+  String get displayStatus => [workStatus, if (status != workStatus) status]
+      .where((value) => value.isNotEmpty)
+      .join(' • ');
 }
 
 class ProgressQrPassportChange {
@@ -76,6 +87,7 @@ class ProgressQrPassport {
     required this.stages,
     required this.corrections,
     required this.issues,
+    this.historyNotice = '',
   });
 
   final String productName;
@@ -88,6 +100,7 @@ class ProgressQrPassport {
   final List<ProgressQrPassportStage> stages;
   final List<ProgressQrPassportCorrection> corrections;
   final List<ProgressQrPassportIssue> issues;
+  final String historyNotice;
 
   String toPlainText() {
     final buffer = StringBuffer()
@@ -103,9 +116,10 @@ class ProgressQrPassport {
     }
     if (isOldQr) {
       buffer.writeln(
-        'Eslatma: skan qilingan QR oldingi bosqichniki. Quyida mahsulotning hozirgi holati berilgan.',
+        'Eslatma: bu QR oldingi chiqishga tegishli. Quyida unga bog‘langan ishlab chiqarish bosqichlari ko‘rsatilgan.',
       );
     }
+    if (historyNotice.isNotEmpty) buffer.writeln(historyNotice);
     if (plan.isNotEmpty) {
       buffer.writeln('\nBUYURTMA REJASI');
       for (final line in plan) {
@@ -119,8 +133,8 @@ class ProgressQrPassport {
         buffer.writeln(
           '${index + 1}. ${stage.title}${stage.isCurrent ? ' (hozirgi bosqich)' : ''}',
         );
-        if (stage.status.isNotEmpty) {
-          buffer.writeln('Holati: ${stage.status}');
+        if (stage.displayStatus.isNotEmpty) {
+          buffer.writeln('Holati: ${stage.displayStatus}');
         }
         for (final line in stage.lines) {
           buffer.writeln(line.sentence);
@@ -163,39 +177,58 @@ ProgressQrPassport buildProgressQrPassport(
   AppLocalizations? l10n,
   Map<String, String> apparatusNamesById = const {},
 }) {
-  final current = report.currentBatch ?? report.scannedBatch;
+  final current = report.historyCurrentBatch ?? report.scannedBatch;
   final order = report.order;
+  final names = <String, String>{
+    for (final node in order?.nodes ?? const <ProductionMapNode>[])
+      if (node.apparatusId.trim().isNotEmpty &&
+          _passportReadableText(node.title).isNotEmpty)
+        node.apparatusId.trim(): _passportReadableText(node.title),
+    ...apparatusNamesById,
+  };
   final rollCount = order?.rollCount;
   final widthMm = order?.widthMm;
   final orderKg = order?.orderKg;
   final baseLength = order?.baseLength;
   final batchesById = {
-    for (final batch in report.progressBatches) batch.batchId.trim(): batch,
+    for (final batch in report.historyBatches) batch.batchId.trim(): batch,
+    report.scannedBatch.batchId.trim(): report.scannedBatch,
   };
-  final orderedBatches = [...report.progressBatches];
-  if (!orderedBatches.any(
-    (batch) => batch.batchId.trim() == current.batchId.trim(),
-  )) {
-    orderedBatches.add(current);
-  }
-  orderedBatches.sort(
-    (left, right) => _batchTime(left).compareTo(_batchTime(right)),
-  );
-  final corrections = [...report.corrections]..sort(
+  final orderedBatches = _passportOrderedBatches(report, batchesById);
+  final stepNumbers = {
+    for (var index = 0; index < orderedBatches.length; index++)
+      orderedBatches[index].batchId.trim(): index + 1,
+  };
+  final currentIds = report.hasScopedHistory
+      ? report.currentBatches.map((batch) => batch.batchId.trim()).toSet()
+      : <String>{};
+  final corrections = [
+    if (report.hasScopedHistory)
+      for (final correction in report.corrections)
+        if (batchesById.containsKey(correction.batchId.trim())) correction,
+  ]..sort(
       (left, right) => left.createdAtUnix.compareTo(right.createdAtUnix),
     );
   return ProgressQrPassport(
-    productName: order?.title.trim().isNotEmpty == true
-        ? order!.title.trim()
-        : current.labelItemName.trim(),
+    productName: _passportProductName(report),
     orderNumber: order?.orderNumber.trim() ?? '',
     orderStatus: progressQrOrderStatus(report.orderStatus, l10n: l10n),
     scannedBatchStatus: _passportBatchStatus(report.scannedBatch, l10n: l10n),
-    currentBatchStatus:
-        current.batchId.trim() == report.scannedBatch.batchId.trim()
-            ? null
-            : _passportBatchStatus(current, l10n: l10n),
-    isOldQr: report.isStale,
+    currentBatchStatus: report.historyCurrentBatch == null ||
+            current.batchId.trim() == report.scannedBatch.batchId.trim()
+        ? null
+        : _passportBatchStatus(current, l10n: l10n),
+    isOldQr: report.hasScopedHistory &&
+        report.isStale &&
+        report.currentBatches.any((batch) =>
+            batch.batchId.trim() != report.scannedBatch.batchId.trim()),
+    historyNotice: !report.hasScopedHistory
+        ? _passportText(l10n, 'worker.qr.history.unavailable',
+            'Bu rulonning oldingi bosqichlari tasdiqlanmagan. Hozir faqat skanerlangan rulon ko‘rsatilmoqda.')
+        : !report.lineageComplete
+            ? _passportText(l10n, 'worker.qr.history.incomplete',
+                'Tarixdagi ayrim bog‘lanishlar tasdiqlanmagan. Faqat aniqlangan bosqichlar ko‘rsatilmoqda.')
+            : '',
     plan: [
       if (order?.customerName.trim().isNotEmpty == true)
         ProgressQrPassportLine(
@@ -231,9 +264,12 @@ ProgressQrPassport buildProgressQrPassport(
       for (final batch in orderedBatches)
         _passportStage(
           batch,
-          isCurrent: batch.batchId.trim() == current.batchId.trim(),
+          isCurrent: currentIds.contains(batch.batchId.trim()),
+          isScanned: batch.batchId.trim() == report.scannedBatch.batchId.trim(),
+          report: report,
+          stepNumbers: stepNumbers,
           l10n: l10n,
-          apparatusNamesById: apparatusNamesById,
+          apparatusNamesById: names,
         ),
     ],
     corrections: [
@@ -242,26 +278,28 @@ ProgressQrPassport buildProgressQrPassport(
           correction,
           batch: batchesById[correction.batchId.trim()],
           l10n: l10n,
-          apparatusNamesById: apparatusNamesById,
+          apparatusNamesById: names,
         ),
     ],
     issues: _passportIssues(
-      report.logs,
+      report.hasScopedHistory ? report.logs : const [],
       l10n: l10n,
-      apparatusNamesById: apparatusNamesById,
+      apparatusNamesById: names,
     ),
   );
 }
 
 String _passportApparatusLabel(
   String apparatusId,
-  Map<String, String> apparatusNamesById,
-) {
+  Map<String, String> apparatusNamesById, {
+  AppLocalizations? l10n,
+}) {
   final normalized = apparatusId.trim();
-  if (normalized.isEmpty) return '';
-  return apparatusNamesById[normalized]?.trim().isNotEmpty == true
-      ? apparatusNamesById[normalized]!.trim()
-      : normalized;
+  final name = _passportReadableText(apparatusNamesById[normalized] ?? '');
+  return name.isNotEmpty
+      ? name
+      : _passportText(l10n, 'worker.qr.history.machine_missing',
+          'Apparat nomi ko‘rsatilmagan');
 }
 
 int _batchTime(AdminProgressBatch batch) {
@@ -274,14 +312,39 @@ int _batchTime(AdminProgressBatch batch) {
 ProgressQrPassportStage _passportStage(
   AdminProgressBatch batch, {
   required bool isCurrent,
+  required bool isScanned,
+  required AdminProgressQrReport report,
+  required Map<String, int> stepNumbers,
   AppLocalizations? l10n,
   required Map<String, String> apparatusNamesById,
 }) {
-  final worker = batch.executorName.trim().isNotEmpty
-      ? batch.executorName.trim()
-      : batch.workerDisplayName.trim();
+  final workers = {
+    _passportReadableText(batch.executorName),
+    _passportReadableText(batch.workerDisplayName),
+    if (report.hasScopedHistory && batch.sessionId.trim().isNotEmpty)
+      for (final session in report.runSessions)
+        if (session.sessionId.trim() == batch.sessionId.trim())
+          _passportReadableText(session.workerDisplayName),
+  }.where((name) => name.isNotEmpty).toList(growable: false);
+  final links = report.hasScopedHistory
+      ? report.lineageEdges
+      : const <AdminProgressQrLineageEdge>[];
+  final inputs = {
+    for (final edge in links)
+      if (edge.childBatchId == batch.batchId.trim() &&
+          stepNumbers.containsKey(edge.parentBatchId))
+        stepNumbers[edge.parentBatchId]!,
+  }.toList()
+    ..sort();
+  final outputs = {
+    for (final edge in links)
+      if (edge.parentBatchId == batch.batchId.trim() &&
+          stepNumbers.containsKey(edge.childBatchId))
+        stepNumbers[edge.childBatchId]!,
+  }.toList()
+    ..sort();
   final title = batch.apparatus.trim().isNotEmpty
-      ? _passportApparatusLabel(batch.apparatus, apparatusNamesById)
+      ? _passportApparatusLabel(batch.apparatus, apparatusNamesById, l10n: l10n)
       : _passportText(l10n, 'worker.qr.passport.production_stage',
           'Ishlab chiqarish bosqichi');
   return ProgressQrPassportStage(
@@ -297,11 +360,15 @@ ProgressQrPassportStage _passportStage(
       l10n: l10n,
     ),
     isCurrent: isCurrent,
+    batchId: batch.batchId.trim(),
+    isScanned: isScanned,
+    workerNames: workers,
+    workStatus: _passportWorkStatus(batch, l10n),
     lines: [
-      if (worker.isNotEmpty)
+      if (workers.isNotEmpty)
         ProgressQrPassportLine(
           _passportText(l10n, 'worker.wip.info.worker', 'Bajargan'),
-          worker,
+          workers.join(' · '),
         ),
       if (batch.startedAtUnix > 0)
         ProgressQrPassportLine(
@@ -310,7 +377,8 @@ ProgressQrPassportStage _passportStage(
         ),
       if (batch.completedAtUnix > 0)
         ProgressQrPassportLine(
-          _passportText(l10n, 'worker.wip.info.finished', 'Tugagan'),
+          _passportText(
+              l10n, 'worker.qr.history.recorded', 'Natija qayd etilgan'),
           formatUnixSecondsLocalDateTime(batch.completedAtUnix),
         ),
       ProgressQrPassportLine(
@@ -318,19 +386,21 @@ ProgressQrPassportStage _passportStage(
         progressQrReadableQuantity(batch.producedQty, batch.uom),
       ),
       ..._metricLines(batch, l10n: l10n),
-      if (batch.nextApparatus.trim().isNotEmpty)
+      if (inputs.isNotEmpty)
+        ProgressQrPassportLine(
+          _passportText(l10n, 'worker.qr.history.inputs', 'Kirish bosqichlari'),
+          inputs.join(', '),
+        ),
+      if (outputs.isNotEmpty)
         ProgressQrPassportLine(
           _passportText(
-              l10n, 'worker.wip.info.next_machine', 'Keyingi bosqich'),
-          _passportApparatusLabel(
-            batch.nextApparatus,
-            apparatusNamesById,
-          ),
+              l10n, 'worker.qr.history.children', 'Chiqish bosqichlari'),
+          outputs.join(', '),
         ),
-      if (batch.description.trim().isNotEmpty)
+      if (_passportReadableText(batch.description).isNotEmpty)
         ProgressQrPassportLine(
           _passportText(l10n, 'worker.wip.info.note', 'Izoh'),
-          batch.description.trim(),
+          _passportReadableText(batch.description),
         ),
     ],
   );

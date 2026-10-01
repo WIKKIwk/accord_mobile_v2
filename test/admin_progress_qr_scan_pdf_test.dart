@@ -14,6 +14,12 @@ void main() {
 
   test('progress QR PDF is a human-readable product passport', () {
     final report = AdminProgressQrReport.fromJson({
+      'history_scope': 'batch_lineage',
+      'lineage_complete': true,
+      'lineage_edges': [
+        {'parent_batch_id': 'batch-old', 'child_batch_id': 'batch-current'}
+      ],
+      'current_batches': [_batchJson('batch-current', 'qr-current')],
       'scanned_batch': _batchJson('batch-old', 'qr-old'),
       'current_batch': _batchJson('batch-current', 'qr-current'),
       'is_stale': true,
@@ -89,7 +95,10 @@ void main() {
           'created_at_unix': 1785665350,
         },
       ],
-      'progress_batches': [_batchJson('batch-current', 'qr-current')],
+      'progress_batches': [
+        _batchJson('batch-old', 'qr-old'),
+        _batchJson('batch-current', 'qr-current')
+      ],
       'run_sessions': [
         {
           'session_id': 'session-1',
@@ -130,7 +139,7 @@ Zakaz 9993 • 90 гр сочная курица
 Buyurtma holati: Ish jarayonida
 Skanerlangan rulon: Keyingi bosqichni kutmoqda
 Undan chiqqan mahsulot: Keyingi bosqichni kutmoqda
-Eslatma: skan qilingan QR oldingi bosqichniki. Quyida mahsulotning hozirgi holati berilgan.
+Eslatma: bu QR oldingi chiqishga tegishli. Quyida unga bog‘langan ishlab chiqarish bosqichlari ko‘rsatilgan.
 
 BUYURTMA REJASI
 Mijoz: Accord
@@ -140,13 +149,20 @@ Rejadagi og‘irlik: 500 kg
 Rejadagi metraj: 574 908.53 metr
 
 ISHLAB CHIQARISH BOSQICHLARI
-1. Rezka (hozirgi bosqich)
-Holati: Keyingi bosqichni kutmoqda
+1. Rezka
+Holati: Ish vaqtincha to‘xtatilgan • Keyingi bosqichni kutmoqda
 Bajargan: Rezka
 Boshlangan: 02.08.2026 15:09
 Natija: 424 m
 Babina og‘irligi: 5 kg
-Keyingi bosqich: Laminatsiya 1
+Chiqish bosqichlari: 2
+2. Rezka (hozirgi bosqich)
+Holati: Ish vaqtincha to‘xtatilgan • Keyingi bosqichni kutmoqda
+Bajargan: Rezka
+Boshlangan: 02.08.2026 15:09
+Natija: 424 m
+Babina og‘irligi: 5 kg
+Kirish bosqichlari: 1
 
 TAHRIRLAR
 1. Rezka

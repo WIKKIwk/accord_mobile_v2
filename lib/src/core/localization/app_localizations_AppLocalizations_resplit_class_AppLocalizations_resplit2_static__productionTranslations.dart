@@ -3,6 +3,7 @@ part of 'app_localizations.dart';
 
 const _app_localizations_AppLocalizations_resplit_class_AppLocalizations__productionTranslations_resplit2Value =
     {
+  ..._qrHistoryTranslations,
   ..._app_localizations_declarations__productionTranslations_resplitPart01,
   ..._app_localizations_declarations__productionTranslations_resplitPart02,
   ..._app_localizations_declarations__productionTranslations_resplitPart03,

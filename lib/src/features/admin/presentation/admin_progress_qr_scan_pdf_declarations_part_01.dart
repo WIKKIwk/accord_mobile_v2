@@ -23,6 +23,7 @@ class AdminProgressQrScanPdf {
                 l10n, 'worker.qr.passport.order_status', 'Buyurtma holati'),
             passport.orderStatus,
           ),
+          if (passport.historyNotice.isNotEmpty) passport.historyNotice,
           _field(
             _pdfText(
                 l10n, 'worker.qr.passport.scanned_batch', 'Skanerlangan rulon'),
@@ -37,8 +38,8 @@ class AdminProgressQrScanPdf {
           if (passport.isOldQr)
             _pdfText(
               l10n,
-              'worker.qr.report.old_qr_notice',
-              'Skan qilingan QR oldingi bosqichniki. Quyida mahsulotning hozirgi holati berilgan.',
+              'worker.qr.history.old_qr_notice',
+              'Bu QR oldingi chiqishga tegishli. Quyida unga bog‘langan ishlab chiqarish bosqichlari ko‘rsatilgan.',
             ),
         ],
       ),
@@ -54,7 +55,7 @@ class AdminProgressQrScanPdf {
             [
               _field(
                 _pdfText(l10n, 'worker.qr.report.status', 'Holati'),
-                passport.stages[index].status,
+                passport.stages[index].displayStatus,
               ),
               for (final line in passport.stages[index].lines) line.sentence,
             ],

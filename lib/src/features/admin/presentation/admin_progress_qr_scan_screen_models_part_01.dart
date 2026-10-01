@@ -175,109 +175,13 @@ class _QrReportView extends StatelessWidget {
   final bool sharing;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final passport = buildProgressQrPassport(
-      report,
-      l10n: context.l10n,
-      apparatusNamesById: apparatusNamesById,
-    );
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-      children: [
-        Card.filled(
-          color:
-              report.isStale ? scheme.errorContainer : scheme.primaryContainer,
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      report.isStale
-                          ? Icons.warning_amber_rounded
-                          : Icons.verified_rounded,
-                      color: report.isStale
-                          ? scheme.onErrorContainer
-                          : scheme.onPrimaryContainer,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        report.isStale
-                            ? context.l10n.productionText(
-                                'worker.qr.report.stale',
-                              )
-                            : context.l10n.productionText(
-                                'worker.qr.report.current',
-                              ),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: report.isStale
-                              ? scheme.onErrorContainer
-                              : scheme.onPrimaryContainer,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  passport.productName,
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  [
-                    if (passport.orderNumber.isNotEmpty)
-                      '${context.l10n.productionText('worker.qr.report.order')} ${passport.orderNumber}',
-                    passport.orderStatus,
-                  ].where((item) => item.trim().isNotEmpty).join(' • '),
-                  key: const ValueKey('qr-passport-order-status'),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${context.l10n.productionText('worker.qr.passport.scanned_batch')}: ${passport.scannedBatchStatus}',
-                  key: const ValueKey('qr-passport-scanned-batch-status'),
-                ),
-                if (passport.currentBatchStatus case final status?) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    '${context.l10n.productionText('worker.qr.passport.current_batch')}: $status',
-                    key: const ValueKey('qr-passport-current-batch-status'),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        _ReportShareButton(onPressed: onShare, isBusy: sharing),
-        const SizedBox(height: 12),
-        if (passport.plan.isNotEmpty)
-          _PassportPlanSection(lines: passport.plan),
-        if (passport.stages.isNotEmpty)
-          _PassportStagesSection(stages: passport.stages),
-        if (passport.corrections.isNotEmpty)
-          _PassportCorrectionsSection(corrections: passport.corrections),
-        if (passport.issues.isNotEmpty)
-          _PassportIssuesSection(issues: passport.issues),
-        const SizedBox(height: 8),
-        FilledButton.icon(
-          onPressed: onScanAgain,
-          icon: const Icon(Icons.qr_code_scanner_rounded),
-          label: Text(
-            context.l10n.productionText('worker.scanner.scan_again'),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => AdminProgressQrHistoryView(
+        report: report,
+        apparatusNamesById: apparatusNamesById,
+        onScanAgain: onScanAgain,
+        onShare: onShare,
+        sharing: sharing,
+      );
 }
 
 class _RawMaterialReportView extends StatelessWidget {

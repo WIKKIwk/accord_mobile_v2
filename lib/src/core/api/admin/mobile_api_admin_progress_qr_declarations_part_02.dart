@@ -170,6 +170,22 @@ class AdminProgressQrOpenedBy {
   }
 }
 
+class AdminProgressQrLineageEdge {
+  const AdminProgressQrLineageEdge({
+    required this.parentBatchId,
+    required this.childBatchId,
+  });
+
+  final String parentBatchId;
+  final String childBatchId;
+
+  factory AdminProgressQrLineageEdge.fromJson(Map<String, dynamic> json) =>
+      AdminProgressQrLineageEdge(
+        parentBatchId: json['parent_batch_id']?.toString().trim() ?? '',
+        childBatchId: json['child_batch_id']?.toString().trim() ?? '',
+      );
+}
+
 class AdminProgressQrReport {
   const AdminProgressQrReport({
     required this.scannedBatch,
@@ -185,6 +201,10 @@ class AdminProgressQrReport {
     this.order,
     this.orderStatus = const AdminProductionOrderStatusDetail(),
     this.openedBy,
+    this.historyScope = '',
+    this.lineageComplete = false,
+    this.lineageEdges = const [],
+    this.currentBatches = const [],
   });
 
   final AdminProgressBatch scannedBatch;
@@ -200,6 +220,18 @@ class AdminProgressQrReport {
   final List<AdminWorkerRunSession> runSessions;
   final List<AdminWorkerRunSession> activeSessions;
   final AdminProgressQrOpenedBy? openedBy;
+  final String historyScope;
+  final bool lineageComplete;
+  final List<AdminProgressQrLineageEdge> lineageEdges;
+  final List<AdminProgressBatch> currentBatches;
+
+  /// Legacy responses contain the entire order, not verified roll provenance.
+  bool get hasScopedHistory => historyScope == 'batch_lineage';
+  List<AdminProgressBatch> get historyBatches =>
+      hasScopedHistory ? progressBatches : [scannedBatch];
+  AdminProgressBatch? get historyCurrentBatch => hasScopedHistory
+      ? (currentBatches.length == 1 ? currentBatches.single : null)
+      : null;
 
   factory AdminProgressQrReport.fromJson(Map<String, dynamic> json) {
     final scannedRaw = json['scanned_batch'];
@@ -257,6 +289,18 @@ class AdminProgressQrReport {
       openedBy: openedRaw is Map
           ? AdminProgressQrOpenedBy.fromJson(openedRaw.cast<String, dynamic>())
           : null,
+      historyScope: json['history_scope']?.toString().trim() ?? '',
+      lineageComplete: json['lineage_complete'] == true,
+      lineageEdges: [
+        for (final edge in (json['lineage_edges'] as List? ?? const []))
+          if (edge is Map)
+            AdminProgressQrLineageEdge.fromJson(edge.cast<String, dynamic>()),
+      ],
+      currentBatches: [
+        for (final batch in (json['current_batches'] as List? ?? const []))
+          if (batch is Map)
+            AdminProgressBatch.fromJson(batch.cast<String, dynamic>()),
+      ],
     );
   }
 }
