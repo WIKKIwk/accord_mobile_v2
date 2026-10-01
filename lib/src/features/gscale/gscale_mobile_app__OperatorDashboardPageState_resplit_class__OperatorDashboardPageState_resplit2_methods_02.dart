@@ -54,6 +54,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
     final simpleReceiptMode = activeBatch == null &&
         _isTayyorlovSimpleWarehouse(targetWarehouse);
     final contextFieldsLocked = (activeBatch != null && !editingBatchContext) ||
+        (_isMaterialReceipt && !_rpsBatchStateResolved) ||
         _batchActionLoading ||
         _manualPrintLoading ||
         _simpleReceiptLoading;
@@ -290,6 +291,14 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
+              ),
+              TextButton(
+                onPressed: _batchActionLoading ||
+                        _manualPrintLoading ||
+                        _requestInFlight
+                    ? null
+                    : _retryRsBatchState,
+                child: const Text('Holatni qayta tekshirish'),
               ),
             ],
           ),

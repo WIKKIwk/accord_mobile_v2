@@ -39,7 +39,8 @@ extension __OperatorDashboardPageStateAstPartResplit2_03
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (widget.orderSection != null) widget.orderSection!,
+                        if (widget.orderSectionBuilder != null)
+                          widget.orderSectionBuilder!(_orderSelectionLocked),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: _buildControlSection(

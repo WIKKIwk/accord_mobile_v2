@@ -34,6 +34,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
         _batchActionLoading = false;
         _lastAutoBatchPrintKey = '';
       });
+      _scheduleSaveControlPrefs();
     } catch (error) {
       if (!mounted) {
         return;
@@ -75,13 +76,14 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
     return;
   }
 
-  Future<void> _saveBatchContextEdit() async {
+  Future<void> _saveBatchContextEdit({bool forBatchStart = false}) async {
     final batch = _authoritativeRsBatch;
+    final orderId = widget.linkedOrderId.trim();
     final savingDraft = batch == null || !batch.active;
     final savingInitialDraft = savingDraft && !_draftContextSaved;
     if ((!_batchContextEditing && !savingInitialDraft) ||
         _manualPrintLoading ||
-        _batchActionLoading ||
+        (_batchActionLoading && !forBatchStart) ||
         _requestInFlight) {
       return;
     }
@@ -140,6 +142,11 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       return;
     }
     if (!mounted) {
+      return;
+    }
+    if (widget.linkedOrderId.trim() != orderId ||
+        _authoritativeRsBatch?.active == true) {
+      _showBatchError('Order yoki batch holati o‘zgardi. Qayta tekshiring.');
       return;
     }
     if (savingDraft) {
@@ -293,6 +300,8 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
   }
 
   void _applyRsBatchSession(GScaleRpsBatchSession batch) {
+    // An older GET must not resurrect a stopped batch or erase a new start.
+    _rpsBatchGeneration++;
     final keepContextDraft = _batchContextEditing &&
         batch.active &&
         _authoritativeRsBatch?.id == batch.id;
@@ -300,6 +309,19 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
     _authoritativeRsBatch = batch;
     if (batch.active && !keepContextDraft) {
       _runWithoutSavingControlPrefs(() {
+        if (_isMaterialReceipt) {
+          // A restored active batch owns its context, even when the order
+          // field was initialized with another order. Reconcile on stop.
+          _draftOrderId = batch.orderId;
+          _selectedItem = MobileItem(
+            itemCode: batch.itemCode,
+            itemName: batch.itemName,
+            requiresDimensions: batch.widthMm != null || batch.micron != null,
+          );
+          _selectedWarehouse = MobileWarehouse(warehouse: batch.warehouse);
+          _warehouseMode = 'manual';
+          _draftContextSaved = true;
+        }
         _batchPrinter = normalizePrinterChoice(batch.printer);
         _batchPrintMode =
             batch.printMode.trim().toLowerCase() == 'label' ? 'label' : 'rfid';
@@ -318,6 +340,14 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
     }
     if (!batch.active) {
       _batchContextEditing = false;
+      _batchStartConflict = false;
+      if (_isMaterialReceipt && _draftOrderId != widget.linkedOrderId.trim()) {
+        _resetMaterialOrderFields();
+        _scheduleSaveControlPrefs();
+        if (_prefillMaterialOrder) {
+          unawaited(_prefillSingleMaterialOrderChoice());
+        }
+      }
     }
     _snapshot = _snapshot.copyWithBatch(MobileBatchState.fromRpsBatch(batch));
     _batchPrints = batch.prints;

@@ -28,10 +28,14 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   bool _warehouseSetupLoading = false;
   bool _archiveLoading = false;
   bool _rpsBatchStateResolved = false;
+  int _rpsBatchGeneration = 0;
+  int _rpsBatchStateRequestId = 0;
   bool _batchContextEditing = false;
   bool _draftContextSaved = false;
+  String _draftOrderId = '';
   String _archivePrintLoadingSessionId = '';
   String _errorText = '';
+  bool _batchStartConflict = false;
   String _warehousesError = '';
   String _warehouseSetupError = '';
   String _archiveError = '';
@@ -68,6 +72,30 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   bool _manualQtyTapCleared = false;
   Set<String> _tayyorlovMaterialWarehouses = <String>{};
 
+  bool get _orderSelectionLocked =>
+      !_rpsBatchStateResolved ||
+      _authoritativeRsBatch?.active == true ||
+      _batchActionLoading ||
+      _manualPrintLoading ||
+      _simpleReceiptLoading ||
+      _requestInFlight;
+
+  void _showBatchError(String message) {
+    setState(() => _errorText = message);
+  }
+
+  Future<void> _retryRsBatchState() async {
+    if (_batchActionLoading || _manualPrintLoading || _requestInFlight) return;
+    setState(() => _batchActionLoading = true);
+    try {
+      await _refreshRsBatchState(reportError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _batchActionLoading = false);
+      }
+    }
+  }
+
   /// Eni yozilganda diapazon xatosi real-time yangilanishi uchun.
   void _refreshWidthRangeValidation() {
     if (mounted) {
@@ -78,6 +106,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   @override
   void initState() {
     super.initState();
+    _draftOrderId = widget.linkedOrderId.trim();
     _controlTabController = TabController(length: 2, vsync: this)
       ..addListener(_handleControlTabChanged);
     _manualQtyController.addListener(_scheduleSaveControlPrefs);
@@ -124,6 +153,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         _draftContextSaved = false;
         _batchContextEditing = false;
         _errorText = '';
+        _batchStartConflict = false;
         _warehousesError = '';
       });
       _scheduleSaveControlPrefs();
@@ -160,6 +190,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       _requestInFlight = false;
       _latencyFailureCount = 0;
       _rpsBatchStateResolved = false;
+      _rpsBatchGeneration++;
       _authoritativeRsBatch = null;
     });
     if (server != null) {

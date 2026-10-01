@@ -17,8 +17,10 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
     if (!hasCompleteRpsBatchPrintContext(batch)) {
       throw StateError('Faol batch konteksti to‘liq emas');
     }
-    if (widget.linkedOrderId.trim().isNotEmpty && batch.orderId != widget.linkedOrderId.trim()) {
-      throw StateError('Faol batch boshqa orderga tegishli. Batchni tugatib, tanlangan order bilan qayta boshlang');
+    if (widget.linkedOrderId.trim().isNotEmpty &&
+        batch.orderId != widget.linkedOrderId.trim()) {
+      throw StateError(
+          'Faol batch boshqa orderga tegishli. Batchni tugatib, tanlangan order bilan qayta boshlang');
     }
     final tareKg = batch.tareEnabled ? batch.tareKg : 0.0;
     final netQty = grossQtyKg - tareKg;
@@ -91,60 +93,60 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
     if (_manualPrintLoading || _batchActionLoading || _requestInFlight) {
       return;
     }
-    // Saqlash bosilmasdan Boshlash bosilsa: avtomatik saqlab keyin boshlaydi.
-    final pendingBatch = _authoritativeRsBatch;
-    final pendingInactive = pendingBatch == null || !pendingBatch.active;
-    if (pendingInactive && (_batchContextEditing || !_draftContextSaved)) {
-      await _saveBatchContextEdit();
-      if (!mounted || _batchContextEditing || !_draftContextSaved) {
-        return;
-      }
+    if (!_rpsBatchStateResolved || _authoritativeRsBatch?.active == true) {
+      _showBatchError('Avval faol batchni to‘xtating va holatni yangilang');
+      return;
     }
+    final orderId = widget.linkedOrderId.trim();
+    // Lock the order before draft validation, which can await warehouse scope.
     setState(() {
       _batchActionLoading = true;
       _errorText = '';
+      _batchStartConflict = false;
       _warehousesError = '';
     });
     try {
-      await _startRsBatchFromSelection(grossQtyKg: 0);
+      if (_batchContextEditing || !_draftContextSaved) {
+        await _saveBatchContextEdit(forBatchStart: true);
+        if (!mounted || _batchContextEditing || !_draftContextSaved) {
+          return;
+        }
+      }
+      await _startRsBatchFromSelection(grossQtyKg: 0, orderId: orderId);
       if (!mounted) {
         return;
       }
-      setState(() {
-        _batchActionLoading = false;
-      });
       _scheduleSaveControlPrefs();
-      if (autoPrintStable) {
-        _maybeAutoPrintStableBatch();
-      }
     } catch (error) {
-      if (isRpsBatchAlreadyActiveError(error)) {
+      if (isRpsBatchAlreadyActiveError(error) && mounted) {
+        setState(() => _rpsBatchStateResolved = false);
         await _refreshRsBatchState();
-        if (!mounted) {
-          return;
-        }
-        if (_snapshot.batchActive) {
-          setState(() {
-            _batchActionLoading = false;
-            _errorText = '';
-          });
-          return;
-        }
       }
       if (!mounted) {
         return;
       }
       setState(() {
-        _batchActionLoading = false;
+        final activeOrder = _authoritativeRsBatch?.orderId ?? '';
+        _batchStartConflict = isRpsBatchAlreadyActiveError(error);
         _errorText = isRpsBatchAlreadyActiveError(error)
-            ? 'Batch allaqachon faol. Holatni qayta yuklab ko‘ring.'
+            ? (activeOrder.isNotEmpty && activeOrder != orderId
+                ? 'Boshqa order uchun batch faol: $activeOrder. Avval uni to‘xtating.'
+                : 'Batch allaqachon faol. Holatni tekshirib, avval uni to‘xtating.')
             : rpsBatchActionErrorMessage(error);
       });
+    } finally {
+      if (mounted) {
+        setState(() => _batchActionLoading = false);
+      }
+    }
+    if (mounted && autoPrintStable && _errorText.isEmpty) {
+      _maybeAutoPrintStableBatch();
     }
   }
 
   void _maybeAutoPrintStableBatch() {
-    if (!_rpsBatchStateResolved ||
+    if (_batchStartConflict ||
+        !_rpsBatchStateResolved ||
         _authoritativeRsBatch?.active != true ||
         !hasCompleteRpsBatchPrintContext(_authoritativeRsBatch)) {
       _lastAutoBatchPrintKey = '';
@@ -185,7 +187,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
   }
 
   Future<void> _autoPrintStableBatchReading(double grossQtyKg) async {
-    if (!mounted) {
+    if (!mounted || _batchStartConflict) {
       return;
     }
     setState(() {

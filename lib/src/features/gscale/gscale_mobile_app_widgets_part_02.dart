@@ -383,7 +383,7 @@ class OperatorDashboardPage extends StatefulWidget {
     this.linkedOrderId = '',
     this.onPrintSucceeded,
     this.linkedOrderWidthMm,
-    this.orderSection,
+    this.orderSectionBuilder,
     this.initialWarehouse,
     super.key,
   });
@@ -407,7 +407,7 @@ class OperatorDashboardPage extends StatefulWidget {
   final String linkedOrderId;
   final Future<void> Function(GScaleMaterialReceiptPrintResponse)?
       onPrintSucceeded;
-  final Widget? orderSection;
+  final Widget Function(bool disabled)? orderSectionBuilder;
   final String? initialWarehouse;
 
   /// Bog'langan order eni (mm). Berilgan bo'lsa, eni field'i diapazondan

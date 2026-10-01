@@ -18,11 +18,13 @@ class PreparationKirimOrderSection extends StatefulWidget {
     this.loadOrders,
     this.initialOrder,
     this.onOrderChanged,
+    this.disabled = false,
   });
 
   final Future<List<PreparationOrder>> Function()? loadOrders;
   final PreparationOrder? initialOrder;
   final ValueChanged<PreparationOrder?>? onOrderChanged;
+  final bool disabled;
 
   @override
   State<PreparationKirimOrderSection> createState() =>
@@ -34,6 +36,7 @@ class _PreparationKirimOrderSectionState
   List<PreparationOrder> _orders = const [];
   String? _selectedOrderId;
   bool _loadingOrders = true;
+  bool _orderPublicationPending = false;
   Object? _ordersError;
 
   @override
@@ -41,6 +44,31 @@ class _PreparationKirimOrderSectionState
     super.initState();
     _selectedOrderId = widget.initialOrder?.id;
     _loadOrders();
+  }
+
+  @override
+  void didUpdateWidget(covariant PreparationKirimOrderSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.disabled && !widget.disabled && _orderPublicationPending) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _publishLoadedOrder());
+    }
+  }
+
+  void _publishLoadedOrder() {
+    if (!mounted ||
+        widget.disabled ||
+        _loadingOrders ||
+        _ordersError != null ||
+        !_orderPublicationPending) {
+      return;
+    }
+    _orderPublicationPending = false;
+    if (_selectedOrderId != null &&
+        !_orders.any((order) => order.id == _selectedOrderId)) {
+      setState(() => _selectedOrderId = null);
+    }
+    widget.onOrderChanged?.call(_selectedOrder);
   }
 
   Future<void> _loadOrders() async {
@@ -58,17 +86,11 @@ class _PreparationKirimOrderSectionState
         return;
       }
       setState(() {
-        _orders = orders
-            .where((order) => !order.saved)
-            .toList(growable: false);
-        final stillThere = _selectedOrderId != null &&
-            _orders.any((order) => order.id == _selectedOrderId);
-        if (!stillThere) {
-          _selectedOrderId = null;
-        }
+        _orders = orders.where((order) => !order.saved).toList(growable: false);
         _loadingOrders = false;
+        _orderPublicationPending = true;
       });
-      widget.onOrderChanged?.call(_selectedOrder);
+      _publishLoadedOrder();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -111,14 +133,13 @@ class _PreparationKirimOrderSectionState
     if (width == null || !width.isFinite || width <= 0) {
       return null;
     }
-    String fmt(double value) => value == value.roundToDouble()
-        ? '${value.round()}'
-        : '$value';
+    String fmt(double value) =>
+        value == value.roundToDouble() ? '${value.round()}' : '$value';
     return 'Order eni: ${fmt(width)} mm';
   }
 
   Future<void> _openOrderPicker() async {
-    if (_orders.isEmpty) {
+    if (widget.disabled || _orders.isEmpty) {
       return;
     }
     final picked = await showModalBottomSheet<PreparationOrder>(
@@ -153,7 +174,7 @@ class _PreparationKirimOrderSectionState
         onSelected: (order) => Navigator.of(sheetContext).pop(order),
       ),
     );
-    if (picked == null || !mounted) {
+    if (picked == null || !mounted || widget.disabled) {
       return;
     }
     setState(() => _selectedOrderId = picked.id);
@@ -209,6 +230,7 @@ class _PreparationKirimOrderSectionState
             emptyText: 'Buyurtma topilmadi',
             selectText: 'Order tanlang',
             hasOptions: _orders.isNotEmpty,
+            disabled: widget.disabled,
             onPick: _openOrderPicker,
           ),
           if (_widthRangeText != null)

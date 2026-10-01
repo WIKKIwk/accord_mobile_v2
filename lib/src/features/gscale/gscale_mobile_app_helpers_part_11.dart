@@ -47,6 +47,7 @@ String _text(Object? value, {String fallback = ''}) {
 
 class OperatorControlDraft {
   const OperatorControlDraft({
+    this.orderId = '',
     required this.itemCode,
     required this.itemName,
     this.itemRequiresDimensions = false,
@@ -66,6 +67,7 @@ class OperatorControlDraft {
     this.contextSaved = false,
   });
 
+  final String orderId;
   final String itemCode;
   final String itemName;
   final bool itemRequiresDimensions;
@@ -86,6 +88,7 @@ class OperatorControlDraft {
 
   Map<String, dynamic> toJson() {
     return {
+      'order_id': orderId,
       'item_code': itemCode,
       'item_name': itemName,
       'item_requires_dimensions': itemRequiresDimensions,
@@ -108,6 +111,7 @@ class OperatorControlDraft {
 
   factory OperatorControlDraft.fromJson(Map<String, dynamic> json) {
     return OperatorControlDraft(
+      orderId: _text(json['order_id']),
       itemCode: _text(json['item_code']),
       itemName: _text(json['item_name']),
       itemRequiresDimensions: json['item_requires_dimensions'] == true,

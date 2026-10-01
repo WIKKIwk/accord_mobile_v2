@@ -266,6 +266,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
   }
 
   Future<void> _openItemPicker() async {
+    if (_isMaterialReceipt && _orderSelectionLocked) return;
     if (_prefillMaterialOrder) {
       _materialItemPickerOpened = true;
     }
@@ -282,7 +283,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       return;
     }
     await _refreshTayyorlovMaterialWarehouses();
-    if (!mounted) {
+    if (!mounted || (_isMaterialReceipt && _orderSelectionLocked)) {
       return;
     }
     // Material taminotchi uchun server tanlangan orderning saqlangan
@@ -351,6 +352,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     );
     if (option == null ||
         !mounted ||
+        (_isMaterialReceipt && _orderSelectionLocked) ||
         widget.linkedOrderId.trim() != linkedOrderId) {
       return;
     }
@@ -451,8 +453,9 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
   }
 
   Future<void> _openWarehousePicker() async {
+    if (_isMaterialReceipt && _orderSelectionLocked) return;
     await _refreshTayyorlovMaterialWarehouses();
-    if (!mounted) {
+    if (!mounted || (_isMaterialReceipt && _orderSelectionLocked)) {
       return;
     }
     final warehouseUserKey = _materialWarehouseUserKey;
@@ -492,7 +495,9 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
         onSelected: (warehouse) => Navigator.of(context).pop(warehouse),
       ),
     );
-    if (warehouse == null || !mounted) {
+    if (warehouse == null ||
+        !mounted ||
+        (_isMaterialReceipt && _orderSelectionLocked)) {
       return;
     }
     setState(() {
@@ -517,7 +522,15 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
 
   Future<GScaleRpsBatchResponse> _startRsBatchFromSelection({
     required double grossQtyKg,
+    required String orderId,
   }) async {
+    if (!_rpsBatchStateResolved || _authoritativeRsBatch?.active == true) {
+      throw StateError('Avval faol batchni to‘xtating va holatni yangilang');
+    }
+    if (widget.linkedOrderId.trim() != orderId ||
+        (_isMaterialReceipt && _draftOrderId != orderId)) {
+      throw StateError('Order o‘zgardi. Homashyoni qayta tanlang');
+    }
     final server = widget.server;
     if (widget.printTransport == PrintTransport.wifi && server == null) {
       throw Exception('Avval printer yoki tarozini tanlang');
@@ -570,10 +583,14 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     final driverUrl = widget.printTransport.isLocal
         ? offlineUsbDriverUrl
         : driverUrlForRs(server!);
-    final orderId = widget.linkedOrderId.trim();
     final apparatus = await _chooseReceiptApparatus(item, orderId);
-    if (!mounted || widget.linkedOrderId.trim() != orderId) {
+    if (!mounted ||
+        widget.linkedOrderId.trim() != orderId ||
+        (_isMaterialReceipt && _draftOrderId != orderId)) {
       throw StateError('Order o‘zgardi. Qayta boshlang');
+    }
+    if (!_rpsBatchStateResolved || _authoritativeRsBatch?.active == true) {
+      throw StateError('Avval faol batchni to‘xtating va holatni yangilang');
     }
     final started = await api
         .gscaleRpsBatchStart(

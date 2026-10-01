@@ -231,18 +231,17 @@ class _MaterialGScaleControlScreenState
 
   @override
   Widget build(BuildContext context) {
-    final orderSection = widget.linkPrintsToOrder
-        ? PreparationKirimOrderSection(
-            loadOrders: widget.orderLoader,
-            initialOrder: widget.initialOrder,
-            onOrderChanged: (order) => setState(() {
-              _linkedOrderId = order?.id;
-              final width = order?.widthMm;
-              _linkedOrderWidthMm =
-                  width != null && width.isFinite && width > 0 ? width : null;
-            }),
-          )
-        : null;
+    Widget orderSection(bool disabled) => PreparationKirimOrderSection(
+          loadOrders: widget.orderLoader,
+          initialOrder: widget.initialOrder,
+          disabled: disabled,
+          onOrderChanged: (order) => setState(() {
+            _linkedOrderId = order?.id;
+            final width = order?.widthMm;
+            _linkedOrderWidthMm =
+                width != null && width.isFinite && width > 0 ? width : null;
+          }),
+        );
     return AppShell(
       title: 'Homashyo kirimi',
       subtitle: '',
@@ -267,7 +266,8 @@ class _MaterialGScaleControlScreenState
           Expanded(
             child: OperatorDashboardPage(
               initialWarehouse: widget.initialWarehouse,
-              orderSection: orderSection,
+              orderSectionBuilder:
+                  widget.linkPrintsToOrder ? orderSection : null,
               server: _selectedServer,
               printTransport: _printTransport,
               offlinePrinter: _offlinePrinter,
@@ -296,17 +296,15 @@ class _MaterialGScaleControlScreenState
 Future<List<PreparationOrder>> _loadMaterialTaminotchiKirimOrders() async {
   final savedOrders =
       await MobileApi.instance.adminRawMaterialAssignmentOrders();
-  return savedOrders
-      .map((saved) {
-        final map = saved.map;
-        return PreparationOrder.fromJson({
-          'id': map.id,
-          'code': map.code.trim().isNotEmpty ? map.code : map.orderNumber,
-          'title': map.title,
-          'order_kg': (map.orderKg ?? 0).toString(),
-          'width_mm': map.widthMm,
-          'saved': false,
-        });
-      })
-      .toList(growable: false);
+  return savedOrders.map((saved) {
+    final map = saved.map;
+    return PreparationOrder.fromJson({
+      'id': map.id,
+      'code': map.code.trim().isNotEmpty ? map.code : map.orderNumber,
+      'title': map.title,
+      'order_kg': (map.orderKg ?? 0).toString(),
+      'width_mm': map.widthMm,
+      'saved': false,
+    });
+  }).toList(growable: false);
 }

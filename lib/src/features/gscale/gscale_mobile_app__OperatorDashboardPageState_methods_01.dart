@@ -128,9 +128,11 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
       return;
     }
 
+    final restoreOrderDraft =
+        !_isMaterialReceipt || draft.orderId == widget.linkedOrderId.trim();
     _runWithoutSavingControlPrefs(() {
       setState(() {
-        if (!_prefillMaterialOrder &&
+        if (restoreOrderDraft &&
             _authoritativeRsBatch?.active != true &&
             draft.itemCode.trim().isNotEmpty) {
           _selectedItem = MobileItem(
@@ -140,14 +142,15 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
             requiresDimensions: draft.itemRequiresDimensions,
           );
         }
-        if (!_prefillMaterialOrder &&
+        if (restoreOrderDraft &&
             _authoritativeRsBatch?.active != true &&
             _selectedItem != null &&
             draft.warehouse.trim().isNotEmpty) {
           _selectedWarehouse = MobileWarehouse(warehouse: draft.warehouse);
         }
         if (_authoritativeRsBatch?.active != true) {
-          _draftContextSaved = !_prefillMaterialOrder && draft.contextSaved;
+          _draftOrderId = widget.linkedOrderId.trim();
+          _draftContextSaved = restoreOrderDraft && draft.contextSaved;
           _batchPrintMode =
               draft.printMode.isNotEmpty ? draft.printMode : _batchPrintMode;
           _batchPrinter =
@@ -160,7 +163,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
               : _quantitySource;
           _babinaEnabled = draft.babinaEnabled;
           _babinaWeightController.text = draft.babinaText;
-          if (_prefillMaterialOrder) {
+          if (!restoreOrderDraft) {
             _resetMaterialOrderFields();
           } else {
             _widthController.text = draft.widthText;
@@ -170,10 +173,11 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
         }
         _manualQtyController.text = draft.manualQtyText;
         _manualDuplicateController.text = draft.manualDuplicateText;
-        _warehouseMode =
-            !_prefillMaterialOrder && draft.warehouseMode == 'default'
-                ? 'default'
-                : 'manual';
+        if (_authoritativeRsBatch?.active != true) {
+          _warehouseMode = restoreOrderDraft && draft.warehouseMode == 'default'
+              ? 'default'
+              : 'manual';
+        }
         _defaultWarehouse = draft.defaultWarehouse;
         _defaultWarehouseController.text = draft.defaultWarehouse;
         // An explicit preparation destination takes precedence over a saved
@@ -213,6 +217,10 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
       ]);
 
   void _resetMaterialOrderFields() {
+    _draftOrderId = widget.linkedOrderId.trim();
+    _materialOrderChoicesFuture = null;
+    _materialOrderChoicesOrderId = '';
+    _materialItemPickerOpened = false;
     _selectedItem = null;
     _draftContextSaved = false;
     _batchContextEditing = false;
@@ -249,6 +257,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
 
   Future<void> _saveControlDraftPreferences() async {
     final draft = OperatorControlDraft(
+      orderId: _draftOrderId,
       itemCode: _selectedItem?.itemCode ?? '',
       itemName: _selectedItem?.itemName ?? '',
       itemRequiresDimensions: _selectedItem?.requiresDimensions ?? false,
@@ -396,7 +405,9 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
             return;
           }
           _applySnapshot(MonitorSnapshot.fromJson(payload));
-          _errorText = '';
+          if (!_batchStartConflict) {
+            _errorText = '';
+          }
           _scheduleLiveRebuild(generation);
           return;
         }
@@ -447,7 +458,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
     final server = widget.server;
     if (server == null) {
       if (widget.printTransport.isLocal) {
-        if (mounted && _errorText.isNotEmpty) {
+        if (mounted && _errorText.isNotEmpty && !_batchStartConflict) {
           setState(() => _errorText = '');
         }
         return;
@@ -464,7 +475,9 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
     if (manual && mounted) {
       setState(() {
         _manualLoading = true;
-        _errorText = '';
+        if (!_batchStartConflict) {
+          _errorText = '';
+        }
       });
     }
 
@@ -491,7 +504,9 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
       if (mounted) {
         setState(() {
           _applySnapshot(MonitorSnapshot.fromJson(payload));
-          _errorText = '';
+          if (!_batchStartConflict) {
+            _errorText = '';
+          }
         });
       }
       await _refreshRsBatchState();
@@ -513,6 +528,8 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
   }
 
   Future<void> _refreshRsBatchState({bool reportError = false}) async {
+    final requestId = ++_rpsBatchStateRequestId;
+    final generation = _rpsBatchGeneration;
     try {
       if (!AppSession.instance.isLoggedIn) {
         await AppSession.instance.load();
@@ -523,17 +540,24 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
       final response = await (widget.rpsBatchStateLoader?.call() ??
               MobileApi.instance.gscaleRpsBatchState())
           .timeout(const Duration(seconds: 4));
-      if (!mounted) {
+      if (!mounted ||
+          requestId != _rpsBatchStateRequestId ||
+          generation != _rpsBatchGeneration) {
         return;
       }
       setState(() {
         _applyRsBatchSession(response.batch);
-        if (reportError && response.batch.lastError.trim().isEmpty) {
+        if (reportError &&
+            !_batchStartConflict &&
+            response.batch.lastError.trim().isEmpty) {
           _errorText = '';
         }
       });
     } catch (error) {
-      if (reportError && mounted) {
+      if (reportError &&
+          mounted &&
+          requestId == _rpsBatchStateRequestId &&
+          generation == _rpsBatchGeneration) {
         setState(() {
           _errorText = rpsBatchActionErrorMessage(error);
         });
