@@ -240,7 +240,12 @@ void main() {
       final locale = Locale(language);
       const narrowScreenshot =
           String.fromEnvironment('QR_HISTORY_NARROW_SCREENSHOT');
-      final isNarrowCapture = narrowScreenshot.isNotEmpty && language == 'uz';
+      const russianScreenshot =
+          String.fromEnvironment('QR_HISTORY_RUSSIAN_SCREENSHOT');
+      const screenshot = String.fromEnvironment('QR_HISTORY_SCREENSHOT');
+      final isNarrowCapture =
+          (narrowScreenshot.isNotEmpty && language == 'uz') ||
+              (russianScreenshot.isNotEmpty && language == 'ru');
       await tester.binding.setSurfaceSize(
           Size(language == 'ru' || isNarrowCapture ? 360 : 430, 1000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -318,6 +323,27 @@ void main() {
       final worker = tester.getTopLeft(find.text('Ali · Vali'));
       final apparatus = tester.getTopLeft(find.text('Bosma 1'));
       expect(worker.dy, greaterThan(apparatus.dy));
+
+      Future<void> captureScreenshot(String path) async {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(const ValueKey('history-capture')),
+        );
+        await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: 2);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File(path).writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
+
+      if (screenshot.isNotEmpty && language == 'uz') {
+        await captureScreenshot(screenshot);
+      }
+      if (isNarrowCapture) {
+        final path = language == 'ru' ? russianScreenshot : narrowScreenshot;
+        await captureScreenshot(path);
+      }
+
       for (var index = 1; index <= 3; index++) {
         await tester
             .ensureVisible(find.byKey(ValueKey('qr-history-step-$index')));
@@ -340,47 +366,7 @@ void main() {
       const correctionScreenshot =
           String.fromEnvironment('QR_HISTORY_CORRECTION_SCREENSHOT');
       if (correctionScreenshot.isNotEmpty && language == 'uz') {
-        final boundary = tester.renderObject<RenderRepaintBoundary>(
-            find.byKey(const ValueKey('history-capture')));
-        await tester.runAsync(() async {
-          final image = await boundary.toImage(pixelRatio: 2);
-          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-          await File(correctionScreenshot)
-              .writeAsBytes(bytes!.buffer.asUint8List());
-          image.dispose();
-        });
-      }
-      const screenshot = String.fromEnvironment('QR_HISTORY_SCREENSHOT');
-      if (screenshot.isNotEmpty && language == 'uz') {
-        tester
-            .state<ScrollableState>(find.byType(Scrollable).first)
-            .position
-            .jumpTo(0);
-        await tester.pumpAndSettle();
-        final boundary = tester.renderObject<RenderRepaintBoundary>(
-            find.byKey(const ValueKey('history-capture')));
-        await tester.runAsync(() async {
-          final image = await boundary.toImage(pixelRatio: 2);
-          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-          await File(screenshot).writeAsBytes(bytes!.buffer.asUint8List());
-          image.dispose();
-        });
-      }
-      if (isNarrowCapture) {
-        tester
-            .state<ScrollableState>(find.byType(Scrollable).first)
-            .position
-            .jumpTo(0);
-        await tester.pumpAndSettle();
-        final boundary = tester.renderObject<RenderRepaintBoundary>(
-            find.byKey(const ValueKey('history-capture')));
-        await tester.runAsync(() async {
-          final image = await boundary.toImage(pixelRatio: 2);
-          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-          await File(narrowScreenshot)
-              .writeAsBytes(bytes!.buffer.asUint8List());
-          image.dispose();
-        });
+        await captureScreenshot(correctionScreenshot);
       }
       await tester.scrollUntilVisible(find.byIcon(Icons.ios_share_rounded), 400,
           scrollable: find.byType(Scrollable).first);

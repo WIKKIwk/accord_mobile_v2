@@ -296,7 +296,7 @@ class _AdminFabActionMenuState extends State<AdminFabActionMenu>
         TextStyle(
           fontFamily: AppTheme.fontFamily,
           color: scheme.onPrimaryContainer,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
         );
     final titlePainter = TextPainter(
       text: TextSpan(text: action.title, style: titleStyle),

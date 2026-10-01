@@ -18,10 +18,19 @@ void main() {
     for (final theme in themes) {
       expect(theme.textTheme.bodyMedium?.fontFamily, AppTheme.fontFamily);
       expect(theme.textTheme.titleLarge?.fontFamily, AppTheme.fontFamily);
+      expect(theme.textTheme.bodyLarge?.fontWeight, FontWeight.w400);
+      expect(theme.textTheme.bodyMedium?.fontWeight, FontWeight.w400);
+      expect(theme.textTheme.bodySmall?.fontWeight, FontWeight.w400);
+      expect(theme.textTheme.titleMedium?.fontWeight, FontWeight.w500);
+      expect(theme.textTheme.titleLarge?.fontWeight, FontWeight.w700);
+      expect(theme.textTheme.labelLarge?.fontWeight, FontWeight.w500);
+      expect(theme.textTheme.headlineMedium?.fontWeight, FontWeight.w700);
       expect(theme.inputDecorationTheme.labelStyle?.fontFamily,
           AppTheme.fontFamily);
       expect(theme.inputDecorationTheme.hintStyle?.fontFamily,
           AppTheme.fontFamily);
+      expect(
+          theme.inputDecorationTheme.labelStyle?.fontWeight, FontWeight.w400);
       final cupertinoTextTheme = theme.cupertinoOverrideTheme!.textTheme!;
       expect(cupertinoTextTheme.textStyle.fontFamily, AppTheme.fontFamily);
       expect(
@@ -34,6 +43,9 @@ void main() {
           cupertinoTextTheme.navTitleTextStyle.fontFamily, AppTheme.fontFamily);
       expect(cupertinoTextTheme.navLargeTitleTextStyle.fontFamily,
           AppTheme.fontFamily);
+      expect(cupertinoTextTheme.navTitleTextStyle.fontWeight, FontWeight.w500);
+      expect(cupertinoTextTheme.navLargeTitleTextStyle.fontWeight,
+          FontWeight.w700);
       expect(cupertinoTextTheme.navActionTextStyle.fontFamily,
           AppTheme.fontFamily);
       expect(

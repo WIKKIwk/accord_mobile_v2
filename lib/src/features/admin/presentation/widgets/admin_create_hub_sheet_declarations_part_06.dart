@@ -37,7 +37,7 @@ class _AdminHubActionPill extends StatelessWidget {
         TextStyle(
           fontFamily: AppTheme.fontFamily,
           color: foreground,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
         );
     final titlePainter = TextPainter(
       text: TextSpan(text: action.title, style: titleStyle),

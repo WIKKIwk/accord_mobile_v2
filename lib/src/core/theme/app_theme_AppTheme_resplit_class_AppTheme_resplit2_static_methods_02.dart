@@ -164,27 +164,27 @@ TextTheme _AppTheme__textTheme_resplit2AstPart({
     ),
     titleMedium: base.titleMedium?.copyWith(
       fontSize: 16,
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w500,
       color: ink,
     ),
     bodyLarge: base.bodyLarge?.copyWith(
       fontSize: 16,
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.w400,
       color: ink,
     ),
     bodyMedium: base.bodyMedium?.copyWith(
       fontSize: 14,
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.w400,
       color: ink,
     ),
     bodySmall: base.bodySmall?.copyWith(
       fontSize: 12,
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.w400,
       color: muted,
     ),
     labelLarge: base.labelLarge?.copyWith(
       fontSize: 16,
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w500,
       color: ink,
     ),
   );
@@ -204,12 +204,13 @@ InputDecorationTheme _AppTheme__inputDecorationTheme_resplit2AstPart({
       fontFamily: AppTheme.fontFamily,
       color: hintColor,
       fontSize: 14,
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.w400,
     ),
     hintStyle: TextStyle(
       fontFamily: AppTheme.fontFamily,
       color: hintColor,
       fontSize: 15,
+      fontWeight: FontWeight.w400,
     ),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),

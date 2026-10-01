@@ -17,8 +17,12 @@ class AppTheme {
 
   static CupertinoTextThemeData _cupertinoTextTheme(Color primaryColor) {
     final base = CupertinoTextThemeData(primaryColor: primaryColor);
-    TextStyle withGoogleSans(TextStyle style) =>
-        style.copyWith(fontFamily: fontFamily);
+    TextStyle withGoogleSans(TextStyle style) => style.copyWith(
+          fontFamily: fontFamily,
+          fontWeight: style.fontWeight == FontWeight.w600
+              ? FontWeight.w500
+              : style.fontWeight,
+        );
 
     return base.copyWith(
       textStyle: withGoogleSans(base.textStyle),
