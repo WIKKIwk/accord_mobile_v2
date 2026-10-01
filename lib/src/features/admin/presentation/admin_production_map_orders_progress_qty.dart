@@ -29,6 +29,7 @@ class _RezkaFrameControllers {
   final meter = TextEditingController();
   final kg = TextEditingController();
   final bobina = TextEditingController();
+  final bobinaFocusNode = FocusNode();
   final diameter = TextEditingController();
   final issueNote = TextEditingController();
 
@@ -37,6 +38,7 @@ class _RezkaFrameControllers {
     meter.dispose();
     kg.dispose();
     bobina.dispose();
+    bobinaFocusNode.dispose();
     diameter.dispose();
   }
 }
@@ -263,6 +265,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final _meterController = TextEditingController();
   final _kgController = TextEditingController();
   final _bobinaController = TextEditingController();
+  final _bobinaFocusNode = FocusNode();
   final _diameterController = TextEditingController();
   final _printLeftoverController = TextEditingController();
   final _filmLeftoverController = TextEditingController();
@@ -273,6 +276,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final _descriptionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String _completionError = '';
+  bool _bobinaGrossErrorSubmitted = false;
   bool _descriptionFieldRevealed = false;
   late final List<_RezkaFrameControllers> _rezkaFrameControllers;
   final Set<int> _rezkaFrameIssuePrompted = <int>{};
@@ -358,6 +362,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     _printLeftoverController.dispose();
     _diameterController.dispose();
     _bobinaController.dispose();
+    _bobinaFocusNode.dispose();
     _kgController.dispose();
     _meterController.dispose();
     for (final frame in _rezkaFrameControllers) {
@@ -403,6 +408,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       }
     }
     setState(() {});
+    _scheduleBobinaFormValidation();
   }
 
   double? _parseQty(String value) =>
@@ -433,11 +439,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     bool positive = false,
     bool allowZero = false,
     bool enabled = true,
+    FocusNode? focusNode,
     ValueChanged<String>? onChanged,
+    String? Function(String?)? additionalValidator,
   }) {
     return TextFormField(
       key: key,
       enabled: enabled,
+      focusNode: focusNode,
       controller: controller,
       onChanged: onChanged,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -469,9 +478,49 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
             'worker.progress.qty.positive_number',
           );
         }
-        return null;
+        return additionalValidator?.call(value);
       },
     );
+  }
+
+  String? _rezkaBobinaGrossError(String? value, String grossText) {
+    if (!_bobinaGrossErrorSubmitted ||
+        !bobinaExceedsGross(_parseQty(grossText), _parseQty(value ?? ''))) {
+      return null;
+    }
+    return context.l10n.productionText(
+      'worker.progress.qty.bobina_exceeds_gross',
+    );
+  }
+
+  void _scheduleBobinaFormValidation() {
+    if (!_bobinaGrossErrorSubmitted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _bobinaGrossErrorSubmitted) {
+        _formKey.currentState?.validate();
+      }
+    });
+  }
+
+  void _focusInvalidBobinaField(int invalidFrameIndex) {
+    final focusNode = invalidFrameIndex >= 0
+        ? _rezkaFrameControllers[invalidFrameIndex].bobinaFocusNode
+        : _bobinaFocusNode;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      FocusScope.of(context).requestFocus(focusNode);
+      final fieldContext = focusNode.context;
+      if (fieldContext != null) {
+        unawaited(
+          Scrollable.ensureVisible(
+            fieldContext,
+            alignment: 0.35,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+          ),
+        );
+      }
+    });
   }
 
   bool _hasPositiveQty(TextEditingController controller) {
@@ -626,13 +675,17 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final kgQty = _parseQty(_kgController.text);
     final bobinaKg = _parseQty(_bobinaController.text);
     final diameter = _parseQty(_diameterController.text);
-    if (widget.isRezka &&
+    final invalidBobinaFrameIndex = _showRezkaFrameInputs
+        ? _rezkaFrameControllers.indexWhere(_rezkaBobinaTooLarge)
+        : -1;
+    final hasInvalidRezkaBobina = widget.isRezka &&
         (_showRezkaFrameInputs
-            ? _rezkaFrameControllers.any(_rezkaBobinaTooLarge)
-            : bobinaExceedsGross(kgQty, bobinaKg))) {
-      _setCompletionError(context.l10n.productionText(
-        'worker.progress.qty.bobina_exceeds_gross',
-      ));
+            ? invalidBobinaFrameIndex >= 0
+            : bobinaExceedsGross(kgQty, bobinaKg));
+    if (hasInvalidRezkaBobina) {
+      setState(() => _bobinaGrossErrorSubmitted = true);
+      _formKey.currentState?.validate();
+      _focusInvalidBobinaField(invalidBobinaFrameIndex);
       return;
     }
     if (_requiresPaintReport &&
@@ -1076,6 +1129,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
             key: ValueKey<String>('rezka-frame-$index-bobina'),
             enabled: fieldsEnabled,
             controller: frame.bobina,
+            focusNode: frame.bobinaFocusNode,
+            additionalValidator: (value) => _rezkaBobinaGrossError(
+              value,
+              frame.kg.text,
+            ),
             label: context.l10n.productionText('worker.daily.field.roll'),
             error: context.l10n.productionText(
               'worker.progress.qty.roll_required',
@@ -1315,6 +1373,13 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           ),
                           _qtyField(
                             controller: _bobinaController,
+                            focusNode: _bobinaFocusNode,
+                            onChanged: (_) => _scheduleBobinaFormValidation(),
+                            additionalValidator: (value) =>
+                                _rezkaBobinaGrossError(
+                              value,
+                              _kgController.text,
+                            ),
                             label: context.l10n.productionText(
                               'worker.daily.field.roll',
                             ),
@@ -1632,6 +1697,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           const SizedBox(height: 10),
                           _qtyField(
                             controller: _kgController,
+                            onChanged: (_) => _scheduleBobinaFormValidation(),
                             label: context.l10n.productionText(
                               'worker.daily.field.weight',
                             ),

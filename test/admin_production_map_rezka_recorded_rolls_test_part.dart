@@ -181,6 +181,152 @@ void _registerRezkaRecordedRollTests() {
     });
   }
 
+  testWidgets(
+      'Rezka pause shows Bobina tare error inline and revalidates both weights',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await AppSession.instance.setSession(
+      token: 'rezka-bobina-validation-worker',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Rezka operatori',
+        legalName: '',
+        ref: 'rezka-bobina-validation-worker',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [_rezkaId],
+      ),
+    );
+    const order = 'zakaz-rezka-bobina-validation';
+    const cycle = 'rezka-bobina-validation-cycle';
+    final map = _productionOrderMap(
+      id: order,
+      title: 'Bobina validation',
+      productCode: 'RBV',
+      apparatusId: _rezkaId,
+      product: 'Bobina validation product',
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      map.copyWith(
+        nodes: [
+          for (final node in map.nodes)
+            node.apparatusId == _rezkaId
+                ? node.copyWith(rezkaKadrCount: 1)
+                : node,
+        ],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: _rezkaId,
+      orderIds: [order],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: _rezkaId,
+      orderId: order,
+      action: 'start',
+    );
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _rezkaId,
+      orderId: order,
+      control: _inProgressQueueControl(
+        rezkaOutputKadrCounts: const [1],
+        rezkaOutputReport: const AdminRezkaOutputReport(cycleId: cycle),
+      ),
+    );
+
+    var printerSelections = 0;
+    final theme = ThemeData(useMaterial3: true);
+    await _usePhoneViewport(tester);
+    tester.view.physicalSize = const Size(500, 1080);
+    await tester.pumpWidget(MaterialApp(
+      theme: theme,
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: AdminProductionMapOrdersScreen(
+        readOnly: true,
+        workerMode: true,
+        progressDriverUrlPicker: (_) async {
+          printerSelections += 1;
+          return null;
+        },
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rezka'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('worker-order-$order')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rulonni yechish'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pauza miqdori'), findsOneWidget);
+    Finder field(String name) => find.byKey(ValueKey('rezka-frame-0-$name'));
+    Future<void> edit(String name, String value) async {
+      await tester.ensureVisible(field(name));
+      await tester.enterText(field(name), value);
+      await tester.pumpAndSettle();
+    }
+
+    const error = 'Bobina vazni umumiy vazndan katta bo‘lmasligi kerak';
+    await edit('meter', '54');
+    await edit('kg', '448');
+    await edit('bobina', '544');
+    await edit('diameter', '45');
+    expect(find.text(error), findsNothing);
+
+    await tester.ensureVisible(find.text('Tasdiqlash'));
+    await tester.tap(find.text('Tasdiqlash'));
+    await tester.pumpAndSettle();
+    expect(find.text(error), findsOneWidget);
+    expect(printerSelections, 0);
+    expect(
+      (await MobileApi.instance.adminProductionMapQueueSnapshot())
+          .queueStates[_rezkaId]?[order],
+      'in_progress',
+    );
+    expect(
+        tester.widget<TextFormField>(field('bobina')).controller!.text, '544');
+    final bobinaDecorator = tester.widget<InputDecorator>(
+      find
+          .descendant(
+              of: field('bobina'), matching: find.byType(InputDecorator))
+          .first,
+    );
+    expect(bobinaDecorator.decoration.errorText, error);
+    expect(
+      (bobinaDecorator.decoration.errorBorder! as OutlineInputBorder)
+          .borderSide
+          .color,
+      theme.colorScheme.error,
+    );
+
+    await edit('kg', '600');
+    expect(find.text(error), findsNothing);
+    await edit('kg', '448');
+    expect(find.text(error), findsOneWidget);
+    await edit('bobina', '448');
+    expect(find.text(error), findsNothing);
+
+    await tester.ensureVisible(find.text('Tasdiqlash'));
+    await tester.tap(find.text('Tasdiqlash'));
+    await tester.pumpAndSettle();
+    expect(printerSelections, 1);
+    expect(find.text('Pauza miqdori'), findsNothing);
+    expect(
+      (await MobileApi.instance.adminProductionMapQueueSnapshot())
+          .queueStates[_rezkaId]?[order],
+      'in_progress',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Rezka print autofills drafts and weight edits keep first ratio',
       (tester) async {
     await TestModeController.instance.setEnabled(true);

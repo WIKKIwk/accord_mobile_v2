@@ -309,7 +309,7 @@ const _app_localizations_declarations__productionTranslations_resplitPart09 = {
     'ru': 'Введите вес бобины',
   },
   'worker.progress.qty.bobina_exceeds_gross': {
-    'uz': 'Babina vazni brutto vazndan katta bo‘lishi mumkin emas',
+    'uz': 'Bobina vazni umumiy vazndan katta bo‘lmasligi kerak',
     'en': 'Core weight cannot exceed gross weight',
     'ru': 'Вес бобины не может превышать вес брутто',
   },
