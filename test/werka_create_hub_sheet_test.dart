@@ -43,27 +43,22 @@ void main() {
     expect(werkaCreateHubMenuOpen.value, isTrue);
     expect(
         find.byKey(const ValueKey('admin-hub-toggle-button')), findsOneWidget);
-    for (final label in ['Paddon kirimi', 'Aytilmagan mahsulot', 'Stock QR']) {
+    for (final label in ['QR skaner', 'Aytilmagan mahsulot']) {
       expect(find.text(label), findsOneWidget);
     }
     expect(find.text('Mahsulot qo‘shish'), findsNothing);
+    expect(find.text('Stock QR'), findsNothing);
+    expect(find.text('Paddon kirimi'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('admin-hub-toggle-button')));
     await tester.pumpAndSettle();
     expect(werkaCreateHubMenuOpen.value, isFalse);
   });
 
-  testWidgets('Werka shared FAB opens pallet receipt', (tester) async {
+  testWidgets('Werka shared FAB opens one universal scanner', (tester) async {
     await openHub(tester);
-    await tester.tap(find.text('Paddon kirimi'));
-    await tester.pumpAndSettle();
-    expect(find.text(AppRoutes.werkaPaddonReceive), findsOneWidget);
-    expect(werkaCreateHubMenuOpen.value, isFalse);
-  });
-
-  testWidgets('Werka shared FAB retains legacy stock scanning', (tester) async {
-    await openHub(tester);
-    await tester.tap(find.text('Stock QR'));
+    await tester.tap(find.text('QR skaner'));
     await tester.pumpAndSettle();
     expect(find.text(AppRoutes.werkaStockEntryQrScan), findsOneWidget);
+    expect(werkaCreateHubMenuOpen.value, isFalse);
   });
 }

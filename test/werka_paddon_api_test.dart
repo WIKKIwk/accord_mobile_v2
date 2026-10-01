@@ -116,4 +116,60 @@ void main() {
             }));
     expect(writes, 1);
   });
+  test(
+      'universal preview never guesses type from code and rejects unknown kind',
+      () async {
+    final codes = ['00001', 'WIP-v2:batch/01', 'https://example.invalid/W/QR'];
+    var calls = 0;
+    await http.runWithClient(() async {
+      for (final code in codes) {
+        await expectLater(
+            MobileApi.instance.werkaQrPreview(code),
+            throwsA(isA<MobileApiException>()
+                .having((e) => e.code, 'code', 'qr_preview_invalid')));
+      }
+    },
+        () => MockClient((request) async {
+              expect(request.method, 'GET');
+              expect(request.url.path, '/v1/mobile/werka/qr/preview');
+              expect(request.url.queryParameters['qr_payload'], codes[calls++]);
+              return http.Response('{"kind":"unknown"}', 200);
+            }));
+    expect(calls, codes.length);
+  });
+
+  test('single WIP stale token returns conflict without automatic POST retry',
+      () async {
+    final preview = WerkaWipPreview.fromJson({
+      'batch': {
+        'batch_id': 'b1',
+        'apparatus': 'apparatus:default:asset-010',
+        'qr_payload': 'QR-b1'
+      },
+      'snapshot_token': 'before',
+      'can_receive': true,
+      'warehouses': ['WH-1'],
+    });
+    var calls = 0;
+    await http.runWithClient(() async {
+      await expectLater(
+          MobileApi.instance.werkaReceiveWip(preview, 'WH-1'),
+          throwsA(isA<MobileApiException>()
+              .having((e) => e.code, 'code', 'wip_receipt_conflict')));
+    },
+        () => MockClient((request) async {
+              calls++;
+              expect(request.method, 'POST');
+              expect(request.url.path, '/v1/mobile/werka/wip/receive');
+              expect(request.headers['Authorization'], 'Bearer token');
+              expect(jsonDecode(request.body), {
+                'progress_batch_id': 'b1',
+                'qr_payload': 'QR-b1',
+                'snapshot_token': 'before',
+                'warehouse': 'WH-1'
+              });
+              return http.Response('{"error":"wip_receipt_conflict"}', 409);
+            }));
+    expect(calls, 1);
+  });
 }

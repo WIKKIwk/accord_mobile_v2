@@ -22,6 +22,7 @@ class AppRoutes {
       '/werka-customer-issue-customer';
   static const String werkaUnannouncedSupplier = '/werka-unannounced-supplier';
   static const String werkaStockEntryQrScan = '/werka-stock-entry-qr-scan';
+  static const String werkaQrPreview = '/werka-qr-preview';
   static const String werkaPaddonReceive = '/werka-paddon-receive';
   static const String werkaStockEntryLookup = '/werka-stock-entry-lookup';
   static const String werkaArchiveBatchQrLookup =

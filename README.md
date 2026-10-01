@@ -928,3 +928,20 @@ product gross and net totals in kg, excluding pallet tare. The nullable backend
 meters, available WIP or the paginated list. Unknown weights display `—`, and
 explicit empty totals display `0 kg`. Values retain all six API decimal places.
 Add/remove responses and confirmation reloads refresh each pallet's totals.
+
+
+### Universal warehouse QR preview
+
+The warehouse FAB and create hub expose one **QR skaner** entry. It resolves
+pallets and individual WIPs through the read-only warehouse-scoped
+`GET /v1/mobile/werka/qr/preview?qr_payload=...` endpoint. The server identifies
+the QR and supplies details, assigned warehouses, receipt state, eligibility,
+and the snapshot token. Merely scanning never creates stock or a receipt.
+
+Receiving is a separate warehouse selection and confirmation. Pallets retain
+`POST /v1/mobile/werka/paddons/receive`; single WIPs use
+`POST /v1/mobile/werka/wip/receive` with the exact batch, QR and preview token.
+A failed/uncertain write disables receiving until a read-only refresh resolves
+its outcome. Only an explicit server `qr_not_found` response can fall back to
+the legacy stock lookup; archive QR navigation remains available. This mobile
+flow requires the matching backend preview and WIP-receive endpoints.

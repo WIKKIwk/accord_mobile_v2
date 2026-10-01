@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/werka_qr_preview_screen.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -17,8 +19,9 @@ import 'package:http/testing.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const _previewPath = '/v1/mobile/werka/paddons/preview';
+const _previewPath = '/v1/mobile/werka/qr/preview';
 Map<String, dynamic> _preview() => {
+      'kind': 'paddon',
       'paddon': {
         'id': 'p2',
         'code': '00002',
@@ -61,7 +64,7 @@ Future<void> _openScanner(
     onGenerateRoute: (settings) {
       routes.add(settings);
       // Exercise the real app router and existing receipt screen for pallets.
-      if (settings.name == AppRoutes.werkaPaddonReceive) {
+      if (settings.name == AppRoutes.werkaQrPreview) {
         return AppRouter.onGenerateRoute(settings);
       }
       return MaterialPageRoute<void>(
@@ -110,8 +113,8 @@ void main() {
       _detect(
           tester, '00002'); // Duplicate camera frames must not navigate twice.
       await tester.pumpAndSettle();
-      expectSync(routes.map((r) => r.name), [AppRoutes.werkaPaddonReceive]);
-      expectSync(routes.single.arguments, '00002');
+      expectSync(routes.map((r) => r.name), [AppRoutes.werkaQrPreview]);
+      expectSync((routes.single.arguments as WerkaQrPreview).code, '00002');
       expectSync(find.byType(WerkaPaddonReceiveScreen), findsOneWidget);
       for (var i = 0; i < 2; i++) {
         expectSync(
@@ -121,8 +124,8 @@ void main() {
           requests
               .every((r) => r.url.path == _previewPath && r.method == 'GET'),
           isTrue);
-      expectSync(
-          requests.length, 2); // Identity probe, then fresh receipt preview.
+      expectSync(requests.length,
+          1); // A single read-only server identity and preview.
       final accept = find.byKey(const ValueKey('werka-paddon-receive'));
       await tester.ensureVisible(accept);
       await tester.tap(accept);
@@ -140,7 +143,7 @@ void main() {
               expectSync(request.headers['Authorization'], 'Bearer token');
               if (request.method == 'GET') {
                 expectSync(request.url.path, _previewPath);
-                expectSync(request.url.queryParameters['code'], '00002');
+                expectSync(request.url.queryParameters['qr_payload'], '00002');
                 return http.Response(jsonEncode(_preview()), 200);
               }
               expectSync(request.url.path, '/v1/mobile/werka/paddons/receive');
@@ -176,8 +179,7 @@ void main() {
     },
         () => MockClient((request) async {
               expectSync(request.url.path, _previewPath);
-              return http.Response(
-                  jsonEncode({'error': 'paddon_not_found'}), 404);
+              return http.Response(jsonEncode({'error': 'qr_not_found'}), 404);
             }));
   });
 
@@ -196,8 +198,12 @@ void main() {
         expectSync(args.rawValue, raw);
         expectSync(args.scannedBarcode, raw.split('/').last);
       },
-          () => MockClient((_) async =>
-              throw StateError('Stock QR must not call pallet API')));
+          () => MockClient((request) async {
+                expectSync(request.method, 'GET');
+                expectSync(request.url.path, _previewPath);
+                expectSync(request.url.queryParameters['qr_payload'], raw);
+                return http.Response('{"error":"qr_not_found"}', 404);
+              }));
     });
   }
 
@@ -242,8 +248,8 @@ void main() {
         expectSync(requests.map((r) => r.url.path), [_previewPath]);
         expectSync(
             find.text(response.statusCode == 403
-                ? 'Paddonni ko‘rishga ruxsat yo‘q. Sizga ombor biriktirilganini tekshiring.'
-                : 'Paddon ma’lumotini olib bo‘lmadi. Qayta urinib ko‘ring.'),
+                ? 'QR ma’lumotini ko‘rishga ruxsat yo‘q. Sizga ombor biriktirilganini tekshiring.'
+                : 'QR ma’lumotini olib bo‘lmadi. Qayta urinib ko‘ring.'),
             findsOneWidget);
       },
           () => MockClient((request) async {
@@ -264,7 +270,7 @@ void main() {
       expectSync(routes, isEmpty);
       _detect(tester, '00002');
       await tester.pumpAndSettle();
-      expectSync(routes.single.name, AppRoutes.werkaPaddonReceive);
+      expectSync(routes.single.name, AppRoutes.werkaQrPreview);
       expectSync(find.byType(WerkaPaddonReceiveScreen), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
@@ -273,6 +279,140 @@ void main() {
               expectSync(request.url.path, _previewPath);
               if (++calls == 1) throw http.ClientException('offline');
               return http.Response(jsonEncode(_preview()), 200);
+            }));
+  });
+  testWidgets('single WIP scan is read-only and explicit confirm receives once',
+      (tester) async {
+    final routes = <RouteSettings>[];
+    final requests = <http.Request>[];
+    await http.runWithClient(() async {
+      await _openScanner(tester, routes);
+      _detect(tester, 'WIP-actual-code');
+      _detect(tester, 'WIP-actual-code');
+      await tester.pumpAndSettle();
+      expectSync(routes.single.name, AppRoutes.werkaQrPreview);
+      expectSync(find.byType(WerkaWipPreviewScreen), findsOneWidget);
+      expectSync(find.text('Rulon single'), findsOneWidget);
+      expectSync(requests.length, 1);
+      expectSync(requests.single.method, 'GET');
+      final button = find.byKey(const ValueKey('werka-wip-receive'));
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expectSync(requests.length, 1);
+      await tester.tap(find.byKey(const ValueKey('werka-wip-confirm')));
+      await tester.pumpAndSettle();
+      expectSync(requests.where((r) => r.method == 'POST').length, 1);
+      expectSync(
+          find.byKey(const ValueKey('werka-wip-received')), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+        () => MockClient((request) async {
+              requests.add(request);
+              expectSync(request.headers['Authorization'], 'Bearer token');
+              if (request.method == 'GET') {
+                expectSync(request.url.path, _previewPath);
+                expectSync(request.url.queryParameters['qr_payload'],
+                    'WIP-actual-code');
+                return http.Response(
+                    jsonEncode({
+                      'kind': 'wip',
+                      'batch': {
+                        'batch_id': 'single',
+                        'apparatus': 'apparatus:default:asset-010',
+                        'order_id': 'order-1',
+                        'qr_payload': 'WIP-actual-code',
+                        'label_item_name': 'Rulon single',
+                        'wip_status': 'waiting',
+                        'finished_goods_kg': 12.5,
+                      },
+                      'warehouses': ['WH-1'],
+                      'can_receive': true,
+                      'snapshot_token': 'wip-token',
+                    }),
+                    200);
+              }
+              expectSync(request.url.path, '/v1/mobile/werka/wip/receive');
+              expectSync(jsonDecode(request.body), {
+                'progress_batch_id': 'single',
+                'qr_payload': 'WIP-actual-code',
+                'warehouse': 'WH-1',
+                'snapshot_token': 'wip-token',
+              });
+              return http.Response(
+                  jsonEncode({
+                    'receipt': {
+                      'warehouse': 'WH-1',
+                      'accepted_by_display_name': 'Werka',
+                    }
+                  }),
+                  200);
+            }));
+  });
+
+  testWidgets(
+      'server can identify nonnumeric pallet codes without client length rules',
+      (tester) async {
+    final routes = <RouteSettings>[];
+    await http.runWithClient(() async {
+      await _openScanner(tester, routes);
+      _detect(tester, 'PALLET-A-2026');
+      await tester.pumpAndSettle();
+      expectSync(routes.single.name, AppRoutes.werkaQrPreview);
+      expectSync(find.text('Paddon PALLET-A-2026'), findsOneWidget);
+      await tester.ensureVisible(find.text('Qayta tekshirish'));
+      await tester.tap(find.text('Qayta tekshirish'));
+      await tester.pumpAndSettle();
+      expectSync(
+          find.byKey(const ValueKey('werka-paddon-error')), findsNothing);
+    },
+        () => MockClient((request) async {
+              expectSync(request.method, 'GET');
+              expectSync(
+                  request.url.queryParameters['qr_payload'], 'PALLET-A-2026');
+              final data = _preview();
+              (data['paddon'] as Map)['code'] = 'PALLET-A-2026';
+              return http.Response(jsonEncode(data), 200);
+            }));
+  });
+
+  testWidgets('invalid WIP remains on scanner and does not become stock',
+      (tester) async {
+    final routes = <RouteSettings>[];
+    await http.runWithClient(() async {
+      await _openScanner(tester, routes);
+      _detect(tester, 'WIP-invalid');
+      await tester.pumpAndSettle();
+      expectSync(routes, isEmpty);
+      expectSync(find.byType(SnackBar), findsOneWidget);
+    },
+        () => MockClient((request) async {
+              expectSync(request.method, 'GET');
+              return http.Response('{"error":"progress_batch_not_found"}', 404);
+            }));
+  });
+
+  testWidgets('disposing scanner during pending resolution never navigates',
+      (tester) async {
+    final routes = <RouteSettings>[];
+    final response = Completer<http.Response>();
+    var reads = 0;
+    await http.runWithClient(() async {
+      await _openScanner(tester, routes);
+      _detect(tester, '00002');
+      _detect(tester, '00002');
+      await tester.pump();
+      expectSync(reads, 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+      response.complete(http.Response(jsonEncode(_preview()), 200));
+      await tester.pumpAndSettle();
+      expectSync(routes, isEmpty);
+    },
+        () => MockClient((request) {
+              reads++;
+              expectSync(request.method, 'GET');
+              return response.future;
             }));
   });
 }

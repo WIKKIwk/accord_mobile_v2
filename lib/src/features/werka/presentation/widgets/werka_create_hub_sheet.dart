@@ -13,16 +13,14 @@ void showWerkaCreateHubSheet(BuildContext context) {
       AdminFabMenuAction(
           title: title, icon: icon, onTap: () => navigator.pushNamed(route));
   showAdminCreateHubSheet(context, actions: [
-    action('Paddon kirimi', Icons.qr_code_scanner_rounded,
-        AppRoutes.werkaPaddonReceive),
+    action('QR skaner', Icons.qr_code_scanner_rounded,
+        AppRoutes.werkaStockEntryQrScan),
     action(l10n.unannouncedTitle, Icons.inventory_2_outlined,
         AppRoutes.werkaUnannouncedSupplier),
     action(l10n.customerIssueTitle, Icons.send_outlined,
         AppRoutes.werkaCustomerIssueCustomer),
     action(l10n.batchDispatchTitle, Icons.playlist_add_check_rounded,
         AppRoutes.werkaBatchDispatch),
-    action(
-        'Stock QR', Icons.qr_code_2_rounded, AppRoutes.werkaStockEntryQrScan),
     action('Tarozi / printer', Icons.scale_outlined, AppRoutes.gscaleMode),
   ]);
 }

@@ -190,6 +190,9 @@ void main() {
     var scans = 0;
     await showScreen(tester, initialCode: null, load: (code) async {
       scans++;
+      if (code == 'not-a-pallet') {
+        throw const MobileApiException(code: 'paddon_not_found', message: '');
+      }
       expect(code, '00001');
       return preview();
     });
@@ -197,11 +200,11 @@ void main() {
         find.byType(ProductionQuickScannerPanel));
     await scanner.onCodeDetected('not-a-pallet');
     await tester.pump();
-    expect(scans, 0);
+    expect(scans, 1);
     expect(find.byKey(const ValueKey('werka-paddon-error')), findsOneWidget);
     await scanner.onCodeDetected('00001');
     await tester.pumpAndSettle();
-    expect(scans, 1);
+    expect(scans, 2);
     expect(find.text('Jami brutto: 21 kg'), findsOneWidget);
     expect(find.text('Jami netto: 19.875 kg'), findsOneWidget);
     expect(accept, findsOneWidget);

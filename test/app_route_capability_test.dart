@@ -49,6 +49,33 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.adminRoles), isFalse);
   });
 
+  test('universal warehouse scanner and preview require warehouse capability',
+      () {
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.supplier,
+      displayName: 'Supplier',
+      legalName: '',
+      ref: 'supplier',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['supplier.access'],
+    );
+    expect(AppRouter.canOpenRoute(AppRoutes.werkaStockEntryQrScan), isFalse);
+    expect(AppRouter.canOpenRoute(AppRoutes.werkaQrPreview), isFalse);
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.werka,
+      displayName: 'Werka',
+      legalName: '',
+      ref: 'keeper',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['werka.access'],
+    );
+    expect(AppRouter.canOpenRoute(AppRoutes.werkaStockEntryQrScan), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.werkaQrPreview), isTrue);
+  });
+
   test('admin role route only opens with role capability', () {
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(

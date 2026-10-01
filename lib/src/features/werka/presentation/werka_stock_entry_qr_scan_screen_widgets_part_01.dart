@@ -48,7 +48,7 @@ class _WerkaStockEntryQrScanScreenState
 
   Future<void> _startScanner() async {
     final session = _scannerSession;
-    if (!mounted || session == null) {
+    if (!mounted || session == null || _processing) {
       return;
     }
     final started = await session.retry();
@@ -102,9 +102,9 @@ class _WerkaStockEntryQrScanScreenState
       if (!mounted) {
         return;
       }
-      setState(() => _statusText = 'Bu QR stock entry uchun emas');
+      setState(() => _statusText = 'QR kodi noto‘g‘ri');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu QR stock entry uchun emas.')),
+        const SnackBar(content: Text('QR kodi noto‘g‘ri.')),
       );
       return;
     }
@@ -120,13 +120,14 @@ class _WerkaStockEntryQrScanScreenState
     await _stopScanner();
 
     try {
-      // Printed paddon QRs are bare five-digit codes. Confirm their identity
-      // before falling back to stock lookup: stock barcodes can be numeric too.
-      if (RegExp(r'^\d{5}$').hasMatch(rawValue) && await _isPaddon(rawValue)) {
+      // The warehouse endpoint identifies both pallets and individual WIPs.
+      // Never infer their type from the printed code's length.
+      final preview = await _resolveProductionQr(rawValue);
+      if (preview != null) {
         if (!mounted) return;
         await Navigator.of(context).pushReplacementNamed(
-          AppRoutes.werkaPaddonReceive,
-          arguments: rawValue,
+          AppRoutes.werkaQrPreview,
+          arguments: preview,
         );
         return;
       }
@@ -156,14 +157,13 @@ class _WerkaStockEntryQrScanScreenState
     }
   }
 
-  Future<bool> _isPaddon(String code) async {
+  Future<WerkaQrPreview?> _resolveProductionQr(String code) async {
     try {
-      await MobileApi.instance.werkaPaddonPreview(code);
-      return true;
+      return await MobileApi.instance.werkaQrPreview(code);
     } on MobileApiException catch (error) {
-      // Only a confirmed missing pallet may use the legacy lookup. Permission,
-      // network and missing-endpoint errors must not be disguised as stock QR.
-      if (error.code == 'paddon_not_found') return false;
+      // Only a server-confirmed unknown production QR can use legacy stock
+      // lookup. A permission, transport or missing-endpoint error cannot.
+      if (error.code == 'qr_not_found') return null;
       rethrow;
     }
   }
@@ -172,9 +172,14 @@ class _WerkaStockEntryQrScanScreenState
     if (error is MobileApiException) {
       return switch (error.code) {
         'forbidden' =>
-          'Paddonni ko‘rishga ruxsat yo‘q. Sizga ombor biriktirilganini tekshiring.',
-        'paddon_preview_failed' =>
-          'Paddon ma’lumotini olib bo‘lmadi. Qayta urinib ko‘ring.',
+          'QR ma’lumotini ko‘rishga ruxsat yo‘q. Sizga ombor biriktirilganini tekshiring.',
+        'qr_ambiguous' =>
+          'QR bir nechta yozuvga mos keldi. Mas’ul xodimga murojaat qiling.',
+        'progress_input_invalid' => 'QR kodi bo‘sh yoki noto‘g‘ri.',
+        'qr_preview_failed' || 'qr_preview_invalid' =>
+          'QR ma’lumotini olib bo‘lmadi. Qayta urinib ko‘ring.',
+        'progress_batch_not_found' || 'progress_qr_invalid' =>
+          'WIP topilmadi yoki QR kodi noto‘g‘ri.',
         'stock_entry_not_found' => 'Bu barcode bo‘yicha stock entry topilmadi.',
         'direct_db_lookup_unavailable' =>
           'Barcode lookup vaqtincha ishlamayapti.',
@@ -260,7 +265,7 @@ class _WerkaStockEntryQrScanScreenState
     return Theme(
       data: theme.copyWith(appBarTheme: appBarTheme),
       child: AppShell(
-        title: 'QR scan',
+        title: 'QR skaner',
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: theme.textTheme.titleLarge?.copyWith(

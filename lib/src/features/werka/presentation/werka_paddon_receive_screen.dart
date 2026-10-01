@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../app/app_router.dart';
 import '../../../core/widgets/paddon_weight_totals.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
@@ -14,10 +15,12 @@ class WerkaPaddonReceiveScreen extends StatefulWidget {
   const WerkaPaddonReceiveScreen(
       {super.key,
       this.initialCode,
+      this.initialPreview,
       this.loadPreview,
       this.receive,
       this.loadApparatusNames});
   final String? initialCode;
+  final WerkaPaddonPreview? initialPreview;
   final Future<WerkaPaddonPreview> Function(String)? loadPreview;
   final Future<Map<String, dynamic>> Function(WerkaPaddonPreview, String)?
       receive;
@@ -41,19 +44,20 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
   @override
   void initState() {
     super.initState();
-    unawaited(_loadApparatusNames());
-    if (widget.initialCode != null) _load(widget.initialCode!);
+    if (widget.loadApparatusNames != null) unawaited(_loadApparatusNames());
+    if (widget.initialPreview != null) {
+      _code = widget.initialCode ?? widget.initialPreview!.snapshot.paddon.code;
+      _applyPreview(widget.initialPreview!);
+    } else if (widget.initialCode != null) {
+      _load(widget.initialCode!);
+    }
   }
 
   Future<void> _loadApparatusNames() async {
     try {
       final names = widget.loadApparatusNames != null
           ? await widget.loadApparatusNames!()
-          : {
-              for (final apparatus
-                  in await MobileApi.instance.adminApparatus(limit: 500))
-                apparatus.id: apparatus.name,
-            };
+          : const <String, String>{};
       if (!mounted) return;
       setState(() {
         _apparatusNames = {
@@ -82,9 +86,8 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
   Future<void> _load(String raw) async {
     if (_busy) return;
     final code = raw.trim();
-    if (!RegExp(r'^\d{5}$').hasMatch(code)) {
-      setState(() =>
-          _error = 'Paddonning 5 xonali QR kodini skanerlang yoki kiriting.');
+    if (code.isEmpty) {
+      setState(() => _error = 'QR kodni skanerlang yoki kiriting.');
       return;
     }
     setState(() {
@@ -97,14 +100,7 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
           MobileApi.instance.werkaPaddonPreview)(code);
       if (!mounted) return;
       setState(() {
-        _preview = preview;
-        _receipt = preview.receipt;
-        _mustReload = false;
-        _warehouse = preview.warehouses.contains(_warehouse)
-            ? _warehouse
-            : preview.warehouses.length == 1
-                ? preview.warehouses.single
-                : null;
+        _applyPreview(preview);
       });
     } catch (error) {
       if (mounted) {
@@ -118,7 +114,19 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
     }
   }
 
-  String _message(Object error) {
+  void _applyPreview(WerkaPaddonPreview preview) {
+    _preview = preview;
+    _receipt = preview.receipt;
+    _mustReload = false;
+    _apparatusNames = {..._apparatusNames, ...preview.apparatusNames};
+    _warehouse = preview.warehouses.contains(_warehouse)
+        ? _warehouse
+        : preview.warehouses.length == 1
+            ? preview.warehouses.single
+            : null;
+  }
+
+  String _message(Object error, {bool receiving = false}) {
     if (error is MobileApiException) {
       return switch (error.code) {
         'forbidden' =>
@@ -135,7 +143,9 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
         _ => 'Kirimni tekshirib bo‘lmadi. Qayta tekshiring.',
       };
     }
-    return 'Server javobi olinmadi. Kirim bajarilgan bo‘lishi mumkin — qayta tekshiring.';
+    return receiving
+        ? 'Server javobi olinmadi. Kirim bajarilgan bo‘lishi mumkin. Qayta tekshiring.'
+        : 'Server javobi olinmadi. Qayta tekshiring.';
   }
 
   String _batchQuantity(AdminProgressBatch batch) {
@@ -156,7 +166,8 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
         preview == null ||
         warehouse == null ||
         _receipt != null ||
-        !preview.canReceive) {
+        !preview.canReceive ||
+        preview.snapshotToken.isEmpty) {
       return;
     }
     setState(() {
@@ -189,7 +200,7 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
     } catch (error) {
       if (mounted) {
         setState(() {
-          _error = _message(error);
+          _error = _message(error, receiving: true);
           _mustReload = true;
         });
       }
@@ -202,119 +213,122 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
   Widget build(BuildContext context) {
     final preview = _preview;
     final receipt = _receipt;
-    return AppShell(
-        title: 'Paddon kirimi',
-        subtitle: '',
-        nativeTopBar: true,
-        bottom: const WerkaDock(activeTab: null, showPrimaryFab: false),
-        child: ListView(padding: const EdgeInsets.only(bottom: 140), children: [
-          if (_busy && !_confirming) const LinearProgressIndicator(),
-          if (_error.isNotEmpty)
-            Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(_error,
-                    key: const ValueKey('werka-paddon-error'),
-                    style:
-                        TextStyle(color: Theme.of(context).colorScheme.error))),
-          if (preview == null) ...[
-            ProductionQuickScannerPanel(
-                key: const ValueKey('werka-paddon-scanner'),
-                onCodeDetected: _load,
-                statusText: 'Paddon QR kodini skanerlang',
-                busy: _busy),
-            if (_mustReload)
+    return PopScope(
+      canPop: !_busy,
+      child: AppShell(
+          title: 'Paddon kirimi',
+          subtitle: '',
+          nativeTopBar: true,
+          bottom: _busy
+              ? null
+              : const WerkaDock(activeTab: null, showPrimaryFab: false),
+          child:
+              ListView(padding: const EdgeInsets.only(bottom: 140), children: [
+            if (_busy && !_confirming) const LinearProgressIndicator(),
+            if (_error.isNotEmpty)
+              Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(_error,
+                      key: const ValueKey('werka-paddon-error'),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.error))),
+            if (preview == null) ...[
+              ProductionQuickScannerPanel(
+                  key: const ValueKey('werka-paddon-scanner'),
+                  onCodeDetected: _load,
+                  statusText: 'Paddon QR kodini skanerlang',
+                  busy: _busy),
+              if (_mustReload)
+                TextButton(
+                    onPressed: _busy ? null : () => _load(_code),
+                    child: const Text('Qayta tekshirish')),
+            ] else ...[
+              ListTile(
+                  title: Text('Paddon ${preview.snapshot.paddon.code}'),
+                  subtitle: Text(
+                      '${preview.snapshot.items.length} ta rulon • ${_displayLabel('${receipt?['warehouse'] ?? preview.snapshot.paddon.location}')}')),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: PaddonWeightTotals(
+                  key: const ValueKey('werka-paddon-weights'),
+                  paddon: receipt?['paddon'] is Map
+                      ? AdminPaddon.fromJson(
+                          (receipt!['paddon'] as Map).cast<String, dynamic>())
+                      : preview.snapshot.paddon,
+                ),
+              ),
+              if (receipt != null)
+                Card.filled(
+                    child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Omborga kirim qilingan',
+                                  key: ValueKey('werka-paddon-received')),
+                              Text(
+                                  'Ombor: ${_displayLabel('${receipt['warehouse']}')}'),
+                              Text(
+                                  'Qabul qildi: ${receipt['accepted_by_display_name']}'),
+                              if (receipt['accepted_at_unix'] is num)
+                                Text(
+                                    'Vaqt: ${DateTime.fromMillisecondsSinceEpoch((receipt['accepted_at_unix'] as num).toInt() * 1000).toLocal()}'),
+                            ])))
+              else ...[
+                if (!preview.canReceive)
+                  const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text(
+                          'Kirim mumkin emas: paddon bo‘sh yoki tarkibida tayyor bo‘lmagan / qabul qilingan rulon bor.')),
+                DropdownButtonFormField<String>(
+                    key: ValueKey('werka-paddon-warehouse-$_warehouse'),
+                    initialValue: _warehouse,
+                    decoration: const InputDecoration(
+                        labelText: 'Qabul qiluvchi ombor'),
+                    items: preview.warehouses
+                        .map((w) => DropdownMenuItem(
+                            value: w, child: Text(_displayLabel(w))))
+                        .toList(),
+                    onChanged: _busy
+                        ? null
+                        : (value) => setState(() => _warehouse = value)),
+              ],
+              for (final batch in preview.snapshot.items)
+                Card.filled(
+                    child: ListTile(
+                        key: ValueKey('werka-paddon-roll-${batch.batchId}'),
+                        title: Text(_displayLabel(
+                            batch.labelItemName.trim().isEmpty
+                                ? batch.labelItemCode
+                                : batch.labelItemName)),
+                        subtitle: Text(
+                            'Buyurtma: ${batch.orderId}\nQR: ${batch.qrPayload}\n${_batchQuantity(batch)}'),
+                        isThreeLine: true)),
+              if (receipt == null)
+                FilledButton.icon(
+                    key: const ValueKey('werka-paddon-receive'),
+                    onPressed: _busy ||
+                            _mustReload ||
+                            !preview.canReceive ||
+                            preview.snapshotToken.isEmpty ||
+                            _warehouse == null
+                        ? null
+                        : _accept,
+                    icon: const Icon(Icons.inventory_2_outlined),
+                    label: const Text('Omborga kirim qilish')),
               TextButton(
                   onPressed: _busy ? null : () => _load(_code),
                   child: const Text('Qayta tekshirish')),
-          ] else ...[
-            ListTile(
-                title: Text('Paddon ${preview.snapshot.paddon.code}'),
-                subtitle: Text(
-                    '${preview.snapshot.items.length} ta rulon • ${_displayLabel('${receipt?['warehouse'] ?? preview.snapshot.paddon.location}')}')),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: PaddonWeightTotals(
-                key: const ValueKey('werka-paddon-weights'),
-                paddon: receipt?['paddon'] is Map
-                    ? AdminPaddon.fromJson(
-                        (receipt!['paddon'] as Map).cast<String, dynamic>())
-                    : preview.snapshot.paddon,
-              ),
-            ),
-            if (receipt != null)
-              Card.filled(
-                  child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Omborga kirim qilingan',
-                                key: ValueKey('werka-paddon-received')),
-                            Text(
-                                'Ombor: ${_displayLabel('${receipt['warehouse']}')}'),
-                            Text(
-                                'Qabul qildi: ${receipt['accepted_by_display_name']}'),
-                            if (receipt['accepted_at_unix'] is num)
-                              Text(
-                                  'Vaqt: ${DateTime.fromMillisecondsSinceEpoch((receipt['accepted_at_unix'] as num).toInt() * 1000).toLocal()}'),
-                          ])))
-            else ...[
-              if (!preview.canReceive)
-                const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Text(
-                        'Kirim mumkin emas: paddon bo‘sh yoki tarkibida tayyor bo‘lmagan / qabul qilingan rulon bor.')),
-              DropdownButtonFormField<String>(
-                  key: ValueKey('werka-paddon-warehouse-$_warehouse'),
-                  initialValue: _warehouse,
-                  decoration:
-                      const InputDecoration(labelText: 'Qabul qiluvchi ombor'),
-                  items: preview.warehouses
-                      .map((w) => DropdownMenuItem(
-                          value: w, child: Text(_displayLabel(w))))
-                      .toList(),
-                  onChanged: _busy
+              OutlinedButton.icon(
+                  onPressed: _busy
                       ? null
-                      : (value) => setState(() => _warehouse = value)),
+                      : () => Navigator.of(context).pushReplacementNamed(
+                          AppRoutes.werkaStockEntryQrScan),
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: const Text('Keyingi QR kodni skanerlash')),
             ],
-            for (final batch in preview.snapshot.items)
-              Card.filled(
-                  child: ListTile(
-                      key: ValueKey('werka-paddon-roll-${batch.batchId}'),
-                      title: Text(_displayLabel(
-                          batch.labelItemName.trim().isEmpty
-                              ? batch.labelItemCode
-                              : batch.labelItemName)),
-                      subtitle: Text(
-                          'Buyurtma: ${batch.orderId}\nQR: ${batch.qrPayload}\n${_batchQuantity(batch)}'),
-                      isThreeLine: true)),
-            if (receipt == null)
-              FilledButton.icon(
-                  key: const ValueKey('werka-paddon-receive'),
-                  onPressed: _busy ||
-                          _mustReload ||
-                          !preview.canReceive ||
-                          _warehouse == null
-                      ? null
-                      : _accept,
-                  icon: const Icon(Icons.inventory_2_outlined),
-                  label: const Text('Omborga kirim qilish')),
-            TextButton(
-                onPressed: _busy ? null : () => _load(_code),
-                child: const Text('Qayta tekshirish')),
-            OutlinedButton.icon(
-                onPressed: _busy
-                    ? null
-                    : () => setState(() {
-                          _preview = null;
-                          _receipt = null;
-                          _error = '';
-                          _mustReload = false;
-                          _code = '';
-                        }),
-                icon: const Icon(Icons.qr_code_scanner),
-                label: const Text('Keyingi paddonni skanerlash')),
-          ],
-        ]));
+          ])),
+    );
   }
 }

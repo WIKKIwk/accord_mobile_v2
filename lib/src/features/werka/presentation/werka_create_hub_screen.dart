@@ -34,11 +34,11 @@ class WerkaCreateHubScreen extends StatelessWidget {
               child: Column(
                 children: [
                   _CreateHubRow(
-                    title: 'Paddon kirimi',
+                    title: 'QR skaner',
                     description:
-                        'Paddon QR orqali rulonlarni omborga qabul qilish',
+                        'Paddon yoki WIP ma’lumotini ko‘rish va ixtiyoriy kirim',
                     onTap: () => Navigator.of(context)
-                        .pushNamed(AppRoutes.werkaPaddonReceive),
+                        .pushNamed(AppRoutes.werkaStockEntryQrScan),
                     isFirst: true,
                   ),
                   _CreateHubRow(
