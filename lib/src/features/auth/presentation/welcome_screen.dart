@@ -4,6 +4,7 @@ import 'dart:async';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/test_mode/test_mode_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/display/motion_widgets.dart';
 import '../../../core/widgets/feedback/spring_bottom_sheet.dart';
@@ -12,7 +13,6 @@ import '../../../core/widgets/lists/m3_segmented_list.dart';
 import 'package:androidx_graphics_shapes/material_shapes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 part 'welcome_screen__WelcomeScreenState_methods_01.dart';
 part 'welcome_screen_widgets_part_01.dart';
@@ -148,7 +148,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             height: headlineHeight,
                             child: _buildAnimatedText(
                               displayL10n.welcomeToAccord,
-                              style: GoogleFonts.manrope(
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
                                 fontSize: headlineFontSize,
                                 height: 1.02,
                                 letterSpacing: -1.7,
@@ -237,7 +238,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                           MaterialTapTargetSize.shrinkWrap,
                                       visualDensity: VisualDensity.compact,
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(999),
+                                        borderRadius:
+                                            BorderRadius.circular(999),
                                       ),
                                     ),
                                     child: _buildSoftAnimatedText(

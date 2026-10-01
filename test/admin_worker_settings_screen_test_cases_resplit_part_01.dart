@@ -5,9 +5,17 @@ void _registeradmin_worker_settings_screen_testCases01() {
   testWidgets('worker settings creates worker with selected level', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(_loadGoogleSansTestFont);
+
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData(useMaterial3: true),
+        theme: AppTheme.light(),
+        builder: (context, child) => RepaintBoundary(
+          key: const ValueKey('worker-settings-test-capture'),
+          child: child!,
+        ),
         locale: const Locale('uz'),
         localizationsDelegates: const [
           AppLocalizations.delegate,
@@ -29,6 +37,18 @@ void _registeradmin_worker_settings_screen_testCases01() {
       find.byKey(const ValueKey('admin-hub-custom-Ishchi qo‘shish')),
     );
     await tester.pumpAndSettle();
+    const screenshot = String.fromEnvironment('GOOGLE_SANS_FORM_SCREENSHOT');
+    if (screenshot.isNotEmpty) {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('worker-settings-test-capture')),
+      );
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 2);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File(screenshot).writeAsBytes(bytes!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
     await tester.enterText(find.byType(TextField), 'Ali ishchi');
     await tester.tap(find.text('Brigader').first);
     await tester.pumpAndSettle();
@@ -40,7 +60,8 @@ void _registeradmin_worker_settings_screen_testCases01() {
     expect(find.text('Ishchi saqlandi'), findsOneWidget);
     expect(find.text('Ali ishchi'), findsOneWidget);
     expect(find.text('Master'), findsWidgets);
-    await tester.pump(const Duration(seconds: 2));
+    dismissAdminTopNotice();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('worker settings menu button opens drawer', (tester) async {

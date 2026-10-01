@@ -20,7 +20,7 @@ ThemeData _AppTheme_dark_resplit2AstPart(
     AppThemeVariant.white => AppTheme._whiteDarkScheme(),
   };
   final textTheme = AppTheme._textTheme(
-    base: GoogleFonts.robotoTextTheme(ThemeData.dark().textTheme),
+    base: ThemeData.dark().textTheme.apply(fontFamily: AppTheme.fontFamily),
     ink: colorScheme.onSurface,
     muted: colorScheme.onSurfaceVariant,
   );
@@ -45,7 +45,7 @@ ThemeData _AppTheme_light_resplit2AstPart(
     AppThemeVariant.white => AppTheme._whiteLightScheme(),
   };
   final textTheme = AppTheme._textTheme(
-    base: GoogleFonts.robotoTextTheme(ThemeData.light().textTheme),
+    base: ThemeData.light().textTheme.apply(fontFamily: AppTheme.fontFamily),
     ink: colorScheme.onSurface,
     muted: colorScheme.onSurfaceVariant,
   );

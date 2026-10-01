@@ -47,6 +47,10 @@ ThemeData _AppTheme__buildTheme_resplit2AstPart({
   return ThemeData(
     useMaterial3: true,
     brightness: brightness,
+    fontFamily: AppTheme.fontFamily,
+    cupertinoOverrideTheme: CupertinoThemeData(
+      textTheme: AppTheme._cupertinoTextTheme(colorScheme.primary),
+    ),
     colorScheme: colorScheme,
     scaffoldBackgroundColor: shellBackground,
     cardColor: colorScheme.surface,
@@ -196,12 +200,17 @@ InputDecorationTheme _AppTheme__inputDecorationTheme_resplit2AstPart({
   return InputDecorationTheme(
     filled: true,
     fillColor: fillColor,
-    labelStyle: GoogleFonts.roboto(
+    labelStyle: TextStyle(
+      fontFamily: AppTheme.fontFamily,
       color: hintColor,
       fontSize: 14,
       fontWeight: FontWeight.w500,
     ),
-    hintStyle: GoogleFonts.roboto(color: hintColor, fontSize: 15),
+    hintStyle: TextStyle(
+      fontFamily: AppTheme.fontFamily,
+      color: hintColor,
+      fontSize: 15,
+    ),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),
       borderSide: BorderSide(color: enabledBorderColor),

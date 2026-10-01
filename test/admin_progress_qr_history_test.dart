@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_progress_qr_history_view.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_progress_qr_passport.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_progress_qr_scan_pdf.dart';
@@ -237,14 +238,30 @@ void main() {
     testWidgets('selected roll timeline is readable in $language',
         (tester) async {
       final locale = Locale(language);
-      await tester.binding
-          .setSurfaceSize(Size(language == 'ru' ? 360 : 430, 1000));
+      const narrowScreenshot =
+          String.fromEnvironment('QR_HISTORY_NARROW_SCREENSHOT');
+      final isNarrowCapture = narrowScreenshot.isNotEmpty && language == 'uz';
+      await tester.binding.setSurfaceSize(
+          Size(language == 'ru' || isNarrowCapture ? 360 : 430, 1000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.runAsync(() async {
+        final fontLoader = FontLoader(AppTheme.fontFamily)
+          ..addFont(rootBundle
+              .load('assets/fonts/google_sans/GoogleSans-Regular.ttf'))
+          ..addFont(
+              rootBundle.load('assets/fonts/google_sans/GoogleSans-Medium.ttf'))
+          ..addFont(
+              rootBundle.load('assets/fonts/google_sans/GoogleSans-Bold.ttf'))
+          ..addFont(
+              rootBundle.load('assets/fonts/google_sans/GoogleSans-Italic.ttf'))
+          ..addFont(rootBundle
+              .load('assets/fonts/google_sans/GoogleSans-MediumItalic.ttf'))
+          ..addFont(rootBundle
+              .load('assets/fonts/google_sans/GoogleSans-BoldItalic.ttf'));
+        await fontLoader.load();
         await GlobalMaterialLocalizations.delegate.load(locale);
         await GlobalCupertinoLocalizations.delegate.load(locale);
         for (final font in [
-          (const String.fromEnvironment('QR_HISTORY_FONT'), 'Roboto'),
           (const String.fromEnvironment('QR_HISTORY_ICONS'), 'MaterialIcons'),
         ]) {
           if (font.$1.isNotEmpty) {
@@ -258,8 +275,9 @@ void main() {
       });
       var shares = 0;
       var scans = 0;
+      final theme = AppTheme.dark();
       await tester.pumpWidget(MaterialApp(
-        theme: ThemeData.dark(useMaterial3: true),
+        theme: theme,
         locale: locale,
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: const [
@@ -270,7 +288,8 @@ void main() {
         ],
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
-              textScaler: TextScaler.linear(language == 'ru' ? 1.3 : 1)),
+              textScaler: TextScaler.linear(
+                  language == 'ru' || isNarrowCapture ? 1.3 : 1)),
           child: RepaintBoundary(
               key: const ValueKey('history-capture'), child: child!),
         ),
@@ -344,6 +363,22 @@ void main() {
           final image = await boundary.toImage(pixelRatio: 2);
           final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
           await File(screenshot).writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
+      if (isNarrowCapture) {
+        tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position
+            .jumpTo(0);
+        await tester.pumpAndSettle();
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+            find.byKey(const ValueKey('history-capture')));
+        await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: 2);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File(narrowScreenshot)
+              .writeAsBytes(bytes!.buffer.asUint8List());
           image.dispose();
         });
       }

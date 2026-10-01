@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_progress_qr_scan_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -121,23 +122,32 @@ void main() {
           addTearDown(() => tester.binding.setSurfaceSize(null));
           final locale = Locale(language);
           await tester.runAsync(() async {
+            final fontLoader = FontLoader(AppTheme.fontFamily)
+              ..addFont(rootBundle
+                  .load('assets/fonts/google_sans/GoogleSans-Regular.ttf'))
+              ..addFont(rootBundle
+                  .load('assets/fonts/google_sans/GoogleSans-Medium.ttf'))
+              ..addFont(rootBundle
+                  .load('assets/fonts/google_sans/GoogleSans-Bold.ttf'))
+              ..addFont(rootBundle
+                  .load('assets/fonts/google_sans/GoogleSans-Italic.ttf'))
+              ..addFont(rootBundle
+                  .load('assets/fonts/google_sans/GoogleSans-MediumItalic.ttf'))
+              ..addFont(rootBundle
+                  .load('assets/fonts/google_sans/GoogleSans-BoldItalic.ttf'));
+            await fontLoader.load();
+            await (FontLoader('MaterialIcons')
+                  ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
+                .load();
             await GlobalMaterialLocalizations.delegate.load(locale);
             await GlobalCupertinoLocalizations.delegate.load(locale);
-            const fontPath = String.fromEnvironment('ADMIN_PADDON_QR_FONT');
-            if (fontPath.isNotEmpty) {
-              await (FontLoader('Roboto')
-                    ..addFont(File(fontPath)
-                        .readAsBytes()
-                        .then((bytes) => bytes.buffer.asByteData())))
-                  .load();
-            }
           });
           final l10n = AppLocalizations(locale);
           await http.runWithClient(
             () async {
               await tester.pumpWidget(
                 MaterialApp(
-                  theme: ThemeData.dark(useMaterial3: true),
+                  theme: AppTheme.dark(),
                   locale: locale,
                   supportedLocales: AppLocalizations.supportedLocales,
                   localizationsDelegates: const [

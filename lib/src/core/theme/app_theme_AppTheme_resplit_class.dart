@@ -13,6 +13,26 @@ part of 'app_theme.dart';
 ///    ranglar (masalan, [error], [scrim]) bilan vizual ziddiyat qilishi mumkin — minimal override yaxshiroq.
 ///
 class AppTheme {
+  static const String fontFamily = 'Google Sans';
+
+  static CupertinoTextThemeData _cupertinoTextTheme(Color primaryColor) {
+    final base = CupertinoTextThemeData(primaryColor: primaryColor);
+    TextStyle withGoogleSans(TextStyle style) =>
+        style.copyWith(fontFamily: fontFamily);
+
+    return base.copyWith(
+      textStyle: withGoogleSans(base.textStyle),
+      actionTextStyle: withGoogleSans(base.actionTextStyle),
+      actionSmallTextStyle: withGoogleSans(base.actionSmallTextStyle),
+      tabLabelTextStyle: withGoogleSans(base.tabLabelTextStyle),
+      navTitleTextStyle: withGoogleSans(base.navTitleTextStyle),
+      navLargeTitleTextStyle: withGoogleSans(base.navLargeTitleTextStyle),
+      navActionTextStyle: withGoogleSans(base.navActionTextStyle),
+      pickerTextStyle: withGoogleSans(base.pickerTextStyle),
+      dateTimePickerTextStyle: withGoogleSans(base.dateTimePickerTextStyle),
+    );
+  }
+
   static const double appBarHeight =
       _app_theme_AppTheme_resplit_class_AppTheme_appBarHeight_resplit2Value;
   static const double headerActionSize =

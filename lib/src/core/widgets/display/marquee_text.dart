@@ -38,15 +38,16 @@ class OverflowMarqueeText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trimmed = text;
+    final resolvedStyle = DefaultTextStyle.of(context).style.merge(style);
     if (trimmed.isEmpty) {
-      return Text(trimmed, style: style, maxLines: 1);
+      return Text(trimmed, style: resolvedStyle, maxLines: 1);
     }
     // Reduce-motion hurmati: animatsiyani o'chirish so'ralgan bo'lsa
     // oddiy ellipsis ko'rsatamiz.
     if (MediaQuery.of(context).disableAnimations) {
       return Text(
         trimmed,
-        style: style,
+        style: resolvedStyle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         textAlign: textAlign,
@@ -58,7 +59,7 @@ class OverflowMarqueeText extends StatelessWidget {
         if (!maxWidth.isFinite) {
           return Text(
             trimmed,
-            style: style,
+            style: resolvedStyle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: textAlign,
@@ -68,7 +69,7 @@ class OverflowMarqueeText extends StatelessWidget {
         // Font o'lchami/usi bir xil bo'lishi uchun TextPainter ni
         // xuddi shu style + scaler bilan o'lchaymiz.
         final painter = TextPainter(
-          text: TextSpan(text: trimmed, style: style),
+          text: TextSpan(text: trimmed, style: resolvedStyle),
           textDirection: Directionality.of(context),
           textScaler: scaler,
           maxLines: 1,
@@ -80,7 +81,7 @@ class OverflowMarqueeText extends StatelessWidget {
         if (textWidth <= maxWidth + 1) {
           return Text(
             trimmed,
-            style: style,
+            style: resolvedStyle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: textAlign,
@@ -88,7 +89,7 @@ class OverflowMarqueeText extends StatelessWidget {
         }
         return _MarqueeRunner(
           text: trimmed,
-          style: style,
+          style: resolvedStyle,
           textAlign: textAlign,
           scaler: scaler,
           maxWidth: maxWidth,

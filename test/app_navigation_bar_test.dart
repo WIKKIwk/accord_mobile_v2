@@ -1,16 +1,51 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
 import 'package:accord_mobile_v2/src/core/widgets/navigation/app_navigation_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+const _googleSansTestAssets = [
+  'assets/fonts/google_sans/GoogleSans-Regular.ttf',
+  'assets/fonts/google_sans/GoogleSans-Medium.ttf',
+  'assets/fonts/google_sans/GoogleSans-Bold.ttf',
+  'assets/fonts/google_sans/GoogleSans-Italic.ttf',
+  'assets/fonts/google_sans/GoogleSans-MediumItalic.ttf',
+  'assets/fonts/google_sans/GoogleSans-BoldItalic.ttf',
+];
+
+Future<void> _loadGoogleSansTestFont(WidgetTester tester) async {
+  await tester.runAsync(() async {
+    final fontLoader = FontLoader(AppTheme.fontFamily);
+    for (final fontAsset in _googleSansTestAssets) {
+      fontLoader.addFont(rootBundle.load(fontAsset));
+    }
+    await fontLoader.load();
+    await (FontLoader('MaterialIcons')
+          ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
+        .load();
+  });
+}
 
 void main() {
   testWidgets('primary navigation button is tappable and sized like before', (
     tester,
   ) async {
     int selectedIndex = -1;
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _loadGoogleSansTestFont(tester);
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData(useMaterial3: true),
+        theme: AppTheme.light(),
+        builder: (context, child) => RepaintBoundary(
+          key: const ValueKey('navigation-test-capture'),
+          child: child!,
+        ),
         home: Scaffold(
           body: const SizedBox.expand(),
           bottomNavigationBar: AppNavigationBar(
@@ -45,6 +80,19 @@ void main() {
     );
 
     await tester.pumpAndSettle();
+
+    const screenshot = String.fromEnvironment('GOOGLE_SANS_NAV_SCREENSHOT');
+    if (screenshot.isNotEmpty) {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('navigation-test-capture')),
+      );
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 2);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File(screenshot).writeAsBytes(bytes!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
 
     final buttonFinder = find.byKey(
       const ValueKey('app-primary-navigation-button'),

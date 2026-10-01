@@ -294,6 +294,7 @@ class _AdminFabActionMenuState extends State<AdminFabActionMenu>
           fontWeight: FontWeight.w600,
         ) ??
         TextStyle(
+          fontFamily: AppTheme.fontFamily,
           color: scheme.onPrimaryContainer,
           fontWeight: FontWeight.w600,
         );

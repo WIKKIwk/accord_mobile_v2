@@ -287,6 +287,7 @@ class _MapCanvasPainter extends CustomPainter {
       text: TextSpan(
         text: label,
         style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
           color: scheme.onPrimary,
           fontSize: 13,
           fontWeight: FontWeight.w800,

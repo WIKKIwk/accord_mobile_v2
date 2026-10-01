@@ -20,7 +20,6 @@ dependencies:
   record: ^7.1.1
   video_player: ^2.11.1
   flutter_svg: ^2.2.0
-  google_fonts: ^6.2.1
   http: ^1.5.0
   http_parser: ^4.1.2
   path_provider: ^2.1.5
@@ -70,8 +69,26 @@ flutter:
   assets:
     - assets/icons/
     - assets/images/
+    - assets/fonts/google_sans/OFL.txt
     - assets/models/zavod6-phone.glb
     - assets/models/zavod6-runtime.glb
+  fonts:
+    - family: Google Sans
+      fonts:
+        - asset: assets/fonts/google_sans/GoogleSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/google_sans/GoogleSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/google_sans/GoogleSans-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/google_sans/GoogleSans-Italic.ttf
+          style: italic
+        - asset: assets/fonts/google_sans/GoogleSans-MediumItalic.ttf
+          weight: 500
+          style: italic
+        - asset: assets/fonts/google_sans/GoogleSans-BoldItalic.ttf
+          weight: 700
+          style: italic
 
 flutter_launcher_icons:
   android: true

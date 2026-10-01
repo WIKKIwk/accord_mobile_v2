@@ -98,6 +98,7 @@ class _PingSparklinePainter extends CustomPainter {
       text: TextSpan(
         text: text,
         style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
           color: color,
           fontSize: 10,
           fontWeight: FontWeight.w700,

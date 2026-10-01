@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import '../../../../app/app_router.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/navigation/app_navigation_bar.dart';
 import '../../../../core/widgets/navigation/dock_gesture_overlay.dart';
 import '../../../../core/widgets/navigation/dock_system_bottom_inset.dart';

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../../../../core/session/state/app_session.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../admin/presentation/widgets/admin_dock.dart';
 import '../../../aparatchi/presentation/widgets/aparatchi_dock.dart';
 import '../../../customer/presentation/widgets/customer_dock.dart';
@@ -77,8 +78,13 @@ class ChatRoleDock extends StatelessWidget {
 
     final width = MediaQuery.sizeOf(context).width;
     final inputContentWidth = math.max(1.0, width - 106);
-    final textStyle = Theme.of(context).textTheme.bodyLarge ??
-        const TextStyle(fontSize: 16, height: 1.2);
+    final theme = Theme.of(context);
+    final textStyle = theme.textTheme.bodyLarge ??
+        const TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontSize: 16,
+          height: 1.2,
+        );
     final painter = TextPainter(
       text: TextSpan(text: text, style: textStyle),
       textDirection: Directionality.of(context),

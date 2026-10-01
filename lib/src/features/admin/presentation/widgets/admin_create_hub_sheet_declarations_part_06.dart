@@ -35,6 +35,7 @@ class _AdminHubActionPill extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ) ??
         TextStyle(
+          fontFamily: AppTheme.fontFamily,
           color: foreground,
           fontWeight: FontWeight.w600,
         );
