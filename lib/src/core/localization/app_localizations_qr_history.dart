@@ -1,6 +1,51 @@
 part of 'app_localizations.dart';
 
 const _qrHistoryTranslations = {
+  'worker.qr.history.resources': {
+    'uz': 'Xomashyo va qolip',
+    'en': 'Materials and plates',
+    'ru': 'Сырьё и печатные формы',
+  },
+  'worker.qr.history.materials': {
+    'uz': 'Ishlatilgan xomashyo',
+    'en': 'Recorded raw materials',
+    'ru': 'Зафиксированное сырьё',
+  },
+  'worker.qr.history.plates': {
+    'uz': 'Qolip (rulon tarixi)',
+    'en': 'Plates (roll history)',
+    'ru': 'Печатные формы (история рулона)',
+  },
+  'worker.qr.history.resource_missing': {
+    'uz': 'Tasdiqlangan ma’lumot qayd etilmagan',
+    'en': 'Verified information not recorded',
+    'ru': 'Подтверждённые сведения не записаны',
+  },
+  'worker.qr.history.materials_missing': {
+    'uz': 'Xomashyo ma’lumoti qayd etilmagan',
+    'en': 'Raw material information not recorded',
+    'ru': 'Сведения о сырье не записаны',
+  },
+  'worker.qr.history.materials_incomplete': {
+    'uz': 'Ayrim bosqichlarning xomashyo ma’lumoti qayd etilmagan.',
+    'en': 'Raw material history is missing for some stages.',
+    'ru': 'Для некоторых этапов сведения о сырье отсутствуют.',
+  },
+  'worker.qr.history.merge_inputs': {
+    'uz': 'Birlashtirilgan kirishlar',
+    'en': 'Combined inputs',
+    'ru': 'Объединённые входы',
+  },
+  'worker.qr.history.shared_length': {
+    'uz': 'Metraj (ishlab chiqarilgan va tayyor)',
+    'en': 'Length (produced and finished)',
+    'ru': 'Метраж (произведённый и готовый)',
+  },
+  'worker.qr.passport.diameter': {
+    'uz': 'Diametr',
+    'en': 'Diameter',
+    'ru': 'Диаметр',
+  },
   'worker.qr.history.title': {
     'uz': 'Skanerlangan rulon tarixi',
     'en': 'Scanned roll history',

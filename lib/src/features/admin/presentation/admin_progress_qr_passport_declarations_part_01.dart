@@ -88,6 +88,7 @@ class ProgressQrPassport {
     required this.corrections,
     required this.issues,
     this.historyNotice = '',
+    this.resourceLines = const [],
   });
 
   final String productName;
@@ -101,6 +102,7 @@ class ProgressQrPassport {
   final List<ProgressQrPassportCorrection> corrections;
   final List<ProgressQrPassportIssue> issues;
   final String historyNotice;
+  final List<ProgressQrPassportLine> resourceLines;
 
   String toPlainText() {
     final buffer = StringBuffer()
@@ -120,6 +122,12 @@ class ProgressQrPassport {
       );
     }
     if (historyNotice.isNotEmpty) buffer.writeln(historyNotice);
+    if (resourceLines.isNotEmpty) {
+      buffer.writeln('\nXOMASHYO VA QOLIP');
+      for (final line in resourceLines) {
+        buffer.writeln(line.sentence);
+      }
+    }
     if (plan.isNotEmpty) {
       buffer.writeln('\nBUYURTMA REJASI');
       for (final line in plan) {
@@ -229,6 +237,7 @@ ProgressQrPassport buildProgressQrPassport(
             ? _passportText(l10n, 'worker.qr.history.incomplete',
                 'Tarixdagi ayrim bog‘lanishlar tasdiqlanmagan. Faqat aniqlangan bosqichlar ko‘rsatilmoqda.')
             : '',
+    resourceLines: _passportResourceLines(report, orderedBatches, l10n),
     plan: [
       if (order?.customerName.trim().isNotEmpty == true)
         ProgressQrPassportLine(
@@ -347,6 +356,11 @@ ProgressQrPassportStage _passportStage(
       ? _passportApparatusLabel(batch.apparatus, apparatusNamesById, l10n: l10n)
       : _passportText(l10n, 'worker.qr.passport.production_stage',
           'Ishlab chiqarish bosqichi');
+  final mergeInputs = _passportMergeInputs(
+      report, batch, stepNumbers, apparatusNamesById, l10n);
+  final matchingLength = batch.finishedGoodsMeter != null &&
+      _passportMetreUnit(batch.uom) &&
+      batch.finishedGoodsMeter == batch.producedQty;
   return ProgressQrPassportStage(
     title: batch.action.trim() == 'roll_complete'
         ? '$title — ${_passportText(l10n, 'worker.qr.passport.roll_complete', 'rulon yakuni')}'
@@ -382,10 +396,14 @@ ProgressQrPassportStage _passportStage(
           formatUnixSecondsLocalDateTime(batch.completedAtUnix),
         ),
       ProgressQrPassportLine(
-        _passportText(l10n, 'worker.qr.passport.result', 'Natija'),
+        matchingLength
+            ? _passportText(l10n, 'worker.qr.history.shared_length',
+                'Metraj (ishlab chiqarilgan va tayyor)')
+            : _passportText(l10n, 'worker.qr.passport.result', 'Natija'),
         progressQrReadableQuantity(batch.producedQty, batch.uom),
       ),
       ..._metricLines(batch, l10n: l10n),
+      if (mergeInputs != null) mergeInputs,
       if (inputs.isNotEmpty)
         ProgressQrPassportLine(
           _passportText(l10n, 'worker.qr.history.inputs', 'Kirish bosqichlari'),
@@ -481,7 +499,9 @@ List<ProgressQrPassportLine> _metricLines(
             l10n, 'worker.qr.passport.bobbin_weight', 'Babina og‘irligi'),
         progressQrReadableQuantity(batch.bobinaKg!, 'kg'),
       ),
-    if (batch.finishedGoodsMeter != null)
+    if (batch.finishedGoodsMeter != null &&
+        !(_passportMetreUnit(batch.uom) &&
+            batch.finishedGoodsMeter == batch.producedQty))
       ProgressQrPassportLine(
         _passportText(
           l10n,

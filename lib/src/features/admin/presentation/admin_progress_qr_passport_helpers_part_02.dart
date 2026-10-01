@@ -133,14 +133,19 @@ List<ProgressQrPassportChange> progressQrCorrectionChanges(
     'finished_goods_meter',
     'description',
   ];
+  final matchingLength = _passportMatchingLengthChange(correction);
   return [
     for (final field in fields)
-      if (!_sameValue(
-        correction.oldValues[field],
-        correction.newValues[field],
-      ))
+      if (!(matchingLength && field == 'finished_goods_meter') &&
+          !_sameValue(
+            correction.oldValues[field],
+            correction.newValues[field],
+          ))
         ProgressQrPassportChange(
-          label: _fieldLabel(field, l10n: l10n),
+          label: matchingLength && field == 'produced_qty'
+              ? _passportText(l10n, 'worker.qr.history.shared_length',
+                  'Metraj (ishlab chiqarilgan va tayyor)')
+              : _fieldLabel(field, l10n: l10n),
           before: _correctionValue(
             field,
             correction.oldValues[field],

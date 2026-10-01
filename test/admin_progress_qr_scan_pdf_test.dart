@@ -141,6 +141,10 @@ Skanerlangan rulon: Keyingi bosqichni kutmoqda
 Undan chiqqan mahsulot: Keyingi bosqichni kutmoqda
 Eslatma: bu QR oldingi chiqishga tegishli. Quyida unga bog‘langan ishlab chiqarish bosqichlari ko‘rsatilgan.
 
+XOMASHYO VA QOLIP
+Ishlatilgan xomashyo: Tasdiqlangan ma’lumot qayd etilmagan
+Qolip (rulon tarixi): Tasdiqlangan ma’lumot qayd etilmagan
+
 BUYURTMA REJASI
 Mijoz: Accord
 Rejadagi rulonlar: 12 ta

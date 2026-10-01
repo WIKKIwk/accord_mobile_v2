@@ -123,6 +123,10 @@ class AdminProgressQrHistoryView extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     )),
                 const SizedBox(height: 20),
+                for (final line in passport.resourceLines)
+                  _HistoryFact(label: line.label, value: line.value),
+                if (passport.resourceLines.isNotEmpty)
+                  const Divider(height: 32),
                 for (var index = 0;
                     index < passport.stages.length;
                     index++) ...[
@@ -134,6 +138,7 @@ class AdminProgressQrHistoryView extends StatelessWidget {
                   const Divider(height: 32),
                   ExpansionTile(
                     tilePadding: EdgeInsets.zero,
+                    expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
                     title: Text(text('worker.qr.report.corrections')),
                     children: [
                       for (final correction in passport.corrections)
@@ -149,6 +154,7 @@ class AdminProgressQrHistoryView extends StatelessWidget {
                               for (final change in correction.changes)
                                 _HistoryFact(
                                     label: change.label,
+                                    stacked: true,
                                     value:
                                         '${change.before} → ${change.after}'),
                             ],
@@ -276,24 +282,36 @@ class _HistoryBadge extends StatelessWidget {
 }
 
 class _HistoryFact extends StatelessWidget {
-  const _HistoryFact({required this.label, required this.value});
+  const _HistoryFact(
+      {required this.label, required this.value, this.stacked = false});
   final String label;
   final String value;
+  final bool stacked;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Text.rich(
-          TextSpan(children: [
-            TextSpan(
-                text: '$label: ',
-                style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
-            TextSpan(
-                text: value,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-          ]),
-          style: theme.textTheme.bodyMedium),
+      child: stacked
+          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              Text(value,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ])
+          : Text.rich(
+              TextSpan(children: [
+                TextSpan(
+                    text: '$label: ',
+                    style:
+                        TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+                TextSpan(
+                    text: value,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+              ]),
+              style: theme.textTheme.bodyMedium),
     );
   }
 }

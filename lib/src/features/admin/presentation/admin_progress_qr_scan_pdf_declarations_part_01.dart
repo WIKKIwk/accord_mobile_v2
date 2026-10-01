@@ -43,6 +43,11 @@ class AdminProgressQrScanPdf {
             ),
         ],
       ),
+      if (passport.resourceLines.isNotEmpty)
+        _PdfSection(
+          _pdfText(l10n, 'worker.qr.history.resources', 'Xomashyo va qolip'),
+          [for (final line in passport.resourceLines) line.sentence],
+        ),
       if (passport.plan.isNotEmpty)
         _PdfSection(
           _pdfText(l10n, 'worker.qr.report.share_plan', 'Buyurtma rejasi'),

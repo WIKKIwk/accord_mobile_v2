@@ -186,6 +186,57 @@ class AdminProgressQrLineageEdge {
       );
 }
 
+class AdminProgressQrMaterial {
+  const AdminProgressQrMaterial({
+    required this.barcode,
+    required this.itemCode,
+    required this.itemName,
+  });
+
+  final String barcode;
+  final String itemCode;
+  final String itemName;
+
+  factory AdminProgressQrMaterial.fromJson(Map<String, dynamic> json) =>
+      AdminProgressQrMaterial(
+        barcode: json['barcode']?.toString().trim() ?? '',
+        itemCode: json['item_code']?.toString().trim() ?? '',
+        itemName: json['item_name']?.toString().trim() ?? '',
+      );
+}
+
+class AdminProgressQrSessionResources {
+  const AdminProgressQrSessionResources({
+    required this.sessionId,
+    this.rawMaterials = const [],
+    this.rawMaterialsAvailable = false,
+    this.qolipCodes = const [],
+    this.qolipAvailable = false,
+  });
+
+  final String sessionId;
+  final List<AdminProgressQrMaterial> rawMaterials;
+  final bool rawMaterialsAvailable;
+  final List<String> qolipCodes;
+  final bool qolipAvailable;
+
+  factory AdminProgressQrSessionResources.fromJson(Map<String, dynamic> json) =>
+      AdminProgressQrSessionResources(
+        sessionId: json['session_id']?.toString().trim() ?? '',
+        rawMaterialsAvailable: json['raw_materials_available'] == true,
+        qolipAvailable: json['qolip_available'] == true,
+        rawMaterials: [
+          for (final item in (json['raw_materials'] as List? ?? const []))
+            if (item is Map)
+              AdminProgressQrMaterial.fromJson(item.cast<String, dynamic>()),
+        ],
+        qolipCodes: [
+          for (final code in (json['qolip_codes'] as List? ?? const []))
+            if (code is String && code.trim().isNotEmpty) code.trim(),
+        ],
+      );
+}
+
 class AdminProgressQrReport {
   const AdminProgressQrReport({
     required this.scannedBatch,
@@ -205,6 +256,7 @@ class AdminProgressQrReport {
     this.lineageComplete = false,
     this.lineageEdges = const [],
     this.currentBatches = const [],
+    this.sessionResources = const [],
   });
 
   final AdminProgressBatch scannedBatch;
@@ -224,6 +276,7 @@ class AdminProgressQrReport {
   final bool lineageComplete;
   final List<AdminProgressQrLineageEdge> lineageEdges;
   final List<AdminProgressBatch> currentBatches;
+  final List<AdminProgressQrSessionResources> sessionResources;
 
   /// Legacy responses contain the entire order, not verified roll provenance.
   bool get hasScopedHistory => historyScope == 'batch_lineage';
@@ -300,6 +353,13 @@ class AdminProgressQrReport {
         for (final batch in (json['current_batches'] as List? ?? const []))
           if (batch is Map)
             AdminProgressBatch.fromJson(batch.cast<String, dynamic>()),
+      ],
+      sessionResources: [
+        for (final resources
+            in (json['session_resources'] as List? ?? const []))
+          if (resources is Map)
+            AdminProgressQrSessionResources.fromJson(
+                resources.cast<String, dynamic>()),
       ],
     );
   }
