@@ -253,8 +253,11 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
     _RezkaFrameInput? input;
     if (saved == null) {
       if (!_rezkaFrameMetricsComplete(frame)) {
-        _updateRezkaPrint(
-            () => _rezkaPrintStatus[index] = _rezkaText('fill_roll'));
+        _updateRezkaPrint(() => _rezkaPrintStatus[index] =
+            _rezkaBobinaTooLarge(frame)
+                ? context.l10n
+                    .productionText('worker.progress.qty.bobina_exceeds_gross')
+                : _rezkaText('fill_roll'));
         return;
       }
       input = _RezkaFrameInput(

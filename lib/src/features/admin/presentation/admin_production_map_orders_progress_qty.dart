@@ -486,10 +486,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       _parseQty(frame.bobina.text),
       _parseQty(frame.diameter.text),
     ];
-    return values.every(
-      (value) => value != null && value.isFinite && value > 0,
-    );
+    return !_rezkaBobinaTooLarge(frame) &&
+        values.every(
+          (value) => value != null && value.isFinite && value > 0,
+        );
   }
+
+  bool _rezkaBobinaTooLarge(_RezkaFrameControllers frame) => bobinaExceedsGross(
+      _parseQty(frame.kg.text), _parseQty(frame.bobina.text));
 
   bool _rezkaFrameHasAnyMetric(_RezkaFrameControllers frame) {
     return [frame.meter, frame.kg, frame.bobina, frame.diameter].any(
@@ -622,6 +626,15 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final kgQty = _parseQty(_kgController.text);
     final bobinaKg = _parseQty(_bobinaController.text);
     final diameter = _parseQty(_diameterController.text);
+    if (widget.isRezka &&
+        (_showRezkaFrameInputs
+            ? _rezkaFrameControllers.any(_rezkaBobinaTooLarge)
+            : bobinaExceedsGross(kgQty, bobinaKg))) {
+      _setCompletionError(context.l10n.productionText(
+        'worker.progress.qty.bobina_exceeds_gross',
+      ));
+      return;
+    }
     if (_requiresPaintReport &&
         widget.isBosma &&
         returnedPaintDraftHasInvalidValues(_returnedPaintDraft)) {

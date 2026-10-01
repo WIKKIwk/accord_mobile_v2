@@ -459,6 +459,13 @@ void main() {
     expect(find.text('200'), findsOneWidget);
 
     await tester.enterText(find.byType(TextFormField).first, '120');
+    await tester.enterText(find.byType(TextFormField).at(2), '808');
+    await tester.tap(find.byKey(const ValueKey('daily-work-wip-edit-save')));
+    await tester.pumpAndSettle();
+    expect(find.text('Babina vazni brutto vazndan katta bo‘lishi mumkin emas'),
+        findsOneWidget);
+    expect(submitted, isNull);
+    await tester.enterText(find.byType(TextFormField).at(2), '5');
     await tester.tap(
       find.byKey(const ValueKey('daily-work-wip-edit-save')),
     );

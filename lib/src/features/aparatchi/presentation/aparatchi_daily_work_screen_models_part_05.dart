@@ -106,6 +106,19 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
             'worker.daily.positive_number',
           );
         }
+        if (identical(controller, _bobina) &&
+            bobinaExceedsGross(
+              correctedRollGrossKg(
+                previousFinishedGoodsKg: _batch.finishedGoodsKg,
+                finishedGoodsKg: _parse(_kg),
+                previousGrossQty: _batch.payloadJson['gross_qty'],
+              ),
+              parsed,
+            )) {
+          return context.l10n.productionText(
+            'worker.progress.qty.bobina_exceeds_gross',
+          );
+        }
         return null;
       },
     );

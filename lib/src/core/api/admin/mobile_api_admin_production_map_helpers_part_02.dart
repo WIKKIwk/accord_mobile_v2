@@ -173,6 +173,8 @@ MobileApiException _adminProductionMapException(
         'Rezina razmeri 1050 mm dan katta bo‘lsa laminatsiya mumkin emas',
       'rezka_progress_metrics_required' =>
         'Rezka uchun barcha majburiy fieldlarni kiriting',
+      'bobina_exceeds_gross' =>
+        'Babina vazni brutto vazndan katta bo‘lishi mumkin emas',
       'rezka_frame_issue_only_on_roll_progress' =>
         'Kadr muammosi faqat Rezka tugatish amalida belgilanadi',
       'rezka_kadr_count_required' =>

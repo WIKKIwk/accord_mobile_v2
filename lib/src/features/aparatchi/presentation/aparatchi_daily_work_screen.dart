@@ -9,6 +9,7 @@ import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/print_service.dart';
+import '../../../core/production/roll_weight_validation.dart';
 import '../../../core/session/state/app_session.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
