@@ -11,6 +11,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import 'werka_archive_batch_qr.dart';
 import 'werka_archive_batch_qr_lookup_screen.dart';
 import 'werka_stock_entry_lookup_screen.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'werka_stock_entry_qr_scan_screen_widgets_part_01.dart';
 part 'werka_stock_entry_qr_scan_screen_declarations_part_02.dart';

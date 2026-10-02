@@ -416,7 +416,8 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                       return _WorkerWipHistoryError(
                         onRetry: _retry,
                         accessDenied: error is MobileApiException &&
-                            (error.statusCode == 403 || error.code == 'forbidden'),
+                            (error.statusCode == 403 ||
+                                error.code == 'forbidden'),
                       );
                     }
                     final batches =
@@ -471,7 +472,8 @@ List<RpsQrDetail> _workerWipCompactDetails(
   List<AdminApparatus> apparatusCatalog,
 ) {
   String displayApparatus(String value) {
-    final label = canonicalApparatusDisplayLabel(value, apparatusCatalog).trim();
+    final label =
+        canonicalApparatusDisplayLabel(value, apparatusCatalog).trim();
     return label.contains('apparatus:') ? '' : label;
   }
 
@@ -812,7 +814,7 @@ class _WorkerWipCountChip extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        child: Text(
+        child: UrduAwareText(
           '$label: $value',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: scheme.onTertiaryContainer,
@@ -884,7 +886,7 @@ class _WorkerWipHistoryCard extends StatelessWidget {
                     radius: 16,
                     backgroundColor: scheme.secondaryContainer,
                     foregroundColor: scheme.onSecondaryContainer,
-                    child: Text('${index + 1}'),
+                    child: UrduAwareText('${index + 1}'),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -954,7 +956,7 @@ class _WorkerWipHistoryCard extends StatelessWidget {
               ),
               if (batch.qrPayload.trim().isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text(
+                UrduAwareText(
                   '${context.l10n.productionText('worker.wip.info.qr')} ${batch.qrPayload.trim()}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -965,7 +967,7 @@ class _WorkerWipHistoryCard extends StatelessWidget {
               ],
               if (batch.description.trim().isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text(
+                UrduAwareText(
                   '${context.l10n.productionText('worker.wip.info.note')}: ${batch.description.trim()}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
@@ -1071,7 +1073,9 @@ class _WorkerWipHistoryError extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(context.l10n.productionText(
-            accessDenied ? 'worker.wip.access_denied' : 'worker.wip.history.error',
+            accessDenied
+                ? 'worker.wip.access_denied'
+                : 'worker.wip.history.error',
           )),
           const SizedBox(height: 8),
           TextButton(

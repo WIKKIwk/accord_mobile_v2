@@ -84,7 +84,7 @@ class _WarehouseSettingCount extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label),
-          Text(
+          UrduAwareText(
             '$value',
             style: const TextStyle(fontWeight: FontWeight.w700),
           ),

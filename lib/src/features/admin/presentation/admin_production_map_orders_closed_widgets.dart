@@ -96,7 +96,7 @@ class _ClosedOrderTile extends StatelessWidget {
       child: Theme(
         data: theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+          tilePadding: const EdgeInsetsDirectional.fromSTEB(14, 8, 8, 8),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           leading: _OpenedOrderIndexBadge(index: index),
           title: Text(
@@ -121,8 +121,8 @@ class _ClosedOrderTile extends StatelessWidget {
           children: [
             if (order.logs.isEmpty)
               Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
+                alignment: AlignmentDirectional.centerStart,
+                child: UrduAwareText(
                   'Log yo‘q',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,

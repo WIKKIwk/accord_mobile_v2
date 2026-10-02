@@ -5,6 +5,7 @@ import '../../../../core/widgets/buttons/app_action_button_styles.dart';
 import '../../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../preparation/models/preparation_models.dart';
 import '../../../werka/presentation/widgets/m3_picker_sheet.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 /// Tayyorlov masteri uchun javobgar homashyolar (calculate-material oilalari).
 /// Ombor editor pattern'i: chip ro'yxati + picker orqali qo'shish + confirm bilan o'chirish.
@@ -46,12 +47,12 @@ class _AdminPreparationResponsibilityEditorState
     setState(() => _adding = true);
     try {
       final catalog = await MobileApi.instance.calculateMaterials();
-      final assignedKeys = widget.assigned
-          .map((item) => _normalize(item.materialId))
-          .toSet();
+      final assignedKeys =
+          widget.assigned.map((item) => _normalize(item.materialId)).toSet();
       final available = catalog
           .where((material) =>
-              material.active && !assignedKeys.contains(_normalize(material.id)))
+              material.active &&
+              !assignedKeys.contains(_normalize(material.id)))
           .toList(growable: false);
       if (!mounted) {
         return;
@@ -59,7 +60,8 @@ class _AdminPreparationResponsibilityEditorState
       if (available.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Barcha homashyolar allaqachon biriktirilgan'),
+            content:
+                UrduAwareText('Barcha homashyolar allaqachon biriktirilgan'),
           ),
         );
         return;
@@ -89,8 +91,7 @@ class _AdminPreparationResponsibilityEditorState
       if (!mounted || picked == null) {
         return;
       }
-      final saved =
-          await MobileApi.instance.preparationAssignResponsibility(
+      final saved = await MobileApi.instance.preparationAssignResponsibility(
         principalRef: widget.principalRef,
         materialId: picked.id,
       );
@@ -107,13 +108,14 @@ class _AdminPreparationResponsibilityEditorState
       if (mounted) {
         widget.onChanged(updated);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Biriktirildi: ${saved.materialName}')),
+          SnackBar(
+              content: UrduAwareText('Biriktirildi: ${saved.materialName}')),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Biriktirilmadi: $error')),
+          SnackBar(content: UrduAwareText('Biriktirilmadi: $error')),
         );
       }
     } finally {
@@ -146,8 +148,7 @@ class _AdminPreparationResponsibilityEditorState
       );
       final updated = await widget.reloadAssigned();
       final stillExists = updated.any(
-        (entry) =>
-            _normalize(entry.materialId) == _normalize(item.materialId),
+        (entry) => _normalize(entry.materialId) == _normalize(item.materialId),
       );
       if (stillExists) {
         throw const MobileApiException(
@@ -158,13 +159,14 @@ class _AdminPreparationResponsibilityEditorState
       if (mounted) {
         widget.onChanged(updated);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Olib tashlandi: ${item.materialName}')),
+          SnackBar(
+              content: UrduAwareText('Olib tashlandi: ${item.materialName}')),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Olib tashlanmadi: $error')),
+          SnackBar(content: UrduAwareText('Olib tashlanmadi: $error')),
         );
       }
     } finally {
@@ -181,12 +183,12 @@ class _AdminPreparationResponsibilityEditorState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
+        UrduAwareText(
           'Javobgar homashyolar',
           style: theme.textTheme.titleLarge,
         ),
         const SizedBox(height: 8),
-        Text(
+        UrduAwareText(
           widget.assigned.isEmpty
               ? 'Hech qanday homashyo biriktirilmagan — bu master buyurtmalarni ko‘rmaydi.'
               : 'Shu homashyolari bor buyurtmalar masterga ko‘rinadi.',
@@ -204,10 +206,8 @@ class _AdminPreparationResponsibilityEditorState
             children: [
               for (final item in widget.assigned)
                 InputChip(
-                  key: ValueKey(
-                      'admin-prep-resp-${item.materialId}'),
-                  avatar:
-                      const Icon(Icons.inventory_2_outlined, size: 17),
+                  key: ValueKey('admin-prep-resp-${item.materialId}'),
+                  avatar: const Icon(Icons.inventory_2_outlined, size: 17),
                   label: Text(item.materialName.isEmpty
                       ? item.materialId
                       : item.materialName),
@@ -239,7 +239,7 @@ class _AdminPreparationResponsibilityEditorState
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.add_rounded),
-            label: const Text('Homashyo biriktirish'),
+            label: const UrduAwareText('Homashyo biriktirish'),
           ),
         ),
       ],

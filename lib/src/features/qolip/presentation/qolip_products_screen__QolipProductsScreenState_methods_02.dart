@@ -73,7 +73,7 @@ extension __QolipProductsScreenStateAstPart02 on _QolipProductsScreenState {
                 ),
                 const SizedBox(height: 14),
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: Text(
                     l10n.qolipText('products.color'),
                     style: Theme.of(context).textTheme.labelLarge,

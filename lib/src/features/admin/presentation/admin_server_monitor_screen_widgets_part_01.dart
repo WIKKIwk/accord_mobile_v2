@@ -306,7 +306,7 @@ class _HealthDial extends StatelessWidget {
               trackColor: scheme.outlineVariant.withValues(alpha: 0.68),
             ),
           ),
-          Text(
+          UrduAwareText(
             '$value%',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w900,
@@ -399,7 +399,7 @@ class _UsageTicksPanel extends StatelessWidget {
                         ),
                   ),
                 ),
-                Text(
+                UrduAwareText(
                   '$safePercent%',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w900,

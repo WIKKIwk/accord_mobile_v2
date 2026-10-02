@@ -48,11 +48,10 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
         : MobileWarehouse(warehouse: activeBatch.warehouse);
     final defaultWarehouse = _currentDefaultWarehouse;
     final defaultMode = activeBatch == null && _warehouseMode == 'default';
-    final targetWarehouse = defaultMode
-        ? defaultWarehouse
-        : (selectedWarehouse?.warehouse ?? '');
-    final simpleReceiptMode = activeBatch == null &&
-        _isTayyorlovSimpleWarehouse(targetWarehouse);
+    final targetWarehouse =
+        defaultMode ? defaultWarehouse : (selectedWarehouse?.warehouse ?? '');
+    final simpleReceiptMode =
+        activeBatch == null && _isTayyorlovSimpleWarehouse(targetWarehouse);
     final contextFieldsLocked = (activeBatch != null && !editingBatchContext) ||
         (_isMaterialReceipt && !_rpsBatchStateResolved) ||
         _batchActionLoading ||
@@ -111,10 +110,8 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
           orderWidth <= 0) {
         return null;
       }
-      final minimumWidth =
-          orderWidth - _linkedOrderWidthUndersizeToleranceMm;
-      final maximumWidth =
-          orderWidth + _linkedOrderWidthMaximumAllowanceMm;
+      final minimumWidth = orderWidth - _linkedOrderWidthUndersizeToleranceMm;
+      final maximumWidth = orderWidth + _linkedOrderWidthMaximumAllowanceMm;
       if (widthMm >= minimumWidth && widthMm <= maximumWidth) {
         return null;
       }
@@ -128,7 +125,8 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
     final lengthInvalid = selectedProduct != null &&
         _lengthController.text.trim().isNotEmpty &&
         lengthM == null;
-    final hasPrintSelection = !simpleReceiptMode && selectedProduct != null &&
+    final hasPrintSelection = !simpleReceiptMode &&
+        selectedProduct != null &&
         (defaultMode
             ? defaultWarehouse.isNotEmpty
             : selectedWarehouse != null) &&
@@ -267,7 +265,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                     vertical: -2,
                   ),
                 ),
-                child: const Text('Almashtirish'),
+                child: const UrduAwareText('Almashtirish'),
               ),
             ],
           ),
@@ -283,7 +281,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
+                child: UrduAwareText(
                   'Batch holati tekshirilmoqda…',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -298,7 +296,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                         _requestInFlight
                     ? null
                     : _retryRsBatchState,
-                child: const Text('Holatni qayta tekshirish'),
+                child: const UrduAwareText('Holatni qayta tekshirish'),
               ),
             ],
           ),
@@ -320,7 +318,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
+                  UrduAwareText(
                     'Joriy kg',
                     style: theme.textTheme.labelMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
@@ -364,7 +362,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
           if (activeBatch.orderId.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text('Faol batch orderi: ${activeBatch.orderId}'),
+              child: UrduAwareText('Faol batch orderi: ${activeBatch.orderId}'),
             ),
           _BatchContextSummary(
             itemName: activeBatch.displayItemName,
@@ -404,7 +402,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
           // Ombor eng yuqorida: material rolida ombor mahsulotga bog'liq emas.
           if (defaultMode) ...[
             if (defaultWarehouse.isEmpty)
-              Text(
+              UrduAwareText(
                 'Default ombor tanlanmagan.',
                 style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
               )
@@ -423,7 +421,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               onTap: null,
             ),
             const SizedBox(height: 6),
-            Text(
+            UrduAwareText(
               'Avval mahsulot tanlang, keyin ombor tanlash ochiladi.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
@@ -455,8 +453,9 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             onTap: contextFieldsLocked ? null : _openItemPicker,
           ),
           const SizedBox(height: 8),
-          if (!simpleReceiptMode && (selectedProduct?.requiresDimensions == true ||
-              (_prefillMaterialOrder && selectedProduct == null))) ...[
+          if (!simpleReceiptMode &&
+              (selectedProduct?.requiresDimensions == true ||
+                  (_prefillMaterialOrder && selectedProduct == null))) ...[
             Row(
               children: [
                 Expanded(
@@ -523,7 +522,8 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             ),
             if (rangeError != null)
               Padding(
-                padding: const EdgeInsets.only(top: 6, left: 4, right: 4),
+                padding:
+                    const EdgeInsetsDirectional.only(top: 6, start: 4, end: 4),
                 child: Text(
                   rangeError,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -534,7 +534,8 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               ),
             const SizedBox(height: 8),
           ],
-          if (!simpleReceiptMode && (selectedProduct != null || _prefillMaterialOrder)) ...[
+          if (!simpleReceiptMode &&
+              (selectedProduct != null || _prefillMaterialOrder)) ...[
             TextField(
               controller: _lengthController,
               enabled: !contextFieldsLocked,
@@ -712,7 +713,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               if (!simpleReceiptMode)
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 8),
+                    padding: const EdgeInsetsDirectional.only(start: 8),
                     child: SizedBox(
                       height: duplicateInvalid ? 84 : 60,
                       child: TextField(
@@ -787,7 +788,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.print_rounded, size: 23),
-                    label: const Text('Chop etish'),
+                    label: const UrduAwareText('Chop etish'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -798,7 +799,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                         ? () => unawaited(_stopRsBatch())
                         : null,
                     icon: const Icon(Icons.stop_circle_outlined, size: 23),
-                    label: const Text('To‘xtatish'),
+                    label: const UrduAwareText('To‘xtatish'),
                   ),
                 ),
               ],
@@ -824,7 +825,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                 ),
                 const SizedBox(width: 5),
                 Expanded(
-                  child: Text(
+                  child: UrduAwareText(
                     'Avval Boshlash, keyin Chop etish orqali print qiling.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
@@ -836,7 +837,9 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
           ],
           // Bluetooth/tarozi tanlanmasa Boshlash o'lik qoladi, lekin Saqlash
           // har doim active: sababini aniq ko'rsatish uchun.
-          if (!simpleReceiptMode && !_snapshot.batchActive && !hasPrintDevice) ...[
+          if (!simpleReceiptMode &&
+              !_snapshot.batchActive &&
+              !hasPrintDevice) ...[
             const SizedBox(height: 4),
             Row(
               children: [
@@ -847,7 +850,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                 ),
                 const SizedBox(width: 5),
                 Expanded(
-                  child: Text(
+                  child: UrduAwareText(
                     'Boshlash uchun avval Bluetooth printer yoki tarozini tanlang. Saqlash qurilmasiz ham ishlaydi.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
@@ -859,7 +862,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
           ],
           if (_manualPrintLoading) ...[
             const SizedBox(height: 4),
-            Text(
+            UrduAwareText(
               'Chop etish yuborilmoqda...',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
@@ -891,14 +894,12 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               loading: _batchActionLoading,
               batchActive: _snapshot.batchActive,
             ),
-            backgroundColor:
-                _snapshot.batchActive ? scheme.error : null,
-            foregroundColor:
-                _snapshot.batchActive ? scheme.onError : null,
+            backgroundColor: _snapshot.batchActive ? scheme.error : null,
+            foregroundColor: _snapshot.batchActive ? scheme.onError : null,
           ),
           if (_snapshot.batchActive) ...[
             const SizedBox(height: 4),
-            Text(
+            UrduAwareText(
               scalePrintReady
                   ? 'Stable kg avtomatik chop etiladi.'
                   : 'Stable kg kutilmoqda.',
@@ -908,7 +909,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             ),
           ] else if (hasScaleDevice && scaleQtyKg == null) ...[
             const SizedBox(height: 4),
-            Text(
+            UrduAwareText(
               'Scale ulangan va kg kelganda tugma aktiv bo‘ladi.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
@@ -924,106 +925,108 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
         ],
         if (showPrinterSettings)
           ExpansionTile(
-          key: const PageStorageKey<String>('batch_actions_tile'),
-          initiallyExpanded: false,
-          maintainState: true,
-          tilePadding: EdgeInsets.zero,
-          childrenPadding: EdgeInsets.zero,
-          title: Text(
-            'Printer sozlamalari',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          children: [
-            IgnorePointer(
-              ignoring: printerLocked,
-              child: Opacity(
-                opacity: printerLocked ? 0.6 : 1,
-                child: SegmentedButton<String>(
-                  style: _segmentStyle(context),
-                  segments: const [
-                    ButtonSegment<String>(
-                      value: 'zebra',
-                      label: Text('Zebra'),
-                      icon: Icon(Icons.memory_rounded),
-                    ),
-                    ButtonSegment<String>(
-                      value: 'godex',
-                      label: Text('GoDEX'),
-                      icon: Icon(Icons.local_printshop_outlined),
-                    ),
-                  ],
-                  selected: <String>{selectedPrinter},
-                  onSelectionChanged: (selection) {
-                    if (selection.isEmpty) {
-                      return;
-                    }
-                    final nextPrinter = normalizePrinterChoice(selection.first);
-                    if (nextPrinter == selectedPrinter) {
-                      return;
-                    }
-                    setState(() {
-                      _batchPrinter = nextPrinter;
-                      if (nextPrinter == 'godex') {
-                        _batchPrintMode = 'label';
-                      }
-                    });
-                    _scheduleSaveControlPrefs();
-                  },
-                ),
+            key: const PageStorageKey<String>('batch_actions_tile'),
+            initiallyExpanded: false,
+            maintainState: true,
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: EdgeInsets.zero,
+            title: UrduAwareText(
+              'Printer sozlamalari',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
               ),
             ),
-            if (selectedPrinter == 'godex') ...[
+            children: [
+              IgnorePointer(
+                ignoring: printerLocked,
+                child: Opacity(
+                  opacity: printerLocked ? 0.6 : 1,
+                  child: SegmentedButton<String>(
+                    style: _segmentStyle(context),
+                    segments: const [
+                      ButtonSegment<String>(
+                        value: 'zebra',
+                        label: UrduAwareText('Zebra'),
+                        icon: Icon(Icons.memory_rounded),
+                      ),
+                      ButtonSegment<String>(
+                        value: 'godex',
+                        label: UrduAwareText('GoDEX'),
+                        icon: Icon(Icons.local_printshop_outlined),
+                      ),
+                    ],
+                    selected: <String>{selectedPrinter},
+                    onSelectionChanged: (selection) {
+                      if (selection.isEmpty) {
+                        return;
+                      }
+                      final nextPrinter =
+                          normalizePrinterChoice(selection.first);
+                      if (nextPrinter == selectedPrinter) {
+                        return;
+                      }
+                      setState(() {
+                        _batchPrinter = nextPrinter;
+                        if (nextPrinter == 'godex') {
+                          _batchPrintMode = 'label';
+                        }
+                      });
+                      _scheduleSaveControlPrefs();
+                    },
+                  ),
+                ),
+              ),
+              if (selectedPrinter == 'godex') ...[
+                const SizedBox(height: 8),
+                const _MiniIconRow(
+                  icon: Icons.info_outline_rounded,
+                  text: 'GoDEX faqat yorliq chop etadi, RFID kodlamaydi.',
+                ),
+              ],
+              const SizedBox(height: 10),
+              IgnorePointer(
+                ignoring: printerLocked || selectedPrinter == 'godex',
+                child: Opacity(
+                  opacity:
+                      printerLocked || selectedPrinter == 'godex' ? 0.6 : 1,
+                  child: SegmentedButton<String>(
+                    style: _segmentStyle(context),
+                    segments: const [
+                      ButtonSegment<String>(
+                        value: 'rfid',
+                        label: UrduAwareText('RFID'),
+                        icon: Icon(Icons.memory_rounded),
+                      ),
+                      ButtonSegment<String>(
+                        value: 'label',
+                        label: UrduAwareText('Faqat yorliq'),
+                        icon: Icon(Icons.local_printshop_outlined),
+                      ),
+                    ],
+                    selected: <String>{_batchPrintMode},
+                    onSelectionChanged: (selection) {
+                      if (selection.isEmpty) {
+                        return;
+                      }
+                      final nextMode = selection.first;
+                      if (nextMode == _batchPrintMode) {
+                        return;
+                      }
+                      setState(() {
+                        _batchPrintMode = nextMode;
+                      });
+                      _scheduleSaveControlPrefs();
+                    },
+                  ),
+                ),
+              ),
               const SizedBox(height: 8),
               const _MiniIconRow(
-                icon: Icons.info_outline_rounded,
-                text: 'GoDEX faqat yorliq chop etadi, RFID kodlamaydi.',
+                icon: Icons.hub_outlined,
+                text: 'ERP batch/submit RS serverda, RPS faqat chop etadi.',
               ),
             ],
-            const SizedBox(height: 10),
-            IgnorePointer(
-              ignoring: printerLocked || selectedPrinter == 'godex',
-              child: Opacity(
-                opacity: printerLocked || selectedPrinter == 'godex' ? 0.6 : 1,
-                child: SegmentedButton<String>(
-                  style: _segmentStyle(context),
-                  segments: const [
-                    ButtonSegment<String>(
-                      value: 'rfid',
-                      label: Text('RFID'),
-                      icon: Icon(Icons.memory_rounded),
-                    ),
-                    ButtonSegment<String>(
-                      value: 'label',
-                      label: Text('Faqat yorliq'),
-                      icon: Icon(Icons.local_printshop_outlined),
-                    ),
-                  ],
-                  selected: <String>{_batchPrintMode},
-                  onSelectionChanged: (selection) {
-                    if (selection.isEmpty) {
-                      return;
-                    }
-                    final nextMode = selection.first;
-                    if (nextMode == _batchPrintMode) {
-                      return;
-                    }
-                    setState(() {
-                      _batchPrintMode = nextMode;
-                    });
-                    _scheduleSaveControlPrefs();
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const _MiniIconRow(
-              icon: Icons.hub_outlined,
-              text: 'ERP batch/submit RS serverda, RPS faqat chop etadi.',
-            ),
-          ],
-        ),
+          ),
       ],
     );
   }

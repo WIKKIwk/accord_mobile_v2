@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../models/raw_material_split_models.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 String _rawSplitTitle(RawSplitResult result) =>
     '${rawSplitDisplay(result.sourceKg)} → ${rawSplitDisplay(result.outputKg)} kg';
@@ -28,11 +29,8 @@ String _rawSplitTime(String? raw) {
     return raw.trim();
   }
   final now = DateTime.now();
-  final clock =
-      '${_two(time.hour)}:${_two(time.minute)}';
-  if (time.year == now.year &&
-      time.month == now.month &&
-      time.day == now.day) {
+  final clock = '${_two(time.hour)}:${_two(time.minute)}';
+  if (time.year == now.year && time.month == now.month && time.day == now.day) {
     return clock;
   }
   return '${_two(time.day)}.${_two(time.month)} $clock';
@@ -71,7 +69,7 @@ class RawSplitHistoryCard extends StatelessWidget {
       backgroundColor: backgroundColor,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 13, 12, 13),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 13, 12, 13),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -161,7 +159,7 @@ class RawSplitIssueCard extends StatelessWidget {
       backgroundColor: backgroundColor,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 13, 12, 13),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 13, 12, 13),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -200,7 +198,7 @@ class RawSplitIssueCard extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
+                UrduAwareText(
                   '${_two(issue.createdAt.toLocal().day)}.'
                   '${_two(issue.createdAt.toLocal().month)} '
                   '${_two(issue.createdAt.toLocal().hour)}:'
@@ -376,7 +374,7 @@ class _RawSplitDetailsSheetState extends State<RawSplitDetailsSheet> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          UrduAwareText(
                             '${rawSplitDisplay(output.kg)} kg · '
                             '${rawSplitDisplay(output.widthMm)} mm · '
                             '${rawSplitDisplay(output.micron)} mkm'
@@ -388,11 +386,13 @@ class _RawSplitDetailsSheetState extends State<RawSplitDetailsSheet> {
                           const SizedBox(height: 2),
                           Text(output.labelName),
                           if (output.grossKg != null)
-                            Text('Brutto: ${rawSplitDisplay(output.grossKg!)} kg · '
+                            UrduAwareText(
+                                'Brutto: ${rawSplitDisplay(output.grossKg!)} kg · '
                                 'Babina: ${rawSplitDisplay(output.bobinaKg!)} kg'),
                           if (output.lengthM != null &&
                               output.lengthM!.isNotEmpty)
-                            Text('Metri: ${rawSplitDisplay(output.lengthM!)} m'),
+                            UrduAwareText(
+                                'Metri: ${rawSplitDisplay(output.lengthM!)} m'),
                           SelectableText(output.barcode),
                         ],
                       ),
@@ -401,8 +401,7 @@ class _RawSplitDetailsSheetState extends State<RawSplitDetailsSheet> {
                       tooltip: 'Shu rulonni qayta chop etish',
                       onPressed: _printing
                           ? null
-                          : () => _run(() async =>
-                              widget.onReprint(output)),
+                          : () => _run(() async => widget.onReprint(output)),
                       icon: const Icon(Icons.print_outlined),
                     ),
                   ],
@@ -413,7 +412,7 @@ class _RawSplitDetailsSheetState extends State<RawSplitDetailsSheet> {
               OutlinedButton.icon(
                 onPressed: _printing ? null : widget.onSelectPrinter,
                 icon: const Icon(Icons.print_outlined),
-                label: const Text('Printer tanlash'),
+                label: const UrduAwareText('Printer tanlash'),
               )
             else
               Row(
@@ -421,7 +420,7 @@ class _RawSplitDetailsSheetState extends State<RawSplitDetailsSheet> {
                   const Icon(Icons.print_outlined, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
+                    child: UrduAwareText(
                       'Printer: ${widget.printerLabel}',
                       style: theme.textTheme.bodySmall,
                     ),
@@ -438,19 +437,20 @@ class _RawSplitDetailsSheetState extends State<RawSplitDetailsSheet> {
                             },
                       items: const [
                         DropdownMenuItem(
-                            value: 'godex', child: Text('GoDEX')),
+                            value: 'godex', child: UrduAwareText('GoDEX')),
                         DropdownMenuItem(
-                            value: 'zebra', child: Text('Zebra')),
+                            value: 'zebra', child: UrduAwareText('Zebra')),
                       ],
                     ),
                 ],
               ),
             const SizedBox(height: 12),
             FilledButton.icon(
-              onPressed:
-                  _printing ? null : () => _run(() async => widget.onReprintAll()),
+              onPressed: _printing
+                  ? null
+                  : () => _run(() async => widget.onReprintAll()),
               icon: const Icon(Icons.print_outlined),
-              label: const Text('Barchasini qayta chop etish'),
+              label: const UrduAwareText('Barchasini qayta chop etish'),
             ),
           ],
         ),
@@ -561,10 +561,10 @@ class RawSplitIssueDetailsSheet extends StatelessWidget {
                     'Netto: ${rawSplitDisplay(issue.outputs[i]['kg'] as String)} kg',
               ),
             const SizedBox(height: 8),
-            Text('Sabab: ${issue.note}'),
-            Text('${issue.actorName} · ${issue.createdAt.toLocal()}',
+            UrduAwareText('Sabab: ${issue.note}'),
+            UrduAwareText('${issue.actorName} · ${issue.createdAt.toLocal()}',
                 style: theme.textTheme.bodySmall),
-            Text(hasResult
+            UrduAwareText(hasResult
                 ? 'Muammo bo‘yicha rulonlar saqlangan.'
                 : 'Muammo sababi qayd etilgan.'),
           ],

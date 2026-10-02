@@ -18,7 +18,7 @@ class WerkaCreateHubScreen extends StatelessWidget {
       title: l10n.createHubTitle,
       subtitle: '',
       bottom: const WerkaDock(activeTab: WerkaDockTab.create),
-      contentPadding: const EdgeInsets.fromLTRB(10, 0, 12, 0),
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(10, 0, 12, 0),
       child: ListView(
         padding: const EdgeInsets.only(bottom: 110),
         children: [

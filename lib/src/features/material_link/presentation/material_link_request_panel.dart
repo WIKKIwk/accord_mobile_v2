@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/api/mobile_api.dart';
 import '../models/material_link_request.dart';
 import 'material_link_request_card.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class MaterialLinkRequestPanel extends StatefulWidget {
   const MaterialLinkRequestPanel(
@@ -150,20 +151,20 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (available) ...[
-              Text('Orderga ulanmagan rulonlar',
+              UrduAwareText('Orderga ulanmagan rulonlar',
                   style: Theme.of(context).textTheme.titleSmall),
-              Text(
+              UrduAwareText(
                   'Apparat oldidagi ${_overview!.candidates.length} ta mos rulondan keraklisini tanlab so‘rov yuboring'),
             ],
             for (final request in latest.values) ...[
-              Text('${request.moverName}: ${request.statusLabel}'),
-              Text('So‘ralgan rulonlar: '
+              UrduAwareText('${request.moverName}: ${request.statusLabel}'),
+              UrduAwareText('So‘ralgan rulonlar: '
                   '${request.rolls.map((roll) => roll.barcode).join(', ')}'),
               if (request.reason.isNotEmpty) Text(request.reason),
               if (request.pending)
                 TextButton(
                   onPressed: _busy ? null : () => _cancel(request),
-                  child: const Text('So‘rovni bekor qilish'),
+                  child: const UrduAwareText('So‘rovni bekor qilish'),
                 ),
             ],
             if (_error.isNotEmpty) ...[
@@ -171,17 +172,17 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel> {
                   style: TextStyle(color: Theme.of(context).colorScheme.error)),
               TextButton(
                   onPressed: _busy ? null : _refresh,
-                  child: const Text('Holatni yangilash')),
+                  child: const UrduAwareText('Holatni yangilash')),
             ],
             if (available || pending)
               OutlinedButton.icon(
                 onPressed: _busy || pending || !available ? null : _send,
                 icon: const Icon(Icons.send_outlined),
-                label:
-                    Text(pending ? 'Tasdiq kutilmoqda' : 'Ulash uchun so‘rov'),
+                label: UrduAwareText(
+                    pending ? 'Tasdiq kutilmoqda' : 'Ulash uchun so‘rov'),
               ),
             if (!available && !pending && latest.isNotEmpty)
-              const Text(
+              const UrduAwareText(
                   'Hozir bu orderga ulash mumkin bo‘lgan bo‘sh rulon yo‘q'),
           ],
         ));

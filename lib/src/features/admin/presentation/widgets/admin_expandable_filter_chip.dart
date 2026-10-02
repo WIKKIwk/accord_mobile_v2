@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 class AdminFilterChipOption<T> {
   const AdminFilterChipOption({
@@ -55,12 +56,12 @@ class AdminExpandableFilterChip<T> extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: FilterChip(
               key: chipKey,
               selected: hasSelection,
               showCheckmark: false,
-              label: Text('$label: $selectedLabel'),
+              label: UrduAwareText('$label: $selectedLabel'),
               labelStyle: theme.textTheme.labelLarge?.copyWith(
                 color: hasSelection
                     ? scheme.onSecondaryContainer

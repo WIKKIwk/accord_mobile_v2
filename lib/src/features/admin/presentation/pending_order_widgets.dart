@@ -5,6 +5,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import 'admin_calculate_screen.dart';
 import 'widgets/admin_order_image_thumb.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class PendingOrderCard extends StatelessWidget {
   const PendingOrderCard({
@@ -26,7 +27,8 @@ class PendingOrderCard extends StatelessWidget {
       '${MobileApi.baseUrl}/v1/mobile/admin/pending-orders/image',
     ).replace(queryParameters: {
       'id': order.id,
-      if (template.imageId.trim().isNotEmpty) 'image_id': template.imageId.trim(),
+      if (template.imageId.trim().isNotEmpty)
+        'image_id': template.imageId.trim(),
     }).toString();
     final subtitle =
         '${template.customer} · ${template.kg} kg · Chala buyurtma';
@@ -57,8 +59,8 @@ class PendingOrderCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding:
-                const EdgeInsets.fromLTRB(kAdminOrderCoverWidth + 12, 8, 4, 8),
+            padding: const EdgeInsetsDirectional.fromSTEB(
+                kAdminOrderCoverWidth + 12, 8, 4, 8),
             child: Row(
               children: [
                 Expanded(
@@ -68,7 +70,8 @@ class PendingOrderCard extends StatelessWidget {
                     children: [
                       Text.rich(
                         TextSpan(children: [
-                          TextSpan(text: template.orderNumber, style: codeStyle),
+                          TextSpan(
+                              text: template.orderNumber, style: codeStyle),
                           TextSpan(
                             text: ' • ',
                             style: codeStyle?.copyWith(
@@ -142,7 +145,7 @@ class _PendingOrderDetailSheetState extends State<PendingOrderDetailSheet> {
               children: [
                 Row(children: [
                   Expanded(
-                      child: Text('№${t.orderNumber} · Chala buyurtma',
+                      child: UrduAwareText('№${t.orderNumber} · Chala buyurtma',
                           style: Theme.of(context).textTheme.titleLarge)),
                   IconButton(
                       onPressed: () => Navigator.pop(context, false),
@@ -154,7 +157,7 @@ class _PendingOrderDetailSheetState extends State<PendingOrderDetailSheet> {
                       if (snapshot.hasError) {
                         return const Padding(
                             padding: EdgeInsets.all(8),
-                            child: Text('Rasm yuklanmadi'));
+                            child: UrduAwareText('Rasm yuklanmadi'));
                       }
                       if (!snapshot.hasData) {
                         return const SizedBox(
@@ -227,7 +230,7 @@ class _PendingOrderDetailSheetState extends State<PendingOrderDetailSheet> {
                   style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(52),
                       backgroundColor: const Color(0xFF7043A5)),
-                  child: const Text('Order ochishni tugallash'),
+                  child: const UrduAwareText('Order ochishni tugallash'),
                 ),
               ]),
         ),

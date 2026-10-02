@@ -77,14 +77,14 @@ class _ManualServerSheetState extends State<ManualServerSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          UrduAwareText(
             'Server qo‘shish',
             style: Theme.of(
               context,
             ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
-          Text(
+          UrduAwareText(
             'Masalan: 192.168.1.12:39117',
             style: Theme.of(
               context,
@@ -119,7 +119,8 @@ class _ManualServerSheetState extends State<ManualServerSheet> {
           FilledButton.icon(
             onPressed: _checking ? null : _submit,
             icon: const Icon(Icons.link_rounded),
-            label: Text(_checking ? 'Tekshirilmoqda...' : 'Serverga ulanish'),
+            label: UrduAwareText(
+                _checking ? 'Tekshirilmoqda...' : 'Serverga ulanish'),
           ),
         ],
       ),

@@ -16,6 +16,7 @@ import '../../shared/models/app_models.dart';
 import 'widgets/material_taminotchi_dock.dart';
 import 'widgets/material_taminotchi_navigation_drawer.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'material_taminotchi_home_screen_widgets_part_01.dart';
 part 'material_taminotchi_home_screen_declarations_part_02.dart';

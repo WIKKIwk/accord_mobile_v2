@@ -146,7 +146,7 @@ class _ArchiveBatchQrPanel extends StatelessWidget {
                               ),
                             )
                           : const Icon(Icons.local_shipping_outlined),
-                      label: Text(
+                      label: UrduAwareText(
                         isSubmitting
                             ? 'Jo‘natilmoqda...'
                             : 'Customerga jo‘natish',
@@ -168,7 +168,7 @@ class _ArchiveBatchQrPanel extends StatelessWidget {
                     context,
                   ).pushReplacementNamed(AppRoutes.werkaStockEntryQrScan),
                   icon: const Icon(Icons.qr_code_scanner_rounded),
-                  label: const Text('Qayta scan'),
+                  label: const UrduAwareText('Qayta scan'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -176,7 +176,7 @@ class _ArchiveBatchQrPanel extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.arrow_back_rounded),
-                  label: const Text('Ortga'),
+                  label: const UrduAwareText('Ortga'),
                 ),
               ),
             ],

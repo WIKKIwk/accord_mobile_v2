@@ -186,7 +186,7 @@ class _ArchivePaddonCard extends StatelessWidget {
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 10, 8),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 45),
           child: Row(

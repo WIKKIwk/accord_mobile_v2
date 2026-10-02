@@ -18,6 +18,7 @@ import '../models/production_map_models.dart';
 import 'admin_progress_qr_passport.dart';
 import 'admin_progress_qr_history_view.dart';
 import 'admin_progress_qr_scan_pdf.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'admin_progress_qr_scan_screen__AdminProgressQrScanScreenState_methods_01.dart';
 part 'admin_progress_qr_scan_screen_models_part_01.dart';

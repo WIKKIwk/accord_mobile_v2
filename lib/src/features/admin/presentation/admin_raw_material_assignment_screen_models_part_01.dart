@@ -319,7 +319,7 @@ class _ManualCandidateListRow extends StatelessWidget {
       onTap: busy ? null : onTap,
       backgroundColor: scheme.surfaceContainerLowest,
       fixedHeight: 61,
-      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
       value: '',
       showChevron: false,
       leading: SizedBox.square(
@@ -387,7 +387,7 @@ class _ManualAssignmentListRow extends StatelessWidget {
       onTap: busy ? null : onTap,
       backgroundColor: scheme.surfaceContainerLowest,
       fixedHeight: 61,
-      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
       value: '',
       showChevron: false,
       leading: SizedBox.square(

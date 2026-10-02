@@ -28,7 +28,7 @@ class _FactoryLocationTile extends StatelessWidget {
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       onTap: disabled ? null : onEdit,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 8, 14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -295,7 +295,7 @@ class _FactoryLocationEditorDialogState
             if (widget.location != null) ...[
               const SizedBox(height: 6),
               Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 child: Text(
                   context.l10n.adminText(
                     'factory.state_id_note',
@@ -317,7 +317,7 @@ class _FactoryLocationEditorDialogState
             const SizedBox(height: 8),
             if (selectedApparatus.isEmpty)
               Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 child: Text(
                   context.l10n.adminText('factory.no_equipment_linked'),
                   style: Theme.of(context).textTheme.bodySmall,
@@ -325,7 +325,7 @@ class _FactoryLocationEditorDialogState
               )
             else
               Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 child: Wrap(
                   spacing: 6,
                   runSpacing: 4,

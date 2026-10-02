@@ -48,7 +48,7 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
               onTap: () => setState(() => _expanded = !_expanded),
               onLongPress: widget.onOpenDetails,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+                padding: const EdgeInsetsDirectional.fromSTEB(10, 8, 4, 8),
                 child: Row(
                   children: [
                     Icon(
@@ -107,7 +107,8 @@ class _TrainingOrderCardState extends State<_TrainingOrderCard> {
               alignment: Alignment.topCenter,
               child: _expanded
                   ? Padding(
-                      padding: const EdgeInsets.fromLTRB(40, 0, 12, 10),
+                      padding:
+                          const EdgeInsetsDirectional.fromSTEB(40, 0, 12, 10),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [

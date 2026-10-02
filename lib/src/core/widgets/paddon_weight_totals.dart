@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../api/mobile_api.dart';
 import '../formatters/quantity_formatters.dart';
 import '../localization/app_localizations.dart';
+import '../localization/urdu_aware_text.dart';
 
 /// Server-authoritative product weights, excluding the pallet itself.
 class PaddonWeightTotals extends StatelessWidget {
@@ -27,7 +28,7 @@ class PaddonWeightTotals extends StatelessWidget {
         ])
           SizedBox(
               width: columnWidth,
-              child: Text(
+              child: UrduAwareText(
                 '${context.l10n.productionText(entry.$1)}: ${weight(entry.$2)}',
                 key: ValueKey(entry.$3),
                 softWrap: true,

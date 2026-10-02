@@ -7,6 +7,7 @@ import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import 'werka_paddon_receive_screen.dart';
 import 'widgets/werka_dock.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 /// Opening a QR result only displays the server's preview. Receiving always
 /// requires a separate action and confirmation against that exact snapshot.
@@ -252,15 +253,15 @@ class _WerkaWipPreviewScreenState extends State<WerkaWipPreviewScreen> {
                         key: const ValueKey('werka-wip-product'),
                         style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 8),
-                    Text('Buyurtma: ${batch.orderId}'),
-                    Text('QR: ${batch.qrPayload}'),
+                    UrduAwareText('Buyurtma: ${batch.orderId}'),
+                    UrduAwareText('QR: ${batch.qrPayload}'),
                     Text(quantities.isEmpty
                         ? '${formatQuantity(batch.producedQty, decimalPlaces: 6, trimTrailingZeros: true)} ${batch.uom}'
                         : quantities.join(' • ')),
-                    Text(
+                    UrduAwareText(
                         'Joylashuv: ${_label(receipt?['warehouse']?.toString() ?? batch.currentLocation)}'),
                     if (batch.workerDisplayName.isNotEmpty)
-                      Text('Ishchi: ${batch.workerDisplayName}'),
+                      UrduAwareText('Ishchi: ${batch.workerDisplayName}'),
                     if (batch.description.isNotEmpty) Text(batch.description),
                     const SizedBox(height: 8),
                     Text(_status, key: const ValueKey('werka-wip-status')),
@@ -275,13 +276,14 @@ class _WerkaWipPreviewScreenState extends State<WerkaWipPreviewScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Omborga kirim qilingan',
+                      const UrduAwareText('Omborga kirim qilingan',
                           key: ValueKey('werka-wip-received')),
-                      Text('Ombor: ${_label('${receipt['warehouse'] ?? ''}')}'),
-                      Text(
+                      UrduAwareText(
+                          'Ombor: ${_label('${receipt['warehouse'] ?? ''}')}'),
+                      UrduAwareText(
                           'Qabul qildi: ${receipt['accepted_by_display_name'] ?? ''}'),
                       if (receipt['accepted_at_unix'] is num)
-                        Text(
+                        UrduAwareText(
                             'Vaqt: ${DateTime.fromMillisecondsSinceEpoch((receipt['accepted_at_unix'] as num).toInt() * 1000).toLocal()}'),
                     ],
                   ),
@@ -291,8 +293,8 @@ class _WerkaWipPreviewScreenState extends State<WerkaWipPreviewScreen> {
               DropdownButtonFormField<String>(
                 key: ValueKey('werka-wip-warehouse-$_warehouse'),
                 initialValue: _warehouse,
-                decoration:
-                    const InputDecoration(labelText: 'Qabul qiluvchi ombor'),
+                decoration: InputDecoration(
+                    labelText: localizeUrduUiText('Qabul qiluvchi ombor')),
                 items: _preview.warehouses
                     .map((w) =>
                         DropdownMenuItem(value: w, child: Text(_label(w))))
@@ -306,13 +308,13 @@ class _WerkaWipPreviewScreenState extends State<WerkaWipPreviewScreen> {
                 key: const ValueKey('werka-wip-receive'),
                 onPressed: _canReceive ? _accept : null,
                 icon: const Icon(Icons.inventory_2_outlined),
-                label: const Text('Omborga kirim qilish'),
+                label: const UrduAwareText('Omborga kirim qilish'),
               ),
             ],
             TextButton(
               key: const ValueKey('werka-wip-reload'),
               onPressed: _busy ? null : _reload,
-              child: const Text('Qayta tekshirish'),
+              child: const UrduAwareText('Qayta tekshirish'),
             ),
             OutlinedButton.icon(
               onPressed: _busy
@@ -320,7 +322,7 @@ class _WerkaWipPreviewScreenState extends State<WerkaWipPreviewScreen> {
                   : () => Navigator.of(context)
                       .pushReplacementNamed(AppRoutes.werkaStockEntryQrScan),
               icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Keyingi QR kodni skanerlash'),
+              label: const UrduAwareText('Keyingi QR kodni skanerlash'),
             ),
           ],
         ),

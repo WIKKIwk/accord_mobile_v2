@@ -147,8 +147,9 @@ class _AdminFabActionMenuState extends State<AdminFabActionMenu>
     final hostHeight = menuHeight +
         _AdminCreateHubOverlayState._groupButtonGap +
         _AdminCreateHubOverlayState._fabClosedSize;
-    final motionAlignment =
-        widget.alignEnd ? Alignment.bottomRight : Alignment.bottomLeft;
+    final motionAlignment = widget.alignEnd
+        ? AlignmentDirectional.bottomEnd
+        : AlignmentDirectional.bottomStart;
     return SizedBox(
       width: hostWidth,
       height: hostHeight,
@@ -187,8 +188,8 @@ class _AdminFabActionMenuState extends State<AdminFabActionMenu>
                               _effectsController,
                             ),
                             overflowAlignment: widget.alignEnd
-                                ? Alignment.centerRight
-                                : Alignment.centerLeft,
+                                ? AlignmentDirectional.centerEnd
+                                : AlignmentDirectional.centerStart,
                             motionKey: ValueKey(
                               'admin-fab-menu-reveal-${actions[rowStart + offset].row}',
                             ),

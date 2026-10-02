@@ -23,10 +23,12 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
   late final TextEditingController _title;
   late List<int> _frameGroups;
 
-  bool get _validFrames => widget.frameCount > 0 &&
+  bool get _validFrames =>
+      widget.frameCount > 0 &&
       _frameGroups.isNotEmpty &&
       _frameGroups.every((count) => count > 0) &&
-      _frameGroups.fold<int>(0, (sum, count) => sum + count) == widget.frameCount;
+      _frameGroups.fold<int>(0, (sum, count) => sum + count) ==
+          widget.frameCount;
 
   @override
   void initState() {
@@ -64,7 +66,7 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
               ),
             ),
             const SizedBox(height: 18),
-            Text(
+            UrduAwareText(
               'Rezka sozlash',
               style: Theme.of(
                 context,
@@ -88,10 +90,12 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
 
   Widget _buildFrameGroups(BuildContext context) {
     if (widget.frameCount <= 0) {
-      return const Text('Buyurtmada kadr soni topilmadi. Avval buyurtma hisob-kitobida kadr sonini belgilang.');
+      return const UrduAwareText(
+          'Buyurtmada kadr soni topilmadi. Avval buyurtma hisob-kitobida kadr sonini belgilang.');
     }
     if (!_validFrames) {
-      return const Text('Saqlangan kadr guruhlari kadr soniga mos emas. Rezka sozlamasini qayta yarating.');
+      return const UrduAwareText(
+          'Saqlangan kadr guruhlari kadr soniga mos emas. Rezka sozlamasini qayta yarating.');
     }
     var cursor = 1;
     final children = <Widget>[];
@@ -254,7 +258,7 @@ class _NodeEditSheetState extends State<_NodeEditSheet> {
               ),
             ),
             const SizedBox(height: 18),
-            Text(
+            UrduAwareText(
               'Node sozlash',
               style: Theme.of(
                 context,

@@ -134,7 +134,7 @@ class _PreparationMaterialsScreenState
             () => _items.removeWhere((item) => item.code == material.code));
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(action == 'rename'
+          content: UrduAwareText(action == 'rename'
               ? 'Homashyo nomi o‘zgartirildi'
               : 'Homashyo o‘chirildi')));
     } catch (error) {
@@ -174,7 +174,7 @@ class _PreparationMaterialsScreenState
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('Omborga biriktirish',
+                      UrduAwareText('Omborga biriktirish',
                           style: Theme.of(sheet).textTheme.titleLarge),
                       const SizedBox(height: 8),
                       Text(material.name),
@@ -182,7 +182,7 @@ class _PreparationMaterialsScreenState
                       Expanded(
                           child: options.isEmpty
                               ? const Center(
-                                  child: Text(
+                                  child: UrduAwareText(
                                       'Sizga exclusive ombor biriktirilmagan.'))
                               : ListView(children: [
                                   M3SegmentSpacedColumn(children: [
@@ -196,7 +196,7 @@ class _PreparationMaterialsScreenState
                                           subtitle: editable
                                                   .contains(options[i])
                                               ? null
-                                              : const Text(
+                                              : const UrduAwareText(
                                                   'Bu biriktirishni faqat administrator o‘zgartira oladi'),
                                           value: selected.contains(options[i]),
                                           onChanged: !editable
@@ -215,14 +215,15 @@ class _PreparationMaterialsScreenState
                                   ]),
                                 ])),
                       const SizedBox(height: 12),
-                      const Text('Bu amal ombordagi qoldiqni ko‘chirmaydi.'),
+                      const UrduAwareText(
+                          'Bu amal ombordagi qoldiqni ko‘chirmaydi.'),
                       const SizedBox(height: 12),
                       FilledButton(
                         onPressed: !changed
                             ? null
                             : () =>
                                 Navigator.pop(sheet, selected.toList()..sort()),
-                        child: const Text('Saqlash'),
+                        child: const UrduAwareText('Saqlash'),
                       ),
                     ]),
               ),
@@ -239,8 +240,8 @@ class _PreparationMaterialsScreenState
       setState(() => _items = _items
           .map((item) => item.code == updated.code ? updated : item)
           .toList());
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ombor biriktirish yangilandi')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: UrduAwareText('Ombor biriktirish yangilandi')));
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -299,12 +300,13 @@ class _PreparationMaterialsScreenState
                                 Text(_error!),
                                 TextButton(
                                     onPressed: _load,
-                                    child: const Text('Qayta urinish')),
+                                    child:
+                                        const UrduAwareText('Qayta urinish')),
                               ])),
                         if (_error == null && items.isEmpty)
                           Padding(
                               padding: const EdgeInsets.all(16),
-                              child: Text(_query.trim().isEmpty
+                              child: UrduAwareText(_query.trim().isEmpty
                                   ? 'Hali homashyo yaratmagansiz.'
                                   : 'Homashyo topilmadi.')),
                         M3SegmentSpacedColumn(children: [
@@ -317,10 +319,11 @@ class _PreparationMaterialsScreenState
                                 key: ValueKey(
                                     'preparation-material-${items[i].code}'),
                                 slot: slot,
-                                cornerRadius: M3SegmentedListGeometry
-                                    .cornerRadiusForSlot(slot),
+                                cornerRadius:
+                                    M3SegmentedListGeometry.cornerRadiusForSlot(
+                                        slot),
                                 fixedHeight: 61,
-                                padding: const EdgeInsets.fromLTRB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     14, 8, 10, 8),
                                 title: items[i].name,
                                 subtitle: items[i].warehouses.isEmpty

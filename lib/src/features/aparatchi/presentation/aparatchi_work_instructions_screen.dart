@@ -9,6 +9,7 @@ import '../../shared/models/app_models.dart';
 import 'widgets/aparatchi_dock.dart';
 import 'widgets/aparatchi_navigation_drawer.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class AparatchiWorkInstructionsScreen extends StatefulWidget {
   const AparatchiWorkInstructionsScreen({super.key});
@@ -281,7 +282,7 @@ class _GuideSection extends StatelessWidget {
         for (var index = 0; index < items.length; index++)
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
-            child: Text(
+            child: UrduAwareText(
               '${index + 1}. ${items[index]}',
               style: theme.textTheme.bodyMedium?.copyWith(height: 1.32),
             ),

@@ -110,7 +110,7 @@ class _MaterialStateAssetRow extends StatelessWidget {
       onLongPress: onLongPress,
       backgroundColor: backgroundColor,
       fixedHeight: 61,
-      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
       value: '',
       showChevron: false,
       leading: SizedBox.square(
@@ -272,11 +272,11 @@ class _MaterialStateAssetSheet extends StatelessWidget {
                     ? () => unawaited(onReturn!())
                     : null,
                 icon: const Icon(Icons.keyboard_return_rounded),
-                label: const Text('Omborga qaytarish'),
+                label: const UrduAwareText('Omborga qaytarish'),
               ),
             if (!canReturn && !busy) ...[
               const SizedBox(height: 8),
-              Text(
+              UrduAwareText(
                 'Mahsulotni qaytarish uchun uning ombor joylashuvi faol '
                 'bo‘lishi kerak.',
                 textAlign: TextAlign.center,

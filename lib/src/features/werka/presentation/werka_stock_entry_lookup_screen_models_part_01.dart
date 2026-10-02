@@ -348,7 +348,7 @@ class _LoadingView extends StatelessWidget {
                         children: [
                           Text(barcode, style: theme.textTheme.titleLarge),
                           const SizedBox(height: 4),
-                          Text(
+                          UrduAwareText(
                             'Serverdan stock entry qidirilmoqda...',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: scheme.onSurfaceVariant,
@@ -362,7 +362,7 @@ class _LoadingView extends StatelessWidget {
                 if (rawValue.trim().isNotEmpty &&
                     rawValue.trim() != barcode) ...[
                   const SizedBox(height: 14),
-                  Text(
+                  UrduAwareText(
                     'Raw QR',
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: scheme.onSurfaceVariant,
@@ -380,7 +380,7 @@ class _LoadingView extends StatelessWidget {
                 const SizedBox(height: 18),
                 const LinearProgressIndicator(minHeight: 3),
                 const SizedBox(height: 10),
-                Text(
+                UrduAwareText(
                   'Loading...',
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: scheme.onSurfaceVariant,

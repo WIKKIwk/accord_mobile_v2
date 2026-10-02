@@ -39,7 +39,7 @@ class _AssignmentTile extends StatelessWidget {
     return AppSegmentSurfaceCard(
       key: ValueKey('raw-material-assignment-${_assignmentKey(assignment)}'),
       slot: slot,
-      padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 12 : 8),
+      padding: EdgeInsetsDirectional.fromSTEB(14, 8, 4, expanded ? 12 : 8),
       onTap: () => onExpandedChanged(!expanded),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -120,7 +120,8 @@ class _AssignmentTile extends StatelessWidget {
             alignment: Alignment.topCenter,
             child: expanded
                 ? Padding(
-                    padding: const EdgeInsets.only(left: 44, top: 8, right: 8),
+                    padding: const EdgeInsetsDirectional.only(
+                        start: 44, top: 8, end: 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -194,7 +195,7 @@ class _AssignmentTile extends StatelessWidget {
                         if (canUnlink) ...[
                           const SizedBox(height: 10),
                           Align(
-                            alignment: Alignment.centerRight,
+                            alignment: AlignmentDirectional.centerEnd,
                             child: OutlinedButton.icon(
                               onPressed: unlinking ? null : onUnlink,
                               icon: unlinking

@@ -157,7 +157,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       });
       _scheduleSaveControlPrefs();
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Sozlamalar saqlandi')),
+        const SnackBar(content: UrduAwareText('Sozlamalar saqlandi')),
       );
       return;
     }
@@ -197,7 +197,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       });
       _scheduleSaveControlPrefs();
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Batch ma’lumotlari saqlandi')),
+        const SnackBar(content: UrduAwareText('Batch ma’lumotlari saqlandi')),
       );
     } catch (error) {
       if (!mounted) {

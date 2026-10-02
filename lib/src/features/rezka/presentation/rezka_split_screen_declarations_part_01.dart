@@ -32,7 +32,7 @@ class _SourceCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(source.itemCode),
-            Text('${source.qty.gscale} ${source.uom}'),
+            UrduAwareText('${source.qty.gscale} ${source.uom}'),
             Text(source.warehouse),
           ],
         ),
@@ -74,7 +74,7 @@ class _OutputCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child: UrduAwareText(
                     output.printQr
                         ? 'Bo‘lak ${index + 1}'
                         : 'Atxot ${index + 1}',
@@ -102,7 +102,7 @@ class _OutputCard extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.do_not_disturb_on_outlined),
                 title: Text(itemLabel),
-                subtitle: const Text('Mahsulot tanlash shart emas'),
+                subtitle: const UrduAwareText('Mahsulot tanlash shart emas'),
               ),
             const SizedBox(height: 8),
             Row(
@@ -113,14 +113,16 @@ class _OutputCard extends StatelessWidget {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(labelText: 'Qty'),
+                    decoration:
+                        InputDecoration(labelText: localizeUrduUiText('Qty')),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: output.uomController,
-                    decoration: const InputDecoration(labelText: 'UOM'),
+                    decoration:
+                        InputDecoration(labelText: localizeUrduUiText('UOM')),
                   ),
                 ),
               ],
@@ -128,15 +130,16 @@ class _OutputCard extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: output.warehouseController,
-              decoration: const InputDecoration(labelText: 'Location'),
+              decoration:
+                  InputDecoration(labelText: localizeUrduUiText('Location')),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: output.reasonController,
               minLines: 1,
               maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Bo‘lak sababi',
+              decoration: InputDecoration(
+                labelText: localizeUrduUiText('Bo‘lak sababi'),
                 alignLabelWithHint: true,
               ),
             ),
@@ -201,9 +204,9 @@ class _RezkaItemPickerSheetState extends State<_RezkaItemPickerSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
+      padding: EdgeInsetsDirectional.only(
+        start: 16,
+        end: 16,
         bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
       ),
       child: SizedBox(
@@ -235,7 +238,8 @@ class _RezkaItemPickerSheetState extends State<_RezkaItemPickerSheet> {
                   }
                   final items = snapshot.data ?? const <SupplierItem>[];
                   if (items.isEmpty) {
-                    return const Center(child: Text('Mahsulot topilmadi'));
+                    return const Center(
+                        child: UrduAwareText('Mahsulot topilmadi'));
                   }
                   return ListView.separated(
                     itemCount: items.length,
@@ -250,7 +254,7 @@ class _RezkaItemPickerSheetState extends State<_RezkaItemPickerSheet> {
                           context,
                         ).colorScheme.surfaceContainerHighest,
                         title: Text(item.name.isEmpty ? item.code : item.name),
-                        subtitle: Text(
+                        subtitle: UrduAwareText(
                           '${item.code} • ${item.uom} • ${item.warehouse}',
                         ),
                         onTap: () => Navigator.of(context).pop(item),
@@ -328,9 +332,10 @@ class _RezkaScannerDialogState extends State<_RezkaScannerDialog> {
     final session = _scannerSession;
     return Dialog.fullscreen(
       child: Scaffold(
-        appBar: AppBar(title: const Text('QR scan')),
+        appBar: AppBar(title: const UrduAwareText('QR scan')),
         body: session == null
-            ? const Center(child: Text('Scanner bu qurilmada ishlamaydi'))
+            ? const Center(
+                child: UrduAwareText('Scanner bu qurilmada ishlamaydi'))
             : ReliableMobileScanner(session: session, onDetect: _detect),
       ),
     );

@@ -6,6 +6,7 @@ import 'package:video_player/video_player.dart';
 
 import '../models/chat_media_models.dart';
 import 'chat_local_video_controller.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class ChatMediaDraft {
   const ChatMediaDraft({
@@ -99,7 +100,8 @@ class _ChatMediaPreviewScreenState extends State<ChatMediaPreviewScreen> {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.kind == ChatMediaKind.image ? 'Rasm' : 'Video'),
+        title: UrduAwareText(
+            widget.kind == ChatMediaKind.image ? 'Rasm' : 'Video'),
       ),
       body: SafeArea(
         child: Column(
@@ -118,8 +120,8 @@ class _ChatMediaPreviewScreenState extends State<ChatMediaPreviewScreen> {
                 maxLines: 4,
                 maxLength: 4000,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  hintText: 'Izoh yozing (ixtiyoriy)',
+                decoration: InputDecoration(
+                  hintText: localizeUrduUiText('Izoh yozing (ixtiyoriy)'),
                   counterText: '',
                   border: OutlineInputBorder(),
                 ),
@@ -140,7 +142,7 @@ class _ChatMediaPreviewScreenState extends State<ChatMediaPreviewScreen> {
                 child: FilledButton.icon(
                   onPressed: _canSend ? _confirm : null,
                   icon: const Icon(Icons.send_rounded),
-                  label: const Text('Yuborish'),
+                  label: const UrduAwareText('Yuborish'),
                 ),
               ),
             ),

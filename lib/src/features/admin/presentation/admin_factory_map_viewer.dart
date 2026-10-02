@@ -230,7 +230,7 @@ class _FactoryMapObjectPickerState extends State<_FactoryMapObjectPicker> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 10, 8, 10),
               child: Row(
                 children: [
                   const Icon(Icons.factory_outlined),
@@ -299,7 +299,7 @@ class _FactoryMapObjectPickerState extends State<_FactoryMapObjectPicker> {
                     ),
                     const SizedBox(height: 8),
                     Align(
-                      alignment: Alignment.centerRight,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: Wrap(
                         spacing: 6,
                         runSpacing: 6,

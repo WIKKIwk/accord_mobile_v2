@@ -109,7 +109,7 @@ class _SequenceRawMaterialAssignmentSheetState
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: Text(
                         _actionMessage,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -763,7 +763,7 @@ class _SequenceAssignmentSheetHeader extends StatelessWidget {
       if (customer.isNotEmpty) customer,
     ].join(' • ');
     return ListTile(
-      contentPadding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(16, 0, 8, 0),
       leading: const Icon(Icons.inventory_2_outlined),
       title: Text(
         context.l10n.adminText('production.assignment.title'),
@@ -1110,7 +1110,7 @@ class _SequenceCandidateCard extends StatelessWidget {
                             size: 20,
                             color: scheme.onPrimary,
                           )
-                        : Text(
+                        : UrduAwareText(
                             '#$rank',
                             style: theme.textTheme.labelLarge?.copyWith(
                               color: scheme.onSecondaryContainer,
@@ -1153,7 +1153,7 @@ class _SequenceCandidateCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   if (selected)
                     Padding(
-                      padding: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsetsDirectional.only(end: 6),
                       child: Icon(
                         Icons.check_circle_rounded,
                         size: 18,

@@ -135,7 +135,7 @@ extension __CustomerDeliveryDetailScreenStateAstPart01
                         const SizedBox(height: 16),
                       ],
                       Align(
-                        alignment: Alignment.centerLeft,
+                        alignment: AlignmentDirectional.centerStart,
                         child: Text(
                           l10n.reasonLabel,
                           style: Theme.of(context).textTheme.titleMedium,

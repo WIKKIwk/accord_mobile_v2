@@ -45,7 +45,7 @@ class AppSummarySegmentCard extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 66),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 12, 16),
               child: Row(
                 children: [
                   Expanded(

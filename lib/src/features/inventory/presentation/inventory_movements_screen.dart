@@ -33,6 +33,7 @@ import '../../shared/models/app_models.dart';
 import '../../shared/models/inventory_movement_models.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'inventory_movements_screen__InventoryMovementsScreenState_methods_01.dart';
 part 'inventory_movements_screen__InventoryMovementsScreenState_methods_02.dart';
@@ -237,7 +238,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                     icon: const Icon(Icons.close_rounded),
                   ),
                   const SizedBox(width: 4),
-                  Text(
+                  UrduAwareText(
                     '$_selectionCount ta tanlandi',
                     key: const ValueKey('inventory-selection-count'),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(

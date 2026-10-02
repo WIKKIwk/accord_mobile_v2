@@ -40,7 +40,7 @@ class _OfflinePrintStatus extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 3),
-                  Text(
+                  UrduAwareText(
                     printer == null
                         ? 'Qo‘lda kg kiritib WiFi printersiz chop etish mumkin.'
                         : '${printer!.printer.toUpperCase()} • ${printer!.printMode.toUpperCase()} avtomatik tanlandi.',
@@ -103,14 +103,14 @@ class _ScanningState extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  UrduAwareText(
                     'Qidirilmoqda...',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
+                  UrduAwareText(
                     'Tarmoqdagi printer va tarozilar aniqlanmoqda',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
@@ -164,7 +164,7 @@ class _EmptyServerState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            Text(
+            UrduAwareText(
               'Qurilma tarmoqda topilmadi',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
@@ -173,7 +173,7 @@ class _EmptyServerState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
-            Text(
+            UrduAwareText(
               'Lokal Wi-Fi tarmoqda aktiv tarozi yoki printer topilmadi. Qurilma tarmoqqa ulanganini tekshiring.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
@@ -185,7 +185,7 @@ class _EmptyServerState extends StatelessWidget {
             FilledButton.tonalIcon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 20),
-              label: const Text(
+              label: const UrduAwareText(
                 'Qayta qidirish',
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
@@ -209,7 +209,7 @@ class _ServerCard extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 10),
+      padding: const EdgeInsetsDirectional.only(start: 16, end: 16, bottom: 10),
       child: Material(
         color: scheme.surfaceContainerLow,
         shape: RoundedRectangleBorder(
@@ -274,7 +274,7 @@ class _ServerCard extends StatelessWidget {
                     color: scheme.primaryContainer,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
+                  child: UrduAwareText(
                     'Ulanish',
                     style: theme.textTheme.labelMedium?.copyWith(
                       color: scheme.onPrimaryContainer,

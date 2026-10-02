@@ -9,6 +9,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/scanner/reliable_mobile_scanner.dart';
 import '../../../core/theme/app_motion.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'raw_material_scan_dialog_widgets_part_01.dart';
 part 'raw_material_scan_dialog_models_part_02.dart';

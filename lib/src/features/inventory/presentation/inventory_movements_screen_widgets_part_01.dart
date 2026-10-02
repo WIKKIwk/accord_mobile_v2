@@ -69,7 +69,7 @@ class _InventoryAssetListRow extends StatelessWidget {
       onLongPress: onLongPress,
       backgroundColor: backgroundColor,
       fixedHeight: 61,
-      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
       value: '',
       showChevron: false,
       leading: SizedBox.square(
@@ -254,7 +254,7 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
             ],
             if (transferRequiresWarehouseLocation) ...[
               const SizedBox(height: 8),
-              Text(
+              UrduAwareText(
                 'Transfer qilishdan oldin mahsulotni omborga qaytaring.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -275,7 +275,7 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
                           ? null
                           : () => unawaited(onRelocate!()),
                       icon: const Icon(Icons.pin_drop_outlined),
-                      label: const Text('Joylashtirish'),
+                      label: const UrduAwareText('Joylashtirish'),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -285,7 +285,7 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
                           ? null
                           : () => unawaited(onTransfer!()),
                       icon: const Icon(Icons.swap_horiz_rounded),
-                      label: const Text('Transfer'),
+                      label: const UrduAwareText('Transfer'),
                     ),
                   ),
                 ],
@@ -302,7 +302,7 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
                   side: BorderSide(color: scheme.error),
                 ),
                 icon: const Icon(Icons.delete_outline_rounded),
-                label: const Text('Homashyoni o‘chirish'),
+                label: const UrduAwareText('Homashyoni o‘chirish'),
               ),
             ],
           ],

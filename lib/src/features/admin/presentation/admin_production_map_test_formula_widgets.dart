@@ -318,7 +318,7 @@ class _FormulaEditorSheetState extends State<_FormulaEditorSheet> {
               ),
             ),
             const SizedBox(height: 18),
-            Text(
+            UrduAwareText(
               '${widget.title} yozish',
               style: Theme.of(
                 context,

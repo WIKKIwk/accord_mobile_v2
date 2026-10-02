@@ -90,7 +90,7 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
-          child: Text(
+          child: UrduAwareText(
             'Birinchi xabaringizni yozing.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -174,7 +174,7 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
                         widget.conversation.conversationId,
                       ),
                       icon: const Icon(Icons.expand_less_rounded),
-                      label: const Text('Oldingi xabarlar'),
+                      label: const UrduAwareText('Oldingi xabarlar'),
                     ),
                   );
                 case _ChatTimelineItemKind.dateDivider:

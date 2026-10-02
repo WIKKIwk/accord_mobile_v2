@@ -90,7 +90,7 @@ class _ScannerErrorView extends StatelessWidget {
                       color: scheme.onSurfaceVariant,
                     ),
                     const SizedBox(height: 12),
-                    Text(
+                    UrduAwareText(
                       'Kamera xatosi',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
@@ -108,7 +108,7 @@ class _ScannerErrorView extends StatelessWidget {
                         unawaited(onRetry());
                       },
                       icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Qayta urinish'),
+                      label: const UrduAwareText('Qayta urinish'),
                     ),
                   ],
                 ),
@@ -158,13 +158,13 @@ class _UnsupportedScannerView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
+                  UrduAwareText(
                     'Bu qurilmada kamera mavjud emas',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  UrduAwareText(
                     'QR kodni qo‘lda kiriting yoki mobil qurilmada skanerlang.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
@@ -176,13 +176,13 @@ class _UnsupportedScannerView extends StatelessWidget {
                     key: const ValueKey('werka-qr-manual-entry'),
                     onPressed: onManual,
                     icon: const Icon(Icons.keyboard_outlined),
-                    label: const Text('QR kodni kiritish'),
+                    label: const UrduAwareText('QR kodni kiritish'),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: onBack,
                     icon: const Icon(Icons.arrow_back_rounded),
-                    label: const Text('Ortga'),
+                    label: const UrduAwareText('Ortga'),
                   ),
                 ],
               ),
@@ -224,7 +224,7 @@ class _ManualQrCodeDialogState extends State<_ManualQrCodeDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: const Text('QR kodni kiritish'),
+        title: const UrduAwareText('QR kodni kiritish'),
         content: TextField(
           key: const ValueKey('werka-qr-manual-code'),
           controller: _controller,
@@ -232,17 +232,18 @@ class _ManualQrCodeDialogState extends State<_ManualQrCodeDialog> {
           autocorrect: false,
           enableSuggestions: false,
           textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(
-              labelText: 'Paddon, WIP yoki stock QR kodi'),
+          decoration: InputDecoration(
+              labelText: localizeUrduUiText('Paddon, WIP yoki stock QR kodi')),
           onChanged: (_) => setState(() {}),
           onSubmitted: (_) => _submit(),
         ),
         actions: [
-          TextButton(onPressed: _close, child: const Text('Bekor qilish')),
+          TextButton(
+              onPressed: _close, child: const UrduAwareText('Bekor qilish')),
           FilledButton(
             key: const ValueKey('werka-qr-manual-submit'),
             onPressed: _controller.text.trim().isEmpty ? null : _submit,
-            child: const Text('Tekshirish'),
+            child: const UrduAwareText('Tekshirish'),
           ),
         ],
       );

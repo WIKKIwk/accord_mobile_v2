@@ -10,7 +10,7 @@ class _AdminHubActionPill extends StatelessWidget {
     this.targetWidth,
     this.motionKey,
     required this.onTap,
-    this.overflowAlignment = Alignment.centerRight,
+    this.overflowAlignment = AlignmentDirectional.centerEnd,
   });
 
   final _AdminHubAction action;
@@ -19,7 +19,7 @@ class _AdminHubActionPill extends StatelessWidget {
   final Animation<double> effectsAnimation;
   final Key? motionKey;
   final VoidCallback? onTap;
-  final Alignment overflowAlignment;
+  final AlignmentGeometry overflowAlignment;
 
   @override
   Widget build(BuildContext context) {

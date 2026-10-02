@@ -12,6 +12,7 @@ import '../state/werka_store.dart';
 import 'werka_status_breakdown_screen.dart';
 import 'widgets/werka_dock.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class WerkaStatusDetailScreen extends StatefulWidget {
   const WerkaStatusDetailScreen({super.key, required this.args});
@@ -198,9 +199,8 @@ class _WerkaStatusDetailSegmentTile extends StatelessWidget {
       itemCount,
     );
     final r = M3SegmentedListGeometry.cornerRadiusForSlot(slot);
-    final title = record.itemName.trim().isEmpty
-        ? record.itemCode
-        : record.itemName;
+    final title =
+        record.itemName.trim().isEmpty ? record.itemCode : record.itemName;
 
     return M3SegmentFilledSurface(
       slot: slot,
@@ -254,7 +254,7 @@ class _WerkaStatusDetailSegmentTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+                UrduAwareText(
                   '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: scheme.onSurfaceVariant,

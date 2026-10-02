@@ -68,13 +68,13 @@ class _PaddonQrReportView extends StatelessWidget {
                 ),
                 if (paddon.location.trim().isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Text(
+                  UrduAwareText(
                     '${context.l10n.productionText('worker.qr.report.location')}: ${paddon.location}',
                   ),
                 ],
                 if (paddon.note.trim().isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Text(
+                  UrduAwareText(
                     '${context.l10n.productionText('worker.qr.report.note')}: ${paddon.note}',
                   ),
                 ],
@@ -148,7 +148,7 @@ class _PaddonScannedWipRow extends StatelessWidget {
       key: ValueKey('admin-paddon-wip-$index'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        UrduAwareText(
           '$index. ${_paddonWipProductTitle(batch, l10n)}',
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
@@ -161,7 +161,7 @@ class _PaddonScannedWipRow extends StatelessWidget {
             color: scheme.secondaryContainer,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Text(
+          child: UrduAwareText(
             '${l10n.productionText('worker.qr.report.status')}: ${_paddonWipStatusLabel(batch, l10n)}',
             style: theme.textTheme.labelLarge?.copyWith(
               color: scheme.onSecondaryContainer,
@@ -245,8 +245,8 @@ String _paddonWipProductTitle(AdminProgressBatch batch, AppLocalizations l10n) {
       r',?\s*apparat:',
       caseSensitive: false,
     ).firstMatch(raw);
-    final title = (suffix == null ? raw : raw.substring(0, suffix.start))
-        .trim();
+    final title =
+        (suffix == null ? raw : raw.substring(0, suffix.start)).trim();
     if (title.isNotEmpty &&
         title != batch.batchId.trim() &&
         !title.contains('progress-batch:') &&
@@ -265,7 +265,8 @@ String _paddonWipStatusLabel(AdminProgressBatch batch, AppLocalizations l10n) {
     'accepted_to_stock' ||
     'waiting_next_stage' ||
     'consumed_by_next_stage' ||
-    'in_progress' => detail.flowStatus.trim(),
+    'in_progress' =>
+      detail.flowStatus.trim(),
     _ => '',
   };
   final rawWip = detail.wipStatus.trim().isNotEmpty
@@ -291,7 +292,8 @@ String _paddonWipStatusLabel(AdminProgressBatch batch, AppLocalizations l10n) {
     'start' ||
     'resume' ||
     'pending' ||
-    'waiting' => rawWork,
+    'waiting' =>
+      rawWork,
     _ => '',
   };
   // A batch's completed work does not mean its WIP has been consumed.
@@ -390,7 +392,7 @@ class _PassportStageCard extends StatelessWidget {
                   radius: 15,
                   backgroundColor: scheme.primaryContainer,
                   foregroundColor: scheme.onPrimaryContainer,
-                  child: Text('$index'),
+                  child: UrduAwareText('$index'),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -451,7 +453,7 @@ class _PassportCorrectionsSection extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  UrduAwareText(
                     '${index + 1}. ${corrections[index].stage}',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w900,

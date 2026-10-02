@@ -222,7 +222,7 @@ class _LookupEntryPanelState extends State<_LookupEntryPanel> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Text(
+                UrduAwareText(
                   'Line ${entry.lineIndex}',
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
@@ -246,7 +246,7 @@ class _LookupEntryPanelState extends State<_LookupEntryPanel> {
                         child: CircularProgressIndicator(strokeWidth: 2.4),
                       )
                     : const Icon(Icons.local_shipping_outlined),
-                label: Text(
+                label: UrduAwareText(
                   widget.isSubmitting
                       ? 'Jo‘natilmoqda...'
                       : 'Customerga jo‘natish',

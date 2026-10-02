@@ -23,6 +23,7 @@ import 'widgets/chat_message_composer.dart';
 import 'widgets/chat_pending_media_bubble.dart';
 import 'widgets/chat_role_dock.dart';
 import 'widgets/chat_voice_mini_player.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'chat_detail_screen__ChatDetailScreenState_methods_01.dart';
 part 'chat_detail_screen_widgets_part_01.dart';
@@ -128,7 +129,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
             showProfileAction: false,
             actions: [
               Padding(
-                padding: const EdgeInsets.only(right: 10),
+                padding: const EdgeInsetsDirectional.only(end: 10),
                 child: _ChatParticipantProfileAction(
                   participant: widget.conversation.peer,
                   onTap: _openParticipantProfile,

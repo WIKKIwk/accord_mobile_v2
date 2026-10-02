@@ -4,6 +4,7 @@ import '../../localization/locale_controller.dart';
 import '../../widgets/forms/pin_pad.dart';
 import '../state/security_controller.dart';
 import 'package:flutter/material.dart';
+import '../../localization/urdu_aware_text.dart';
 
 class AppLockGate extends StatefulWidget {
   const AppLockGate({super.key, required this.child});
@@ -128,7 +129,7 @@ class _PrivacyShieldOverlay extends StatelessWidget {
                         color: scheme.primary,
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: Text(
+                      child: UrduAwareText(
                         'Accord Mobile',
                         style:
                             Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -285,15 +286,13 @@ class _PinUnlockOverlayState extends State<_PinUnlockOverlay> {
                           busy: _unlocking,
                         ),
                         if (SecurityController
-                            .instance
-                            .biometricEnabledForCurrentUser) ...[
+                            .instance.biometricEnabledForCurrentUser) ...[
                           const SizedBox(height: 18),
                           SizedBox(
                             width: double.infinity,
                             child: OutlinedButton(
-                              onPressed: _unlocking
-                                  ? null
-                                  : _unlockWithBiometric,
+                              onPressed:
+                                  _unlocking ? null : _unlockWithBiometric,
                               child: Text(l10n.biometricCta),
                             ),
                           ),

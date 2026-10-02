@@ -13,14 +13,31 @@ extension __AdminApparatusSettingsScreenStateAstPart01
       });
     }
     try {
+      Object? trainingModesError;
+      final trainingModesFuture = MobileApi.instance
+          .adminTrainingApparatusModes()
+          .catchError((Object error, StackTrace stackTrace) {
+        trainingModesError = error;
+        debugPrint('Training apparatus modes load failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+        return const <String, bool>{};
+      });
       final results = await Future.wait<Object>([
         MobileApi.instance.adminApparatus(limit: 500),
         MobileApi.instance.adminApparatusMasterOptions(),
         MobileApi.instance.adminApparatusCollections(),
+        trainingModesFuture,
       ]);
       if (!mounted || generation != _loadGeneration) return;
+      final trainingModes = results[3] as Map<String, bool>;
       final apparatus = [
-        ...(results[0] as List<AdminApparatus>).where((item) => item.isActive),
+        ...(results[0] as List<AdminApparatus>)
+            .where((item) => item.isActive)
+            .map(
+              (item) => item.copyWith(
+                trainingEnabled: trainingModes[item.id] ?? false,
+              ),
+            ),
       ]..sort(_compareApparatus);
       final options = results[1] as AdminApparatusMasterOptions;
       final collections = results[2] as List<AdminApparatusCollection>;
@@ -28,6 +45,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
         _apparatus = apparatus;
         _collections = collections;
         _options = options;
+        _trainingModeAvailable = trainingModesError == null;
         _loading = false;
         _loadError = null;
       });
@@ -35,6 +53,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
         apparatus: apparatus,
         collections: collections,
         options: options,
+        trainingModeAvailable: trainingModesError == null,
       );
       _maybeOpenFocusedEditor();
     } catch (error, stackTrace) {
@@ -83,6 +102,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
       apparatus: next,
       collections: _collections,
       options: _options,
+      trainingModeAvailable: _trainingModeAvailable,
     );
   }
 

@@ -3,6 +3,7 @@ import '../../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../shared/models/app_models.dart';
 import 'admin_item_group_parent_move_panel.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 class AdminItemGroupParentMoveTab extends StatelessWidget {
   const AdminItemGroupParentMoveTab({
@@ -29,7 +30,7 @@ class AdminItemGroupParentMoveTab extends StatelessWidget {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
+                child: UrduAwareText(
                   'Item grouplar yuklanmadi',
                   style: Theme.of(context).textTheme.bodyMedium,
                   textAlign: TextAlign.center,

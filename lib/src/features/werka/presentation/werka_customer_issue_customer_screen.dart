@@ -17,6 +17,7 @@ import 'widgets/m3_picker_sheet.dart';
 import 'widgets/werka_dock.dart';
 
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'werka_customer_issue_customer_screen__WerkaCustomerIssueCustomerScreenState_methods_01.dart';
 part 'werka_customer_issue_customer_screen_widgets_part_01.dart';
@@ -86,7 +87,7 @@ class _WerkaCustomerIssueCustomerScreenState
       disabledForegroundColor: scheme.onSurfaceVariant,
       elevation: 0,
       minimumSize: const Size.fromHeight(58),
-      alignment: Alignment.centerLeft,
+      alignment: AlignmentDirectional.centerStart,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       padding: const EdgeInsets.symmetric(horizontal: 18),
     );

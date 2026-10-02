@@ -563,9 +563,8 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
     final highlightedForeground = highlighted ? const Color(0xFF173B1D) : null;
     // Yuklanish paytida ".." ko'rinadi; yuklanib 0 chiqsa qobiq
     // fade bilan yo'qoladi.
-    final countVisible = !(hideZeroCount &&
-        !isLoading &&
-        (countNumber ?? '').trim() == '0');
+    final countVisible =
+        !(hideZeroCount && !isLoading && (countNumber ?? '').trim() == '0');
     return TweenAnimationBuilder<Color?>(
       tween: ColorTween(
         end: highlighted
@@ -605,7 +604,7 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
                       child: child,
                     ),
                     layoutBuilder: (currentChild, previousChildren) => Stack(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       children: [
                         ...previousChildren,
                         if (currentChild != null) currentChild,
@@ -630,7 +629,7 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
                     child: child,
                   ),
                   layoutBuilder: (currentChild, previousChildren) => Stack(
-                    alignment: Alignment.centerRight,
+                    alignment: AlignmentDirectional.centerEnd,
                     children: [
                       ...previousChildren,
                       if (currentChild != null) currentChild,
@@ -650,8 +649,8 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
                                 opacity: animation,
                                 child: child,
                               ),
-                              layoutBuilder:
-                                  (currentChild, previousChildren) => Stack(
+                              layoutBuilder: (currentChild, previousChildren) =>
+                                  Stack(
                                 alignment: Alignment.center,
                                 children: [
                                   ...previousChildren,
@@ -660,8 +659,7 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
                               ),
                               child: Text(
                                 countNumber ?? countText,
-                                key: ValueKey<String>(
-                                    countNumber ?? countText),
+                                key: ValueKey<String>(countNumber ?? countText),
                                 style: theme.textTheme.labelLarge?.copyWith(
                                   color: highlighted
                                       ? highlightedForeground
@@ -1127,15 +1125,16 @@ void _showAssignedMaterialReprintSheet(
           assignment.stockStatus,
         ),
       ],
-      onReprint: () => _reprintAssignedMaterialStock(
-        sheetContext, barcode, orderId: assignment.orderId),
+      onReprint: () => _reprintAssignedMaterialStock(sheetContext, barcode,
+          orderId: assignment.orderId),
       errorMessage: (error) => error is MobileApiException
           ? error.message
-          : error is PlatformException && error.message?.trim().isNotEmpty == true
-          ? error.message!
-          : error is StateError
-          ? error.message.toString()
-          : sheetContext.l10n.adminText('warehouse.qr_print_failed'),
+          : error is PlatformException &&
+                  error.message?.trim().isNotEmpty == true
+              ? error.message!
+              : error is StateError
+                  ? error.message.toString()
+                  : sheetContext.l10n.adminText('warehouse.qr_print_failed'),
     ),
   );
 }
@@ -1178,23 +1177,28 @@ Future<String?> _reprintAssignedMaterialStock(
     if (server == null) {
       throw StateError(l10n.adminText('training.printer_server_missing'));
     }
-    final response = await http.post(
-      Uri.parse('${server.endpoint.baseUrl}/v1/mobile/driver/print'),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        ...prepared.printRequest.toJson(),
-        if (printer.printer.isNotEmpty) 'printer': printer.printer,
-        if (printer.printMode.isNotEmpty) 'print_mode': printer.printMode,
-      }),
-    ).timeout(const Duration(seconds: 15));
+    final response = await http
+        .post(
+          Uri.parse('${server.endpoint.baseUrl}/v1/mobile/driver/print'),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            ...prepared.printRequest.toJson(),
+            if (printer.printer.isNotEmpty) 'printer': printer.printer,
+            if (printer.printMode.isNotEmpty) 'print_mode': printer.printMode,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
     final payload = jsonDecode(response.body);
-    if (response.statusCode < 200 || response.statusCode > 299 ||
-        payload is! Map || payload['ok'] != true) {
+    if (response.statusCode < 200 ||
+        response.statusCode > 299 ||
+        payload is! Map ||
+        payload['ok'] != true) {
       final detail = payload is Map
           ? (payload['detail'] ?? payload['error'])?.toString().trim() ?? ''
           : '';
       throw StateError(detail.isNotEmpty
-          ? detail : l10n.adminText('warehouse.qr_printer_failed'));
+          ? detail
+          : l10n.adminText('warehouse.qr_printer_failed'));
     }
   }
   try {
@@ -1415,9 +1419,10 @@ void _showAttachedQolipQrSheet(BuildContext context, QolipProduct product) {
             product.customerNames.join(', '),
           ),
       ],
-      onReprint: AppSession.instance.profile?.role == UserRole.materialTaminotchi
-          ? null
-          : () => _reprintAttachedQolipCodeQr(sheetContext, product),
+      onReprint:
+          AppSession.instance.profile?.role == UserRole.materialTaminotchi
+              ? null
+              : () => _reprintAttachedQolipCodeQr(sheetContext, product),
       errorMessage: (error) => qolipErrorMessage(
         error,
         fallback: l10n.qolipText('products.qr_failed'),

@@ -109,7 +109,7 @@ class _WarehouseRawStockRow extends StatelessWidget {
       expandedFooter: onEdit == null && onQr == null
           ? null
           : Align(
-              alignment: Alignment.centerRight,
+              alignment: AlignmentDirectional.centerEnd,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

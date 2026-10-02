@@ -179,7 +179,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
+        content: UrduAwareText(
           'Bo‘laklar jami ${total.gscale} ${source.uom} bo‘lib ketdi. '
           'Asl mahsulot ${source.qty.gscale} ${source.uom}. '
           '${(-diff).gscale} ${source.uom} ortiq yozilgan.',
@@ -198,11 +198,11 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Miqdor yetmayapti'),
+          title: const UrduAwareText('Miqdor yetmayapti'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
+              UrduAwareText(
                 'Bo‘linayotgan mahsulot ${source.qty.gscale} ${source.uom}. '
                 'Siz kiritgan bo‘laklar jami ${total.gscale} ${source.uom}. '
                 '${remainder.gscale} ${source.uom} qoldi. Xato qildingizmi?',
@@ -213,7 +213,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
                 child: FilledButton(
                   onPressed: () =>
                       Navigator.of(context).pop(_RezkaRemainderAction.forgot),
-                  child: const Text('Unutibman'),
+                  child: const UrduAwareText('Unutibman'),
                 ),
               ),
               const SizedBox(height: 8),
@@ -223,7 +223,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
                   onPressed: () =>
                       Navigator.of(context).pop(_RezkaRemainderAction.scrap),
                   icon: const Icon(Icons.report_problem_outlined),
-                  label: const Text('Brak mahsulot'),
+                  label: const UrduAwareText('Brak mahsulot'),
                 ),
               ),
             ],
@@ -231,7 +231,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Bekor qilish'),
+              child: const UrduAwareText('Bekor qilish'),
             ),
           ],
         );
@@ -276,7 +276,8 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
             wifiPrinter.isEmpty ||
             wifiPrintMode.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Printer sozlamasi to‘liq emas.')),
+        const SnackBar(
+            content: UrduAwareText('Printer sozlamasi to‘liq emas.')),
       );
       return;
     }
@@ -294,7 +295,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
           output.warehouseController.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
+            content: UrduAwareText(
               'QR chiqadigan bo‘lakda mahsulot, qty va location bo‘lsin. Atxotda qty va location yetarli.',
             ),
           ),
@@ -324,7 +325,8 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('GoDEX yoki Zebra USB printer topilmadi.')),
+              content:
+                  UrduAwareText('GoDEX yoki Zebra USB printer topilmadi.')),
         );
       }
       return;
@@ -334,7 +336,8 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
     if (_printTransport.isBluetooth && bluetoothPrinter == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('XP-P323B Bluetooth printer tanlang.')),
+          const SnackBar(
+              content: UrduAwareText('XP-P323B Bluetooth printer tanlang.')),
         );
       }
       return;
@@ -393,7 +396,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: UrduAwareText(
             '${response.outputs.where((item) => item.printQr).length} ta QR chiqarildi.',
           ),
         ),

@@ -11,6 +11,7 @@ import '../models/raw_material_split_models.dart';
 import '../models/raw_material_split_width_plan.dart';
 import 'raw_material_split_navigation.dart';
 import 'raw_material_split_print.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class RawMaterialSplitScreen extends StatefulWidget {
   const RawMaterialSplitScreen({super.key});
@@ -297,8 +298,8 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
         _savedIssueId = savedIssue.id;
       });
       if (_source == null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Muammo saqlandi')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: UrduAwareText('Muammo saqlandi')));
       }
     } catch (e) {
       if (mounted) {
@@ -329,19 +330,20 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
             minLines: 2,
             maxLines: 3,
             maxLength: 1000,
-            decoration: const InputDecoration(labelText: 'Farq sababi'),
+            decoration:
+                InputDecoration(labelText: localizeUrduUiText('Farq sababi')),
           ),
           if (_issueError != null)
             Text(_issueError!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error)),
           if (_issueSaved)
-            Text(check.waste == null
+            UrduAwareText(check.waste == null
                 ? 'Muammo saqlandi. Chop etish uchun atxot kg ni son bilan kiriting.'
                 : 'Muammo saqlandi. Endi chop etishingiz mumkin.')
           else
             OutlinedButton(
                 onPressed: _locked ? null : () => _saveIssue(),
-                child: const Text('Muammoni saqlash')),
+                child: const UrduAwareText('Muammoni saqlash')),
           const SizedBox(height: 16),
         ]);
   }
@@ -370,7 +372,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
     }
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Chop etildi')));
+          .showSnackBar(const SnackBar(content: UrduAwareText('Chop etildi')));
     }
   }
 
@@ -430,7 +432,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                 borderRadius: border is OutlineInputBorder
                     ? border.borderRadius
                     : BorderRadius.circular(16))),
-        child: const Text('+ rulon'));
+        child: const UrduAwareText('+ rulon'));
   }
 
   Widget _widthSummary() {
@@ -515,25 +517,26 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                 const SizedBox(height: 16),
               ],
               if (_pending != null) ...[
-                const Text('Oldingi saqlash natijasini tekshiring.'),
+                const UrduAwareText('Oldingi saqlash natijasini tekshiring.'),
                 const SizedBox(height: 12),
                 FilledButton(
                     onPressed: _busy ? null : () => _save(retry: true),
-                    child: const Text('Tekshirish va chop etish')),
+                    child: const UrduAwareText('Tekshirish va chop etish')),
                 const SizedBox(height: 24),
               ],
               if (_pendingIssue != null) ...[
-                const Text('Oldingi muammo qaydi natijasini tekshiring.'),
+                const UrduAwareText(
+                    'Oldingi muammo qaydi natijasini tekshiring.'),
                 if (_issueError != null)
                   Text(_issueError!,
                       style: TextStyle(
                           color: Theme.of(context).colorScheme.error)),
                 OutlinedButton(
                     onPressed: _busy ? null : () => _saveIssue(retry: true),
-                    child: const Text('Muammo qaydini tekshirish')),
+                    child: const UrduAwareText('Muammo qaydini tekshirish')),
                 const SizedBox(height: 24),
               ],
-              Text(
+              UrduAwareText(
                   _snapshot == null
                       ? 'Omborlar yuklanmoqda'
                       : _snapshot!.warehouses.isEmpty
@@ -556,14 +559,15 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
               OutlinedButton.icon(
                   onPressed: _locked ? null : () => _sourceLookup(scan: true),
                   icon: const Icon(Icons.qr_code_scanner),
-                  label: const Text('Skanerlash')),
+                  label: const UrduAwareText('Skanerlash')),
               if (_printer != null) ...[
                 const SizedBox(height: 16),
                 Row(children: [
                   const Icon(Icons.print_outlined, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
-                      child: Text('Printer: ${_printer!.transport.apiValue}',
+                      child: UrduAwareText(
+                          'Printer: ${_printer!.transport.apiValue}',
                           style: Theme.of(context).textTheme.bodySmall)),
                   if (!_printer!.transport.isLocal)
                     DropdownButton<String>(
@@ -573,8 +577,9 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                             : (v) => setState(() => _wifiPrinter = v!),
                         items: const [
                           DropdownMenuItem(
-                              value: 'godex', child: Text('GoDEX')),
-                          DropdownMenuItem(value: 'zebra', child: Text('Zebra'))
+                              value: 'godex', child: UrduAwareText('GoDEX')),
+                          DropdownMenuItem(
+                              value: 'zebra', child: UrduAwareText('Zebra'))
                         ]),
                 ]),
               ],
@@ -583,10 +588,10 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                 Text(_source!.itemName,
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 4),
-                Text(
+                UrduAwareText(
                     '${rawSplitDisplay(_source!.kg)} kg · ${rawSplitDisplay(_source!.widthMm)} mm · ${rawSplitDisplay(_source!.micron)} mkm'
                     '${_source!.lengthM != null && _source!.lengthM!.isNotEmpty ? ' · ${rawSplitDisplay(_source!.lengthM!)} m' : ''}'),
-                Text('Ombor: ${_source!.warehouse}',
+                UrduAwareText('Ombor: ${_source!.warehouse}',
                     style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 16),
                 _widthSummary(),
@@ -594,7 +599,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                 for (var i = 0; i < _outputs.length; i++) ...[
                   Row(children: [
                     Expanded(
-                        child: Text('${i + 1}-rulon',
+                        child: UrduAwareText('${i + 1}-rulon',
                             style: Theme.of(context).textTheme.titleSmall)),
                     IconButton(
                         tooltip: 'Rulonni olib tashlash',
@@ -619,13 +624,9 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                   ]),
                   const SizedBox(height: 12),
                   Row(children: [
-                    Expanded(
-                        child:
-                            _number(_outputs[i].bobina, 'Babina (kg)')),
+                    Expanded(child: _number(_outputs[i].bobina, 'Babina (kg)')),
                     const SizedBox(width: 12),
-                    Expanded(
-                        child:
-                            _number(_outputs[i].length, 'Metraj (m)')),
+                    Expanded(child: _number(_outputs[i].length, 'Metraj (m)')),
                   ]),
                   const SizedBox(height: 12),
                   IntrinsicHeight(
@@ -634,16 +635,17 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                         children: [
                           Expanded(
                               child: Align(
-                                  alignment: Alignment.centerLeft,
+                                  alignment: AlignmentDirectional.centerStart,
                                   child: Text(_outputs[i].netLabel,
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall))),
                           const SizedBox(width: 12),
                           Expanded(
-                              child: i == _outputs.length - 1 && _widthPlan.canAdd
-                                  ? _addRollButton()
-                                  : const SizedBox.shrink()),
+                              child:
+                                  i == _outputs.length - 1 && _widthPlan.canAdd
+                                      ? _addRollButton()
+                                      : const SizedBox.shrink()),
                         ]),
                   ),
                   const SizedBox(height: 20),
@@ -654,7 +656,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                 _issueForm(),
                 for (var i = 0; i < _outputs.length; i++)
                   if (_widthPlan.errors[i] != null) ...[
-                    Text('${i + 1}-rulon: ${_widthPlan.errors[i]}',
+                    UrduAwareText('${i + 1}-rulon: ${_widthPlan.errors[i]}',
                         style: TextStyle(
                             color: Theme.of(context).colorScheme.error)),
                     const SizedBox(height: 8),
@@ -671,7 +673,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
                 FilledButton.icon(
                     onPressed: _locked ? null : () => _save(),
                     icon: const Icon(Icons.print_outlined),
-                    label: const Text('Saqlash va chop etish')),
+                    label: const UrduAwareText('Saqlash va chop etish')),
               ],
             ]),
       );

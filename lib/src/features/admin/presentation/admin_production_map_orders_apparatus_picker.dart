@@ -134,7 +134,7 @@ class _ApparatusRow extends StatelessWidget {
         borderRadius: radius,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 9, 8, 9),
+          padding: const EdgeInsetsDirectional.fromSTEB(14, 9, 8, 9),
           child: Row(
             children: [
               SizedBox.square(

@@ -81,7 +81,8 @@ class _PaddonDetailHeader extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 14),
-            PaddonWeightTotals(key: const ValueKey('paddon-detail-weights'), paddon: paddon),
+            PaddonWeightTotals(
+                key: const ValueKey('paddon-detail-weights'), paddon: paddon),
             const SizedBox(height: 14),
             Wrap(
               spacing: 8,
@@ -131,7 +132,7 @@ class _PaddonDetailMetric extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Text(
+        child: UrduAwareText(
           '$label: $value',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: scheme.onPrimaryContainer,
@@ -169,8 +170,7 @@ class _PaddonWipCard extends StatelessWidget {
     final qr = batch.qrPayload.trim();
     final epc = qr.isNotEmpty ? qr : '—';
     final lengthM = batch.finishedGoodsMeter;
-    final hasLength =
-        lengthM != null && lengthM.isFinite && lengthM > 0 ||
+    final hasLength = lengthM != null && lengthM.isFinite && lengthM > 0 ||
         (batch.uom.trim().toLowerCase() == 'm' &&
             batch.producedQty.isFinite &&
             batch.producedQty > 0);
@@ -206,7 +206,7 @@ class _PaddonWipCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    UrduAwareText(
                       '${context.l10n.productionText('worker.daily.order')}: $orderId',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -214,8 +214,10 @@ class _PaddonWipCard extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    Text(
-                      lengthText.isEmpty ? 'EPC: $epc' : 'EPC: $epc • $lengthText',
+                    UrduAwareText(
+                      lengthText.isEmpty
+                          ? 'EPC: $epc'
+                          : 'EPC: $epc • $lengthText',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(

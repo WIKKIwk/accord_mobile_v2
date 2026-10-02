@@ -172,7 +172,7 @@ class _ConversationTitle extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
         ),
-        Text(
+        UrduAwareText(
           connected ? 'Onlayn' : 'Ulanmoqda…',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: scheme.onSurfaceVariant,

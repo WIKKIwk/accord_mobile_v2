@@ -9,6 +9,7 @@ import '../../../admin/models/production_map_models.dart';
 import '../../../shared/models/app_models.dart';
 import '../../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 class RawMaterialOrderAssignmentSection extends StatefulWidget {
   const RawMaterialOrderAssignmentSection({
@@ -264,7 +265,7 @@ class _RawMaterialOrderAssignmentSectionState
     return showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Apparatni tanlang'),
+        title: const UrduAwareText('Apparatni tanlang'),
         children: [
           for (final option in options)
             SimpleDialogOption(
@@ -293,7 +294,7 @@ class _RawMaterialOrderAssignmentSectionState
         children: [
           Icon(Icons.link_off_rounded, color: scheme.error),
           const SizedBox(width: 12),
-          const Expanded(child: Text('Zakaz ma’lumoti yuklanmadi')),
+          const Expanded(child: UrduAwareText('Zakaz ma’lumoti yuklanmadi')),
           IconButton(
             key: const ValueKey('raw-material-assignment-retry'),
             onPressed: _load,
@@ -324,7 +325,7 @@ class _RawMaterialOrderAssignmentSectionState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      UrduAwareText(
                         'Ulangan zakaz',
                         style: theme.textTheme.labelLarge?.copyWith(
                           color: scheme.onSecondaryContainer,
@@ -363,7 +364,7 @@ class _RawMaterialOrderAssignmentSectionState
             icon: _saving
                 ? const AppLoadingIndicator(size: 20, glyphSize: 14)
                 : const Icon(Icons.link_off_rounded),
-            label: const Text('Ulanishni uzish'),
+            label: const UrduAwareText('Ulanishni uzish'),
           ),
         ],
       );
@@ -375,14 +376,14 @@ class _RawMaterialOrderAssignmentSectionState
           children: [
             Icon(Icons.link_off_rounded, color: scheme.onSurfaceVariant),
             const SizedBox(width: 12),
-            Text(
+            UrduAwareText(
               'Zakaz',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
             ),
             const Spacer(),
-            Text(
+            UrduAwareText(
               'Ulanmagan',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w700,
@@ -399,11 +400,11 @@ class _RawMaterialOrderAssignmentSectionState
             icon: _saving
                 ? const AppLoadingIndicator(size: 20, glyphSize: 14)
                 : const Icon(Icons.add_link_rounded),
-            label: const Text('Orderga ulash'),
+            label: const UrduAwareText('Orderga ulash'),
           ),
           if (_candidateOrders.isEmpty && !_saving) ...[
             const SizedBox(height: 8),
-            Text(
+            UrduAwareText(
               'Bu homashyoga mos faol zakaz topilmadi',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(

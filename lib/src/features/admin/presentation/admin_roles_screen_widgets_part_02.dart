@@ -44,7 +44,8 @@ class _RoleDefinitionTile extends StatelessWidget {
           InkWell(
             onTap: () => onExpandedChanged(!expanded),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 8 : 8),
+              padding:
+                  EdgeInsetsDirectional.fromSTEB(14, 8, 4, expanded ? 8 : 8),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
                 child: Row(
@@ -129,9 +130,10 @@ class _RoleDefinitionTile extends StatelessWidget {
             alignment: Alignment.topCenter,
             child: expanded && capabilityLabels.isNotEmpty
                 ? Padding(
-                    padding: const EdgeInsets.fromLTRB(58, 0, 14, 14),
+                    padding:
+                        const EdgeInsetsDirectional.fromSTEB(58, 0, 14, 14),
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: Text(
                         capabilityLabels.join(', '),
                         style: theme.textTheme.bodyMedium,
@@ -234,7 +236,7 @@ class _RoleAssignmentTile extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 8, 12, 8),
+        padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 12, 8),
         child: Row(
           children: [
             SizedBox.square(
@@ -266,7 +268,7 @@ class _RoleAssignmentTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
+                  UrduAwareText(
                     '${l10n.roleLabelForCode(userRoleToJson(principal.role))} • ${principal.ref}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -286,7 +288,7 @@ class _RoleAssignmentTile extends StatelessWidget {
                   ),
                   if (assignedApparatusLabels.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(
+                    UrduAwareText(
                       '${assignedApparatusLabels.length} ta aparat: ${assignedApparatusLabels.join(', ')}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,

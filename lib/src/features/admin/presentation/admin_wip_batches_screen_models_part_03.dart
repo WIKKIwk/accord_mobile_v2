@@ -19,36 +19,54 @@ String _buildFriendlySummary({
   final sourceText = sourceApparatus == '-'
       ? (l10n.locale.languageCode == 'en'
           ? 'an unknown machine'
-          : 'noma’lum aparatdan')
+          : l10n.isUrdu
+              ? 'نامعلوم مشین'
+              : 'noma’lum aparatdan')
       : l10n.locale.languageCode == 'en'
           ? sourceApparatus
-          : '${sourceApparatus}dan';
+          : l10n.isUrdu
+              ? sourceApparatus
+              : '${sourceApparatus}dan';
   final waitingPlace = currentPlace == '-'
       ? (l10n.locale.languageCode == 'en'
           ? 'an unknown location'
-          : 'noma’lum joyda')
+          : l10n.isUrdu
+              ? 'نامعلوم مقام'
+              : 'noma’lum joyda')
       : l10n.locale.languageCode == 'en'
           ? 'at $currentPlace'
-          : '$currentPlace yonida';
+          : l10n.isUrdu
+              ? currentPlace
+              : '$currentPlace yonida';
   final inUsePlace = currentPlace == '-'
       ? (l10n.locale.languageCode == 'en'
           ? 'an unknown location'
-          : 'noma’lum joyda')
+          : l10n.isUrdu
+              ? 'نامعلوم مقام'
+              : 'noma’lum joyda')
       : l10n.locale.languageCode == 'en'
           ? currentPlace
-          : '$currentPlace ishlayapti';
+          : l10n.isUrdu
+              ? currentPlace
+              : '$currentPlace ishlayapti';
   final processedPlace = currentPlace == '-'
       ? (l10n.locale.languageCode == 'en'
           ? 'an unknown location'
-          : 'noma’lum joyda')
+          : l10n.isUrdu
+              ? 'نامعلوم مقام'
+              : 'noma’lum joyda')
       : l10n.locale.languageCode == 'en'
           ? currentPlace
-          : '${currentPlace}da';
+          : l10n.isUrdu
+              ? currentPlace
+              : '${currentPlace}da';
   final workerText = worker == '-'
       ? ''
       : l10n.locale.languageCode == 'en'
           ? ' Worker: $worker.'
-          : ' Ishchi: $worker.';
+          : l10n.isUrdu
+              ? ' کارکن: $worker۔'
+              : ' Ishchi: $worker.';
   if (isFinalFreeWip(batch)) {
     return l10n.adminText(
       'wip.summary.free',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../godex_rps_renderer.dart';
+import '../../localization/urdu_aware_text.dart';
 
 class RpsQrReprintCancelled implements Exception {
   const RpsQrReprintCancelled();
@@ -103,18 +104,18 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Batch QRni o‘chirish'),
-        content: const Text(
+        title: const UrduAwareText('Batch QRni o‘chirish'),
+        content: const UrduAwareText(
           'Bu QR Laminatsiya ishini boshlash uchun ishlatilmaydi. Keyin yana generatsiya qilish mumkin.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Bekor qilish'),
+            child: const UrduAwareText('Bekor qilish'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('O‘chirish'),
+            child: const UrduAwareText('O‘chirish'),
           ),
         ],
       ),
@@ -246,8 +247,8 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.print_rounded),
-                  label:
-                      Text(_printing ? 'Chop etilmoqda…' : 'Qayta chop etish'),
+                  label: UrduAwareText(
+                      _printing ? 'Chop etilmoqda…' : 'Qayta chop etish'),
                 ),
               ],
               if (widget.onDelete != null) ...[

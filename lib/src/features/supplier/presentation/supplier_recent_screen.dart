@@ -13,6 +13,7 @@ import 'supplier_qty_screen.dart';
 import 'widgets/supplier_dock.dart';
 import 'widgets/supplier_navigation_drawer.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class SupplierRecentScreen extends StatefulWidget {
   const SupplierRecentScreen({super.key});
@@ -175,11 +176,9 @@ class _SupplierRecentScreenState extends State<SupplierRecentScreen>
                       ),
                       child: Column(
                         children: [
-                          for (
-                            int index = 0;
-                            index < items.length;
-                            index++
-                          ) ...[
+                          for (int index = 0;
+                              index < items.length;
+                              index++) ...[
                             Builder(
                               builder: (context) {
                                 final record = items[index];
@@ -220,7 +219,7 @@ class _SupplierRecentScreenState extends State<SupplierRecentScreen>
                                                 ).textTheme.titleLarge,
                                               ),
                                               const SizedBox(height: 6),
-                                              Text(
+                                              UrduAwareText(
                                                 '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
                                                 style: Theme.of(
                                                   context,

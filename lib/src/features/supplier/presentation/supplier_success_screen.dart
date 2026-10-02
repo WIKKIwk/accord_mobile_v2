@@ -4,6 +4,7 @@ import '../../../core/widgets/display/common_widgets.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/supplier_dock.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class SupplierSuccessScreen extends StatelessWidget {
   const SupplierSuccessScreen({super.key, required this.record});
@@ -41,7 +42,7 @@ class SupplierSuccessScreen extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 6),
-                    Text(
+                    UrduAwareText(
                       '${record.itemCode} • ${record.sentQty.toStringAsFixed(2)} ${record.uom}',
                     ),
                   ],
@@ -57,7 +58,7 @@ class SupplierSuccessScreen extends StatelessWidget {
                 AppRoutes.supplierHome,
                 (route) => route.isFirst,
               ),
-              child: const Text('Home ga qaytish'),
+              child: const UrduAwareText('Home ga qaytish'),
             ),
           ),
         ],

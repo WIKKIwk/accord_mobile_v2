@@ -22,7 +22,7 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
         onTap: () => setState(() => _expanded = !_expanded),
         onLongPress: widget.onLongPress,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+          padding: const EdgeInsetsDirectional.fromSTEB(14, 14, 10, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -33,7 +33,7 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
                     radius: 16,
                     backgroundColor: scheme.secondaryContainer,
                     foregroundColor: scheme.onSecondaryContainer,
-                    child: Text('${widget.index + 1}'),
+                    child: UrduAwareText('${widget.index + 1}'),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -69,7 +69,7 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
                         children: [
                           if (widget.onEdit != null)
                             Align(
-                              alignment: Alignment.centerRight,
+                              alignment: AlignmentDirectional.centerEnd,
                               child: IconButton.filledTonal(
                                 key: ValueKey(
                                   'daily-work-wip-edit-${widget.batch.batchId}',

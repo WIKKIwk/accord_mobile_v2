@@ -67,7 +67,7 @@ class _ChatPendingMediaBubbleState extends State<ChatPendingMediaBubble> {
     return Semantics(
       label: 'Media ${_statusLabel(pending.status)}',
       child: Align(
-        alignment: Alignment.centerRight,
+        alignment: AlignmentDirectional.centerEnd,
         child: Container(
           width: 250,
           margin: const EdgeInsets.only(top: 8),
@@ -103,12 +103,12 @@ class _ChatPendingMediaBubbleState extends State<ChatPendingMediaBubble> {
                   padding: const EdgeInsets.fromLTRB(7, 6, 7, 2),
                   child: Text(
                     pending.caption,
-                    textAlign: TextAlign.right,
+                    textAlign: TextAlign.end,
                     style: theme.textTheme.bodyMedium,
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(7, 5, 4, 2),
+                padding: const EdgeInsetsDirectional.fromSTEB(7, 5, 4, 2),
                 child: Row(
                   children: [
                     Expanded(

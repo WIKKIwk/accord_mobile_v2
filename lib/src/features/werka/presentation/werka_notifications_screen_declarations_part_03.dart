@@ -16,7 +16,7 @@ class _WerkaNotificationsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = items.length;
     return M3SegmentSpacedColumn(
-      padding: const EdgeInsets.symmetric(horizontal: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       children: [
         for (int index = 0; index < n; index++)
           _WerkaNotificationSegmentTile(
@@ -77,32 +77,36 @@ class _WerkaNotificationSegmentTile extends StatelessWidget {
       onTap: onTap,
       backgroundColor: highlighted ? scheme.secondaryContainer : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Text(
                     _notificationTitle(context, record),
-                    style: theme.textTheme.titleLarge,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 _NotificationStatusBadge(status: record.status),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 2),
             Text(
               _secondary(record),
               style: theme.textTheme.bodyMedium,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Row(
               children: [
                 Expanded(
@@ -113,7 +117,7 @@ class _WerkaNotificationSegmentTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Text(record.createdLabel, style: theme.textTheme.bodySmall),
               ],
             ),
@@ -165,15 +169,15 @@ class _NotificationStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 36,
-      width: 36,
+      height: 32,
+      width: 32,
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         shape: BoxShape.circle,
       ),
       child: Icon(
         icon,
-        size: 18,
+        size: 16,
         color: Theme.of(context).colorScheme.onSurface,
       ),
     );

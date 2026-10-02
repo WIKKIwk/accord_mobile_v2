@@ -41,7 +41,7 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(widget.slot),
       expanded: _expanded,
       onExpandedChanged: (value) => setState(() => _expanded = value),
-      headerPadding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+      headerPadding: const EdgeInsetsDirectional.fromSTEB(14, 10, 12, 10),
       header: Row(
         children: [
           SizedBox.square(
@@ -264,7 +264,7 @@ class _FactoryMapSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Align(
-      alignment: Alignment.centerLeft,
+      alignment: AlignmentDirectional.centerStart,
       child: Padding(
         padding: const EdgeInsets.only(top: 8, bottom: 4),
         child: Text(

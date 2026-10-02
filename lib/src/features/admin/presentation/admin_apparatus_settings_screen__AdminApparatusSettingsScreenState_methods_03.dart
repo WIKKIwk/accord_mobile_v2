@@ -237,7 +237,7 @@ class _AdminApparatusCollectionGroupCardState
           onExpansionChanged: (expanded) {
             setState(() => _isExpanded = expanded);
           },
-          tilePadding: const EdgeInsets.fromLTRB(14, 0, 8, 0),
+          tilePadding: const EdgeInsetsDirectional.fromSTEB(14, 0, 8, 0),
           childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
           leading: SizedBox.square(
             dimension: 30,
@@ -410,7 +410,7 @@ class _AdminApparatusCanonicalGroupCardState
           onExpansionChanged: (expanded) {
             setState(() => _isExpanded = expanded);
           },
-          tilePadding: const EdgeInsets.fromLTRB(14, 0, 12, 0),
+          tilePadding: const EdgeInsetsDirectional.fromSTEB(14, 0, 12, 0),
           childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
           leading: SizedBox.square(
             dimension: 30,
@@ -539,7 +539,7 @@ class _GroupApparatusItemRow extends StatelessWidget {
                           ),
                     ),
                     if (apparatus != null)
-                      Text(
+                      UrduAwareText(
                         '${_apparatusOptionLabel(apparatus!.family, context.l10n)} · ${apparatus!.id}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

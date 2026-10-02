@@ -33,6 +33,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.qolipScanned,
     required this.qolipCodes,
     required this.requiredQolips,
+    required this.qolipRequirementsLoaded,
     required this.qolipRequirementsStatusText,
     required this.startMaterialsExpanded,
     required this.onToggleStartMaterialsExpanded,
@@ -96,6 +97,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool qolipScanned;
   final List<String> qolipCodes;
   final List<AdminProductionMapRequiredQolip> requiredQolips;
+  final bool qolipRequirementsLoaded;
   final String qolipRequirementsStatusText;
   final bool startMaterialsExpanded;
   final VoidCallback onToggleStartMaterialsExpanded;
@@ -149,7 +151,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           );
     final orderControlBlocked =
         orderControlState != AdminOrderControlState.active;
+    final isPrintApparatus = apparatusCatalog.any(
+      (apparatus) =>
+          apparatus.id.trim() == uiState.station &&
+          apparatus.operation.trim().toLowerCase() == 'print',
+    );
     final canSendOrderAlert = workerMode &&
+        isPrintApparatus &&
         !orderControlBlocked &&
         uiState.contractSynchronized &&
         !uiState.orderId.startsWith('training-') &&
@@ -489,9 +497,14 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               // Keep polling while collapsed so approval refreshes the start card.
               child: materialLinkRequestPanel!,
             ),
-          if (canSendOrderAlert && uiState.showStartMaterials)
+          if (canSendOrderAlert &&
+              uiState.showStartMaterials &&
+              !materialsLoading &&
+              materialsError.trim().isEmpty &&
+              uiState.assignedMaterialAssignments.isEmpty)
             OrderAlertButton(
-              key: ValueKey('material-alert:${uiState.orderId}:${uiState.station}'),
+              key: ValueKey(
+                  'material-alert:${uiState.orderId}:${uiState.station}'),
               orderId: uiState.orderId,
               apparatusId: uiState.station,
               kind: OrderAlertKind.rawMaterial,
@@ -592,9 +605,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               ),
             ],
           ],
-          if (canSendOrderAlert && requiresQolipScan)
+          if (canSendOrderAlert &&
+              requiresQolipScan &&
+              qolipRequirementsLoaded &&
+              requiredQolips.isEmpty)
             OrderAlertButton(
-              key: ValueKey('qolip-alert:${uiState.orderId}:${uiState.station}'),
+              key:
+                  ValueKey('qolip-alert:${uiState.orderId}:${uiState.station}'),
               orderId: uiState.orderId,
               apparatusId: uiState.station,
               kind: OrderAlertKind.qolip,

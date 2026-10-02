@@ -161,7 +161,7 @@ class _ReturnedPaintRequestCard extends StatelessWidget {
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       expanded: expanded,
       onExpandedChanged: onExpandedChanged,
-      headerPadding: const EdgeInsets.fromLTRB(16, 15, 12, 15),
+      headerPadding: const EdgeInsetsDirectional.fromSTEB(16, 15, 12, 15),
       header: Row(
         children: [
           Expanded(

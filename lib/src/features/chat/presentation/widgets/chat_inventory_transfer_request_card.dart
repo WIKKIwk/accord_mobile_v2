@@ -4,6 +4,7 @@ import '../../../../core/api/mobile_api.dart';
 import '../../../../core/session/state/app_session.dart';
 import '../../../shared/models/app_models.dart';
 import '../../models/chat_models.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 class ChatInventoryTransferRequestCard extends StatefulWidget {
   const ChatInventoryTransferRequestCard({super.key, required this.data});
@@ -118,7 +119,7 @@ class _ChatInventoryTransferRequestCardState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            UrduAwareText(
                               'Ombor transferi',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
@@ -183,17 +184,17 @@ class _ChatInventoryTransferRequestCardState
                         onPressed: _busy ? null : () => _act('approve'),
                         child: _busy
                             ? const _CardProgress()
-                            : const Text('Tasdiqlash'),
+                            : const UrduAwareText('Tasdiqlash'),
                       ),
                     if (_isTarget)
                       TextButton(
                         onPressed: _busy ? null : () => _act('reject'),
-                        child: const Text('Rad etish'),
+                        child: const UrduAwareText('Rad etish'),
                       ),
                     if (_isRequester)
                       OutlinedButton(
                         onPressed: _busy ? null : () => _act('cancel'),
-                        child: const Text('So‘rovni bekor qilish'),
+                        child: const UrduAwareText('So‘rovni bekor qilish'),
                       ),
                   ],
                   if (_status == 'approved' && _isRequester) ...[
@@ -202,11 +203,11 @@ class _ChatInventoryTransferRequestCardState
                       onPressed: _busy ? null : () => _act('dispatch'),
                       child: _busy
                           ? const _CardProgress()
-                          : const Text('Jo‘natildi'),
+                          : const UrduAwareText('Jo‘natildi'),
                     ),
                     TextButton(
                       onPressed: _busy ? null : () => _act('cancel'),
-                      child: const Text('So‘rovni bekor qilish'),
+                      child: const UrduAwareText('So‘rovni bekor qilish'),
                     ),
                   ],
                   if (_status == 'in_transit' && _isTarget) ...[
@@ -215,7 +216,7 @@ class _ChatInventoryTransferRequestCardState
                       onPressed: _busy ? null : () => _act('receive'),
                       child: _busy
                           ? const _CardProgress()
-                          : const Text('Qabul qilish'),
+                          : const UrduAwareText('Qabul qilish'),
                     ),
                   ],
                 ],

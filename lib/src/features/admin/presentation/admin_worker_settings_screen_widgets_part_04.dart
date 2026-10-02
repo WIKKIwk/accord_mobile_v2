@@ -66,7 +66,8 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
           InkWell(
             onTap: () => onExpandedChanged(!expanded),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 8 : 8),
+              padding:
+                  EdgeInsetsDirectional.fromSTEB(14, 8, 4, expanded ? 8 : 8),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
                 child: Row(
@@ -273,7 +274,7 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
           _WorkerGroupInfoRows(group: group, workers: workers),
           const SizedBox(height: 12),
           Align(
-            alignment: Alignment.centerRight,
+            alignment: AlignmentDirectional.centerEnd,
             child: IconButton.filledTonal(
               tooltip: context.l10n.adminText('worker.edit'),
               onPressed: onEdit,

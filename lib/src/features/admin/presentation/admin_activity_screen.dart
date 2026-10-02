@@ -106,7 +106,7 @@ class _AdminActivityScreenState extends State<AdminActivityScreen> {
       contentPadding: EdgeInsets.zero,
       actions: [
         Padding(
-          padding: const EdgeInsets.only(right: 4),
+          padding: const EdgeInsetsDirectional.only(end: 4),
           child: IconButton(
             onPressed: _clearAll,
             icon: const Icon(Icons.clear_all_rounded),
@@ -149,9 +149,9 @@ class _AdminActivityScreenState extends State<AdminActivityScreen> {
               itemCount: items.length,
               itemBuilder: (context, index) {
                 return Padding(
-                  padding: EdgeInsets.only(
-                    left: 4,
-                    right: 4,
+                  padding: EdgeInsetsDirectional.only(
+                    start: 4,
+                    end: 4,
                     top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
                   ),
                   child: _AdminActivityCard(

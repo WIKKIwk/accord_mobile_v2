@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../native_bluetooth_printer.dart';
+import '../../localization/urdu_aware_text.dart';
 
 class BluetoothPrinterList extends StatefulWidget {
   const BluetoothPrinterList({
@@ -202,14 +203,14 @@ class _BluetoothPrinterListState extends State<BluetoothPrinterList> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        UrduAwareText(
                           'XP-P323B',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
+                        UrduAwareText(
                           'Bluetooth printer tanlanmoqda...',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
@@ -364,7 +365,7 @@ class _BluetoothEmptyStateState extends State<_BluetoothEmptyState> {
             ),
           ),
           const SizedBox(height: 14),
-          Text(
+          UrduAwareText(
             'Bluetooth printer topilmadi',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
@@ -389,7 +390,7 @@ class _BluetoothEmptyStateState extends State<_BluetoothEmptyState> {
                   _showRawDetails = !_showRawDetails;
                 });
               },
-              child: Text(
+              child: UrduAwareText(
                 _showRawDetails ? 'Tafsilotlarni yashirish' : 'Texnik ma’lumot',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: scheme.primary,
@@ -421,7 +422,7 @@ class _BluetoothEmptyStateState extends State<_BluetoothEmptyState> {
           FilledButton.tonalIcon(
             onPressed: widget.onRetry,
             icon: const Icon(Icons.refresh_rounded, size: 20),
-            label: const Text(
+            label: const UrduAwareText(
               'Qayta qidirish',
               style: TextStyle(fontWeight: FontWeight.w700),
             ),

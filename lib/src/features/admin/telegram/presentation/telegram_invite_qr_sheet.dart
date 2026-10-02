@@ -243,7 +243,7 @@ class _TelegramInviteQrSheetState extends State<TelegramInviteQrSheet> {
                       child: Text(l10n.retry)),
               ],
               Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text(l10n.adminTelegramQrCancel),

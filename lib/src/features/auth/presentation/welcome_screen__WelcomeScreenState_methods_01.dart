@@ -132,7 +132,7 @@ extension __WelcomeScreenStateAstPart01 on _WelcomeScreenState {
                 active: LocaleController.instance.hasExplicitSelection &&
                     currentLocale.languageCode == 'uz',
                 onTap: () => Navigator.of(context).pop(const Locale('uz')),
-                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(0, 3),
+                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(0, 4),
                 activeLabel: l10n.accountCurrent,
               ),
               const SizedBox(height: M3SegmentedListGeometry.gap),
@@ -141,7 +141,7 @@ extension __WelcomeScreenStateAstPart01 on _WelcomeScreenState {
                 active: LocaleController.instance.hasExplicitSelection &&
                     currentLocale.languageCode == 'en',
                 onTap: () => Navigator.of(context).pop(const Locale('en')),
-                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(1, 3),
+                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(1, 4),
                 activeLabel: l10n.accountCurrent,
               ),
               const SizedBox(height: M3SegmentedListGeometry.gap),
@@ -150,7 +150,17 @@ extension __WelcomeScreenStateAstPart01 on _WelcomeScreenState {
                 active: LocaleController.instance.hasExplicitSelection &&
                     currentLocale.languageCode == 'ru',
                 onTap: () => Navigator.of(context).pop(const Locale('ru')),
-                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(2, 3),
+                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(2, 4),
+                activeLabel: l10n.accountCurrent,
+              ),
+              const SizedBox(height: M3SegmentedListGeometry.gap),
+              _SelectionOption(
+                title: 'اردو (پاکستان)',
+                active: LocaleController.instance.hasExplicitSelection &&
+                    currentLocale.languageCode == 'ur',
+                onTap: () =>
+                    Navigator.of(context).pop(const Locale('ur', 'PK')),
+                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(3, 4),
                 activeLabel: l10n.accountCurrent,
               ),
             ],
@@ -273,18 +283,18 @@ extension __WelcomeScreenStateAstPart01 on _WelcomeScreenState {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Secret mode'),
-          content: Text(
+          title: const UrduAwareText('Secret mode'),
+          content: UrduAwareText(
             enabled ? 'Test rejimini o‘chiraymi?' : 'Test rejimini yoqaymi?',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Yo‘q'),
+              child: const UrduAwareText('Yo‘q'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Ha'),
+              child: const UrduAwareText('Ha'),
             ),
           ],
         );
@@ -299,17 +309,20 @@ extension __WelcomeScreenStateAstPart01 on _WelcomeScreenState {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(nextEnabled ? 'Test rejim yondi' : 'Test rejim o‘chdi'),
+        content: UrduAwareText(
+            nextEnabled ? 'Test rejim yondi' : 'Test rejim o‘chdi'),
       ),
     );
   }
 
   String _localeLabel(AppLocalizations l10n, Locale locale) {
-    return locale.languageCode == 'uz'
-        ? l10n.uzbek
-        : locale.languageCode == 'ru'
-            ? l10n.russian
-            : l10n.english;
+    return locale.languageCode == 'ur'
+        ? 'اردو (پاکستان)'
+        : locale.languageCode == 'uz'
+            ? l10n.uzbek
+            : locale.languageCode == 'ru'
+                ? l10n.russian
+                : l10n.english;
   }
 
   String _themeLabel(AppLocalizations l10n, AppThemeVariant variant) {

@@ -63,7 +63,7 @@ class _AdminWarehousePickerSheetState
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 8, 8),
               child: Row(
                 children: [
                   Expanded(

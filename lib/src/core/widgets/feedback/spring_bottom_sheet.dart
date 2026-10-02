@@ -308,8 +308,9 @@ class AppActionSheet<T> extends StatelessWidget {
                 for (var i = 0; i < actions.length; i++)
                   Builder(builder: (sheetContext) {
                     final action = actions[i];
-                    final slot = M3SegmentedListGeometry
-                        .standaloneListSlotForIndex(i, actions.length);
+                    final slot =
+                        M3SegmentedListGeometry.standaloneListSlotForIndex(
+                            i, actions.length);
                     final radius =
                         M3SegmentedListGeometry.cornerRadiusForSlot(slot);
                     final foreground = action.destructive
@@ -325,7 +326,8 @@ class AppActionSheet<T> extends StatelessWidget {
                           ? () => Navigator.of(sheetContext).pop(action.value)
                           : null,
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 9, 12, 9),
+                        padding:
+                            const EdgeInsetsDirectional.fromSTEB(16, 9, 12, 9),
                         child: Row(
                           children: [
                             Icon(action.icon, color: foreground, size: 20),

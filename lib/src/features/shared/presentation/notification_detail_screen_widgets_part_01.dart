@@ -173,7 +173,7 @@ class _NotificationInfoRow extends StatelessWidget {
           Flexible(
             child: Text(
               value,
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.end,
               style: theme.textTheme.titleMedium,
             ),
           ),

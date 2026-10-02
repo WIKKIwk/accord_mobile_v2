@@ -9,6 +9,7 @@ import '../../shared/models/app_models.dart';
 import 'werka_archive_list_screen.dart';
 import 'widgets/werka_dock.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class WerkaArchiveMonthlyCalendarScreen extends StatefulWidget {
   const WerkaArchiveMonthlyCalendarScreen({
@@ -23,8 +24,7 @@ class WerkaArchiveMonthlyCalendarScreen extends StatefulWidget {
     required WerkaArchivePeriod period,
     DateTime? from,
     DateTime? to,
-  })?
-  archiveLoader;
+  })? archiveLoader;
 
   @override
   State<WerkaArchiveMonthlyCalendarScreen> createState() =>
@@ -192,7 +192,7 @@ class _WerkaArchiveMonthlyCalendarScreenState
                         ),
                       ),
                       Expanded(
-                        child: Text(
+                        child: UrduAwareText(
                           '$_displayYear',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.titleLarge,
@@ -279,9 +279,8 @@ class _MonthCell extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              border: active
-                  ? Border.all(color: scheme.primary, width: 1.2)
-                  : null,
+              border:
+                  active ? Border.all(color: scheme.primary, width: 1.2) : null,
             ),
             child: Text(
               label,

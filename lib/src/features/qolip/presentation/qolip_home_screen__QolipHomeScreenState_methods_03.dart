@@ -345,7 +345,7 @@ extension __QolipHomeScreenStateAstPart03 on _QolipHomeScreenState {
                     ),
               ),
               const SizedBox(height: 4),
-              Text(
+              UrduAwareText(
                 '${block.name} • ${block.warehouse}',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,

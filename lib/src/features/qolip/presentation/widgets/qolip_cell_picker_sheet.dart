@@ -309,7 +309,7 @@ class _SearchResultsList extends StatelessWidget {
                 onPressed: () => onSelect(label),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),

@@ -20,7 +20,7 @@ extension __RezkaSplitScreenStateAstPart02 on _RezkaSplitScreenState {
       _addRemainderOutput(source, diff);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: UrduAwareText(
             'Bo‘linayotgan mahsulot ${sourceQty.gscale} ${source.uom}. '
             'Bo‘laklar jami ${total.gscale} ${source.uom}. '
             '${diff.gscale} ${source.uom} kam. Qolganini yangi bo‘lakka ochdim.',
@@ -31,7 +31,7 @@ extension __RezkaSplitScreenStateAstPart02 on _RezkaSplitScreenState {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
+        content: UrduAwareText(
           'Bo‘laklar jami ${total.gscale}, asl mahsulot ${sourceQty.gscale}. '
           'Miqdorlarni teng qilib yozing.',
         ),

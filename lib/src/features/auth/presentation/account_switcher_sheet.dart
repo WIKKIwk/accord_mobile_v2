@@ -183,11 +183,10 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                 ),
                 child: _SavedAccountTile(
                   key: ValueKey<String>('saved-account-${account.id}'),
-                  slot:
-                      M3SegmentedListGeometry.standaloneListSlotForIndex(
-                        index,
-                        widget.accounts.length,
-                      ),
+                  slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                    index,
+                    widget.accounts.length,
+                  ),
                   account: account,
                   isActive: isActive,
                   hasPin: hasPin,
@@ -262,7 +261,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
           const AppSheetHandle(),
           const SizedBox(height: 6),
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: IconButton(
               onPressed: _busy ? null : _closePin,
               icon: const Icon(Icons.arrow_back_rounded),
@@ -333,7 +332,7 @@ class _SavedAccountTile extends StatelessWidget {
         borderRadius: radius,
         onTap: enabled ? onTap : null,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+          padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 45),
             child: Row(
@@ -385,7 +384,7 @@ class _SavedAccountTile extends StatelessWidget {
                 ),
                 if (hasPin)
                   Padding(
-                    padding: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsetsDirectional.only(end: 8),
                     child: Icon(
                       Icons.lock_outline_rounded,
                       size: 19,

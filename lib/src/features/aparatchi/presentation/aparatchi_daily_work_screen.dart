@@ -22,6 +22,7 @@ import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/aparatchi_dock.dart';
 import 'widgets/aparatchi_navigation_drawer.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'aparatchi_daily_work_screen_helpers_part_01.dart';
 part 'aparatchi_daily_work_screen_models_part_02.dart';

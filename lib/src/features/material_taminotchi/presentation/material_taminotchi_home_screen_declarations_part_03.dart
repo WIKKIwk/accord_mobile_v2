@@ -26,7 +26,7 @@ class _MaterialScopeNotice extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  UrduAwareText(
                     'Mahsulot guruhi biriktirilmagan',
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: scheme.onTertiaryContainer,
@@ -34,7 +34,7 @@ class _MaterialScopeNotice extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
+                  UrduAwareText(
                     'Homashyo qabul qilish va zakazga ulash uchun admin avval material guruhini biriktirishi kerak.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onTertiaryContainer,
@@ -232,7 +232,8 @@ String _materialHistorySubtitle(
   final parts = <String>[
     if (event.warehouse.trim().isNotEmpty) event.warehouse.trim(),
     if (event.orderId.trim().isNotEmpty) 'Zakaz ${event.orderId.trim()}',
-    if (_materialFriendlyApparatus(event.apparatus, apparatusCatalog).isNotEmpty)
+    if (_materialFriendlyApparatus(event.apparatus, apparatusCatalog)
+        .isNotEmpty)
       _materialFriendlyApparatus(event.apparatus, apparatusCatalog),
     if (event.barcode.trim().isNotEmpty) event.barcode.trim(),
   ];

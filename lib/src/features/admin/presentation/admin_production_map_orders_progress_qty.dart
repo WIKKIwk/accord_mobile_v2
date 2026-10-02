@@ -604,7 +604,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   }
 
   void _submit() {
-    if (_rezkaPrintBusy || _rezkaPrintQueue.isNotEmpty || _rezkaSyncRequired) return;
+    if (_rezkaPrintBusy || _rezkaPrintQueue.isNotEmpty || _rezkaSyncRequired)
+      return;
     setState(() => _completionError = '');
     final description = _descriptionController.text.trim();
     final hasRawOutput = <TextEditingController>[
@@ -660,7 +661,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       }
       return;
     }
-    if (_isComplete && !_isBosmaClosingReport && description.isNotEmpty && !_showRezkaFrameInputs) {
+    if (_isComplete &&
+        !_isBosmaClosingReport &&
+        description.isNotEmpty &&
+        !_showRezkaFrameInputs) {
       Navigator.of(context).pop(
         _ProgressQtyInput(description: description, isIssue: true),
       );
@@ -723,9 +727,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       items: returnedPaintItems,
       imageId: returnedPaintImageId,
     );
-    if (_requiresPaintReport &&
-        widget.isBosma &&
-        !returnedPaintValid) {
+    if (_requiresPaintReport && widget.isBosma && !returnedPaintValid) {
       _setCompletionError(
         returnedPaintFieldCount > 0
             ? context.l10n.productionText(
@@ -1191,13 +1193,12 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   }
 
   ReturnedPaintDraft get _returnedPaintDraft => widget.returnedPaintDraft;
-  List<ReturnedPaintItemInput> get _returnedPaintItems =>
-      _requiresPaintReport
-          ? returnedPaintItemsFromDraft(_returnedPaintDraft)
-          : const [];
+  List<ReturnedPaintItemInput> get _returnedPaintItems => _requiresPaintReport
+      ? returnedPaintItemsFromDraft(_returnedPaintDraft)
+      : const [];
   bool get _isComplete => widget.action == 'complete';
-  bool get _isBosmaClosingReport => _isComplete && widget.isBosma &&
-      widget.closingOutputBatchId.isNotEmpty;
+  bool get _isBosmaClosingReport =>
+      _isComplete && widget.isBosma && widget.closingOutputBatchId.isNotEmpty;
   bool get _requiresRezkaTotalWasteOnlyCompletion =>
       _isComplete &&
       widget.isRezka &&
@@ -1208,8 +1209,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       !_requiresRezkaTotalWasteOnlyCompletion;
   bool get _isWorkerHandoff => widget.workerHandoff;
   bool get _isAstatkaReport => widget.astatkaReport;
-  bool get _requiresPaintReport => _requiresFullCompletionReport ||
-      (_isAstatkaReport && widget.isBosma);
+  bool get _requiresPaintReport =>
+      _requiresFullCompletionReport || (_isAstatkaReport && widget.isBosma);
   bool get _isRollRemoval => widget.removeRollFromApparatus;
   bool get _isFreezeRequestSafeStop => widget.freezeRequestSafeStop;
   bool get _descriptionFieldRelevant =>
@@ -1752,8 +1753,12 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           ),
                           _qtyField(
                             controller: _wasteController,
-                            requiredField: (_isBosmaClosingReport || _isAstatkaReport) ? true : null,
-                            allowZero: _isBosmaClosingReport || _isAstatkaReport,
+                            requiredField:
+                                (_isBosmaClosingReport || _isAstatkaReport)
+                                    ? true
+                                    : null,
+                            allowZero:
+                                _isBosmaClosingReport || _isAstatkaReport,
                             label: context.l10n.productionText(
                               'worker.daily.field.total_waste',
                             ),
@@ -1780,7 +1785,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                 width: 1.2,
                               ),
                               minimumSize: const Size.fromHeight(52),
-                              alignment: Alignment.centerLeft,
+                              alignment: AlignmentDirectional.centerStart,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
@@ -1822,7 +1827,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                         maxLines: 4,
                                         decoration: appSurfaceInputDecoration(
                                           context,
-                                          labelText: (_isAstatkaReport || _isBosmaClosingReport)
+                                          labelText: (_isAstatkaReport ||
+                                                  _isBosmaClosingReport)
                                               ? context.l10n.productionText(
                                                   'worker.progress.qty.optional_note',
                                                 )

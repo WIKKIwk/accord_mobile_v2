@@ -325,7 +325,7 @@ class _ArchiveSessionDetailsSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
+              UrduAwareText(
                 'Batch to‘liq ma’lumotlari',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
@@ -359,7 +359,7 @@ class _ArchiveSessionDetailsSheet extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 8),
-              Text(
+              UrduAwareText(
                 'QR / printlar',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
@@ -367,7 +367,7 @@ class _ArchiveSessionDetailsSheet extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               if (session.prints.isEmpty)
-                Text(
+                UrduAwareText(
                   "Print tarixi hali yo'q.",
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
@@ -382,7 +382,7 @@ class _ArchiveSessionDetailsSheet extends StatelessWidget {
                       Icons.playlist_add_check_rounded,
                       color: scheme.primary,
                     ),
-                    title: Text(
+                    title: UrduAwareText(
                       'B ${formatCompactKg(entry.grossQty)} / '
                       'N ${formatCompactKg(entry.netQty)} ${entry.unit}',
                       style: theme.textTheme.bodyMedium?.copyWith(

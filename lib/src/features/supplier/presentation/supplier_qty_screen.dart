@@ -4,6 +4,7 @@ import '../../shared/models/app_models.dart';
 import 'supplier_confirm_screen.dart';
 import 'widgets/supplier_dock.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class SupplierQtyArgs {
   const SupplierQtyArgs({required this.item, this.initialQty});
@@ -49,7 +50,7 @@ class _SupplierQtyScreenState extends State<SupplierQtyScreen> {
       ),
       title: 'Miqdor',
       subtitle: '',
-      contentPadding: const EdgeInsets.fromLTRB(10, 0, 12, 0),
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(10, 0, 12, 0),
       bottom: const SupplierDock(activeTab: null, centerActive: true),
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -95,7 +96,7 @@ class _SupplierQtyScreenState extends State<SupplierQtyScreen> {
                           ),
                         );
                       },
-                      child: const Text('Davom etish'),
+                      child: const UrduAwareText('Davom etish'),
                     ),
                   ),
                 ],

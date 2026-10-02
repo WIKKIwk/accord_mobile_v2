@@ -318,7 +318,7 @@ class _OrderMapProgressCardState extends State<_OrderMapProgressCard> {
             borderRadius: BorderRadius.circular(18),
             onTap: onToggleExpanded,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+              padding: const EdgeInsetsDirectional.fromSTEB(14, 14, 10, 14),
               child: Row(
                 children: [
                   Expanded(

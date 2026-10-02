@@ -13,6 +13,7 @@ import '../../werka/presentation/widgets/werka_dock.dart';
 import '../models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'notification_detail_screen__NotificationDetailScreenState_methods_01.dart';
 part 'notification_detail_screen_widgets_part_01.dart';
@@ -102,7 +103,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
       title: 'Batafsil',
       subtitle: '',
       nativeTopBar: true,
-      contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 0, 14, 0),
       bottom: role == UserRole.supplier
           ? const SupplierDock(activeTab: null)
           : role == UserRole.werka
@@ -133,7 +134,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
               Navigator.of(context).maybePop();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Bu receipt sizga tegishli emas.'),
+                  content: UrduAwareText('Bu receipt sizga tegishli emas.'),
                 ),
               );
             });
@@ -199,7 +200,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                       onPressed: () => Navigator.of(
                         context,
                       ).pushNamed(AppRoutes.werkaDetail, arguments: record),
-                      child: const Text('Qabul qilishga o‘tish'),
+                      child: const UrduAwareText('Qabul qilishga o‘tish'),
                     ),
                   ),
                 ],
@@ -212,7 +213,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                           onPressed: _sending
                               ? null
                               : () => _respondWerkaUnannounced(false),
-                          child: const Text('Rad etaman'),
+                          child: const UrduAwareText('Rad etaman'),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -226,7 +227,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                           onPressed: _sending
                               ? null
                               : () => _respondWerkaUnannounced(true),
-                          child: Text(
+                          child: UrduAwareText(
                             _sending ? 'Yuborilmoqda...' : 'Tasdiqlayman',
                           ),
                         ),
@@ -277,7 +278,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                                 final text = '$error';
                                 messenger.showSnackBar(
                                   SnackBar(
-                                    content: Text(
+                                    content: UrduAwareText(
                                       text.contains('forbidden')
                                           ? 'Bu receipt sizga tegishli emas.'
                                           : 'Tasdiqlash yuborilmadi: $error',
@@ -290,7 +291,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                                 }
                               }
                             },
-                      child: Text(
+                      child: UrduAwareText(
                         _sending ? 'Yuborilmoqda...' : 'Tasdiqlayman',
                       ),
                     ),
@@ -298,7 +299,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                 ],
                 if (canWriteIssueComment) ...[
                   const SizedBox(height: 20),
-                  Text(
+                  UrduAwareText(
                     'Izohlar',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
@@ -306,7 +307,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                   if (detail.comments.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 2),
-                      child: Text('Hozircha izoh yo‘q.'),
+                      child: UrduAwareText('Hozircha izoh yo‘q.'),
                     )
                   else
                     ...detail.comments.map(
@@ -352,7 +353,8 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                     controller: _commentController,
                     minLines: 3,
                     maxLines: 5,
-                    decoration: const InputDecoration(hintText: 'Izoh yozing'),
+                    decoration: InputDecoration(
+                        hintText: localizeUrduUiText('Izoh yozing')),
                   ),
                   if (_hasCommentText) ...[
                     const SizedBox(height: 12),
@@ -360,7 +362,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: _sending ? null : _sendComment,
-                        child: Text(
+                        child: UrduAwareText(
                           _sending ? 'Yuborilmoqda...' : 'Comment yuborish',
                         ),
                       ),

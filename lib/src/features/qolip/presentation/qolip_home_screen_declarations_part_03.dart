@@ -89,7 +89,7 @@ class _QolipGridTableState extends State<_QolipGridTable> {
                     ),
                   ),
                 ),
-                padding: const EdgeInsets.only(right: 3),
+                padding: const EdgeInsetsDirectional.only(end: 3),
                 child: Column(
                   children: [
                     const SizedBox(width: 42, height: 36),
@@ -419,7 +419,7 @@ class _QolipSearchBadge extends StatelessWidget {
       child: SizedBox.square(
         dimension: 18,
         child: Center(
-          child: Text(
+          child: UrduAwareText(
             '$count',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: Colors.white,
@@ -466,7 +466,7 @@ class _QolipCellActionTile extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+          padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 10, 10),
           child: Row(
             children: [
               Icon(Icons.layers_rounded, size: 20, color: scheme.primary),
@@ -484,7 +484,7 @@ class _QolipCellActionTile extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
+                    UrduAwareText(
                       '${item.qolipCode} • ${item.size} • ${l10n.qolipCount(item.quantity)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

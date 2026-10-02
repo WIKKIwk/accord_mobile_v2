@@ -9,6 +9,7 @@ import '../../shared/models/app_models.dart';
 import '../logic/canonical_apparatus_display.dart';
 import '../../admin/models/production_map_models.dart';
 import 'widgets/admin_top_notice.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'admin_apparatus_capacity_panel__AdminApparatusCapacityPanelState_methods_01.dart';
 part 'admin_apparatus_capacity_panel_widgets_part_01.dart';
@@ -255,7 +256,7 @@ class _AdminApparatusCapacityPanelState
                 ),
                 const SizedBox(height: 10),
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: FilledButton.icon(
                     onPressed:
                         selected == null || _saving ? null : _saveProfile,
@@ -294,7 +295,7 @@ class _AdminApparatusCapacityPanelState
                       flex: 2,
                       child: OutlinedButton(
                         onPressed: _pickDowntimeStart,
-                        child: Text(
+                        child: UrduAwareText(
                           '${l10n.adminText('capacity.start')}\n${_formatUnix(_downtimeStart.millisecondsSinceEpoch ~/ 1000)}',
                         ),
                       ),
@@ -322,13 +323,13 @@ class _AdminApparatusCapacityPanelState
                     contentPadding: EdgeInsets.zero,
                     dense: true,
                     leading: const Icon(Icons.build_circle_outlined),
-                    title: Text(
+                    title: UrduAwareText(
                       '${canonicalApparatusDisplayLabel(
                         downtime.apparatusId,
                         widget.apparatus,
                       )} • ${downtime.reason}',
                     ),
-                    subtitle: Text(
+                    subtitle: UrduAwareText(
                       '${_formatUnix(downtime.startsAtUnix)} — ${_formatUnix(downtime.endsAtUnix)}',
                     ),
                   ),
@@ -356,7 +357,7 @@ class _AdminApparatusCapacityPanelState
                     for (final item in _orders)
                       DropdownMenuItem(
                         value: item.map.id,
-                        child: Text(
+                        child: UrduAwareText(
                           '${item.map.orderNumber.trim().isEmpty ? item.map.id : item.map.orderNumber} • ${item.map.title}',
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -395,7 +396,7 @@ class _AdminApparatusCapacityPanelState
                     Expanded(
                       child: OutlinedButton(
                         onPressed: _pickScheduleStart,
-                        child: Text(
+                        child: UrduAwareText(
                           '${l10n.adminText('capacity.start')}\n${_formatUnix(_scheduleStart.millisecondsSinceEpoch ~/ 1000)}',
                         ),
                       ),
@@ -418,7 +419,7 @@ class _AdminApparatusCapacityPanelState
                 ),
                 const SizedBox(height: 10),
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: FilledButton.icon(
                     onPressed:
                         selected == null || _saving ? null : _scheduleOrder,
@@ -454,14 +455,14 @@ class _AdminApparatusCapacityPanelState
                             ? Icons.event_busy_outlined
                             : Icons.event_available_outlined,
                       ),
-                      title: Text(
+                      title: UrduAwareText(
                         '${reservation.orderId} • '
                         '${canonicalApparatusDisplayLabel(
                           reservation.apparatusId,
                           widget.apparatus,
                         )}',
                       ),
-                      subtitle: Text(
+                      subtitle: UrduAwareText(
                         '${_formatUnix(reservation.startsAtUnix)} — ${_formatUnix(reservation.endsAtUnix)} • ${reservation.status}',
                       ),
                       trailing: reservation.status == 'planned'

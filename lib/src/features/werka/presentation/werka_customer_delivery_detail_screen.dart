@@ -74,7 +74,7 @@ class WerkaCustomerDeliveryDetailScreen extends StatelessWidget {
       bottom: const WerkaDock(activeTab: null),
       contentPadding: EdgeInsets.zero,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(10, 4, 12, bottomPadding),
+        padding: EdgeInsetsDirectional.fromSTEB(10, 4, 12, bottomPadding),
         children: [
           const SizedBox(height: 10),
           Padding(
@@ -218,7 +218,7 @@ class _WerkaDeliveryInfoRow extends StatelessWidget {
                 alignment: AlignmentDirectional.topEnd,
                 child: Text(
                   value,
-                  textAlign: TextAlign.right,
+                  textAlign: TextAlign.end,
                   style: theme.textTheme.titleMedium?.copyWith(height: 1.25),
                 ),
               ),

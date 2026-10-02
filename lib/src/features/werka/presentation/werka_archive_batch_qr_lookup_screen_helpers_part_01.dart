@@ -220,7 +220,8 @@ class _WerkaArchiveBatchQrLookupScreenState
     final l10n = context.l10n;
     if (customer.ref.trim().isEmpty || option.itemCode.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Customer yoki mahsulot topilmadi.')),
+        const SnackBar(
+            content: UrduAwareText('Customer yoki mahsulot topilmadi.')),
       );
       return;
     }

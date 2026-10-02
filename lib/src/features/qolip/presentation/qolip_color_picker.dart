@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class QolipColorOption {
   const QolipColorOption({
@@ -189,7 +190,7 @@ class _QolipAddPantonButton extends StatelessWidget {
         ),
         child: const FittedBox(
           fit: BoxFit.scaleDown,
-          child: Text('+ Panton'),
+          child: UrduAwareText('+ Panton'),
         ),
       ),
     );
@@ -267,7 +268,7 @@ class _QolipColorTile extends StatelessWidget {
                                 : Colors.white,
                           )
                         : Center(
-                            child: Text(
+                            child: UrduAwareText(
                               '$selectionNumber',
                               style: TextStyle(
                                 color: qolipColorValue(option.value)

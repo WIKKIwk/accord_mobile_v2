@@ -13,6 +13,7 @@ import '../../../core/print_service.dart';
 import '../../admin/presentation/progress_printer_picker.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
 import 'widgets/werka_dock.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class WerkaPaddonReceiveScreen extends StatefulWidget {
   const WerkaPaddonReceiveScreen(
@@ -77,11 +78,13 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
 
   String _displayLabel(String value) {
     final l10n = context.l10n;
-    final unavailable = l10n.isUzbek
-        ? 'Apparat nomi mavjud emas'
-        : l10n.isRussian
-            ? 'Название аппарата недоступно'
-            : 'Machine name unavailable';
+    final unavailable = l10n.isUrdu
+        ? 'مشین کا نام دستیاب نہیں'
+        : l10n.isUzbek
+            ? 'Apparat nomi mavjud emas'
+            : l10n.isRussian
+                ? 'Название аппарата недоступно'
+                : 'Machine name unavailable';
     return value.replaceAllMapped(_apparatusIdPattern,
         (match) => _apparatusNames[match.group(0)!] ?? unavailable);
   }
@@ -90,7 +93,9 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
     if (_busy) return;
     final code = raw.trim();
     if (code.isEmpty) {
-      setState(() => _error = 'QR kodni skanerlang yoki kiriting.');
+      setState(() => _error = context.l10n.isUrdu
+          ? 'QR کوڈ اسکین کریں یا درج کریں۔'
+          : 'QR kodni skanerlang yoki kiriting.');
       return;
     }
     setState(() {
@@ -181,8 +186,7 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
   String _wipGrossNetLabel(AdminProgressBatch batch) {
     final gross = _wipGrossKg(batch);
     final net = _wipNetKg(batch);
-    final grossText =
-        gross == null ? '—' : '${formatQuantity(gross)} kg';
+    final grossText = gross == null ? '—' : '${formatQuantity(gross)} kg';
     final netText = net == null ? '—' : '${formatQuantity(net)} kg';
     return 'Brutto: $grossText • Netto: $netText';
   }
@@ -339,11 +343,12 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
               if (_mustReload)
                 TextButton(
                     onPressed: _busy ? null : () => _load(_code),
-                    child: const Text('Qayta tekshirish')),
+                    child: const UrduAwareText('Qayta tekshirish')),
             ] else ...[
               ListTile(
-                  title: Text('Paddon ${preview.snapshot.paddon.code}'),
-                  subtitle: Text(
+                  title:
+                      UrduAwareText('Paddon ${preview.snapshot.paddon.code}'),
+                  subtitle: UrduAwareText(
                       '${preview.snapshot.items.length} ta rulon • ${_displayLabel('${receipt?['warehouse'] ?? preview.snapshot.paddon.location}')}')),
               Padding(
                 padding:
@@ -363,27 +368,27 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Omborga kirim qilingan',
+                              const UrduAwareText('Omborga kirim qilingan',
                                   key: ValueKey('werka-paddon-received')),
-                              Text(
+                              UrduAwareText(
                                   'Ombor: ${_displayLabel('${receipt['warehouse']}')}'),
-                              Text(
+                              UrduAwareText(
                                   'Qabul qildi: ${receipt['accepted_by_display_name']}'),
                               if (receipt['accepted_at_unix'] is num)
-                                Text(
+                                UrduAwareText(
                                     'Vaqt: ${DateTime.fromMillisecondsSinceEpoch((receipt['accepted_at_unix'] as num).toInt() * 1000).toLocal()}'),
                             ])))
               else ...[
                 if (!preview.canReceive)
                   const Padding(
                       padding: EdgeInsets.all(12),
-                      child: Text(
+                      child: UrduAwareText(
                           'Kirim mumkin emas: paddon bo‘sh yoki tarkibida tayyor bo‘lmagan / qabul qilingan rulon bor.')),
                 DropdownButtonFormField<String>(
                     key: ValueKey('werka-paddon-warehouse-$_warehouse'),
                     initialValue: _warehouse,
-                    decoration: const InputDecoration(
-                        labelText: 'Qabul qiluvchi ombor'),
+                    decoration: InputDecoration(
+                        labelText: localizeUrduUiText('Qabul qiluvchi ombor')),
                     items: preview.warehouses
                         .map((w) => DropdownMenuItem(
                             value: w, child: Text(_displayLabel(w))))
@@ -400,12 +405,11 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
                             batch.labelItemName.trim().isEmpty
                                 ? batch.labelItemCode
                                 : batch.labelItemName)),
-                        subtitle: Text(
+                        subtitle: UrduAwareText(
                             'Buyurtma: ${batch.orderId}\nQR: ${batch.qrPayload}\n${_batchQuantity(batch)}\n${_wipGrossNetLabel(batch)}'),
                         isThreeLine: true,
-                        onLongPress: _busy
-                            ? null
-                            : () => _showWipReprint(batch))),
+                        onLongPress:
+                            _busy ? null : () => _showWipReprint(batch))),
               if (receipt == null)
                 FilledButton.icon(
                     key: const ValueKey('werka-paddon-receive'),
@@ -417,17 +421,17 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
                         ? null
                         : _accept,
                     icon: const Icon(Icons.inventory_2_outlined),
-                    label: const Text('Omborga kirim qilish')),
+                    label: const UrduAwareText('Omborga kirim qilish')),
               TextButton(
                   onPressed: _busy ? null : () => _load(_code),
-                  child: const Text('Qayta tekshirish')),
+                  child: const UrduAwareText('Qayta tekshirish')),
               OutlinedButton.icon(
                   onPressed: _busy
                       ? null
                       : () => Navigator.of(context).pushReplacementNamed(
                           AppRoutes.werkaStockEntryQrScan),
                   icon: const Icon(Icons.qr_code_scanner),
-                  label: const Text('Keyingi QR kodni skanerlash')),
+                  label: const UrduAwareText('Keyingi QR kodni skanerlash')),
             ],
           ])),
     );

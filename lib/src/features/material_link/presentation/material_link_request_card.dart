@@ -6,6 +6,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/session/state/app_session.dart';
 import '../../shared/models/app_models.dart';
 import '../models/material_link_request.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class MaterialLinkRequestCard extends StatefulWidget {
   const MaterialLinkRequestCard({super.key, required this.request});
@@ -123,51 +124,53 @@ class _MaterialLinkRequestCardState extends State<MaterialLinkRequestCard> {
         child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('Homashyo ulash so‘rovi',
+        UrduAwareText('Homashyo ulash so‘rovi',
             style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
-        Text(
+        UrduAwareText(
             'Order: ${_request.orderNumber.isEmpty ? _request.orderId : _request.orderNumber}'),
-        Text('Apparat: ${_request.apparatusName}'),
-        Text('Worker: ${_request.requesterName}'),
-        Text('Ko‘chirgan: ${_request.moverName}'),
+        UrduAwareText('Apparat: ${_request.apparatusName}'),
+        UrduAwareText('Worker: ${_request.requesterName}'),
+        UrduAwareText('Ko‘chirgan: ${_request.moverName}'),
         const SizedBox(height: 8),
         Text(_request.statusLabel, key: const ValueKey('material-link-status')),
         const SizedBox(height: 8),
-        Text('So‘ralgan rulonlar (${_request.rolls.length} ta):'),
+        UrduAwareText('So‘ralgan rulonlar (${_request.rolls.length} ta):'),
         for (final roll in _request.rolls)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(
+            child: UrduAwareText(
               '${roll.barcode} • ${roll.itemName}\n'
               '${roll.qty} ${roll.uom} • ${roll.locationName}',
               key: ValueKey('material-link-requested-${roll.barcode}'),
             ),
           ),
         if (_request.pending)
-          const Text('Ulashga ruxsat beradigan rulonlarni tanlang'),
+          const UrduAwareText('Ulashga ruxsat beradigan rulonlarni tanlang'),
         if (_request.selectedBarcodes.isNotEmpty)
-          Text('Ulangan rulonlar: ${_request.selectedBarcodes.join(', ')}'),
+          UrduAwareText(
+              'Ulangan rulonlar: ${_request.selectedBarcodes.join(', ')}'),
         if (_request.reason.isNotEmpty) Text(_request.reason),
-        if (_request.decidedBy.isNotEmpty) Text('Qaror: ${_request.decidedBy}'),
+        if (_request.decidedBy.isNotEmpty)
+          UrduAwareText('Qaror: ${_request.decidedBy}'),
         if (decidedAt != null)
-          Text('${decidedAt.day}.${decidedAt.month}.${decidedAt.year} '
+          UrduAwareText('${decidedAt.day}.${decidedAt.month}.${decidedAt.year} '
               '${decidedAt.hour.toString().padLeft(2, '0')}:${decidedAt.minute.toString().padLeft(2, '0')}'),
         if (_error.isNotEmpty) ...[
           Text(_error,
               style: TextStyle(color: Theme.of(context).colorScheme.error)),
           TextButton(
               onPressed: _busy ? null : _refresh,
-              child: const Text('Holatni yangilash')),
+              child: const UrduAwareText('Holatni yangilash')),
         ],
         if (_request.pending && _canDecide) ...[
           const SizedBox(height: 12),
           FilledButton(
               onPressed: _busy ? null : () => _decide(true),
-              child: const Text('Ha, ulash')),
+              child: const UrduAwareText('Ha, ulash')),
           OutlinedButton(
               onPressed: _busy ? null : () => _decide(false),
-              child: const Text('Yo‘q')),
+              child: const UrduAwareText('Yo‘q')),
         ],
       ]),
     ));
@@ -212,9 +215,9 @@ class _MaterialLinkRollPickerState extends State<MaterialLinkRollPicker> {
                   return CheckboxListTile(
                     key: ValueKey('material-link-roll-${roll.barcode}'),
                     value: _selected.contains(roll.barcode),
-                    title: Text('${roll.barcode} • ${roll.itemName}'),
-                    subtitle:
-                        Text('${roll.qty} ${roll.uom} • ${roll.locationName}'),
+                    title: UrduAwareText('${roll.barcode} • ${roll.itemName}'),
+                    subtitle: UrduAwareText(
+                        '${roll.qty} ${roll.uom} • ${roll.locationName}'),
                     onChanged: (checked) => setState(() {
                       if (checked == true) {
                         _selected.add(roll.barcode);
@@ -232,7 +235,8 @@ class _MaterialLinkRollPickerState extends State<MaterialLinkRollPicker> {
                         ? null
                         : () => Navigator.of(context)
                             .pop(_selected.toList()..sort()),
-                    child: Text('${widget.submitLabel} (${_selected.length})'),
+                    child: UrduAwareText(
+                        '${widget.submitLabel} (${_selected.length})'),
                   )),
             ])),
       );

@@ -257,7 +257,7 @@ class _PinIndicatorRow extends StatelessWidget {
               ? (index < shapeCycle.length ? shapeCycle[index] : null)
               : (deletingIndex == index ? deletingShape : null);
           return Padding(
-            padding: EdgeInsets.only(right: index == 3 ? 0 : 12),
+            padding: EdgeInsetsDirectional.only(end: index == 3 ? 0 : 12),
             child: _PinGlyph(
               filled: filled,
               motion: motion,

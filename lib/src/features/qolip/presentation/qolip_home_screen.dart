@@ -31,6 +31,7 @@ import 'qolip_color_picker.dart';
 import 'widgets/qolip_cell_picker_sheet.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'qolip_home_screen__QolipHomeScreenState_methods_01.dart';
 part 'qolip_home_screen__QolipHomeScreenState_methods_02.dart';

@@ -39,7 +39,8 @@ class _RawMaterialGroupOptionCard extends StatelessWidget {
           InkWell(
             onTap: () => onExpandedChanged(),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 8 : 8),
+              padding:
+                  EdgeInsetsDirectional.fromSTEB(14, 8, 4, expanded ? 8 : 8),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
                 child: Row(
@@ -158,7 +159,7 @@ class _RuleTile extends StatelessWidget {
       backgroundColor: scheme.surfaceContainerLowest,
       elevation: 4,
       shadowColor: scheme.shadow.withValues(alpha: 0.24),
-      padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 8, 10),
       onTap: onTap,
       child: Row(
         children: [

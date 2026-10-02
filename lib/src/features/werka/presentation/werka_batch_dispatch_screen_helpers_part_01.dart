@@ -291,7 +291,8 @@ class _WerkaBatchDispatchReviewScreenState
                         ),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(18, 16, 12, 16),
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                            18, 16, 12, 16),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -309,7 +310,7 @@ class _WerkaBatchDispatchReviewScreenState
                                     style: theme.textTheme.bodyLarge,
                                   ),
                                   const SizedBox(height: 4),
-                                  Text(
+                                  UrduAwareText(
                                     '${_lines[index].qty.toStringAsFixed(0)} ${_lines[index].item.uom} • ${_lines[index].item.code}',
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: scheme.onSurfaceVariant,

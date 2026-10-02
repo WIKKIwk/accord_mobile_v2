@@ -4,6 +4,7 @@ import '../../../../app/app_router.dart';
 import '../../models/chat_models.dart';
 import '../../state/chat_failure.dart';
 import '../../state/chat_store.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 class ChatProfileActionButton extends StatefulWidget {
   const ChatProfileActionButton({super.key, required this.target});
@@ -66,7 +67,7 @@ class _ChatProfileActionButtonState extends State<ChatProfileActionButton> {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : const Icon(Icons.chat_bubble_rounded, size: 17),
-      label: Text(_opening ? 'Ochilmoqda...' : 'Xabar yozish'),
+      label: UrduAwareText(_opening ? 'Ochilmoqda...' : 'Xabar yozish'),
     );
   }
 }

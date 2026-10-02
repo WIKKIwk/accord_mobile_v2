@@ -14,8 +14,6 @@ AdminApparatusModule _moduleFromSettingsTab(AdminApparatusSettingsTab tab) {
   };
 }
 
-
-
 class AdminApparatusSettingsScreen extends StatefulWidget {
   const AdminApparatusSettingsScreen({
     super.key,
@@ -36,11 +34,13 @@ class _AdminApparatusSettingsCache {
     required this.apparatus,
     required this.collections,
     required this.options,
+    required this.trainingModeAvailable,
   });
 
   final List<AdminApparatus> apparatus;
   final List<AdminApparatusCollection> collections;
   final AdminApparatusMasterOptions options;
+  final bool trainingModeAvailable;
 }
 
 int _compareApparatus(AdminApparatus left, AdminApparatus right) {

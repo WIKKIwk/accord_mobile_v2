@@ -191,13 +191,13 @@ extension __InventoryMovementsScreenStateAstPart03
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+            padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 8, 8),
             child: Row(
               children: [
                 const Icon(Icons.qr_code_scanner_rounded),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
+                  child: UrduAwareText(
                     'QR orqali izlash',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w800,
@@ -205,7 +205,7 @@ extension __InventoryMovementsScreenStateAstPart03
                   ),
                 ),
                 if (_qrScannedAssets.isNotEmpty)
-                  Text(
+                  UrduAwareText(
                     '${_qrScannedAssets.length} ta',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,

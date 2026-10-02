@@ -15,6 +15,7 @@ import 'widgets/m3_picker_sheet.dart';
 import 'widgets/werka_dock.dart';
 
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class WerkaUnannouncedSupplierScreen extends StatefulWidget {
   const WerkaUnannouncedSupplierScreen({super.key, this.prefill});
@@ -174,7 +175,7 @@ class _WerkaUnannouncedSupplierScreenState
                 const SizedBox(height: 6),
                 Text(_selectedItem!.name, style: theme.textTheme.bodyMedium),
                 const SizedBox(height: 6),
-                Text(
+                UrduAwareText(
                   '${qty.toStringAsFixed(0)} ${_selectedItem!.uom}',
                   style: theme.textTheme.bodySmall,
                 ),
@@ -274,7 +275,7 @@ class _WerkaUnannouncedSupplierScreenState
                     child: OutlinedButton(
                       onPressed: _submitting ? null : _pickSupplier,
                       child: Align(
-                        alignment: Alignment.centerLeft,
+                        alignment: AlignmentDirectional.centerStart,
                         child: Text(
                           _selectedSupplier?.name ??
                               context.l10n.selectSupplier,
@@ -294,7 +295,7 @@ class _WerkaUnannouncedSupplierScreenState
                       child: OutlinedButton(
                         onPressed: canPickItem ? _pickItem : null,
                         child: Align(
-                          alignment: Alignment.centerLeft,
+                          alignment: AlignmentDirectional.centerStart,
                           child: Text(
                             _selectedItem?.name ?? context.l10n.selectItem,
                           ),

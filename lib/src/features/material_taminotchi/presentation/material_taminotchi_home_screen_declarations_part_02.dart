@@ -82,7 +82,7 @@ class _MaterialHistoryCard extends StatelessWidget {
       backgroundColor: backgroundColor,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 13, 12, 13),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 13, 12, 13),
         child: Column(
           children: [
             Row(
@@ -325,7 +325,8 @@ class _MaterialHomeAction {
     if (requiresMaterialGroupScope) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Avval material guruhlari biriktirilishi kerak'),
+          content:
+              UrduAwareText('Avval material guruhlari biriktirilishi kerak'),
         ),
       );
       return;

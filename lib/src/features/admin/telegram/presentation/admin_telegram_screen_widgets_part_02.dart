@@ -45,7 +45,7 @@ class _TelegramUserCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 3),
-                  Text(
+                  UrduAwareText(
                     '${username.isEmpty ? '' : '@$username  '}ID: ${user.telegramUserId}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
@@ -80,7 +80,7 @@ class _TelegramUserCard extends StatelessWidget {
                   ),
                   if (user.selectedChatTitle?.trim().isNotEmpty == true) ...[
                     const SizedBox(height: 4),
-                    Text(
+                    UrduAwareText(
                       '${context.l10n.adminTelegramSelectedGroup}: ${user.selectedChatTitle}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -192,7 +192,7 @@ class _TelegramUserGroup extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 6),
+            padding: const EdgeInsetsDirectional.only(start: 4, bottom: 6),
             child: Text(
               title,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(

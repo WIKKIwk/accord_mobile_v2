@@ -152,8 +152,7 @@ class _SelectionOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final initial =
-        title.isEmpty ? '?' : title.characters.first.toUpperCase();
+    final initial = title.isEmpty ? '?' : title.characters.first.toUpperCase();
     // Account switcher (_SavedAccountTile) bilan bir xil til:
     // segmented radius + surfaceContainerLowest + elevation 2.
     final radius = M3SegmentedListGeometry.borderRadius(
@@ -173,7 +172,7 @@ class _SelectionOption extends StatelessWidget {
         borderRadius: radius,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+          padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 45),
             child: Row(

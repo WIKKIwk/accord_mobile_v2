@@ -33,6 +33,7 @@ import 'gscale_catalog.dart';
 import 'material_receipt_defaults.dart';
 import 'network_candidates_stub.dart'
     if (dart.library.io) 'network_candidates_io.dart' as network_candidates;
+import '../../core/localization/urdu_aware_text.dart';
 
 // Keep in sync with gscale-zebra mobileapi approved ports.
 

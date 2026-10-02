@@ -164,7 +164,7 @@ class _ApparatusGroupPickerSheet extends StatelessWidget {
                   onPressed: () => Navigator.of(
                     context,
                   ).pop(const _ApparatusGroupPickResult(skip: true)),
-                  child: const Text('Skip'),
+                  child: const UrduAwareText('Skip'),
                 ),
               ],
             ),
@@ -224,7 +224,7 @@ class _ProductionMapOrderConfirmationDialog extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
+                        child: UrduAwareText(
                           'Zakaz ochish',
                           style: Theme.of(context)
                               .textTheme
@@ -243,7 +243,7 @@ class _ProductionMapOrderConfirmationDialog extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
+                  UrduAwareText(
                     'Zakaz ochilsinmi? Raqam tizim tomonidan avtomatik beriladi.',
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
@@ -256,7 +256,7 @@ class _ProductionMapOrderConfirmationDialog extends StatelessWidget {
                             'production-map-order-cancel',
                           ),
                           onPressed: () => Navigator.of(context).pop(false),
-                          child: const Text('Bekor qilish'),
+                          child: const UrduAwareText('Bekor qilish'),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -273,7 +273,7 @@ class _ProductionMapOrderConfirmationDialog extends StatelessWidget {
                           ),
                           onPressed: () => Navigator.of(context).pop(true),
                           icon: const Icon(Icons.check_rounded),
-                          label: const Text('Tasdiqlash'),
+                          label: const UrduAwareText('Tasdiqlash'),
                         ),
                       ),
                     ],

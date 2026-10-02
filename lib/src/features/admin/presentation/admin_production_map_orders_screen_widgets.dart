@@ -19,7 +19,8 @@ Future<void> _openMaterialOrderReceipt(
   final map = order.map;
   await Navigator.of(context).pushNamed(
     AppRoutes.gscaleMode,
-    arguments: GScaleModeArgs(order: PreparationOrder.fromJson({
+    arguments: GScaleModeArgs(
+        order: PreparationOrder.fromJson({
       'id': map.id,
       'code': map.code.trim().isNotEmpty ? map.code : map.orderNumber,
       'title': map.title,
@@ -31,8 +32,8 @@ Future<void> _openMaterialOrderReceipt(
 }
 
 Future<String?> showProductionMapEarlyCloseDialog(BuildContext context) {
-  return showDialog<String>(context: context,
-    builder: (_) => const _EarlyCloseOrderDialog());
+  return showDialog<String>(
+      context: context, builder: (_) => const _EarlyCloseOrderDialog());
 }
 
 class _EarlyCloseOrderDialog extends StatefulWidget {
@@ -53,27 +54,29 @@ class _EarlyCloseOrderDialogState extends State<_EarlyCloseOrderDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Qanday sabab bilan yopyapsiz?'),
-    content: TextField(
-      key: const ValueKey('early-close-comment'),
-      controller: _comment,
-      autofocus: true,
-      minLines: 3,
-      maxLines: 5,
-      maxLength: 2000,
-      decoration: const InputDecoration(labelText: 'Izoh'),
-      onChanged: (_) => setState(() {}),
-    ),
-    actions: [
-      TextButton(onPressed: () => Navigator.pop(context),
-        child: const Text('Bekor qilish')),
-      FilledButton(
-        onPressed: _comment.text.trim().isEmpty ? null
-          : () => Navigator.pop(context, _comment.text.trim()),
-        child: const Text('Yopish'),
-      ),
-    ],
-  );
+        title: const UrduAwareText('Qanday sabab bilan yopyapsiz?'),
+        content: TextField(
+          key: const ValueKey('early-close-comment'),
+          controller: _comment,
+          autofocus: true,
+          minLines: 3,
+          maxLines: 5,
+          maxLength: 2000,
+          decoration: InputDecoration(labelText: localizeUrduUiText('Izoh')),
+          onChanged: (_) => setState(() {}),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const UrduAwareText('Bekor qilish')),
+          FilledButton(
+            onPressed: _comment.text.trim().isEmpty
+                ? null
+                : () => Navigator.pop(context, _comment.text.trim()),
+            child: const UrduAwareText('Yopish'),
+          ),
+        ],
+      );
 }
 
 Future<void> showAdminProductionMapOrderReadOnlyDetail(
@@ -268,7 +271,7 @@ class _QueueSnapshotWarningBanner extends StatelessWidget {
     return Material(
       color: scheme.errorContainer,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+        padding: const EdgeInsetsDirectional.fromSTEB(12, 6, 8, 6),
         child: Row(
           children: [
             Icon(

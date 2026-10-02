@@ -49,7 +49,7 @@ class _ErrorView extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          UrduAwareText(
                             'Lookup xatosi',
                             style: theme.textTheme.titleLarge,
                           ),
@@ -74,7 +74,7 @@ class _ErrorView extends StatelessWidget {
                           unawaited(onRetry());
                         },
                         icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Qayta urinish'),
+                        label: const UrduAwareText('Qayta urinish'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -82,7 +82,7 @@ class _ErrorView extends StatelessWidget {
                       child: FilledButton.icon(
                         onPressed: onBackToScan,
                         icon: const Icon(Icons.qr_code_scanner_rounded),
-                        label: const Text('Qayta scan'),
+                        label: const UrduAwareText('Qayta scan'),
                       ),
                     ),
                   ],
@@ -156,7 +156,7 @@ class _ResultView extends StatelessWidget {
                   context,
                 ).pushReplacementNamed(AppRoutes.werkaStockEntryQrScan),
                 icon: const Icon(Icons.qr_code_scanner_rounded),
-                label: const Text('Qayta scan'),
+                label: const UrduAwareText('Qayta scan'),
               ),
             ),
             const SizedBox(width: 12),
@@ -164,7 +164,7 @@ class _ResultView extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: () => Navigator.of(context).maybePop(),
                 icon: const Icon(Icons.arrow_back_rounded),
-                label: const Text('Ortga'),
+                label: const UrduAwareText('Ortga'),
               ),
             ),
           ],

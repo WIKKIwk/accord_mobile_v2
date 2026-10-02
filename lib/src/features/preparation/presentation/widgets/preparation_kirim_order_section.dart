@@ -5,6 +5,7 @@ import '../../../../core/search/search_normalizer.dart';
 import '../../../admin/presentation/widgets/admin_picker_field.dart';
 import '../../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../../models/preparation_models.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 /// Tayyorlov kirim ekranidagi order field'i.
 ///
@@ -202,7 +203,7 @@ class _PreparationKirimOrderSectionState
         child: Row(
           children: [
             Expanded(
-              child: Text(
+              child: UrduAwareText(
                 'Orderlar yuklanmadi: $_ordersError',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.error,
@@ -235,7 +236,7 @@ class _PreparationKirimOrderSectionState
           ),
           if (_widthRangeText != null)
             Padding(
-              padding: const EdgeInsets.only(top: 6, left: 4),
+              padding: const EdgeInsetsDirectional.only(top: 6, start: 4),
               child: Row(
                 children: [
                   Icon(

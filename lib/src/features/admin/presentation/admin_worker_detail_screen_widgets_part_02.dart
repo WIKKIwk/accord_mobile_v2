@@ -68,9 +68,7 @@ class _WorkerAdminPanel extends StatelessWidget {
                   icon: const Icon(Icons.content_copy_outlined),
                 ),
               IconButton(
-                onPressed: regeneratingCode
-                    ? null
-                    : onRegenerateCode,
+                onPressed: regeneratingCode ? null : onRegenerateCode,
                 icon: regeneratingCode
                     ? const SizedBox(
                         height: 18,
@@ -84,7 +82,8 @@ class _WorkerAdminPanel extends StatelessWidget {
         ),
         if (detail.code.trim().isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(l10n.adminText('profile.code_copy_hint'), style: theme.textTheme.bodySmall),
+          Text(l10n.adminText('profile.code_copy_hint'),
+              style: theme.textTheme.bodySmall),
         ],
         if (detail.codeRetryAfterSec > 0) ...[
           const SizedBox(height: 12),
@@ -170,10 +169,10 @@ class _WorkerPhoneInlineFieldState extends State<_WorkerPhoneInlineField> {
                     controller: _controller,
                     autofocus: true,
                     keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
-                      hintText: '+998901234567',
+                      hintText: localizeUrduUiText('+998901234567'),
                     ),
                     style: theme.textTheme.titleMedium,
                     onSubmitted: (_) => _submit(),

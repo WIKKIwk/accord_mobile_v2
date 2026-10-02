@@ -13,6 +13,7 @@ import '../state/customer_store.dart';
 import 'widgets/customer_dock.dart';
 import 'widgets/customer_navigation_drawer.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'customer_home_screen_widgets_part_01.dart';
 part 'customer_home_screen_widgets_part_02.dart';

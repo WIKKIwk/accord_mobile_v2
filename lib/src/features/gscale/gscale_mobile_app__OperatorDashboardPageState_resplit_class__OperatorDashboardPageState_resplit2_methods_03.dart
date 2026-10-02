@@ -101,7 +101,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_03
               tooltip: 'Printer yoki tarozi tanlash',
             ),
             Padding(
-              padding: const EdgeInsets.only(right: 18),
+              padding: const EdgeInsetsDirectional.only(end: 18),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -109,7 +109,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_03
                   const SizedBox(width: 8),
                   ValueListenableBuilder<int>(
                     valueListenable: _latencyListenable,
-                    builder: (context, latencyMs, _) => Text(
+                    builder: (context, latencyMs, _) => UrduAwareText(
                       latencyMs > 0 ? '$latencyMs ms' : '—',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurface,

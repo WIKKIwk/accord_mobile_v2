@@ -226,7 +226,7 @@ class _SentHubYearCell extends StatelessWidget {
               border:
                   active ? Border.all(color: scheme.primary, width: 1.2) : null,
             ),
-            child: Text(
+            child: UrduAwareText(
               '$year',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium?.copyWith(

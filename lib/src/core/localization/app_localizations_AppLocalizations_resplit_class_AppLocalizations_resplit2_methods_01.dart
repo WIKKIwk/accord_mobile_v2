@@ -4,6 +4,8 @@ part of 'app_localizations.dart';
 extension AppLocalizationsAstPartResplit2_01 on AppLocalizations {
   bool get isUzbek => locale.languageCode == 'uz';
 
+  bool get isUrdu => locale.languageCode == 'ur';
+
   bool get isRussian => locale.languageCode == 'ru';
 
   String get appTitle => _t('Accord Mobile', 'Accord Mobile', 'Accord Mobile');

@@ -295,7 +295,7 @@ class _CustomerNotificationsScreenState
         onNavigate: _openDrawerRoute,
       ),
       animateOnEnter: false,
-      contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 0, 14, 0),
       actions: [
         IconButton.filledTonal(
           onPressed: _clearAll,

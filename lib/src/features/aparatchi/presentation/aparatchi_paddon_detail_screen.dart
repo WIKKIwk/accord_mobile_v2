@@ -21,6 +21,7 @@ import '../../shared/models/app_models.dart';
 import 'aparatchi_paddon_display.dart';
 import 'widgets/aparatchi_dock.dart';
 import 'widgets/aparatchi_navigation_drawer.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'aparatchi_paddon_detail_screen__AparatchiPaddonDetailScreenState_methods_01.dart';
 part 'aparatchi_paddon_detail_screen__AparatchiPaddonDetailScreenState_methods_02.dart';

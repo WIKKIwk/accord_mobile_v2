@@ -9,6 +9,7 @@ import '../../../core/notifications/service/push_messaging_service.dart';
 import '../../../core/notifications/service/firebase_client_config.dart';
 import '../../../core/session/session.dart';
 import '../../shared/models/app_models.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class AdminPushConfigScreen extends StatefulWidget {
   const AdminPushConfigScreen({super.key, this.deviceTokenProvider});
@@ -32,7 +33,8 @@ class _AdminPushConfigScreenState extends State<AdminPushConfigScreen> {
   @override
   void initState() {
     super.initState();
-    PushMessagingService.instance.deviceStatus.addListener(_deviceStatusChanged);
+    PushMessagingService.instance.deviceStatus
+        .addListener(_deviceStatusChanged);
     if (_admin) {
       _load();
     } else {
@@ -42,14 +44,16 @@ class _AdminPushConfigScreenState extends State<AdminPushConfigScreen> {
 
   @override
   void dispose() {
-    PushMessagingService.instance.deviceStatus.removeListener(_deviceStatusChanged);
+    PushMessagingService.instance.deviceStatus
+        .removeListener(_deviceStatusChanged);
     _json.dispose();
     super.dispose();
   }
 
   void _deviceStatusChanged() {
     if (mounted &&
-        PushMessagingService.instance.deviceStatus.value == 'device_registered' &&
+        PushMessagingService.instance.deviceStatus.value ==
+            'device_registered' &&
         (_error?.startsWith('push_config_apns_') ?? false)) {
       setState(() => _error = null);
     }
@@ -278,7 +282,8 @@ class _AdminPushConfigScreenState extends State<AdminPushConfigScreen> {
                                 builder: (_, detail, __) => detail == null
                                     ? const SizedBox.shrink()
                                     : Text(detail,
-                                        key: const ValueKey('push-device-error-detail'))),
+                                        key: const ValueKey(
+                                            'push-device-error-detail'))),
                             TextButton(
                                 onPressed: _busy ? null : _applyDevice,
                                 child: Text(text('apply_device'))),
@@ -340,7 +345,7 @@ class _AdminPushConfigScreenState extends State<AdminPushConfigScreen> {
                 Text(text('mobile_instructions')),
                 ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Android'),
+                    title: const UrduAwareText('Android'),
                     subtitle: Text(text(config?.android != null
                         ? 'mobile_configured'
                         : 'mobile_missing')),
@@ -353,10 +358,10 @@ class _AdminPushConfigScreenState extends State<AdminPushConfigScreen> {
                         ? null
                         : () => _pickMobile('android'),
                     icon: const Icon(Icons.upload_file),
-                    label: const Text('google-services.json')),
+                    label: const UrduAwareText('google-services.json')),
                 ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('iPhone'),
+                    title: const UrduAwareText('iPhone'),
                     subtitle: Text(text(config?.ios != null
                         ? 'mobile_configured'
                         : 'mobile_missing')),
@@ -369,7 +374,7 @@ class _AdminPushConfigScreenState extends State<AdminPushConfigScreen> {
                         ? null
                         : () => _pickMobile('ios'),
                     icon: const Icon(Icons.upload_file),
-                    label: const Text('GoogleService-Info.plist')),
+                    label: const UrduAwareText('GoogleService-Info.plist')),
                 const SizedBox(height: 16),
                 Text(text('ios_hint'),
                     style: Theme.of(context).textTheme.bodySmall),

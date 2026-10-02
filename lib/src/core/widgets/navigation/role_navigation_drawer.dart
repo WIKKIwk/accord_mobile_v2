@@ -80,7 +80,7 @@ class RoleNavigationDrawer extends StatelessWidget {
             header: Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
               child: Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 child: Text(
                   headerLabel ?? 'Bo‘limlar',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(

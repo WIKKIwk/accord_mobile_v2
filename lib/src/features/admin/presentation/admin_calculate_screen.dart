@@ -26,6 +26,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'admin_calculate_screen__AdminCalculateScreenState_methods_01.dart';
 part 'admin_calculate_screen__AdminCalculateScreenState_methods_02.dart';

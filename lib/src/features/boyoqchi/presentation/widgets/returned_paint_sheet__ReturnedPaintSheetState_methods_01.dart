@@ -159,7 +159,7 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
         titlePadding: const EdgeInsets.fromLTRB(24, 22, 24, 8),
         contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
         actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 22),
-        title: Text('$paint maydoni nomi'),
+        title: UrduAwareText('$paint maydoni nomi'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -167,9 +167,9 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
               key: const ValueKey('returned-paint-field-name'),
               autofocus: true,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Majburiy nom',
-                hintText: 'Masalan: Pantone Blue',
+              decoration: InputDecoration(
+                labelText: localizeUrduUiText('Majburiy nom'),
+                hintText: localizeUrduUiText('Masalan: Pantone Blue'),
               ),
               onChanged: (value) => enteredLabel = value,
             ),
@@ -181,9 +181,9 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
               inputFormatters: <TextInputFormatter>[
                 _returnedPaintNumberFormatter(),
               ],
-              decoration: const InputDecoration(
-                labelText: 'Qiymat',
-                hintText: 'Masalan: 12.5',
+              decoration: InputDecoration(
+                labelText: localizeUrduUiText('Qiymat'),
+                hintText: localizeUrduUiText('Masalan: 12.5'),
               ),
               onChanged: (value) => enteredValue = value,
             ),
@@ -195,7 +195,7 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
             height: 48,
             child: OutlinedButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Bekor qilish'),
+              child: const UrduAwareText('Bekor qilish'),
             ),
           ),
           const SizedBox(height: 10),
@@ -216,7 +216,7 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
                   Navigator.of(context).pop([label, value]);
                 }
               },
-              child: const Text('Qo‘shish'),
+              child: const UrduAwareText('Qo‘shish'),
             ),
           ),
         ],
@@ -250,12 +250,12 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
               children: [
                 ListTile(
                   leading: const Icon(Icons.camera_alt_outlined),
-                  title: const Text('Kamera'),
+                  title: const UrduAwareText('Kamera'),
                   onTap: () => Navigator.of(context).pop(ImageSource.camera),
                 ),
                 ListTile(
                   leading: const Icon(Icons.photo_library_outlined),
-                  title: const Text('Gallery'),
+                  title: const UrduAwareText('Gallery'),
                   onTap: () => Navigator.of(context).pop(ImageSource.gallery),
                 ),
               ],

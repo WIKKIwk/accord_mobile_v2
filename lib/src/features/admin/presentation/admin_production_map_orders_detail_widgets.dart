@@ -51,6 +51,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.qolipScanned,
     required this.qolipCodes,
     required this.requiredQolips,
+    required this.qolipRequirementsLoaded,
     required this.qolipRequirementsStatusText,
     required this.startMaterialsExpanded,
     required this.onToggleStartMaterialsExpanded,
@@ -135,6 +136,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final bool qolipScanned;
   final List<String> qolipCodes;
   final List<AdminProductionMapRequiredQolip> requiredQolips;
+  final bool qolipRequirementsLoaded;
   final String qolipRequirementsStatusText;
   final bool startMaterialsExpanded;
   final VoidCallback onToggleStartMaterialsExpanded;
@@ -217,7 +219,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   if (summaryOnlyMode) const SizedBox(height: 10),
                   if (!summaryOnlyMode && workerMode)
                     Padding(
-                      padding: const EdgeInsets.only(left: 14, bottom: 10),
+                      padding: const EdgeInsetsDirectional.only(
+                          start: 14, bottom: 10),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
@@ -230,11 +233,12 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.only(left: 2),
+                              padding:
+                                  const EdgeInsetsDirectional.only(start: 2),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
+                                  UrduAwareText(
                                     '${context.l10n.productionText('worker.qr.report.order_number')}:',
                                     style: Theme.of(context)
                                         .textTheme
@@ -341,6 +345,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       qolipScanned: qolipScanned,
                       qolipCodes: qolipCodes,
                       requiredQolips: requiredQolips,
+                      qolipRequirementsLoaded: qolipRequirementsLoaded,
                       qolipRequirementsStatusText: qolipRequirementsStatusText,
                       startMaterialsExpanded: startMaterialsExpanded,
                       onToggleStartMaterialsExpanded:
@@ -716,7 +721,7 @@ class _TayyorlovFormulaButton extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
+                child: UrduAwareText(
                   'Formulalar',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
@@ -798,7 +803,7 @@ class _OrderHomashyoPickerSheetState extends State<_OrderHomashyoPickerSheet> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Text(
+              child: UrduAwareText(
                 'Qaysi homashyo formulasi?',
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
@@ -810,8 +815,8 @@ class _OrderHomashyoPickerSheetState extends State<_OrderHomashyoPickerSheet> {
               child: TextField(
                 controller: _searchController,
                 onChanged: (value) => setState(() => _query = value),
-                decoration: const InputDecoration(
-                  hintText: 'Qidirish',
+                decoration: InputDecoration(
+                  hintText: localizeUrduUiText('Qidirish'),
                   prefixIcon: Icon(Icons.search_rounded),
                 ),
               ),
@@ -819,7 +824,7 @@ class _OrderHomashyoPickerSheetState extends State<_OrderHomashyoPickerSheet> {
             Expanded(
               child: filtered.isEmpty
                   ? const Center(
-                      child: Text('Topilmadi'),
+                      child: UrduAwareText('Topilmadi'),
                     )
                   : ListView.builder(
                       controller: scrollController,
@@ -941,7 +946,7 @@ class _OrderSummaryCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
             onTap: onToggleExpanded,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+              padding: const EdgeInsetsDirectional.fromSTEB(14, 14, 10, 14),
               child: Row(
                 children: [
                   Expanded(
@@ -1100,27 +1105,37 @@ class _SequenceStepTile extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if ((status != null || displayStatus != null) && node.kind == 'apparatus')
+                if ((status != null || displayStatus != null) &&
+                    node.kind == 'apparatus')
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: _MapStatusChip(
-                      label: _statusLabel(context, status ?? ApparatusQueueOrderState.pending),
+                      label: _statusLabel(
+                          context, status ?? ApparatusQueueOrderState.pending),
                       foreground: _statusForeground(scheme),
                       background: _statusBackground(scheme),
                     ),
                   ),
                 if (wipFacts case final facts?) ...[
                   if (facts.produced > 0)
-                    Text(context.l10n.adminText('factory_map.wip.produced',
-                      values: {'count': facts.produced}),
-                      key: ValueKey('map-wip-produced-${node.id}'),
-                      style: theme.textTheme.bodySmall),
-                  if (facts.waitingInput + facts.inUseInput + facts.processedInput > 0)
-                    Text(context.l10n.adminText('factory_map.wip.input', values: {
-                      'waiting': facts.waitingInput, 'inUse': facts.inUseInput,
-                      'processed': facts.processedInput,
-                    }), key: ValueKey('map-wip-input-${node.id}'),
-                      style: theme.textTheme.bodySmall),
+                    Text(
+                        context.l10n.adminText('factory_map.wip.produced',
+                            values: {'count': facts.produced}),
+                        key: ValueKey('map-wip-produced-${node.id}'),
+                        style: theme.textTheme.bodySmall),
+                  if (facts.waitingInput +
+                          facts.inUseInput +
+                          facts.processedInput >
+                      0)
+                    Text(
+                        context.l10n
+                            .adminText('factory_map.wip.input', values: {
+                          'waiting': facts.waitingInput,
+                          'inUse': facts.inUseInput,
+                          'processed': facts.processedInput,
+                        }),
+                        key: ValueKey('map-wip-input-${node.id}'),
+                        style: theme.textTheme.bodySmall),
                 ],
               ],
             ),

@@ -28,7 +28,7 @@ class _TimelineStep extends StatelessWidget {
             radius: 16,
             backgroundColor: scheme.primaryContainer,
             foregroundColor: scheme.onPrimaryContainer,
-            child: Text(
+            child: UrduAwareText(
               '$index',
               style: theme.textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.w900,
@@ -62,14 +62,14 @@ class _TimelineStep extends StatelessWidget {
                 if (log.transfer != null &&
                     log.transfer!.reason.trim().isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(
+                  UrduAwareText(
                     '${context.l10n.productionText('worker.qr.report.transfer_reason')}: ${_humanReason(log.transfer!.reason, context.l10n)}',
                   ),
                 ],
                 if (log.completedWithIssue &&
                     log.issueNote.trim().isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(
+                  UrduAwareText(
                     '${context.l10n.productionText('worker.qr.report.completed_note')}: ${log.issueNote.trim()}',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w800,
@@ -114,7 +114,7 @@ class _CorrectionTimelineStep extends StatelessWidget {
             radius: 16,
             backgroundColor: scheme.secondaryContainer,
             foregroundColor: scheme.onSecondaryContainer,
-            child: Text(
+            child: UrduAwareText(
               '$index',
               style: theme.textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.w900,
@@ -149,7 +149,7 @@ class _CorrectionTimelineStep extends StatelessWidget {
                 if (changes.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   for (final change in changes)
-                    Text(
+                    UrduAwareText(
                       '${change.label}: ${change.before} → ${change.after}',
                       style: theme.textTheme.bodyMedium,
                     ),

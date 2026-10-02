@@ -18,6 +18,7 @@ import 'widgets/werka_dock.dart';
 import 'widgets/werka_navigation_drawer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class WerkaHomeScreen extends StatefulWidget {
   const WerkaHomeScreen({super.key});
@@ -220,7 +221,8 @@ class _WerkaSummaryList extends StatelessWidget {
           AdminSummaryCard(
             slot: M3SegmentVerticalSlot.top,
             cornerRadius: M3SegmentedListGeometry.cornerLarge,
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+            backgroundColor:
+                Theme.of(context).colorScheme.surfaceContainerLowest,
             title: context.l10n.pendingStatus,
             value: summary.pendingCount.toString(),
             onTap: () => Navigator.of(context).pushNamed(
@@ -232,7 +234,8 @@ class _WerkaSummaryList extends StatelessWidget {
           AdminSummaryCard(
             slot: M3SegmentVerticalSlot.middle,
             cornerRadius: M3SegmentedListGeometry.cornerMiddle,
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+            backgroundColor:
+                Theme.of(context).colorScheme.surfaceContainerLowest,
             title: context.l10n.confirmedStatus,
             value: summary.confirmedCount.toString(),
             onTap: () => Navigator.of(context).pushNamed(
@@ -244,7 +247,8 @@ class _WerkaSummaryList extends StatelessWidget {
           AdminSummaryCard(
             slot: M3SegmentVerticalSlot.bottom,
             cornerRadius: M3SegmentedListGeometry.cornerLarge,
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+            backgroundColor:
+                Theme.of(context).colorScheme.surfaceContainerLowest,
             title: context.l10n.returnedStatus,
             value: summary.returnedCount.toString(),
             onTap: () => Navigator.of(context).pushNamed(
@@ -305,7 +309,7 @@ class _WerkaPendingSectionState extends State<_WerkaPendingSection> {
               ),
               onTap: _toggleExpanded,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 12, 14),
                 child: Row(
                   children: [
                     Expanded(
@@ -414,7 +418,7 @@ class _WerkaPendingItemTile extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
+                UrduAwareText(
                   '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: scheme.onSurfaceVariant,

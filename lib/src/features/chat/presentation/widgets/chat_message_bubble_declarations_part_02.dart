@@ -106,7 +106,7 @@ class _AudioMessageContent extends StatelessWidget {
                     ),
                   ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 3, 4, 2),
+                  padding: const EdgeInsetsDirectional.fromSTEB(8, 3, 4, 2),
                   child: Text.rich(
                     TextSpan(
                       children: [
@@ -129,7 +129,7 @@ class _AudioMessageContent extends StatelessWidget {
                         if (mine) _deliveryStatus(scheme),
                       ],
                     ),
-                    textAlign: mine ? TextAlign.right : TextAlign.left,
+                    textAlign: mine ? TextAlign.end : TextAlign.start,
                   ),
                 ),
               ],
@@ -157,7 +157,7 @@ WidgetSpan _deliveryStatus(ColorScheme scheme) {
   return WidgetSpan(
     alignment: PlaceholderAlignment.middle,
     child: Padding(
-      padding: const EdgeInsets.only(left: 3),
+      padding: const EdgeInsetsDirectional.only(start: 3),
       child: Icon(
         Icons.check_rounded,
         size: 15,
@@ -346,7 +346,7 @@ class _AudioProgressBarState extends State<_AudioProgressBar>
             height: 32,
             color: Colors.transparent,
             child: Stack(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               children: [
                 // Background track
                 Container(

@@ -94,9 +94,7 @@ class _AdminCustomerPanel extends StatelessWidget {
                 ),
               IconButton(
                 key: const ValueKey('admin-customer-detail-code-regenerate'),
-                onPressed: regeneratingCode
-                    ? null
-                    : onRegenerateCode,
+                onPressed: regeneratingCode ? null : onRegenerateCode,
                 icon: regeneratingCode
                     ? const SizedBox(
                         height: 18,
@@ -110,7 +108,8 @@ class _AdminCustomerPanel extends StatelessWidget {
         ),
         if (detail.code.trim().isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(l10n.adminText('profile.code_copy_hint'), style: theme.textTheme.bodySmall),
+          Text(l10n.adminText('profile.code_copy_hint'),
+              style: theme.textTheme.bodySmall),
         ],
         if (detail.codeRetryAfterSec > 0) ...[
           const SizedBox(height: 12),
@@ -322,10 +321,10 @@ class _CustomerPhoneInlineFieldState extends State<_CustomerPhoneInlineField> {
                     controller: _controller,
                     autofocus: true,
                     keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
-                      hintText: '+998 90 123 45 67',
+                      hintText: localizeUrduUiText('+998 90 123 45 67'),
                     ),
                     style: theme.textTheme.titleMedium,
                     onSubmitted: (_) => _submit(),

@@ -16,6 +16,7 @@ import '../models/chat_models.dart';
 import '../state/chat_store.dart';
 import 'widgets/chat_avatar.dart';
 import 'widgets/chat_role_dock.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class ChatConversationsScreen extends StatefulWidget {
   const ChatConversationsScreen({super.key});
@@ -92,7 +93,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
                     AppRoutes.chatDirectory,
                   ),
                   icon: const Icon(Icons.edit_rounded),
-                  label: const Text('Yangi chat'),
+                  label: const UrduAwareText('Yangi chat'),
                 ),
               ),
             ],
@@ -126,7 +127,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
         children: [
           const Icon(Icons.cloud_off_outlined, size: 52),
           const SizedBox(height: 14),
-          const Text(
+          const UrduAwareText(
             'Chatlar yuklanmadi',
             textAlign: TextAlign.center,
           ),
@@ -135,7 +136,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
             child: FilledButton.tonalIcon(
               onPressed: store.refreshConversations,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Qayta yuklash'),
+              label: const UrduAwareText('Qayta yuklash'),
             ),
           ),
         ],
@@ -154,7 +155,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
             size: 56,
           ),
           const SizedBox(height: 16),
-          Text(
+          UrduAwareText(
             searchController.text.trim().isEmpty
                 ? 'Hali suhbat yo‘q. “Yangi chat” orqali foydalanuvchini tanlang.'
                 : 'Bu qidiruv bo‘yicha chat topilmadi.',
@@ -165,7 +166,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
     }
     return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 104),
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 104),
       itemCount: conversations.length,
       itemBuilder: (context, index) {
         final conversation = conversations[index];
@@ -219,7 +220,7 @@ class _ConversationTile extends StatelessWidget {
         onTap: onTap,
         backgroundColor: scheme.surfaceContainerLowest,
         fixedHeight: 61,
-        padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+        padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
         value: '',
         showChevron: false,
         leading: SizedBox.square(
@@ -252,7 +253,7 @@ class _ConversationTile extends StatelessWidget {
               Badge(
                 backgroundColor: scheme.primary,
                 textColor: scheme.onPrimary,
-                label: Text('${conversation.unreadCount}'),
+                label: UrduAwareText('${conversation.unreadCount}'),
               )
             else
               const SizedBox(height: 16),

@@ -181,7 +181,8 @@ class _QolipProductContainerCard extends StatelessWidget {
         fit: StackFit.passthrough,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: kAdminOrderCoverWidth),
+            padding:
+                const EdgeInsetsDirectional.only(start: kAdminOrderCoverWidth),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -193,7 +194,8 @@ class _QolipProductContainerCard extends StatelessWidget {
                       minHeight: kAdminOrderCoverWidth,
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+                      padding:
+                          const EdgeInsetsDirectional.fromSTEB(12, 8, 8, 8),
                       child: Row(
                         children: [
                           if (containerSelectionMode) ...[

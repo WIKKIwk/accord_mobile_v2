@@ -39,7 +39,7 @@ class _QrPrefillBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                UrduAwareText(
                   'QR orqali to‘ldirildi',
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: scheme.onPrimaryContainer,

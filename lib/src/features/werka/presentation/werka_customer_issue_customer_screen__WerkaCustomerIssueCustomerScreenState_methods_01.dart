@@ -272,7 +272,7 @@ extension __WerkaCustomerIssueCustomerScreenStateAstPart01
                 const SizedBox(height: 6),
                 Text(_selectedItem!.name, style: theme.textTheme.bodyMedium),
                 const SizedBox(height: 6),
-                Text(
+                UrduAwareText(
                   '${qty.toStringAsFixed(0)} ${_selectedItem!.uom}',
                   style: theme.textTheme.bodySmall,
                 ),

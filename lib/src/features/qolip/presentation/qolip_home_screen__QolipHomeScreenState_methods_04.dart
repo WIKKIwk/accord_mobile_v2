@@ -30,7 +30,7 @@ extension __QolipHomeScreenStateAstPart04 on _QolipHomeScreenState {
                     ),
               ),
               const SizedBox(height: 4),
-              Text(
+              UrduAwareText(
                 '${product.qolipCode} • ${product.qolipSize}',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,

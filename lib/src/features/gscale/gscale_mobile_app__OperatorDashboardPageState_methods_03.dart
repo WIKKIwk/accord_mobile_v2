@@ -86,7 +86,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       });
       _scheduleSaveControlPrefs();
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Sodda kirim saqlandi')),
+        const SnackBar(content: UrduAwareText('Sodda kirim saqlandi')),
       );
     } catch (error) {
       if (!mounted) {
@@ -232,7 +232,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       });
       _scheduleSaveControlPrefs();
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Ombor sozlamalari saqlandi')),
+        const SnackBar(content: UrduAwareText('Ombor sozlamalari saqlandi')),
       );
     } catch (error) {
       if (!mounted) {
@@ -278,7 +278,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     }
     if (!AppSession.instance.isLoggedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Accord session topilmadi.')),
+        const SnackBar(content: UrduAwareText('Accord session topilmadi.')),
       );
       return;
     }
@@ -651,7 +651,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
               child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const ListTile(title: Text('Homashyo qaysi apparat uchun?')),
+          const ListTile(title: UrduAwareText('Homashyo qaysi apparat uchun?')),
           for (final option in options.entries)
             ListTile(
                 title: Text(option.value),

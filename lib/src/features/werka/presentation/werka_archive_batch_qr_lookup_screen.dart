@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'werka_archive_batch_qr.dart';
 import 'werka_success_screen.dart';
 import 'widgets/m3_picker_sheet.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'werka_archive_batch_qr_lookup_screen_helpers_part_01.dart';
 part 'werka_archive_batch_qr_lookup_screen_widgets_part_02.dart';

@@ -108,7 +108,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-        contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
+        contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 0, 14, 0),
         bottom: const AdminDock(activeTab: AdminDockTab.settings),
         child: FutureBuilder<AdminSettings>(
           future: _future,
@@ -142,7 +142,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                     leading: const Icon(Icons.notifications_active_outlined),
                     title: Text(context.l10n.adminText('push.title')),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context).pushNamed(AppRoutes.adminPushConfig),
+                    onTap: () => Navigator.of(context)
+                        .pushNamed(AppRoutes.adminPushConfig),
                   ),
                 SmoothAppear(
                   delay: const Duration(milliseconds: 20),

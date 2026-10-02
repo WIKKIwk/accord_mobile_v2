@@ -251,7 +251,7 @@ class _FactoryApparatusLiveSheetState
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 2, 8, 10),
+            padding: const EdgeInsetsDirectional.fromSTEB(16, 2, 8, 10),
             child: Row(
               children: [
                 Container(

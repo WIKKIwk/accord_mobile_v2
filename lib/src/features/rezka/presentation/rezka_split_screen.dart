@@ -20,6 +20,7 @@ import '../../gscale/gscale_mobile_app.dart'
         printTargetLabel,
         showPrintDevicePicker;
 import '../../shared/models/app_models.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'rezka_split_screen__RezkaSplitScreenState_methods_01.dart';
 part 'rezka_split_screen__RezkaSplitScreenState_methods_02.dart';
@@ -130,7 +131,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.search_rounded),
-            label: const Text('QR ni tekshirish'),
+            label: const UrduAwareText('QR ni tekshirish'),
           ),
           const SizedBox(height: 12),
           Card(
@@ -147,7 +148,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
             const SizedBox(height: 16),
             _SourceCard(source: source),
             const SizedBox(height: 16),
-            Text(
+            UrduAwareText(
               'Bo‘laklar',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w800,
@@ -165,27 +166,28 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
             OutlinedButton.icon(
               onPressed: _addOutput,
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Bo‘lak qo‘shish'),
+              label: const UrduAwareText('Bo‘lak qo‘shish'),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _reasonController,
               minLines: 2,
               maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: 'Sabab',
+              decoration: InputDecoration(
+                labelText: localizeUrduUiText('Sabab'),
                 alignLabelWithHint: true,
               ),
             ),
             const SizedBox(height: 12),
             ExpansionTile(
-              title: const Text('Printer'),
+              title: const UrduAwareText('Printer'),
               tilePadding: EdgeInsets.zero,
               childrenPadding: EdgeInsets.zero,
               children: [
                 TextField(
                   controller: _driverUrlController,
-                  decoration: const InputDecoration(labelText: 'Driver URL'),
+                  decoration: InputDecoration(
+                      labelText: localizeUrduUiText('Driver URL')),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -193,14 +195,16 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
                     Expanded(
                       child: TextField(
                         controller: _printerController,
-                        decoration: const InputDecoration(labelText: 'Printer'),
+                        decoration: InputDecoration(
+                            labelText: localizeUrduUiText('Printer')),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
                         controller: _printModeController,
-                        decoration: const InputDecoration(labelText: 'Mode'),
+                        decoration: InputDecoration(
+                            labelText: localizeUrduUiText('Mode')),
                       ),
                     ),
                   ],
@@ -216,7 +220,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.print_rounded),
-              label: const Text('Bo‘lish va QR chiqarish'),
+              label: const UrduAwareText('Bo‘lish va QR chiqarish'),
             ),
           ],
         ],

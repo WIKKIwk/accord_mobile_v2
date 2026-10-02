@@ -645,8 +645,11 @@ Android native bootstrap BoM versiyasi `firebase_core` bilan mos: `34.19.0`.
 - progress/WIP QR;
 - completion metriclari.
 
-Orderni boshlash bottom sheet'ida homashyo yoki Qolip kerak bo'lsa,
-`Ta’minotchini ogohlantirish` va `Qolipchini ogohlantirish` tugmalari mavjud.
+Orderni boshlash bottom sheet'ida ogohlantirish tugmalari faqat bosma
+apparatlarida chiqadi. `Ta’minotchini ogohlantirish` faqat biriktirilgan homashyo
+ro'yxati bo'sh bo'lsa, `Qolipchini ogohlantirish` esa mahsulotga biriktirilgan
+Qolip ro'yxati bo'sh bo'lsa ko'rinadi. Ro'yxatlar muvaffaqiyatli yuklanmaguncha
+tugmalar ko'rsatilmaydi; hali scan qilinmagan resurslar ham biriktirilgan hisoblanadi.
 Tugma order raqami, apparat va ishchi nomi bilan tegishli roldagi faol xodimlarga
 chat xabari yuboradi; bildirishnoma mavjud push tizimidan keladi. Resurs tanlash
 talab qilinmaydi. Yuborilayotganda va muvaffaqiyatdan keyin tugma bloklanadi;

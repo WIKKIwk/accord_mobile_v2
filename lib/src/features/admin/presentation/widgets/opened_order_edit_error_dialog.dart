@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/api/mobile_api.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 String openedOrderEditErrorReason(Object error) {
   if (error is TimeoutException) {
@@ -82,7 +83,7 @@ Future<void> showOpenedOrderEditErrorDialog(
     barrierDismissible: false,
     builder: (context) => AlertDialog(
       scrollable: true,
-      title: Text(
+      title: UrduAwareText(
         saving ? 'Saqlash tasdiqlanmadi' : 'Buyurtmani tahrirlash ochilmadi',
       ),
       content: Column(
@@ -90,15 +91,15 @@ Future<void> showOpenedOrderEditErrorDialog(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (orderNumber.trim().isNotEmpty) ...[
-            Text('Buyurtma №${orderNumber.trim()}'),
+            UrduAwareText('Buyurtma №${orderNumber.trim()}'),
             const SizedBox(height: 12),
           ],
-          Text('Sabab', style: Theme.of(context).textTheme.titleSmall),
+          UrduAwareText('Sabab', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 6),
           Text(openedOrderEditErrorReason(error)),
           if (saving) ...[
             const SizedBox(height: 12),
-            const Text(
+            const UrduAwareText(
                 'Kiritgan ma’lumotlaringiz shu oynada saqlanib turibdi.'),
           ],
         ],
@@ -106,7 +107,7 @@ Future<void> showOpenedOrderEditErrorDialog(
       actions: [
         FilledButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Tushunarli'),
+          child: const UrduAwareText('Tushunarli'),
         ),
       ],
     ),

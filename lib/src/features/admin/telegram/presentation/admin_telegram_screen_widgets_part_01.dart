@@ -321,7 +321,7 @@ class _TelegramBotSettingsCard extends StatelessWidget {
       backgroundColor: scheme.surfaceContainerLowest,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 12, 16),
         child: Row(
           children: [
             CircleAvatar(
@@ -384,7 +384,7 @@ class _TelegramUserbotSettingsCard extends StatelessWidget {
       backgroundColor: scheme.surfaceContainerLowest,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 12, 16),
         child: Row(
           children: [
             CircleAvatar(
@@ -534,7 +534,7 @@ class _TelegramRoleCard extends StatelessWidget {
       cornerRadius: M3SegmentedListGeometry.cornerLarge,
       backgroundColor: scheme.surfaceContainerLowest,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 15, 12, 15),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 15, 12, 15),
         child: Row(
           children: [
             Icon(

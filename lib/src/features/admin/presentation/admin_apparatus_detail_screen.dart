@@ -22,6 +22,7 @@ class AdminApparatusDetailScreen extends StatefulWidget {
   const AdminApparatusDetailScreen({
     super.key,
     required this.apparatus,
+    required this.trainingModeAvailable,
     required this.currentApparatus,
     required this.onPlacementChanged,
     required this.onTrainingChanged,
@@ -29,6 +30,7 @@ class AdminApparatusDetailScreen extends StatefulWidget {
   });
 
   final AdminApparatus apparatus;
+  final bool trainingModeAvailable;
   final AdminApparatus Function() currentApparatus;
   final Future<AdminApparatus?> Function(
     AdminApparatus apparatus,
@@ -312,14 +314,18 @@ class _AdminApparatusDetailScreenState
       child: SwitchListTile.adaptive(
         contentPadding: EdgeInsets.zero,
         visualDensity: VisualDensity.compact,
-        value: _apparatus.trainingEnabled,
-        onChanged: _savingTraining ? null : _toggleTraining,
+        value: widget.trainingModeAvailable && _apparatus.trainingEnabled,
+        onChanged: _savingTraining || !widget.trainingModeAvailable
+            ? null
+            : _toggleTraining,
         title: Text(l10n.adminText('apparatus.training_switch')),
         subtitle: Text(
           l10n.adminText(
-            _apparatus.trainingEnabled
-                ? 'apparatus.training_on_description'
-                : 'apparatus.training_off_description',
+            !widget.trainingModeAvailable
+                ? 'training.load_failed'
+                : _apparatus.trainingEnabled
+                    ? 'apparatus.training_on_description'
+                    : 'apparatus.training_off_description',
           ),
         ),
         secondary: _savingTraining

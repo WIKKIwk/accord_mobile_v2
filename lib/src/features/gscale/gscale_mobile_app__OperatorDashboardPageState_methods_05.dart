@@ -204,7 +204,7 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
         });
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
-            content: Text(
+            content: UrduAwareText(
               '$displayName ${widget.printTransport.isBluetooth ? 'Bluetooth' : 'USB'} printerda chop etildi',
             ),
           ),
@@ -243,7 +243,9 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
         _archivePrintLoadingSessionId = '';
       });
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text('$displayName uchun QR chop etish yuborildi')),
+        SnackBar(
+            content:
+                UrduAwareText('$displayName uchun QR chop etish yuborildi')),
       );
     } catch (error) {
       if (!mounted) {
@@ -302,7 +304,7 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
         const SizedBox(height: 12),
         _MiniIconRow(icon: Icons.cloud_outlined, text: MobileApi.baseUrl),
         const SizedBox(height: 10),
-        Text(
+        UrduAwareText(
           'ERP URL, API key, Stock Entry draft/submit va delete flow RS serverda '
           'bajariladi. RPS faqat scale/printer driver sifatida ishlaydi.',
           style: theme.textTheme.bodySmall?.copyWith(
@@ -312,7 +314,7 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
         const SizedBox(height: 28),
         const _SectionLabel(title: 'Ombor tanlash', subtitle: ''),
         const SizedBox(height: 8),
-        Text(
+        UrduAwareText(
           'Ombor ro‘yxati RS katalogidan olinadi. Standart tanlov faqat shu '
           'telefon draft sozlamasida saqlanadi.',
           style: theme.textTheme.bodySmall?.copyWith(
@@ -336,7 +338,7 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
                         ),
                       );
                     },
-              label: const Text('Qo‘lda'),
+              label: const UrduAwareText('Qo‘lda'),
             ),
             FilterChip(
               selected: _warehouseMode == 'default',
@@ -345,14 +347,14 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
                   : (_) {
                       unawaited(_openDefaultWarehousePicker());
                     },
-              label: const Text('Standart'),
+              label: const UrduAwareText('Standart'),
             ),
           ],
         ),
         const SizedBox(height: 12),
         if (_warehouseMode == 'default') ...[
           if (defaultWarehouse.isEmpty)
-            Text(
+            UrduAwareText(
               'Default ombor tanlanmagan.',
               style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
             )
@@ -362,7 +364,7 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
                 const Icon(Icons.flag_rounded, size: 18),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
+                  child: UrduAwareText(
                     'Standart ombor: $defaultWarehouse',
                     style: theme.textTheme.bodyMedium,
                   ),
@@ -373,7 +375,7 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
                       : () {
                           unawaited(_openDefaultWarehousePicker());
                         },
-                  child: const Text('O‘zgartirish'),
+                  child: const UrduAwareText('O‘zgartirish'),
                 ),
               ],
             ),

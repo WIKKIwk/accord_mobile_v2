@@ -10,13 +10,17 @@ import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
 import 'preparation_navigation.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 String preparationFormulaErrorMessage(Object error) {
   if (error is MobileApiException) {
-    if (error.statusCode == 403) return 'Bu formulani boshqarish huquqingiz yo‘q';
+    if (error.statusCode == 403)
+      return 'Bu formulani boshqarish huquqingiz yo‘q';
     if (error.statusCode == 401) return 'Sessiya tugagan. Qayta kiring';
-    if (error.statusCode == 400 || error.statusCode == 409 ||
-        error.code == 'account_changed' || error.code == 'preparation_invalid_response') {
+    if (error.statusCode == 400 ||
+        error.statusCode == 409 ||
+        error.code == 'account_changed' ||
+        error.code == 'preparation_invalid_response') {
       return error.message;
     }
   }
@@ -133,10 +137,8 @@ class _PreparationOrderFormulaScreenState
         savedOnly: widget.manageSavedFormula,
       );
       if (!mounted) return;
-      final materials = [...snapshot.materials]
-        ..sort((a, b) {
-          final byName =
-              a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      final materials = [...snapshot.materials]..sort((a, b) {
+          final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
           return byName != 0 ? byName : a.code.compareTo(b.code);
         });
       setState(() {
@@ -285,7 +287,10 @@ class _PreparationOrderFormulaScreenState
       if (code.isEmpty) continue;
       counts[code] = (counts[code] ?? 0) + 1;
     }
-    return {for (final e in counts.entries) if (e.value > 1) e.key};
+    return {
+      for (final e in counts.entries)
+        if (e.value > 1) e.key
+    };
   }
 
   BigInt? _parsePercent(_FormulaRow row) {
@@ -325,8 +330,7 @@ class _PreparationOrderFormulaScreenState
     final duplicates = _duplicateCodes;
     if (duplicates.isNotEmpty) {
       final name = _rows
-          .firstWhere(
-              (r) => duplicates.contains(r.material!.code.trim()))
+          .firstWhere((r) => duplicates.contains(r.material!.code.trim()))
           .material!
           .name
           .trim();
@@ -383,7 +387,7 @@ class _PreparationOrderFormulaScreenState
       await _refreshFormulas();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Formula saqlandi')),
+        const SnackBar(content: UrduAwareText('Formula saqlandi')),
       );
     } catch (e) {
       if (mounted) {
@@ -420,7 +424,7 @@ class _PreparationOrderFormulaScreenState
       await _refreshFormulas();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Formula o‘chirildi')),
+        const SnackBar(content: UrduAwareText('Formula o‘chirildi')),
       );
     } catch (e) {
       if (mounted) {
@@ -477,192 +481,189 @@ class _PreparationOrderFormulaScreenState
                 physics: const TopRefreshScrollPhysics(),
                 padding: EdgeInsets.only(bottom: bottomPadding),
                 children: [
-                const SizedBox(height: 4),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Card(
-                      margin: EdgeInsets.zero,
-                      color: scheme.errorContainer,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          _error!,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: scheme.onErrorContainer,
+                  const SizedBox(height: 4),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        color: scheme.errorContainer,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            _error!,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onErrorContainer,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Card(
-                    margin: EdgeInsets.zero,
-                    color: scheme.surfaceContainerLowest,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Buyurtma kodi: ${widget.orderCode.isEmpty ? '-' : widget.orderCode}',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          if (subtitle.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              subtitle,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                if (_editing) ...[
-                  const SizedBox(height: 12),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Card(
                       margin: EdgeInsets.zero,
+                      color: scheme.surfaceContainerLowest,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),
-                        side: BorderSide(color: scheme.primary, width: 1.5),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Icon(Icons.functions_rounded,
-                                    color: scheme.primary),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _editingName == null
-                                        ? 'Yangi formula'
-                                        : '«$_editingName»',
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(
-                                            fontWeight: FontWeight.w800),
-                                  ),
+                            UrduAwareText(
+                              'Buyurtma kodi: ${widget.orderCode.isEmpty ? '-' : widget.orderCode}',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            if (subtitle.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                subtitle,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                IconButton(
-                                  tooltip: 'Bekor qilish',
-                                  onPressed:
-                                      _saving ? null : _closeEditor,
-                                  icon: const Icon(Icons.close_rounded),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (_editing) ...[
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          side: BorderSide(color: scheme.primary, width: 1.5),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.functions_rounded,
+                                      color: scheme.primary),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: UrduAwareText(
+                                      _editingName == null
+                                          ? 'Yangi formula'
+                                          : '«$_editingName»',
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.w800),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Bekor qilish',
+                                    onPressed: _saving ? null : _closeEditor,
+                                    icon: const Icon(Icons.close_rounded),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              _FormulaNameBanner(
+                                name: _editingName ?? _nextAutoName(),
+                                auto: _editingName == null,
+                              ),
+                              const SizedBox(height: 12),
+                              for (var i = 0; i < _rows.length; i++) ...[
+                                if (i > 0) const SizedBox(height: 12),
+                                _FormulaRowCard(
+                                  index: i,
+                                  row: _rows[i],
+                                  saving: _saving,
+                                  onPick: () => _pickSeriya(i),
+                                  onChanged: (_) => setState(() {}),
+                                  onRemove: _rows.length <= 1
+                                      ? null
+                                      : () => setState(() {
+                                            _rows[i].dispose();
+                                            _rows.removeAt(i);
+                                          }),
                                 ),
                               ],
-                            ),
-                            const SizedBox(height: 12),
-                            _FormulaNameBanner(
-                              name: _editingName ?? _nextAutoName(),
-                              auto: _editingName == null,
-                            ),
-                            const SizedBox(height: 12),
-                            for (var i = 0; i < _rows.length; i++) ...[
-                              if (i > 0) const SizedBox(height: 12),
-                              _FormulaRowCard(
-                                index: i,
-                                row: _rows[i],
-                                saving: _saving,
-                                onPick: () => _pickSeriya(i),
-                                onChanged: (_) => setState(() {}),
-                                onRemove: _rows.length <= 1
+                              const SizedBox(height: 12),
+                              OutlinedButton.icon(
+                                key: const ValueKey(
+                                    'preparation-formula-add-seriya'),
+                                onPressed: _saving
                                     ? null
-                                    : () => setState(() {
-                                          _rows[i].dispose();
-                                          _rows.removeAt(i);
-                                        }),
+                                    : () => setState(
+                                        () => _rows.add(_FormulaRow())),
+                                icon: const Icon(Icons.add_rounded),
+                                label: const UrduAwareText('Seriya qo‘shish'),
+                              ),
+                              const SizedBox(height: 8),
+                              _FormulaTotalBar(total: _totalPercent),
+                              if (_editorError != null) ...[
+                                const SizedBox(height: 8),
+                                _FormulaEditorError(message: _editorError!),
+                              ],
+                              const SizedBox(height: 8),
+                              FilledButton(
+                                key: const ValueKey('preparation-formula-save'),
+                                onPressed: _canSave ? _save : null,
+                                child: UrduAwareText(
+                                    _saving ? 'Saqlanmoqda…' : 'Saqlash'),
                               ),
                             ],
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              key: const ValueKey(
-                                  'preparation-formula-add-seriya'),
-                              onPressed: _saving
-                                  ? null
-                                  : () => setState(
-                                      () => _rows.add(_FormulaRow())),
-                              icon: const Icon(Icons.add_rounded),
-                              label: const Text('Seriya qo‘shish'),
-                            ),
-                            const SizedBox(height: 8),
-                            _FormulaTotalBar(total: _totalPercent),
-                            if (_editorError != null) ...[
-                              const SizedBox(height: 8),
-                              _FormulaEditorError(message: _editorError!),
-                            ],
-                            const SizedBox(height: 8),
-                            FilledButton(
-                              key: const ValueKey(
-                                  'preparation-formula-save'),
-                              onPressed:
-                                  _canSave ? _save : null,
-                              child: Text(
-                                  _saving ? 'Saqlanmoqda…' : 'Saqlash'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Text(
-                    'Saqlangan formulalar (${_formulas.length})',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                if (_formulas.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Card(
-                      margin: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          'Hali formula yo‘q. FAB orqali formula qo‘shing.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
                           ),
                         ),
                       ),
                     ),
-                  )
-                else
-                  for (var f = 0; f < _formulas.length; f++) ...[
-                    if (f > 0) const SizedBox(height: 12),
-                    _SavedFormulaCard(
-                      formula: _formulas[f],
-                      deleting: _deleting,
-                      onEdit: () => _openEditor(existing: _formulas[f]),
-                      onDelete: () => _deleteFormula(_formulas[f]),
-                    ),
                   ],
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: UrduAwareText(
+                      'Saqlangan formulalar (${_formulas.length})',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (_formulas.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: UrduAwareText(
+                            'Hali formula yo‘q. FAB orqali formula qo‘shing.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    for (var f = 0; f < _formulas.length; f++) ...[
+                      if (f > 0) const SizedBox(height: 12),
+                      _SavedFormulaCard(
+                        formula: _formulas[f],
+                        deleting: _deleting,
+                        onEdit: () => _openEditor(existing: _formulas[f]),
+                        onDelete: () => _deleteFormula(_formulas[f]),
+                      ),
+                    ],
                 ],
               ),
             ),
@@ -700,7 +701,7 @@ class _FormulaNameBanner extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  UrduAwareText(
                     'Formula: $name',
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: scheme.onPrimaryContainer,
@@ -708,7 +709,7 @@ class _FormulaNameBanner extends StatelessWidget {
                     ),
                   ),
                   if (auto)
-                    Text(
+                    UrduAwareText(
                       'Nom avtomatik beriladi',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onPrimaryContainer,
@@ -762,7 +763,7 @@ class _SavedFormulaCard extends StatelessWidget {
               ),
               onTap: onEdit,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 8, 12),
+                padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 8, 12),
                 child: Row(
                   children: [
                     Icon(
@@ -780,7 +781,7 @@ class _SavedFormulaCard extends StatelessWidget {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          Text(
+                          UrduAwareText(
                             '${formula.lines.length} ta seriya • tahrirlash uchun bosing',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: scheme.onSurfaceVariant,
@@ -808,7 +809,7 @@ class _SavedFormulaCard extends StatelessWidget {
                 key: ValueKey(
                     'preparation-formula-line-${formula.name}-${formula.lines[i].itemCode}'),
                 leading: CircleAvatar(
-                  child: Text('${i + 1}'),
+                  child: UrduAwareText('${i + 1}'),
                 ),
                 title: Text(
                   formula.lines[i].name.isEmpty
@@ -816,7 +817,7 @@ class _SavedFormulaCard extends StatelessWidget {
                       : formula.lines[i].name,
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-                trailing: Text(
+                trailing: UrduAwareText(
                   '${preparationDisplay(formula.lines[i].percent)}%',
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: scheme.primary,
@@ -873,7 +874,7 @@ class _FormulaTotalBar extends StatelessWidget {
                 ),
               ),
             ),
-            Text(
+            UrduAwareText(
               '100% shart',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
@@ -965,7 +966,7 @@ class _FormulaRowCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child: UrduAwareText(
                     '${index + 1}-seriya',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w800,
@@ -1003,8 +1004,8 @@ class _FormulaRowCard extends StatelessWidget {
                   decimal: true,
                 ),
                 onChanged: onChanged,
-                decoration: const InputDecoration(
-                  labelText: 'Foiz (%)',
+                decoration: InputDecoration(
+                  labelText: localizeUrduUiText('Foiz (%)'),
                 ),
               ),
             ],

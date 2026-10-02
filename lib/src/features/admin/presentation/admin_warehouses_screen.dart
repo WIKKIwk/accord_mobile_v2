@@ -34,6 +34,7 @@ import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_surface_tab_bar.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'admin_warehouses_screen__AdminWarehousesScreenState_methods_01.dart';
 part 'admin_warehouses_screen__WarehouseDetailsTabState_methods_02.dart';

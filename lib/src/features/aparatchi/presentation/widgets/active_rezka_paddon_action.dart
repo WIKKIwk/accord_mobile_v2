@@ -6,6 +6,7 @@ import '../../../../core/api/mobile_api.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/production/active_rezka_paddon_store.dart';
 import '../../../../core/widgets/shell/app_loading_indicator.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 class ActiveRezkaPaddonAction extends StatefulWidget {
   const ActiveRezkaPaddonAction(
@@ -175,7 +176,7 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
               : Theme.of(context).colorScheme.primary,
           icon: Badge(
             isLabelVisible: selection.data != null || selection.hasError,
-            label: selection.hasError ? const Text('!') : null,
+            label: selection.hasError ? const UrduAwareText('!') : null,
             backgroundColor: selection.hasError
                 ? Theme.of(context).colorScheme.error
                 : Theme.of(context).colorScheme.primary,

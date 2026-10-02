@@ -222,7 +222,7 @@ class _BatchContextSummary extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
+              UrduAwareText(
                 'Ombor: $warehouse • $quantityText • $babinaText',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -350,14 +350,14 @@ class _DeviceSelectionHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                UrduAwareText(
                   'Printer yoki tarozini tanlang',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                UrduAwareText(
                   'Tarmoqdagi ishlayotgan qurilmani tanlang yoki manzilini qo‘shing.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
@@ -419,7 +419,7 @@ class _OfflineUsbSelectionState extends State<_OfflineUsbSelection> {
                     Icon(Icons.usb_rounded, color: scheme.primary, size: 30),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
+                      child: UrduAwareText(
                         'USB printer',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w800,
@@ -429,7 +429,7 @@ class _OfflineUsbSelectionState extends State<_OfflineUsbSelection> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Text(
+                UrduAwareText(
                   'Printer Android qurilmaga USB orqali ulanadi. '
                   'RPS service va printer WiFi tarmog‘i talab qilinmaydi.',
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -447,7 +447,7 @@ class _OfflineUsbSelectionState extends State<_OfflineUsbSelection> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.usb_rounded),
-                    label: Text(
+                    label: UrduAwareText(
                       _detecting
                           ? 'USB printer aniqlanmoqda...'
                           : 'USB printerni tanlash',

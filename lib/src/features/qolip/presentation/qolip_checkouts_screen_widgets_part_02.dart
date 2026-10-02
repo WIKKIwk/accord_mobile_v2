@@ -63,7 +63,7 @@ class _QolipDebtRow extends StatelessWidget {
             onTap: () => onExpandedChanged(!expanded),
             onLongPress: onLongPress,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
+              padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 4, 8),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: expanded ? 0 : 48),
                 child: Row(
@@ -159,7 +159,7 @@ class _QolipDebtIndexBadge extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
         ),
         child: Center(
-          child: Text(
+          child: UrduAwareText(
             selected ? '✓' : '${index + 1}',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: scheme.onSecondaryContainer,
@@ -235,14 +235,14 @@ class _QolipDebtDetail extends StatelessWidget {
       ),
     ];
     return Padding(
-      padding: const EdgeInsets.fromLTRB(58, 4, 10, 12),
+      padding: const EdgeInsetsDirectional.fromSTEB(58, 4, 10, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ...detailLines,
           const SizedBox(height: 8),
           Align(
-            alignment: Alignment.centerRight,
+            alignment: AlignmentDirectional.centerEnd,
             child: FilledButton.tonalIcon(
               onPressed: returning ? null : onReturn,
               icon: returning
@@ -256,7 +256,7 @@ class _QolipDebtDetail extends StatelessWidget {
               ),
             ),
           ),
-          Text(
+          UrduAwareText(
             '${l10n.qolipText('checkouts.checkout_id')}: ${debt.id}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

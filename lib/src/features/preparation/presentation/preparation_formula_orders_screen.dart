@@ -99,12 +99,13 @@ class _PreparationFormulaOrdersScreenState
                                   Text(_error!),
                                   TextButton(
                                       onPressed: _load,
-                                      child: const Text('Qayta urinish')),
+                                      child:
+                                          const UrduAwareText('Qayta urinish')),
                                 ])),
                           if (_error == null && orders.isEmpty)
                             Padding(
                                 padding: const EdgeInsets.all(16),
-                                child: Text(_query.trim().isEmpty
+                                child: UrduAwareText(_query.trim().isEmpty
                                     ? 'Saqlangan formulalar yo‘q.'
                                     : 'Formula topilmadi.')),
                           M3SegmentSpacedColumn(children: [
@@ -227,8 +228,8 @@ class _PreparationFormulaOrderDetailsState
               f.materialId != entry.materialId ||
               f.formula.name != entry.formula.name)
           .toList());
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Formula o‘chirildi')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: UrduAwareText('Formula o‘chirildi')));
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -263,7 +264,7 @@ class _PreparationFormulaOrderDetailsState
                 if (_formulas.isEmpty)
                   Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Text(widget.order.hasOrder
+                      child: UrduAwareText(widget.order.hasOrder
                           ? 'Bu buyurtmada formula qolmadi.'
                           : 'Bu mahsulotda formula qolmadi.')),
                 M3SegmentSpacedColumn(children: [
@@ -296,7 +297,7 @@ class _PreparationFormulaOrderDetailsState
                                       icon: const Icon(Icons.more_vert))
                                 ]),
                                 if (_formulas[i].materialId.isEmpty)
-                                  const Text(
+                                  const UrduAwareText(
                                       'Eski formula — homashyo turi belgilanmagan'),
                                 for (final line in _formulas[i].formula.lines)
                                   Padding(
@@ -305,7 +306,7 @@ class _PreparationFormulaOrderDetailsState
                                       child: Row(children: [
                                         Expanded(child: Text(line.name)),
                                         const SizedBox(width: 12),
-                                        Text(
+                                        UrduAwareText(
                                             '${preparationDisplay(line.percent)}%'),
                                       ])),
                               ])),

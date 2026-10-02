@@ -206,8 +206,7 @@ class _PreparationWarehouseScreenState
   List<String> get _managedWarehouses =>
       widget.freshManagedWarehouses?.call() ?? const [];
 
-  List<String> get _materialWarehouses =>
-      widget.freshMaterialWarehouses();
+  List<String> get _materialWarehouses => widget.freshMaterialWarehouses();
 
   bool get _canCreateMaterial =>
       _warehouse != null && _materialWarehouses.contains(_warehouse);
@@ -295,7 +294,7 @@ class _PreparationWarehouseScreenState
         context: context,
         builder: (dialogContext) => StatefulBuilder(
           builder: (dialogContext, setDialogState) => AlertDialog(
-            title: const Text('Bola ombor ochish'),
+            title: const UrduAwareText('Bola ombor ochish'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -303,8 +302,8 @@ class _PreparationWarehouseScreenState
                 DropdownButtonFormField<String>(
                   key: const ValueKey('preparation-warehouse-parent'),
                   initialValue: parent,
-                  decoration: const InputDecoration(
-                    labelText: 'Ota ombor',
+                  decoration: InputDecoration(
+                    labelText: localizeUrduUiText('Ota ombor'),
                   ),
                   items: [
                     for (final w in warehouses)
@@ -320,8 +319,8 @@ class _PreparationWarehouseScreenState
                   controller: nameController,
                   autofocus: true,
                   textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(
-                    labelText: 'Yangi ombor nomi',
+                  decoration: InputDecoration(
+                    labelText: localizeUrduUiText('Yangi ombor nomi'),
                   ),
                 ),
               ],
@@ -329,7 +328,7 @@ class _PreparationWarehouseScreenState
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Bekor qilish'),
+                child: const UrduAwareText('Bekor qilish'),
               ),
               FilledButton(
                 onPressed: () {
@@ -337,7 +336,7 @@ class _PreparationWarehouseScreenState
                   if (name.isEmpty) return;
                   Navigator.of(dialogContext).pop(name);
                 },
-                child: const Text('Saqlash'),
+                child: const UrduAwareText('Saqlash'),
               ),
             ],
           ),
@@ -359,7 +358,7 @@ class _PreparationWarehouseScreenState
       });
       widget.onWarehouseSelected(warehouse);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ombor ochildi: $warehouse')),
+        SnackBar(content: UrduAwareText('Ombor ochildi: $warehouse')),
       );
     } catch (e) {
       if (mounted) {
@@ -427,7 +426,9 @@ class _PreparationWarehouseScreenState
         primaryFabActions: _warehouses.isEmpty
             ? null
             : [
-                if (_warehouse != null && !widget.locked && !_managingWarehouse) ...[
+                if (_warehouse != null &&
+                    !widget.locked &&
+                    !_managingWarehouse) ...[
                   AdminFabMenuAction(
                     title: _canCreateMaterial ? 'Kirim' : 'Tarozi kirimi',
                     icon: _canCreateMaterial
@@ -442,7 +443,9 @@ class _PreparationWarehouseScreenState
                       onTap: _doCreateMaterial,
                     ),
                 ],
-                if (!widget.locked && !_managingWarehouse && _materialWarehouses.isNotEmpty)
+                if (!widget.locked &&
+                    !_managingWarehouse &&
+                    _materialWarehouses.isNotEmpty)
                   AdminFabMenuAction(
                     title: 'Ombor qo‘shish',
                     icon: Icons.warehouse_outlined,
@@ -464,7 +467,8 @@ class _PreparationWarehouseScreenState
                   AdminFilterChipOption(
                     value: w,
                     label: w,
-                    onLongPress: !widget.locked && !_managingWarehouse &&
+                    onLongPress: !widget.locked &&
+                            !_managingWarehouse &&
                             _managedWarehouses.contains(w)
                         ? () => _warehouseActions(w)
                         : null,
@@ -478,8 +482,7 @@ class _PreparationWarehouseScreenState
                 _selectWarehouse(w);
                 setState(() => _filterExpanded = false);
               },
-              chipKey:
-                  const ValueKey('preparation-warehouse-filter-chip'),
+              chipKey: const ValueKey('preparation-warehouse-filter-chip'),
               optionKeyPrefix: 'preparation-warehouse-filter-option',
             ),
           Expanded(
@@ -498,7 +501,7 @@ class _PreparationWarehouseScreenState
                   if (_warehouses.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Text(
+                      child: UrduAwareText(
                         'Sizga ombor biriktirilmagan.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
@@ -508,7 +511,7 @@ class _PreparationWarehouseScreenState
                   else if (_warehouse == null)
                     Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Text(
+                      child: UrduAwareText(
                         'Yuqoridagi filtrdan ombor tanlang.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
@@ -518,7 +521,7 @@ class _PreparationWarehouseScreenState
                   else if (filtered.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Text(
+                      child: UrduAwareText(
                         'Bu omborda hali kirim yo‘q.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
@@ -529,9 +532,7 @@ class _PreparationWarehouseScreenState
                     M3SegmentSpacedColumn(
                       padding: EdgeInsets.zero,
                       children: [
-                        for (var index = 0;
-                            index < filtered.length;
-                            index++)
+                        for (var index = 0; index < filtered.length; index++)
                           _PreparationWarehouseStockRow(
                             slot: M3SegmentedListGeometry
                                 .standaloneListSlotForIndex(
@@ -577,7 +578,7 @@ class _PreparationWarehouseStockRow extends StatelessWidget {
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       backgroundColor: scheme.surfaceContainerLowest,
       fixedHeight: 61,
-      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
       value: '${preparationDisplay(material.available(warehouse))} kg',
       onTap: onTap,
       showChevron: onTap != null,
@@ -782,21 +783,23 @@ class _PreparationMaterialDetailScreenState
                   _adminHomePanelCardGap, 12, _adminHomePanelCardGap, 0),
               child: FilledButton.icon(
                 key: const Key('preparation-detail-kirim'),
-                onPressed: material == null || widget.locked ||
+                onPressed: material == null ||
+                        widget.locked ||
                         (_canReceiveManually && !material.canReceive)
                     ? null
                     : _doKirim,
                 icon: Icon(_canReceiveManually
                     ? Icons.add_circle_outline_rounded
                     : Icons.scale_outlined),
-                label: Text(_canReceiveManually ? 'Kirim qilish' : 'Tarozi kirimi'),
+                label: UrduAwareText(
+                    _canReceiveManually ? 'Kirim qilish' : 'Tarozi kirimi'),
               ),
             ),
             if (receipts.isNotEmpty) ...[
               const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Text(
+                child: UrduAwareText(
                   'Kirimlar',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
@@ -858,7 +861,7 @@ class _PreparationMaterialDetailScreenState
               const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Text(
+                child: UrduAwareText(
                   'Chiqimlar',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
@@ -900,7 +903,7 @@ class _PreparationMaterialDetailScreenState
             if (receipts.isEmpty && consumptions.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(
+                child: UrduAwareText(
                   'Bu homashyo bo‘yicha hali kirim yoki chiqim yo‘q.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
@@ -1029,7 +1032,7 @@ class _PreparationOrdersScreenState extends State<PreparationOrdersScreen> {
               const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
+                child: UrduAwareText(
                   'Sarf (kg) = Order KG × foiz ÷ 100. Har bir homashyo foizi alohida hisoblanadi.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
@@ -1077,7 +1080,7 @@ class _PreparationOrdersScreenState extends State<PreparationOrdersScreen> {
                                 ),
                               ],
                             ),
-                            Text(
+                            UrduAwareText(
                               'Mavjud: ${preparationDisplay(materials[entry.key]!.available(widget.warehouse))} kg',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: scheme.onSurfaceVariant,
@@ -1110,7 +1113,7 @@ class _PreparationOrdersScreenState extends State<PreparationOrdersScreen> {
                             Builder(
                               builder: (_) {
                                 try {
-                                  return Text(
+                                  return UrduAwareText(
                                     'Sarf: ${preparationDisplay(preparationRequiredKg(_order!.kg, entry.value.text))} kg',
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       fontWeight: FontWeight.w600,
@@ -1118,7 +1121,7 @@ class _PreparationOrdersScreenState extends State<PreparationOrdersScreen> {
                                     ),
                                   );
                                 } on FormatException {
-                                  return const Text('Sarf: —');
+                                  return const UrduAwareText('Sarf: —');
                                 }
                               },
                             ),
@@ -1136,13 +1139,13 @@ class _PreparationOrdersScreenState extends State<PreparationOrdersScreen> {
                 child: OutlinedButton.icon(
                   onPressed: widget.locked ? null : _handleAddMaterial,
                   icon: const Icon(Icons.add),
-                  label: const Text('Homashyo tanlash'),
+                  label: const UrduAwareText('Homashyo tanlash'),
                 ),
               ),
               const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
+                child: UrduAwareText(
                   'Saqlash bosilganda ko‘rsatilgan miqdor ombordan sarflanadi. Bu orderning saqlangan retsepti qayta sarflanmaydi.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
@@ -1164,7 +1167,7 @@ class _PreparationOrdersScreenState extends State<PreparationOrdersScreen> {
                             Navigator.of(context).pop();
                           }
                         },
-                  child: Text(
+                  child: UrduAwareText(
                     widget.saving ? 'Saqlanmoqda…' : 'Saqlash va sarflash',
                   ),
                 ),
@@ -1279,7 +1282,7 @@ class _PreparationHistoryScreenState extends State<PreparationHistoryScreen> {
       await widget.onReload();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Kirim bekor qilindi')),
+          const SnackBar(content: UrduAwareText('Kirim bekor qilindi')),
         );
       }
     } catch (error) {
@@ -1315,7 +1318,7 @@ class _PreparationHistoryScreenState extends State<PreparationHistoryScreen> {
             if (_history.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(
+                child: UrduAwareText(
                   'Hali kirim yoki sarf yo‘q.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
@@ -1488,14 +1491,14 @@ class _PreparationInputDialogState extends State<_PreparationInputDialog> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                    onPressed: submit, child: const Text('Saqlash')),
+                    onPressed: submit, child: const UrduAwareText('Saqlash')),
               ),
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
                 child: TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Bekor qilish')),
+                    child: const UrduAwareText('Bekor qilish')),
               ),
             ],
           ),

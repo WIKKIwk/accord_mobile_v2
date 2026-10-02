@@ -8,6 +8,7 @@ import '../../../admin/logic/canonical_apparatus_display.dart';
 import '../../../admin/presentation/admin_production_map_orders_screen.dart';
 import '../../../shared/models/app_models.dart';
 import '../../models/chat_models.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 class ChatOrderFreezeRequestCard extends StatefulWidget {
   const ChatOrderFreezeRequestCard({
@@ -74,7 +75,8 @@ class _ChatOrderFreezeRequestCardState
   }
 
   Future<void> _pause() async {
-    if (_actionInFlight || !_canSafelyStop ||
+    if (_actionInFlight ||
+        !_canSafelyStop ||
         _status != OrderFreezeRequestCardStatus.pending) {
       return;
     }
@@ -173,7 +175,7 @@ class _ChatOrderFreezeRequestCardState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            UrduAwareText(
                               'Buyurtmani muzlatish so‘rovi',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
@@ -221,7 +223,7 @@ class _ChatOrderFreezeRequestCardState
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.pause_rounded),
-                        label: const Text('Pauza qilish'),
+                        label: const UrduAwareText('Pauza qilish'),
                         style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(50),
                           shape: RoundedRectangleBorder(
@@ -233,7 +235,7 @@ class _ChatOrderFreezeRequestCardState
                       OutlinedButton.icon(
                         onPressed: _actionInFlight ? null : _cancel,
                         icon: const Icon(Icons.close_rounded),
-                        label: const Text('So‘rovni bekor qilish'),
+                        label: const UrduAwareText('So‘rovni bekor qilish'),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),
                           shape: RoundedRectangleBorder(

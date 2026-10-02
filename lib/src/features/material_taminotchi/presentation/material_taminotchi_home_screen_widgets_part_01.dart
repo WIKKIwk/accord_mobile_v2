@@ -204,8 +204,8 @@ class _MaterialTaminotchiHomeScreenState
             if (!hasMaterialGroupScope) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content:
-                      Text('Avval material guruhlari biriktirilishi kerak'),
+                  content: UrduAwareText(
+                      'Avval material guruhlari biriktirilishi kerak'),
                 ),
               );
               return;
@@ -234,7 +234,8 @@ class _MaterialTaminotchiHomeScreenState
     if (!hasMaterialGroupScope) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Avval material guruhlari biriktirilishi kerak'),
+          content:
+              UrduAwareText('Avval material guruhlari biriktirilishi kerak'),
         ),
       );
       return;

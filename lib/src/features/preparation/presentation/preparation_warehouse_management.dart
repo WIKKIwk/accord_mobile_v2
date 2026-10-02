@@ -76,7 +76,7 @@ extension _PreparationWarehouseManagement on _PreparationWarehouseScreenState {
       });
       if (_warehouse != null) widget.onWarehouseSelected(_warehouse!);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(action == 'rename'
+          content: UrduAwareText(action == 'rename'
               ? 'Ombor nomi o‘zgartirildi'
               : 'Ombor o‘chirildi')));
     } catch (error) {

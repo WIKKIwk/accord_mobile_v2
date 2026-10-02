@@ -76,7 +76,7 @@ class _CalculateMaterialManagerState extends State<_CalculateMaterialManager> {
               ],
             ),
             Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               child: Text(
                 l10n.adminText('calculate.manager_description'),
                 style: theme.textTheme.bodyMedium?.copyWith(

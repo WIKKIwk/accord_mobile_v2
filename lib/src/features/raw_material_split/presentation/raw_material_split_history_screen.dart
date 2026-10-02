@@ -12,6 +12,7 @@ import '../models/raw_material_split_models.dart';
 import 'raw_material_split_navigation.dart';
 import 'raw_material_split_print.dart';
 import 'raw_material_split_result_view.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class RawMaterialSplitHistoryScreen extends StatefulWidget {
   const RawMaterialSplitHistoryScreen({super.key});
@@ -92,8 +93,8 @@ class _RawMaterialSplitHistoryScreenState
         }
       }
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Chop etildi')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: UrduAwareText('Chop etildi')));
       }
     } catch (e) {
       if (mounted) {
@@ -114,8 +115,7 @@ class _RawMaterialSplitHistoryScreenState
       builder: (sheetContext) => RawSplitDetailsSheet(
         result: result,
         printerLabel: _printer?.transport.apiValue,
-        showWifiSelector:
-            _printer != null && !_printer!.transport.isLocal,
+        showWifiSelector: _printer != null && !_printer!.transport.isLocal,
         wifiPrinter: _wifiPrinter,
         onReprint: (output) => _reprint(result, only: output),
         onReprintAll: () => _reprint(result),
@@ -240,7 +240,7 @@ class _RawMaterialSplitHistoryScreenState
             if (issues.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                child: Text(
+                child: UrduAwareText(
                   'Muammolar',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
@@ -252,8 +252,9 @@ class _RawMaterialSplitHistoryScreenState
                   children: [
                     for (var i = 0; i < issues.length; i++)
                       RawSplitIssueCard(
-                        slot: M3SegmentedListGeometry
-                            .standaloneListSlotForIndex(i, issues.length),
+                        slot:
+                            M3SegmentedListGeometry.standaloneListSlotForIndex(
+                                i, issues.length),
                         issue: issues[i],
                         hasResult: history.any(
                           (result) => result.issueId == issues[i].id,

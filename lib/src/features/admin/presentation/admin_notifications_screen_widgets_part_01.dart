@@ -326,7 +326,8 @@ class _CompletionRequestNotificationCard extends StatelessWidget {
           InkWell(
             onTap: () => onExpandedChanged(!expanded),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(14, 10, 6, expanded ? 8 : 10),
+              padding:
+                  EdgeInsetsDirectional.fromSTEB(14, 10, 6, expanded ? 8 : 10),
               child: Row(
                 children: [
                   SizedBox.square(

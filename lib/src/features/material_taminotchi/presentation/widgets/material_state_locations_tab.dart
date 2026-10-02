@@ -15,6 +15,7 @@ import '../../../shared/models/inventory_movement_models.dart';
 import 'raw_material_list_assignment.dart';
 import 'raw_material_order_assignment_section.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 part 'material_state_locations_tab_MaterialStateLocationsTabState_resplit_methods_01.dart';
 part 'material_state_locations_tab_models_resplit_part_01.dart';

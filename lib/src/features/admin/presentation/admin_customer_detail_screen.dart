@@ -21,6 +21,7 @@ import 'widgets/admin_profile_avatar.dart';
 import 'widgets/admin_warehouse_assignment_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'admin_customer_detail_screen__AdminCustomerDetailScreenState_methods_01.dart';
 part 'admin_customer_detail_screen_declarations_part_01.dart';

@@ -288,7 +288,7 @@ extension __WerkaArchiveSentHubScreenStateAstPart01
               ),
             ),
             Expanded(
-              child: Text(
+              child: UrduAwareText(
                 '$_displayYear',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.titleLarge,
@@ -355,7 +355,7 @@ extension __WerkaArchiveSentHubScreenStateAstPart01
               ),
             ),
             Expanded(
-              child: Text(
+              child: UrduAwareText(
                 '${years.first} - ${years.last}',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.titleLarge,

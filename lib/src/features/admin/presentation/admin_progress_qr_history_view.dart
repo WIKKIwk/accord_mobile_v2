@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import 'admin_progress_qr_passport.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 /// A roll's proven manufacturing occurrences. Numbers identify actual outputs,
 /// including repeated apparatus visits; link rows describe branches explicitly.
@@ -61,19 +62,20 @@ class AdminProgressQrHistoryView extends StatelessWidget {
                     ].join(' • '),
                     key: const ValueKey('qr-passport-order-status')),
                 const SizedBox(height: 12),
-                Text(
+                UrduAwareText(
                     '${text('worker.qr.passport.scanned_batch')}: ${passport.scannedBatchStatus}',
                     key: const ValueKey('qr-passport-scanned-batch-status')),
                 if (showQr) ...[
                   const SizedBox(height: 6),
-                  Text('${text('worker.qr.report.epc')}: $qr',
+                  UrduAwareText('${text('worker.qr.report.epc')}: $qr',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       )),
                 ],
                 if (passport.currentBatchStatus case final status?) ...[
                   const SizedBox(height: 6),
-                  Text('${text('worker.qr.passport.current_batch')}: $status',
+                  UrduAwareText(
+                      '${text('worker.qr.passport.current_batch')}: $status',
                       key: const ValueKey('qr-passport-current-batch-status')),
                 ],
                 if (report.hasScopedHistory &&
@@ -149,7 +151,8 @@ class AdminProgressQrHistoryView extends StatelessWidget {
                             children: [
                               Text(correction.stage,
                                   style: theme.textTheme.titleSmall),
-                              Text('${correction.editor} • ${correction.time}'),
+                              UrduAwareText(
+                                  '${correction.editor} • ${correction.time}'),
                               Text(correction.reason),
                               for (final change in correction.changes)
                                 _HistoryFact(
@@ -220,7 +223,7 @@ class _HistoryOccurrence extends StatelessWidget {
               radius: 16,
               backgroundColor: scheme.primaryContainer,
               foregroundColor: scheme.onPrimaryContainer,
-              child: Text('$index')),
+              child: UrduAwareText('$index')),
           const SizedBox(width: 12),
           Expanded(
               child: Column(

@@ -57,7 +57,8 @@ class _WorkerSettingsCard extends StatelessWidget {
           InkWell(
             onTap: () => onExpandedChanged(!expanded),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 8 : 8),
+              padding:
+                  EdgeInsetsDirectional.fromSTEB(14, 8, 4, expanded ? 8 : 8),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
                 child: Row(
@@ -333,7 +334,7 @@ class _WorkerApparatusAssignmentSheetState
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 10, 8, 8),
               child: Row(
                 children: [
                   Expanded(

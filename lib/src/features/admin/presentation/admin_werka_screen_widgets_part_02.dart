@@ -76,8 +76,7 @@ class _WerkaAdminPanel extends StatelessWidget {
                   icon: const Icon(Icons.content_copy_outlined),
                 ),
               IconButton(
-                onPressed:
-                    regenerating ? null : onRegenerateCode,
+                onPressed: regenerating ? null : onRegenerateCode,
                 icon: regenerating
                     ? const SizedBox(
                         height: 18,
@@ -91,7 +90,8 @@ class _WerkaAdminPanel extends StatelessWidget {
         ),
         if (code.trim().isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(l10n.adminText('profile.code_copy_hint'), style: theme.textTheme.bodySmall),
+          Text(l10n.adminText('profile.code_copy_hint'),
+              style: theme.textTheme.bodySmall),
         ],
         if (retryAfterSec > 0) ...[
           const SizedBox(height: 12),
@@ -179,10 +179,10 @@ class _WerkaPhoneInlineFieldState extends State<_WerkaPhoneInlineField> {
                     controller: widget.controller,
                     autofocus: true,
                     keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
-                      hintText: '+998 90 123 45 67',
+                      hintText: localizeUrduUiText('+998 90 123 45 67'),
                     ),
                     style: theme.textTheme.titleMedium,
                     onSubmitted: (_) => _submit(),

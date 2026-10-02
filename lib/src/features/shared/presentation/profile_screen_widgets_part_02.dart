@@ -301,7 +301,7 @@ class _LanguagePreferenceRow extends StatelessWidget {
                     children: [
                       _ProfileSelectionOption(
                         index: 0,
-                        itemCount: 3,
+                        itemCount: 4,
                         title: l10n.uzbek,
                         subtitle: 'Uzbek',
                         active: currentLocale.languageCode == 'uz',
@@ -310,7 +310,7 @@ class _LanguagePreferenceRow extends StatelessWidget {
                       ),
                       _ProfileSelectionOption(
                         index: 1,
-                        itemCount: 3,
+                        itemCount: 4,
                         title: l10n.english,
                         subtitle: 'English',
                         active: currentLocale.languageCode == 'en',
@@ -319,12 +319,21 @@ class _LanguagePreferenceRow extends StatelessWidget {
                       ),
                       _ProfileSelectionOption(
                         index: 2,
-                        itemCount: 3,
+                        itemCount: 4,
                         title: l10n.russian,
                         subtitle: 'Russian',
                         active: currentLocale.languageCode == 'ru',
                         onTap: () =>
                             Navigator.of(context).pop(const Locale('ru')),
+                      ),
+                      _ProfileSelectionOption(
+                        index: 3,
+                        itemCount: 4,
+                        title: 'اردو (پاکستان)',
+                        subtitle: 'Urdu (Pakistan)',
+                        active: currentLocale.languageCode == 'ur',
+                        onTap: () =>
+                            Navigator.of(context).pop(const Locale('ur', 'PK')),
                       ),
                     ],
                   ),
@@ -381,7 +390,9 @@ class _LanguagePreferenceRow extends StatelessWidget {
                   ? l10n.uzbek
                   : currentLocale.languageCode == 'ru'
                       ? l10n.russian
-                      : l10n.english,
+                      : currentLocale.languageCode == 'ur'
+                          ? 'اردو'
+                          : l10n.english,
               style: Theme.of(context).textTheme.labelLarge,
             ),
           ),

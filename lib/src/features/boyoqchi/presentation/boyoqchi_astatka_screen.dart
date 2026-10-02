@@ -13,6 +13,7 @@ import 'widgets/boyoqchi_dock.dart';
 import 'widgets/boyoqchi_navigation_drawer.dart';
 import 'widgets/returned_paint_sheet.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 typedef BoyoqchiAstatkaLoader = Future<ReturnedPaintRequestPage> Function();
 typedef BoyoqchiReturnedPaintCompleter = Future<ReturnedPaintRequest> Function(
@@ -204,7 +205,7 @@ class _AstatkaRequestCard extends StatelessWidget {
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       expanded: expanded,
       onExpandedChanged: onExpandedChanged,
-      headerPadding: const EdgeInsets.fromLTRB(16, 15, 12, 15),
+      headerPadding: const EdgeInsetsDirectional.fromSTEB(16, 15, 12, 15),
       header: Row(
         children: [
           Expanded(
@@ -268,7 +269,7 @@ class _AstatkaRequestCard extends StatelessWidget {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Text(
+                  child: UrduAwareText(
                     'Qaytarilgan bo‘yoq qiymatlari kiritilmagan. '
                     'Rasmdagi qiymatlarni Bo‘yoqchi to‘ldirishi kerak.',
                     style: theme.textTheme.bodyMedium?.copyWith(
@@ -283,7 +284,7 @@ class _AstatkaRequestCard extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onReturnedPaintRequested,
                 icon: const Icon(Icons.palette_outlined),
-                label: const Text('Qaytarilgan bo‘yoq'),
+                label: const UrduAwareText('Qaytarilgan bo‘yoq'),
               ),
             ] else if (calculation != null) ...[
               _AstatkaInfoRow(
@@ -323,7 +324,7 @@ class _AstatkaRequestCard extends StatelessWidget {
                 bottomPadding: 0,
               ),
             ] else ...[
-              Text(
+              UrduAwareText(
                 'Ushbu eski hisobot uchun hisoblash ma’lumoti mavjud emas.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,

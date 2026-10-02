@@ -5,6 +5,7 @@ import '../../shared/models/app_models.dart';
 import '../state/supplier_store.dart';
 import 'widgets/supplier_dock.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 enum SupplierSubmittedCategory {
   pendingDispatches,
@@ -99,7 +100,7 @@ class _SupplierSubmittedCategoryDetailScreenState
     return AppShell(
       title: _title,
       subtitle: '',
-      contentPadding: const EdgeInsets.fromLTRB(10, 0, 12, 0),
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(10, 0, 12, 0),
       leading: AppShellIconAction(
         icon: Icons.arrow_back_rounded,
         onTap: () => Navigator.of(context).maybePop(),
@@ -119,7 +120,7 @@ class _SupplierSubmittedCategoryDetailScreenState
                 margin: EdgeInsets.zero,
                 child: Padding(
                   padding: const EdgeInsets.all(18),
-                  child: Text('${store.historyError}'),
+                  child: UrduAwareText('${store.historyError}'),
                 ),
               ),
             );
@@ -163,7 +164,7 @@ class _SupplierSubmittedCategoryDetailScreenState
                                             CrossAxisAlignment.start,
                                         children: [
                                           Expanded(
-                                            child: Text(
+                                            child: UrduAwareText(
                                               '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
                                               style: Theme.of(
                                                 context,

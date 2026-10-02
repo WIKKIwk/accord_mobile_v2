@@ -254,7 +254,7 @@ class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
                         child: FilledButton.icon(
                           onPressed: () => _complete(_manualController.text),
                           icon: const Icon(Icons.check_rounded),
-                          label: Text(
+                          label: UrduAwareText(
                             'OK',
                             style: theme.textTheme.labelLarge?.copyWith(
                               color: scheme.onPrimary,

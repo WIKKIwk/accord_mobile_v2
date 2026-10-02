@@ -244,7 +244,7 @@ extension __AdminServerMonitorScreenStateAstPart01
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
-                        Text(
+                        UrduAwareText(
                           '${_backupSourceLabel(snapshot.source, sheetContext.l10n)} • '
                           '${_formatBackupBytes(snapshot.sizeBytes)} • '
                           '${sheetContext.l10n.adminText('server.backup_verified')}',
@@ -252,7 +252,7 @@ extension __AdminServerMonitorScreenStateAstPart01
                         ),
                         if (snapshot.checksumSha256.isNotEmpty) ...[
                           const SizedBox(height: 4),
-                          Text(
+                          UrduAwareText(
                             'SHA-256: ${snapshot.checksumSha256.substring(0, math.min(16, snapshot.checksumSha256.length))}…',
                             style: Theme.of(sheetContext).textTheme.labelSmall,
                           ),

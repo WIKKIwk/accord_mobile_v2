@@ -187,7 +187,7 @@ class M3ExpandableFilledSurface extends StatelessWidget {
     required this.header,
     required this.expandedChild,
     this.onLongPress,
-    this.headerPadding = const EdgeInsets.fromLTRB(14, 8, 4, 8),
+    this.headerPadding = const EdgeInsetsDirectional.fromSTEB(14, 8, 4, 8),
     this.collapsedMinHeight = 45,
     this.duration = const Duration(milliseconds: 180),
   });

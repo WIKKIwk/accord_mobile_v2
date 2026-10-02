@@ -70,7 +70,8 @@ class AdminSummaryCard extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: minHeight ?? 0),
           child: Padding(
-            padding: padding ?? const EdgeInsets.fromLTRB(16, 16, 12, 16),
+            padding:
+                padding ?? const EdgeInsetsDirectional.fromSTEB(16, 16, 12, 16),
             child: Row(
               children: [
                 if (leading != null) ...[leading!, const SizedBox(width: 14)],

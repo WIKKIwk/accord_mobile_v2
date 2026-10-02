@@ -60,7 +60,7 @@ class _CompletionRequestDetails extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(60, 0, 14, 14),
+      padding: const EdgeInsetsDirectional.fromSTEB(60, 0, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

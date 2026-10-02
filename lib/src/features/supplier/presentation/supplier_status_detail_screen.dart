@@ -6,6 +6,7 @@ import '../../shared/models/app_models.dart';
 import '../state/supplier_store.dart';
 import 'widgets/supplier_dock.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class SupplierStatusDetailArgs {
   const SupplierStatusDetailArgs({
@@ -80,7 +81,7 @@ class _SupplierStatusDetailScreenState
                 margin: EdgeInsets.zero,
                 child: Padding(
                   padding: const EdgeInsets.all(18),
-                  child: Text('$error'),
+                  child: UrduAwareText('$error'),
                 ),
               ),
             );
@@ -125,7 +126,7 @@ class _SupplierStatusDetailScreenState
                                           CrossAxisAlignment.start,
                                       children: [
                                         Expanded(
-                                          child: Text(
+                                          child: UrduAwareText(
                                             '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
                                             style: Theme.of(
                                               context,

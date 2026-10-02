@@ -10,6 +10,7 @@ import '../../../../core/widgets/forms/forms.dart';
 import '../../../admin/presentation/widgets/admin_surface_tab_bar.dart';
 import '../../models/returned_paint_models.dart';
 import '../../state/returned_paint_draft_store.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 part 'returned_paint_sheet__ReturnedPaintSheetState_methods_01.dart';
 part 'returned_paint_sheet__ReturnedPaintSheetState_methods_02.dart';
@@ -267,7 +268,7 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
                       icon: const Icon(Icons.arrow_back_rounded),
                     ),
                     Expanded(
-                      child: Text(
+                      child: UrduAwareText(
                         'Qaytarilgan bo‘yoq',
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
@@ -313,7 +314,7 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
                                 ? null
                                 : _chooseAndPickImage,
                             icon: const Icon(Icons.sync_rounded),
-                            label: const Text('Almashtirish'),
+                            label: const UrduAwareText('Almashtirish'),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -330,7 +331,7 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
                                     ),
                                   )
                                 : const Icon(Icons.delete_outline_rounded),
-                            label: const Text('Olib tashlash'),
+                            label: const UrduAwareText('Olib tashlash'),
                           ),
                         ),
                       ],

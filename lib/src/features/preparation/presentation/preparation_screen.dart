@@ -18,6 +18,7 @@ import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
 import 'preparation_navigation.dart';
 import 'preparation_order_formula_screen.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'preparation_screen_forms.dart';
 part 'preparation_warehouse_management.dart';
@@ -143,7 +144,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
       if (!mounted) return;
       if (kind == 'consumptions') setState(_clearRecipe);
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Saqlandi')));
+          .showSnackBar(const SnackBar(content: UrduAwareText('Saqlandi')));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -380,7 +381,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
+                                  child: UrduAwareText(
                                     'Sizga ombor biriktirilmagan. Admin foydalanuvchi kartasidan ombor biriktirishi kerak.',
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       color: scheme.onTertiaryContainer,
@@ -436,8 +437,10 @@ class _PreparationScreenState extends State<PreparationScreen> {
                             fontWeight: FontWeight.w700,
                           ),
                           value: '',
-                          onTap: _locked ? null : () => _openAndReload(
-                              const PreparationFormulaOrdersScreen()),
+                          onTap: _locked
+                              ? null
+                              : () => _openAndReload(
+                                  const PreparationFormulaOrdersScreen()),
                           elevation: 4,
                         ),
                         AdminSummaryCard(

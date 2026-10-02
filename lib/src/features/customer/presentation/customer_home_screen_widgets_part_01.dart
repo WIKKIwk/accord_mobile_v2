@@ -131,7 +131,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       ),
       animateOnEnter: false,
       preferNativeTitle: true,
-      contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 0, 14, 0),
       bottom: const CustomerDock(activeTab: CustomerDockTab.home),
       child: content,
     );

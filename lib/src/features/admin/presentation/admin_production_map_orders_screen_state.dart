@@ -307,12 +307,14 @@ class _AdminProductionMapOrdersScreenState
       UserRole.qolipchi => QolipNavigationDrawer(
           selectedIndex: 0,
           selectedRouteName: widget.qolipTasksMode
-              ? AppRoutes.qolipTasks : AppRoutes.supplySequence,
+              ? AppRoutes.qolipTasks
+              : AppRoutes.supplySequence,
           onNavigate: _openDrawerRoute,
         ),
       UserRole.materialTaminotchi => MaterialTaminotchiNavigationDrawer(
           selectedRouteName: widget.materialTasksMode
-              ? AppRoutes.materialTasks : AppRoutes.supplySequence,
+              ? AppRoutes.materialTasks
+              : AppRoutes.supplySequence,
           onNavigate: _openDrawerRoute,
         ),
       UserRole.tayyorlovMasteri => PreparationDrawer(
@@ -322,10 +324,12 @@ class _AdminProductionMapOrdersScreenState
       _ => null,
     };
     final supplyDock = switch (role) {
-      UserRole.qolipchi => QolipDock(
-          activeTab: widget.qolipTasksMode ? QolipDockTab.tasks : null),
-      UserRole.materialTaminotchi =>
-        MaterialTaminotchiDock(activeTab: widget.materialTasksMode ? MaterialTaminotchiDockTab.tasks : null),
+      UserRole.qolipchi =>
+        QolipDock(activeTab: widget.qolipTasksMode ? QolipDockTab.tasks : null),
+      UserRole.materialTaminotchi => MaterialTaminotchiDock(
+          activeTab: widget.materialTasksMode
+              ? MaterialTaminotchiDockTab.tasks
+              : null),
       UserRole.tayyorlovMasteri => const PreparationDock(),
       _ => null,
     };
@@ -360,11 +364,14 @@ class _AdminProductionMapOrdersScreenState
       titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,
-        hintText: widget.materialTasksMode ? 'Material vazifalari' : widget.qolipTasksMode
-            ? context.l10n.qolipText('nav.tasks')
-            : widget.supplyViewerMode
-            ? context.l10n.productionText('worker.queue.search.sequence')
-            : context.l10n.productionText('worker.queue.search.open'),
+        hintText: widget.materialTasksMode
+            ? 'Material vazifalari'
+            : widget.qolipTasksMode
+                ? context.l10n.qolipText('nav.tasks')
+                : widget.supplyViewerMode
+                    ? context.l10n
+                        .productionText('worker.queue.search.sequence')
+                    : context.l10n.productionText('worker.queue.search.open'),
         onChanged: (value) => setState(() => _searchQuery = value),
         onClear: () {
           _searchController.clear();
@@ -482,7 +489,8 @@ class _AdminProductionMapOrdersScreenState
                               queueActionControlsByApparatus:
                                   _queueActionControlsByApparatus,
                               workActivityByApparatus: _workActivityByApparatus,
-                              queuePoliciesByApparatus: _queuePoliciesByApparatus,
+                              queuePoliciesByApparatus:
+                                  _queuePoliciesByApparatus,
                               workerRole: AppSession.instance.profile == null
                                   ? ''
                                   : userRoleToJson(
@@ -500,98 +508,105 @@ class _AdminProductionMapOrdersScreenState
                           : widget.qolipTasksMode || widget.materialTasksMode
                               ? _buildQolipTasks(bottomPadding)
                               : _AdminModulesBody(
-                              stageStatesByOrderId: _stageStatesByOrderId,
-                              queueActionControlsByApparatus:
-                                  _queueActionControlsByApparatus,
-                              pendingOrders: _pendingOrders,
-                              pendingOrdersError: _pendingOrdersError,
-                              onPendingOrder: _showPendingOrder,
-                              onRetryPendingOrders: _refreshPendingOrders,
-                              modules: _modules,
-                              currentModule: _module,
-                              tabController: _tabController,
-                              bottomPadding: bottomPadding,
-                              orders: _supplyFilteredOrders,
-                              searchQuery: _searchQuery,
-                              apparatus: _apparatus,
-                              selectedApparatus: _selectedApparatus,
-                              completionRequests: _completionRequests,
-                              readOnly:
-                                  widget.readOnly || widget.supplyViewerMode,
-                              moveTopApparatus: _moveTopApparatus,
-                              moveBottomApparatus: _moveBottomApparatus,
-                              selectedMoveOrderIds: _selectedMoveOrderIds,
-                              draggingMoveOrders: _draggingMoveOrders,
-                              draggingMoveSource: _draggingMoveSource,
-                              closedOrders: _closedOrders,
-                              onSetModule: _setModule,
-                              ordersForApparatus: _ordersForApparatus,
-                              moveOrdersForApparatus: _moveOrdersForApparatus,
-                              canMoveTo: _canMoveOrderToApparatus,
-                              onSelectSequenceApparatus: (apparatus) {
-                                _userChangedSequenceApparatus = true;
-                                unawaited(
-                                  AdminSequenceApparatusStore.instance
-                                      .saveApparatus(apparatus),
-                                );
-                                setState(() => _selectedApparatus = apparatus);
-                              },
-                              onReorder: (oldIndex, newIndex) {
-                                unawaited(
-                                  _reorderSelectedApparatusOrders(
-                                      oldIndex, newIndex),
-                                );
-                              },
-                              onPickMoveTop: () =>
-                                  _pickMoveApparatus(top: true),
-                              onPickMoveBottom: () =>
-                                  _pickMoveApparatus(top: false),
-                              onToggleMoveSelection: _toggleMoveOrderSelection,
-                              buildMoveDragPayload: _buildMoveDragPayload,
-                              onMoveDragStarted: (payload) {
-                                setState(() {
-                                  _draggingMoveOrders = payload.orders;
-                                  _draggingMoveSource = payload.source;
-                                });
-                              },
-                              onMoveDragEnded: () {
-                                setState(() {
-                                  _draggingMoveOrders = const [];
-                                  _draggingMoveSource = null;
-                                });
-                              },
-                              onMove: _moveOrdersBetweenApparatus,
-                              onInfoOrder: _showOrderDetail,
-                              onInfoSequenceOrder: widget.supplyViewerMode &&
-                                      !canViewSupplyOrderInfo
-                                  ? null
-                                  : _showWatchOrderDetail,
-                              customerNameByMapId: _customerByMapId,
-                              queueStatesByApparatus: _queueStatesByApparatus,
-                              visibleOrderIdsByApparatus:
-                                  _visibleOrderIdsByApparatus,
-                              orderStatusesByOrderId: _orderStatusesByOrderId,
-                              sequenceInteractionHint: isQolipchi
-                                  ? 'Bir marta bosing — ma’lumot. Uzoq bosing — order qoliplarini ochish.'
-                                  : null,
-                              orderControlsByOrderId: _orderControlsByOrderId,
-                              workflowAudit: _workflowAudit,
-                              workflowAuditError: _workflowAuditError,
-                              workflowAuditLoading: _workflowAuditLoading,
-                              onRefreshWorkflowAudit: () =>
-                                  _refreshWorkflowAudit(force: true),
-                              onLongPressOrder: (order) {
-                                unawaited(
-                                  widget.supplyViewerMode && isQolipchi
-                                      ? _showQolipsForOrder(order)
-                                      : widget.supplyViewerMode &&
-                                              isMaterialTaminotchi
-                                          ? _showSupplyRawMaterialAssignment(
-                                              order)
-                                          : _showOrderActions(order),
-                                );
-                              },
-                            ),
+                                  stageStatesByOrderId: _stageStatesByOrderId,
+                                  queueActionControlsByApparatus:
+                                      _queueActionControlsByApparatus,
+                                  pendingOrders: _pendingOrders,
+                                  pendingOrdersError: _pendingOrdersError,
+                                  onPendingOrder: _showPendingOrder,
+                                  onRetryPendingOrders: _refreshPendingOrders,
+                                  modules: _modules,
+                                  currentModule: _module,
+                                  tabController: _tabController,
+                                  bottomPadding: bottomPadding,
+                                  orders: _supplyFilteredOrders,
+                                  searchQuery: _searchQuery,
+                                  apparatus: _apparatus,
+                                  selectedApparatus: _selectedApparatus,
+                                  completionRequests: _completionRequests,
+                                  readOnly: widget.readOnly ||
+                                      widget.supplyViewerMode,
+                                  moveTopApparatus: _moveTopApparatus,
+                                  moveBottomApparatus: _moveBottomApparatus,
+                                  selectedMoveOrderIds: _selectedMoveOrderIds,
+                                  draggingMoveOrders: _draggingMoveOrders,
+                                  draggingMoveSource: _draggingMoveSource,
+                                  closedOrders: _closedOrders,
+                                  onSetModule: _setModule,
+                                  ordersForApparatus: _ordersForApparatus,
+                                  moveOrdersForApparatus:
+                                      _moveOrdersForApparatus,
+                                  canMoveTo: _canMoveOrderToApparatus,
+                                  onSelectSequenceApparatus: (apparatus) {
+                                    _userChangedSequenceApparatus = true;
+                                    unawaited(
+                                      AdminSequenceApparatusStore.instance
+                                          .saveApparatus(apparatus),
+                                    );
+                                    setState(
+                                        () => _selectedApparatus = apparatus);
+                                  },
+                                  onReorder: (oldIndex, newIndex) {
+                                    unawaited(
+                                      _reorderSelectedApparatusOrders(
+                                          oldIndex, newIndex),
+                                    );
+                                  },
+                                  onPickMoveTop: () =>
+                                      _pickMoveApparatus(top: true),
+                                  onPickMoveBottom: () =>
+                                      _pickMoveApparatus(top: false),
+                                  onToggleMoveSelection:
+                                      _toggleMoveOrderSelection,
+                                  buildMoveDragPayload: _buildMoveDragPayload,
+                                  onMoveDragStarted: (payload) {
+                                    setState(() {
+                                      _draggingMoveOrders = payload.orders;
+                                      _draggingMoveSource = payload.source;
+                                    });
+                                  },
+                                  onMoveDragEnded: () {
+                                    setState(() {
+                                      _draggingMoveOrders = const [];
+                                      _draggingMoveSource = null;
+                                    });
+                                  },
+                                  onMove: _moveOrdersBetweenApparatus,
+                                  onInfoOrder: _showOrderDetail,
+                                  onInfoSequenceOrder:
+                                      widget.supplyViewerMode &&
+                                              !canViewSupplyOrderInfo
+                                          ? null
+                                          : _showWatchOrderDetail,
+                                  customerNameByMapId: _customerByMapId,
+                                  queueStatesByApparatus:
+                                      _queueStatesByApparatus,
+                                  visibleOrderIdsByApparatus:
+                                      _visibleOrderIdsByApparatus,
+                                  orderStatusesByOrderId:
+                                      _orderStatusesByOrderId,
+                                  sequenceInteractionHint: isQolipchi
+                                      ? 'Bir marta bosing — ma’lumot. Uzoq bosing — order qoliplarini ochish.'
+                                      : null,
+                                  orderControlsByOrderId:
+                                      _orderControlsByOrderId,
+                                  workflowAudit: _workflowAudit,
+                                  workflowAuditError: _workflowAuditError,
+                                  workflowAuditLoading: _workflowAuditLoading,
+                                  onRefreshWorkflowAudit: () =>
+                                      _refreshWorkflowAudit(force: true),
+                                  onLongPressOrder: (order) {
+                                    unawaited(
+                                      widget.supplyViewerMode && isQolipchi
+                                          ? _showQolipsForOrder(order)
+                                          : widget.supplyViewerMode &&
+                                                  isMaterialTaminotchi
+                                              ? _showSupplyRawMaterialAssignment(
+                                                  order)
+                                              : _showOrderActions(order),
+                                    );
+                                  },
+                                ),
                     ),
                   ],
                 ),
@@ -910,7 +925,8 @@ class _AdminProductionMapOrdersScreenState
           code: batch.inputRouteError,
           message: context.l10n.productionErrorMessage(
             batch.inputRouteError,
-            fallback: context.l10n.productionErrorMessage('wip_route_destination_unresolved'),
+            fallback: context.l10n
+                .productionErrorMessage('wip_route_destination_unresolved'),
           ),
         );
       }
@@ -926,7 +942,8 @@ class _AdminProductionMapOrdersScreenState
       }
       await _refreshLive();
       if (!mounted) return;
-      final targetMaps = _orders.where((order) => order.map.id.trim() == targetOrderId);
+      final targetMaps =
+          _orders.where((order) => order.map.id.trim() == targetOrderId);
       if (targetMaps.isEmpty) {
         showAdminTopNotice(context,
             context.l10n.productionText('worker.error.other_order_lookup'));
@@ -944,7 +961,8 @@ class _AdminProductionMapOrdersScreenState
               nextStageNodeId:
                   batch.payloadJson['next_stage_node_id']?.toString() ?? '',
             );
-      final assigned = AppSession.instance.profile?.assignedApparatus ?? const <String>[];
+      final assigned =
+          AppSession.instance.profile?.assignedApparatus ?? const <String>[];
       AdminApparatus? station;
       for (final candidate in _apparatus) {
         if (candidates.contains(candidate.id.trim()) &&
@@ -967,7 +985,9 @@ class _AdminProductionMapOrdersScreenState
         return;
       }
       await MobileApi.instance.adminProgressQrLookup(
-        qrPayload, apparatus: station.id, orderId: targetOrderId,
+        qrPayload,
+        apparatus: station.id,
+        orderId: targetOrderId,
       );
       if (!mounted) return;
       final targetControl = _queueActionControlForApparatus(
@@ -983,13 +1003,13 @@ class _AdminProductionMapOrdersScreenState
         queueStatesByApparatus: _queueStatesByApparatus,
       )[targetOrderId];
       if (targetControl?.isConsistentWith(
-                targetOrderControl,
-                queueState: targetQueueState,
-              ) !=
-              true) {
+            targetOrderControl,
+            queueState: targetQueueState,
+          ) !=
+          true) {
         final busyOrder = _workerCurrentOrderForApparatus(apparatus: station);
-        final busyIsOther = busyOrder != null &&
-            busyOrder.map.id.trim() != targetOrderId;
+        final busyIsOther =
+            busyOrder != null && busyOrder.map.id.trim() != targetOrderId;
         showAdminTopNotice(
           context,
           _queueActionUnavailableText(
@@ -1035,12 +1055,13 @@ class _AdminProductionMapOrdersScreenState
           _queueActionControlForApparatus(
                 apparatus: station,
                 orderId: currentOrder.map.id,
-              )?.allows('complete') == true;
+              )?.allows('complete') ==
+              true;
       final canPrepareSwitch = canFinishCurrent &&
           targetControl?.interaction?.blockingReasonCode == 'apparatus_busy';
       if (targetControl?.allows('start') != true && !canPrepareSwitch) {
-        final busyIsOther = currentOrder != null &&
-            currentOrder.map.id.trim() != targetOrderId;
+        final busyIsOther =
+            currentOrder != null && currentOrder.map.id.trim() != targetOrderId;
         showAdminTopNotice(
           context,
           _queueActionUnavailableText(
@@ -1153,7 +1174,8 @@ class _AdminProductionMapOrdersScreenState
       final needsReport = _queueActionControlForApparatus(
             apparatus: apparatus,
             orderId: order.map.id,
-          )?.stageWork?.astatkaRequired == true;
+          )?.stageWork?.astatkaRequired ==
+          true;
       if (needsReport &&
           (mode == AdminQueueInteractionMode.paused ||
               mode == AdminQueueInteractionMode.completed)) {
@@ -1210,8 +1232,7 @@ class _AdminProductionMapOrdersScreenState
     final operation = apparatus.operation.trim().toLowerCase();
     final isLaminatsiya = apparatus.usesLaminationWorkflow;
     final isBosma = operation == 'print';
-    final supportsAstatka =
-        isLaminatsiya || operation == 'cut' || isBosma;
+    final supportsAstatka = isLaminatsiya || operation == 'cut' || isBosma;
     if (!widget.workerMode ||
         !_isAssignedWatchApparatus(
           apparatus,
@@ -1444,8 +1465,9 @@ class _AdminProductionMapOrdersScreenState
               const ListTile(
                 enabled: false,
                 leading: Icon(Icons.sync_problem_rounded),
-                title: Text('Navbat holati sinxron emas'),
-                subtitle: Text('Server holati yangilanishi kutilmoqda'),
+                title: UrduAwareText('Navbat holati sinxron emas'),
+                subtitle:
+                    UrduAwareText('Server holati yangilanishi kutilmoqda'),
               ),
             if (control == AdminOrderControlState.active && !closingEarly) ...[
               if (!hasFrozenQueueState)
@@ -1462,7 +1484,7 @@ class _AdminProductionMapOrdersScreenState
                   Icons.delete_outline_rounded,
                   color: Theme.of(context).colorScheme.error,
                 ),
-                title: Text(
+                title: UrduAwareText(
                   'O‘chirish',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.error,
@@ -1474,7 +1496,8 @@ class _AdminProductionMapOrdersScreenState
                 ),
               ),
             ],
-            if (control == AdminOrderControlState.freezeRequested && !closingEarly)
+            if (control == AdminOrderControlState.freezeRequested &&
+                !closingEarly)
               ListTile(
                 leading: const Icon(Icons.cancel_outlined),
                 title: Text(
@@ -1495,31 +1518,36 @@ class _AdminProductionMapOrdersScreenState
                 ),
               ),
             if (closingEarly)
-              const ListTile(enabled: false,
-                leading: Icon(Icons.hourglass_bottom_rounded),
-                title: Text('Erta yopish so‘rovi yuborilgan'),
-                subtitle: Text('Ishchining oxirgi rulonni yechishi kutilmoqda'))
+              const ListTile(
+                  enabled: false,
+                  leading: Icon(Icons.hourglass_bottom_rounded),
+                  title: UrduAwareText('Erta yopish so‘rovi yuborilgan'),
+                  subtitle: UrduAwareText(
+                      'Ishchining oxirgi rulonni yechishi kutilmoqda'))
             else
               ListTile(
                 leading: Icon(Icons.stop_circle_outlined,
-                  color: Theme.of(context).colorScheme.error),
-                title: const Text('Orderni muammo bilan erta yopish'),
-                onTap: () => Navigator.pop(context, _OrderLongPressAction.closeEarly),
+                    color: Theme.of(context).colorScheme.error),
+                title: const UrduAwareText('Orderni muammo bilan erta yopish'),
+                onTap: () =>
+                    Navigator.pop(context, _OrderLongPressAction.closeEarly),
               ),
-            if (!closingEarly) ListTile(
-              leading: const Icon(Icons.account_tree_outlined),
-              title: Text(context.l10n.adminText('production.edit_map')),
-              onTap: () => Navigator.pop(
-                context,
-                _OrderLongPressAction.editMap,
+            if (!closingEarly)
+              ListTile(
+                leading: const Icon(Icons.account_tree_outlined),
+                title: Text(context.l10n.adminText('production.edit_map')),
+                onTap: () => Navigator.pop(
+                  context,
+                  _OrderLongPressAction.editMap,
+                ),
               ),
-            ),
-            if (!closingEarly) ListTile(
-              leading: const Icon(Icons.edit_note_rounded),
-              title: const Text('Buyurtmani tahrirlash'),
-              onTap: () =>
-                  Navigator.pop(context, _OrderLongPressAction.editOrder),
-            ),
+            if (!closingEarly)
+              ListTile(
+                leading: const Icon(Icons.edit_note_rounded),
+                title: const UrduAwareText('Buyurtmani tahrirlash'),
+                onTap: () =>
+                    Navigator.pop(context, _OrderLongPressAction.editOrder),
+              ),
           ],
         ),
       ),
@@ -1527,17 +1555,23 @@ class _AdminProductionMapOrdersScreenState
     if (!mounted || action == null) return;
     if (action == _OrderLongPressAction.closeEarly) {
       final comment = await showProductionMapEarlyCloseDialog(context);
-      if (!mounted || comment == null || !_orderControlActionsInFlight.add(orderId)) return;
+      if (!mounted ||
+          comment == null ||
+          !_orderControlActionsInFlight.add(orderId)) return;
       setState(() {});
       try {
         final AdminOrderControlState next;
         try {
           next = await MobileApi.instance.adminEarlyCloseProductionOrder(
-            orderId: orderId, comment: comment);
+              orderId: orderId, comment: comment);
         } catch (error) {
-          if (mounted) showAdminTopNotice(context,
-            error is MobileApiException ? error.message : 'Buyurtma yopilmadi',
-            icon: Icons.warning_amber_rounded);
+          if (mounted)
+            showAdminTopNotice(
+                context,
+                error is MobileApiException
+                    ? error.message
+                    : 'Buyurtma yopilmadi',
+                icon: Icons.warning_amber_rounded);
           return;
         }
         if (!mounted) return;
@@ -1545,19 +1579,23 @@ class _AdminProductionMapOrdersScreenState
           _earlyClosingOrderIds.add(orderId);
           _orderControlsByOrderId[orderId] = next;
           if (next == AdminOrderControlState.frozen) {
-            _orders = [for (final item in _orders)
-              if (item.map.id.trim() != orderId) item];
+            _orders = [
+              for (final item in _orders)
+                if (item.map.id.trim() != orderId) item
+            ];
             // API snapshots own immutable lists. Replace our local values;
             // never mutate a snapshot after the server has accepted closure.
             _sequenceByApparatus.updateAll((_, sequence) => [
-              for (final id in sequence)
-                if (id.trim() != orderId) id,
-            ]);
+                  for (final id in sequence)
+                    if (id.trim() != orderId) id,
+                ]);
           }
         });
-        showAdminTopNotice(context, next == AdminOrderControlState.frozen
-          ? 'Buyurtma erta yopildi. Tarix Yopilganlar bo‘limida saqlandi.'
-          : 'Yopish so‘rovi yuborildi. Oxirgi rulon yechilishi kutilmoqda.');
+        showAdminTopNotice(
+            context,
+            next == AdminOrderControlState.frozen
+                ? 'Buyurtma erta yopildi. Tarix Yopilganlar bo‘limida saqlandi.'
+                : 'Yopish so‘rovi yuborildi. Oxirgi rulon yechilishi kutilmoqda.');
         // Refresh helpers report their own read errors. They must not turn
         // an already accepted close into a "Buyurtma yopilmadi" notice.
         await _refreshLive();
@@ -1603,8 +1641,10 @@ class _AdminProductionMapOrdersScreenState
         AdminOrderControlAction.cancelFreeze,
       _OrderLongPressAction.unfreeze => AdminOrderControlAction.unfreeze,
       _OrderLongPressAction.delete => AdminOrderControlAction.delete,
-      _OrderLongPressAction.editMap || _OrderLongPressAction.editOrder ||
-      _OrderLongPressAction.closeEarly => null,
+      _OrderLongPressAction.editMap ||
+      _OrderLongPressAction.editOrder ||
+      _OrderLongPressAction.closeEarly =>
+        null,
     };
     if (controlAction == null) {
       return;
@@ -1683,9 +1723,9 @@ class _AdminProductionMapOrdersScreenState
           _orderControlsByOrderId.remove(orderId);
           // Snapshot lists are immutable and may still be shared with readers.
           _sequenceByApparatus.updateAll((_, sequence) => [
-            for (final id in sequence)
-              if (id.trim() != orderId) id,
-          ]);
+                for (final id in sequence)
+                  if (id.trim() != orderId) id,
+              ]);
         } else if (next != null) {
           _orderControlsByOrderId[orderId] = next;
         }

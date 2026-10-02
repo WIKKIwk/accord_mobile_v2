@@ -48,13 +48,15 @@ class ChatMessageBubble extends StatelessWidget {
     return Semantics(
       label: mine ? 'Siz yubordingiz' : message.senderDisplayName,
       child: Align(
-        alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+        alignment: mine
+            ? AlignmentDirectional.centerEnd
+            : AlignmentDirectional.centerStart,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: maxWidth),
           child: Container(
             margin: EdgeInsets.only(top: compactTop ? 2 : 8),
             padding: attachment == null
-                ? const EdgeInsets.fromLTRB(10, 6, 8, 5)
+                ? const EdgeInsetsDirectional.fromSTEB(10, 6, 8, 5)
                 : const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: mine
@@ -120,7 +122,7 @@ class _MessageText extends StatelessWidget {
           if (mine) _deliveryStatus(scheme),
         ],
       ),
-      textAlign: mine ? TextAlign.right : TextAlign.left,
+      textAlign: mine ? TextAlign.end : TextAlign.start,
     );
   }
 }
@@ -261,7 +263,7 @@ class _MediaMessageContent extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(6, 5, 4, 2),
+            padding: const EdgeInsetsDirectional.fromSTEB(6, 5, 4, 2),
             child: Text.rich(
               TextSpan(
                 children: [
@@ -279,7 +281,7 @@ class _MediaMessageContent extends StatelessWidget {
                   if (mine) _deliveryStatus(scheme),
                 ],
               ),
-              textAlign: mine ? TextAlign.right : TextAlign.left,
+              textAlign: mine ? TextAlign.end : TextAlign.start,
             ),
           ),
         ],

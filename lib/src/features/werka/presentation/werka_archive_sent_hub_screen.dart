@@ -10,6 +10,7 @@ import '../../shared/models/app_models.dart';
 import 'werka_archive_list_screen.dart';
 import 'widgets/werka_dock.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'werka_archive_sent_hub_screen__WerkaArchiveSentHubScreenState_methods_01.dart';
 part 'werka_archive_sent_hub_screen_widgets_part_01.dart';

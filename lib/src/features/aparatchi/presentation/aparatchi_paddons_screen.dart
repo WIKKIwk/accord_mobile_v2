@@ -20,6 +20,7 @@ import 'aparatchi_paddon_display.dart';
 import 'aparatchi_paddon_detail_screen.dart';
 import 'widgets/aparatchi_dock.dart';
 import 'widgets/aparatchi_navigation_drawer.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 typedef AparatchiPaddonsLoader = Future<List<AdminPaddon>> Function();
 
@@ -39,9 +40,15 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
   bool _creatingPaddon = false;
   bool _deletingPaddon = false;
 
-  bool get _canDeletePaddon => AppSession.instance.profile?.hasAnyCapability(
-        const ['admin.access', 'production.map.manage', 'apparatus.queue.manage'],
-      ) ?? false;
+  bool get _canDeletePaddon =>
+      AppSession.instance.profile?.hasAnyCapability(
+        const [
+          'admin.access',
+          'production.map.manage',
+          'apparatus.queue.manage'
+        ],
+      ) ??
+      false;
 
   @override
   void initState() {
@@ -401,7 +408,7 @@ class _PaddonMetric extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Text(
+        child: UrduAwareText(
           '$label: $value',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: scheme.onPrimaryContainer,
@@ -439,7 +446,7 @@ class _PaddonCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 10, 8),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 45),
           child: Row(

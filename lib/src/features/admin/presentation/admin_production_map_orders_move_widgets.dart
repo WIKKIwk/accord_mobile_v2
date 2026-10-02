@@ -405,7 +405,7 @@ class _MoveOrderTile extends StatelessWidget {
                           if (batchCount > 1)
                             Padding(
                               padding: const EdgeInsets.only(top: 6),
-                              child: Text(
+                              child: UrduAwareText(
                                 '$batchCount ta buyurtma',
                                 style: Theme.of(context)
                                     .textTheme

@@ -160,7 +160,7 @@ extension __NotificationDetailScreenStateAstPart01
       final text = '$error';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: UrduAwareText(
             text.contains('forbidden')
                 ? 'Bu receipt sizga tegishli emas.'
                 : 'Comment yuborilmadi: $error',
@@ -183,21 +183,22 @@ extension __NotificationDetailScreenStateAstPart01
         context: context,
         builder: (context) {
           return AlertDialog(
-            title: const Text('Rad etish'),
+            title: const UrduAwareText('Rad etish'),
             content: TextField(
               controller: controller,
               minLines: 2,
               maxLines: 4,
-              decoration: const InputDecoration(hintText: 'Sabab (ixtiyoriy)'),
+              decoration: InputDecoration(
+                  hintText: localizeUrduUiText('Sabab (ixtiyoriy)')),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Yo‘q'),
+                child: const UrduAwareText('Yo‘q'),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Rad etish'),
+                child: const UrduAwareText('Rad etish'),
               ),
             ],
           );
@@ -238,7 +239,7 @@ extension __NotificationDetailScreenStateAstPart01
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Javob yuborilmadi: $error')),
+        SnackBar(content: UrduAwareText('Javob yuborilmadi: $error')),
       );
     } finally {
       if (mounted) {

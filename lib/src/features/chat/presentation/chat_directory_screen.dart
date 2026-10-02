@@ -14,6 +14,7 @@ import '../../shared/models/app_models.dart';
 import '../models/chat_models.dart';
 import '../state/chat_failure.dart';
 import '../state/chat_store.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class ChatDirectoryScreen extends StatefulWidget {
   const ChatDirectoryScreen({super.key});
@@ -112,13 +113,13 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
         child: FilledButton.tonalIcon(
           onPressed: () => store.searchDirectory(searchController.text),
           icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Qayta qidirish'),
+          label: const UrduAwareText('Qayta qidirish'),
         ),
       );
     }
     final entries = store.directory;
     if (entries.isEmpty) {
-      return const Center(child: Text('Foydalanuvchi topilmadi'));
+      return const Center(child: UrduAwareText('Foydalanuvchi topilmadi'));
     }
     return ProgressiveFade(
       topFade: false,
@@ -169,12 +170,12 @@ class _ChatDirectoryRow extends StatelessWidget {
       onTap: onTap,
       backgroundColor: scheme.surfaceContainerLowest,
       fixedHeight: 61,
-      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
       value: '',
       showChevron: false,
       trailing: opening
           ? const Padding(
-              padding: EdgeInsets.only(left: 12),
+              padding: EdgeInsetsDirectional.only(start: 12),
               child: SizedBox.square(
                 dimension: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),

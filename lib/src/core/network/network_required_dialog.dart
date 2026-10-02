@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../localization/urdu_aware_text.dart';
 
 Future<void> showNetworkRequiredDialog(
   BuildContext context, {
@@ -33,15 +34,19 @@ Future<void> showNetworkRequiredDialog(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        UrduAwareText(
                           'Internet kerak',
-                          style: Theme.of(context).textTheme.headlineMedium
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
                               ?.copyWith(color: Colors.white),
                         ),
                         const SizedBox(height: 10),
                         Text(
                           message,
-                          style: Theme.of(context).textTheme.bodyMedium
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
                               ?.copyWith(color: const Color(0xFFD0D0D0)),
                         ),
                         const SizedBox(height: 18),
@@ -49,7 +54,7 @@ Future<void> showNetworkRequiredDialog(
                           width: double.infinity,
                           child: FilledButton(
                             onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('Yopish'),
+                            child: const UrduAwareText('Yopish'),
                           ),
                         ),
                       ],

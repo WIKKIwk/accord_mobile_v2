@@ -22,6 +22,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   final Set<String> _scannedMaterialBarcodes = {};
   final Map<String, String> _scannedQolipCodes = {};
   final Map<String, AdminProductionMapRequiredQolip> _requiredQolips = {};
+  bool _qolipRequirementsLoaded = false;
   bool _qolipRequirementsLoading = false;
   String _qolipRequirementsError = '';
   String _quickScanStatus = '';
@@ -168,6 +169,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _scannedMaterialBarcodes.clear();
       _scannedQolipCodes.clear();
       _requiredQolips.clear();
+      _qolipRequirementsLoaded = false;
       _qolipRequirementsLoading = false;
       _qolipRequirementsError = '';
       _materialsExpanded = false;
@@ -352,7 +354,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         onMaterialsLinked: () =>
             unawaited(_loadInteractionContractAndSections()),
         onReceiveMaterial: !widget.workerMode &&
-                AppSession.instance.profile?.role == UserRole.materialTaminotchi &&
+                AppSession.instance.profile?.role ==
+                    UserRole.materialTaminotchi &&
                 !_openingMaterialReceipt
             ? () => unawaited(_receiveMaterial())
             : null,
@@ -429,6 +432,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         qolipScanned: qolipScanAllowsStart,
         qolipCodes: _scannedQolipCodes.values.toList(growable: false),
         requiredQolips: _requiredQolips.values.toList(growable: false),
+        qolipRequirementsLoaded: _qolipRequirementsLoaded &&
+            !_qolipRequirementsLoading &&
+            _qolipRequirementsError.isEmpty,
         qolipRequirementsStatusText: _qolipRequirementsStatusText,
         startMaterialsExpanded: _startMaterialsExpanded,
         onToggleStartMaterialsExpanded: () {
@@ -498,7 +504,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _queueActionControl?.interaction?.openingWipMode ==
             AdminQueuePreviousWipMode.scanRequired;
     final waitingCount = _availableOpeningWipBatches.length;
-    if (openingWipRequired && waitingCount > 0 &&
+    if (openingWipRequired &&
+        waitingCount > 0 &&
         _queueActionControl?.interaction?.previousWipMode !=
             AdminQueuePreviousWipMode.scanRequired) {
       return context.l10n.productionText(
@@ -630,9 +637,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       });
     }
     try {
-      final products = AppSession.instance.profile?.role == UserRole.materialTaminotchi
+      final products = AppSession.instance.profile?.role ==
+              UserRole.materialTaminotchi
           ? (await MobileApi.instance.qolipOrderProducts([widget.order.map.id]))
-              .values.whereType<QolipProduct>().toList()
+              .values
+              .whereType<QolipProduct>()
+              .toList()
           : await MobileApi.instance.qolipProducts(
               query: itemCode,
               limit: 200,
@@ -879,6 +889,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (mounted) {
       setState(() {
         _qolipRequirementsLoading = true;
+        _qolipRequirementsLoaded = false;
         _qolipRequirementsError = '';
       });
     }
@@ -895,6 +906,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
       setState(() {
         _replaceRequiredQolips(validation.requiredQolips);
+        _qolipRequirementsLoaded = true;
         _qolipRequirementsLoading = false;
         _qolipRequirementsError = '';
       });
@@ -1439,12 +1451,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         final control = _queueActionControl!;
         final orderId = widget.order.map.id.trim();
         final station = widget.apparatus?.id.trim() ?? '';
-        final lineage = List<AdminRezkaInputLink>.of(
-            control.rezkaInputLineage, growable: false);
+        final lineage = List<AdminRezkaInputLink>.of(control.rezkaInputLineage,
+            growable: false);
         final current = lineage.where((link) => link.inUse).firstOrNull;
         final nextSequence = lineage.fold<int>(
               0,
-              (value, link) => value > link.sequenceNo ? value : link.sequenceNo,
+              (value, link) =>
+                  value > link.sequenceNo ? value : link.sequenceNo,
             ) +
             1;
         final labels = {
@@ -1475,8 +1488,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             !_queueActionContractSynchronized ||
             _queueActionControl?.allows('merge') != true ||
             control.stageNodeId != _queueActionControl?.stageNodeId ||
-            !_sameMergeInputLineage(lineage,
-                _queueActionControl?.rezkaInputLineage ?? const [])) {
+            !_sameMergeInputLineage(
+                lineage, _queueActionControl?.rezkaInputLineage ?? const [])) {
           setState(() => _mergeScanMode = false);
           _showSheetNotice(context.l10n.productionText('worker.error.sync'));
           return;
@@ -1505,8 +1518,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         });
         if (merged) {
           _showSheetNotice(
-            context.l10n.productionText('worker.notice.merge_complete',
-                values: labels),
+            context.l10n
+                .productionText('worker.notice.merge_complete', values: labels),
           );
         }
         _showQuickScanFeedback(
@@ -1523,7 +1536,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           (_matchingOpeningWipBatch(
                     batches: _availableOpeningWipBatches,
                     qrPayload: rawValue.trim(),
-                  ) != null ||
+                  ) !=
+                  null ||
               _queueActionControl?.interaction?.previousWipMode !=
                   AdminQueuePreviousWipMode.scanRequired)) {
         final accepted = _acceptOpeningWipQr(
@@ -1633,7 +1647,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         setState(() {
           _availableInputProgressBatches = [
             batch,
-            ..._availableInputProgressBatches.where((b) => b.batchId != batch.batchId),
+            ..._availableInputProgressBatches
+                .where((b) => b.batchId != batch.batchId),
           ];
         });
         if (_acceptProgressBatch(batch)) {
@@ -1700,7 +1715,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
                 const SizedBox(height: 12),
                 Text(l10n.productionText('worker.merge.confirm.order',
                     values: {'order': widget.order.map.orderNumber})),
-                Text('QR: $qrLabel'),
+                UrduAwareText('QR: $qrLabel'),
                 const SizedBox(height: 12),
                 Text(l10n.productionText('worker.merge.confirm.warning')),
               ],
@@ -1827,8 +1842,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final targetOrderControl = snapshot.orderControlFor(targetOrderId);
     final canPrepareSwitch =
         targetControl?.interaction?.blockingReasonCode == 'apparatus_busy' &&
-        _queueActionContractSynchronized &&
-        _queueActionControl?.allows('complete') == true;
+            _queueActionContractSynchronized &&
+            _queueActionControl?.allows('complete') == true;
     if (targetControl?.isConsistentWith(
               targetOrderControl,
               queueState: targetQueueState,
@@ -1848,7 +1863,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final currentInteraction = _queueActionControl?.interaction;
     final operation = widget.apparatus?.operation.trim() ?? '';
     final usesTimelineAstatka =
-        (widget.apparatus?.usesLaminationWorkflow ?? false) || operation == 'cut';
+        (widget.apparatus?.usesLaminationWorkflow ?? false) ||
+            operation == 'cut';
     final confirmed = await showM3ConfirmDialog(
           context: context,
           title: context.l10n.productionText('worker.order.switch.title'),
@@ -2417,8 +2433,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     try {
       final inputs = await Future.wait<Object>([
         openingWipRequired
-            ? MobileApi.instance.adminOpeningWipCandidates(
-                apparatus: station, orderId: orderId)
+            ? MobileApi.instance
+                .adminOpeningWipCandidates(apparatus: station, orderId: orderId)
             : Future.value(const <AdminOpeningWipBatch>[]),
         previousWipRequired
             ? _fetchInputProgressBatches(previousStage)
@@ -2456,20 +2472,21 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _availableOpeningWipBatches = const [];
         _startInputProgressBatch = null;
         _inputProgressLoading = false;
-        _inputProgressError =
-            error is TimeoutException || error is http.ClientException
+        _inputProgressError = error is TimeoutException ||
+                error is http.ClientException
             ? context.l10n.productionText('worker.error.network_timeout')
             : error is MobileApiException && error.code.startsWith('wip_route_')
-            ? context.l10n.productionErrorMessage(
-                error.code,
-                fallback: error.message,
-              )
-            : context.l10n.productionText(
-                error is MobileApiException &&
-                        (error.statusCode == 403 || error.code == 'forbidden')
-                    ? 'worker.wip.access_denied'
-                    : 'worker.wip.load_failed',
-              );
+                ? context.l10n.productionErrorMessage(
+                    error.code,
+                    fallback: error.message,
+                  )
+                : context.l10n.productionText(
+                    error is MobileApiException &&
+                            (error.statusCode == 403 ||
+                                error.code == 'forbidden')
+                        ? 'worker.wip.access_denied'
+                        : 'worker.wip.load_failed',
+                  );
       });
     }
   }
@@ -2574,8 +2591,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     final currentId = _detailUiState.orderId.trim();
     String? busyId;
-    final controls =
-        widget.queueActionControlsByApparatus[station] ?? const {};
+    final controls = widget.queueActionControlsByApparatus[station] ?? const {};
     for (final entry in controls.entries) {
       if (entry.key.trim().isEmpty || entry.key.trim() == currentId) {
         continue;

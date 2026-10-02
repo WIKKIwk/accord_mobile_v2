@@ -127,7 +127,7 @@ class _WerkaStockEntryQrScanScreenState
       }
       setState(() => _statusText = 'QR kodi noto‘g‘ri');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('QR kodi noto‘g‘ri.')),
+        const SnackBar(content: UrduAwareText('QR kodi noto‘g‘ri.')),
       );
       await _startScanner();
       return;
@@ -416,7 +416,7 @@ class _WerkaStockEntryQrScanScreenState
                             key: const ValueKey('werka-qr-manual-entry'),
                             onPressed: _processing ? null : _enterCode,
                             icon: const Icon(Icons.keyboard_outlined),
-                            label: const Text('QR kodni kiritish'),
+                            label: const UrduAwareText('QR kodni kiritish'),
                           ),
                         ],
                       ),

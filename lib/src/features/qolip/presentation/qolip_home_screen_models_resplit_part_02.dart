@@ -135,7 +135,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   decoration: InputDecoration(
                     labelText: l10n.qolipText('home.location'),
                   ),
-                  child: Text('${_block!.name} • $_rowLetter$_columnNumber'),
+                  child: UrduAwareText(
+                      '${_block!.name} • $_rowLetter$_columnNumber'),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -226,7 +227,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                         () => _batchCodesExpanded = !_batchCodesExpanded,
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                        padding:
+                            const EdgeInsetsDirectional.fromSTEB(12, 10, 8, 10),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

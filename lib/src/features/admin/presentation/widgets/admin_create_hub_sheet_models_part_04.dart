@@ -219,8 +219,8 @@ class _AdminFabActionOverlayState extends State<_AdminFabActionOverlay>
                               _effectsController,
                             ),
                             overflowAlignment: widget.alignEnd
-                                ? Alignment.centerRight
-                                : Alignment.centerLeft,
+                                ? AlignmentDirectional.centerEnd
+                                : AlignmentDirectional.centerStart,
                             motionKey: ValueKey(
                               'admin-fab-menu-reveal-${actions[rowStart + offset].row}',
                             ),

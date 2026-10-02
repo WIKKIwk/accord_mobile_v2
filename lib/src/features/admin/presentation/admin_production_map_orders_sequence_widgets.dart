@@ -78,10 +78,12 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
         widget.queueStates[order.map.id.trim()],
       );
       final isFrozen = adminProductionMapOrderControlFor(
-        widget.orderControlsByOrderId,
-        order.map.id.trim(),
-      ).isFrozen || apparatusState == ApparatusQueueOrderState.frozen;
-      final canReorder = !widget.readOnly && !apparatusState.isActive && !isFrozen;
+            widget.orderControlsByOrderId,
+            order.map.id.trim(),
+          ).isFrozen ||
+          apparatusState == ApparatusQueueOrderState.frozen;
+      final canReorder =
+          !widget.readOnly && !apparatusState.isActive && !isFrozen;
 
       return _SequenceOrderRow(
         key: key,
@@ -504,7 +506,7 @@ class _SequenceOrderRow extends StatelessWidget {
                     if (resolvedStatusLabel != null &&
                         resolvedStatusLabel.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsetsDirectional.only(end: 8),
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             color: statusBackgroundColor ??

@@ -47,10 +47,10 @@ class _SupplierPhoneInlineFieldState extends State<_SupplierPhoneInlineField> {
                     controller: _controller,
                     autofocus: true,
                     keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
-                      hintText: '+998 90 123 45 67',
+                      hintText: localizeUrduUiText('+998 90 123 45 67'),
                     ),
                     style: theme.textTheme.titleMedium,
                     onSubmitted: (_) => _submit(),

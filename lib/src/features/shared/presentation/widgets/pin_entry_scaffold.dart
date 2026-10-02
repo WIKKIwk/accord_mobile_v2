@@ -1,6 +1,7 @@
 import '../../../../core/widgets/forms/pin_pad.dart';
 import '../../../../core/widgets/shell/app_shell.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 class PinEntryScaffold extends StatelessWidget {
   const PinEntryScaffold({
@@ -48,7 +49,7 @@ class PinEntryScaffold extends StatelessWidget {
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 8),
-                Text(
+                UrduAwareText(
                   '4 xonali PIN kiriting',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,

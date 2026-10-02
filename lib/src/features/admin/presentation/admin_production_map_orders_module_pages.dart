@@ -669,7 +669,7 @@ class _AuditCountChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Chip(
       avatar: Icon(icon, size: 17),
-      label: Text('$label: $value'),
+      label: UrduAwareText('$label: $value'),
     );
   }
 }

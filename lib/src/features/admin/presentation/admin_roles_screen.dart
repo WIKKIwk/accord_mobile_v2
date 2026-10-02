@@ -16,6 +16,7 @@ import 'widgets/admin_shell.dart';
 import 'widgets/admin_surface_tab_bar.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'admin_roles_screen_widgets_part_01.dart';
 part 'admin_roles_screen_widgets_part_02.dart';

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../state/chat_audio_playback_controller.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 class ChatVoiceMiniPlayer extends StatelessWidget {
   const ChatVoiceMiniPlayer({
@@ -84,16 +85,18 @@ class ChatVoiceMiniPlayer extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              Text(
+                              UrduAwareText(
                                 '${_voiceDuration(position.inMilliseconds)} / ${_voiceDuration(durationMs)}',
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: scheme.onSurfaceVariant,
-                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
                                 ),
                               ),
                             ],
                           ),
-                          Text(
+                          UrduAwareText(
                             'Ovozli xabar$queueLabel',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -130,7 +133,7 @@ class ChatVoiceMiniPlayer extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                   child: Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: AlignmentDirectional.centerStart,
                     child: Text(
                       playback.error,
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -281,7 +284,7 @@ class _AudioProgressBarState extends State<_AudioProgressBar>
             height: 24,
             color: Colors.transparent,
             child: Stack(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               children: [
                 Container(
                   height: 3,

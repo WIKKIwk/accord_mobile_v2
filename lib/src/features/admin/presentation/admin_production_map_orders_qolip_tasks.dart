@@ -3,7 +3,8 @@ part of 'admin_production_map_orders_screen.dart';
 extension _QolipTasksScreen on _AdminProductionMapOrdersScreenState {
   Widget _buildQolipTasks(double bottomPadding) {
     final apparatus = _apparatus
-        .where((item) => widget.materialTasksMode ||
+        .where((item) =>
+            widget.materialTasksMode ||
             (item.isPechat && item.capabilities.contains('tooling')))
         .toList();
     final selected = apparatus
@@ -82,7 +83,8 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    if (!widget.materialMode) QolipDataRevision.locations.addListener(_dataChanged);
+    if (!widget.materialMode)
+      QolipDataRevision.locations.addListener(_dataChanged);
     unawaited(_load());
     _timer = Timer.periodic(const Duration(seconds: 20), (_) {
       if (_foreground && !_refreshing && !_adding) unawaited(_load());
@@ -110,7 +112,8 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
   void dispose() {
     _generation++;
     _timer?.cancel();
-    if (!widget.materialMode) QolipDataRevision.locations.removeListener(_dataChanged);
+    if (!widget.materialMode)
+      QolipDataRevision.locations.removeListener(_dataChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -171,7 +174,7 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
             child: ListTile(
               key: const ValueKey('material-task-receive'),
               leading: const Icon(Icons.scale_outlined),
-              title: const Text('Kirim qilish'),
+              title: const UrduAwareText('Kirim qilish'),
               onTap: () => Navigator.of(sheetContext).pop(true),
             ),
           ),
@@ -211,9 +214,11 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
-        widget.materialMode ? 'Material vazifalari yuklanmadi' : context.l10n.qolipText(error is StateError
-            ? 'tasks.product_missing'
-            : 'tasks.load_failed'),
+        widget.materialMode
+            ? 'Material vazifalari yuklanmadi'
+            : context.l10n.qolipText(error is StateError
+                ? 'tasks.product_missing'
+                : 'tasks.load_failed'),
       )));
     } finally {
       if (mounted) setState(() => _adding = false);
@@ -226,7 +231,8 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
     final window = _window;
     final missing = window
         .where((order) => widget.materialMode
-            ? (_materials[order.map.id] ?? const []).any((item) => !item.assigned)
+            ? (_materials[order.map.id] ?? const [])
+                .any((item) => !item.assigned)
             : _products[order.map.id]?.hasQolipSpec != true)
         .toList();
     // The queue window is chosen before QR and text filters are applied.
@@ -257,8 +263,10 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
           ),
           const SizedBox(height: 6),
           AdminExpandableFilterChip<int>(
-            chipKey: ValueKey('${widget.materialMode ? 'material' : 'qolip'}-tasks-limit'),
-            optionKeyPrefix: '${widget.materialMode ? 'material' : 'qolip'}-tasks-limit',
+            chipKey: ValueKey(
+                '${widget.materialMode ? 'material' : 'qolip'}-tasks-limit'),
+            optionKeyPrefix:
+                '${widget.materialMode ? 'material' : 'qolip'}-tasks-limit',
             label: l10n.qolipText('tasks.check'),
             emptyLabel: '',
             icon: Icons.format_list_numbered_rounded,
@@ -287,11 +295,11 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
                   widget.materialMode
-                    ? 'Tekshirilgan: ${window.length} • Homashyo kutilmoqda: ${missing.length}'
-                    : l10n.qolipText('tasks.summary', values: {
-                    'count': window.length,
-                    'missing': missing.length,
-                  }),
+                      ? 'Tekshirilgan: ${window.length} • Homashyo kutilmoqda: ${missing.length}'
+                      : l10n.qolipText('tasks.summary', values: {
+                          'count': window.length,
+                          'missing': missing.length,
+                        }),
                   style: Theme.of(context).textTheme.bodySmall),
             ),
         ]),
@@ -308,18 +316,22 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
                       if (_error != null)
                         AppRetryState(
                             onRetry: _load,
-                            message: widget.materialMode ? 'Material vazifalari yuklanmadi' : l10n.qolipText('tasks.load_failed'))
+                            message: widget.materialMode
+                                ? 'Material vazifalari yuklanmadi'
+                                : l10n.qolipText('tasks.load_failed'))
                       else if (visible.isEmpty)
                         Padding(
                             padding: const EdgeInsets.all(24),
                             child: Text(
-                              widget.materialMode && window.isNotEmpty && missing.isEmpty
+                              widget.materialMode &&
+                                      window.isNotEmpty &&
+                                      missing.isEmpty
                                   ? 'Tanlangan orderlarda sizning materiallaringiz bo‘yicha kutilayotgan homashyo yo‘q.'
                                   : l10n.qolipText(window.isEmpty
-                                  ? 'tasks.no_orders'
-                                  : missing.isEmpty
-                                      ? 'tasks.ready'
-                                      : 'products.search_empty'),
+                                      ? 'tasks.no_orders'
+                                      : missing.isEmpty
+                                          ? 'tasks.ready'
+                                          : 'products.search_empty'),
                               textAlign: TextAlign.center,
                             ))
                       else
@@ -327,7 +339,8 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
                           if (i > 0)
                             const SizedBox(height: M3SegmentedListGeometry.gap),
                           _SequenceOrderRow(
-                            key: ValueKey('${widget.materialMode ? 'material' : 'qolip'}-task-${visible[i].map.id}'),
+                            key: ValueKey(
+                                '${widget.materialMode ? 'material' : 'qolip'}-task-${visible[i].map.id}'),
                             slot: M3SegmentedListGeometry
                                 .standaloneListSlotForIndex(i, visible.length),
                             order: visible[i],

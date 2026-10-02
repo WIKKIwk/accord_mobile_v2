@@ -15,6 +15,7 @@ import '../qolip_search_matcher.dart';
 import 'widgets/qolip_cell_picker_sheet.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'qolip_checkouts_screen_models_part_01.dart';
 part 'qolip_checkouts_screen_widgets_part_02.dart';

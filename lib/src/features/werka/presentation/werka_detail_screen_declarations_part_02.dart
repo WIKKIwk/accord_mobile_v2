@@ -106,7 +106,7 @@ class _QuantityFieldRow extends StatelessWidget {
               FilteringTextInputFormatter.digitsOnly,
               const _MaxNumericValueFormatter(100000),
             ],
-            textAlign: TextAlign.right,
+            textAlign: TextAlign.end,
             style: textTheme.headlineMedium?.copyWith(
               fontSize: 30,
               height: 1.1,
@@ -192,7 +192,7 @@ class _WerkaDetailInfoRow extends StatelessWidget {
           Flexible(
             child: Text(
               value,
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.end,
               style: theme.textTheme.titleMedium,
             ),
           ),

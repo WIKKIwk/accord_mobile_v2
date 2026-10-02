@@ -244,7 +244,7 @@ class _MarqueeRunnerState extends State<_MarqueeRunner>
         child: OverflowBox(
           maxWidth: widget.textWidth,
           maxHeight: widget.textHeight,
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerStart,
           child: AnimatedBuilder(
             animation: _controller,
             builder: (context, child) {

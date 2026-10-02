@@ -11,6 +11,7 @@ import '../../shared/presentation/widgets/profile_info_chip.dart';
 import '../../shared/models/app_models.dart';
 import '../models/chat_models.dart';
 import 'widgets/chat_role_dock.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 /// Returns the existing admin detail surface when the current user can access
 /// the admin directory. Other roles receive the safe read-only summary below
@@ -226,7 +227,7 @@ class _ParticipantStatusChip extends StatelessWidget {
       ),
       child: const Padding(
         padding: EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        child: Text('Tayyor'),
+        child: UrduAwareText('Tayyor'),
       ),
     );
   }

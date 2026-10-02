@@ -67,7 +67,8 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
         // full return mode handles zero accepted qty
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Qabul qilingan miqdorni kiriting.')),
+          const SnackBar(
+              content: UrduAwareText('Qabul qilingan miqdorni kiriting.')),
         );
         return;
       }
@@ -75,7 +76,7 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
     if (acceptedQty > widget.record.sentQty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: UrduAwareText(
             'Qabul qilingan miqdor ${widget.record.sentQty.toStringAsFixed(2)} ${widget.record.uom} dan oshmasin.',
           ),
         ),
@@ -99,14 +100,15 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
       returnedQty = double.tryParse(returnedText) ?? -1;
       if (returnedQty < 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Qaytarilayotgan miqdor noto‘g‘ri.')),
+          const SnackBar(
+              content: UrduAwareText('Qaytarilayotgan miqdor noto‘g‘ri.')),
         );
         return;
       }
       if (returnedQty - difference > 0.0001) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Qaytarilayotgan miqdor farqdan oshmasin.'),
+            content: UrduAwareText('Qaytarilayotgan miqdor farqdan oshmasin.'),
           ),
         );
         return;
@@ -150,7 +152,8 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Qabul qilish bo‘lmadi: $error')));
+      ).showSnackBar(
+          SnackBar(content: UrduAwareText('Qabul qilish bo‘lmadi: $error')));
     } finally {
       if (mounted) {
         setState(() => submitting = false);
@@ -207,7 +210,7 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
               ),
           ],
           const SizedBox(height: 34),
-          Text(
+          UrduAwareText(
             'Qabul qilingan',
             style: textTheme.titleMedium?.copyWith(
               color: scheme.onSurfaceVariant,
@@ -234,7 +237,7 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
           ),
           if (fullReturnMode) ...[
             const SizedBox(height: 28),
-            Text('Sabab', style: textTheme.titleMedium),
+            UrduAwareText('Sabab', style: textTheme.titleMedium),
             const SizedBox(height: 10),
             ..._returnReasons.map(
               (reason) => InkWell(
@@ -282,7 +285,7 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
               labelText: 'Qaytarilayotgan',
             ),
             const SizedBox(height: 18),
-            Text('Sabab', style: textTheme.titleMedium),
+            UrduAwareText('Sabab', style: textTheme.titleMedium),
             const SizedBox(height: 10),
             ..._returnReasons.map(
               (reason) => InkWell(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'chat_role_dock.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 class ChatMessageComposer extends StatelessWidget {
   const ChatMessageComposer({
@@ -272,7 +273,7 @@ class _VoiceRecordingField extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       constraints: BoxConstraints(minHeight: compact ? 42 : 50),
-      padding: const EdgeInsets.only(left: 16, right: 4),
+      padding: const EdgeInsetsDirectional.only(start: 16, end: 4),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(26),
@@ -282,7 +283,7 @@ class _VoiceRecordingField extends StatelessWidget {
           Icon(Icons.fiber_manual_record, color: scheme.error, size: 14),
           const SizedBox(width: 9),
           Expanded(
-            child: Text(
+            child: UrduAwareText(
               'Ovoz yozilmoqda  ${_voiceDuration(duration)}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -326,7 +327,7 @@ class _SendError extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+        padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 8, 8),
         child: Row(
           children: [
             Icon(Icons.error_outline_rounded, color: scheme.onErrorContainer),
@@ -341,7 +342,7 @@ class _SendError extends StatelessWidget {
             ),
             TextButton(
               onPressed: retrying ? null : onRetry,
-              child: const Text('Qayta yuborish'),
+              child: const UrduAwareText('Qayta yuborish'),
             ),
           ],
         ),

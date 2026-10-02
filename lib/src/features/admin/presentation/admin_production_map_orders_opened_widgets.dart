@@ -636,7 +636,7 @@ class _OpenedOrderCardRow extends StatelessWidget {
       child: Opacity(
         opacity: disabled ? 0.48 : 1,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+          padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 8, 8),
           child: Row(
             children: [
               leading,
@@ -795,7 +795,7 @@ class _OpenedOrderIndexBadge extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: Center(
-          child: Text(
+          child: UrduAwareText(
             '${index + 1}',
             style: theme.textTheme.labelMedium?.copyWith(
               color: selected ? scheme.onPrimary : scheme.onPrimaryContainer,

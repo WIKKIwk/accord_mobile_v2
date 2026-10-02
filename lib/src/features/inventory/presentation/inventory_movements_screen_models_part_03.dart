@@ -45,7 +45,7 @@ class _InventoryErrorState extends StatelessWidget {
             const SizedBox(height: 14),
             FilledButton(
               onPressed: onRetry,
-              child: const Text('Qayta urinish'),
+              child: const UrduAwareText('Qayta urinish'),
             ),
           ],
         ),

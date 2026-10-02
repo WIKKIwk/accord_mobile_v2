@@ -401,7 +401,7 @@ extension __InventoryMovementsScreenStateAstPart02
                   ? 'Ichki ko‘chirishni yakunlaysizmi?'
                   : labels[action] ?? 'Transfer',
             ),
-            content: Text(
+            content: UrduAwareText(
               '${transfer.sourceWarehouse} → '
               '${transfer.destinationWarehouse}\n'
               '${transfer.lines.length} ta pozitsiya',
@@ -409,11 +409,11 @@ extension __InventoryMovementsScreenStateAstPart02
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Yo‘q'),
+                child: const UrduAwareText('Yo‘q'),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Ha'),
+                child: const UrduAwareText('Ha'),
               ),
             ],
           ),

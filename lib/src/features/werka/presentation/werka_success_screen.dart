@@ -68,7 +68,7 @@ class WerkaSuccessScreen extends StatelessWidget {
     return AppShell(
       title: _title(l10n),
       subtitle: '',
-      contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 0, 14, 0),
       bottom: const WerkaDock(activeTab: null),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,

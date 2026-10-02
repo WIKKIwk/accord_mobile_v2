@@ -41,7 +41,7 @@ class AppShell extends StatefulWidget {
     this.resizeToAvoidBottomInset = true,
     this.bottomDockFadeStrength,
     this.bottomDockHeight = _contentBottomDockHeight,
-    this.contentPadding = const EdgeInsets.fromLTRB(4, 0, 6, 0),
+    this.contentPadding = const EdgeInsetsDirectional.fromSTEB(4, 0, 6, 0),
     this.bottomPadding = EdgeInsets.zero,
     this.animateOnEnter = false,
     this.preferNativeTitle = false,
@@ -72,7 +72,7 @@ class AppShell extends StatefulWidget {
 
   /// Content uchun reserve qilinadigan dock balandligi.
   final double bottomDockHeight;
-  final EdgeInsets contentPadding;
+  final EdgeInsetsGeometry contentPadding;
   final EdgeInsets bottomPadding;
   final bool animateOnEnter;
   final bool preferNativeTitle;
@@ -109,7 +109,7 @@ class _AnimatedNativeProfileActionSlot extends StatelessWidget {
           opacity: visible ? 1 : 0,
           duration: const Duration(milliseconds: 120),
           child: const OverflowBox(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             minWidth: _nativeProfileActionSlotWidth,
             maxWidth: _nativeProfileActionSlotWidth,
             child: SizedBox(

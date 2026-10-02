@@ -10,6 +10,7 @@ import '../../shared/models/app_models.dart';
 import '../state/customer_store.dart';
 import 'widgets/customer_dock.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class CustomerStatusDetailScreen extends StatefulWidget {
   const CustomerStatusDetailScreen({super.key, required this.kind});
@@ -69,7 +70,7 @@ class _CustomerStatusDetailScreenState
             NativeNavigationTitleHeader(title: _title),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 16, 0),
+                padding: const EdgeInsetsDirectional.fromSTEB(14, 0, 16, 0),
                 child: AnimatedBuilder(
                   animation: CustomerStore.instance,
                   builder: (context, _) {
@@ -111,11 +112,9 @@ class _CustomerStatusDetailScreenState
                             ),
                             child: Column(
                               children: [
-                                for (
-                                  int index = 0;
-                                  index < items.length;
-                                  index++
-                                ) ...[
+                                for (int index = 0;
+                                    index < items.length;
+                                    index++) ...[
                                   _CustomerStatusRecordRow(
                                     record: items[index],
                                     isFirst: index == 0,
@@ -182,7 +181,7 @@ class _CustomerStatusRecordRow extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Text(
+            UrduAwareText(
               '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
               style: theme.textTheme.headlineMedium,
             ),

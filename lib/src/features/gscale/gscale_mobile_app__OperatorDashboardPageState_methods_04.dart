@@ -258,14 +258,14 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
       tilePadding: EdgeInsets.zero,
       childrenPadding: EdgeInsets.zero,
       leading: Icon(Icons.qr_code_2_rounded, color: scheme.primary),
-      title: Text(
+      title: UrduAwareText(
         'Batch QRlari (${_batchPrints.length})',
         style: theme.textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.w700,
         ),
       ),
-      subtitle:
-          Text(_snapshot.batchActive ? 'Faol batch' : 'Yakunlangan batch'),
+      subtitle: UrduAwareText(
+          _snapshot.batchActive ? 'Faol batch' : 'Yakunlangan batch'),
       children: _batchPrints.reversed
           .map(
             (entry) => ListTile(

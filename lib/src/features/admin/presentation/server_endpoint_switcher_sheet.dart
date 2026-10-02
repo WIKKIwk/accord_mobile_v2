@@ -281,7 +281,7 @@ class _ServerEndpointSwitcherSheetState
           const _ServerSheetHandle(),
           const SizedBox(height: 6),
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: IconButton(
               onPressed: _busy ? null : _closeAdd,
               icon: const Icon(Icons.arrow_back_rounded),
@@ -396,7 +396,7 @@ class _SavedServerEndpointTile extends StatelessWidget {
         borderRadius: radius,
         onTap: enabled ? onTap : null,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+          padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 12, 10),
           child: Row(
             children: [
               SizedBox.square(

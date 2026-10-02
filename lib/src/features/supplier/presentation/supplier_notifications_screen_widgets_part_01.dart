@@ -206,7 +206,7 @@ class _SupplierNotificationsScreenState
         selectedIndex: 1,
         onNavigate: _openDrawerRoute,
       ),
-      contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 0, 14, 0),
       actions: [
         IconButton.filledTonal(
           onPressed: _clearAll,

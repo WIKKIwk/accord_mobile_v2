@@ -13,6 +13,7 @@ import 'telegram_invite_qr_sheet.dart';
 import 'telegram_userbot_settings_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 part 'admin_telegram_screen_widgets_part_01.dart';
 part 'admin_telegram_screen_widgets_part_02.dart';

@@ -199,7 +199,8 @@ class _TreeNodeCard extends StatelessWidget {
                 curve: Curves.easeOutCubic,
                 child: hasChildren && isExpanded
                     ? Padding(
-                        padding: const EdgeInsets.only(top: 10, left: 17),
+                        padding: const EdgeInsetsDirectional.only(
+                            top: 10, start: 17),
                         child: Container(
                           decoration: BoxDecoration(
                             border: Border(
@@ -211,7 +212,7 @@ class _TreeNodeCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          padding: const EdgeInsets.only(left: 10),
+                          padding: const EdgeInsetsDirectional.only(start: 10),
                           child: Column(
                             children: [
                               for (int index = 0;

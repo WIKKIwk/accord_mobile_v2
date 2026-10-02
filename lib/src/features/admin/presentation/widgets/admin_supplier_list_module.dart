@@ -3,6 +3,7 @@ import '../../../../core/theme/theme_controller.dart';
 import '../../../shared/models/app_models.dart';
 import 'admin_summary_card.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/localization/urdu_aware_text.dart';
 
 class AdminSupplierListModule extends StatelessWidget {
   const AdminSupplierListModule({
@@ -19,7 +20,7 @@ class AdminSupplierListModule extends StatelessWidget {
     if (items.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        child: Text(
+        child: UrduAwareText(
           'Userlar topilmadi',
           style: Theme.of(context).textTheme.bodyLarge,
         ),
@@ -71,7 +72,7 @@ class AdminSupplierListRow extends StatelessWidget {
       onTap: onTap,
       backgroundColor: scheme.surfaceContainerLowest,
       fixedHeight: 61,
-      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
       value: '',
       showChevron: false,
       leading: SizedBox.square(

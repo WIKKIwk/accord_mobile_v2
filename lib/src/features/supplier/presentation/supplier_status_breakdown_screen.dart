@@ -8,6 +8,7 @@ import 'supplier_submitted_category_detail_screen.dart';
 import 'supplier_status_detail_screen.dart';
 import 'widgets/supplier_dock.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class SupplierStatusBreakdownScreen extends StatefulWidget {
   const SupplierStatusBreakdownScreen({super.key, required this.kind});
@@ -88,7 +89,7 @@ class _SupplierStatusBreakdownScreenState
     return AppShell(
       title: _title,
       subtitle: '',
-      contentPadding: const EdgeInsets.fromLTRB(10, 0, 12, 0),
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(10, 0, 12, 0),
       leading: AppShellIconAction(
         icon: Icons.arrow_back_rounded,
         onTap: () => Navigator.of(context).maybePop(),
@@ -109,7 +110,7 @@ class _SupplierStatusBreakdownScreenState
                   margin: EdgeInsets.zero,
                   child: Padding(
                     padding: const EdgeInsets.all(18),
-                    child: Text('${store.historyError}'),
+                    child: UrduAwareText('${store.historyError}'),
                   ),
                 ),
               );
@@ -128,12 +129,10 @@ class _SupplierStatusBreakdownScreenState
             final accepted = store.historyItems.where(
               (item) => item.status == DispatchStatus.accepted,
             );
-            final acceptedByWerka = accepted
-                .where((item) => !_isApprovedUnannounced(item))
-                .length;
-            final approvedUnannounced = accepted
-                .where(_isApprovedUnannounced)
-                .length;
+            final acceptedByWerka =
+                accepted.where((item) => !_isApprovedUnannounced(item)).length;
+            final approvedUnannounced =
+                accepted.where(_isApprovedUnannounced).length;
             return AppRefreshIndicator(
               onRefresh: _reload,
               child: ListView(
@@ -216,7 +215,7 @@ class _SupplierStatusBreakdownScreenState
                 margin: EdgeInsets.zero,
                 child: Padding(
                   padding: const EdgeInsets.all(18),
-                  child: Text('$error'),
+                  child: UrduAwareText('$error'),
                 ),
               ),
             );
@@ -341,7 +340,7 @@ class _SupplierAcceptedCategoryRow extends StatelessWidget {
                 color: scheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Text(
+              child: UrduAwareText(
                 '$count',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.titleLarge?.copyWith(

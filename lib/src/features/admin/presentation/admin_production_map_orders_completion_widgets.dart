@@ -131,7 +131,8 @@ class _CompletionRequestRow extends StatelessWidget {
           InkWell(
             onTap: () => onExpandedChanged(!expanded),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 8 : 8),
+              padding:
+                  EdgeInsetsDirectional.fromSTEB(14, 8, 4, expanded ? 8 : 8),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
                 child: Row(
@@ -240,7 +241,7 @@ class _CompletionRequestDetail extends StatelessWidget {
         '${context.l10n.productionText('worker.completion.time')}: ${_closedLogTimeLabel(request.createdAtUnix)}',
     ];
     return Padding(
-      padding: const EdgeInsets.only(left: 58, right: 12, bottom: 12),
+      padding: const EdgeInsetsDirectional.only(start: 58, end: 12, bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

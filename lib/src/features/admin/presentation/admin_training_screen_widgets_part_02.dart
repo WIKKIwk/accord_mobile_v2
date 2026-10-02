@@ -113,7 +113,7 @@ class _TrainingApparatusTile extends StatelessWidget {
           InkWell(
             onTap: () => onExpandedChanged(!expanded),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
+              padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 4, 8),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
                 child: Row(
@@ -224,7 +224,7 @@ class _TrainingApparatusTile extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Align(
-                          alignment: Alignment.centerRight,
+                          alignment: AlignmentDirectional.centerEnd,
                           child: OutlinedButton.icon(
                             onPressed: restarting ? null : onRestart,
                             icon: restarting
@@ -240,7 +240,7 @@ class _TrainingApparatusTile extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Align(
-                          alignment: Alignment.centerRight,
+                          alignment: AlignmentDirectional.centerEnd,
                           child: OutlinedButton.icon(
                             onPressed: apparatus.trainingEnabled && !linking
                                 ? onLinkOrder

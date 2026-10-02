@@ -12,17 +12,19 @@ class LocaleController extends ChangeNotifier {
 
   Locale get locale => _locale;
   bool get isUzbek => _locale.languageCode == 'uz';
+  bool get isUrdu => _locale.languageCode == 'ur';
   bool get hasExplicitSelection => _hasExplicitSelection;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(prefsKey);
     _hasExplicitSelection = saved != null;
-    _locale = saved == 'en'
-        ? const Locale('en')
-        : saved == 'ru'
-        ? const Locale('ru')
-        : const Locale('uz');
+    _locale = switch (saved) {
+      'en' => const Locale('en'),
+      'ru' => const Locale('ru'),
+      'ur' => const Locale('ur', 'PK'),
+      _ => const Locale('uz'),
+    };
     notifyListeners();
   }
 

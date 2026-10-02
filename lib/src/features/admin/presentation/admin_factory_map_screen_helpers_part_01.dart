@@ -441,7 +441,8 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
                           color: scheme.errorContainer,
                           borderRadius: BorderRadius.circular(18),
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                            padding: const EdgeInsetsDirectional.fromSTEB(
+                                16, 8, 8, 8),
                             child: Row(children: [
                               Expanded(
                                   child: Text(

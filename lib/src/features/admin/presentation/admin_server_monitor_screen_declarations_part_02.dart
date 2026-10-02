@@ -148,7 +148,7 @@ class _TickStatusPanel extends StatelessWidget {
                         ),
                   ),
                 ),
-                Text(
+                UrduAwareText(
                   '$safePercent%',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w900,
@@ -336,7 +336,7 @@ class _PingSparklinePanelState extends State<_PingSparklinePanel>
                     ),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(
+                      child: UrduAwareText(
                         'Ping',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -349,7 +349,7 @@ class _PingSparklinePanelState extends State<_PingSparklinePanel>
                             ),
                       ),
                     ),
-                    Text(
+                    UrduAwareText(
                       latencyMs > 0 ? '$latencyMs ms' : 'aniqlanmadi',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             fontWeight: FontWeight.w900,

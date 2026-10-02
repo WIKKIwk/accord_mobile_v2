@@ -51,7 +51,7 @@ class _QolipUnplacedTile extends StatelessWidget {
                           ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
+                    UrduAwareText(
                       '${item.qolipCode} • ${item.size} • ${l10n.qolipCount(item.quantity)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -218,7 +218,7 @@ class _QolipTakeSheetState extends State<_QolipTakeSheet> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                UrduAwareText(
                   '${item.itemName} • ${item.qolipCode} • ${l10n.qolipCount(item.quantity)}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,

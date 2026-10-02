@@ -8,31 +8,13 @@ extension __AdminApparatusSettingsScreenStateAstPart02
     bool enabled,
   ) async {
     final current = _latest(apparatus);
-    final profiles = {
-      for (final profile in current.capabilityProfiles)
-        profile.code: profile.level,
-    };
-    if (enabled) {
-      profiles['training'] = profiles['training'] ?? 1;
-    } else {
-      profiles.remove('training');
-    }
     try {
-      final saved = await MobileApi.instance.adminPatchCanonicalApparatus(
+      await MobileApi.instance.adminSetTrainingApparatusMode(
         apparatus: current,
-        patch: {
-          'capabilities': [
-            for (final entry in profiles.entries)
-              {'code': entry.key, 'level': entry.value},
-          ],
-          'training': {
-            'enabled': enabled,
-            'queue_enabled': enabled,
-            'material_tracking_enabled': enabled,
-          },
-        },
+        enabled: enabled,
       );
       if (!mounted) return null;
+      final saved = current.copyWith(trainingEnabled: enabled);
       _replaceApparatus(saved);
       showAdminTopNotice(
         context,
@@ -61,6 +43,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
       MaterialPageRoute<void>(
         builder: (_) => AdminApparatusDetailScreen(
           apparatus: _latest(apparatus),
+          trainingModeAvailable: _trainingModeAvailable,
           currentApparatus: () => _latest(apparatus),
           onPlacementChanged: _savePlacement,
           onTrainingChanged: _saveTraining,
@@ -126,6 +109,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
       apparatus: _apparatus,
       collections: next,
       options: _options,
+      trainingModeAvailable: _trainingModeAvailable,
     );
   }
 
@@ -317,6 +301,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
         apparatus: _apparatus,
         collections: next,
         options: _options,
+        trainingModeAvailable: _trainingModeAvailable,
       );
       showAdminTopNotice(
         context,
@@ -365,7 +350,7 @@ class _AdminApparatusListRow extends StatelessWidget {
       onTap: onTap,
       backgroundColor: scheme.surfaceContainerLowest,
       fixedHeight: 61,
-      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
       value: '',
       showChevron: false,
       leading: SizedBox.square(

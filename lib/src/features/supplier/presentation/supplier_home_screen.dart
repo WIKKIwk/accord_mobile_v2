@@ -13,6 +13,7 @@ import '../state/supplier_store.dart';
 import 'widgets/supplier_dock.dart';
 import 'widgets/supplier_navigation_drawer.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class SupplierHomeScreen extends StatefulWidget {
   const SupplierHomeScreen({super.key});
@@ -313,7 +314,7 @@ class _SupplierPendingRow extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
+                      UrduAwareText(
                         '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
                         style: theme.textTheme.titleSmall?.copyWith(
                           color: scheme.onSurfaceVariant,

@@ -48,10 +48,11 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
             onPressed:
                 _savingOpenedOrder || _calculating ? null : _saveOpenedOrder,
             icon: const Icon(Icons.save_outlined),
-            label: Text(
+            label: UrduAwareText(
               _savingOpenedOrder ? 'Saqlanmoqda…' : 'O‘zgarishlarni saqlash',
             ),
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+            style:
+                FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
           ),
         ],
         if (widget.trainingMode && widget.openedOrder == null) ...[

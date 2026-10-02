@@ -213,7 +213,7 @@ Future<void> selectOfflinePrintDevice(BuildContext context) async {
   } catch (error) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('USB printer aniqlanmadi: $error')),
+        SnackBar(content: UrduAwareText('USB printer aniqlanmadi: $error')),
       );
     }
   }

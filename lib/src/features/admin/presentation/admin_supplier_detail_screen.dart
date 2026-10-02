@@ -21,6 +21,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'admin_supplier_detail_screen_widgets_part_01.dart';
 part 'admin_supplier_detail_screen_widgets_part_02.dart';

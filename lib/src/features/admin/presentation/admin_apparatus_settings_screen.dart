@@ -24,6 +24,7 @@ import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_top_notice.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'admin_apparatus_settings_screen__AdminApparatusSettingsScreenState_methods_01.dart';
 part 'admin_apparatus_settings_screen__AdminApparatusSettingsScreenState_methods_02.dart';
@@ -40,6 +41,7 @@ class _AdminApparatusSettingsScreenState
   List<AdminApparatus> _apparatus = const [];
   List<AdminApparatusCollection> _collections = const [];
   late AdminApparatusMasterOptions _options;
+  bool _trainingModeAvailable = false;
   bool _loading = true;
   bool _saving = false;
   bool _focusedEditorOpened = false;
@@ -58,6 +60,7 @@ class _AdminApparatusSettingsScreenState
       _apparatus = cached.apparatus;
       _collections = cached.collections;
       _options = cached.options;
+      _trainingModeAvailable = cached.trainingModeAvailable;
       _loading = false;
       unawaited(_load(showLoading: false));
       _maybeOpenFocusedEditor();
@@ -231,7 +234,7 @@ class _AdminApparatusSettingsScreenState
       onTap: onTap,
       backgroundColor: scheme.surfaceContainerLowest,
       fixedHeight: 65,
-      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 10, 10),
       value: '',
       showChevron: true,
       leading: SizedBox.square(

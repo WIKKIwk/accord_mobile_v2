@@ -5,6 +5,7 @@ import '../../shared/models/app_models.dart';
 import '../state/supplier_store.dart';
 import 'widgets/supplier_dock.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class SupplierConfirmArgs {
   const SupplierConfirmArgs({required this.item, required this.qty});
@@ -22,7 +23,7 @@ class SupplierConfirmScreen extends StatefulWidget {
 
   final SupplierConfirmArgs args;
   final Future<DispatchRecord> Function(SupplierConfirmArgs args)?
-  submitDispatch;
+      submitDispatch;
 
   @override
   State<SupplierConfirmScreen> createState() => _SupplierConfirmScreenState();
@@ -41,12 +42,11 @@ class _SupplierConfirmScreenState extends State<SupplierConfirmScreen> {
     });
 
     try {
-      final submitDispatch =
-          widget.submitDispatch ??
+      final submitDispatch = widget.submitDispatch ??
           (args) => MobileApi.instance.createDispatch(
-            itemCode: args.item.code,
-            qty: args.qty,
-          );
+                itemCode: args.item.code,
+                qty: args.qty,
+              );
       final DispatchRecord record = await submitDispatch(widget.args);
       SupplierStore.instance.recordCreatedPending();
       if (!mounted) {
@@ -61,7 +61,8 @@ class _SupplierConfirmScreenState extends State<SupplierConfirmScreen> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Jo‘natish saqlanmadi: $error')));
+      ).showSnackBar(
+          SnackBar(content: UrduAwareText('Jo‘natish saqlanmadi: $error')));
     } finally {
       if (mounted) {
         setState(() {
@@ -93,7 +94,7 @@ class _SupplierConfirmScreenState extends State<SupplierConfirmScreen> {
       ),
       title: 'Tasdiqlash',
       subtitle: '',
-      contentPadding: const EdgeInsets.fromLTRB(10, 0, 12, 0),
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(10, 0, 12, 0),
       bottom: AbsorbPointer(
         absorbing: _submitting,
         child: const SupplierDock(activeTab: null, centerActive: true),
@@ -130,11 +131,9 @@ class _SupplierConfirmScreenState extends State<SupplierConfirmScreen> {
                     ),
                     child: Column(
                       children: [
-                        for (
-                          int index = 0;
-                          index < detailRows.length;
-                          index++
-                        ) ...[
+                        for (int index = 0;
+                            index < detailRows.length;
+                            index++) ...[
                           _ConfirmDetailRow(
                             label: detailRows[index].label,
                             value: detailRows[index].value,
@@ -168,7 +167,7 @@ class _SupplierConfirmScreenState extends State<SupplierConfirmScreen> {
                                 strokeWidth: 2.2,
                               ),
                             )
-                          : const Text('Ha, jo‘natishni saqlash'),
+                          : const UrduAwareText('Ha, jo‘natishni saqlash'),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -178,7 +177,7 @@ class _SupplierConfirmScreenState extends State<SupplierConfirmScreen> {
                       onPressed: _submitting
                           ? null
                           : () => Navigator.of(context).pop(),
-                      child: const Text('Orqaga qaytish'),
+                      child: const UrduAwareText('Orqaga qaytish'),
                     ),
                   ),
                 ],
@@ -233,7 +232,7 @@ class _ConfirmDetailRow extends StatelessWidget {
           Flexible(
             child: Text(
               value,
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.end,
               style: theme.textTheme.titleMedium,
             ),
           ),

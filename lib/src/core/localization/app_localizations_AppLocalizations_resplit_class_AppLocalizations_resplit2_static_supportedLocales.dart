@@ -2,4 +2,4 @@
 part of 'app_localizations.dart';
 
 const _app_localizations_AppLocalizations_resplit_class_AppLocalizations_supportedLocales_resplit2Value =
-    [Locale('uz'), Locale('en'), Locale('ru')];
+    [Locale('uz'), Locale('en'), Locale('ru'), Locale('ur', 'PK')];

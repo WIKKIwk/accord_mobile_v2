@@ -70,7 +70,7 @@ extension __OperatorDashboardPageStateAstPart06 on _OperatorDashboardPageState {
         ],
         const SizedBox(height: 18),
         if (sessions.isEmpty && !_archiveLoading) ...[
-          Text(
+          UrduAwareText(
             "$sectionTitle hali bo'sh.",
             style: theme.textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
@@ -134,7 +134,7 @@ extension __OperatorDashboardPageStateAstPart06 on _OperatorDashboardPageState {
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       backgroundColor: scheme.surfaceContainerLowest,
       fixedHeight: 70,
-      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 8, 8),
       title: title.isEmpty ? '-' : title,
       subtitle: subtitle,
       value: totalLabel,

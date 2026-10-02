@@ -10,6 +10,7 @@ import '../../../core/widgets/display/motion_widgets.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/supplier_dock.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class SupplierItemPickerScreen extends StatefulWidget {
   const SupplierItemPickerScreen({super.key});
@@ -64,7 +65,7 @@ class _SupplierItemPickerScreenState extends State<SupplierItemPickerScreen>
     return AppShell(
       title: 'Mahsulot tanlash',
       subtitle: '',
-      contentPadding: const EdgeInsets.fromLTRB(10, 0, 12, 0),
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(10, 0, 12, 0),
       bottom: const SupplierDock(activeTab: null, centerActive: true),
       child: Column(
         children: [
@@ -125,7 +126,7 @@ class _SupplierItemPickerScreenState extends State<SupplierItemPickerScreen>
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 18,
                               ),
-                              child: Text(
+                              child: UrduAwareText(
                                 query.isEmpty
                                     ? 'Bu supplierga item biriktirilmagan.'
                                     : 'Mahsulot topilmadi.',
@@ -181,19 +182,17 @@ class _SupplierItemPickerScreenState extends State<SupplierItemPickerScreen>
                                 filtered.map((item) => item.code).join('|'),
                               ),
                               children: [
-                                for (
-                                  int index = 0;
-                                  index < filtered.length;
-                                  index++
-                                ) ...[
+                                for (int index = 0;
+                                    index < filtered.length;
+                                    index++) ...[
                                   _SupplierItemRow(
                                     item: filtered[index],
                                     delay: Duration(milliseconds: index * 24),
                                     onTap: () =>
                                         Navigator.of(context).pushNamed(
-                                          AppRoutes.supplierQty,
-                                          arguments: filtered[index],
-                                        ),
+                                      AppRoutes.supplierQty,
+                                      arguments: filtered[index],
+                                    ),
                                   ),
                                   if (index != filtered.length - 1)
                                     Divider(

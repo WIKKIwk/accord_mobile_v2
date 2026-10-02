@@ -283,7 +283,7 @@ class _ReturnedPaintImagePreviewState
       );
       if (mounted) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          const SnackBar(content: Text('Rasm Photos ga saqlandi.')),
+          const SnackBar(content: UrduAwareText('Rasm Photos ga saqlandi.')),
         );
       }
     } catch (error) {

@@ -58,7 +58,7 @@ class _CustomerPreviewRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 16),
-              Text(
+              UrduAwareText(
                 '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
                 style: theme.textTheme.titleSmall?.copyWith(
                   color: scheme.onSurfaceVariant,

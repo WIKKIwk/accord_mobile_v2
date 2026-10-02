@@ -9,6 +9,7 @@ import '../../shared/models/app_models.dart';
 import 'werka_archive_list_screen.dart';
 import 'widgets/werka_dock.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 class WerkaArchiveYearlyCalendarScreen extends StatefulWidget {
   const WerkaArchiveYearlyCalendarScreen({
@@ -23,8 +24,7 @@ class WerkaArchiveYearlyCalendarScreen extends StatefulWidget {
     required WerkaArchivePeriod period,
     DateTime? from,
     DateTime? to,
-  })?
-  archiveLoader;
+  })? archiveLoader;
 
   @override
   State<WerkaArchiveYearlyCalendarScreen> createState() =>
@@ -194,7 +194,7 @@ class _WerkaArchiveYearlyCalendarScreenState
                         ),
                       ),
                       Expanded(
-                        child: Text(
+                        child: UrduAwareText(
                           '${years.first} - ${years.last}',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.titleLarge,
@@ -285,11 +285,10 @@ class _YearCell extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              border: active
-                  ? Border.all(color: scheme.primary, width: 1.2)
-                  : null,
+              border:
+                  active ? Border.all(color: scheme.primary, width: 1.2) : null,
             ),
-            child: Text(
+            child: UrduAwareText(
               '$year',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium?.copyWith(

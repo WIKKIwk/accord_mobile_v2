@@ -19,6 +19,7 @@ import 'package:full_screen_back_gesture/cupertino.dart'
     as fullscreen_cupertino;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'werka_batch_dispatch_screen__WerkaBatchDispatchScreenState_methods_01.dart';
 part 'werka_batch_dispatch_screen_helpers_part_01.dart';
@@ -56,7 +57,7 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
       disabledForegroundColor: scheme.onSurfaceVariant,
       elevation: 0,
       minimumSize: const Size.fromHeight(58),
-      alignment: Alignment.centerLeft,
+      alignment: AlignmentDirectional.centerStart,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       padding: const EdgeInsets.symmetric(horizontal: 16),
     );
@@ -113,7 +114,7 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
                     color: scheme.tertiaryContainer,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Text(
+                  child: UrduAwareText(
                     'Preview mode',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w700,

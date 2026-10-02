@@ -13,6 +13,7 @@ import '../../../core/widgets/lists/m3_segmented_list.dart';
 import 'package:androidx_graphics_shapes/material_shapes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import '../../../core/localization/urdu_aware_text.dart';
 
 part 'welcome_screen__WelcomeScreenState_methods_01.dart';
 part 'welcome_screen_widgets_part_01.dart';
@@ -33,6 +34,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     Locale('uz'),
     Locale('en'),
     Locale('ru'),
+    Locale('ur', 'PK'),
   ];
 
   late final AnimationController _headlineController = AnimationController(
@@ -219,7 +221,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           delay: const Duration(milliseconds: 190),
                           offset: const Offset(0, 10),
                           child: Align(
-                            alignment: Alignment.centerRight,
+                            alignment: AlignmentDirectional.centerEnd,
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 420),
                               curve: Curves.easeInOutCubicEmphasized,

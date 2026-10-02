@@ -27,7 +27,7 @@ class _DailyWorkOrderGroupCardState extends State<_DailyWorkOrderGroupCard> {
                 onTap: () => setState(() => _expanded = !_expanded),
                 borderRadius: BorderRadius.circular(12),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 4, 10),
+                  padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 4, 10),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -39,9 +39,10 @@ class _DailyWorkOrderGroupCardState extends State<_DailyWorkOrderGroupCard> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: () {
-                          final hasOrderTitle = group.orderTitle.trim().isNotEmpty &&
-                              group.orderTitle.trim().toLowerCase() !=
-                                  group.orderId.trim().toLowerCase();
+                          final hasOrderTitle =
+                              group.orderTitle.trim().isNotEmpty &&
+                                  group.orderTitle.trim().toLowerCase() !=
+                                      group.orderId.trim().toLowerCase();
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -49,14 +50,17 @@ class _DailyWorkOrderGroupCardState extends State<_DailyWorkOrderGroupCard> {
                                 Row(
                                   children: [
                                     Text(
-                                      context.l10n.productionText('worker.daily.order'),
-                                      style: theme.textTheme.labelSmall?.copyWith(
+                                      context.l10n
+                                          .productionText('worker.daily.order'),
+                                      style:
+                                          theme.textTheme.labelSmall?.copyWith(
                                         color: scheme.onSurfaceVariant,
                                       ),
                                     ),
-                                    Text(
+                                    UrduAwareText(
                                       ' • ',
-                                      style: theme.textTheme.labelSmall?.copyWith(
+                                      style:
+                                          theme.textTheme.labelSmall?.copyWith(
                                         color: scheme.outline,
                                       ),
                                     ),
@@ -65,7 +69,8 @@ class _DailyWorkOrderGroupCardState extends State<_DailyWorkOrderGroupCard> {
                                         group.orderId,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.labelSmall?.copyWith(
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
                                           color: scheme.primary,
                                           fontWeight: FontWeight.w700,
                                         ),
@@ -84,7 +89,8 @@ class _DailyWorkOrderGroupCardState extends State<_DailyWorkOrderGroupCard> {
                                 ),
                               ] else ...[
                                 Text(
-                                  context.l10n.productionText('worker.daily.order'),
+                                  context.l10n
+                                      .productionText('worker.daily.order'),
                                   style: theme.textTheme.labelSmall?.copyWith(
                                     color: scheme.onSurfaceVariant,
                                   ),
@@ -114,7 +120,7 @@ class _DailyWorkOrderGroupCardState extends State<_DailyWorkOrderGroupCard> {
                             horizontal: 9,
                             vertical: 5,
                           ),
-                          child: Text(
+                          child: UrduAwareText(
                             '${group.batches.length} ${context.l10n.productionText('worker.daily.wip')}',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: scheme.onSecondaryContainer,
@@ -202,7 +208,7 @@ class _DailyWorkSummary extends StatelessWidget {
       margin: EdgeInsets.zero,
       color: scheme.primaryContainer,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 10, 16),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 10, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -226,7 +232,7 @@ class _DailyWorkSummary extends StatelessWidget {
                 ),
               ],
             ),
-            Text(
+            UrduAwareText(
               '${_dailyWorkDateLabel(date)} • $workerName',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onPrimaryContainer,
@@ -274,7 +280,7 @@ class _DailyWorkMetric extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Text(
+        child: UrduAwareText(
           '$label: $value',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: scheme.onPrimaryContainer,
