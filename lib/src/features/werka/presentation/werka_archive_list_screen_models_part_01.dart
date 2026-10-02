@@ -48,9 +48,9 @@ class _DailyFilterCard extends StatelessWidget {
     return Card.filled(
       margin: EdgeInsets.zero,
       color: scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -66,7 +66,7 @@ class _DailyFilterCard extends StatelessWidget {
                           color: scheme.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 2),
                       Text(value, style: theme.textTheme.titleLarge),
                     ],
                   ),
@@ -74,11 +74,11 @@ class _DailyFilterCard extends StatelessWidget {
                 FilledButton.tonalIcon(
                   onPressed: onToggle,
                   style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 48),
+                    minimumSize: const Size(0, 40),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
-                      vertical: 12,
+                      vertical: 8,
                     ),
                   ),
                   icon: Icon(
@@ -93,7 +93,7 @@ class _DailyFilterCard extends StatelessWidget {
             _AnimatedCalendarReveal(
               open: calendarOpen,
               child: Padding(
-                padding: const EdgeInsets.only(top: 14),
+                padding: const EdgeInsets.only(top: 8),
                 child: calendar,
               ),
             ),
@@ -161,70 +161,90 @@ class _DailyCalendarCard extends StatelessWidget {
   }
 }
 
-class _ArchiveRow extends StatelessWidget {
-  const _ArchiveRow({
+class _ArchivePaddonCard extends StatelessWidget {
+  const _ArchivePaddonCard({
+    super.key,
+    required this.slot,
     required this.title,
     required this.subtitle,
-    required this.metric,
-    required this.status,
-    required this.createdLabel,
-    required this.isLast,
+    required this.countLabel,
+    this.onTap,
   });
 
+  final M3SegmentVerticalSlot slot;
   final String title;
   final String subtitle;
-  final String metric;
-  final String status;
-  final String createdLabel;
-  final bool isLast;
+  final String countLabel;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: theme.textTheme.titleLarge),
-                const SizedBox(height: 6),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(metric, style: theme.textTheme.bodyMedium),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+    return M3SegmentFilledSurface(
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 45),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                status,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
+              Icon(
+                Icons.inventory_2_rounded,
+                color: scheme.primary,
+                size: 25,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          countLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (subtitle.trim().isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                createdLabel,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.right,
-              ),
+              const Icon(Icons.chevron_right_rounded),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

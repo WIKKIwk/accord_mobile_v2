@@ -489,7 +489,7 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
     'ru': 'Данные паддона не найдены',
   },
   'worker.paddon.created_by': {
-    'uz': 'Yaratgan',
+    'uz': 'Yig‘gan',
     'en': 'Created by',
     'ru': 'Создал',
   },

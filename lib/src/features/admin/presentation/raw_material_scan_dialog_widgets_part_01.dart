@@ -27,7 +27,9 @@ String rawMaterialBarcodeFromQr(String raw) {
     return '';
   }
   final uri = Uri.tryParse(value);
-  if (uri != null) {
+  // A mold/material code is opaque text, not a relative URL path. In
+  // particular, keep codes such as "Milano Premium 30/40" intact.
+  if (uri != null && uri.hasScheme && uri.hasAuthority && uri.host.isNotEmpty) {
     for (final key in const ['barcode', 'epc', 'qr']) {
       final candidate = uri.queryParameters[key]?.trim();
       if (candidate != null && candidate.isNotEmpty) {

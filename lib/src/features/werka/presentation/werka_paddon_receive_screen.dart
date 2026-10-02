@@ -7,7 +7,10 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../../core/print_service.dart';
+import '../../admin/presentation/progress_printer_picker.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
 import 'widgets/werka_dock.dart';
 
@@ -158,6 +161,101 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
     return '${formatQuantity(batch.producedQty)} ${batch.uom}';
   }
 
+  double? _wipGrossKg(AdminProgressBatch batch) {
+    final raw = batch.payloadJson['gross_qty'];
+    final gross = (raw as num?)?.toDouble() ?? batch.finishedGoodsKg;
+    if (gross == null || !gross.isFinite || gross <= 0) return null;
+    return gross;
+  }
+
+  double? _wipNetKg(AdminProgressBatch batch) {
+    final gross = _wipGrossKg(batch);
+    final tare = batch.bobinaKg;
+    if (gross == null) return null;
+    if (tare == null || !tare.isFinite || tare < 0) return null;
+    final net = gross - tare;
+    if (!net.isFinite || net < 0) return null;
+    return net;
+  }
+
+  String _wipGrossNetLabel(AdminProgressBatch batch) {
+    final gross = _wipGrossKg(batch);
+    final net = _wipNetKg(batch);
+    final grossText =
+        gross == null ? '—' : '${formatQuantity(gross)} kg';
+    final netText = net == null ? '—' : '${formatQuantity(net)} kg';
+    return 'Brutto: $grossText • Netto: $netText';
+  }
+
+  Future<void> _showWipReprint(AdminProgressBatch batch) async {
+    final payload = batch.qrPayload.trim();
+    if (payload.isEmpty) {
+      return;
+    }
+    final orderId = batch.orderId.trim().isEmpty ? '—' : batch.orderId.trim();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => RpsQrReprintSheet(
+        title: 'WIP QR',
+        payload: payload,
+        itemName: 'Buyurtma: $orderId',
+        previewKey: ValueKey('werka-paddon-wip-preview-${batch.batchId}'),
+        reprintButtonKey: ValueKey('werka-paddon-wip-reprint-${batch.batchId}'),
+        details: [
+          RpsQrDetail('Buyurtma', orderId),
+          RpsQrDetail('QR', payload),
+          RpsQrDetail('Miqdor', _batchQuantity(batch)),
+          RpsQrDetail('Brutto/Netto', _wipGrossNetLabel(batch)),
+        ],
+        onReprint: () => _reprintWip(batch),
+        errorMessage: (error) => error is MobileApiException
+            ? 'Qayta chop etib bo‘lmadi: ${error.code}'
+            : 'Qayta chop etib bo‘lmadi. Qayta urining.',
+        successMessage: 'WIP QR qayta chop etildi',
+      ),
+    );
+  }
+
+  Future<String?> _reprintWip(AdminProgressBatch batch) async {
+    final printer = await pickProgressPrinter(context);
+    if (printer == null) {
+      throw StateError('Printer tanlanmadi yoki printer ulanmagan');
+    }
+    final prepared = await MobileApi.instance.adminProgressQrReprint(
+      qrPayload: batch.qrPayload,
+      progressBatchId: batch.batchId,
+      driverUrl: printer.driverUrl,
+      printer: printer.printer,
+      printMode: printer.printMode,
+      printTransport: printer.transport,
+    );
+    if (!prepared.ok) {
+      final status = prepared.printStatus.trim();
+      throw StateError(
+        status.isEmpty ? 'Server WIP QR kodini chop etmadi' : status,
+      );
+    }
+    if (printer.transport.isLocal) {
+      final printJob = prepared.printJob;
+      if (printJob == null) {
+        throw StateError('WIP QR uchun local print ma’lumoti kelmadi');
+      }
+      final result = await PrintService.printRps(
+        printJob,
+        printerProfile: printer.offlinePrinter,
+        bluetoothPrinter: printer.bluetoothPrinter,
+        transport: printer.transport,
+      );
+      if (!result.ok) {
+        throw StateError('Printer WIP QR kodini chop etmadi');
+      }
+    }
+    return null;
+  }
+
   Future<void> _accept() async {
     final preview = _preview;
     final warehouse = _warehouse;
@@ -303,8 +401,11 @@ class _WerkaPaddonReceiveScreenState extends State<WerkaPaddonReceiveScreen> {
                                 ? batch.labelItemCode
                                 : batch.labelItemName)),
                         subtitle: Text(
-                            'Buyurtma: ${batch.orderId}\nQR: ${batch.qrPayload}\n${_batchQuantity(batch)}'),
-                        isThreeLine: true)),
+                            'Buyurtma: ${batch.orderId}\nQR: ${batch.qrPayload}\n${_batchQuantity(batch)}\n${_wipGrossNetLabel(batch)}'),
+                        isThreeLine: true,
+                        onLongPress: _busy
+                            ? null
+                            : () => _showWipReprint(batch))),
               if (receipt == null)
                 FilledButton.icon(
                     key: const ValueKey('werka-paddon-receive'),

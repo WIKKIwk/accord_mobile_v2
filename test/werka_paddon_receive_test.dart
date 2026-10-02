@@ -130,7 +130,7 @@ void main() {
     expect(find.textContaining('apparatus:'), findsNothing);
     expect(find.text('Jami brutto: 21 kg'), findsOneWidget);
     expect(find.text('Jami netto: 19.875 kg'), findsOneWidget);
-    expect(find.text('Buyurtma: order-1\nQR: QR-0\n10 kg • 100 m'),
+    expect(find.text('Buyurtma: order-1\nQR: QR-0\n10 kg • 100 m\nBrutto: 10 kg • Netto: —'),
         findsOneWidget);
     await confirm(tester);
     expect(calls, 1);

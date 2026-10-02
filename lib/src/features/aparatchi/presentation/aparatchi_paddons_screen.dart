@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../core/widgets/paddon_weight_totals.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
@@ -244,9 +243,9 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
           onRefresh: _retry,
           child: ListView(
             padding: EdgeInsets.fromLTRB(
+              4,
               12,
-              12,
-              12,
+              4,
               MediaQuery.viewPaddingOf(context).bottom + 120,
             ),
             children: [
@@ -440,76 +439,50 @@ class _PaddonCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.inventory_2_rounded,
-              color: scheme.primary,
-              size: 25,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          paddon.code,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+        padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 45),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.inventory_2_rounded,
+                color: scheme.primary,
+                size: 25,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        paddon.code,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  PaddonWeightTotals(key: ValueKey('paddon-card-weights-${paddon.code}'), paddon: paddon),
-                  if (paddon.location.trim().isNotEmpty) ...[
-                    const SizedBox(height: 6),
+                    ),
+                    const SizedBox(width: 8),
                     Text(
-                      AparatchiPaddonDisplay.apparatusOrLocation(
-                        paddon.location,
-                        apparatus,
-                        context.l10n,
+                      context.l10n.productionText(
+                        'worker.paddon.wip_count',
+                        values: {'count': paddon.itemCount},
                       ),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Text(
-                    context.l10n.productionText(
-                      'worker.paddon.wip_count',
-                      values: {'count': paddon.itemCount},
-                    ),
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: scheme.primary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (paddon.note.trim().isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      paddon.note,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ],
-                ],
+                ),
               ),
-            ),
-            const Icon(Icons.chevron_right_rounded),
-          ],
+              const Icon(Icons.chevron_right_rounded),
+            ],
+          ),
         ),
       ),
     );

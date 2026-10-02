@@ -234,9 +234,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('00001'), findsOneWidget);
-    expect(find.text('Jami brutto: 24.375 kg'), findsOneWidget);
-    expect(find.text('Jami netto: 23.125 kg'), findsOneWidget);
-    expect(find.text('Rezka yonidagi 2-qator'), findsOneWidget);
     expect(find.text('2 ta WIP'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('paddon-card-00001')),
@@ -383,8 +380,11 @@ void main() {
     await tester.pumpWidget(_app(AparatchiPaddonsScreen(apparatusLoader: () async => const [], loader: () async =>
       [_paddon(totalGrossKg: null, totalNetKg: 0)])));
     await tester.pumpAndSettle();
-    expect(find.text('Jami brutto: —'), findsOneWidget);
-    expect(find.text('Jami netto: 0 kg'), findsOneWidget);
+    // List card is compact: only code + WIP count, no weights.
+    expect(find.text('00001'), findsOneWidget);
+    expect(find.text('2 ta WIP'), findsOneWidget);
+    expect(find.text('Jami brutto: —'), findsNothing);
+    expect(find.text('Jami netto: 0 kg'), findsNothing);
   });
   testWidgets('missing EPC never exposes an internal cutting batch ID',
       (tester) async {
@@ -458,10 +458,20 @@ void main() {
       ]) {
         await tester.pumpWidget(_app(screen));
         await tester.pumpAndSettle();
-        expect(find.text(expectedLocation), findsOneWidget);
+        final isList = screen is AparatchiPaddonsScreen;
+        if (isList) {
+          // List card is compact: only code + WIP count.
+          expect(find.text('00001'), findsOneWidget);
+          expect(find.text('1 ta WIP'), findsOneWidget);
+          expect(find.text(expectedLocation), findsNothing);
+          expect(find.text('Jami brutto: 24.375 kg'), findsNothing);
+          expect(find.text('Jami netto: 23.125 kg'), findsNothing);
+        } else {
+          expect(find.text(expectedLocation), findsOneWidget);
+          expect(find.text('Jami brutto: 24.375 kg'), findsOneWidget);
+          expect(find.text('Jami netto: 23.125 kg'), findsOneWidget);
+        }
         expect(find.textContaining('apparatus:'), findsNothing);
-        expect(find.text('Jami brutto: 24.375 kg'), findsOneWidget);
-        expect(find.text('Jami netto: 23.125 kg'), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
     });

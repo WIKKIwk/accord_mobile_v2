@@ -151,6 +151,7 @@ class _PaddonWipCard extends StatelessWidget {
     this.selected = false,
     this.onSelect,
     required this.selectionIcon,
+    this.onLongPress,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -158,6 +159,7 @@ class _PaddonWipCard extends StatelessWidget {
   final bool selected;
   final VoidCallback? onSelect;
   final IconData selectionIcon;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -185,6 +187,7 @@ class _PaddonWipCard extends StatelessWidget {
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       onTap: onSelect,
+      onLongPress: onLongPress,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 64),
         child: Padding(

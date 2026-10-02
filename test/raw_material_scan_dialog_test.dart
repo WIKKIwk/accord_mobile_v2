@@ -11,6 +11,49 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  group('QR code extraction', () {
+    test('preserves opaque mold codes including slashes and punctuation', () {
+      for (final code in [
+        'Milano Premium 30/40',
+        'Milano Premium 30/40-1',
+        'Milano Premium 25/35+5',
+        'QOLIP:30/40?qr=OTHER#black',
+        'https:30/40',
+        '/QOLIP/30/40',
+        '//QOLIP/30/40',
+        'QOLIP-0007',
+        '400118DA2F17C3617F59DD00',
+      ]) {
+        expect(rawMaterialBarcodeFromQr('  $code  '), code);
+      }
+      expect(rawMaterialBarcodeFromQr('  '), '');
+    });
+
+    test('still extracts codes from absolute QR links without double decoding',
+        () {
+      for (final key in ['barcode', 'epc', 'qr']) {
+        expect(
+          rawMaterialBarcodeFromQr(
+            'https://erp.example/scan?$key=Milano%20Premium%2030%2F40',
+          ),
+          'Milano Premium 30/40',
+        );
+      }
+      expect(
+        rawMaterialBarcodeFromQr(
+          'https://erp.example/qolip/Milano%20Premium%2030%2F40',
+        ),
+        'Milano Premium 30/40',
+      );
+      expect(
+        rawMaterialBarcodeFromQr('accord://scan?qr=QOLIP%2F30%2F40'),
+        'QOLIP/30/40',
+      );
+      expect(
+          rawMaterialBarcodeFromQr('https://erp.example/qr/RM-001'), 'RM-001');
+      expect(rawMaterialBarcodeFromQr('QOLIP%2F30%2F40'), 'QOLIP%2F30%2F40');
+    });
+  });
   final originalScannerPlatform = MobileScannerPlatform.instance;
   late _SequencedScannerPlatform scannerPlatform;
 

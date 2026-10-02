@@ -70,7 +70,7 @@ class WerkaArchivePeriodScreen extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(0, 4, 0, bottomPadding),
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Column(
               children: [
                 _WerkaArchivePeriodSegmentTile(

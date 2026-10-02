@@ -167,6 +167,8 @@ class AdminUserListEntry {
     this.principalRole = UserRole.supplier,
     this.blocked = false,
     this.roleLabelOverride,
+    this.apparatusDisplay = '',
+    this.apparatusId = '',
   });
 
   final String id;
@@ -177,6 +179,8 @@ class AdminUserListEntry {
   final UserRole principalRole;
   final bool blocked;
   final String? roleLabelOverride;
+  final String apparatusDisplay;
+  final String apparatusId;
 
   factory AdminUserListEntry.fromJson(Map<String, dynamic> json) {
     final source = (json['source'] as String? ?? '').trim().toLowerCase();
@@ -207,14 +211,35 @@ class AdminUserListEntry {
       principalRole: principalRole,
       blocked: json['blocked'] as bool? ?? false,
       roleLabelOverride: json['role_label'] as String?,
+      apparatusDisplay: (json['apparatus_display'] as String? ?? '').trim(),
+      apparatusId: (json['apparatus_id'] as String? ?? '').trim(),
     );
+  }
+
+  static bool _isApparatusDisplayValue(String value) {
+    final v = value.trim();
+    if (v.isEmpty) return false;
+    // Never show canonical IDs like `apparatus:default:asset-010` in the list.
+    if (v.contains(':')) return false;
+    if (v.startsWith('apparatus')) return false;
+    return true;
   }
 
   String get roleLabel {
     if (kind == AdminUserKind.tayyorlovMasteri) return 'Tayyorlov masteri';
     if (kind == AdminUserKind.homashyoRezkachi) return 'Homashyo rezkachisi';
     final override = roleLabelOverride?.trim() ?? '';
+    final apparatus = apparatusDisplay.trim();
+    final hasApparatus = _isApparatusDisplayValue(apparatus);
     if (override.isNotEmpty) {
+      if (hasApparatus) {
+        // Backend already composes `role_label` as "<Apparatus> <Level>".
+        // Avoid doubling it, but compose when backend sent plain level.
+        if (override.toLowerCase().startsWith(apparatus.toLowerCase())) {
+          return override;
+        }
+        return '$apparatus $override';
+      }
       return override;
     }
     return kind == AdminUserKind.werka
@@ -228,7 +253,9 @@ class AdminUserListEntry {
                     : kind == AdminUserKind.materialTaminotchi
                         ? 'Material taminotchisi'
                         : kind == AdminUserKind.worker
-                            ? userRoleLabel(principalRole)
+                            ? (hasApparatus
+                                ? '$apparatus ${userRoleLabel(principalRole)}'
+                                : userRoleLabel(principalRole))
                             : 'Supplier';
   }
 }

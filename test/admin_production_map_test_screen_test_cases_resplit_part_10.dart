@@ -237,14 +237,14 @@ void _registeradmin_production_map_test_screen_testCases10() {
   });
 
   testWidgets(
-    'universal worker scanner accepts qolip before material and closes after both',
+    'universal worker scanner accepts slash-containing qolip before material and closes after both',
     (tester) async {
       await TestModeController.instance.setEnabled(true);
       const apparatus = _godexId;
       const orderId = 'zakaz-universal-start-scanner';
       const materialBarcode = 'RM-UNIVERSAL-READY';
       const productCode = 'UNIVERSAL-QR-PRODUCT';
-      const qolipCode = 'UNIVERSAL-QOLIP-QR';
+      const qolipCode = 'Milano Premium 30/40';
       const canonicalApparatus = AdminApparatus(
         id: apparatus,
         name: 'Godex aparat - DEMO',
@@ -300,6 +300,7 @@ void _registeradmin_production_map_test_screen_testCases10() {
           productCode: productCode,
           apparatusId: apparatus,
           product: 'Universal QR mahsulot',
+          orderNumber: '0115',
         ),
       );
       await MobileApi.instance.adminSaveProductionMapSequence(

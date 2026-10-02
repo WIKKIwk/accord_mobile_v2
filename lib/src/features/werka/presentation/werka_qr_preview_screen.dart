@@ -252,7 +252,6 @@ class _WerkaWipPreviewScreenState extends State<WerkaWipPreviewScreen> {
                         key: const ValueKey('werka-wip-product'),
                         style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 8),
-                    Text('WIP: ${batch.batchId}'),
                     Text('Buyurtma: ${batch.orderId}'),
                     Text('QR: ${batch.qrPayload}'),
                     Text(quantities.isEmpty
@@ -302,6 +301,7 @@ class _WerkaWipPreviewScreenState extends State<WerkaWipPreviewScreen> {
                     ? null
                     : (value) => setState(() => _warehouse = value),
               ),
+              const SizedBox(height: 12),
               FilledButton.icon(
                 key: const ValueKey('werka-wip-receive'),
                 onPressed: _canReceive ? _accept : null,

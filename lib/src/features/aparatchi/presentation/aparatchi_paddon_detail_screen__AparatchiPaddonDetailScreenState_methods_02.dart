@@ -78,6 +78,9 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
                         : !showingAvailableItems && _selectionMode && !_busy
                             ? () => _toggleAssignedWip(items[index])
                             : null,
+                    onLongPress: _busy
+                        ? null
+                        : () => _showPaddonWipReprint(items[index]),
                     selectionIcon: showingAvailableItems
                         ? Icons.add_circle_outline_rounded
                         : Icons.remove_circle_outline_rounded,
@@ -93,6 +96,107 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _showPaddonWipReprint(AdminProgressBatch batch) async {
+    final payload = batch.qrPayload.trim();
+    if (payload.isEmpty) {
+      _showMessage(
+        context.l10n.productionText('worker.daily.wip_qr_missing.body'),
+      );
+      return;
+    }
+    final orderId = batch.orderId.trim().isEmpty ? '—' : batch.orderId.trim();
+    final lengthM = batch.finishedGoodsMeter;
+    final hasLength = lengthM != null && lengthM.isFinite && lengthM > 0 ||
+        (batch.uom.trim().toLowerCase() == 'm' &&
+            batch.producedQty.isFinite &&
+            batch.producedQty > 0);
+    final lengthText = !hasLength
+        ? '—'
+        : formatQuantityWithUnit(
+            lengthM != null && lengthM.isFinite && lengthM > 0
+                ? lengthM
+                : batch.producedQty,
+            'm',
+            trimTrailingZeros: true,
+          );
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => RpsQrReprintSheet(
+        title: context.l10n.productionText('worker.daily.wip_qr'),
+        payload: payload,
+        itemName:
+            '${context.l10n.productionText('worker.daily.order')}: $orderId',
+        previewKey: ValueKey('paddon-wip-preview-${batch.batchId}'),
+        reprintButtonKey: ValueKey('paddon-wip-reprint-${batch.batchId}'),
+        details: [
+          RpsQrDetail(
+            context.l10n.productionText('worker.daily.order'),
+            orderId,
+          ),
+          RpsQrDetail(
+            context.l10n.productionText('worker.wip.info.qr'),
+            payload,
+          ),
+          RpsQrDetail(
+            context.l10n.productionText('worker.daily.field.length'),
+            lengthText,
+          ),
+        ],
+        onReprint: () => _reprintPaddonWip(batch),
+        errorMessage: (error) => error is MobileApiException
+            ? context.l10n.productionErrorMessage(
+                error.code,
+                fallback: context.l10n
+                    .productionText('worker.daily.reprint_failed'),
+              )
+            : context.l10n.productionText('worker.daily.reprint_failed'),
+        successMessage: context.l10n.productionText(
+          'worker.daily.wip_qr.reprinted',
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _reprintPaddonWip(AdminProgressBatch batch) async {
+    final printer = await pickProgressPrinter(context);
+    if (printer == null) {
+      throw StateError('Printer tanlanmadi yoki printer ulanmagan');
+    }
+    final prepared = await MobileApi.instance.adminProgressQrReprint(
+      qrPayload: batch.qrPayload,
+      progressBatchId: batch.batchId,
+      driverUrl: printer.driverUrl,
+      printer: printer.printer,
+      printMode: printer.printMode,
+      printTransport: printer.transport,
+    );
+    if (!prepared.ok) {
+      final status = prepared.printStatus.trim();
+      throw StateError(
+        status.isEmpty ? 'Server WIP QR kodini chop etmadi' : status,
+      );
+    }
+    if (printer.transport.isLocal) {
+      final printJob = prepared.printJob;
+      if (printJob == null) {
+        throw StateError('WIP QR uchun local print ma’lumoti kelmadi');
+      }
+      final result = await PrintService.printRps(
+        printJob,
+        printerProfile: printer.offlinePrinter,
+        bluetoothPrinter: printer.bluetoothPrinter,
+        transport: printer.transport,
+      );
+      if (!result.ok) {
+        throw StateError('Printer WIP QR kodini chop etmadi');
+      }
+    }
+    return null;
   }
 
   void _clearMessages() {
@@ -132,9 +236,9 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
           onRefresh: _retry,
           child: ListView(
             padding: EdgeInsets.fromLTRB(
+              4,
               12,
-              12,
-              12,
+              4,
               MediaQuery.viewPaddingOf(context).bottom + 120,
             ),
             children: [
@@ -149,6 +253,17 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
                 ),
               ),
               const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonalIcon(
+                  key: const ValueKey('paddon-edit-mode-action'),
+                  onPressed:
+                      _busy || _printingQr ? null : _handleEditModeAction,
+                  icon: Icon(_editModeActionIcon),
+                  label: Text(_editModeActionLabel(context)),
+                ),
+              ),
+              const SizedBox(height: 18),
               OutlinedButton.icon(
                 key: const ValueKey('paddon-print-qr'),
                 onPressed: _busy || _printingQr ? null : _printPaddonQr,
@@ -162,17 +277,6 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
                   _printingQr
                       ? context.l10n.productionText('worker.paddon.printing')
                       : context.l10n.productionText('worker.paddon.print'),
-                ),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.tonalIcon(
-                  key: const ValueKey('paddon-edit-mode-action'),
-                  onPressed:
-                      _busy || _printingQr ? null : _handleEditModeAction,
-                  icon: Icon(_editModeActionIcon),
-                  label: Text(_editModeActionLabel(context)),
                 ),
               ),
               const SizedBox(height: 8),

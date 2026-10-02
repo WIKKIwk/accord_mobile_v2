@@ -92,22 +92,50 @@ extension __WerkaArchiveListScreenStateAstPart01
     }
   }
 
-  String _statusLabel(AppLocalizations l10n, DispatchStatus status) {
-    switch (status) {
-      case DispatchStatus.pending:
-        return l10n.pendingStatus;
-      case DispatchStatus.accepted:
-        return l10n.confirmedStatus;
-      case DispatchStatus.partial:
-      case DispatchStatus.rejected:
-      case DispatchStatus.cancelled:
-        return l10n.returnedStatus;
-      case DispatchStatus.draft:
-        return l10n.draft;
+  String _formatQty(double value) => formatQuantity(value);
+
+  String _archivePaddonCode(DispatchRecord item) {
+    final ref = item.supplierRef.trim();
+    if (ref.toLowerCase().startsWith('paddon:')) {
+      final code = ref.substring('paddon:'.length).trim();
+      if (code.isNotEmpty) return code;
     }
+    final id = item.id.trim();
+    if (id.toLowerCase().startsWith('paddon:')) {
+      final rest = id.substring('paddon:'.length);
+      final sep = rest.indexOf(':');
+      final code = (sep < 0 ? rest : rest.substring(0, sep)).trim();
+      if (code.isNotEmpty) return code;
+    }
+    final name = item.supplierName.trim();
+    if (name.toLowerCase().startsWith('paddon')) {
+      final tail = name.substring(6).trim();
+      final sep = tail.indexOf('•');
+      final code = (sep < 0 ? tail : tail.substring(0, sep)).trim();
+      if (code.isNotEmpty) return code;
+    }
+    return '';
   }
 
-  String _formatQty(double value) => formatQuantity(value);
+  String _archivePaddonWarehouse(DispatchRecord item) {
+    if (item.highlight.trim().isNotEmpty) return item.highlight.trim();
+    final name = item.supplierName.trim();
+    final sep = name.indexOf('•');
+    if (sep >= 0) {
+      final warehouse = name.substring(sep + 1).trim();
+      if (warehouse.isNotEmpty) return warehouse;
+    }
+    return '';
+  }
+
+  void _openArchivePaddon(String paddonCode) {
+    final code = paddonCode.trim();
+    if (code.isEmpty) return;
+    Navigator.of(context).pushNamed(
+      AppRoutes.werkaPaddonReceive,
+      arguments: code,
+    );
+  }
 
   Future<void> _downloadPdf() async {
     if (_downloading) {
@@ -295,7 +323,7 @@ extension __WerkaArchiveListScreenStateAstPart01
     final data = _data;
     if (data == null || data.items.isEmpty) {
       return ListView(
-        padding: const EdgeInsets.fromLTRB(9, 4, 9, 110),
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 110),
         children: [
           if (showDailyFilter) ...[
             _DailyFilterCard(
@@ -309,13 +337,13 @@ extension __WerkaArchiveListScreenStateAstPart01
                 onChanged: _setDailyDate,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 8),
           ],
           Card.filled(
             margin: EdgeInsets.zero,
             color: scheme.surfaceContainerLow,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(18),
             ),
             child: Padding(
               padding: const EdgeInsets.all(18),
@@ -332,7 +360,7 @@ extension __WerkaArchiveListScreenStateAstPart01
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(9, 4, 9, 110),
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 110),
         children: [
           if (showDailyFilter) ...[
             _DailyFilterCard(
@@ -346,82 +374,104 @@ extension __WerkaArchiveListScreenStateAstPart01
                 onChanged: _setDailyDate,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 8),
           ],
           Card.filled(
             margin: EdgeInsets.zero,
             color: scheme.surfaceContainerLow,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(18),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
                 children: [
-                  Text(
-                    context.l10n.archiveRecordCountLabel(
-                      data.summary.recordCount,
+                  Expanded(
+                    child: Text(
+                      context.l10n.archiveRecordCountLabel(
+                        data.summary.recordCount,
+                      ),
+                      style: theme.textTheme.titleSmall,
                     ),
-                    style: theme.textTheme.titleMedium,
                   ),
                   if (data.summary.totalsByUOM.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final total in data.summary.totalsByUOM)
-                          Chip(
-                            label: Text(
-                              context.l10n.archiveTotalByUomLabel(
-                                total.uom,
-                                total.qty,
-                              ),
-                            ),
+                    const SizedBox(width: 8),
+                    for (final total in data.summary.totalsByUOM)
+                      Chip(
+                        label: Text(
+                          context.l10n.archiveTotalByUomLabel(
+                            total.uom,
+                            total.qty,
                           ),
-                      ],
-                    ),
+                        ),
+                        labelPadding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                      ),
                   ],
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 14),
-          Card.filled(
-            margin: EdgeInsets.zero,
-            color: scheme.surfaceContainerLow,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-            ),
-            child: Column(
-              children: [
-                for (int index = 0; index < data.items.length; index++) ...[
-                  _ArchiveRow(
-                    title: data.items[index].supplierName,
-                    subtitle:
-                        '${data.items[index].itemCode} • ${data.items[index].itemName}',
-                    metric: _metricLabel(data.items[index]),
-                    status: _statusLabel(
-                      context.l10n,
-                      data.items[index].status,
-                    ),
-                    createdLabel: data.items[index].createdLabel,
-                    isLast: index == data.items.length - 1,
-                  ),
-                  if (index != data.items.length - 1)
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      indent: 18,
-                      endIndent: 18,
-                      color: Theme.of(
-                        context,
-                      ).dividerColor.withValues(alpha: 0.55),
+          const SizedBox(height: 8),
+          Builder(
+            builder: (context) {
+              final groups = <String, List<DispatchRecord>>{};
+              final order = <String>[];
+              for (final item in data.items) {
+                final code = _archivePaddonCode(item);
+                final key =
+                    code.isEmpty ? 'single:${item.id}' : 'paddon:$code';
+                if (!groups.containsKey(key)) {
+                  groups[key] = [];
+                  order.add(key);
+                }
+                groups[key]!.add(item);
+              }
+              return M3SegmentSpacedColumn(
+                children: [
+                  for (var index = 0; index < order.length; index++)
+                    Builder(
+                      builder: (context) {
+                        final key = order[index];
+                        final lines = groups[key]!;
+                        final first = lines.first;
+                        final code = _archivePaddonCode(first);
+                        final warehouse =
+                            _archivePaddonWarehouse(first);
+                        final isPaddon = code.isNotEmpty;
+                        final title = isPaddon
+                            ? 'Paddon $code'
+                            : first.supplierName.trim().isEmpty
+                                ? first.itemName.trim().isEmpty
+                                    ? first.itemCode.trim()
+                                    : first.itemName.trim()
+                                : first.supplierName.trim();
+                        final subtitle = isPaddon
+                            ? warehouse
+                            : '${first.itemCode} • ${first.itemName}';
+                        final count = lines.length;
+                        return _ArchivePaddonCard(
+                          key: ValueKey('archive-paddon-card-$key'),
+                          slot: M3SegmentedListGeometry
+                              .standaloneListSlotForIndex(
+                            index,
+                            order.length,
+                          ),
+                          title: title,
+                          subtitle: subtitle,
+                          countLabel: isPaddon
+                              ? '$count ta rulon'
+                              : _metricLabel(first),
+                          onTap: isPaddon
+                              ? () => _openArchivePaddon(code)
+                              : null,
+                        );
+                      },
                     ),
                 ],
-              ],
-            ),
+              );
+            },
           ),
         ],
       ),
