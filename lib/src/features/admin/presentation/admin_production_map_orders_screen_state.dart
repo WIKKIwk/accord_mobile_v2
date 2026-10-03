@@ -14,6 +14,10 @@ class _AdminProductionMapOrdersScreenState
   bool _workerRetryAllowed = true;
   bool _workerQrScanInFlight = false;
   Timer? _workerRecoveryTimer;
+  bool _workerLiveHealthy = false;
+  int _workerHttpFallbackGeneration = -1;
+  Timer? _workerHttpFallbackTimer;
+  Completer<void>? _workerHttpFallbackWait;
   bool _liveRefreshInFlight = false;
   bool _liveRefreshQueued = false;
   bool _mapsRefreshInFlight = false;

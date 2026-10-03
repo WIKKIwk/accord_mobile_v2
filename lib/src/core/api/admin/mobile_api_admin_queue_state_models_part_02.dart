@@ -12,19 +12,26 @@ extension MobileApiAdminQueueState on MobileApi {
     String orderId = '',
     bool fresh = false,
     bool workerScope = false,
+    AdminApparatusQueueSnapshot? since,
+    bool waitForChanges = false,
   }) {
     // Recovery after a network change must not rejoin a read still waiting
     // on the old connection. Ordinary concurrent readers remain deduplicated.
     if (fresh) _queueSnapshotReadEpoch++;
+    final cursor = workerScope && apparatus.trim().isEmpty && !fresh &&
+        since?.revision != null && (since?.epoch.isNotEmpty ?? false) &&
+        (since?.scope.isNotEmpty ?? false) ? since : null;
     final reads = _queueSnapshotReads[Zone.current] ??= {};
     final key = jsonEncode([
       MobileApi.baseUrl, AppSession.instance.token, _queueSnapshotReadEpoch,
       apparatus.trim(), orderId.trim(),
       workerScope,
+      cursor?.epoch, cursor?.revision, cursor?.scope, waitForChanges,
     ]);
     return reads.putIfAbsent(key, () => _loadProductionMapQueueSnapshot(
       apparatus: apparatus.trim(), orderId: orderId.trim(),
       workerScope: workerScope,
+      since: cursor, waitForChanges: waitForChanges,
     ).whenComplete(() { reads.remove(key); }));
   }
 
@@ -32,6 +39,8 @@ extension MobileApiAdminQueueState on MobileApi {
     required String apparatus,
     required String orderId,
     required bool workerScope,
+    required AdminApparatusQueueSnapshot? since,
+    required bool waitForChanges,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       if (_testModeForceProductionMapQueueSnapshotLoadFailure) {
@@ -85,10 +94,17 @@ extension MobileApiAdminQueueState on MobileApi {
               if (apparatus.isNotEmpty) 'apparatus': apparatus,
               if (apparatus.isNotEmpty) 'order_id': orderId,
               if (workerScope) 'worker_scope': 'true',
+              if (since != null) ...{
+                'if_epoch': since.epoch,
+                'if_rev': '${since.revision}',
+                'if_scope': since.scope,
+                if (waitForChanges) 'wait_ms': '6000',
+              },
             }),
         headers: _headers(requireToken()),
       ),
     );
+    if (response.statusCode == 304 && since != null) return since;
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'production_map_sequence');
     }

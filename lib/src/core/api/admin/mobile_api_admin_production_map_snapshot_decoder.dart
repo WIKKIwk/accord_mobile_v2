@@ -15,6 +15,10 @@ Future<AdminApparatusQueueSnapshot> decodeProductionMapQueueSnapshotPayload(
 
 AdminApparatusQueueSnapshot _decodeProductionMapQueueSnapshot(String source) {
   final payload = (jsonDecode(source) as Map).cast<String, dynamic>();
+  if (payload['completed_orders'] is List && payload['completion_requests'] is List &&
+      payload['completion_request_decisions'] is List) {
+    return AdminProductionMapLiveSnapshot.fromJson(payload);
+  }
   final visibleOrderIds = _parseRequiredProductionMapVisibleOrderIds(payload);
   _requireProductionMapSnapshotShape(payload, includesMaps: false);
   final orderControls = _parseAdminOrderControls(payload['order_controls']);

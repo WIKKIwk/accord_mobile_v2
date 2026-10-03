@@ -393,7 +393,8 @@ void _registerWorkerRecoveryTests() {
       await tester.pump();
       await tester.pump();
       expect(order(), findsOneWidget);
-      expect(find.text(_recoveryNotice), findsOneWidget);
+      expect(find.text(_recoveryNotice), findsNothing);
+      expect(h.snapshotReads, 2, reason: 'HTTPS confirms the state during WS outage');
       await tester.pump(const Duration(seconds: 1));
       await tester.pump();
       expect(connections, 2);
@@ -408,4 +409,30 @@ void _registerWorkerRecoveryTests() {
       await tester.pump();
     });
   }
+
+  testWidgets('worker recovery: HTTP fallback is bounded and stops on healthy live',
+      (tester) async {
+    final h = await prepare();
+    final first = StreamController<AdminProductionMapLiveSnapshot>();
+    final second = StreamController<AdminProductionMapLiveSnapshot>();
+    var connections = 0;
+    h.liveEvents = () => ++connections == 1 ? first.stream : second.stream;
+    await h.mount(tester);
+    first.addError(TimeoutException('WS blocked'));
+    await tester.pump();
+    await tester.pump();
+    expect(h.snapshotReads, 2);
+    expect(h.apparatusReads, 1);
+    expect(find.text(_recoveryNotice), findsNothing);
+    await tester.pump(const Duration(seconds: 1));
+    expect(h.snapshotReads, 2, reason: 'fallback does not spin on immediate replies');
+    second.add(h.live());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 30));
+    expect(h.snapshotReads, 2, reason: 'healthy WS stops HTTP fallback');
+    await dispose(tester);
+    unawaited(first.close());
+    unawaited(second.close());
+    await tester.pump();
+  });
 }
