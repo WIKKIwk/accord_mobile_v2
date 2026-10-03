@@ -190,6 +190,7 @@ void main() {
 
   _registeradmin_production_map_test_screen_testCases23();
   _registerWorkerLatencyTests();
+  _registerWorkerColourLatencyTests();
   _registerWorkerNoticeTests();
   _registerWorkerMaterialWidthNoticeTests();
   _registerWorkerFabQrTests();
