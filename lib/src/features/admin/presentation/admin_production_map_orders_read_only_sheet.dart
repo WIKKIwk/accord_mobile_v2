@@ -1098,9 +1098,23 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           )
           .timeout(_queueActionUiTimeout);
       if (!mounted) return null;
-      await _refreshQueueActionControlAfterWrite();
-      if (!mounted) return null;
-      setState(() => _actionInFlight = false);
+      final controlState = response.controlState;
+      final hasControl = controlState != null &&
+          controlState.apparatus == apparatus && controlState.orderId == orderId;
+      setState(() {
+        _actionControlGeneration++;
+        _actionInFlight = false;
+        _queueActionControl = hasControl ? controlState?.control : null;
+        if (hasControl && controlState != null) {
+          _queueStates = Map<String, String>.from(_queueStates)
+            ..[orderId] = controlState.queueState;
+          _stageStates = Map<String, String>.from(controlState.stageStates);
+          _orderControls = Map<String, AdminOrderControlState>.from(_orderControls)
+            ..[orderId] = controlState.orderControl;
+          _orderControlState = controlState.orderControl;
+        }
+      });
+      if (!hasControl) unawaited(_refreshQueueActionControlAfterWrite());
       return response.hold;
     } catch (error) {
       if (!mounted) return null;
