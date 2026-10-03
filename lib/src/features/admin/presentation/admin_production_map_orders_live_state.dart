@@ -170,13 +170,13 @@ extension _AdminProductionMapOrdersLiveState
         final error = streamError ?? const MobileApiException(
           code: 'live_closed', message: 'Live connection closed');
         _workerRetryAllowed = _canRetryWorkerRead(error);
-        _invalidateQueueSnapshotContract(_workerReadErrorText(error));
+        _invalidateQueueSnapshotContract(_workerReadErrorText(error), retryRead: false);
         if (!_workerRetryAllowed) return;
       }
-      // Workers retry at 1s -> 2s -> max 4s; admin keeps its 30s cap.
-      // Reset to 1s on the next successful snapshot (see listener below).
-      final delay = productionMapLiveReconnectDelay(
-        widget.workerMode && _liveReconnectAttempt > 2 ? 2 : _liveReconnectAttempt);
+      // Spread retries across devices, and cap repeated outages at 30s.
+      final baseDelay = productionMapLiveReconnectDelay(_liveReconnectAttempt);
+      final delay = Duration(milliseconds:
+          (baseDelay.inMilliseconds * (0.5 + Random().nextDouble() * 0.5)).round());
       _liveReconnectAttempt++;
       final reconnect = Completer<void>();
       _liveReconnectFinished = reconnect;
@@ -199,7 +199,11 @@ extension _AdminProductionMapOrdersLiveState
     });
     final subscription =
         (widget.liveEventsLoader?.call() ??
-            MobileApi.instance.adminProductionMapLiveStream()).listen(
+            MobileApi.instance.adminProductionMapLiveStream(
+              stateDelta: widget.workerMode,
+              epoch: _lastAppliedSnapshotEpoch,
+              revision: _lastAppliedSnapshotRevision,
+            )).listen(
       (message) {
         if (!mounted || generation != _liveStreamGeneration) {
           return;
@@ -211,6 +215,16 @@ extension _AdminProductionMapOrdersLiveState
           _applyCanonicalLiveSnapshot(message);
         } else if (message is AdminProductionMapLiveDelta) {
           _applyCanonicalLiveDelta(message);
+        } else if (message is AdminProductionMapLiveStateReady) {
+          if (message.epoch == _lastAppliedSnapshotEpoch &&
+              message.revision == _lastAppliedSnapshotRevision &&
+              !_queueSnapshotNeedsReconcile) {
+            _updateScreenState(_clearOrdersLoadError);
+          } else {
+            _requestStateReconcile();
+          }
+        } else if (message is AdminProductionMapLiveStateDelta) {
+          _applyCanonicalStateDelta(message);
         }
       },
       onError: (error, _) {
@@ -306,6 +320,70 @@ extension _AdminProductionMapOrdersLiveState
     _workerCompletedHistoryErrorMessage = null;
     _completionRequests = snapshot.completionRequests;
     _completionRequestsErrorMessage = null;
+  }
+
+  void _requestStateReconcile() {
+    _queueSnapshotNeedsReconcile = true;
+    _invalidateQueueSnapshotContract(
+      context.l10n.productionText('worker.connection.reconnecting'), retryRead: false,
+    );
+    // Compressed HTTP, single-flight. Never request a full WS frame on a gap.
+    unawaited(_refreshQueueSnapshot());
+  }
+
+  void _applyCanonicalStateDelta(AdminProductionMapLiveStateDelta delta) {
+    if (_retiredSnapshotEpochs.contains(delta.epoch)) return;
+    if (delta.epoch == _lastAppliedSnapshotEpoch &&
+        delta.revision < (_lastAppliedSnapshotRevision ?? -1)) return;
+    final before = _canonicalQueueSnapshot;
+    if (before == null || before.epoch != delta.epoch ||
+        before.revision != delta.baseRevision) {
+      // A delayed event covered by a newer REST snapshot is already applied.
+      if (delta.epoch == _lastAppliedSnapshotEpoch &&
+          delta.revision <= (_lastAppliedSnapshotRevision ?? -1)) return;
+      _requestStateReconcile();
+      return;
+    }
+    try {
+      final snapshot = delta.applyTo(before);
+      if (_snapshotBehindSequenceMoves(snapshot)) {
+        _requestStateReconcile();
+        return;
+      }
+      final completed = delta.patch['completed_orders'];
+      final requests = delta.patch['completion_requests'];
+      final decisions = delta.patch['completion_request_decisions'];
+      final nextCompleted = completed == null ? null : (completed as List)
+          .map((raw) => AdminCompletedQueueOrder.fromJson((raw as Map).cast<String, dynamic>())).toList();
+      final nextRequests = requests == null ? null : (requests as List)
+          .map((raw) => AdminCompletionRequestNotification.fromJson((raw as Map).cast<String, dynamic>())).toList();
+      final nextDecisions = decisions == null ? null : (decisions as List)
+          .map((raw) => AdminCompletionRequestDecisionNotification.fromJson((raw as Map).cast<String, dynamic>())).toList();
+      final replaceAll = _queueSnapshotNeedsReconcile;
+      _queueSnapshotGeneration++;
+      _queueSnapshotNeedsReconcile = false;
+      _rememberSnapshotVersion(snapshot);
+      _updateScreenState(() {
+        if (!identical(snapshot.maps, before.maps)) _orders = _productionMapZakazOrders(snapshot.maps);
+        _replaceQueueSnapshotMaps(snapshot,
+          changedFields: replaceAll ? null : delta.patch.keys.toSet());
+        if (nextCompleted != null) {
+          _workerCompletedOrdersGeneration++;
+          _completedWorkerOrders = nextCompleted;
+          _workerCompletedHistoryError = false;
+          _workerCompletedHistoryErrorMessage = null;
+        }
+        if (nextRequests != null) {
+          _completionRequestsGeneration++;
+          _completionRequests = nextRequests;
+          _completionRequestsErrorMessage = null;
+        }
+        _clearOrdersLoadError();
+      });
+      if (nextDecisions != null) _showNewRejectedCompletionDecisionNotices(nextDecisions);
+    } catch (_) {
+      _requestStateReconcile();
+    }
   }
 
   void _applyCanonicalLiveDelta(AdminProductionMapLiveDelta delta) {
@@ -594,14 +672,14 @@ extension _AdminProductionMapOrdersLiveState
     }
   }
 
-  void _invalidateQueueSnapshotContract(String message) {
+  void _invalidateQueueSnapshotContract(String message, {bool retryRead = true}) {
     _queueSnapshotGeneration++;
     if (!mounted) {
       return;
     }
     if (_queueSnapshotContractError && !_loading &&
         _queueSnapshotErrorMessage == message) {
-      _scheduleWorkerRecovery();
+      if (retryRead) _scheduleWorkerRecovery();
       return;
     }
     // Keep the last good state on screen (no list wipe, no loading spinner).
@@ -611,7 +689,7 @@ extension _AdminProductionMapOrdersLiveState
       _queueSnapshotErrorMessage = message;
       _loading = false;
     });
-    _scheduleWorkerRecovery();
+    if (retryRead) _scheduleWorkerRecovery();
   }
 
   bool _queueSnapshotChanged(AdminApparatusQueueSnapshot snapshot) {
@@ -699,7 +777,10 @@ extension _AdminProductionMapOrdersLiveState
     return false;
   }
 
-  void _replaceQueueSnapshotMaps(AdminApparatusQueueSnapshot snapshot) {
+  void _replaceQueueSnapshotMaps(AdminApparatusQueueSnapshot snapshot,
+      {Set<String>? changedFields}) {
+    _canonicalQueueSnapshot = snapshot;
+    bool changed(String field) => changedFields == null || changedFields.contains(field);
     // Queue/live updates also invalidate the separately loaded archive when
     // an order closes (including the worker finishing a pending early close).
     Map<String, String> closedLifecycles(
@@ -715,33 +796,35 @@ extension _AdminProductionMapOrdersLiveState
           closedLifecycles(_orderStatusesByOrderId),
           closedLifecycles(snapshot.orderStatuses),
         );
-    _sequenceByApparatus
+    if (changed('sequences')) _sequenceByApparatus
       ..clear()
       ..addAll(snapshot.sequences);
-    _sequenceVersions
+    if (changed('sequence_versions')) _sequenceVersions
       ..clear()
       ..addAll(snapshot.sequenceVersions);
-    _sequenceRevisions
+    if (changed('sequence_revisions')) _sequenceRevisions
       ..clear()
       ..addAll(snapshot.sequenceRevisions);
-    _sequenceNeedsSnapshot.clear();
-    _resumeSequenceMoves();
-    _visibleOrderIdsByApparatus
+    if (changed('sequences') || changed('sequence_versions') || changed('sequence_revisions')) {
+      _sequenceNeedsSnapshot.clear();
+      _resumeSequenceMoves();
+    }
+    if (changed('visible_order_ids')) _visibleOrderIdsByApparatus
       ..clear()
       ..addAll(snapshot.visibleOrderIds);
-    _queueStatesByApparatus
+    if (changed('queue_states')) _queueStatesByApparatus
       ..clear()
       ..addAll(snapshot.queueStates);
-    _stageStatesByOrderId
+    if (changed('stage_states')) _stageStatesByOrderId
       ..clear()
       ..addAll(snapshot.stageStates);
-    _queuePoliciesByApparatus
+    if (changed('queue_policies')) _queuePoliciesByApparatus
       ..clear()
       ..addAll(snapshot.queuePolicies);
-    _queueActionControlsByApparatus
+    if (changed('queue_action_controls')) _queueActionControlsByApparatus
       ..clear()
       ..addAll(snapshot.queueActionControls);
-    _workActivityByApparatus
+    if (changed('queue_action_controls')) _workActivityByApparatus
       ..clear()
       ..addAll({
         for (final apparatus in snapshot.queueActionControls.entries)
@@ -751,17 +834,17 @@ extension _AdminProductionMapOrdersLiveState
                 order.key: order.value.workActivity!,
           },
       });
-    _frozenOrdersByApparatus
+    if (changed('frozen_orders_by_apparatus')) _frozenOrdersByApparatus
       ..clear()
       ..addAll(snapshot.frozenOrdersByApparatus);
-    _orderControlsByOrderId
+    if (changed('order_controls')) _orderControlsByOrderId
       ..clear()
       ..addAll(snapshot.orderControls);
-    _earlyClosingOrderIds
+    if (changed('order_controls')) _earlyClosingOrderIds
       ..clear()
       ..addAll(snapshot.earlyClosingOrderIds);
-    _customerByMapId = {...snapshot.orderCustomers};
-    _orderStatusesByOrderId
+    if (changed('order_customers')) _customerByMapId = {...snapshot.orderCustomers};
+    if (changed('order_statuses')) _orderStatusesByOrderId
       ..clear()
       ..addAll(snapshot.orderStatuses);
     if (refreshClosed) unawaited(_refreshClosedOrders());

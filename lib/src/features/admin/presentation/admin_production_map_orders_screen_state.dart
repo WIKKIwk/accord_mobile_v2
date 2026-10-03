@@ -41,6 +41,7 @@ class _AdminProductionMapOrdersScreenState
   Timer? _queueSnapshotPollTimer;
   int? _lastAppliedSnapshotRevision;
   String _lastAppliedSnapshotEpoch = '';
+  AdminApparatusQueueSnapshot? _canonicalQueueSnapshot;
   final Set<String> _retiredSnapshotEpochs = {};
   final Map<String, int> _sequenceRevisions = {};
   final Set<String> _sequenceReplayInFlight = {};
