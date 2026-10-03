@@ -262,13 +262,15 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
   }
 
   Uri adminProductionMapLiveUri({bool delta = false, bool stateDelta = false,
-    String epoch = '', int? revision}) {
+    String epoch = '', int? revision, String scope = ''}) {
     final Uri base = Uri.parse(MobileApi.baseUrl);
     final String scheme = base.scheme == 'https' ? 'wss' : 'ws';
     final query = <String, String>{'token': requireToken()};
     if (stateDelta) {
       query['protocol'] = 'state_delta_v1';
+      query['worker_scope'] = 'true';
       query['epoch'] = epoch;
+      query['scope'] = scope;
       if (revision != null) query['rev'] = revision.toString();
     } else if (delta) {
       query['protocol'] = 'delta';
@@ -308,13 +310,14 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
     bool stateDelta = false,
     String epoch = '',
     int? revision,
+    String scope = '',
   }) async* {
     if (await TestModeController.instance.isEnabled()) {
       return;
     }
     await for (final event in connectWarehouseLive(
       adminProductionMapLiveUri(delta: enableDelta, stateDelta: stateDelta,
-        epoch: epoch, revision: revision),
+        epoch: epoch, revision: revision, scope: scope),
     )) {
       if (event['ok'] == true) {
         final type = event['type']?.toString();
@@ -325,7 +328,11 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
         } else if (type == 'delta') {
           yield AdminProductionMapLiveDelta.fromJson(event);
         } else {
-          yield AdminProductionMapLiveSnapshot.fromJson(event);
+          final maps = event['maps'];
+          yield !kIsWeb && maps is List && maps.length >= 32
+              ? await compute(_decodeProductionMapLiveSnapshot, event,
+                  debugLabel: 'production-live-snapshot')
+              : AdminProductionMapLiveSnapshot.fromJson(event);
         }
         continue;
       }

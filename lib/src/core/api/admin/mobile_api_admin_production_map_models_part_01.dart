@@ -150,6 +150,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
     super.frozenOrdersByApparatus = const {},
     super.revision,
     super.epoch,
+    super.scope,
   });
 
   final List<AdminCompletedQueueOrder> completedOrders;
@@ -213,6 +214,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
       ),
       revision: parseProductionMapSnapshotRevisionFromJson(json),
       epoch: json['epoch'] is String ? json['epoch'] as String : '',
+      scope: json['scope'] is String ? json['scope'] as String : '',
     );
     snapshot.validateContract();
     return snapshot;

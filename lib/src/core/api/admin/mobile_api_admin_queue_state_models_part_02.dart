@@ -11,6 +11,7 @@ extension MobileApiAdminQueueState on MobileApi {
     String apparatus = '',
     String orderId = '',
     bool fresh = false,
+    bool workerScope = false,
   }) {
     // Recovery after a network change must not rejoin a read still waiting
     // on the old connection. Ordinary concurrent readers remain deduplicated.
@@ -19,15 +20,18 @@ extension MobileApiAdminQueueState on MobileApi {
     final key = jsonEncode([
       MobileApi.baseUrl, AppSession.instance.token, _queueSnapshotReadEpoch,
       apparatus.trim(), orderId.trim(),
+      workerScope,
     ]);
     return reads.putIfAbsent(key, () => _loadProductionMapQueueSnapshot(
       apparatus: apparatus.trim(), orderId: orderId.trim(),
+      workerScope: workerScope,
     ).whenComplete(() { reads.remove(key); }));
   }
 
   Future<AdminApparatusQueueSnapshot> _loadProductionMapQueueSnapshot({
     required String apparatus,
     required String orderId,
+    required bool workerScope,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       if (_testModeForceProductionMapQueueSnapshotLoadFailure) {
@@ -77,8 +81,10 @@ extension MobileApiAdminQueueState on MobileApi {
       () => _get(
         Uri.parse(
             '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/sequence')
-            .replace(queryParameters: apparatus.isEmpty ? null : {
-              'apparatus': apparatus, 'order_id': orderId,
+            .replace(queryParameters: apparatus.isEmpty && !workerScope ? null : {
+              if (apparatus.isNotEmpty) 'apparatus': apparatus,
+              if (apparatus.isNotEmpty) 'order_id': orderId,
+              if (workerScope) 'worker_scope': 'true',
             }),
         headers: _headers(requireToken()),
       ),
@@ -86,37 +92,7 @@ extension MobileApiAdminQueueState on MobileApi {
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'production_map_sequence');
     }
-    final payload = jsonDecode(response.body) as Map<String, dynamic>;
-    final visibleOrderIds = _parseRequiredProductionMapVisibleOrderIds(payload);
-    _requireProductionMapSnapshotShape(payload, includesMaps: false);
-    final orderControls = _parseAdminOrderControls(payload['order_controls']);
-    final snapshot = AdminApparatusQueueSnapshot(
-      sequenceVersions: _stringMapOfStrings(payload['sequence_versions']),
-      sequenceRevisions: _parseSequenceRevisions(payload['sequence_revisions']),
-      sequences: parseApparatusSequenceMap(payload['sequences']),
-      visibleOrderIds: visibleOrderIds,
-      queueStates: parseApparatusQueueStateMap(payload['queue_states']),
-      stageStates: _parseProductionMapStageStates(payload['stage_states']),
-      queuePolicies: parseApparatusQueuePolicyMap(payload['queue_policies']),
-      queueActionControls: _parseAdminQueueActionControls(
-        payload['queue_action_controls'],
-      ),
-      orderControls: orderControls,
-      orderCustomers: _stringMapOfStrings(payload['order_customers']),
-      earlyClosingOrderIds: _parseEarlyClosingOrderIds(payload['order_controls']),
-      orderStatuses: _parseAdminOrderStatuses(payload['order_statuses']),
-      frozenOrdersByApparatus: _parseAdminFrozenOrdersByApparatus(
-        payload['frozen_orders_by_apparatus'],
-      ),
-      // New backend bundles `maps` + `rev`; old backend omits them.
-      // Missing maps => empty list triggers the one-shot legacy fallback.
-      // Missing rev => null triggers the fail-safe legacy apply path.
-      maps: parseProductionMapSnapshotMaps(payload['maps']),
-      revision: parseProductionMapSnapshotRevisionFromJson(payload),
-      epoch: payload['epoch'] is String ? payload['epoch'] as String : '',
-    );
-    snapshot.validateContract();
-    return snapshot;
+    return decodeProductionMapQueueSnapshotPayload(response.body);
   }
 
   Future<AdminOrderControlState?> adminProductionMapOrderControl({

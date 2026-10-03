@@ -66,6 +66,7 @@ class AdminApparatusQueueSnapshot {
     this.maps = const [],
     this.revision,
     this.epoch = '',
+    this.scope = '',
   });
 
   final Map<String, List<String>> sequences;
@@ -92,6 +93,7 @@ class AdminApparatusQueueSnapshot {
   /// Monotonic snapshot revision (`rev`). Null on legacy backends.
   final int? revision;
   final String epoch;
+  final String scope;
 
   AdminOrderControlState orderControlFor(String orderId) {
     // The backend serializes only non-active order-control overrides. Missing

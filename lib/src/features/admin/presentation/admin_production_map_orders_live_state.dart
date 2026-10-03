@@ -56,7 +56,8 @@ extension _AdminProductionMapOrdersLiveState
 
   Future<AdminApparatusQueueSnapshot> _readOrdersSnapshot({bool fresh = false}) {
     return widget.queueSnapshotLoader?.call() ??
-        MobileApi.instance.adminProductionMapQueueSnapshot(fresh: fresh);
+        MobileApi.instance.adminProductionMapQueueSnapshot(fresh: fresh,
+          workerScope: widget.workerMode);
   }
 
   Future<List<AdminApparatus>> _readOrdersApparatus() =>
@@ -203,6 +204,7 @@ extension _AdminProductionMapOrdersLiveState
               stateDelta: widget.workerMode,
               epoch: _lastAppliedSnapshotEpoch,
               revision: _lastAppliedSnapshotRevision,
+              scope: _canonicalQueueSnapshot?.scope ?? '',
             )).listen(
       (message) {
         if (!mounted || generation != _liveStreamGeneration) {
@@ -216,8 +218,9 @@ extension _AdminProductionMapOrdersLiveState
         } else if (message is AdminProductionMapLiveDelta) {
           _applyCanonicalLiveDelta(message);
         } else if (message is AdminProductionMapLiveStateReady) {
-          if (message.epoch == _lastAppliedSnapshotEpoch &&
+          if (!message.resync && message.epoch == _lastAppliedSnapshotEpoch &&
               message.revision == _lastAppliedSnapshotRevision &&
+              message.scope == _canonicalQueueSnapshot?.scope &&
               !_queueSnapshotNeedsReconcile) {
             _updateScreenState(_clearOrdersLoadError);
           } else {
@@ -336,7 +339,7 @@ extension _AdminProductionMapOrdersLiveState
     if (delta.epoch == _lastAppliedSnapshotEpoch &&
         delta.revision < (_lastAppliedSnapshotRevision ?? -1)) return;
     final before = _canonicalQueueSnapshot;
-    if (before == null || before.epoch != delta.epoch ||
+    if (before == null || before.epoch != delta.epoch || before.scope != delta.scope ||
         before.revision != delta.baseRevision) {
       // A delayed event covered by a newer REST snapshot is already applied.
       if (delta.epoch == _lastAppliedSnapshotEpoch &&

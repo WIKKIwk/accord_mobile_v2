@@ -6,10 +6,12 @@ class AdminProductionMapLiveStateReady
     required this.epoch,
     required this.revision,
     required this.resync,
+    this.scope = '',
   });
   final String epoch;
   final int revision;
   final bool resync;
+  final String scope;
 
   factory AdminProductionMapLiveStateReady.fromJson(Map<String, dynamic> json) {
     final revision = parseProductionMapSnapshotRevisionFromJson(json);
@@ -19,6 +21,7 @@ class AdminProductionMapLiveStateReady
     }
     return AdminProductionMapLiveStateReady(
       epoch: epoch,
+      scope: json['scope'] is String ? json['scope'] as String : '',
       revision: revision,
       resync: json['type'] == 'state_resync' || json['resync'] == true,
     );
@@ -101,11 +104,13 @@ class AdminProductionMapLiveStateDelta
     required this.baseRevision,
     required this.revision,
     required this.patch,
+    this.scope = '',
   });
   final String epoch;
   final int baseRevision;
   final int revision;
   final Map<String, dynamic> patch;
+  final String scope;
 
   factory AdminProductionMapLiveStateDelta.fromJson(Map<String, dynamic> json) {
     final revision = parseProductionMapSnapshotRevisionFromJson(json);
@@ -148,12 +153,15 @@ class AdminProductionMapLiveStateDelta
       baseRevision: base,
       revision: revision,
       patch: patch,
+      scope: json['scope'] is String ? json['scope'] as String : '',
     );
   }
 
   AdminApparatusQueueSnapshot applyTo(AdminApparatusQueueSnapshot before) {
     // A delta cannot fill missing history or cross a server restart.
-    if (before.epoch != epoch || before.revision != baseRevision) {
+    if (before.epoch != epoch ||
+        before.revision != baseRevision ||
+        before.scope != scope) {
       throw _productionMapQueueContractException('state delta cursor mismatch');
     }
     var maps = before.maps;
@@ -196,6 +204,7 @@ class AdminProductionMapLiveStateDelta
       maps: maps,
       revision: revision,
       epoch: epoch,
+      scope: scope,
       sequences: _applyProductionMapFieldPatch(
           before.sequences, patch['sequences'], _productionMapPatchStrings),
       sequenceVersions: _applyProductionMapFieldPatch(before.sequenceVersions,

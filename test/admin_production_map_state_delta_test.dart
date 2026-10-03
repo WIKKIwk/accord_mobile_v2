@@ -1,5 +1,6 @@
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:convert';
 
 const apparatus = 'apparatus:default:bosma_9';
 
@@ -69,6 +70,56 @@ Map<String, dynamic> nested(Object value) => {
     };
 
 void main() {
+  test('same revision from another worker scope cannot be applied', () {
+    final changedScope = AdminProductionMapLiveStateDelta.fromJson({
+      'epoch': 'epoch',
+      'base_rev': 10,
+      'rev': 11,
+      'scope': 'other',
+      'patch': {},
+    });
+    expect(() => changedScope.applyTo(snapshot()),
+        throwsA(isA<MobileApiException>()));
+  });
+
+  test('HTTP snapshot parsing matches inline and background model conversion',
+      () async {
+    final source = jsonEncode({
+      'ok': true,
+      'epoch': 'epoch',
+      'rev': 10,
+      'scope': 'worker-scope',
+      'maps': [],
+      'sequences': {
+        apparatus: ['order']
+      },
+      'visible_order_ids': {
+        apparatus: ['order']
+      },
+      'queue_states': {
+        apparatus: {'order': 'pending'}
+      },
+      'stage_states': {},
+      'queue_policies': [],
+      'order_controls': {},
+      'order_statuses': {},
+      'frozen_orders_by_apparatus': {},
+      'order_customers': {},
+      'queue_action_controls': {
+        apparatus: {'order': control('pending')}
+      },
+    });
+    final inline = await decodeProductionMapQueueSnapshotPayload(source,
+        backgroundThresholdCodeUnits: source.length + 1);
+    final background = await decodeProductionMapQueueSnapshotPayload(source,
+        backgroundThresholdCodeUnits: 0);
+    expect(background.revision, inline.revision);
+    expect(background.scope, 'worker-scope');
+    expect(background.sequences, inline.sequences);
+    expect(background.queueActionControls[apparatus]!['order']!.contractValid,
+        isTrue);
+  });
+
   test('colour delta installs state and authoritative controls atomically', () {
     final before = snapshot();
     final next = delta({

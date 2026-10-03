@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../native_iroh_transport.dart';
+import '../api/json_payload_decoder.dart';
 
 Stream<Map<String, dynamic>> connectWarehouseLivePlatform(
   Uri uri, {
@@ -74,14 +75,11 @@ Stream<Map<String, dynamic>> _connectLive(
       // Ping/pong detects half-open transport without treating a quiet queue
       // (no JSON changes) as disconnected or polling full snapshots.
       connected.pingInterval = pingInterval;
-      socketSubscription = connected.listen((Object? message) {
-        if (cancelled || controller.isClosed || message is! String) return;
-        try {
-          final decoded = jsonDecode(message);
-          if (decoded is Map<String, dynamic>) controller.add(decoded);
-        } catch (error, stackTrace) {
-          fail(error, stackTrace);
-        }
+      // asyncMap pauses the source while a large frame is decoded, preserving
+      // event order and preventing overlapping isolate jobs during bursts.
+      socketSubscription = connected.where((message) => message is String)
+          .cast<String>().asyncMap(decodeJsonMapPayload).listen((decoded) {
+        if (!cancelled && !controller.isClosed) controller.add(decoded);
       }, onError: fail, onDone: finish);
       if (controller.isPaused) socketSubscription?.pause();
       if (sendPings) {
