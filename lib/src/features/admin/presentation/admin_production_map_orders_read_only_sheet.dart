@@ -1118,9 +1118,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       return response.hold;
     } catch (error) {
       if (!mounted) return null;
-      setState(() => _actionInFlight = false);
+      setState(() {
+        _actionControlGeneration++;
+        _actionInFlight = false;
+        _queueActionControl = null;
+      });
       unawaited(_refreshQueueActionControlAfterWrite());
-      _showSheetNotice(_sheetActionErrorText(error));
+      _showSheetNotice(error is TimeoutException
+          ? context.l10n.productionText('worker.notice.action_sent')
+          : _sheetActionErrorText(error));
       return null;
     }
   }

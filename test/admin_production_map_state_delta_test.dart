@@ -70,6 +70,18 @@ Map<String, dynamic> nested(Object value) => {
     };
 
 void main() {
+  test('malformed optional colour controls preserve the committed hold', () {
+    final response = AdminPrintPreflightResponse.fromJson({
+      'hold': {
+        'hold_id': 'hold', 'idempotency_key': 'hold', 'order_id': 'order',
+        'apparatus': apparatus, 'status': 'passed',
+      },
+      'control_state': {'rev': 11, 'control': {}},
+    });
+    expect(response.hold.holdId, 'hold');
+    expect(response.hold.status, 'passed');
+    expect(response.controlState, isNull);
+  });
   test('same revision from another worker scope cannot be applied', () {
     final changedScope = AdminProductionMapLiveStateDelta.fromJson({
       'epoch': 'epoch',
