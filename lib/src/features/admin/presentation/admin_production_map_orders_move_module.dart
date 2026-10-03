@@ -51,8 +51,6 @@ class _MoveModulePage extends StatefulWidget {
 }
 
 class _MoveModulePageState extends State<_MoveModulePage> {
-  double _topZoneRatio = 0.5;
-
   AdminApparatus? get topApparatus => widget.topApparatus;
 
   AdminApparatus? get bottomApparatus => widget.bottomApparatus;
@@ -91,17 +89,6 @@ class _MoveModulePageState extends State<_MoveModulePage> {
     required AdminApparatus to,
   }) get onMove => widget.onMove;
 
-  void _resizeMoveZones(double delta, double availableHeight) {
-    if (!availableHeight.isFinite || availableHeight <= 0) {
-      return;
-    }
-    final next = (_topZoneRatio + delta / availableHeight).clamp(0.24, 0.76);
-    if (next == _topZoneRatio) {
-      return;
-    }
-    setState(() => _topZoneRatio = next);
-  }
-
   @override
   Widget build(BuildContext context) {
     final top = topApparatus;
@@ -126,77 +113,47 @@ class _MoveModulePageState extends State<_MoveModulePage> {
         _openedOrderPanelCardGap,
         bottomInset,
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final availableHeight = constraints.maxHeight.isFinite
-              ? constraints.maxHeight
-              : MediaQuery.sizeOf(context).height * 0.7;
-          final topFlex = (_topZoneRatio.clamp(0.24, 0.76) * 1000).round();
-          final bottomFlex = 1000 - topFlex;
-          return Column(
-            children: [
-              Expanded(
-                flex: topFlex,
-                child: Column(
-                  children: [
-                    _MoveApparatusHeader(
-                      key: const ValueKey('move-top-apparatus-picker'),
-                      apparatus: top,
-                      alignment: Alignment.center,
-                      onTap: onPickTop,
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: _MoveDropZone(
-                        apparatus: top,
-                        orders: topOrders,
-                        selectedOrderIds: selectedOrderIds,
-                        draggingOrders: draggingOrders,
-                        draggingSource: draggingSource,
-                        canMoveTo: canMoveTo,
-                        allowUnassignedAlternativeMove:
-                            allowUnassignedAlternativeMove,
-                        onToggleSelect: onToggleSelect,
-                        buildDragPayload: buildDragPayload,
-                        onDragStarted: onDragStarted,
-                        onDragEnded: onDragEnded,
-                        onMove: onMove,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: _MoveBoundary(
-                  apparatus: bottom,
-                  onTap: onPickBottom,
-                  onVerticalDragUpdate: (delta) {
-                    _resizeMoveZones(delta, availableHeight);
-                  },
-                ),
-              ),
-              Expanded(
-                flex: bottomFlex,
-                child: _MoveDropZone(
-                  apparatus: bottom,
-                  orders: bottomOrders,
-                  selectedOrderIds: selectedOrderIds,
-                  draggingOrders: draggingOrders,
-                  draggingSource: draggingSource,
-                  canMoveTo: canMoveTo,
-                  allowUnassignedAlternativeMove:
-                      allowUnassignedAlternativeMove,
-                  onToggleSelect: onToggleSelect,
-                  buildDragPayload: buildDragPayload,
-                  onDragStarted: onDragStarted,
-                  onDragEnded: onDragEnded,
-                  onMove: onMove,
-                ),
-              ),
-            ],
-          );
-        },
+      child: TwoPaneTransfer(
+        topHeader: _MoveApparatusHeader(
+          key: const ValueKey('move-top-apparatus-picker'),
+          apparatus: top,
+          alignment: Alignment.center,
+          onTap: onPickTop,
+        ),
+        topBody: _MoveDropZone(
+          apparatus: top,
+          orders: topOrders,
+          selectedOrderIds: selectedOrderIds,
+          draggingOrders: draggingOrders,
+          draggingSource: draggingSource,
+          canMoveTo: canMoveTo,
+          allowUnassignedAlternativeMove: allowUnassignedAlternativeMove,
+          onToggleSelect: onToggleSelect,
+          buildDragPayload: buildDragPayload,
+          onDragStarted: onDragStarted,
+          onDragEnded: onDragEnded,
+          onMove: onMove,
+        ),
+        bottomHeader: _MoveApparatusHeader(
+          key: const ValueKey('move-boundary-apparatus-picker'),
+          apparatus: bottom,
+          alignment: Alignment.center,
+          onTap: onPickBottom,
+        ),
+        bottomBody: _MoveDropZone(
+          apparatus: bottom,
+          orders: bottomOrders,
+          selectedOrderIds: selectedOrderIds,
+          draggingOrders: draggingOrders,
+          draggingSource: draggingSource,
+          canMoveTo: canMoveTo,
+          allowUnassignedAlternativeMove: allowUnassignedAlternativeMove,
+          onToggleSelect: onToggleSelect,
+          buildDragPayload: buildDragPayload,
+          onDragStarted: onDragStarted,
+          onDragEnded: onDragEnded,
+          onMove: onMove,
+        ),
       ),
     );
   }

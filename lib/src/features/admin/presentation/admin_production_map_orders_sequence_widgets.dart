@@ -162,34 +162,26 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
               ),
             ),
             Expanded(
-              child: ReorderableListView.builder(
-                key: ValueKey('sequence-list-${selected.id}'),
+              child: M3SequenceList(
+                listKey: ValueKey('sequence-list-${selected.id}'),
                 padding: EdgeInsets.fromLTRB(
                   _openedOrderPanelCardGap,
                   8,
                   _openedOrderPanelCardGap,
                   widget.bottomPadding,
                 ),
-                buildDefaultDragHandles: false,
                 itemCount: orders.length,
-                onReorderItem: widget.onReorder,
+                itemKey: (index) => ValueKey(
+                  'sequence-${selected.id}-${orders[index].map.id}',
+                ),
+                onReorder: widget.onReorder,
                 itemBuilder: (context, index) {
                   final order = orders[index];
-                  return Padding(
+                  return buildOrderRow(
+                    index: index,
+                    order: order,
                     key: ValueKey(
-                      'sequence-${selected.id}-${order.map.id}',
-                    ),
-                    padding: EdgeInsets.only(
-                      bottom: index < orders.length - 1
-                          ? M3SegmentedListGeometry.gap
-                          : 0,
-                    ),
-                    child: buildOrderRow(
-                      index: index,
-                      order: order,
-                      key: ValueKey(
-                        'sequence-row-${selected.id}-${order.map.id}',
-                      ),
+                      'sequence-row-${selected.id}-${order.map.id}',
                     ),
                   );
                 },
@@ -532,16 +524,7 @@ class _SequenceOrderRow extends StatelessWidget {
                         ),
                       ),
                     if (!readOnly && canReorder)
-                      ReorderableDragStartListener(
-                        index: index,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(
-                            Icons.drag_handle_rounded,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
+                      M3SequenceDragHandle(index: index),
                   ],
                 ),
               ),

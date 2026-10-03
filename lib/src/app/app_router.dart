@@ -66,6 +66,7 @@ import '../features/qolip/presentation/qolip_home_screen.dart';
 import '../features/qolip/presentation/qolip_blocks_screen.dart';
 import '../features/qolip/presentation/qolip_checkouts_screen.dart';
 import '../features/qolip/presentation/qolip_location_transfer_screen.dart';
+import '../features/qolip/presentation/qolip_product_transfer_screen.dart';
 import '../features/qolip/presentation/qolip_products_screen.dart';
 import '../features/rezka/presentation/rezka_split_screen.dart';
 import '../features/shared/models/app_models.dart';

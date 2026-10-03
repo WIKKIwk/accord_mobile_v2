@@ -2,7 +2,8 @@ part of '../mobile_api.dart';
 
 final List<CalculateOrderTemplate> _testModeCalculateOrderTemplates = [];
 final List<CalculateMaterial> _testModeCalculateMaterials =
-    List<CalculateMaterial>.from(_defaultCalculateMaterials());
+    _defaultCalculateMaterials()
+      ..sort((left, right) => left.name.compareTo(right.name));
 const double kCalculateEdgeAllowanceMm = 15;
 const double kCalculateMinMoldExtraMm = 50;
 const double kCalculateAdhesiveGsmPerBond = 2.5;

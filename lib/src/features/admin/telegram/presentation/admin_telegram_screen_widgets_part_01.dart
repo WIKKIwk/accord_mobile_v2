@@ -151,6 +151,22 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
     }
   }
 
+  Future<void> _setAlertSender(String? id) async {
+    try {
+      final updated = await MobileApi.instance.updateTelegramAlertSender(id);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _future = Future.value(updated));
+      showAdminTopNotice(context, context.l10n.adminTelegramSettingsSaved);
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(
+            context, context.l10n.adminTelegramSettingsSaveFailed);
+      }
+    }
+  }
+
   Future<void> _shareInvite(TelegramInviteRole role) async {
     try {
       final invite = await MobileApi.instance.createTelegramInvite(role);
@@ -241,6 +257,12 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
               ),
               const SizedBox(height: 8),
               _TelegramGroupsCard(chats: data.chats),
+              const SizedBox(height: 8),
+              TelegramAlertSettingsCard(
+                settings: data.alerts,
+                users: data.users,
+                onSelectSender: _setAlertSender,
+              ),
               const SizedBox(height: 16),
               Text(
                 context.l10n.adminTelegramInviteRolesTitle,
@@ -266,6 +288,13 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
                 onShare: () => _shareInvite(TelegramInviteRole.salesManager),
                 onQr: () => _showInviteQr(TelegramInviteRole.salesManager),
               ),
+              const SizedBox(height: 4),
+              _TelegramRoleCard(
+                key: const ValueKey('telegram-alert-sender-invite'),
+                role: TelegramInviteRole.alertSender,
+                onShare: () => _shareInvite(TelegramInviteRole.alertSender),
+                onQr: () => _showInviteQr(TelegramInviteRole.alertSender),
+              ),
               const SizedBox(height: 20),
               Text(
                 context.l10n.adminTelegramUsersTitle,
@@ -289,6 +318,14 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
                       .where(
                         (user) => user.role == TelegramInviteRole.salesManager,
                       )
+                      .toList(growable: false),
+                ),
+                _TelegramUserGroup(
+                  title: context.l10n.adminTelegramAlertSenderRoleTitle,
+                  onDelete: _deleteTelegramUser,
+                  users: data.users
+                      .where(
+                          (user) => user.role == TelegramInviteRole.alertSender)
                       .toList(growable: false),
                 ),
               ],
@@ -511,6 +548,7 @@ class _TelegramGroupsCard extends StatelessWidget {
 
 class _TelegramRoleCard extends StatelessWidget {
   const _TelegramRoleCard({
+    super.key,
     required this.role,
     required this.onShare,
     required this.onQr,
@@ -528,9 +566,14 @@ class _TelegramRoleCard extends StatelessWidget {
     final title = role.label(
       adminLabel: context.l10n.adminTelegramAdminRoleTitle,
       salesManagerLabel: context.l10n.adminTelegramSalesManagerRoleTitle,
+      alertSenderLabel: context.l10n.adminTelegramAlertSenderRoleTitle,
     );
     return M3SegmentFilledSurface(
-      slot: isAdmin ? M3SegmentVerticalSlot.top : M3SegmentVerticalSlot.bottom,
+      slot: isAdmin
+          ? M3SegmentVerticalSlot.top
+          : role == TelegramInviteRole.alertSender
+              ? M3SegmentVerticalSlot.bottom
+              : M3SegmentVerticalSlot.middle,
       cornerRadius: M3SegmentedListGeometry.cornerLarge,
       backgroundColor: scheme.surfaceContainerLowest,
       child: Padding(
@@ -540,7 +583,9 @@ class _TelegramRoleCard extends StatelessWidget {
             Icon(
               isAdmin
                   ? Icons.admin_panel_settings_outlined
-                  : Icons.point_of_sale_outlined,
+                  : role == TelegramInviteRole.alertSender
+                      ? Icons.notifications_active_outlined
+                      : Icons.point_of_sale_outlined,
               size: 26,
               color: scheme.primary,
             ),
@@ -557,7 +602,9 @@ class _TelegramRoleCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    context.l10n.adminTelegramInviteRoleDescription,
+                    role == TelegramInviteRole.alertSender
+                        ? context.l10n.adminTelegramAlertSenderRoleDescription
+                        : context.l10n.adminTelegramInviteRoleDescription,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                       height: 1.35,

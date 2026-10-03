@@ -289,7 +289,8 @@ void _registerWipRouteContinuityTests() {
         for (final body
             in qrRequests.where((body) => body.containsKey('apparatus'))) {
           expect(body,
-              {'qr_payload': oldQr, 'apparatus': rezka2, 'order_id': orderId});
+              {'qr_payload': oldQr, 'require_active_order': true,
+                'apparatus': rezka2, 'order_id': orderId});
         }
         if (scenario.startsWith('wip_route_') ||
             scenario == 'empty-authoritative-route' ||
@@ -319,6 +320,7 @@ void _registerWipRouteContinuityTests() {
                   }
                   return http.Response(
                       jsonEncode({
+                        'active_order_validated': true,
                         'batch': originalBatch,
                         if (scoped) ...{
                           'validated_apparatus': rezka2,

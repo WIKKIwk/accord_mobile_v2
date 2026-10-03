@@ -5,6 +5,7 @@ import 'urdu_locale_translations.dart';
 import 'urdu_ui_text_translations.dart';
 
 part 'app_localizations_qr_history.dart';
+part 'app_localizations_qolip_product_transfer.dart';
 part 'app_localizations_AppLocalizations_methods_01.dart';
 part 'app_localizations_AppLocalizations_methods_02.dart';
 part 'app_localizations_declarations_part_01.dart';

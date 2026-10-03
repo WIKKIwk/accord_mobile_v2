@@ -61,7 +61,7 @@ void main() {
           expect(batch.wipStatus, 'waiting');
         } else {
           await expectLater(future, throwsA(isA<MobileApiException>().having(
-            (e) => e.code, 'code', 'progress_batch_not_accepted')));
+            (e) => e.code, 'code', 'progress_qr_validation_missing')));
         }
       }, () => MockClient((request) async {
         sent = jsonDecode(request.body);

@@ -1,6 +1,8 @@
 import '../../../../app/app_router.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/widgets/navigation/role_navigation_drawer.dart';
+import '../../../../core/session/session.dart';
+import '../../../shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 
 class QolipNavigationDrawer extends StatelessWidget {
@@ -71,6 +73,13 @@ class QolipNavigationDrawer extends StatelessWidget {
           label: l10n.profileTitle,
           routeName: AppRoutes.profile,
         ),
+        if (AppSession.instance.profile?.role == UserRole.qolipchi)
+          RoleNavigationDrawerDestination(
+            icon: Icons.drive_file_move_outlined,
+            selectedIcon: Icons.drive_file_move_rounded,
+            label: l10n.qolipText('product_transfer.title'),
+            routeName: AppRoutes.qolipProductTransfer,
+          ),
       ],
     );
   }

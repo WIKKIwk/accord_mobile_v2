@@ -1,22 +1,36 @@
+import 'telegram_alert_settings.dart';
+export 'telegram_alert_settings.dart';
+
 enum TelegramInviteRole {
   admin,
-  salesManager;
+  salesManager,
+  alertSender;
 
   factory TelegramInviteRole.fromJson(String? value) {
-    return value?.trim().toLowerCase() == 'sales_manager'
-        ? TelegramInviteRole.salesManager
-        : TelegramInviteRole.admin;
+    return switch (value?.trim().toLowerCase()) {
+      'sales_manager' => TelegramInviteRole.salesManager,
+      'alert_sender' => TelegramInviteRole.alertSender,
+      _ => TelegramInviteRole.admin,
+    };
   }
 
   String get jsonName {
-    return this == TelegramInviteRole.salesManager ? 'sales_manager' : 'admin';
+    return switch (this) {
+      TelegramInviteRole.admin => 'admin',
+      TelegramInviteRole.salesManager => 'sales_manager',
+      TelegramInviteRole.alertSender => 'alert_sender',
+    };
   }
 
   String label(
-      {required String adminLabel, required String salesManagerLabel}) {
-    return this == TelegramInviteRole.salesManager
-        ? salesManagerLabel
-        : adminLabel;
+      {required String adminLabel,
+      required String salesManagerLabel,
+      required String alertSenderLabel}) {
+    return switch (this) {
+      TelegramInviteRole.admin => adminLabel,
+      TelegramInviteRole.salesManager => salesManagerLabel,
+      TelegramInviteRole.alertSender => alertSenderLabel,
+    };
   }
 }
 
@@ -157,16 +171,21 @@ class TelegramAdminOverview {
     required this.userbot,
     required this.users,
     required this.chats,
+    this.alerts = const TelegramAlertSettings(),
   });
 
   final TelegramBotSettings bot;
   final TelegramUserbotSettings userbot;
   final List<TelegramUserAccount> users;
   final List<TelegramChat> chats;
+  final TelegramAlertSettings alerts;
 
   factory TelegramAdminOverview.fromJson(Map<String, dynamic> json) {
     final rawUsers = json['users'];
     return TelegramAdminOverview(
+      alerts: TelegramAlertSettings.fromJson(
+        (json['alerts'] as Map? ?? const {}).cast<String, dynamic>(),
+      ),
       bot: TelegramBotSettings.fromJson(
         (json['bot'] as Map<dynamic, dynamic>? ?? const {})
             .cast<String, dynamic>(),

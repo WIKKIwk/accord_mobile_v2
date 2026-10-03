@@ -290,7 +290,7 @@ class _QolipProductContainerCard extends StatelessWidget {
                               Padding(
                                 padding:
                                     const EdgeInsets.fromLTRB(14, 9, 14, 0),
-                                child: _QolipCodeRow(
+                                child: QolipCodeRow(
                                   product: child,
                                   selectionMode: qolipSelectionMode,
                                   selected: selectedQolipCodes.contains(
@@ -333,14 +333,15 @@ class _QolipProductContainerCard extends StatelessWidget {
   }
 }
 
-class _QolipCodeRow extends StatelessWidget {
-  const _QolipCodeRow({
+class QolipCodeRow extends StatelessWidget {
+  const QolipCodeRow({
     required this.product,
     required this.selectionMode,
     required this.selected,
     required this.onTap,
     required this.onLongPress,
     required this.onEdit,
+    this.trailing,
   });
 
   final QolipProduct product;
@@ -349,6 +350,7 @@ class _QolipCodeRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final VoidCallback onEdit;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -441,7 +443,9 @@ class _QolipCodeRow extends StatelessWidget {
                   ],
                 ),
               ),
-              if (selectionMode)
+              if (trailing != null)
+                trailing!
+              else if (selectionMode)
                 Checkbox(
                   value: selected,
                   onChanged: product.isInUse ? null : (_) => onTap(),

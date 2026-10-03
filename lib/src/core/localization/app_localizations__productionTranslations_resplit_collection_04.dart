@@ -424,10 +424,10 @@ const _app_localizations_declarations__productionTranslations_resplitPart04 = {
   },
   'worker.freeze.active': {
     'uz':
-        'Buyurtma muzlatilgan. Admin aktiv qilmaguncha davom ettirib bo‘lmaydi.',
+        'Buyurtma muzlatilgan. Ishni davom ettirish uchun, iltimos, adminga xabar bering va buyurtmani muzdan ochishini so‘rang.',
     'en':
-        'The order is frozen. It cannot continue until an admin activates it.',
+        'The order is frozen. Please contact an admin and ask them to unfreeze it before continuing.',
     'ru':
-        'Заказ заморожен. Продолжить можно только после активации администратором.',
+        'Заказ заморожен. Чтобы продолжить работу, пожалуйста, сообщите администратору и попросите разморозить заказ.',
   },
 };

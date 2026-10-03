@@ -72,6 +72,7 @@ const _app_router_AppRouter_resplit_class_AppRouter__routeCapabilities_resplit2V
   AppRoutes.materialTasks: {'raw_material.assign'},
   AppRoutes.qolipCheckouts: {'qolip.manage'},
   AppRoutes.qolipLocationTransfer: {'qolip.manage'},
+  AppRoutes.qolipProductTransfer: {'qolip.manage'},
   AppRoutes.boyoqchiHome: {'boyoqchi.access'},
   AppRoutes.preparation: {'preparation.access'},
   AppRoutes.rawMaterialSplit: {'raw_material.split'},

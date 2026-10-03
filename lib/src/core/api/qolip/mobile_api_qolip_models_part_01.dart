@@ -2,6 +2,7 @@
 part of '../mobile_api.dart';
 
 void resetMobileApiQolipTestModeData() {
+  _testModeQolipTransfers.clear();
   _testModeQolipLocations.clear();
   _testModeQolipSpecs.clear();
   _testModeFirstQolipCodes.clear();

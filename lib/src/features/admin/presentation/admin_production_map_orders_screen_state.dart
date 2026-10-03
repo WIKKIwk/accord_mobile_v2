@@ -901,7 +901,10 @@ class _AdminProductionMapOrdersScreenState
 
   Future<void> _handleWorkerFabQr(String qrPayload) async {
     try {
-      final batch = await MobileApi.instance.adminProgressQrLookup(qrPayload);
+      final batch = await MobileApi.instance.adminProgressQrLookup(
+        qrPayload,
+        requireActiveOrder: true,
+      );
       if (!mounted) return;
       final usageError = switch (batch.wipStatus.trim().toLowerCase()) {
         'in_use' => 'progress_batch_in_use',
@@ -935,18 +938,34 @@ class _AdminProductionMapOrdersScreenState
       if (targetOrderId.isEmpty) {
         showAdminTopNotice(
           context,
-          context.l10n.productionText('worker.error.qr_other_order'),
+          context.l10n.productionText('worker.qr.invalid_response'),
           icon: Icons.warning_amber_rounded,
         );
         return;
       }
       await _refreshLive();
       if (!mounted) return;
+      final orderControl = adminProductionMapOrderControlFor(
+        _orderControlsByOrderId,
+        targetOrderId,
+      );
+      if (orderControl != AdminOrderControlState.active) {
+        throw MobileApiException(
+          code: orderControl == AdminOrderControlState.frozen
+              ? 'order_frozen'
+              : 'order_freeze_requested',
+          message: '',
+        );
+      }
+      if (_loadError != null || _queueSnapshotContractError ||
+          !_workerCatalogReady) {
+        throw const MobileApiException(code: 'worker_qr_sync', message: '');
+      }
       final targetMaps =
           _orders.where((order) => order.map.id.trim() == targetOrderId);
       if (targetMaps.isEmpty) {
         showAdminTopNotice(context,
-            context.l10n.productionText('worker.error.other_order_lookup'));
+            context.l10n.productionText('worker.qr.order_unavailable'));
         return;
       }
       final targetOrder = targetMaps.first;
@@ -963,6 +982,14 @@ class _AdminProductionMapOrdersScreenState
             );
       final assigned =
           AppSession.instance.profile?.assignedApparatus ?? const <String>[];
+      if (candidates.isEmpty) {
+        throw const MobileApiException(
+          code: 'wip_route_destination_unresolved', message: '');
+      }
+      if (assigned.isEmpty) {
+        throw const MobileApiException(
+          code: 'worker_qr_no_assignment', message: '');
+      }
       AdminApparatus? station;
       for (final candidate in _apparatus) {
         if (candidates.contains(candidate.id.trim()) &&
@@ -977,6 +1004,11 @@ class _AdminProductionMapOrdersScreenState
             assignedApparatus: AppSession.instance.profile?.assignedApparatus ??
                 const <String>[],
           )) {
+        if (candidates.any((id) => !_apparatus.any(
+              (apparatus) => apparatus.id.trim() == id))) {
+          throw const MobileApiException(
+            code: 'worker_qr_catalog_missing', message: '');
+        }
         showAdminTopNotice(
           context,
           context.l10n.productionText('worker.error.assigned_machine'),
@@ -988,6 +1020,7 @@ class _AdminProductionMapOrdersScreenState
         qrPayload,
         apparatus: station.id,
         orderId: targetOrderId,
+        requireActiveOrder: true,
       );
       if (!mounted) return;
       final targetControl = _queueActionControlForApparatus(
@@ -1098,15 +1131,59 @@ class _AdminProductionMapOrdersScreenState
       if (!mounted) return;
       showAdminTopNotice(
         context,
-        error is MobileApiException
-            ? context.l10n.productionErrorMessage(
-                error.code,
-                fallback: error.message,
-              )
-            : context.l10n.productionText('worker.error.other_order_lookup'),
+        _workerQrErrorText(error),
         icon: Icons.warning_amber_rounded,
       );
     }
+  }
+
+  String _workerQrErrorText(Object error) {
+    final l10n = context.l10n;
+    if (error is TimeoutException) {
+      return l10n.productionText('worker.error.network_timeout');
+    }
+    if (error is http.ClientException) {
+      return l10n.productionText('worker.qr.connection');
+    }
+    if (error is FormatException || error is TypeError) {
+      return l10n.productionText('worker.qr.invalid_response');
+    }
+    if (error is MobileApiException) {
+      final key = switch (error.code.trim().toLowerCase()) {
+        'order_freeze_requested' => 'worker.qr.freeze_requested',
+        'progress_batch_not_found' || 'progress_qr_not_found' =>
+          'worker.qr.not_found',
+        'progress_batch_not_accepted' => 'worker.qr.not_accepted',
+        'progress_qr_invalid_response' || 'progress_qr_validation_missing' ||
+          'progress_input_invalid' =>
+          'worker.qr.invalid_response',
+        'worker_qr_no_assignment' => 'worker.qr.no_assignment',
+        'worker_qr_catalog_missing' => 'worker.qr.catalog_missing',
+        'worker_qr_sync' || 'production_map_snapshot_contract_invalid' =>
+          'worker.error.sync',
+        'order_not_found' || 'map_not_found' => 'worker.qr.order_unavailable',
+        'unauthorized' => 'worker.qr.session_expired',
+        'forbidden' => 'worker.qr.forbidden',
+        _ => '',
+      };
+      if (key.isNotEmpty) return l10n.productionText(key);
+      if (error.statusCode == 401) {
+        return l10n.productionText('worker.qr.session_expired');
+      }
+      if (error.statusCode == 403) {
+        return l10n.productionText('worker.qr.forbidden');
+      }
+      if ((error.statusCode ?? 0) >= 500) {
+        return l10n.productionText('worker.qr.server');
+      }
+      if (error.code == 'progress_batch_in_use' ||
+          error.code == 'progress_batch_already_used') {
+        return error.message;
+      }
+      final specific = l10n.productionErrorMessage(error.code);
+      if (specific.isNotEmpty) return specific;
+    }
+    return l10n.productionText('worker.qr.lookup_failed');
   }
 
   ProductionMapSaved? _workerCurrentOrderForApparatus({

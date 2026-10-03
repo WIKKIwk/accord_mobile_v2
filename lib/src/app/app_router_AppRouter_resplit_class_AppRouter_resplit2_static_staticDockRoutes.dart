@@ -60,6 +60,7 @@ const _app_router_AppRouter_resplit_class_AppRouter_staticDockRoutes_resplit2Val
   AppRoutes.qolipTasks,
   AppRoutes.qolipCheckouts,
   AppRoutes.qolipLocationTransfer,
+  AppRoutes.qolipProductTransfer,
   AppRoutes.boyoqchiHome,
   AppRoutes.preparation,
   AppRoutes.rawMaterialSplit,

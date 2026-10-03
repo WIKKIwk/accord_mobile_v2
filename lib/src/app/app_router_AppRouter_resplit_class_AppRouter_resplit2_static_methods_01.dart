@@ -583,6 +583,8 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
     case AppRoutes.qolipLocationTransfer:
       return AppRouter._buildRoute(
           settings, const QolipLocationTransferScreen());
+    case AppRoutes.qolipProductTransfer:
+      return AppRouter._buildRoute(settings, const QolipProductTransferScreen());
     case AppRoutes.boyoqchiHome:
       return AppRouter._buildRoute(settings, const BoyoqchiHomeScreen());
     case AppRoutes.preparation:

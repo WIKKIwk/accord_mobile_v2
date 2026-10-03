@@ -657,6 +657,28 @@ xatodan keyingi qayta urinish bir xil `request_id` bilan yuboriladi.
 Sinov rejimida haqiqiy xabar yuborilmaydi. API:
 `POST /v1/mobile/admin/production-maps/order-alert`.
 
+Admin → Telegram → `Taklif yuborish` bo‘limida alohida `Ogohlantiruvchi` roli
+(`alert_sender`) mavjud: uning taklif linkini ulashish yoki QR orqali profil
+ulash mumkin. Taklif linkini ochgan user Start bosadi, so‘ng botdagi
+`Telegram profilini ulash` tugmasi yoki `/login` orqali o‘z contact’i va inline
+kod/2FA bilan loginni tugatadi. Ogohlantiruvchi login/QR muvaffaqiyatidan keyin
+shu profil avtomatik `Ogohlantiruvchi profil` qilib tanlanadi; mavjud ulangan
+profilni `Telegram ogohlantirishlari` kartasidan ham tanlash mumkin. Botning shaxsiy chatida
+`/alerts` orqali ogohlantirish guruhini va shu guruhdagi material ta’minotchilar
+hamda Qolipchilarni tanlash/olib tashlash mumkin. Buni Telegram admini yoki
+tanlangan ogohlantiruvchi sozlaydi; profil guruhga yozishi va a’zolarni ko‘rishi
+kerak. Profil yoki guruh almashtirilganda mas’ullar qayta tanlanadi.
+
+Bosmachining mavjud tugmasi ichki chat bilan birga tanlangan profil orqali
+Telegram guruhiga xabar navbatga qo‘yadi va faqat tegishli rol mas’ullarini atmetka
+qiladi. Username bo‘lmagan a’zo ham Telegram ID orqali atmetka qilinadi. Backend
+`telegram_queued` qaytaradi; bu Telegram yetkazilganini emas, navbatga saqlanganini
+bildiradi. Telegram sozlanmagan bo‘lsa ichki chat ishlaydi. Tarmoq xatosi yoki
+server restartida saqlangan navbat qayta urinadi; bir xil `request_id` yangi
+Telegram xabarini navbatga qo‘shmaydi. `O‘chirish` yangi Telegram ogohlantirishlarini
+to‘xtatadi; allaqachon navbatga qo‘yilgan xabar o‘sha paytdagi guruh/mas’ullarga
+yuboriladi. API: `PUT /v1/mobile/admin/telegram/alert-settings`, `{sender_user_id}`.
+
 ### Qolipchi
 
 - block, location va cell;

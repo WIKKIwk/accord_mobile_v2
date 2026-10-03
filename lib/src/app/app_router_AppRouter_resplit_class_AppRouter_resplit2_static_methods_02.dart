@@ -18,6 +18,9 @@ bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
     return false;
   }
   final profile = session.profile!;
+  if (routeName == AppRoutes.qolipProductTransfer && profile.role != UserRole.qolipchi) {
+    return false;
+  }
   if (routeName == AppRoutes.adminPushConfig && profile.role != UserRole.admin) {
     return false;
   }

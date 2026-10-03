@@ -130,50 +130,14 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
     }
   }
 
-  Future<void> _loadMaterialCatalog({bool force = false}) async {
-    if (_loadingMaterialCatalog || (!force && _materialCatalog.isNotEmpty)) {
-      return;
-    }
-    _loadingMaterialCatalog = true;
-    try {
-      final materials = await MobileApi.instance.calculateMaterials();
-      if (mounted) {
-        setState(() => _materialCatalog = materials);
-      }
-    } catch (_) {
-      // The existing text values remain usable for legacy templates.
-    } finally {
-      _loadingMaterialCatalog = false;
-    }
-  }
-
-  Future<bool> _ensureMaterialCatalog() async {
-    if (_materialCatalog.isNotEmpty) {
-      return true;
-    }
-    await _loadMaterialCatalog(force: true);
-    if (_materialCatalog.isNotEmpty) {
-      return true;
-    }
-    if (mounted) {
-      showAdminTopNotice(
-        context,
-        context.l10n.adminText('status.load_failed'),
-      );
-    }
-    return false;
-  }
-
-  Future<List<CalculateMaterial>> _loadMaterialPickerPage(
+  List<CalculateMaterial> _materialPickerPage(
+    List<CalculateMaterial> materials,
     String query,
     int offset,
     int limit,
-  ) async {
-    if (!await _ensureMaterialCatalog()) {
-      return const <CalculateMaterial>[];
-    }
+  ) {
     final normalizedQuery = _normalizeMaterialKey(query);
-    final filtered = _materialCatalog.where((material) {
+    final filtered = materials.where((material) {
       if (!material.active) {
         return false;
       }
@@ -189,14 +153,25 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
   }
 
   Future<void> _openLayerMaterialPicker(int index) async {
-    if (index < 0 ||
-        index >= _layers.length ||
-        !await _ensureMaterialCatalog()) {
+    if (!mounted || index < 0 || index >= _layers.length) {
       return;
     }
-    if (!mounted) {
-      return;
+    // Share one fresh catalog within this sheet, including search and paging.
+    // A failed read is discarded so the sheet's retry can fetch it again.
+    Future<List<CalculateMaterial>>? catalogRequest;
+    Future<List<CalculateMaterial>> loadCatalog() async {
+      final request =
+          catalogRequest ??= MobileApi.instance.calculateMaterials();
+      try {
+        return await request;
+      } catch (_) {
+        if (identical(catalogRequest, request)) {
+          catalogRequest = null;
+        }
+        rethrow;
+      }
     }
+
     FocusManager.instance.primaryFocus?.unfocus();
     final picked = await showModalBottomSheet<CalculateMaterial>(
       context: context,
@@ -212,8 +187,12 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
           title: context.l10n.adminText('calculate.layer_material_title'),
           hintText: context.l10n.adminText('calculate.layer_material_search'),
           pageSize: 50,
-          cacheKey: 'calculate:materials',
-          loadPage: _loadMaterialPickerPage,
+          loadPage: (query, offset, limit) async => _materialPickerPage(
+            await loadCatalog(),
+            query,
+            offset,
+            limit,
+          ),
           itemTitle: (item) => item.name,
           itemSubtitle: (item) => context.l10n.adminText(
             'calculate.variant_count',
@@ -237,9 +216,6 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
 
   Future<void> _openMaterialCatalogManager() async {
     await Navigator.of(context).pushNamed(AppRoutes.adminCalculateMaterials);
-    if (!mounted) return;
-    M3AsyncPickerSheet.clearMemoryCache();
-    await _loadMaterialCatalog(force: true);
   }
 
   void _openDrawerRoute(String routeName) {

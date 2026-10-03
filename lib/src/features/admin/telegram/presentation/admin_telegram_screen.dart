@@ -11,6 +11,7 @@ import '../models/telegram_models.dart';
 import 'telegram_bot_settings_sheet.dart';
 import 'telegram_invite_qr_sheet.dart';
 import 'telegram_userbot_settings_sheet.dart';
+import 'telegram_alert_settings_card.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../../core/localization/urdu_aware_text.dart';

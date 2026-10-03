@@ -1640,6 +1640,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           normalized,
           apparatus: station,
           orderId: orderId,
+          requireActiveOrder: true,
         );
         if (!mounted || !_materialContextIsCurrent(orderId, station)) return;
         // The server validated the exact QR against the current map. It may
@@ -2533,6 +2534,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         accepted.qrPayload,
         apparatus: station,
         orderId: orderId,
+        requireActiveOrder: true,
       );
       if (validated.wipStatus.trim().toLowerCase() == 'waiting') {
         eligible.add(validated);

@@ -120,6 +120,7 @@ class AppRoutes {
   static const String qolipTasks = '/qolip-tasks';
   static const String qolipCheckouts = '/qolip-checkouts';
   static const String qolipLocationTransfer = '/qolip-location-transfer';
+  static const String qolipProductTransfer = '/qolip-product-transfer';
   static const String boyoqchiHome = '/boyoqchi-home';
   static const String preparation = '/preparation';
   static const String rawMaterialSplit = '/raw-material-split';

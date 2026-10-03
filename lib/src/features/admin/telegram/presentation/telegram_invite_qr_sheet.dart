@@ -186,7 +186,8 @@ class _TelegramInviteQrSheetState extends State<TelegramInviteQrSheet> {
                   widget.role.label(
                       adminLabel: l10n.adminTelegramAdminRoleTitle,
                       salesManagerLabel:
-                          l10n.adminTelegramSalesManagerRoleTitle),
+                          l10n.adminTelegramSalesManagerRoleTitle,
+                      alertSenderLabel: l10n.adminTelegramAlertSenderRoleTitle),
                   style: theme.textTheme.titleMedium),
               const SizedBox(height: 8),
               Text(

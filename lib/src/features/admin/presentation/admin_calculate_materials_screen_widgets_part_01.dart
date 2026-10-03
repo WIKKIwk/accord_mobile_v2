@@ -33,8 +33,7 @@ class _AdminCalculateMaterialsScreenState
       final materials = await MobileApi.instance.calculateMaterials();
       if (!mounted) return;
       setState(() {
-        _materials = List.of(materials)
-          ..sort((left, right) => left.name.compareTo(right.name));
+        _materials = materials;
         _loading = false;
       });
     } catch (error) {
@@ -60,13 +59,25 @@ class _AdminCalculateMaterialsScreenState
       final saved = await MobileApi.instance.upsertCalculateMaterial(draft);
       if (!mounted) return;
       setState(() {
-        final index = _materials.indexWhere((item) => item.id == saved.id);
+        final updated = [..._materials];
+        final index = updated.indexWhere((material) => material.id == saved.id);
         if (index < 0) {
-          _materials = [..._materials, saved];
+          updated.add(saved);
+        } else if (!saved.active && updated[index].active) {
+          updated.removeAt(index);
+          updated.add(saved);
         } else {
-          _materials = [..._materials]..[index] = saved;
+          updated[index] = saved;
         }
-        _materials.sort((left, right) => left.name.compareTo(right.name));
+        _materials = [
+          ...updated.where((material) => material.active),
+          ...updated.where((material) => !material.active),
+        ];
+      });
+      final materials = await MobileApi.instance.calculateMaterials();
+      if (!mounted) return;
+      setState(() {
+        _materials = materials;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -79,6 +90,39 @@ class _AdminCalculateMaterialsScreenState
           SnackBar(content: Text(_materialError(error, context.l10n))),
         );
       }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _reorder(int oldIndex, int newIndex) async {
+    if (_saving || oldIndex == newIndex) return;
+    final active = _materials.where((material) => material.active).toList();
+    if (oldIndex < 0 ||
+        oldIndex >= active.length ||
+        newIndex < 0 ||
+        newIndex >= active.length) return;
+    final previous = _materials;
+    active.insert(newIndex, active.removeAt(oldIndex));
+    setState(() {
+      _saving = true;
+      _materials = [
+        ...active,
+        ...previous.where((material) => !material.active),
+      ];
+    });
+    try {
+      final saved = await MobileApi.instance.reorderCalculateMaterials(
+        active.map((material) => material.id).toList(growable: false),
+      );
+      if (mounted) setState(() => _materials = saved);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _materials = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_materialError(error, context.l10n))),
+      );
+      await _load();
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -144,47 +188,81 @@ class _AdminCalculateMaterialsScreenState
         ),
       );
     }
-    return ListView(
+    final scheme = Theme.of(context).colorScheme;
+    final activeCount = _materials.where((material) => material.active).length;
+    return M3SequenceList(
+      key: const ValueKey('material-sequence-list'),
       padding: EdgeInsets.fromLTRB(
+        4,
         12,
-        12,
-        12,
+        4,
         MediaQuery.paddingOf(context).bottom + 160,
       ),
-      children: [
-        Text(
+      header: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text(
           context.l10n.adminText('material.description'),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: scheme.onSurfaceVariant,
               ),
         ),
-        const SizedBox(height: 12),
-        if (_materials.isEmpty)
-          Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(
-              child: Text(context.l10n.adminText('material.empty')),
-            ),
-          )
-        else
-          for (final material in _materials)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Card(
-                margin: EdgeInsets.zero,
-                child: ListTile(
-                  enabled: !_saving,
-                  onTap: () => _edit(material),
-                  title: Text(
-                    material.name,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+      itemCount: _materials.isEmpty ? 1 : _materials.length,
+      reorderableItemCount: activeCount,
+      itemKey: (index) => ValueKey(
+        _materials.isEmpty
+            ? 'material-empty'
+            : 'material-${_materials[index].id}',
+      ),
+      onReorder: _reorder,
+      itemBuilder: (context, index) {
+        if (_materials.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child:
+                Center(child: Text(context.l10n.adminText('material.empty'))),
+          );
+        }
+        final material = _materials[index];
+        final slot = M3SegmentedListGeometry.standaloneListSlotForIndex(
+          index,
+          _materials.length,
+        );
+        return M3SegmentFilledSurface(
+          slot: slot,
+          cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+          onTap: _saving ? null : () => _edit(material),
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 4, 8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 45),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      material.name,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: material.active
+                                ? scheme.onSurface
+                                : scheme.onSurfaceVariant,
+                          ),
+                    ),
                   ),
-                  subtitle: Text(_materialSubtitle(material, context.l10n)),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                ),
+                  if (material.active)
+                    M3SequenceDragHandle(index: index, enabled: !_saving)
+                  else
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(Icons.visibility_off_outlined,
+                          color: scheme.onSurfaceVariant),
+                    ),
+                ],
               ),
             ),
-      ],
+          ),
+        );
+      },
     );
   }
 }

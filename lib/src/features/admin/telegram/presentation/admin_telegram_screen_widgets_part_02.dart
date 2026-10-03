@@ -27,7 +27,9 @@ class _TelegramUserCard extends StatelessWidget {
               child: Icon(
                 isAdmin
                     ? Icons.admin_panel_settings_outlined
-                    : Icons.point_of_sale_outlined,
+                    : user.role == TelegramInviteRole.alertSender
+                        ? Icons.notifications_active_outlined
+                        : Icons.point_of_sale_outlined,
                 size: 20,
               ),
             ),
@@ -101,6 +103,8 @@ class _TelegramUserCard extends StatelessWidget {
                     adminLabel: context.l10n.adminTelegramAdminRoleTitle,
                     salesManagerLabel:
                         context.l10n.adminTelegramSalesManagerRoleTitle,
+                    alertSenderLabel:
+                        context.l10n.adminTelegramAlertSenderRoleTitle,
                   ),
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: scheme.primary,

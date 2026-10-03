@@ -245,9 +245,69 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'ru': 'Этот QR-код нельзя использовать для запуска другого заказа',
   },
   'worker.error.assigned_machine': {
-    'uz': 'Bu QR siz biriktirilgan apparatga mos emas',
-    'en': 'This QR code does not belong to your assigned machine',
-    'ru': 'Этот QR-код не относится к назначенному вам аппарату',
+    'uz': 'Bu rulonning keyingi bosqichi sizga biriktirilgan apparatlarda bajarilmaydi. Iltimos, admin bilan apparat biriktirilishini tekshiring.',
+    'en': 'The next stage for this roll is not performed on your assigned machines. Please ask an admin to check your machine assignment.',
+    'ru': 'Следующий этап этого рулона не выполняется на назначенных вам аппаратах. Попросите администратора проверить назначение аппарата.',
+  },
+  'worker.qr.freeze_requested': {
+    'uz': 'Buyurtmani muzlatish so‘ralgan. Yangi ish boshlash mumkin emas. Iltimos, buyurtma holatini aniqlashtirish uchun adminga murojaat qiling.',
+    'en': 'A freeze has been requested for this order. New work cannot start. Please contact an admin to clarify its status.',
+    'ru': 'Запрошена заморозка заказа. Начать новую работу нельзя. Пожалуйста, уточните состояние заказа у администратора.',
+  },
+  'worker.qr.not_found': {
+    'uz': 'Bu QR bo‘yicha ishlab chiqarilgan rulon topilmadi. Rulonning WIP yorlig‘idagi QRni skanerlang. Muammo takrorlansa, adminga xabar bering.',
+    'en': 'No production roll was found for this QR. Scan the QR on the roll’s WIP label. If the problem persists, contact an admin.',
+    'ru': 'По этому QR-коду производственный рулон не найден. Отсканируйте QR на этикетке WIP рулона. Если проблема повторится, сообщите администратору.',
+  },
+  'worker.qr.not_accepted': {
+    'uz': 'Bu rulon tanlangan buyurtma yoki bosqich uchun qabul qilinmaydi. Iltimos, rulon yorlig‘i va xaritadagi yo‘nalishni admin bilan tekshiring.',
+    'en': 'This roll is not accepted for the selected order or stage. Please check its label and map route with an admin.',
+    'ru': 'Этот рулон нельзя принять для выбранного заказа или этапа. Проверьте этикетку и маршрут в карте с администратором.',
+  },
+  'worker.qr.invalid_response': {
+    'uz': 'Server QR buyurtmasi yoki yo‘nalishini to‘liq tasdiqlamadi. Sahifani yangilang va qayta skanerlang. Muammo takrorlansa, adminga xabar bering.',
+    'en': 'The server did not fully confirm the QR order or route. Refresh and scan again. If the problem persists, contact an admin.',
+    'ru': 'Сервер не подтвердил заказ или маршрут QR полностью. Обновите страницу и повторите сканирование. Если проблема повторится, сообщите администратору.',
+  },
+  'worker.qr.no_assignment': {
+    'uz': 'Sizga apparat biriktirilmagan. Ishni boshlash uchun, iltimos, adminga apparat biriktirishini so‘rab murojaat qiling.',
+    'en': 'No machine is assigned to you. Please ask an admin to assign a machine before starting work.',
+    'ru': 'Вам не назначен аппарат. Перед началом работы попросите администратора назначить аппарат.',
+  },
+  'worker.qr.catalog_missing': {
+    'uz': 'Rulon yo‘nalishidagi apparat ro‘yxatda topilmadi. Sahifani yangilang. Muammo takrorlansa, admin apparat va xaritani tekshirsin.',
+    'en': 'A machine on this roll’s route is missing from the catalog. Refresh the page. If the problem persists, ask an admin to check the machine and map.',
+    'ru': 'Аппарат из маршрута рулона не найден в списке. Обновите страницу. Если проблема повторится, попросите администратора проверить аппарат и карту.',
+  },
+  'worker.qr.order_unavailable': {
+    'uz': 'QRga tegishli buyurtma joriy ro‘yxatda topilmadi. Sahifani yangilang. Muammo takrorlansa, adminga buyurtma holatini tekshirishini so‘rab xabar bering.',
+    'en': 'The QR order was not found in the current list. Refresh the page. If the problem persists, ask an admin to check the order status.',
+    'ru': 'Заказ из QR не найден в текущем списке. Обновите страницу. Если проблема повторится, попросите администратора проверить состояние заказа.',
+  },
+  'worker.qr.connection': {
+    'uz': 'Serverga ulanib bo‘lmadi. Internet aloqasini tekshiring va QRni qayta skanerlang.',
+    'en': 'Could not connect to the server. Check your internet connection and scan the QR again.',
+    'ru': 'Не удалось подключиться к серверу. Проверьте интернет и снова отсканируйте QR.',
+  },
+  'worker.qr.session_expired': {
+    'uz': 'Kirish sessiyasi tugagan. Ilovaga qayta kiring va QRni skanerlang.',
+    'en': 'Your session has expired. Sign in again and scan the QR.',
+    'ru': 'Сессия завершена. Войдите в приложение снова и отсканируйте QR.',
+  },
+  'worker.qr.forbidden': {
+    'uz': 'QRni tekshirish uchun ruxsatingiz yetarli emas. Iltimos, admin huquqlaringizni tekshirsin.',
+    'en': 'You do not have permission to validate this QR. Please ask an admin to check your access.',
+    'ru': 'У вас нет разрешения на проверку QR. Попросите администратора проверить ваши права.',
+  },
+  'worker.qr.server': {
+    'uz': 'Server QRni tekshira olmadi. Birozdan keyin qayta skanerlang. Muammo takrorlansa, adminga xabar bering.',
+    'en': 'The server could not validate the QR. Try again shortly. If the problem persists, contact an admin.',
+    'ru': 'Сервер не смог проверить QR. Повторите попытку немного позже. Если проблема повторится, сообщите администратору.',
+  },
+  'worker.qr.lookup_failed': {
+    'uz': 'QRni tekshirish yakunlanmadi. Sahifani yangilang va qayta skanerlang. Muammo takrorlansa, adminga xabar bering.',
+    'en': 'QR validation did not complete. Refresh and scan again. If the problem persists, contact an admin.',
+    'ru': 'Проверка QR не завершена. Обновите страницу и повторите сканирование. Если проблема повторится, сообщите администратору.',
   },
   'worker.error.wip_route_source': {
     'uz': 'WIP chiqarilgan bosqich xaritada aniqlanmadi. Admin xaritadagi yo‘nalishni tekshirsin; shu QR saqlanadi.',

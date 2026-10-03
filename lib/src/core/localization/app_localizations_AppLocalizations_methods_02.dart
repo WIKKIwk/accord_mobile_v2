@@ -49,6 +49,11 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
         'worker.error.wip_route_destination',
       'wip_route_ambiguous' => 'worker.error.wip_route_ambiguous',
       'wip_route_changed' => 'worker.error.wip_route_changed',
+      'progress_batch_not_found' || 'progress_qr_not_found' =>
+        'worker.qr.not_found',
+      'progress_batch_not_accepted' => 'worker.qr.not_accepted',
+      'progress_qr_invalid_response' || 'progress_qr_validation_missing' =>
+        'worker.qr.invalid_response',
       'raw_material_assignment_required' =>
         'worker.error.incomplete_material_groups',
       'waiting_sequence' => 'worker.waiting.sequence',

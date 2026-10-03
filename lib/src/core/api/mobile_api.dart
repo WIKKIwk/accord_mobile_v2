@@ -96,6 +96,7 @@ part 'raw_material_split/mobile_api_raw_material_split.dart';
 part 'customer/mobile_api_customer.dart';
 part 'gscale/mobile_api_gscale.dart';
 part 'qolip/mobile_api_qolip.dart';
+part 'qolip/mobile_api_qolip_product_transfer.dart';
 part 'qolip/mobile_api_qolip_order_products.dart';
 part 'qolip/mobile_api_qolip_products_cache.dart';
 part 'rezka/mobile_api_rezka.dart';

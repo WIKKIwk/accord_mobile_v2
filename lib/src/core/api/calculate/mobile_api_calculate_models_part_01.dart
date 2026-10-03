@@ -5,7 +5,29 @@ void resetMobileApiCalculateTestModeData() {
   _testModeCalculateOrderTemplates.clear();
   _testModeCalculateMaterials
     ..clear()
-    ..addAll(_defaultCalculateMaterials());
+    ..addAll(_defaultCalculateMaterials()
+      ..sort((left, right) => left.name.compareTo(right.name)));
+}
+
+List<CalculateMaterial> _decodeCalculateMaterials(
+    Map<String, dynamic> payload) {
+  final materials = <CalculateMaterial>[];
+  final rawMaterials = payload['materials'];
+  if (rawMaterials is List) {
+    for (final item in rawMaterials) {
+      if (item is! Map) {
+        debugPrint('Calculate material list skipped a non-object item');
+        continue;
+      }
+      try {
+        materials.add(CalculateMaterial.fromJson(item.cast<String, dynamic>()));
+      } catch (error, stackTrace) {
+        debugPrint('Calculate material item skipped: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+  }
+  return materials;
 }
 
 extension MobileApiCalculate on MobileApi {
@@ -62,25 +84,7 @@ extension MobileApiCalculate on MobileApi {
         statusCode: response.statusCode,
       );
     }
-    final materials = <CalculateMaterial>[];
-    final rawMaterials = payload['materials'];
-    if (rawMaterials is List) {
-      for (final item in rawMaterials) {
-        if (item is! Map) {
-          debugPrint('Calculate material list skipped a non-object item');
-          continue;
-        }
-        try {
-          materials.add(
-            CalculateMaterial.fromJson(item.cast<String, dynamic>()),
-          );
-        } catch (error, stackTrace) {
-          debugPrint('Calculate material item skipped: $error');
-          debugPrintStack(stackTrace: stackTrace);
-        }
-      }
-    }
-    return materials;
+    return _decodeCalculateMaterials(payload);
   }
 
   Future<CalculateMaterial> upsertCalculateMaterial(
@@ -92,8 +96,23 @@ extension MobileApiCalculate on MobileApi {
               id: 'test-material-${DateTime.now().millisecondsSinceEpoch}',
             )
           : material;
-      _testModeCalculateMaterials.removeWhere((item) => item.id == saved.id);
-      _testModeCalculateMaterials.add(saved);
+      final index =
+          _testModeCalculateMaterials.indexWhere((item) => item.id == saved.id);
+      if (index < 0) {
+        _testModeCalculateMaterials.add(saved);
+      } else if (!saved.active && _testModeCalculateMaterials[index].active) {
+        _testModeCalculateMaterials.removeAt(index);
+        _testModeCalculateMaterials.add(saved);
+      } else {
+        _testModeCalculateMaterials[index] = saved;
+      }
+      final ordered = [
+        ..._testModeCalculateMaterials.where((item) => item.active),
+        ..._testModeCalculateMaterials.where((item) => !item.active),
+      ];
+      _testModeCalculateMaterials
+        ..clear()
+        ..addAll(ordered);
       return saved;
     }
     final response = await _sendAuthorized(
@@ -125,6 +144,55 @@ extension MobileApiCalculate on MobileApi {
     return CalculateMaterial.fromJson(
       raw is Map ? raw.cast<String, dynamic>() : const <String, dynamic>{},
     );
+  }
+
+  Future<List<CalculateMaterial>> reorderCalculateMaterials(
+    List<String> materialIds,
+  ) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final active = {
+        for (final material in _testModeCalculateMaterials)
+          if (material.active) material.id: material,
+      };
+      if (materialIds.length != active.length ||
+          materialIds.toSet().length != materialIds.length ||
+          materialIds.any((id) => !active.containsKey(id))) {
+        throw MobileApiException(
+          code: 'calculate_material_sequence',
+          message: "Xomashyo ro'yxati o'zgargan. Qayta urinib ko'ring.",
+          statusCode: 400,
+        );
+      }
+      final ordered = [
+        for (final id in materialIds) active[id]!,
+        ..._testModeCalculateMaterials.where((material) => !material.active),
+      ];
+      _testModeCalculateMaterials
+        ..clear()
+        ..addAll(ordered);
+      return List<CalculateMaterial>.unmodifiable(ordered);
+    }
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse(
+            '${MobileApi.baseUrl}/v1/mobile/admin/calculate-materials/sequence'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'material_ids': materialIds}),
+      ),
+    );
+    final payload = await _calculateDecodeObject(response.body);
+    if (response.statusCode != 200) {
+      throw MobileApiException(
+        code: _calculateText(payload['error'],
+            fallback: 'calculate_material_sequence'),
+        message: _calculateText(payload['detail'],
+            fallback: _calculateText(payload['error'],
+                fallback: 'Calculate material sequence save failed')),
+        statusCode: response.statusCode,
+      );
+    }
+    return _decodeCalculateMaterials(payload);
   }
 
   Future<List<CalculateOrderTemplate>> calculateOrderTemplates() async {

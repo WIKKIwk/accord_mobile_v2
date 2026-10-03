@@ -621,69 +621,29 @@ class _OpenedOrderCardRow extends StatelessWidget {
   final bool disabled;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final map = order.map;
-    final subtitle = _openedOrderSubtitle(map, l10n: context.l10n);
-
-    return M3SegmentFilledSurface(
-      slot: slot,
-      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      borderRadiusOverride: borderRadiusOverride,
-      backgroundColor: disabled ? scheme.surfaceContainerHighest : null,
-      onTap: disabled ? null : onTap,
-      child: Opacity(
-        opacity: disabled ? 0.48 : 1,
-        child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 8, 8),
-          child: Row(
-            children: [
-              leading,
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _OpenedOrderTitleLine(
-                      map: map,
-                      theme: theme,
-                      scheme: scheme,
-                    ),
-                    if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      OverflowMarqueeText(
-                        text: subtitle,
-                        startDelay: Duration(
-                          milliseconds:
-                              1000 + (map.id.hashCode.abs() % 5) * 350,
-                        ),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          height: 1.05,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              trailing,
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => TransferListRow(
+        slot: slot,
+        title: _OpenedOrderTitleLine(
+            map: order.map,
+            theme: Theme.of(context),
+            scheme: Theme.of(context).colorScheme),
+        subtitle: _openedOrderSubtitle(order.map, l10n: context.l10n),
+        identity: order.map.id,
+        leading: leading,
+        trailing: trailing,
+        onTap: onTap,
+        borderRadiusOverride: borderRadiusOverride,
+        disabled: disabled,
+      );
 }
 
 class _OpenedOrderTitleLine extends StatelessWidget {
-  const _OpenedOrderTitleLine({
-    required this.map,
-    required this.theme,
-    required this.scheme,
-    this.titleColor,
-    this.secondaryColor,
-  });
+  const _OpenedOrderTitleLine(
+      {required this.map,
+      required this.theme,
+      required this.scheme,
+      this.titleColor,
+      this.secondaryColor});
   final ProductionMapDefinition map;
   final ThemeData theme;
   final ColorScheme scheme;
@@ -691,133 +651,18 @@ class _OpenedOrderTitleLine extends StatelessWidget {
   final Color? secondaryColor;
 
   @override
-  Widget build(BuildContext context) {
-    final code = _openedOrderDisplayCode(map);
-    final title = _openedOrderPrimaryTitle(map, l10n: context.l10n);
-    final resolvedTitleStyle = theme.textTheme.titleMedium?.copyWith(
-      color: titleColor,
-      fontWeight: FontWeight.w700,
-    );
-    final resolvedCodeStyle = theme.textTheme.labelMedium?.copyWith(
-      color: secondaryColor ?? scheme.onSurfaceVariant,
-      fontWeight: FontWeight.w800,
-      letterSpacing: 0.2,
-    );
-    // Qatorlar bir vaqtda sinxron yugurmasligi uchun har bir zakazga
-    // o'z hashidan kelib chiqqan kichik start-delay beramiz.
-    final staggerMs = 700 + (map.id.hashCode.abs() % 5) * 350;
-    final marqueeDelay = Duration(milliseconds: staggerMs);
-    if (code.isEmpty) {
-      return OverflowMarqueeText(
-        text: title,
-        style: resolvedTitleStyle,
-        startDelay: marqueeDelay,
+  Widget build(BuildContext context) => TransferItemTitle(
+        code: _openedOrderDisplayCode(map),
+        title: _openedOrderPrimaryTitle(map, l10n: context.l10n),
+        identity: map.id,
+        theme: theme,
+        scheme: scheme,
+        titleColor: titleColor,
+        secondaryColor: secondaryColor,
       );
-    }
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Cheksiz kenglikda (masalan o'lchov bosqichida) eski ellipsis.
-        if (!constraints.maxWidth.isFinite) {
-          return Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: code, style: resolvedCodeStyle),
-                TextSpan(
-                  text: ' • ',
-                  style: resolvedCodeStyle?.copyWith(
-                    color: secondaryColor ?? scheme.outline,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                TextSpan(text: title, style: resolvedTitleStyle),
-              ],
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          );
-        }
-        // Kod doim ko'rinib turadi, faqat uzun nom karusel bo'ladi.
-        return Row(
-          children: [
-            Flexible(
-              flex: 0,
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(text: code, style: resolvedCodeStyle),
-                    TextSpan(
-                      text: ' • ',
-                      style: resolvedCodeStyle?.copyWith(
-                        color: secondaryColor ?? scheme.outline,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.clip,
-                softWrap: false,
-              ),
-            ),
-            Expanded(
-              child: OverflowMarqueeText(
-                text: title,
-                style: resolvedTitleStyle,
-                startDelay: marqueeDelay,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
 }
 
-class _OpenedOrderIndexBadge extends StatelessWidget {
-  const _OpenedOrderIndexBadge({
-    required this.index,
-    this.selected = false,
-    this.onTap,
-  });
-  final int index;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final badge = SizedBox.square(
-      dimension: 30,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: selected ? scheme.primary : scheme.primaryContainer,
-          shape: BoxShape.circle,
-        ),
-        child: Center(
-          child: UrduAwareText(
-            '${index + 1}',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: selected ? scheme.onPrimary : scheme.onPrimaryContainer,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ),
-    );
-    if (onTap == null) {
-      return badge;
-    }
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: badge,
-      ),
-    );
-  }
-}
+typedef _OpenedOrderIndexBadge = TransferIndexBadge;
 
 class _EmptyOpenedOrders extends StatelessWidget {
   const _EmptyOpenedOrders({required this.message});

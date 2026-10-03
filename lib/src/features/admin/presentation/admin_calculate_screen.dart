@@ -60,8 +60,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final List<_LayerControllers> _layers = [_LayerControllers()];
   final _note = TextEditingController();
   final _color = TextEditingController();
-  List<CalculateMaterial> _materialCatalog = const <CalculateMaterial>[];
-  bool _loadingMaterialCatalog = false;
 
   String _customerRef = '';
   String _itemCode = '';
@@ -100,7 +98,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     }
     _calculationListenersAttached = true;
     unawaited(_warmQuickOrderTemplates());
-    unawaited(_loadMaterialCatalog());
   }
 
   @override

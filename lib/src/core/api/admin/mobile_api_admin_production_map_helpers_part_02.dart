@@ -144,7 +144,7 @@ MobileApiException _adminProductionMapException(
       'order_already_completed' => 'Tugallangan buyurtmani muzlatib bo‘lmaydi',
       'order_freeze_requested' =>
         'Buyurtma muzlatish uchun worker pauzasini kutmoqda',
-      'order_frozen' => 'Buyurtma muzlatilgan',
+      'order_frozen' => 'Buyurtma muzlatilgan. Ishni davom ettirish uchun, iltimos, adminga xabar bering va buyurtmani muzdan ochishini so‘rang.',
       'order_control_action_not_allowed' =>
         'Buyurtmaning hozirgi holatida bu amal mumkin emas',
       'order_delete_blocked' =>

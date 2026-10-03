@@ -557,6 +557,15 @@ extension AppLocalizationsAstPartResplit2_02 on AppLocalizations {
         'Создать ссылку и отправить через Telegram',
       );
 
+  String get adminTelegramAlertSenderRoleTitle =>
+      _t('Ogohlantiruvchi', 'Alert sender', 'Отправитель оповещений');
+
+  String get adminTelegramAlertSenderRoleDescription => _t(
+        'Taklif linki yoki QR orqali Telegram profilini ulash',
+        'Connect a Telegram profile using an invite link or QR',
+        'Подключить профиль Telegram через приглашение или QR',
+      );
+
   String get adminTelegramShareInvite => _t(
         'Invite linkni ulashish',
         'Share invite link',

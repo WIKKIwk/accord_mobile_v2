@@ -101,21 +101,6 @@ String _numberText(double value) {
   return value.toStringAsFixed(4).replaceFirst(RegExp(r'0+$'), '');
 }
 
-String _materialSubtitle(
-  CalculateMaterial material,
-  AppLocalizations l10n,
-) {
-  final density = material.densityGCm3 > 0
-      ? '${_numberText(material.densityGCm3)} g/cm³'
-      : l10n.adminText('material.actual_gsm_short');
-  final microns = material.variants.map((item) => item.micron).join(', ');
-  final inactive =
-      material.active ? '' : ' • ${l10n.adminText('material.inactive_suffix')}';
-  return microns.isEmpty
-      ? '$density$inactive'
-      : '$density • $microns mkr$inactive';
-}
-
 String _materialError(Object error, AppLocalizations l10n) {
   if (error is MobileApiException) return error.message;
   return l10n.adminText('status.save_failed');

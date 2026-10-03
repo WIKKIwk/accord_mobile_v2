@@ -1,6 +1,30 @@
 part of '../mobile_api.dart';
 
 extension MobileApiAdminTelegram on MobileApi {
+  Future<TelegramAdminOverview> updateTelegramAlertSender(
+      String? senderUserId) async {
+    if (AppSession.instance.isTestModeSession ||
+        await TestModeController.instance.isEnabled()) {
+      throw const MobileApiException(
+          code: 'order_alert_test_mode',
+          message: 'Sinov rejimida sozlama o‘zgartirilmaydi');
+    }
+    final response = await _sendAuthorized(() => _put(
+          Uri.parse(
+              '${MobileApi.baseUrl}/v1/mobile/admin/telegram/alert-settings'),
+          headers: _headers(requireToken())
+            ..['Content-Type'] = 'application/json',
+          body: jsonEncode({'sender_user_id': senderUserId}),
+        ));
+    if (response.statusCode != 200) {
+      throw const MobileApiException(
+          code: 'telegram_alert_settings_failed',
+          message: 'Ulangan Telegram profilini tanlang. Sozlama saqlanmadi');
+    }
+    return TelegramAdminOverview.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
   Future<TelegramAdminOverview> adminTelegramOverview() async {
     if (await TestModeController.instance.isEnabled()) {
       return TestModeDemoData.telegramAdminOverview;
