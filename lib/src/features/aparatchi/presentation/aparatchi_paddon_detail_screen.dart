@@ -5,6 +5,7 @@ import '../../../core/widgets/paddon_weight_totals.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/session/session_read_scope.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
@@ -42,7 +43,8 @@ class _AparatchiPaddonDetailScreenState
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    final initial = widget.initialSnapshot?.takeForCode(widget.code);
+    _future = initial == null ? _load() : Future.value(initial);
     unawaited(_loadApparatus());
   }
 

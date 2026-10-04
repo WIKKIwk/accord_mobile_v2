@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
@@ -15,8 +13,6 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/admin_progress_qr_scan_screen.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
-import '../../shared/models/app_models.dart';
-import 'aparatchi_paddon_display.dart';
 import 'aparatchi_paddon_detail_screen.dart';
 import 'widgets/aparatchi_dock.dart';
 import 'widgets/aparatchi_navigation_drawer.dart';
@@ -25,10 +21,9 @@ import '../../../core/localization/urdu_aware_text.dart';
 typedef AparatchiPaddonsLoader = Future<List<AdminPaddon>> Function();
 
 class AparatchiPaddonsScreen extends StatefulWidget {
-  const AparatchiPaddonsScreen({super.key, this.loader, this.apparatusLoader});
+  const AparatchiPaddonsScreen({super.key, this.loader});
 
   final AparatchiPaddonsLoader? loader;
-  final PaddonApparatusLoader? apparatusLoader;
 
   @override
   State<AparatchiPaddonsScreen> createState() => _AparatchiPaddonsScreenState();
@@ -36,7 +31,6 @@ class AparatchiPaddonsScreen extends StatefulWidget {
 
 class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
   late Future<List<AdminPaddon>> _future;
-  List<AdminApparatus> _apparatus = const [];
   bool _creatingPaddon = false;
   bool _deletingPaddon = false;
 
@@ -54,17 +48,6 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
   void initState() {
     super.initState();
     _future = _load();
-    unawaited(_loadApparatus());
-  }
-
-  Future<void> _loadApparatus() async {
-    try {
-      final catalog = await (widget.apparatusLoader?.call() ??
-          MobileApi.instance.adminApparatus(limit: 10000));
-      if (mounted) setState(() => _apparatus = catalog);
-    } catch (_) {
-      // Locations use a localized fallback when apparatus names are unavailable.
-    }
   }
 
   Future<List<AdminPaddon>> _load() {
@@ -84,10 +67,16 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
     }
   }
 
-  Future<void> _openPaddon(AdminPaddon paddon) async {
+  Future<void> _openPaddon(
+    AdminPaddon paddon, {
+    AparatchiPaddonDetailSeed? initialSnapshot,
+  }) async {
     await Navigator.of(context).pushNamed(
       AppRoutes.apparatusPaddonDetail,
-      arguments: AparatchiPaddonDetailArgs(code: paddon.code),
+      arguments: AparatchiPaddonDetailArgs(
+        code: paddon.code,
+        initialSnapshot: initialSnapshot,
+      ),
     );
     if (mounted) {
       await _retry();
@@ -95,22 +84,28 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
   }
 
   Future<void> _scanPaddon() async {
+    final scope = AparatchiPaddonDetailSeed.currentScope;
     final value = await Navigator.of(context).pushNamed<String>(
       AppRoutes.adminProgressQrScan,
       arguments: const AdminProgressQrScanArgs(scanOnly: true),
     );
     final code = value?.trim() ?? '';
-    if (code.isEmpty || !mounted) {
+    if (code.isEmpty ||
+        !mounted ||
+        scope != AparatchiPaddonDetailSeed.currentScope) {
       return;
     }
     try {
       final snapshot = await MobileApi.instance.adminPaddonDetail(code);
-      if (!mounted) {
+      if (!mounted || scope != AparatchiPaddonDetailSeed.currentScope) {
         return;
       }
-      await _openPaddon(snapshot.paddon);
+      await _openPaddon(
+        snapshot.paddon,
+        initialSnapshot: AparatchiPaddonDetailSeed(snapshot),
+      );
     } catch (error) {
-      if (mounted) {
+      if (mounted && scope == AparatchiPaddonDetailSeed.currentScope) {
         _showError(
           error,
           fallback: context.l10n.productionText('worker.paddon.qr_invalid'),
@@ -319,7 +314,6 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
                           paddons.length,
                         ),
                         paddon: paddons[index],
-                        apparatus: _apparatus,
                         onTap: () => _openPaddon(paddons[index]),
                         onLongPress: _canDeletePaddon && !_deletingPaddon
                             ? () => _paddonActions(paddons[index])
@@ -425,14 +419,12 @@ class _PaddonCard extends StatelessWidget {
     super.key,
     required this.slot,
     required this.paddon,
-    required this.apparatus,
     required this.onTap,
     this.onLongPress,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminPaddon paddon;
-  final List<AdminApparatus> apparatus;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 

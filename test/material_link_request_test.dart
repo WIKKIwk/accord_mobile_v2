@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/chat/models/chat_models.dart';
@@ -11,6 +13,7 @@ import 'package:accord_mobile_v2/src/features/material_link/presentation/materia
 import 'package:accord_mobile_v2/src/features/material_link/presentation/material_link_request_panel.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -58,6 +61,18 @@ SessionProfile profile(UserRole role, String ref) => SessionProfile(
       capabilities: const ['raw_material.assign', 'apparatus.queue.manage'],
     );
 
+Widget _localizedApp({required Widget home}) => MaterialApp(
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: home,
+    );
+
 void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -68,6 +83,296 @@ void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+  });
+
+  testWidgets(
+    'worker panel pauses hidden/background polling and refreshes on return',
+    (tester) async {
+      var reads = 0;
+      var linked = 0;
+      var status = 'pending';
+      await http.runWithClient(
+        () async {
+          await tester.pumpWidget(
+            _localizedApp(
+              home: Scaffold(
+                body: MaterialLinkRequestPanel(
+                  orderId: 'order-1',
+                  apparatusId: 'apparatus:test:film',
+                  onMaterialsLinked: () => linked++,
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(reads, 1);
+          final navigator = Navigator.of(
+            tester.element(find.byType(MaterialLinkRequestPanel)),
+          );
+          unawaited(
+            navigator.push(
+              MaterialPageRoute<void>(
+                builder: (_) => const Scaffold(body: Text('Another route')),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          status = 'approved';
+          await tester.pump(const Duration(seconds: 15));
+          expect(reads, 1);
+          expect(linked, 0);
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.paused,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          await tester.pump();
+          await tester.pumpAndSettle();
+          expect(reads, 1);
+          navigator.pop();
+          await tester.pumpAndSettle();
+          expect(reads, 2);
+          expect(linked, 1);
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.paused,
+          );
+          await tester.pump(const Duration(seconds: 10));
+          expect(reads, 2);
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          await tester.pump();
+          await tester.pumpAndSettle();
+          expect(reads, 3);
+          expect(linked, 1);
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        },
+        () => MockClient((request) async {
+          expectSync(request.method, 'GET');
+          reads++;
+          return http.Response(
+            jsonEncode({
+              'candidates': fixture()['candidates'],
+              'requests': [fixture(status: status)],
+            }),
+            200,
+          );
+        }),
+      );
+    },
+  );
+
+  testWidgets(
+    'late response for old order cannot notify or overwrite new order',
+    (tester) async {
+      final delayed = Completer<http.Response>();
+      var linked = 0;
+      var reads = 0;
+      Widget panel(String order) => _localizedApp(
+            home: Scaffold(
+              body: MaterialLinkRequestPanel(
+                key: const ValueKey('panel'),
+                orderId: order,
+                apparatusId: 'apparatus:test:film',
+                onMaterialsLinked: () => linked++,
+              ),
+            ),
+          );
+      await http.runWithClient(
+        () async {
+          await tester.pumpWidget(panel('old-order'));
+          await tester.pumpAndSettle();
+          expect(reads, 1);
+          await tester.pumpWidget(panel('new-order'));
+          await tester.pumpAndSettle();
+          expect(reads, 2);
+          expect(find.text('Ulash uchun so‘rov'), findsOneWidget);
+          delayed.complete(
+            http.Response(
+              jsonEncode({
+                'requests': [fixture(status: 'approved')],
+              }),
+              200,
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(linked, 0);
+          expect(find.text('Ulash uchun so‘rov'), findsOneWidget);
+          expect(find.textContaining('Tasdiqlangan'), findsNothing);
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        },
+        () => MockClient((request) async {
+          reads++;
+          if (request.url.queryParameters['order_id'] == 'old-order') {
+            return delayed.future;
+          }
+          return http.Response(
+            jsonEncode({'candidates': fixture()['candidates'], 'requests': []}),
+            200,
+          );
+        }),
+      );
+    },
+  );
+
+  testWidgets('late poll cannot overwrite post-mutation verification', (
+    tester,
+  ) async {
+    final delayed = Completer<http.Response>();
+    var reads = 0;
+    var writes = 0;
+    var linked = 0;
+    await http.runWithClient(
+      () async {
+        await tester.pumpWidget(
+          _localizedApp(
+            home: Scaffold(
+              body: MaterialLinkRequestPanel(
+                orderId: 'order-1',
+                apparatusId: 'apparatus:test:film',
+                onMaterialsLinked: () => linked++,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pump();
+        expect(reads, 2);
+        await tester.tap(find.text('Ulash uchun so‘rov'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('material-link-roll-R2')));
+        await tester.pump();
+        await tester.tap(find.text('So‘rov yuborish (1)'));
+        await tester.pumpAndSettle();
+        expect(writes, 1);
+        expect(reads, 4);
+        expect(find.text('Tasdiq kutilmoqda'), findsOneWidget);
+        delayed.complete(
+          http.Response(
+            jsonEncode({
+              'requests': [fixture(status: 'approved')],
+            }),
+            200,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(linked, 0);
+        expect(find.text('Tasdiq kutilmoqda'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      },
+      () => MockClient((request) async {
+        if (request.method == 'POST') {
+          writes++;
+          return http.Response('{"ok":true}', 200);
+        }
+        reads++;
+        if (reads == 2) return delayed.future;
+        return http.Response(
+          jsonEncode({
+            'candidates': fixture()['candidates'],
+            'requests': writes == 0 ? [] : [fixture()],
+          }),
+          200,
+        );
+      }),
+    );
+  });
+
+  testWidgets(
+    'account switch while roll picker is open cannot create request',
+    (tester) async {
+      var writes = 0;
+      await http.runWithClient(
+        () async {
+          await tester.pumpWidget(
+            _localizedApp(
+              home: Scaffold(
+                body: MaterialLinkRequestPanel(
+                  orderId: 'order-1',
+                  apparatusId: 'apparatus:test:film',
+                  onMaterialsLinked: () {},
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Ulash uchun so‘rov'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('material-link-roll-R2')));
+          await tester.pump();
+          AppSession.instance.profile = profile(
+            UserRole.aparatchi,
+            'another-worker',
+          );
+          AppSession.instance.revision.value++;
+          await tester.tap(find.text('So‘rov yuborish (1)'));
+          await tester.pumpAndSettle();
+          expect(writes, 0);
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        },
+        () => MockClient((request) async {
+          if (request.method == 'POST') writes++;
+          return http.Response(
+            jsonEncode({'candidates': fixture()['candidates'], 'requests': []}),
+            200,
+          );
+        }),
+      );
+    },
+  );
+
+  testWidgets('same-account token refresh preserves material request preflight',
+      (tester) async {
+    var reads = 0;
+    var writes = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_localizedApp(
+          home: Scaffold(
+              body: MaterialLinkRequestPanel(
+        orderId: 'order-1',
+        apparatusId: 'apparatus:test:film',
+        onMaterialsLinked: () {},
+      ))));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ulash uchun so‘rov'));
+      await tester.pumpAndSettle();
+      expect(
+          find.byKey(const ValueKey('material-link-roll-R2')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('material-link-roll-R2')));
+      await tester.pump();
+      await tester.tap(find.text('So‘rov yuborish (1)'));
+      await tester.pumpAndSettle();
+      expect(writes, 1);
+      expect(reads, 3);
+      expect(find.text('Tasdiq kutilmoqda'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+        () => MockClient((request) async {
+              if (request.method == 'POST') {
+                writes++;
+                return http.Response('{"ok":true}', 200);
+              }
+              reads++;
+              if (reads == 2) {
+                await AppSession.instance.setSession(
+                  token: 'refreshed-token',
+                  profile: AppSession.instance.profile!,
+                );
+              }
+              return http.Response(
+                  jsonEncode({
+                    'candidates': fixture()['candidates'],
+                    'requests': writes == 0 ? [] : [fixture()],
+                  }),
+                  200);
+            }));
   });
 
   test('chat card metadata and terminal status survive serialization', () {
@@ -113,7 +418,7 @@ void main() {
     addTearDown(playback.dispose);
     var posted = 0;
     await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(_localizedApp(
           home: Scaffold(
               body: ChatMessageBubble(
         mine: false,
@@ -125,6 +430,7 @@ void main() {
           'metadata': fixture(),
         }),
       ))));
+      await tester.pumpAndSettle();
       expect(find.byType(MaterialLinkRequestCard), findsOneWidget);
       await tester.tap(find.text('Ha, ulash'));
       await tester.pumpAndSettle();
@@ -138,6 +444,7 @@ void main() {
       expect(find.text('Tasdiq kutilmoqda'), findsNothing);
       expect(find.text('Rulon boshqa orderga ulangan'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
     },
         () => MockClient((request) async {
               if (request.method == 'POST') {
@@ -187,7 +494,7 @@ void main() {
     final available = fixture()['candidates'];
     await http.runWithClient(() async {
       AppSession.instance.profile = profile(UserRole.aparatchi, 'worker');
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(_localizedApp(
         home: Scaffold(
             body: MaterialLinkRequestPanel(
           orderId: 'order-1',
@@ -229,7 +536,7 @@ void main() {
       expect(find.text('So‘ralgan rulonlar: R2, R3'), findsOneWidget);
 
       AppSession.instance.profile = profile(UserRole.admin, 'admin');
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(_localizedApp(
           home: Scaffold(
         body: SingleChildScrollView(
             child: MaterialLinkRequestCard(
@@ -266,6 +573,7 @@ void main() {
       expect(find.text('Tasdiqlangan'), findsOneWidget);
       expect(find.text('Ulangan rulonlar: R2'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
     },
         () => MockClient((request) async {
               expect(request.headers['authorization'], 'Bearer token');
@@ -305,7 +613,7 @@ void main() {
       (tester) async {
     var changed = false;
     await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(_localizedApp(
           home: Scaffold(
         body: MaterialLinkRequestPanel(
           orderId: 'order-1',
@@ -334,6 +642,7 @@ void main() {
       Navigator.of(tester.element(find.byType(MaterialLinkRollPicker))).pop();
       await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
     },
         () => MockClient((request) async {
               if (request.method == 'POST') {
@@ -362,23 +671,25 @@ void main() {
     testWidgets('card actions limited to ${entry.role.name}/${entry.ref}',
         (tester) async {
       AppSession.instance.profile = profile(entry.role, entry.ref);
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(_localizedApp(
           home: Scaffold(
               body: MaterialLinkRequestCard(
         request: MaterialLinkRequest.fromJson(fixture()),
       ))));
+      await tester.pumpAndSettle();
       expect(find.text('Ha, ulash'),
           entry.canDecide ? findsOneWidget : findsNothing);
       expect(
           find.text('Yo‘q'), entry.canDecide ? findsOneWidget : findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
     });
   }
 
   testWidgets('roll picker starts empty and returns only selected roll',
       (tester) async {
     List<String>? picked;
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(_localizedApp(
         home: Builder(
             builder: (context) => Scaffold(
                     body: TextButton(
@@ -393,6 +704,7 @@ void main() {
                             ));
                   },
                 )))));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
     expect(
@@ -415,19 +727,23 @@ void main() {
   testWidgets(
       'shared card update closes actions; delayed pending cannot reopen',
       (tester) async {
-    Widget card(Map<String, dynamic> json) => MaterialApp(
+    Widget card(Map<String, dynamic> json) => _localizedApp(
         home: Scaffold(
             body: MaterialLinkRequestCard(
                 key: const ValueKey('shared-card'),
                 request: MaterialLinkRequest.fromJson(json))));
     await tester.pumpWidget(card(fixture()));
+    await tester.pumpAndSettle();
     expect(find.text('Ha, ulash'), findsOneWidget);
     await tester.pumpWidget(card(fixture(status: 'cancelled', revision: 2)));
+    await tester.pumpAndSettle();
     expect(find.text('Bekor qilingan'), findsOneWidget);
     expect(find.text('Ha, ulash'), findsNothing);
     await tester.pumpWidget(card(fixture()));
+    await tester.pumpAndSettle();
     expect(find.text('Bekor qilingan'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
   });
 
   for (final terminal in ['cancelled', 'stale', 'expired', 'approved']) {
@@ -438,7 +754,7 @@ void main() {
       var status = 'pending';
       var linked = 0;
       await http.runWithClient(() async {
-        await tester.pumpWidget(MaterialApp(
+        await tester.pumpWidget(_localizedApp(
             home: Scaffold(
                 body: MaterialLinkRequestPanel(
           orderId: 'order-1',
@@ -468,6 +784,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(linked, ['approved', 'stale'].contains(terminal) ? 1 : 0);
         await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
       },
           () => MockClient((_) async => http.Response(
               jsonEncode({
@@ -485,7 +802,7 @@ void main() {
       'stale with no remaining rolls does not offer another doomed request',
       (tester) async {
     await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(_localizedApp(
           home: Scaffold(
               body: MaterialLinkRequestPanel(
         orderId: 'order-1',
@@ -499,6 +816,7 @@ void main() {
           find.text('Hozir bu orderga ulash mumkin bo‘lgan bo‘sh rulon yo‘q'),
           findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
     },
         () => MockClient((_) async => http.Response(
             jsonEncode({

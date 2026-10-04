@@ -429,6 +429,15 @@ Action payload apparat, order, action va holatga qarab scan/progress/completion
 fieldlarini yuboradi. Backend response yangi queue state, progress batch yoki
 admin approval requestni qaytarishi mumkin.
 
+#### Worker yordamchi ekranlar
+
+Material-link va pallet yordamchi readlari ekran yashirilganda yoki app
+backgroundga o‘tganda to‘xtaydi, qaytganda read-only yangilanadi. Ekranga tegishli
+ochiq picker ko‘rinib turganida kerakli refresh davom etadi, post-write verification
+saqlanadi. Pallet QR handoff faqat bir xil account/authorization/server/pallet uchun
+bir marta qayta ishlatiladi; oddiy token yangilanishi foydalanuvchi amalini bekor
+qilmaydi. Pallet ro‘yxatidagi ishlatilmagan apparatus catalog GET olib tashlangan.
+
 ### 5. WIP va progress QR
 
 Bosqichdan chiqqan yarim tayyor mahsulot progress batch bilan kuzatiladi.

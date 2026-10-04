@@ -419,7 +419,13 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
         return AppRouter._buildRoute(settings, const AparatchiPaddonsScreen());
       }
       return AppRouter._buildRoute(
-          settings, AparatchiPaddonDetailScreen(code: code));
+          settings,
+          AparatchiPaddonDetailScreen(
+            code: code,
+            initialSnapshot: args is AparatchiPaddonDetailArgs
+                ? args.initialSnapshot
+                : null,
+          ));
     case AppRoutes.adminSuppliers:
       return AppRouter._buildRoute(settings, const AdminSuppliersScreen());
     case AppRoutes.adminWorkerSettings:

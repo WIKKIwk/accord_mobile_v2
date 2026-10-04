@@ -2,9 +2,32 @@
 part of 'aparatchi_paddon_detail_screen.dart';
 
 class AparatchiPaddonDetailArgs {
-  const AparatchiPaddonDetailArgs({required this.code});
+  const AparatchiPaddonDetailArgs({required this.code, this.initialSnapshot});
 
   final String code;
+  final AparatchiPaddonDetailSeed? initialSnapshot;
+}
+
+/// A validated scan response handed directly to the next route, not a cache.
+/// Never reuse it after changing account/server or for a different pallet.
+class AparatchiPaddonDetailSeed {
+  AparatchiPaddonDetailSeed(this.snapshot) : _scope = currentScope;
+
+  final AdminPaddonSnapshot snapshot;
+  final Object _scope;
+  bool _consumed = false;
+
+  static Object get currentScope => currentSessionReadScope();
+
+  AdminPaddonSnapshot? takeForCode(String code) {
+    if (_consumed) return null;
+    _consumed = true;
+    return _scope == currentScope &&
+            code.trim().isNotEmpty &&
+            snapshot.paddon.code.trim() == code.trim()
+        ? snapshot
+        : null;
+  }
 }
 
 typedef AparatchiPaddonDetailLoader = Future<AdminPaddonSnapshot> Function();
@@ -17,11 +40,13 @@ class AparatchiPaddonDetailScreen extends StatefulWidget {
     required this.code,
     this.loader,
     this.apparatusLoader,
+    this.initialSnapshot,
   });
 
   final String code;
   final AparatchiPaddonDetailLoader? loader;
   final PaddonApparatusLoader? apparatusLoader;
+  final AparatchiPaddonDetailSeed? initialSnapshot;
 
   @override
   State<AparatchiPaddonDetailScreen> createState() =>

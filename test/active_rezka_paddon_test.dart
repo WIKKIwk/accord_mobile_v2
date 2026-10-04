@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
@@ -35,20 +36,20 @@ class Server {
 
   http.Client client() => MockClient((request) async {
         requests.add(request);
-        expect(request.url.path, path);
-        expect(request.headers['Authorization'], 'Bearer worker-token');
+        expectSync(request.url.path, path);
+        expectSync(request.headers['Authorization'], 'Bearer worker-token');
         if (offline) throw http.ClientException('offline');
         if (request.method == 'PUT') {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
-          expect(body.keys.toSet(), {'apparatus', 'code'});
-          expect(body['apparatus'], apparatus);
+          expectSync(body.keys.toSet(), {'apparatus', 'code'});
+          expectSync(body['apparatus'], apparatus);
           if (rejectSave) {
             return http.Response('{"error":"paddon_not_found"}', 400);
           }
           code = body['code'] == '' ? null : body['code'] as String;
         } else {
-          expect(request.method, 'GET');
-          expect(request.url.queryParameters['apparatus'], apparatus);
+          expectSync(request.method, 'GET');
+          expectSync(request.url.queryParameters['apparatus'], apparatus);
         }
         return http.Response(
             jsonEncode({'ok': true, 'apparatus': apparatus, 'code': code}),
@@ -70,7 +71,7 @@ Future<List<AdminPaddon>> paddons() async => [
             itemCount: 2)
     ];
 
-Widget app() => MaterialApp(
+Widget app({String apparatusId = apparatus}) => MaterialApp(
       locale: const Locale('uz'),
       localizationsDelegates: const [
         AppLocalizations.delegate,
@@ -80,8 +81,8 @@ Widget app() => MaterialApp(
       ],
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
-          appBar: AppBar(actions: const [
-        ActiveRezkaPaddonAction(apparatusId: apparatus, loader: paddons)
+          appBar: AppBar(actions: [
+        ActiveRezkaPaddonAction(apparatusId: apparatusId, loader: paddons)
       ])),
     );
 
@@ -161,6 +162,199 @@ void main() {
           () =>
               MockClient((_) async => http.Response(jsonEncode(payload), 200)));
     }
+  });
+
+  testWidgets('polling pauses under another route and in background', (
+    tester,
+  ) async {
+    final server = Server()..code = '00001';
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      expect(server.requests.length, 1);
+      final navigator = Navigator.of(
+        tester.element(find.byType(ActiveRezkaPaddonAction)),
+      );
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(body: Text('Another route')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 15));
+      expect(server.requests.length, 1);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      navigator.pop();
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 10));
+      expect(server.requests.length, 1);
+      server.code = '00002';
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(server.requests.length, 2);
+      expect(find.byTooltip('Faol paddon: 00002'), findsOneWidget);
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(body: Text('Another route')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(server.requests.length, 2); // Resume while still covered is quiet.
+      navigator.pop();
+      await tester.pumpAndSettle();
+      expect(server.requests.length, 3); // Uncover refreshes immediately.
+      expect(
+        server.requests.every((request) => request.method == 'GET'),
+        isTrue,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, server.client);
+  });
+
+  testWidgets('late old-apparatus response cannot replace current selection', (
+    tester,
+  ) async {
+    final delayed = Completer<http.Response>();
+    var reads = 0;
+    await http.runWithClient(
+      () async {
+        await tester.pumpWidget(app());
+        await tester.pump();
+        expect(reads, 1);
+        await tester.pumpWidget(app(apparatusId: 'apparatus:new'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Faol paddon: 00002'), findsOneWidget);
+        delayed.complete(
+          http.Response(
+            jsonEncode({'ok': true, 'apparatus': apparatus, 'code': '00001'}),
+            200,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Faol paddon: 00002'), findsOneWidget);
+        expect(reads, 2);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      () => MockClient((request) async {
+        reads++;
+        final requested = request.url.queryParameters['apparatus'];
+        if (requested == apparatus) return delayed.future;
+        return http.Response(
+          jsonEncode({'ok': true, 'apparatus': requested, 'code': '00002'}),
+          200,
+        );
+      }),
+    );
+  });
+
+  for (final change in [
+    (name: 'account', profile: profile('worker-2')),
+    (
+      name: 'capability',
+      profile: profile('worker-1').copyWith(capabilities: const [])
+    ),
+    (
+      name: 'assignment',
+      profile: profile('worker-1')
+          .copyWith(assignedApparatus: const ['apparatus:other'])
+    ),
+  ]) {
+    testWidgets('${change.name} change while choosing cannot submit old choice',
+        (
+      tester,
+    ) async {
+      final server = Server();
+      await http.runWithClient(() async {
+        await tester.pumpWidget(app());
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('rezka-active-paddon')));
+        await tester.pumpAndSettle();
+        final oldTile = tester.widget<ListTile>(
+          find.byKey(const ValueKey('rezka-paddon-00001')),
+        );
+        AppSession.instance.profile = change.profile;
+        AppSession.instance.revision.value++;
+        // A tap queued before the account change must be harmless too.
+        oldTile.onTap!();
+        await tester.pumpAndSettle();
+        expect(
+          server.requests.where((request) => request.method == 'PUT'),
+          isEmpty,
+        );
+        expect(server.code, isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }, server.client);
+    });
+  }
+
+  testWidgets('same-account 401 reauth continues picker and verifies save',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'last_login_phone': '+998900000000',
+      'last_login_code': '400000',
+    });
+    final originalProfile = AppSession.instance.profile!;
+    var reads = 0;
+    var writes = 0;
+    var logins = 0;
+    String? selectedCode;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('rezka-active-paddon')));
+      await tester.pumpAndSettle();
+      expect(logins, 1);
+      expect(AppSession.instance.token, 'refreshed-token');
+      expect(find.byKey(const ValueKey('rezka-paddon-00001')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('rezka-paddon-00001')));
+      await tester.pumpAndSettle();
+      expect(writes, 1);
+      expect(reads, 4); // Initial, rejected preflight, retry, post-write read.
+      expect(find.byTooltip('Faol paddon: 00001'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+        () => MockClient((request) async {
+              if (request.url.path == '/v1/mobile/auth/login') {
+                expect(request.method, 'POST');
+                logins++;
+                return http.Response(
+                    jsonEncode({
+                      'token': 'refreshed-token',
+                      'profile': originalProfile.toJson(),
+                      'capabilities': originalProfile.capabilities,
+                      'assigned_apparatus': originalProfile.assignedApparatus,
+                    }),
+                    200);
+              }
+              expect(request.url.path, path);
+              if (request.method == 'GET') {
+                reads++;
+                if (reads == 2) {
+                  return http.Response('{"error":"unauthorized"}', 401);
+                }
+              } else {
+                expect(request.method, 'PUT');
+                writes++;
+                selectedCode =
+                    (jsonDecode(request.body) as Map)['code'] as String;
+              }
+              return http.Response(
+                  jsonEncode({
+                    'ok': true,
+                    'apparatus': apparatus,
+                    'code': selectedCode,
+                  }),
+                  200);
+            }));
   });
 
   testWidgets('picker selects restores changes and clears server selection',

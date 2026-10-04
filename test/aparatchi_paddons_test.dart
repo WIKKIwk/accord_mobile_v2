@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_paddon_detail_screen.dart';
@@ -96,7 +97,7 @@ void _setSession({bool canManage = false}) {
   );
 }
 
-Widget _app(Widget home) {
+Widget _app(Widget home, {RouteFactory? onGenerateRoute}) {
   return MaterialApp(
     theme: ThemeData(useMaterial3: true),
     locale: const Locale('uz'),
@@ -108,6 +109,7 @@ Widget _app(Widget home) {
     ],
     supportedLocales: AppLocalizations.supportedLocales,
     home: home,
+    onGenerateRoute: onGenerateRoute,
   );
 }
 
@@ -115,6 +117,143 @@ void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+  });
+
+  testWidgets('list avoids catalog and scan reuses detail across same-account reauth', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    _setSession();
+    var detailReads = 0;
+    var catalogReads = 0;
+    await http.runWithClient(
+      () async {
+        await tester.pumpWidget(
+          _app(
+            AparatchiPaddonsScreen(loader: () async => [_paddon()]),
+            onGenerateRoute: (settings) {
+              if (settings.name == AppRoutes.adminProgressQrScan) {
+                return MaterialPageRoute<String>(
+                  settings: settings,
+                  builder: (context) => Scaffold(
+                    body: TextButton(
+                      onPressed: () => Navigator.of(context).pop('00001'),
+                      child: const Text('Return scanned code'),
+                    ),
+                  ),
+                );
+              }
+              return AppRouter.onGenerateRoute(settings);
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(catalogReads, 0);
+        expect(detailReads, 0);
+        await tester.tap(find.byKey(const ValueKey('paddon-scan')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Return scanned code'));
+        await tester.pumpAndSettle();
+        expect(find.byType(AparatchiPaddonDetailScreen), findsOneWidget);
+        expect(detailReads, 1);
+        expect(catalogReads, 1); // Detail still needs location names.
+        expect(find.text('Fresh scanned snapshot'), findsOneWidget);
+        final refresh = tester.widget<RefreshIndicator>(
+          find.byType(RefreshIndicator),
+        );
+        await refresh.onRefresh();
+        await tester.pumpAndSettle();
+        expect(
+          detailReads,
+          2,
+        ); // Explicit refresh must read backend truth again.
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      () => MockClient((request) async {
+        expect(request.method, 'GET');
+        if (request.url.path.endsWith('/paddons/detail')) {
+          detailReads++;
+          if (detailReads == 1) {
+            await AppSession.instance.setSession(
+              token: 'refreshed-token',
+              profile: AppSession.instance.profile!,
+            );
+          }
+          return http.Response(
+            jsonEncode({
+              'paddon': {
+                'id': 'paddon-1',
+                'code': '00001',
+                'note': 'Fresh scanned snapshot',
+              },
+              'items': [],
+              'available_items': [],
+            }),
+            200,
+          );
+        }
+        expect(request.url.path, '/v1/mobile/admin/apparatus');
+        catalogReads++;
+        return http.Response('{"items":[]}', 200);
+      }),
+    );
+  });
+
+  test(
+    'scan seed is one-shot and rejects different pallet/account/permissions',
+    () {
+      _setSession();
+      final initial = _snapshot();
+      final seed = AparatchiPaddonDetailSeed(initial);
+      expect(seed.takeForCode('00001'), same(initial));
+      expect(seed.takeForCode('00001'), isNull);
+      expect(AparatchiPaddonDetailSeed(initial).takeForCode('00002'), isNull);
+      final accountSeed = AparatchiPaddonDetailSeed(initial);
+      AppSession.instance.profile = null;
+      expect(accountSeed.takeForCode('00001'), isNull);
+      _setSession();
+      final revisionSeed = AparatchiPaddonDetailSeed(initial);
+      AppSession.instance.revision.value++;
+      expect(revisionSeed.takeForCode('00001'), same(initial));
+      final capabilitySeed = AparatchiPaddonDetailSeed(initial);
+      AppSession.instance.profile = AppSession.instance.profile!.copyWith(
+        capabilities: const [],
+      );
+      expect(capabilitySeed.takeForCode('00001'), isNull);
+      _setSession();
+      final assignmentSeed = AparatchiPaddonDetailSeed(initial);
+      AppSession.instance.profile = AppSession.instance.profile!.copyWith(
+        assignedApparatus: const ['apparatus:another'],
+      );
+      expect(assignmentSeed.takeForCode('00001'), isNull);
+    },
+  );
+
+  testWidgets('invalid scan seed falls back to a fresh detail read', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    _setSession();
+    final seed = AparatchiPaddonDetailSeed(_snapshot());
+    _setSession(canManage: true);
+    AppSession.instance.revision.value++;
+    var reads = 0;
+    await tester.pumpWidget(
+      _app(
+        AparatchiPaddonDetailScreen(
+          code: '00001',
+          initialSnapshot: seed,
+          apparatusLoader: () async => const [],
+          loader: () async {
+            reads++;
+            return _snapshot();
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(reads, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('empty paddon deletion requires long press and confirmation', (
@@ -125,7 +264,7 @@ void main() {
     var deleted = false;
     var requests = 0;
     await http.runWithClient(() async {
-      await tester.pumpWidget(_app(AparatchiPaddonsScreen(apparatusLoader: () async => const [],
+      await tester.pumpWidget(_app(AparatchiPaddonsScreen(
         loader: () async => deleted ? [] : [_paddon(itemCount: 0)],
       )));
       await tester.pumpAndSettle();
@@ -171,7 +310,7 @@ void main() {
       _setSession(canManage: true);
       var requests = 0;
       await http.runWithClient(() async {
-        await tester.pumpWidget(_app(AparatchiPaddonsScreen(apparatusLoader: () async => const [],
+        await tester.pumpWidget(_app(AparatchiPaddonsScreen(
           loader: () async => [_paddon(itemCount: count)],
         )));
         await tester.pumpAndSettle();
@@ -226,7 +365,7 @@ void main() {
 
     await tester.pumpWidget(
       _app(
-        AparatchiPaddonsScreen(apparatusLoader: () async => const [],
+        AparatchiPaddonsScreen(
           loader: () async => [_paddon()],
         ),
       ),
@@ -377,7 +516,7 @@ void main() {
   );
   testWidgets('cutting cards preserve unknown weights', (tester) async {
     SharedPreferences.setMockInitialValues({}); _setSession();
-    await tester.pumpWidget(_app(AparatchiPaddonsScreen(apparatusLoader: () async => const [], loader: () async =>
+    await tester.pumpWidget(_app(AparatchiPaddonsScreen( loader: () async =>
       [_paddon(totalGrossKg: null, totalNetKg: 0)])));
     await tester.pumpAndSettle();
     // List card is compact: only code + WIP count, no weights.
@@ -448,7 +587,7 @@ void main() {
           '2-qator • ${catalogUnavailable ? 'Belgilanmagan' : 'Rezka 1'}';
       for (final screen in [
         AparatchiPaddonsScreen(
-            loader: () async => [paddon], apparatusLoader: catalog),
+            loader: () async => [paddon]),
         AparatchiPaddonDetailScreen(
           code: paddon.code,
           apparatusLoader: catalog,

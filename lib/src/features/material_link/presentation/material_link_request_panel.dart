@@ -3,16 +3,19 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/session/session.dart';
+import '../../../core/session/session_read_scope.dart';
 import '../models/material_link_request.dart';
 import 'material_link_request_card.dart';
 import '../../../core/localization/urdu_aware_text.dart';
 
 class MaterialLinkRequestPanel extends StatefulWidget {
-  const MaterialLinkRequestPanel(
-      {super.key,
-      required this.orderId,
-      required this.apparatusId,
-      required this.onMaterialsLinked});
+  const MaterialLinkRequestPanel({
+    super.key,
+    required this.orderId,
+    required this.apparatusId,
+    required this.onMaterialsLinked,
+  });
   final String orderId, apparatusId;
   final VoidCallback onMaterialsLinked;
   @override
@@ -20,34 +23,120 @@ class MaterialLinkRequestPanel extends StatefulWidget {
       _MaterialLinkRequestPanelState();
 }
 
-class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel> {
+class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
+    with WidgetsBindingObserver {
   Timer? _timer;
   MaterialLinkOverview? _overview;
   final Set<String> _seenMaterialChanges = {};
-  bool _loading = false, _busy = false;
+  Future<void>? _refreshing;
+  bool _busy = false;
+  bool _routeVisible = false;
+  ModalRoute<dynamic>? _route;
+  int _generation = 0;
   String _error = '';
+
+  late Object _observedScope;
+
+  Object get _scope => (
+        currentSessionReadScope(),
+        widget.orderId,
+        widget.apparatusId,
+      );
+
+  bool get _canPoll {
+    final state = WidgetsBinding.instance.lifecycleState;
+    return (_route?.isCurrent ?? _routeVisible) &&
+        !_busy &&
+        (state == null || state == AppLifecycleState.resumed);
+  }
+
+  bool _isCurrent(Object scope, int generation) =>
+      mounted && scope == _scope && generation == _generation;
+
   @override
   void initState() {
     super.initState();
-    unawaited(_refresh());
+    WidgetsBinding.instance.addObserver(this);
+    _observedScope = _scope;
+    AppSession.instance.revision.addListener(_sessionChanged);
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!_busy) unawaited(_refresh());
+      if (_canPoll) unawaited(_refresh());
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+    final visible = _route?.isCurrent ?? true;
+    final becameVisible = visible && !_routeVisible;
+    _routeVisible = visible;
+    if (becameVisible && _canPoll) unawaited(_refresh());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _canPoll) {
+      // Route dependency rebuilds may have been deferred while paused. Mark
+      // the current visibility now so the resume frame does not read twice.
+      _routeVisible = _route?.isCurrent ?? true;
+      unawaited(_refresh());
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant MaterialLinkRequestPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.orderId != widget.orderId ||
+        oldWidget.apparatusId != widget.apparatusId) {
+      _resetScope();
+    }
+  }
+
+  void _sessionChanged() {
+    if (_observedScope != _scope) _resetScope();
+  }
+
+  void _resetScope() {
+    _observedScope = _scope;
+    _generation++;
+    _refreshing = null;
+    setState(() {
+      _overview = null;
+      _seenMaterialChanges.clear();
+      _error = '';
+      _busy = false;
+    });
+    if (_canPoll) unawaited(_refresh());
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    AppSession.instance.revision.removeListener(_sessionChanged);
     super.dispose();
   }
 
-  Future<void> _refresh() async {
-    if (_loading) return;
-    _loading = true;
+  Future<void> _refresh() {
+    if (_refreshing case final pending?) return pending;
+    late final Future<void> future;
+    future = _readOverview().whenComplete(() {
+      if (identical(_refreshing, future)) _refreshing = null;
+    });
+    _refreshing = future;
+    return future;
+  }
+
+  Future<void> _readOverview() async {
+    final scope = _scope;
+    final generation = _generation;
     try {
       final overview = await MobileApi.instance.materialLinkRequests(
-          orderId: widget.orderId, apparatus: widget.apparatusId);
-      if (!mounted) return;
+        orderId: widget.orderId,
+        apparatus: widget.apparatusId,
+      );
+      if (!_isCurrent(scope, generation)) return;
       final changed = overview.requests
           .where((r) => r.status == 'approved' || r.status == 'stale')
           .map((r) => r.id)
@@ -60,31 +149,47 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel> {
       });
       if (changed.isNotEmpty) widget.onMaterialsLinked();
     } catch (error) {
-      if (mounted) {
-        setState(() => _error = error is MobileApiException
-            ? error.message
-            : 'So‘rov holatini yangilab bo‘lmadi');
+      if (_isCurrent(scope, generation)) {
+        setState(
+          () => _error = error is MobileApiException
+              ? error.message
+              : 'So‘rov holatini yangilab bo‘lmadi',
+        );
       }
-    } finally {
-      _loading = false;
     }
   }
 
-  Future<void> _send() async {
-    if (_busy) return;
+  // Invalidate any earlier poll before a mutation flow begins. Its late result
+  // must not overwrite the authoritative post-write verification read.
+  int _beginMutation() {
+    _generation++;
+    _refreshing = null;
     setState(() {
       _busy = true;
       _error = '';
     });
+    return _generation;
+  }
+
+  Future<void> _send() async {
+    if (_busy) return;
+    final scope = _scope;
+    final generation = _beginMutation();
+    final orderId = widget.orderId;
+    final apparatusId = widget.apparatusId;
     try {
       final overview = await MobileApi.instance.materialLinkRequests(
-          orderId: widget.orderId, apparatus: widget.apparatusId);
-      if (!mounted) return;
+        orderId: orderId,
+        apparatus: apparatusId,
+      );
+      if (!mounted || !_isCurrent(scope, generation)) return;
       setState(() => _overview = overview);
       if (overview.requests.any((r) => r.pending)) return;
       if (overview.candidates.isEmpty) {
-        setState(() =>
-            _error = 'Ulash mumkin bo‘lgan rulon qolmagan. Holatni yangilang');
+        setState(
+          () =>
+              _error = 'Ulash mumkin bo‘lgan rulon qolmagan. Holatni yangilang',
+        );
         return;
       }
       final selected = await showModalBottomSheet<List<String>>(
@@ -98,38 +203,60 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel> {
           submitLabel: 'So‘rov yuborish',
         ),
       );
-      if (!mounted || selected == null || selected.isEmpty) return;
+      if (!_isCurrent(scope, generation) ||
+          selected == null ||
+          selected.isEmpty) {
+        return;
+      }
       await MobileApi.instance.createMaterialLinkRequests(
-          orderId: widget.orderId,
-          apparatus: widget.apparatusId,
-          barcodes: selected);
+        orderId: orderId,
+        apparatus: apparatusId,
+        barcodes: selected,
+      );
+      if (!_isCurrent(scope, generation)) return;
       await _refresh();
     } catch (error) {
+      if (!_isCurrent(scope, generation)) return;
       // Re-read after ambiguous transport errors; a committed request must not be duplicated.
       await _refresh();
-      if (mounted) {
-        setState(() => _error = error is MobileApiException
-            ? error.message
-            : 'So‘rov yuborilmadi. Holatni yangilang');
+      if (_isCurrent(scope, generation)) {
+        setState(
+          () => _error = error is MobileApiException
+              ? error.message
+              : 'So‘rov yuborilmadi. Holatni yangilang',
+        );
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (_isCurrent(scope, generation)) {
+        _routeVisible = _route?.isCurrent ?? true;
+        setState(() => _busy = false);
+      }
     }
   }
 
   Future<void> _cancel(MaterialLinkRequest request) async {
-    setState(() => _busy = true);
+    if (_busy) return;
+    final scope = _scope;
+    final generation = _beginMutation();
     try {
-      await MobileApi.instance
-          .decideMaterialLinkRequest(requestId: request.id, action: 'cancel');
+      await MobileApi.instance.decideMaterialLinkRequest(
+        requestId: request.id,
+        action: 'cancel',
+      );
+      if (!_isCurrent(scope, generation)) return;
       await _refresh();
     } catch (error) {
-      if (mounted) {
-        setState(() => _error =
-            error is MobileApiException ? error.message : 'Aloqa uzildi');
+      if (_isCurrent(scope, generation)) {
+        setState(
+          () => _error =
+              error is MobileApiException ? error.message : 'Aloqa uzildi',
+        );
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (_isCurrent(scope, generation)) {
+        _routeVisible = _route?.isCurrent ?? true;
+        setState(() => _busy = false);
+      }
     }
   }
 
