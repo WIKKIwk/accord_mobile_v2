@@ -48,7 +48,10 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
   @override
   void initState() {
     super.initState();
-    unawaited(_loadApparatusCatalog());
+    // Scan-only routes return the raw QR and never render apparatus names.
+    if (!widget.scanOnly) {
+      unawaited(_loadApparatusCatalog());
+    }
     if (_scannerSupported) {
       _scannerSession = ReliableScannerSession(
         facing: CameraFacing.back,

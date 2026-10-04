@@ -442,6 +442,10 @@ saqlanadi. Pallet QR handoff faqat bir xil account/authorization/server/pallet u
 bir marta qayta ishlatiladi; oddiy token yangilanishi foydalanuvchi amalini bekor
 qilmaydi. Pallet ro‘yxatidagi ishlatilmagan apparatus catalog GET olib tashlangan.
 
+Faqat QR qiymatini qaytaradigan `scanOnly` route apparatus catalogni yuklamaydi.
+Oddiy QR hisobot skaneri apparat nomlari uchun catalogni avvalgidek yuklaydi;
+QR lookup, navigation va backend validation contractlari o‘zgarmaydi.
+
 ### 5. WIP va progress QR
 
 Bosqichdan chiqqan yarim tayyor mahsulot progress batch bilan kuzatiladi.
