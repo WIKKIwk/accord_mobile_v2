@@ -802,6 +802,7 @@ class _AdminProductionMapOrdersScreenState
           return null;
         },
         workerMode: widget.workerMode,
+        currentQueueSnapshot: () => _canonicalQueueSnapshot,
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
         canManageQueue: widget.workerMode &&
             _isAssignedWatchApparatus(

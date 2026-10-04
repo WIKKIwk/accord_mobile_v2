@@ -84,6 +84,10 @@ void _registerWorkerWipAccuracyTests() {
   }
 
   http.Response supportingResponse(http.Request request) {
+    // This fixture covers the existing reader path on an older server.
+    if (request.url.path.endsWith('/order-scan-bootstrap')) {
+      return http.Response('', 404);
+    }
     if (request.url.path.endsWith('/sequence')) {
       final station = request.url.queryParameters['apparatus'] ?? _lamination1Id;
       final printer = station == _print7Id;

@@ -89,7 +89,7 @@ void main() {
     expect(lookup, isNot(contains('MobileApi.instance')));
 
     final preloadStart = source.indexOf(
-      'Future<void> _loadInputProgressBatches()',
+      'Future<void> _loadInputProgressBatches(',
     );
     final preloadEnd = source.indexOf(
       'Future<List<AdminProgressBatch>> _fetchInputProgressBatches(',

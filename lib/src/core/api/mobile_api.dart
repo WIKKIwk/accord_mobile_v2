@@ -71,6 +71,7 @@ part 'admin/mobile_api_admin_queue_action_result_test_mode_resume.dart';
 part 'admin/mobile_api_admin_queue_action_result_test_mode_complete.dart';
 part 'admin/mobile_api_admin_queue_action_result_backend.dart';
 part 'admin/mobile_api_admin_print_preflight.dart';
+part 'admin/mobile_api_admin_order_scan_bootstrap.dart';
 part 'admin/mobile_api_admin_production_map_state_delta.dart';
 part 'admin/mobile_api_admin_production_map_snapshot_decoder.dart';
 part 'admin/mobile_api_admin_users_list.dart';

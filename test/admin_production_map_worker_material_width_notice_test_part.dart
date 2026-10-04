@@ -195,6 +195,11 @@ void _registerWorkerMaterialWidthNoticeTests() {
       },
           () => MockClient((request) async {
                 requests.add(request);
+                // Exercise the legacy reader against the actual old-server route
+                // absence response, rather than a malformed successful aggregate.
+                if (request.url.path.endsWith('/order-scan-bootstrap')) {
+                  return http.Response('', 404);
+                }
                 if (request.url.path.endsWith('/sequence')) {
                   return http.Response(
                       jsonEncode({
