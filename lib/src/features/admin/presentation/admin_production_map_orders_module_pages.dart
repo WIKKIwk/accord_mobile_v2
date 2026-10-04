@@ -699,7 +699,7 @@ class _WorkerWatchBody extends StatelessWidget {
     required this.onLongPressWatchOrder,
   });
   final Map<String, Map<String, AdminQueueWorkActivity>>
-      workActivityByApparatus;
+  workActivityByApparatus;
   final Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus;
   final String workerRole;
   final String workerRef;
@@ -712,7 +712,7 @@ class _WorkerWatchBody extends StatelessWidget {
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final Map<String, Map<String, String>> stageStatesByOrderId;
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
-      queueActionControlsByApparatus;
+  queueActionControlsByApparatus;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final String searchQuery;
@@ -722,11 +722,13 @@ class _WorkerWatchBody extends StatelessWidget {
   final void Function({
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
-  }) onTapWatchOrder;
+  })
+  onTapWatchOrder;
   final Future<void> Function({
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
-  }) onLongPressWatchOrder;
+  })
+  onLongPressWatchOrder;
   String _tabLabel(BuildContext context, _WorkerWatchTab tab) {
     if (tab.isCompleted) {
       return context.l10n.productionText('worker.queue.tab.completed');
@@ -792,52 +794,55 @@ class _WorkerWatchBody extends StatelessWidget {
             controller: tabController,
             children: [
               for (final tab in tabs)
-                if (tab.isCompleted)
-                  _AparatchiCompletedOrdersPage(
-                    orders: _workerCompletedOrders(
-                      orders: orders,
-                      completedOrders: completedOrders,
-                      apparatus: apparatus,
-                      assignedApparatus: assignedApparatus,
-                      query: searchQuery,
-                    ),
-                    bottomPadding: bottomPadding,
-                    onTapOrder: onTapCompletedOrder,
-                  )
-                else
-                  _AparatchiWatchSequencePage(
-                    queueActionControls: queueActionControlsByApparatus[
-                            tab.apparatus!.id.trim()] ??
-                        const {},
-                    workActivity:
-                        workActivityByApparatus[tab.apparatus!.id.trim()] ??
-                            const {},
-                    workerRole: workerRole,
-                    workerRef: workerRef,
-                    apparatus: tab.apparatus!,
-                    orders: _ordersForApparatus(tab.apparatus!),
-                    bottomPadding: bottomPadding,
-                    isAssigned: _isAssignedWatchApparatus(
-                      tab.apparatus!,
-                      assignedApparatus: assignedApparatus,
-                    ),
-                    queueStates: _queueStatesForApparatus(
-                      tab.apparatus!,
-                      queueStatesByApparatus: queueStatesByApparatus,
-                    ),
-                    orderStatusesByOrderId: orderStatusesByOrderId,
-                    orderControlsByOrderId: orderControlsByOrderId,
-                    onTapOrder: (order) => onTapWatchOrder(
-                      apparatus: tab.apparatus!,
-                      order: order,
-                    ),
-                    onLongPressOrder: (order) => unawaited(
-                      onLongPressWatchOrder(
-                        apparatus: tab.apparatus!,
-                        order: order,
-                      ),
-                    ),
-                  ),
+                Builder(
+                  builder: (context) => tab.isCompleted
+                      ? _AparatchiCompletedOrdersPage(
+                          orders: _workerCompletedOrders(
+                            orders: orders,
+                            completedOrders: completedOrders,
+                            apparatus: apparatus,
+                            assignedApparatus: assignedApparatus,
+                            query: searchQuery,
+                          ),
+                          bottomPadding: bottomPadding,
+                          onTapOrder: onTapCompletedOrder,
+                        )
+                      : _AparatchiWatchSequencePage(
+                          queueActionControls:
+                              queueActionControlsByApparatus[tab.apparatus!.id
+                                  .trim()] ??
+                              const {},
+                          workActivity:
+                              workActivityByApparatus[tab.apparatus!.id
+                                  .trim()] ??
+                              const {},
+                          workerRole: workerRole,
+                          workerRef: workerRef,
+                          apparatus: tab.apparatus!,
+                          orders: _ordersForApparatus(tab.apparatus!),
+                          bottomPadding: bottomPadding,
+                          isAssigned: _isAssignedWatchApparatus(
+                            tab.apparatus!,
+                            assignedApparatus: assignedApparatus,
+                          ),
+                          queueStates: _queueStatesForApparatus(
+                            tab.apparatus!,
+                            queueStatesByApparatus: queueStatesByApparatus,
+                          ),
+                          orderStatusesByOrderId: orderStatusesByOrderId,
+                          orderControlsByOrderId: orderControlsByOrderId,
+                          onTapOrder: (order) => onTapWatchOrder(
+                            apparatus: tab.apparatus!,
+                            order: order,
+                          ),
+                          onLongPressOrder: (order) => unawaited(
+                            onLongPressWatchOrder(
+                              apparatus: tab.apparatus!,
+                              order: order,
+                            ),
+                          ),
+                        ),
+                ),
             ],
           ),
         ),
@@ -880,77 +885,102 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    // The delegate keeps element identity when a live delta inserts, removes or
+    // reorders rows. Only viewport/cache rows are built, not the whole queue.
+    final indexByKey = <Key, int>{
+      for (var index = 0; index < orders.length; index++)
+        ValueKey('worker-order-${orders[index].map.id.trim()}'): index,
+    };
     return ColoredBox(
       color: AppTheme.shellStart(context),
-      child: ListView(
-        padding: EdgeInsets.fromLTRB(
-          _openedOrderPanelCardGap,
-          _openedOrderPanelTopGap,
-          _openedOrderPanelCardGap,
-          bottomPadding,
-        ),
-        children: [
-          if (isAssigned)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
-              child: Text(
-                context.l10n.productionText('worker.queue.your.apparatus'),
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+      child: CustomScrollView(
+        key: PageStorageKey('worker-sequence-${apparatus.id.trim()}'),
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(
+              _openedOrderPanelCardGap,
+              _openedOrderPanelTopGap,
+              _openedOrderPanelCardGap,
+              bottomPadding,
             ),
-          if (orders.isEmpty)
-            _EmptyOpenedOrders(
-              message: context.l10n.productionText(
-                'worker.queue.empty.orders',
-                values: {
-                  'apparatus': apparatus.name.trim(),
-                },
-              ),
-            )
-          else if (orders.isNotEmpty)
-            M3SegmentSpacedColumn(
-              padding: EdgeInsets.zero,
-              children: [
-                for (var index = 0; index < orders.length; index++)
-                  _SequenceOrderRow(
-                    key: ValueKey(
-                      'worker-order-${orders[index].map.id.trim()}',
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                if (isAssigned)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                      child: Text(
+                        context.l10n.productionText(
+                          'worker.queue.your.apparatus',
+                        ),
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
-                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                      index,
-                      orders.length,
+                  ),
+                if (orders.isEmpty)
+                  SliverToBoxAdapter(
+                    child: _EmptyOpenedOrders(
+                      message: context.l10n.productionText(
+                        'worker.queue.empty.orders',
+                        values: {'apparatus': apparatus.name.trim()},
+                      ),
                     ),
-                    order: orders[index],
-                    index: index,
-                    readOnly: true,
-                    onTap: () => onTapOrder(orders[index]),
-                    onLongPress: () => onLongPressOrder(orders[index]),
-                    tone: _resolveWorkerOrderCardTone(
-                      printPreflightPassed: _orderPrintPreflightPassed(
-                        orderId: orders[index].map.id,
-                        apparatusId: apparatus.id,
-                        queueStates: {apparatus.id: queueStates},
-                        controls: {apparatus.id: queueActionControls},
+                  )
+                else
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => Padding(
+                        key: ValueKey(
+                          'worker-order-${orders[index].map.id.trim()}',
+                        ),
+                        padding: EdgeInsets.only(
+                          top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
+                        ),
+                        child: _SequenceOrderRow(
+                          slot:
+                              M3SegmentedListGeometry.standaloneListSlotForIndex(
+                                index,
+                                orders.length,
+                              ),
+                          order: orders[index],
+                          index: index,
+                          readOnly: true,
+                          onTap: () => onTapOrder(orders[index]),
+                          onLongPress: () => onLongPressOrder(orders[index]),
+                          tone: _resolveWorkerOrderCardTone(
+                            printPreflightPassed: _orderPrintPreflightPassed(
+                              orderId: orders[index].map.id,
+                              apparatusId: apparatus.id,
+                              queueStates: {apparatus.id: queueStates},
+                              controls: {apparatus.id: queueActionControls},
+                            ),
+                            workActivity:
+                                workActivity[orders[index].map.id.trim()],
+                            workerRole: workerRole,
+                            workerRef: workerRef,
+                            orderStatus:
+                                orderStatusesByOrderId[orders[index].map.id
+                                    .trim()],
+                            orderControl: adminProductionMapOrderControlFor(
+                              orderControlsByOrderId,
+                              orders[index].map.id.trim(),
+                            ),
+                            apparatusState: apparatusQueueOrderStateFromRaw(
+                              queueStates[orders[index].map.id.trim()],
+                            ),
+                          ),
+                        ),
                       ),
-                      workActivity: workActivity[orders[index].map.id.trim()],
-                      workerRole: workerRole,
-                      workerRef: workerRef,
-                      orderStatus:
-                          orderStatusesByOrderId[orders[index].map.id.trim()],
-                      orderControl: adminProductionMapOrderControlFor(
-                        orderControlsByOrderId,
-                        orders[index].map.id.trim(),
-                      ),
-                      apparatusState: apparatusQueueOrderStateFromRaw(
-                        queueStates[orders[index].map.id.trim()],
-                      ),
+                      childCount: orders.length,
+                      findChildIndexCallback: (key) => indexByKey[key],
                     ),
                   ),
               ],
             ),
+          ),
         ],
       ),
     );

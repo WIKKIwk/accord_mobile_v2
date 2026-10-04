@@ -429,7 +429,11 @@ Action payload apparat, order, action va holatga qarab scan/progress/completion
 fieldlarini yuboradi. Backend response yangi queue state, progress batch yoki
 admin approval requestni qaytarishi mumkin.
 
-#### Worker yordamchi ekranlar
+#### Worker ro‘yxat va yordamchi ekranlar
+
+Worker order rowlari stable key bilan lazy yaratiladi; ro‘yxat projectioni
+faqat mounted tablar uchun hisoblanadi. Har apparatning scroll holati alohida
+saqlanadi, live insert/remove/reorder canonical tartib va membershipni saqlaydi.
 
 Material-link va pallet yordamchi readlari ekran yashirilganda yoki app
 backgroundga o‘tganda to‘xtaydi, qaytganda read-only yangilanadi. Ekranga tegishli

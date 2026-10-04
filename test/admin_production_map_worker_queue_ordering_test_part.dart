@@ -106,7 +106,8 @@ void _registerWorkerQueueOrderingTests() {
             readOnly: workerMode,
             workerMode: workerMode,
             apparatusLoader: () async =>
-                catalog.where((item) => item.id == _lamination1Id).toList(),
+                catalog.where((item) => item.id == _lamination1Id ||
+                    (scenario == 'free' && item.id == _lamination2Id)).toList(),
             queueSnapshotLoader: () async => current,
             liveEventsLoader: () => events.stream,
           ),
@@ -114,14 +115,22 @@ void _registerWorkerQueueOrderingTests() {
         await tester.pumpAndSettle();
       }
 
-      final prefix =
-          workerMode ? 'worker-order-' : 'sequence-row-$_lamination1Id-';
+      final prefix = workerMode
+          ? 'worker-order-'
+          : 'sequence-row-$_lamination1Id-';
       List<String> displayedIds() => tester
-          .widgetList(find.byWidgetPredicate((widget) =>
-              widget.key is ValueKey<String> &&
-              (widget.key! as ValueKey<String>).value.startsWith(prefix)))
-          .map((widget) =>
-              (widget.key! as ValueKey<String>).value.substring(prefix.length))
+          .widgetList(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget.key is ValueKey<String> &&
+                  (widget.key! as ValueKey<String>).value.startsWith(prefix),
+            ),
+          )
+          .map(
+            (widget) => (widget.key! as ValueKey<String>).value.substring(
+              prefix.length,
+            ),
+          )
           .toList();
       final unchanged = ids.where((id) => id != ids[96]).toList();
       final expected = switch (scenario) {
@@ -134,18 +143,33 @@ void _registerWorkerQueueOrderingTests() {
       void expectInitialOrder() {
         final displayed = displayedIds();
         expect(displayed, isNotEmpty);
-        // Admin uses a lazy list; worker rows are built in one segmented group.
-        expect(
-            displayed, workerMode ? expected : expected.take(displayed.length));
+        // Both views build only viewport/cache rows, preserving display ordering.
+        expect(displayed, expected.take(displayed.length));
         if (scenario == 'free' || scenario == 'legacy') {
-          expect(find.byKey(ValueKey('worker-order-${ids.last}')).hitTestable(),
-              findsOneWidget);
+          expect(
+            find.byKey(ValueKey('worker-order-${ids.last}')).hitTestable(),
+            findsOneWidget,
+          );
         }
       }
 
       expectInitialOrder();
-      expect(current.sequences[_lamination1Id], ids,
-          reason: 'display sorting must not mutate the admin sequence');
+      if (workerMode) {
+        expect(
+          displayedIds().length,
+          lessThan(30),
+          reason: 'a phone viewport must not build all 99 queue rows',
+        );
+        expect(
+          find.byKey(ValueKey('worker-order-${expected.last}')),
+          findsNothing,
+        );
+      }
+      expect(
+        current.sequences[_lamination1Id],
+        ids,
+        reason: 'display sorting must not mutate the admin sequence',
+      );
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
       await mount();
@@ -168,8 +192,94 @@ void _registerWorkerQueueOrderingTests() {
         current = snapshot();
         events.add(current);
         await tester.pumpAndSettle();
-        expect(displayedIds(), unchanged,
-            reason: 'switching to strict restores the exact queue order');
+        expect(
+          displayedIds(),
+          unchanged.take(displayedIds().length),
+          reason: 'switching to strict restores the exact queue order',
+        );
+        final movedId = ids.removeLast();
+        ids.insert(0, movedId);
+        current = snapshot();
+        events.add(current);
+        await tester.pumpAndSettle();
+        expect(
+          displayedIds().first,
+          movedId,
+          reason: 'keyed lazy rows must follow a live sequence reorder',
+        );
+        ids.remove(movedId);
+        maps.removeWhere((item) => item.map.id == movedId);
+        current = snapshot();
+        events.add(current);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ValueKey('worker-order-$movedId')), findsNothing);
+        expect(displayedIds().first, ids.first);
+
+        final inserted = await MobileApi.instance.adminSaveProductionMap(
+          _productionOrderMap(
+            id: 'zakaz-inserted-order',
+            title: 'zakaz-inserted-order',
+            productCode: 'zakaz-inserted-order',
+            product: 'zakaz-inserted-order',
+            apparatusId: _lamination1Id,
+          ),
+        );
+        maps.add(inserted);
+        ids.insert(1, inserted.map.id);
+        states[inserted.map.id] = 'pending';
+        current = snapshot();
+        events.add(current);
+        await tester.pumpAndSettle();
+        expect(
+          displayedIds().take(3),
+          ids.take(3),
+          reason: 'inserting a row must keep neighboring row identities',
+        );
+        final lastRow = find.byKey(ValueKey('worker-order-${ids.last}'));
+        final scrollable = find
+            .descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byType(Scrollable),
+            )
+            .first;
+        await tester.scrollUntilVisible(
+          lastRow,
+          300,
+          scrollable: scrollable,
+          maxScrolls: 100,
+        );
+        await tester.pumpAndSettle();
+        expect(lastRow.hitTestable(), findsOneWidget);
+        expect(
+          displayedIds().length,
+          lessThan(30),
+          reason: 'scrolling must recycle rows instead of retaining the queue',
+        );
+        final removedAtEnd = ids.removeLast();
+        maps.removeWhere((item) => item.map.id == removedAtEnd);
+        final movedToEnd = ids.removeAt(1);
+        ids.add(movedToEnd);
+        current = snapshot();
+        events.add(current);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ValueKey('worker-order-$removedAtEnd')), findsNothing);
+        final movedRow = find.byKey(ValueKey('worker-order-$movedToEnd'));
+        await tester.scrollUntilVisible(movedRow, 100,
+            scrollable: scrollable, maxScrolls: 10);
+        await tester.pumpAndSettle();
+        expect(movedRow.hitTestable(), findsOneWidget,
+            reason: 'live changes while scrolled must keep valid row mapping');
+        final tabs = tester.widget<TabBar>(find.byType(TabBar).first);
+        expect(tabs.tabs.length, 3);
+        tabs.controller!.animateTo(2);
+        await tester.pumpAndSettle();
+        expect(movedRow.hitTestable(), findsNothing,
+            reason: 'another apparatus must not reuse the current list rows');
+        tabs.controller!.animateTo(0);
+        await tester.pumpAndSettle();
+        expect(movedRow.hitTestable(), findsOneWidget,
+            reason: 'returning to an apparatus keeps its queue scroll position');
+
       }
       dismissAdminTopNotice();
       await tester.pumpWidget(const SizedBox.shrink());
