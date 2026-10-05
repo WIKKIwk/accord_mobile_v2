@@ -51,7 +51,7 @@ Future<void> _chooseItemMoveGroup(WidgetTester tester, String group) async {
 }
 
 void _registerAdminItemSelectionTests() {
-  testWidgets('item selection uses icon and long press while row opens details',
+  testWidgets('item selection mode toggles rows after the first selection',
       (tester) async {
     _setItemMoveCapabilities(['admin.access', 'catalog.item.bulk_move']);
     final client = _ItemSelectionHttpClient();
@@ -86,12 +86,34 @@ void _registerAdminItemSelectionTests() {
       await tester.longPress(find.text('Item 002'));
       await tester.pumpAndSettle();
       expect(find.text('Tanlangan: 2 ta'), findsOneWidget);
-      // Ordinary taps still open details during selection mode.
+      // In selection mode, ordinary row taps toggle instead of opening details.
+      await tester.tap(find.text('Item 002'));
+      await tester.pumpAndSettle();
+      expect(find.text('Details ITEM-002'), findsNothing);
+      expect(find.text('Tanlangan: 1 ta'), findsOneWidget);
+      await tester.tap(find.text('Item 002'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tanlangan: 2 ta'), findsOneWidget);
+      expect(
+          tester
+              .widget<AdminSummaryCard>(
+                  find.widgetWithText(AdminSummaryCard, 'Item 002'))
+              .showChevron,
+          isFalse);
+      await tester.tap(find.text('Item 001'));
+      await tester.tap(find.text('Item 002'));
+      await tester.pumpAndSettle();
+      expect(moveFab, findsNothing);
+      expect(normalFab, findsOneWidget);
       await tester.tap(find.text('Item 002'));
       await tester.pumpAndSettle();
       expect(find.text('Details ITEM-002'), findsOneWidget);
       await tester.tap(find.text('Return to items'));
       await _pumpAdminItemCreateScreen(tester);
+      // Long press starts selection mode again, then a tap adds another item.
+      await tester.longPress(find.text('Item 001'));
+      await tester.tap(find.text('Item 002'));
+      await tester.pumpAndSettle();
       expect(find.text('Tanlangan: 2 ta'), findsOneWidget);
 
       // All groups is a filter, never a move destination.
@@ -245,6 +267,10 @@ void _registerAdminItemSelectionTests() {
       expect(
           find.byKey(const ValueKey('admin-items-move-fab')), findsOneWidget);
       expect(find.text('Tanlangan: 1 ta'), findsOneWidget);
+      await tester.tap(find.text('Item 002'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tanlangan: 2 ta'), findsOneWidget);
+      expect(find.text('Details ITEM-002'), findsNothing);
       expect(tester.takeException(), isNull);
     }, createHttpClient: (_) => client);
   });

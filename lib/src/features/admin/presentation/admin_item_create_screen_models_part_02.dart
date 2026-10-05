@@ -302,6 +302,10 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
 
   Future<void> _openItem(SupplierItem item) async {
     if (_moving) return;
+    if (_canSelect && _selectedCodes.isNotEmpty) {
+      _toggleItem(item);
+      return;
+    }
     final customHandler = widget.onItemTap;
     if (customHandler != null) {
       await customHandler(item);
@@ -435,7 +439,8 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
                     onRetry: () => _loadFirstPage(forceRefresh: true),
                     selectedCodes: _selectedCodes,
                     onItemSelect: _canSelect && !_moving ? _toggleItem : null,
-                    onItemTap: widget.onItemTap != null ||
+                    onItemTap: (_canSelect && _selectedCodes.isNotEmpty) ||
+                            widget.onItemTap != null ||
                             AppSession.instance.can('admin.access')
                         ? _openItem
                         : null,
@@ -559,6 +564,7 @@ class _AdminItemsList extends StatelessWidget {
                 ),
                 item: items[index],
                 selected: selectedCodes.contains(items[index].code),
+                selectionMode: selectedCodes.isNotEmpty,
                 onSelect: onItemSelect == null
                     ? null
                     : () => onItemSelect!(items[index]),
@@ -601,6 +607,7 @@ class _AdminItemRow extends StatelessWidget {
     required this.slot,
     required this.item,
     required this.selected,
+    required this.selectionMode,
     this.onTap,
     this.onSelect,
   });
@@ -608,6 +615,7 @@ class _AdminItemRow extends StatelessWidget {
   final M3SegmentVerticalSlot slot;
   final SupplierItem item;
   final bool selected;
+  final bool selectionMode;
   final VoidCallback? onTap;
   final VoidCallback? onSelect;
 
@@ -631,7 +639,7 @@ class _AdminItemRow extends StatelessWidget {
       value: '',
       onTap: onTap,
       onLongPress: onSelect,
-      showChevron: onTap != null,
+      showChevron: onTap != null && !selectionMode,
       leading: Semantics(
         selected: selected,
         button: onSelect != null,
