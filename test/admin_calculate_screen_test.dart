@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
@@ -12,6 +14,8 @@ import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 part 'admin_calculate_screen_test_widgets_part_01.dart';
@@ -22,6 +26,7 @@ part 'admin_calculate_screen_flexo_tests.dart';
 part 'admin_calculate_screen_waste_tests.dart';
 part 'admin_calculate_screen_pending_order_tests.dart';
 part 'admin_calculate_screen_order_edit_tests.dart';
+part 'admin_calculate_screen_quick_order_http_tests.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -53,4 +58,5 @@ void main() {
   _registerWasteTests();
   _registerPendingOrderTests();
   _registerOpenedOrderEditTests();
+  _registerQuickOrderHttpTests();
 }

@@ -35,7 +35,7 @@ class MobileApiCalculateOrderTemplateClient
 
 class CalculateOrderTemplateStore extends ChangeNotifier {
   CalculateOrderTemplateStore({CalculateOrderTemplateClient? client})
-    : _client = client ?? const MobileApiCalculateOrderTemplateClient();
+      : _client = client ?? const MobileApiCalculateOrderTemplateClient();
 
   static final CalculateOrderTemplateStore instance =
       CalculateOrderTemplateStore();
@@ -65,11 +65,13 @@ class CalculateOrderTemplateStore extends ChangeNotifier {
 
   Future<CalculateOrderTemplate> upsert(CalculateOrderTemplate template) async {
     final saved = await _client.upsertTemplate(template);
-    await load(force: true);
-    if (!_templates.any((item) => item.id == saved.id)) {
-      _templates = _dedupeTemplates([saved, ..._templates]);
-      notifyListeners();
-    }
+    // The write response is authoritative. A separate archive read must not
+    // turn a committed save into a failure and block opening the new order.
+    _templates = _dedupeTemplates([
+      saved,
+      ..._templates.where((item) => item.id != saved.id),
+    ]);
+    notifyListeners();
     return saved;
   }
 

@@ -24,7 +24,7 @@ void main() {
       );
 
       expect(client.upsertCalls, 2);
-      expect(client.listCalls, 3);
+      expect(client.listCalls, 1);
       expect(store.templates, hasLength(1));
       expect(store.templates.single.code, 'Z-CPP-1');
       expect(store.templates.single.name, 'CPP 600');
@@ -75,6 +75,44 @@ void main() {
     expect(store.templates.single.id, 'new-id');
     expect(store.templates.single.widthMm, 640);
   });
+
+  test('committed upsert succeeds without another archive read', () async {
+    final client = _FakeCalculateOrderTemplateClient();
+    final store = CalculateOrderTemplateStore(client: client);
+    await store.load();
+    client.failList = true;
+
+    final saved = await store.upsert(
+      _template(code: 'Z-SAVED', name: 'Saved order', widthMm: 425),
+    );
+
+    expect(client.listCalls, 1);
+    expect(store.templates.single.id, saved.id);
+    expect(store.templates.single.widthMm, 425);
+    expect(store.isLoaded, isTrue);
+  });
+
+  test('upsert before loading preserves the full archive load', () async {
+    final client = _FakeCalculateOrderTemplateClient();
+    client.seed([
+      _copyWithServerFields(
+        _template(code: 'Z-OLD', name: 'Existing order', widthMm: 530),
+        id: 'existing-id',
+        code: 'Z-OLD',
+      ),
+    ]);
+    final store = CalculateOrderTemplateStore(client: client);
+    await store.upsert(
+      _template(code: 'Z-NEW', name: 'New order', widthMm: 425),
+    );
+
+    expect(store.isLoaded, isFalse);
+    expect(store.templates.single.code, 'Z-NEW');
+    await store.load();
+    expect(client.listCalls, 1);
+    expect(store.templates.map((item) => item.code), ['Z-OLD', 'Z-NEW']);
+    expect(store.isLoaded, isTrue);
+  });
 }
 
 class _FakeCalculateOrderTemplateClient
@@ -83,6 +121,7 @@ class _FakeCalculateOrderTemplateClient
   int listCalls = 0;
   int upsertCalls = 0;
   int deleteCalls = 0;
+  bool failList = false;
 
   void seed(List<CalculateOrderTemplate> templates) {
     _templates
@@ -93,6 +132,7 @@ class _FakeCalculateOrderTemplateClient
   @override
   Future<List<CalculateOrderTemplate>> listTemplates() async {
     listCalls++;
+    if (failList) throw StateError('Template archive unavailable');
     return List<CalculateOrderTemplate>.from(_templates);
   }
 

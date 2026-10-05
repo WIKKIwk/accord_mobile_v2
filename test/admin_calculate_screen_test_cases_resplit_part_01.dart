@@ -337,7 +337,7 @@ void _registeradmin_calculate_screen_testCases01() {
     expect(quickTemplate.frameProductSizeMm, 250);
     expect(quickTemplate.frameCount, 3);
     expect(quickTemplate.widthMm, 765);
-    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 6));
   });
 
   testWidgets('saved quick order with missing source map asks to relink', (
