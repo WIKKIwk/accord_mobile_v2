@@ -52,6 +52,7 @@ class AppNavigationBar extends StatelessWidget {
     this.selectionVisible = true,
     this.height = appNavigationBarHeight,
     this.primaryVisible = true,
+    this.primaryAction,
     this.content,
   });
 
@@ -61,6 +62,7 @@ class AppNavigationBar extends StatelessWidget {
   final bool selectionVisible;
   final double height;
   final bool primaryVisible;
+  final Widget? primaryAction;
 
   /// Replaces the navigation destinations inside the same dock shell.
   final Widget? content;
@@ -228,11 +230,12 @@ class AppNavigationBar extends StatelessWidget {
                 bottom: appNavigationBarPrimaryButtonBottom(
                   dockHeight: dockHeight,
                 ),
-                child: _AppPrimaryNavigationButton(
-                  destination: destinations[primaryIndex],
-                  selected: primarySelected,
-                  onTap: () => onDestinationSelected(primaryIndex),
-                ),
+                child: primaryAction ??
+                    _AppPrimaryNavigationButton(
+                      destination: destinations[primaryIndex],
+                      selected: primarySelected,
+                      onTap: () => onDestinationSelected(primaryIndex),
+                    ),
               ),
           ],
         ),

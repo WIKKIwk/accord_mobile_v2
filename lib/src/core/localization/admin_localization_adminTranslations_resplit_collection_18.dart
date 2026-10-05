@@ -102,6 +102,11 @@ const _admin_localization_adminTranslations_resplitPart18 = {
     'en': 'Select a group',
     'ru': 'Выберите группу',
   },
+  'admin.bulk_move.clear_selection': {
+    'uz': 'Tanlovni bekor qilish',
+    'en': 'Clear selection',
+    'ru': 'Снять выделение',
+  },
   'admin.bulk_move.selected_count': {
     'uz': 'Tanlangan: {count} ta',
     'en': 'Selected: {count}',

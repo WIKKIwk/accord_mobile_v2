@@ -370,6 +370,7 @@ class _ItemCreateDialogCard extends StatelessWidget {
 
 typedef AdminItemsPageLoader = Future<List<SupplierItem>> Function({
   required String query,
+  required String group,
   required int limit,
   required int offset,
 });
@@ -382,13 +383,17 @@ class AdminItemsListTab extends StatefulWidget {
     required this.loadItemsPage,
     this.searchController,
     this.embeddedSearchInAppBar = false,
+    this.itemGroupsFuture,
     this.onItemTap,
+    this.onSelectionChanged,
   });
 
   final AdminItemsPageLoader loadItemsPage;
   final TextEditingController? searchController;
   final bool embeddedSearchInAppBar;
+  final Future<List<String>>? itemGroupsFuture;
   final AdminItemTapHandler? onItemTap;
+  final VoidCallback? onSelectionChanged;
 
   static void clearMemoryCache() {
     _AdminItemsListTabState._memoryCache = null;

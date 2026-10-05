@@ -17,6 +17,7 @@ class AdminDock extends StatelessWidget {
     this.tightToEdges = true,
     this.showPrimaryFab = true,
     this.primaryFabActions,
+    this.primaryAction,
   });
 
   final AdminDockTab? activeTab;
@@ -24,6 +25,7 @@ class AdminDock extends StatelessWidget {
   final bool tightToEdges;
   final bool showPrimaryFab;
   final List<AdminFabMenuAction>? primaryFabActions;
+  final Widget? primaryAction;
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +45,7 @@ class AdminDock extends StatelessWidget {
           userLabel: userLabel,
           createLabel: createLabel,
           activityLabel: activityLabel,
+          includePrimaryAction: primaryAction != null,
         );
         final effectiveShowPrimaryFab = showPrimaryFab &&
             !ProfileRouteOverlayNotifier.instance.obscuresDockPrimaryFab &&
@@ -88,6 +91,7 @@ class AdminDock extends StatelessWidget {
               selectionVisible: selectionVisible,
               selectedIndex: effectiveSelectedIndex,
               primaryVisible: !menuOpen && effectiveShowPrimaryFab,
+              primaryAction: primaryAction,
               destinations: [
                 for (var i = 0; i < destinations.length; i++)
                   RoleDockDestination(
@@ -137,6 +141,7 @@ List<_AdminDockDestination> _visibleDestinations({
   required String userLabel,
   required String createLabel,
   required String activityLabel,
+  required bool includePrimaryAction,
 }) {
   final candidates = [
     _AdminDockDestination(
@@ -175,6 +180,8 @@ List<_AdminDockDestination> _visibleDestinations({
     ),
   ];
   return candidates
-      .where((destination) => AppRouter.canOpenRoute(destination.routeName))
+      .where((destination) =>
+          (destination.primary && includePrimaryAction) ||
+          AppRouter.canOpenRoute(destination.routeName))
       .toList(growable: false);
 }

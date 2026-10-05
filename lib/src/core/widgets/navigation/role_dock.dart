@@ -42,6 +42,7 @@ class RoleDock extends StatelessWidget {
     required this.selectedIndex,
     required this.selectionVisible,
     this.primaryVisible = false,
+    this.primaryAction,
     this.compact = true,
     this.tightToEdges = true,
   });
@@ -50,6 +51,7 @@ class RoleDock extends StatelessWidget {
   final int selectedIndex;
   final bool selectionVisible;
   final bool primaryVisible;
+  final Widget? primaryAction;
   final bool compact;
   final bool tightToEdges;
 
@@ -120,6 +122,7 @@ class RoleDock extends StatelessWidget {
             selectionVisible: effectiveSelectionVisible,
             selectedIndex: effectiveSelectedIndex,
             primaryVisible: primaryVisible,
+            primaryAction: primaryAction,
             destinations: [
               for (final destination in allDestinations)
                 AppNavigationDestination(

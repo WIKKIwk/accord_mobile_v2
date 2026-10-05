@@ -4,16 +4,16 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/session.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
+import '../../../core/widgets/navigation/app_navigation_bar.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../models/admin_item_group_tree_entry.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
-import 'admin_item_group_bulk_move_screen.dart';
 import 'widgets/admin_catalog_search_field.dart';
+import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_create_hub_sheet.dart';
-import 'widgets/admin_surface_tab_bar.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_top_notice.dart';
@@ -28,10 +28,7 @@ part 'admin_item_create_screen_declarations_part_03.dart';
 const double _itemCreateCardRadius = 18;
 const double _itemCreateFieldRadius = 18;
 
-class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
-    with SingleTickerProviderStateMixin {
-  static const int _tabCount = 2;
-
+class _AdminItemCreateScreenState extends State<AdminItemCreateScreen> {
   final TextEditingController code = TextEditingController();
   final TextEditingController name = TextEditingController();
   final TextEditingController itemGroup = TextEditingController();
@@ -42,7 +39,6 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       GlobalKey<_AdminItemsListTabState>();
   late final Future<List<String>> itemGroupsFuture;
   late final Future<List<String>> itemUomsFuture;
-  late final TabController _tabController;
   List<AdminItemGroupTreeEntry> _itemGroupTree = const [];
   CustomerDirectoryEntry? selectedCustomer;
   bool saving = false;
@@ -50,12 +46,6 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
   @override
   void initState() {
     super.initState();
-    final initialIndex = _resolveInitialTabIndex(widget.initialTabIndex);
-    _tabController = TabController(
-      length: _tabCount,
-      vsync: this,
-      initialIndex: initialIndex,
-    );
     _itemsSearchFocusNode.addListener(_handleItemsSearchFocus);
     itemGroupsFuture = _loadItemGroups();
     itemUomsFuture = _loadItemUoms();
@@ -66,7 +56,6 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     _itemsSearchFocusNode.removeListener(_handleItemsSearchFocus);
     _itemsSearchFocusNode.dispose();
     _itemsSearchController.dispose();
-    _tabController.dispose();
     code.dispose();
     name.dispose();
     itemGroup.dispose();
@@ -76,7 +65,8 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
 
   @override
   Widget build(BuildContext context) {
-    final searchActive = _itemsSearchFocusNode.hasFocus;
+    final itemsState = _itemsListTabKey.currentState;
+    final selectedCount = itemsState?.selectedCount ?? 0;
     return AppShell(
       title: '',
       subtitle: '',
@@ -99,6 +89,30 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       ),
       bottom: AdminDock(
         activeTab: AdminDockTab.settings,
+        primaryAction: selectedCount == 0
+            ? null
+            : SizedBox(
+                height: appNavigationBarPrimaryButtonSize,
+                child: FloatingActionButton.extended(
+                  key: const ValueKey('admin-items-move-fab'),
+                  onPressed:
+                      itemsState!.moving ? null : itemsState.moveSelected,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(
+                      appNavigationBarPrimaryButtonBorderRadius,
+                    ),
+                  ),
+                  icon: itemsState.submittingMove
+                      ? const SizedBox.square(
+                          dimension: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.drive_file_move_outlined),
+                  label: Text(
+                    '${context.l10n.adminText('bulk_move.action')} ($selectedCount)',
+                  ),
+                ),
+              ),
         primaryFabActions: [
           AdminFabMenuAction(
             title: context.l10n.adminText('item.add_title'),
@@ -108,60 +122,24 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
         ],
       ),
       contentPadding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          ClipRect(
-            child: AnimatedSize(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              alignment: Alignment.topCenter,
-              child: searchActive
-                  ? const SizedBox.shrink()
-                  : AdminSurfaceTabBar(
-                      controller: _tabController,
-                      tabs: [
-                        Tab(
-                          height: 38,
-                          text: context.l10n.adminText('item.items_tab'),
-                        ),
-                        Tab(
-                          height: 38,
-                          text: context.l10n.adminText('item.group_move_tab'),
-                        ),
-                      ],
-                    ),
-            ),
-          ),
-          Expanded(
-            child: ColoredBox(
-              color: AppTheme.shellStart(context),
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  AdminItemsListTab(
-                    key: _itemsListTabKey,
-                    searchController: _itemsSearchController,
-                    embeddedSearchInAppBar: true,
-                    loadItemsPage: ({
-                      required query,
-                      required limit,
-                      required offset,
-                    }) =>
-                        MobileApi.instance.adminItemsPage(
-                      query: query,
-                      limit: limit,
-                      offset: offset,
-                    ),
-                  ),
-                  AdminItemGroupBulkMoveTab(
-                    embedded: true,
-                    searchController: _itemsSearchController,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+      child: AdminItemsListTab(
+        key: _itemsListTabKey,
+        searchController: _itemsSearchController,
+        embeddedSearchInAppBar: true,
+        itemGroupsFuture: itemGroupsFuture,
+        onSelectionChanged: () => setState(() {}),
+        loadItemsPage: ({
+          required query,
+          required group,
+          required limit,
+          required offset,
+        }) =>
+            MobileApi.instance.adminItemsPage(
+          query: query,
+          group: group,
+          limit: limit,
+          offset: offset,
+        ),
       ),
     );
   }

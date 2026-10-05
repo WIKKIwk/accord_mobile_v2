@@ -321,7 +321,7 @@ void _registeradmin_item_create_screen_testCases01() {
     }, createHttpClient: (_) => client);
   });
 
-  testWidgets('item screen has create and paged item list modules', (
+  testWidgets('item screen has one paged item list without duplicate tabs', (
     tester,
   ) async {
     final seenRequests = <String>[];
@@ -345,8 +345,8 @@ void _registeradmin_item_create_screen_testCases01() {
 
       await _pumpAdminItemCreateScreen(tester, waitForItems: true);
 
-      expect(find.widgetWithText(Tab, 'Itemlar'), findsOneWidget);
-      expect(find.widgetWithText(Tab, "Group ko'chirish"), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Itemlar'), findsNothing);
+      expect(find.widgetWithText(Tab, "Group ko'chirish"), findsNothing);
       expect(find.text('Mahsulot qidirish'), findsOneWidget);
       expect(
         tester.widget<EditableText>(_appBarSearchEditable()).textAlign,
@@ -367,7 +367,7 @@ void _registeradmin_item_create_screen_testCases01() {
 
       expect(
           find.byKey(const ValueKey('admin-item-search-close')), findsNothing);
-      expect(find.widgetWithText(Tab, 'Itemlar'), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Itemlar'), findsNothing);
       expect(
           find.byKey(const ValueKey('admin-item-create-code')), findsNothing);
 

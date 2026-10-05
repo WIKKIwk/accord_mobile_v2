@@ -31,7 +31,6 @@ Future<void> _openCreateItemTab(WidgetTester tester) async {
 }
 
 Future<void> _openItemsTab(WidgetTester tester) async {
-  await tester.tap(find.widgetWithText(Tab, 'Itemlar'));
   await tester.pump();
   for (var i = 0; i < 30; i++) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -74,6 +73,28 @@ class _AdminItemCreateHttpClient implements HttpClient {
     final key =
         '$method ${url.path}${url.query.isEmpty ? '' : '?${url.query}'}';
     seenRequests.add(key);
+
+    if (method == 'GET' &&
+        url.path == '/v1/mobile/admin/items' &&
+        ((url.queryParameters['group']?.isNotEmpty ?? false) ||
+            url.queryParameters['q'] == 'Item 161')) {
+      final group = url.queryParameters['group'] ?? '';
+      final query = url.queryParameters['q'] ?? '';
+      final offset = int.parse(url.queryParameters['offset'] ?? '0');
+      final limit = int.parse(url.queryParameters['limit'] ?? '80');
+      final items = _itemsPage(1, 161)
+          .where((item) => group.isEmpty || item['item_group'] == group)
+          .where((item) => query.isEmpty || item['name']!.contains(query))
+          .skip(offset)
+          .take(limit)
+          .toList();
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode(items),
+          statusCode: HttpStatus.ok,
+        ),
+      );
+    }
 
     if (key == 'GET /v1/mobile/admin/items?limit=80') {
       return _FakeHttpClientRequest(

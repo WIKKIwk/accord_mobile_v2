@@ -2,13 +2,6 @@
 part of 'admin_item_create_screen.dart';
 
 extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
-  int _resolveInitialTabIndex(int requestedIndex) {
-    if (requestedIndex >= 2) {
-      return 1;
-    }
-    return 0;
-  }
-
   void _handleItemsSearchFocus() {
     if (mounted) {
       setState(() {});

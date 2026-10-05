@@ -12,6 +12,20 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
   late final bool _ownsSearchController;
   Timer? _debounce;
   String _query = '';
+  String _group = '';
+  final Set<String> _selectedCodes = <String>{};
+  bool _moving = false;
+  bool _submittingMove = false;
+
+  int get selectedCount => _selectedCodes.length;
+  bool get moving => _moving;
+  bool get submittingMove => _submittingMove;
+
+  bool get _canSelect =>
+      widget.onSelectionChanged != null &&
+      AppSession.instance.can('catalog.item.bulk_move');
+  bool _groupFilterExpanded = false;
+  int _requestVersion = 0;
   List<SupplierItem> _items = const <SupplierItem>[];
   bool _initialLoading = true;
   bool _loadingMore = false;
@@ -55,6 +69,24 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
     });
   }
 
+  void _handleGroupChanged(String value) {
+    if (_moving) return;
+    if (value == _group) {
+      setState(() => _groupFilterExpanded = false);
+      return;
+    }
+    _groupFilterExpanded = false;
+    _debounce?.cancel();
+    _query = _searchController.text.trim();
+    _group = value;
+    AdminItemsListTab.clearMemoryCache();
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
+    _loadFirstPage(forceRefresh: true);
+    widget.onSelectionChanged?.call();
+  }
+
   void _handleScroll() {
     if (!_scrollController.hasClients ||
         _initialLoading ||
@@ -77,6 +109,7 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
       return false;
     }
     _query = cache.query;
+    _group = cache.group;
     _searchController.text = cache.query;
     _items = cache.items;
     _initialLoading = false;
@@ -90,6 +123,7 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
     _memoryCache = _AdminItemsMemoryCache(
       sessionRevision: sessionRevision,
       query: _query,
+      group: _group,
       items: List<SupplierItem>.unmodifiable(_items),
       hasMore: _hasMore,
     );
@@ -100,6 +134,7 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
       setState(() {});
       return;
     }
+    _requestVersion++;
     setState(() {
       _items = const <SupplierItem>[];
       _initialLoading = true;
@@ -120,15 +155,20 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
 
   Future<void> _fetchPage({required int offset, required bool replace}) async {
     final query = _query;
+    final group = _group;
+    final requestVersion = _requestVersion;
     final sessionRevision = AppSession.instance.revision.value;
     try {
       final page = await widget.loadItemsPage(
         query: query,
+        group: group,
         limit: _pageSize,
         offset: offset,
       );
       if (!mounted ||
+          requestVersion != _requestVersion ||
           query != _query ||
+          group != _group ||
           sessionRevision != AppSession.instance.revision.value) {
         return;
       }
@@ -142,7 +182,9 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
       _saveMemoryCache(sessionRevision);
     } catch (error) {
       if (!mounted ||
+          requestVersion != _requestVersion ||
           query != _query ||
+          group != _group ||
           sessionRevision != AppSession.instance.revision.value) {
         return;
       }
@@ -155,7 +197,111 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
     }
   }
 
+  void _toggleItem(SupplierItem item) {
+    if (!_canSelect || _moving) return;
+    setState(() {
+      if (!_selectedCodes.remove(item.code)) {
+        _selectedCodes.add(item.code);
+      }
+    });
+    widget.onSelectionChanged?.call();
+  }
+
+  void _clearSelection() {
+    if (_moving) return;
+    setState(_selectedCodes.clear);
+    widget.onSelectionChanged?.call();
+  }
+
+  Future<void> moveSelected() async {
+    if (!_canSelect || _selectedCodes.isEmpty || _moving) return;
+    final targetGroup = _group.trim();
+    if (targetGroup.isEmpty) {
+      setState(() => _groupFilterExpanded = true);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.adminText('bulk_move.select_group')),
+      ));
+      return;
+    }
+    final codes = _selectedCodes.toList(growable: false);
+    final sessionRevision = AppSession.instance.revision.value;
+    setState(() => _moving = true);
+    widget.onSelectionChanged?.call();
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(context.l10n.adminText('bulk_move.move_title')),
+          content: Text(context.l10n.adminText(
+            'bulk_move.confirm',
+            values: {'count': codes.length, 'group': targetGroup},
+          )),
+          actions: [
+            TextButton(
+              key: const ValueKey('admin-items-move-cancel'),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(context.l10n.adminText('bulk_move.no')),
+            ),
+            FilledButton(
+              key: const ValueKey('admin-items-move-confirm'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(context.l10n.adminText('bulk_move.yes')),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true ||
+          !mounted ||
+          sessionRevision != AppSession.instance.revision.value ||
+          !_canSelect) return;
+      setState(() => _submittingMove = true);
+      widget.onSelectionChanged?.call();
+      final result = await MobileApi.instance.adminMoveItemsToGroup(
+        itemCodes: codes,
+        itemGroup: targetGroup,
+      );
+      // Invalidate cached group labels even if the user left during the request.
+      AdminItemsListTab.clearMemoryCache();
+      if (!mounted || sessionRevision != AppSession.instance.revision.value)
+        return;
+      setState(() {
+        if (result.failedCount == 0) {
+          _selectedCodes.clear();
+        } else {
+          _selectedCodes.removeAll(result.updatedItemCodes);
+        }
+      });
+      widget.onSelectionChanged?.call();
+      final message = result.failedCount == 0
+          ? context.l10n.adminText('bulk_move.success',
+              values: {'count': result.updatedCount})
+          : context.l10n.adminText('bulk_move.partial_success', values: {
+              'updated': result.updatedCount,
+              'failed': result.failedCount,
+            });
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+      await _loadFirstPage(forceRefresh: true);
+    } catch (error) {
+      if (!mounted || sessionRevision != AppSession.instance.revision.value)
+        return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n
+            .adminText('bulk_move.failed', values: {'error': error})),
+      ));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _moving = false;
+          _submittingMove = false;
+        });
+        widget.onSelectionChanged?.call();
+      }
+    }
+  }
+
   Future<void> _openItem(SupplierItem item) async {
+    if (_moving) return;
     final customHandler = widget.onItemTap;
     if (customHandler != null) {
       await customHandler(item);
@@ -179,45 +325,126 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
     final scheme = Theme.of(context).colorScheme;
     return ColoredBox(
       color: AppTheme.shellStart(context),
-      child: RefreshIndicator.noSpinner(
-        onRefresh: () => _loadFirstPage(forceRefresh: true),
-        child: ListView(
-          controller: _scrollController,
-          padding: EdgeInsets.fromLTRB(4, 12, 4, bottomPadding),
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            if (!widget.embeddedSearchInAppBar) ...[
-              SearchBar(
-                controller: _searchController,
-                hintText: context.l10n.adminText('item.search'),
-                constraints: const BoxConstraints(minHeight: 58),
-                padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
-                  EdgeInsets.symmetric(horizontal: 18),
-                ),
-                leading: Icon(
-                  Icons.search_rounded,
-                  size: 26,
-                  color: scheme.onSurfaceVariant,
-                ),
-                elevation: const WidgetStatePropertyAll<double>(0),
-                onChanged: _handleSearchChanged,
-              ),
-              const SizedBox(height: 12),
-            ],
-            _AdminItemsListBody(
-              items: _items,
-              initialLoading: _initialLoading,
-              loadingMore: _loadingMore,
-              hasMore: _hasMore,
-              error: _error,
-              onRetry: () => _loadFirstPage(forceRefresh: true),
-              onItemTap: widget.onItemTap != null ||
-                      AppSession.instance.can('admin.access')
-                  ? _openItem
-                  : null,
+      child: Column(
+        children: [
+          if (widget.itemGroupsFuture != null)
+            FutureBuilder<List<String>>(
+              future: widget.itemGroupsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: _ItemListNotice(
+                      text: context.l10n.adminText('item.groups_load_failed'),
+                    ),
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const LinearProgressIndicator();
+                }
+                final groups = <String>{
+                  for (final group in snapshot.data!)
+                    if (group.trim().isNotEmpty) group.trim(),
+                  if (_group.isNotEmpty) _group,
+                };
+                return AdminExpandableFilterChip<String>(
+                  chipKey: const ValueKey('admin-items-group-filter'),
+                  label: context.l10n.adminText('item.group_label'),
+                  emptyLabel: context.l10n.adminText('item.all_groups'),
+                  icon: Icons.inventory_2_outlined,
+                  selectedValue: _group.isEmpty ? null : _group,
+                  expanded: _groupFilterExpanded,
+                  onToggle: () {
+                    if (_moving) return;
+                    setState(
+                        () => _groupFilterExpanded = !_groupFilterExpanded);
+                  },
+                  onSelect: _handleGroupChanged,
+                  optionKeyPrefix: 'admin-items-group-option',
+                  options: [
+                    AdminFilterChipOption(
+                      value: '',
+                      label: context.l10n.adminText('item.all_groups'),
+                      key: const ValueKey('admin-items-group-filter-all'),
+                    ),
+                    for (final group in groups)
+                      AdminFilterChipOption(value: group, label: group),
+                  ],
+                );
+              },
             ),
-          ],
-        ),
+          if (_selectedCodes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: 12, end: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.l10n.adminText('bulk_move.selected_count',
+                          values: {'count': selectedCount}),
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                  ),
+                  IconButton(
+                    key: const ValueKey('admin-items-clear-selection'),
+                    tooltip:
+                        context.l10n.adminText('bulk_move.clear_selection'),
+                    onPressed: _moving ? null : _clearSelection,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: RefreshIndicator.noSpinner(
+              onRefresh: () => _loadFirstPage(forceRefresh: true),
+              child: ListView(
+                controller: _scrollController,
+                padding: EdgeInsets.fromLTRB(
+                  4,
+                  widget.itemGroupsFuture == null ? 12 : 4,
+                  4,
+                  bottomPadding,
+                ),
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  if (!widget.embeddedSearchInAppBar) ...[
+                    SearchBar(
+                      controller: _searchController,
+                      hintText: context.l10n.adminText('item.search'),
+                      constraints: const BoxConstraints(minHeight: 58),
+                      padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
+                        EdgeInsets.symmetric(horizontal: 18),
+                      ),
+                      leading: Icon(
+                        Icons.search_rounded,
+                        size: 26,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      elevation: const WidgetStatePropertyAll<double>(0),
+                      onChanged: _handleSearchChanged,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  _AdminItemsListBody(
+                    items: _items,
+                    initialLoading: _initialLoading,
+                    loadingMore: _loadingMore,
+                    hasMore: _hasMore,
+                    error: _error,
+                    onRetry: () => _loadFirstPage(forceRefresh: true),
+                    selectedCodes: _selectedCodes,
+                    onItemSelect: _canSelect && !_moving ? _toggleItem : null,
+                    onItemTap: widget.onItemTap != null ||
+                            AppSession.instance.can('admin.access')
+                        ? _openItem
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -227,12 +454,14 @@ class _AdminItemsMemoryCache {
   const _AdminItemsMemoryCache({
     required this.sessionRevision,
     required this.query,
+    required this.group,
     required this.items,
     required this.hasMore,
   });
 
   final int sessionRevision;
   final String query;
+  final String group;
   final List<SupplierItem> items;
   final bool hasMore;
 }
@@ -246,6 +475,8 @@ class _AdminItemsListBody extends StatelessWidget {
     required this.error,
     required this.onRetry,
     required this.onItemTap,
+    required this.selectedCodes,
+    required this.onItemSelect,
   });
 
   final List<SupplierItem> items;
@@ -255,6 +486,8 @@ class _AdminItemsListBody extends StatelessWidget {
   final Object? error;
   final VoidCallback onRetry;
   final AdminItemTapHandler? onItemTap;
+  final Set<String> selectedCodes;
+  final ValueChanged<SupplierItem>? onItemSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -278,6 +511,8 @@ class _AdminItemsListBody extends StatelessWidget {
       pageError: error,
       onRetry: onRetry,
       onItemTap: onItemTap,
+      selectedCodes: selectedCodes,
+      onItemSelect: onItemSelect,
     );
   }
 }
@@ -290,6 +525,8 @@ class _AdminItemsList extends StatelessWidget {
     required this.pageError,
     required this.onRetry,
     required this.onItemTap,
+    required this.selectedCodes,
+    required this.onItemSelect,
   });
 
   final List<SupplierItem> items;
@@ -298,6 +535,8 @@ class _AdminItemsList extends StatelessWidget {
   final Object? pageError;
   final VoidCallback onRetry;
   final AdminItemTapHandler? onItemTap;
+  final Set<String> selectedCodes;
+  final ValueChanged<SupplierItem>? onItemSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -319,6 +558,10 @@ class _AdminItemsList extends StatelessWidget {
                   items.length,
                 ),
                 item: items[index],
+                selected: selectedCodes.contains(items[index].code),
+                onSelect: onItemSelect == null
+                    ? null
+                    : () => onItemSelect!(items[index]),
                 onTap:
                     onItemTap == null ? null : () => onItemTap!(items[index]),
               ),
@@ -354,11 +597,19 @@ class _AdminItemsList extends StatelessWidget {
 }
 
 class _AdminItemRow extends StatelessWidget {
-  const _AdminItemRow({required this.slot, required this.item, this.onTap});
+  const _AdminItemRow({
+    required this.slot,
+    required this.item,
+    required this.selected,
+    this.onTap,
+    this.onSelect,
+  });
 
   final M3SegmentVerticalSlot slot;
   final SupplierItem item;
+  final bool selected;
   final VoidCallback? onTap;
+  final VoidCallback? onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -373,23 +624,36 @@ class _AdminItemRow extends StatelessWidget {
     return AdminSummaryCard(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      backgroundColor: scheme.surfaceContainerLowest,
+      backgroundColor:
+          selected ? scheme.secondaryContainer : scheme.surfaceContainerLowest,
       fixedHeight: 61,
       padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
       value: '',
       onTap: onTap,
+      onLongPress: onSelect,
       showChevron: onTap != null,
-      leading: SizedBox.square(
-        dimension: 30,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: scheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.inventory_2_rounded,
-            size: 16,
-            color: scheme.onSecondaryContainer,
+      leading: Semantics(
+        selected: selected,
+        button: onSelect != null,
+        label: title,
+        child: InkWell(
+          key: ValueKey('admin-item-select-${item.code}'),
+          onTap: onSelect,
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox.square(
+            dimension: 30,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: selected ? scheme.primary : scheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                selected ? Icons.check_rounded : Icons.inventory_2_rounded,
+                size: 16,
+                color:
+                    selected ? scheme.onPrimary : scheme.onSecondaryContainer,
+              ),
+            ),
           ),
         ),
       ),

@@ -10,6 +10,7 @@ import 'package:accord_mobile_v2/src/core/widgets/shell/app_loading_indicator.da
 import 'package:accord_mobile_v2/src/features/admin/models/admin_item_group_tree_entry.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_item_create_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_summary_card.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,8 @@ part 'admin_item_create_screen_test_widgets_part_01.dart';
 part 'admin_item_create_screen_test_declarations_part_02.dart';
 part 'admin_item_create_screen_test_cases_resplit_part_01.dart';
 part 'admin_item_create_screen_test_cases_resplit_part_02.dart';
+part 'admin_item_create_screen_test_group_filter_part.dart';
+part 'admin_item_create_screen_test_selection_part.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -51,4 +54,6 @@ void main() {
   _registeradmin_item_create_screen_testCases01();
 
   _registeradmin_item_create_screen_testCases02();
+  _registerAdminItemGroupFilterTests();
+  _registerAdminItemSelectionTests();
 }

@@ -242,6 +242,16 @@ const _admin_localization_adminTranslations_resplitPart15 = {
     'en': 'Item group',
     'ru': 'Группа товаров',
   },
+  'admin.item.all_groups': {
+    'uz': 'Barcha guruhlar',
+    'en': 'All groups',
+    'ru': 'Все группы',
+  },
+  'admin.item.groups_load_failed': {
+    'uz': 'Mahsulot guruhlari yuklanmadi',
+    'en': 'Could not load item groups',
+    'ru': 'Не удалось загрузить группы товаров',
+  },
   'admin.item.group_required': {
     'uz': 'Guruh tanlang',
     'en': 'Select a group',

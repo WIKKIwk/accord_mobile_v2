@@ -12,7 +12,11 @@ void _registeradmin_item_create_screen_testCases02() {
         theme: ThemeData(useMaterial3: true),
         home: Scaffold(
           body: AdminItemsListTab(
-            loadItemsPage: ({required query, required limit, required offset}) {
+            loadItemsPage: (
+                {required query,
+                required group,
+                required limit,
+                required offset}) {
               return itemsPage.future;
             },
           ),
@@ -139,6 +143,7 @@ void _registeradmin_item_create_screen_testCases02() {
             body: AdminItemsListTab(
               loadItemsPage: ({
                 required query,
+                required group,
                 required limit,
                 required offset,
               }) async {
@@ -191,7 +196,11 @@ void _registeradmin_item_create_screen_testCases02() {
         },
         home: Scaffold(
           body: AdminItemsListTab(
-            loadItemsPage: ({required query, required limit, required offset}) {
+            loadItemsPage: (
+                {required query,
+                required group,
+                required limit,
+                required offset}) {
               loadCalls += 1;
               return Future<List<SupplierItem>>.value([item]);
             },
