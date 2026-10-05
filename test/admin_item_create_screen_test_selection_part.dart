@@ -163,6 +163,15 @@ void _registerAdminItemSelectionTests() {
       await tester.pumpAndSettle();
       expect(find.text('2 ta mahsulotni “Group B” guruhiga o‘tkazilsinmi?'),
           findsOneWidget);
+      final cancelRect = tester.getRect(
+        find.byKey(const ValueKey('admin-items-move-cancel')),
+      );
+      final confirmRect = tester.getRect(
+        find.byKey(const ValueKey('admin-items-move-confirm')),
+      );
+      final dialogRect = tester.getRect(find.byType(AlertDialog));
+      expect(cancelRect.top, greaterThan(confirmRect.bottom));
+      expect(cancelRect.center.dx, closeTo(dialogRect.center.dx, 0.01));
       await tester.tap(find.byKey(const ValueKey('admin-items-move-cancel')));
       await tester.pumpAndSettle();
       expect(client.moves, isEmpty);

@@ -237,15 +237,27 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
             values: {'count': codes.length, 'group': targetGroup},
           )),
           actions: [
-            TextButton(
-              key: const ValueKey('admin-items-move-cancel'),
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(context.l10n.adminText('bulk_move.no')),
-            ),
-            FilledButton(
-              key: const ValueKey('admin-items-move-confirm'),
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(context.l10n.adminText('bulk_move.yes')),
+            SizedBox(
+              width: double.infinity,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FilledButton(
+                    key: const ValueKey('admin-items-move-confirm'),
+                    onPressed: () => Navigator.of(dialogContext).pop(true),
+                    child: Text(context.l10n.adminText('bulk_move.yes')),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton(
+                      key: const ValueKey('admin-items-move-cancel'),
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: Text(context.l10n.adminText('bulk_move.no')),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
