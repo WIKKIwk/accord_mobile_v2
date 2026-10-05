@@ -45,6 +45,7 @@ AdminApparatusQueueSnapshot _decodeProductionMapQueueSnapshot(String source) {
     revision: parseProductionMapSnapshotRevisionFromJson(payload),
     epoch: payload['epoch'] is String ? payload['epoch'] as String : '',
     scope: payload['scope'] is String ? payload['scope'] as String : '',
+    workerShowAllApparatusTabs: payload['worker_show_all_apparatus_tabs'] == true,
   );
   snapshot.validateContract();
   return snapshot;

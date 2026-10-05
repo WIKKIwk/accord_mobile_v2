@@ -129,7 +129,7 @@ List<_WorkerWatchTab> _workerWatchTabs({
     assignedApparatus: assignedApparatus,
   );
   if (ordered.isEmpty) {
-    return const [];
+    return const [_WorkerWatchTab.completed()];
   }
   return [
     _WorkerWatchTab.apparatus(ordered.first),

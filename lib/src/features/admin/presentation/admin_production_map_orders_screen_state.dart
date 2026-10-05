@@ -480,7 +480,7 @@ class _AdminProductionMapOrdersScreenState
                     Expanded(
                       child: widget.workerMode
                           ? _WorkerWatchBody(
-                              apparatus: _apparatus,
+                              apparatus: _workerVisibleApparatusFor(_apparatus),
                               assignedApparatus: AppSession
                                       .instance.profile?.assignedApparatus ??
                                   const <String>[],
@@ -622,8 +622,24 @@ class _AdminProductionMapOrdersScreenState
     setState(callback);
   }
 
+  List<AdminApparatus> _workerVisibleApparatusFor(
+    List<AdminApparatus> apparatus,
+  ) {
+    if (_canonicalQueueSnapshot?.workerShowAllApparatusTabs == true) {
+      return apparatus;
+    }
+    final assigned = AppSession.instance.profile?.assignedApparatus ??
+        const <String>[];
+    return apparatus
+        .where((item) => _isAssignedWatchApparatus(
+              item,
+              assignedApparatus: assigned,
+            ))
+        .toList(growable: false);
+  }
+
   void _recreateWorkerTabController(List<AdminApparatus> apparatus) {
-    final length = _workerWatchTabCount(apparatus);
+    final length = _workerWatchTabCount(_workerVisibleApparatusFor(apparatus));
     if (_tabController.length == length) {
       return;
     }

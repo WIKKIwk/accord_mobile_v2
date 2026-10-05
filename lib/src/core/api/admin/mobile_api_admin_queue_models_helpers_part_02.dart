@@ -67,6 +67,7 @@ class AdminApparatusQueueSnapshot {
     this.revision,
     this.epoch = '',
     this.scope = '',
+    this.workerShowAllApparatusTabs = false,
   });
 
   final Map<String, List<String>> sequences;
@@ -94,6 +95,7 @@ class AdminApparatusQueueSnapshot {
   final int? revision;
   final String epoch;
   final String scope;
+  final bool workerShowAllApparatusTabs;
 
   AdminOrderControlState orderControlFor(String orderId) {
     // The backend serializes only non-active order-control overrides. Missing

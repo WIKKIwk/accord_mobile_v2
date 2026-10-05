@@ -205,6 +205,7 @@ class AdminProductionMapLiveStateDelta
       revision: revision,
       epoch: epoch,
       scope: scope,
+      workerShowAllApparatusTabs: before.workerShowAllApparatusTabs,
       sequences: _applyProductionMapFieldPatch(
           before.sequences, patch['sequences'], _productionMapPatchStrings),
       sequenceVersions: _applyProductionMapFieldPatch(before.sequenceVersions,

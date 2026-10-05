@@ -762,13 +762,6 @@ class _WorkerWatchBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (apparatus.isEmpty) {
-      return Center(
-        child: _EmptyOpenedOrders(
-          message: context.l10n.productionText('worker.queue.empty.apparatus'),
-        ),
-      );
-    }
     final tabs = _workerWatchTabs(
       apparatus: apparatus,
       assignedApparatus: assignedApparatus,

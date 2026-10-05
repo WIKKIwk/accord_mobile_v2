@@ -852,6 +852,7 @@ extension _AdminProductionMapOrdersLiveState
   void _replaceQueueSnapshotMaps(AdminApparatusQueueSnapshot snapshot,
       {Set<String>? changedFields}) {
     _canonicalQueueSnapshot = snapshot;
+    if (widget.workerMode) _recreateWorkerTabController(_apparatus);
     bool changed(String field) => changedFields == null || changedFields.contains(field);
     // Queue/live updates also invalidate the separately loaded archive when
     // an order closes (including the worker finishing a pending early close).
@@ -1161,7 +1162,8 @@ extension _AdminProductionMapOrdersLiveState
         return;
       }
       if (widget.workerMode &&
-          _workerWatchTabCount(apparatus) != _tabController.length) {
+          _workerWatchTabCount(_workerVisibleApparatusFor(apparatus)) !=
+              _tabController.length) {
         _recreateWorkerTabController(apparatus);
       }
       _applyLoadedProductionMapOrdersAndApparatus(
@@ -1232,7 +1234,8 @@ extension _AdminProductionMapOrdersLiveState
         // A same-revision reply still proves recovery. Do not leave a resume
         // error covering valid rows, including a genuinely empty queue.
         if (widget.workerMode &&
-            _workerWatchTabCount(apparatus) != _tabController.length) {
+            _workerWatchTabCount(_workerVisibleApparatusFor(apparatus)) !=
+                _tabController.length) {
           _recreateWorkerTabController(apparatus);
         }
         _updateScreenState(() {
@@ -1247,7 +1250,8 @@ extension _AdminProductionMapOrdersLiveState
       }
       _liveReconnectAttempt = 0;
       if (widget.workerMode &&
-          _workerWatchTabCount(apparatus) != _tabController.length) {
+          _workerWatchTabCount(_workerVisibleApparatusFor(apparatus)) !=
+              _tabController.length) {
         _recreateWorkerTabController(apparatus);
       }
       _updateScreenState(() {
@@ -1289,7 +1293,8 @@ extension _AdminProductionMapOrdersLiveState
         return;
       }
       if (widget.workerMode &&
-          _workerWatchTabCount(apparatus) != _tabController.length) {
+          _workerWatchTabCount(_workerVisibleApparatusFor(apparatus)) !=
+              _tabController.length) {
         _recreateWorkerTabController(apparatus);
       }
       _updateScreenState(() {

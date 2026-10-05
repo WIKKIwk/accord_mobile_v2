@@ -151,6 +151,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
     super.revision,
     super.epoch,
     super.scope,
+    super.workerShowAllApparatusTabs,
   });
 
   final List<AdminCompletedQueueOrder> completedOrders;
@@ -215,6 +216,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
       revision: parseProductionMapSnapshotRevisionFromJson(json),
       epoch: json['epoch'] is String ? json['epoch'] as String : '',
       scope: json['scope'] is String ? json['scope'] as String : '',
+      workerShowAllApparatusTabs: json['worker_show_all_apparatus_tabs'] == true,
     );
     snapshot.validateContract();
     return snapshot;
