@@ -248,7 +248,97 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
-  testWidgets('list avoids catalog and scan reuses detail across same-account reauth', (
+  testWidgets('paddon list FAB exposes only create and opens the new paddon',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    _setSession();
+    var creates = 0;
+    var loads = 0;
+    http.Request? createRequest;
+    AparatchiPaddonDetailArgs? openedDetail;
+    final response = Completer<http.Response>();
+    final created = AdminPaddon.fromJson({
+      'id': 'paddon-2', 'code': '00002', 'item_count': 0,
+    });
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app(
+        AparatchiPaddonsScreen(loader: () async {
+          loads++;
+          return [if (creates > 0) created, _paddon()];
+        }),
+        onGenerateRoute: (settings) {
+          expect(settings.name, AppRoutes.apparatusPaddonDetail);
+          openedDetail = settings.arguments as AparatchiPaddonDetailArgs;
+          return MaterialPageRoute<void>(
+            settings: settings,
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Return to paddons'),
+              ),
+            ),
+          );
+        },
+      ));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('paddon-create')), findsNothing);
+      expect(find.byKey(const ValueKey('paddon-scan')), findsNothing);
+      expect(find.text('QR scan'), findsNothing);
+      expect(find.text('Yangi paddon qo‘shish'), findsNothing);
+
+      await _openPaddonFab(tester);
+      const actionKey = ValueKey('admin-hub-custom-Yangi paddon qo‘shish');
+      expect(find.byKey(actionKey), findsOneWidget);
+      expect(find.byWidgetPredicate((widget) {
+        final key = widget.key;
+        return key is ValueKey<String> &&
+            key.value.startsWith('admin-hub-custom-');
+      }), findsOneWidget);
+      expect(find.text('QR scan qilish'), findsNothing);
+      expect(find.text('Kunlik ish'), findsNothing);
+      await tester.tap(find.text('Yangi paddon qo‘shish'));
+      await tester.pumpAndSettle();
+      expect(creates, 1);
+      expect(createRequest!.method, 'POST');
+      expect(createRequest!.url.path,
+          '/v1/mobile/admin/production-maps/paddons/create');
+
+      await _openPaddonFab(tester);
+      final actionInkWell = find.descendant(
+        of: find.byKey(actionKey), matching: find.byType(InkWell),
+      );
+      expect(tester.widget<InkWell>(actionInkWell).onTap, isNull);
+      await tester.tap(find.text('Yangi paddon qo‘shish'));
+      await tester.pumpAndSettle();
+      expect(creates, 1);
+      await tester.tap(find.byKey(const ValueKey('admin-hub-toggle-button')));
+      await tester.pumpAndSettle();
+
+      response.complete(http.Response(jsonEncode({
+        'paddon': {'id': 'paddon-2', 'code': '00002', 'item_count': 0},
+      }), 200));
+      await tester.pumpAndSettle();
+      expect(openedDetail?.code, '00002');
+      expect(find.text('Return to paddons'), findsOneWidget);
+      await tester.tap(find.text('Return to paddons'));
+      await tester.pumpAndSettle();
+      expect(loads, 2);
+      expect(find.byKey(const ValueKey('paddon-card-00002')), findsOneWidget);
+      await _openPaddonFab(tester);
+      expect(tester.widget<InkWell>(find.descendant(
+        of: find.byKey(actionKey), matching: find.byType(InkWell),
+      )).onTap, isNotNull);
+      await tester.tap(find.byKey(const ValueKey('admin-hub-toggle-button')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) {
+      creates++;
+      createRequest = request;
+      return response.future;
+    }));
+  });
+
+  testWidgets('list opens detail by paddon card across same-account reauth', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -260,33 +350,18 @@ void main() {
         await tester.pumpWidget(
           _app(
             AparatchiPaddonsScreen(loader: () async => [_paddon()]),
-            onGenerateRoute: (settings) {
-              if (settings.name == AppRoutes.adminProgressQrScan) {
-                return MaterialPageRoute<String>(
-                  settings: settings,
-                  builder: (context) => Scaffold(
-                    body: TextButton(
-                      onPressed: () => Navigator.of(context).pop('00001'),
-                      child: const Text('Return scanned code'),
-                    ),
-                  ),
-                );
-              }
-              return AppRouter.onGenerateRoute(settings);
-            },
+            onGenerateRoute: AppRouter.onGenerateRoute,
           ),
         );
         await tester.pumpAndSettle();
         expect(catalogReads, 0);
         expect(detailReads, 0);
-        await tester.tap(find.byKey(const ValueKey('paddon-scan')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Return scanned code'));
+        await tester.tap(find.byKey(const ValueKey('paddon-card-00001')));
         await tester.pumpAndSettle();
         expect(find.byType(AparatchiPaddonDetailScreen), findsOneWidget);
         expect(detailReads, 1);
         expect(catalogReads, 1); // Detail still needs location names.
-        expect(find.text('Fresh scanned snapshot'), findsOneWidget);
+        expect(find.text('Fresh paddon snapshot'), findsOneWidget);
         final refresh = tester.widget<RefreshIndicator>(
           find.byType(RefreshIndicator),
         );
@@ -313,7 +388,7 @@ void main() {
               'paddon': {
                 'id': 'paddon-1',
                 'code': '00001',
-                'note': 'Fresh scanned snapshot',
+                'note': 'Fresh paddon snapshot',
               },
               'items': [],
               'available_items': [],

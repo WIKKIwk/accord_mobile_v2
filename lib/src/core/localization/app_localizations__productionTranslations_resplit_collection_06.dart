@@ -208,9 +208,10 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'ru': '{count} WIP',
   },
   'worker.paddon.create': {
-    'uz': 'Yangi paddon',
-    'en': 'New paddon',
-    'ru': 'Новый паддон',
+    'uz': 'Yangi paddon qo‘shish',
+    'en': 'Add a new paddon',
+    'ru': 'Добавить новый паддон',
+    'ur': 'نیا پیلیٹ شامل کریں',
   },
   'worker.paddon.creating': {
     'uz': 'Yaratilmoqda...',

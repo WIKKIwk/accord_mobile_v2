@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
@@ -11,7 +13,7 @@ import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
-import '../../admin/presentation/admin_progress_qr_scan_screen.dart';
+import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
 import 'aparatchi_paddon_detail_screen.dart';
 import 'widgets/aparatchi_dock.dart';
@@ -67,50 +69,15 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
     }
   }
 
-  Future<void> _openPaddon(
-    AdminPaddon paddon, {
-    AparatchiPaddonDetailSeed? initialSnapshot,
-  }) async {
+  Future<void> _openPaddon(AdminPaddon paddon) async {
     await Navigator.of(context).pushNamed(
       AppRoutes.apparatusPaddonDetail,
       arguments: AparatchiPaddonDetailArgs(
         code: paddon.code,
-        initialSnapshot: initialSnapshot,
       ),
     );
     if (mounted) {
       await _retry();
-    }
-  }
-
-  Future<void> _scanPaddon() async {
-    final scope = AparatchiPaddonDetailSeed.currentScope;
-    final value = await Navigator.of(context).pushNamed<String>(
-      AppRoutes.adminProgressQrScan,
-      arguments: const AdminProgressQrScanArgs(scanOnly: true),
-    );
-    final code = value?.trim() ?? '';
-    if (code.isEmpty ||
-        !mounted ||
-        scope != AparatchiPaddonDetailSeed.currentScope) {
-      return;
-    }
-    try {
-      final snapshot = await MobileApi.instance.adminPaddonDetail(code);
-      if (!mounted || scope != AparatchiPaddonDetailSeed.currentScope) {
-        return;
-      }
-      await _openPaddon(
-        snapshot.paddon,
-        initialSnapshot: AparatchiPaddonDetailSeed(snapshot),
-      );
-    } catch (error) {
-      if (mounted && scope == AparatchiPaddonDetailSeed.currentScope) {
-        _showError(
-          error,
-          fallback: context.l10n.productionText('worker.paddon.qr_invalid'),
-        );
-      }
     }
   }
 
@@ -213,7 +180,17 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
         onNavigate: (routeName) =>
             AdminDrawerNavigation.openRoute(context, routeName),
       ),
-      bottom: const AparatchiDock(activeTab: null),
+      bottom: AparatchiDock(
+        activeTab: null,
+        primaryActions: [
+          AdminFabMenuAction(
+            title: context.l10n.productionText('worker.paddon.create'),
+            icon: Icons.add_rounded,
+            enabled: !_creatingPaddon,
+            onTap: () => unawaited(_createPaddon()),
+          ),
+        ],
+      ),
       contentPadding: EdgeInsets.zero,
       child: ColoredBox(
         color: AppTheme.shellStart(context),
@@ -254,43 +231,6 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
               _PaddonsSummary(
                 paddonCount: paddons.length,
                 wipCount: wipCount,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      key: const ValueKey('paddon-create'),
-                      onPressed: _creatingPaddon ? null : _createPaddon,
-                      icon: _creatingPaddon
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.add_rounded),
-                      label: Text(
-                        _creatingPaddon
-                            ? context.l10n.productionText(
-                                'worker.paddon.creating',
-                              )
-                            : context.l10n.productionText(
-                                'worker.paddon.create',
-                              ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      key: const ValueKey('paddon-scan'),
-                      onPressed: _scanPaddon,
-                      icon: const Icon(Icons.qr_code_scanner_rounded),
-                      label: Text(
-                        context.l10n.productionText('worker.paddon.scan'),
-                      ),
-                    ),
-                  ),
-                ],
               ),
               const SizedBox(height: 18),
               Text(
