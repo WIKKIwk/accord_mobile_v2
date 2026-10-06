@@ -237,6 +237,12 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'en': 'Print paddon QR',
     'ru': 'Напечатать QR паддона',
   },
+  'worker.paddon.print.short': {
+    'uz': 'Chop etish',
+    'en': 'Print',
+    'ru': 'Печать',
+    'ur': 'پرنٹ',
+  },
   'worker.paddon.add': {
     'uz': 'Qo‘shish',
     'en': 'Add',

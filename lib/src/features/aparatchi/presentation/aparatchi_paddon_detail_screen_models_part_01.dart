@@ -123,29 +123,41 @@ class _PaddonDetailHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton.filledTonal(
-                  key: const ValueKey('paddon-print-qr'),
-                  onPressed: onPrintQr,
-                  tooltip: context.l10n.productionText(
-                    printingQr
-                        ? 'worker.paddon.printing'
-                        : 'worker.paddon.print',
+                Flexible(
+                  child: Tooltip(
+                    message: context.l10n.productionText(
+                      printingQr
+                          ? 'worker.paddon.printing'
+                          : 'worker.paddon.print',
+                    ),
+                    child: FilledButton.tonalIcon(
+                      key: const ValueKey('paddon-print-qr'),
+                      onPressed: onPrintQr,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 36),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        shape: const StadiumBorder(),
+                        backgroundColor:
+                            scheme.onPrimaryContainer.withValues(alpha: 0.1),
+                        foregroundColor: scheme.onPrimaryContainer,
+                        textStyle: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      icon: printingQr
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.qr_code_2_rounded, size: 18),
+                      label: Text(context.l10n.productionText(
+                        'worker.paddon.print.short',
+                      )),
+                    ),
                   ),
-                  iconSize: 20,
-                  style: IconButton.styleFrom(
-                    fixedSize: const Size.square(36),
-                    minimumSize: const Size.square(36),
-                    padding: EdgeInsets.zero,
-                    backgroundColor:
-                        scheme.onPrimaryContainer.withValues(alpha: 0.1),
-                    foregroundColor: scheme.onPrimaryContainer,
-                  ),
-                  icon: printingQr
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.qr_code_2_rounded),
                 ),
               ],
             ),
