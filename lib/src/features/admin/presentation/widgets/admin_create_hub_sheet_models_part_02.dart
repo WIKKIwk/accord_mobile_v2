@@ -311,17 +311,19 @@ class _AdminCreateHubOverlayState extends State<_AdminCreateHubOverlay>
                     motionKey: ValueKey(
                       'admin-hub-reveal-${actions[index].row}',
                     ),
-                    onTap: () {
-                      final customTap = actions[index].onTap;
-                      if (customTap != null) {
-                        widget.onClose();
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          customTap();
-                        });
-                        return;
-                      }
-                      widget.onOpenRoute(actions[index].routeName);
-                    },
+                    onTap: !actions[index].enabled
+                        ? null
+                        : () {
+                            final customTap = actions[index].onTap;
+                            if (customTap != null) {
+                              widget.onClose();
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                customTap();
+                              });
+                              return;
+                            }
+                            widget.onOpenRoute(actions[index].routeName);
+                          },
                   ),
                   if (index != actions.length - 1)
                     const SizedBox(height: _menuItemGap),

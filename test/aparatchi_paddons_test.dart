@@ -7,7 +7,9 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_paddon_detail_screen.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_paddons_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_progress_qr_scan_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -113,10 +115,104 @@ Widget _app(Widget home, {RouteFactory? onGenerateRoute}) {
   );
 }
 
+Future<void> _openPaddonFab(WidgetTester tester) async {
+  await tester.tap(
+    find.byKey(const ValueKey('app-primary-navigation-button')),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapPaddonFabEditAction(WidgetTester tester) async {
+  await _openPaddonFab(tester);
+  await tester.tap(find.textContaining(RegExp(r'^(Qo‘shish|Olib tashlash)')));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+  });
+
+  testWidgets('paddon header has 4px inset and add actions live only in FAB',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    _setSession();
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+      code: '00001',
+      loader: () async => _snapshot(),
+      apparatusLoader: () async => const [],
+    )));
+    await tester.pumpAndSettle();
+
+    final list = tester.widget<ListView>(find.byType(ListView));
+    final padding = list.padding! as EdgeInsets;
+    expect(padding.top, 4);
+    expect(padding.left, 4);
+    expect(padding.right, 4);
+    expect(find.text('Qo‘shish'), findsNothing);
+    expect(find.text('WIP QR scan qilib qo‘shish'), findsNothing);
+    expect(find.byKey(const ValueKey('paddon-print-qr')), findsOneWidget);
+
+    await _openPaddonFab(tester);
+    expect(find.text('Qo‘shish'), findsOneWidget);
+    expect(find.text('WIP QR scan qilib qo‘shish'), findsOneWidget);
+    expect(find.text('QR scan qilish'), findsNothing);
+    expect(find.text('Kunlik ish'), findsNothing);
+    expect(find.text('Paddonlar'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('admin-hub-toggle-button')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('paddon FAB scan adds the returned WIP to the current paddon',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    _setSession();
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    var writes = 0;
+    http.Request? submittedRequest;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+        code: '00001',
+        loader: () async => _snapshot(),
+        apparatusLoader: () async => const [],
+      )));
+      await tester.pumpAndSettle();
+      await _openPaddonFab(tester);
+      await tester.tap(find.text('WIP QR scan qilib qo‘shish'));
+      await tester.pumpAndSettle();
+      final scanner = tester.widget<AdminProgressQrScanScreen>(
+        find.byType(AdminProgressQrScanScreen),
+      );
+      expect(scanner.scanOnly, isTrue);
+      tester.state<NavigatorState>(find.byType(Navigator).first)
+          .pop('40019876543210FEDCBA');
+      await tester.pumpAndSettle();
+      expect(writes, 1);
+      expect(submittedRequest!.method, 'POST');
+      expect(submittedRequest!.url.path,
+          '/v1/mobile/admin/production-maps/paddons/items/add');
+      final body = jsonDecode(submittedRequest!.body) as Map<String, dynamic>;
+      expect(body['code'], '00001');
+      expect(body['qr_payload'], '40019876543210FEDCBA');
+      expect(find.byType(AparatchiPaddonDetailScreen), findsOneWidget);
+      expect(find.text('Jami brutto: 44.375 kg'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+      writes++;
+      submittedRequest = request;
+      return http.Response(jsonEncode({
+        'paddon': {'code': '00001', 'total_gross_kg': 44.375},
+        'items': [{'batch_id': 'free-wip-001',
+          'apparatus': 'apparatus:default:asset-010',
+          'qr_payload': '40019876543210FEDCBA'}],
+      }), 200);
+    }));
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('list avoids catalog and scan reuses detail across same-account reauth', (
@@ -406,10 +502,7 @@ void main() {
     expect(find.text('1 metr rulon'), findsNothing);
     expect(find.text('Paddon ichidagi WIP lar'), findsOneWidget);
     expect(find.text('Bo‘sh rulon'), findsNothing);
-    await tester.tap(
-      find.byKey(const ValueKey('paddon-edit-mode-action')),
-    );
-    await tester.pumpAndSettle();
+    await _tapPaddonFabEditAction(tester);
     expect(
       find.text('Paddonga qo‘shish mumkin bo‘lgan WIP lar'),
       findsOneWidget,
@@ -427,19 +520,19 @@ void main() {
       find.byIcon(Icons.remove_circle_outline_rounded),
       findsNothing,
     );
-    expect(find.byKey(const ValueKey('paddon-add-wip-scan')), findsOneWidget);
+    expect(find.byKey(const ValueKey('paddon-add-wip-scan')), findsNothing);
 
-    await tester.tap(
-      find.byKey(const ValueKey('paddon-edit-mode-action')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Olib tashlash'), findsOneWidget);
+    await _tapPaddonFabEditAction(tester);
     expect(find.text('Paddon ichidagi WIP lar'), findsOneWidget);
     expect(find.text('Order: order-002'), findsNothing);
     expect(
       find.byKey(const ValueKey('paddon-wip-card-wip-001')),
       findsOneWidget,
     );
+    await _openPaddonFab(tester);
+    expect(find.text('Olib tashlash'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('admin-hub-toggle-button')));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('opening available WIPs scrolls them into view', (tester) async {
@@ -456,10 +549,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const ValueKey('paddon-edit-mode-action')),
-    );
-    await tester.pumpAndSettle();
+    await _tapPaddonFabEditAction(tester);
 
     final availableCard = find.byKey(
       const ValueKey('paddon-available-wip-card-free-wip-001'),
@@ -491,10 +581,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.byKey(const ValueKey('paddon-edit-mode-action')),
-      );
-      await tester.pumpAndSettle();
+      await _tapPaddonFabEditAction(tester);
 
       expect(loadCount, 1);
       expect(
@@ -513,7 +600,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(loadCount, 1);
+      await _openPaddonFab(tester);
       expect(find.text('Qo‘shish (1)'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('admin-hub-toggle-button')));
+      await tester.pumpAndSettle();
     },
   );
   testWidgets('cutting cards preserve unknown weights', (tester) async {
@@ -554,7 +644,7 @@ void main() {
     expect(find.text('EPC: —'), findsOneWidget);
     expect(find.textContaining('progress-batch:'), findsNothing);
     expect(find.textContaining('…'), findsNothing);
-    expect(find.byKey(const ValueKey('paddon-add-wip-scan')), findsOneWidget);
+    expect(find.byKey(const ValueKey('paddon-add-wip-scan')), findsNothing);
     expect(find.byKey(const ValueKey('paddon-print-qr')), findsOneWidget);
   });
 
@@ -638,18 +728,13 @@ void main() {
           })));
           await tester.pumpAndSettle();
           expect(find.text('Jami brutto: 24.375 kg'), findsOneWidget);
-          await tester.tap(find.byKey(const ValueKey('paddon-edit-mode-action')));
-          await tester.pumpAndSettle();
+          await _tapPaddonFabEditAction(tester);
           if (removing) {
-            await tester.ensureVisible(find.byKey(const ValueKey('paddon-edit-mode-action')));
-            await tester.tap(find.byKey(const ValueKey('paddon-edit-mode-action')));
-            await tester.pumpAndSettle();
+            await _tapPaddonFabEditAction(tester);
           }
           await tester.tap(find.byKey(ValueKey(removing ? 'paddon-wip-card-wip-001' : 'paddon-available-wip-card-free-wip-001')));
           await tester.pumpAndSettle();
-          await tester.ensureVisible(find.byKey(const ValueKey('paddon-edit-mode-action')));
-          await tester.tap(find.byKey(const ValueKey('paddon-edit-mode-action')));
-          await tester.pumpAndSettle();
+          await _tapPaddonFabEditAction(tester);
           if (removing) {
             await tester.tap(find.widgetWithText(FilledButton, 'Olib tashlash'));
             await tester.pumpAndSettle();

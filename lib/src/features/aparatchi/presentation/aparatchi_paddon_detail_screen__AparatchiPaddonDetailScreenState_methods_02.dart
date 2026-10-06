@@ -3,6 +3,32 @@ part of 'aparatchi_paddon_detail_screen.dart';
 
 extension __AparatchiPaddonDetailScreenStateAstPart02
     on _AparatchiPaddonDetailScreenState {
+  Widget _buildDock(BuildContext context) {
+    return FutureBuilder<AdminPaddonSnapshot>(
+      future: _future,
+      builder: (context, snapshot) {
+        final actionsEnabled = snapshot.hasData && !_busy && !_printingQr;
+        return AparatchiDock(
+          activeTab: null,
+          primaryActions: [
+            AdminFabMenuAction(
+              title: context.l10n.productionText('worker.paddon.add_wip'),
+              icon: Icons.qr_code_scanner_rounded,
+              enabled: actionsEnabled,
+              onTap: () => unawaited(_scanAndAdd()),
+            ),
+            AdminFabMenuAction(
+              title: _editModeActionLabel(context),
+              icon: _editModeActionIcon,
+              enabled: actionsEnabled,
+              onTap: () => unawaited(_handleEditModeAction()),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildPaddonItemsSection(
     BuildContext context,
     AdminPaddonSnapshot data,
@@ -237,33 +263,13 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
           child: ListView(
             padding: EdgeInsets.fromLTRB(
               4,
-              12,
+              4,
               4,
               MediaQuery.viewPaddingOf(context).bottom + 120,
             ),
             children: [
               _PaddonDetailHeader(snapshot: data, apparatus: _apparatus),
               const SizedBox(height: 12),
-              FilledButton.icon(
-                key: const ValueKey('paddon-add-wip-scan'),
-                onPressed: _busy || _printingQr ? null : _scanAndAdd,
-                icon: const Icon(Icons.qr_code_scanner_rounded),
-                label: Text(
-                  context.l10n.productionText('worker.paddon.add_wip'),
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.tonalIcon(
-                  key: const ValueKey('paddon-edit-mode-action'),
-                  onPressed:
-                      _busy || _printingQr ? null : _handleEditModeAction,
-                  icon: Icon(_editModeActionIcon),
-                  label: Text(_editModeActionLabel(context)),
-                ),
-              ),
-              const SizedBox(height: 18),
               OutlinedButton.icon(
                 key: const ValueKey('paddon-print-qr'),
                 onPressed: _busy || _printingQr ? null : _printPaddonQr,

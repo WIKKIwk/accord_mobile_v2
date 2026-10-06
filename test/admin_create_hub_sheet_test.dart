@@ -27,6 +27,33 @@ Widget _wrap(Widget child, {List<NavigatorObserver> observers = const []}) {
 }
 
 void main() {
+  testWidgets('disabled custom FAB actions do not run or close the menu',
+      (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(_wrap(Builder(builder: (context) {
+      return TextButton(
+        onPressed: () => showAdminCreateHubSheet(context, actions: [
+          AdminFabMenuAction(
+            title: 'Disabled action',
+            icon: Icons.add_rounded,
+            enabled: false,
+            onTap: () => taps++,
+          ),
+        ]),
+        child: const Text('Open menu'),
+      );
+    })));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Disabled action'));
+    await tester.pumpAndSettle();
+    expect(taps, 0);
+    expect(adminCreateHubMenuOpen.value, isTrue);
+    await tester.tap(find.byKey(const ValueKey('admin-hub-toggle-button')));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('admin create hub uses clean Uzbek labels', (tester) async {
     await tester.pumpWidget(
       _wrap(

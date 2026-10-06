@@ -18,6 +18,7 @@ import '../../../core/print_service.dart';
 import '../../admin/presentation/admin_progress_qr_scan_screen.dart';
 import '../../admin/presentation/progress_printer_picker.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
+import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../shared/models/app_models.dart';
 import 'aparatchi_paddon_display.dart';
 import 'widgets/aparatchi_dock.dart';
@@ -79,7 +80,7 @@ class _AparatchiPaddonDetailScreenState
         onNavigate: (routeName) =>
             AdminDrawerNavigation.openRoute(context, routeName),
       ),
-      bottom: const AparatchiDock(activeTab: null),
+      bottom: _buildDock(context),
       contentPadding: EdgeInsets.zero,
       child: ColoredBox(
         color: AppTheme.shellStart(context),

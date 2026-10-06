@@ -19,6 +19,7 @@ class AparatchiDock extends StatelessWidget {
     this.tightToEdges = true,
     this.showPrimaryFab = true,
     this.onQrScanRequested,
+    this.primaryActions,
   });
 
   final AparatchiDockTab? activeTab;
@@ -27,6 +28,7 @@ class AparatchiDock extends StatelessWidget {
   final bool tightToEdges;
   final bool showPrimaryFab;
   final Future<void> Function()? onQrScanRequested;
+  final List<AdminFabMenuAction>? primaryActions;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +61,7 @@ class AparatchiDock extends StatelessWidget {
           if (index == 1) {
             showAdminCreateHubSheet(
               context,
-              actions: [
+              actions: primaryActions ?? [
                 AdminFabMenuAction(
                   title: l10n.productionText('worker.action.scan'),
                   icon: Icons.qr_code_scanner_rounded,
