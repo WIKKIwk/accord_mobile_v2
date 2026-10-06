@@ -223,12 +223,31 @@ class _DailyWorkSummary extends StatelessWidget {
                     ),
                   ),
                 ),
-                IconButton.filledTonal(
-                  onPressed: onChooseDate,
-                  tooltip: context.l10n.productionText(
-                    'worker.daily.choose_date',
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: FilledButton.icon(
+                      onPressed: onChooseDate,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 36),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        textStyle: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                      label: Text(
+                        context.l10n.productionText('worker.action.select'),
+                      ),
+                    ),
                   ),
-                  icon: const Icon(Icons.calendar_month_rounded),
                 ),
               ],
             ),
