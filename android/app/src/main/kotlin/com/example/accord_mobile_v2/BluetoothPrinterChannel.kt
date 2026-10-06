@@ -363,6 +363,7 @@ class BluetoothPrinterChannel(
 
         when {
             label.isQolipCell -> printQolipCell(printer, label)
+            label.labelKind == "paddon_code" -> printPaddonLabel(printer, label)
             label.isMaterialSplit -> printMaterialSplitLabel(printer, label)
             label.isQolipCode || label.isMaterialProduct -> printLargeQr(printer, label)
             else -> printPackLabel(printer, label)
@@ -388,6 +389,22 @@ class BluetoothPrinterChannel(
             payload,
             cellSize = cellSize,
         )
+    }
+
+    private fun printPaddonLabel(
+        printer: TSPLPrinter,
+        label: BluetoothLabelRequest,
+    ) {
+        val payload = requiredPayload(label.epc)
+        val titleLines = largeQrTitleLines(label, label.itemName.ifBlank { label.itemCode })
+        var y = PROGRESS_TEXT_TOP_Y
+        for (field in titleLines) {
+            for (line in wrapLabelText(field, PROGRESS_FIELD_WIDTH_CHARS)) {
+                sdkBoldText(printer, LABEL_LEFT_MARGIN_DOTS, y, line)
+                y += PROGRESS_TEXT_LINE_HEIGHT_DOTS + PROGRESS_FIELD_GAP_DOTS
+            }
+        }
+        printProgressQr(printer, payload)
     }
 
     private fun printLargeQr(
@@ -818,6 +835,11 @@ class BluetoothPrinterChannel(
             "${formatLabelQty(label.grossQty)} $weightUnit",
         )
 
+        printProgressQr(printer, payload)
+    }
+
+    // Paddon codes occupy the same QR and identifier positions as WIP EPCs.
+    private fun printProgressQr(printer: TSPLPrinter, payload: String) {
         val qrCellSize = packQrCellSize(payload)
         val qrSize = qrSymbolSizeDots(payload, qrCellSize)
         val epcY = (PROGRESS_PACK_QR_Y + qrSize + PROGRESS_PACK_EPC_GAP_DOTS)

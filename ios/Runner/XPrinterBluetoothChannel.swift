@@ -482,7 +482,9 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     switch label.labelKind {
     case "qolip_cell", "qr_center":
       command = appendQolipCell(command, label: label)
-    case "qolip_code", "paddon_code", "material_product":
+    case "paddon_code":
+      command = appendPaddonLabel(command, label: label)
+    case "qolip_code", "material_product":
       // Homashyo rezkachisi split chiqishi WIP uslubida (kichik o'ng-past
       // QR). Uzunliksiz generic material_product eski katta markaziy QR da.
       if label.isMaterialSplit {
@@ -904,6 +906,31 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     return result
   }
 
+  private func appendPaddonLabel(
+    _ command: XTSPLCommand?,
+    label: BluetoothLabelRequest
+  ) -> XTSPLCommand? {
+    let payload = requiredPayload(label.epc)
+    let titleLines = largeQrTitleLines(
+      label,
+      rawTitle: label.itemName.isEmpty ? label.itemCode : label.itemName
+    )
+    var result = command
+    var y = Self.progressTextTopY
+    for field in titleLines {
+      for line in wrapLabelText(field, width: Self.progressFieldWidthChars) {
+        result = appendBoldText(
+          result,
+          x: Self.labelLeftMarginDots,
+          y: y,
+          value: line
+        )
+        y += Self.progressTextLineHeightDots + Self.progressFieldGapDots
+      }
+    }
+    return appendProgressQr(result, payload: payload)
+  }
+
   private func appendProgressPackLabel(
     _ command: XTSPLCommand?,
     label: BluetoothLabelRequest
@@ -957,6 +984,15 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       y += lines.count * Self.progressTextLineHeightDots + Self.progressFieldGapDots
     }
 
+    return appendProgressQr(result, payload: payload)
+  }
+
+  // Paddon codes occupy the same QR and identifier positions as WIP EPCs.
+  private func appendProgressQr(
+    _ command: XTSPLCommand?,
+    payload: String
+  ) -> XTSPLCommand? {
+    var result = command
     let qrCellWidth = packQrCellWidth(payload)
     let qrSize = qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
     let epcY = min(
