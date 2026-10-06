@@ -32,6 +32,7 @@ void main() {
   Future<AdminPaddonQrPrintResult> prepare(
     Map<String, Object?> totals, {
     PrintTransport transport = PrintTransport.bluetooth,
+    List<Map<String, Object?>>? items,
   }) =>
       http.runWithClient(
         () => MobileApi.instance.adminPaddonPrintQr(
@@ -44,6 +45,7 @@ void main() {
               jsonEncode({
                 'ok': true,
                 'paddon': {'code': '00001', ...totals},
+                if (items != null) 'items': items,
                 // Legacy numeric placeholders must never become printed weights.
                 'print': {
                   'qr_payload': '00001',
@@ -109,12 +111,17 @@ void main() {
       });
       final prepared = await prepare(scenario.$2);
       final job = prepared.printJob!;
-      expect(job.paddonLabelLines, hasLength(4));
+      expect(job.paddonLabelLines, hasLength(5));
       expect(job.toJson(), isNot(contains('paddon_label_lines')));
       final result = await PrintService.printRps(job,
           bluetoothPrinter: printer, transport: PrintTransport.bluetooth);
       expect(result.ok, isTrue);
-      expect(captured!['paddon_label_lines'], ['PADDON 00001', ...scenario.$3]);
+      expect(captured!['paddon_label_lines'], [
+        'PADDON 00001',
+        scenario.$3.first,
+        'TURLI BABINALAR SONI: ${scenario.$1 == 'empty' ? '0' : '-'}',
+        ...scenario.$3.skip(1),
+      ]);
       expect(captured!['epc'], '00001');
       expect(captured!['label_kind'], 'paddon_code');
       expect(captured!['print_count'], 2);
@@ -126,6 +133,92 @@ void main() {
       }
     });
   }
+
+  Map<String, Object?> wip(double? kg, {
+    String name = 'Hot Lunch',
+    String customer = 'Qobil aka',
+    bool payloadTitle = true,
+  }) => {
+    'bobina_kg': kg,
+    'label_item_name': '$name tayyor mahsulot, apparat: rezka, ish tugatildi',
+    'payload_json': {
+      if (payloadTitle) 'order_title': name,
+      'customer_name': customer,
+    },
+  };
+
+  test('20 WIPs print four distinct bobbin weights and the shared product',
+      () async {
+    Map? captured;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      captured = call.arguments as Map;
+      return {'ok': true};
+    });
+    final items = [
+      for (var i = 0; i < 2; i++) wip(2),
+      for (var i = 0; i < 6; i++) wip(4),
+      for (var i = 0; i < 8; i++) wip(3),
+      for (var i = 0; i < 4; i++) wip(1),
+    ];
+    final prepared = await prepare({
+      'item_count': 20, 'total_gross_kg': 568, 'total_net_kg': 500,
+    }, items: items);
+    await PrintService.printRps(prepared.printJob!,
+        bluetoothPrinter: printer, transport: PrintTransport.bluetooth);
+    expect(captured!['paddon_label_lines'], [
+      'MIJOZ: QOBIL AKA',
+      'MAHSULOT NOMI: HOT LUNCH',
+      'PADDON 00001',
+      'MAHSULOT SONI: 20',
+      'TURLI BABINALAR SONI: 4',
+      'BRUTTO: 568 KG',
+      'NETTO: 500 KG',
+    ]);
+  });
+
+  test('normalizes weight precision and product identity across orders', () async {
+    final result = await prepare({'item_count': 2}, items: [
+      {...wip(0.3), 'order_id': 'order-1'},
+      {...wip(0.1 + 0.2, name: 'hot   lunch', customer: 'qobil AKA',
+          payloadTitle: false), 'order_id': 'order-2'},
+    ]);
+    expect(result.printJob!.paddonLabelLines.take(2),
+        ['Mijoz: Qobil aka', 'Mahsulot nomi: Hot Lunch']);
+    expect(result.printJob!.paddonLabelLines, contains('Turli babinalar soni: 1'));
+  });
+
+  for (final scenario in [
+    ('different products', [wip(2), wip(2, name: 'Cold Lunch')]),
+    ('different customers', [wip(2), wip(2, customer: 'Anis')]),
+    ('missing product', [wip(2), wip(2, name: '')]),
+  ]) {
+    test('${scenario.$1} omits the single-product heading', () async {
+      final result = await prepare({'item_count': 2}, items: scenario.$2);
+      expect(result.printJob!.paddonLabelLines, hasLength(5));
+      expect(result.printJob!.paddonLabelLines.first, 'Paddon 00001');
+      expect(result.printJob!.paddonLabelLines, contains('Turli babinalar soni: 1'));
+    });
+  }
+
+  test('unknown bobbin weights and incomplete snapshots stay unknown', () async {
+    for (final items in [
+      [wip(2), wip(null)],
+      [wip(2), wip(0)],
+      [wip(2), wip(-1)],
+      [wip(2)],
+    ]) {
+      final result = await prepare({'item_count': 2}, items: items);
+      expect(result.printJob!.paddonLabelLines, contains('Turli babinalar soni: —'));
+      if (items.length != 2) expect(result.printJob!.paddonLabelLines, hasLength(5));
+    }
+  });
+
+  test('empty snapshot prints zero bobbin types without product headings', () async {
+    final result = await prepare({'item_count': 0}, items: []);
+    expect(result.printJob!.paddonLabelLines, hasLength(5));
+    expect(result.printJob!.paddonLabelLines, contains('Turli babinalar soni: 0'));
+  });
 
   for (final transport in [PrintTransport.offline, PrintTransport.wifi]) {
     test('$transport retains previous pallet print contract', () async {

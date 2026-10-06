@@ -397,12 +397,31 @@ class BluetoothPrinterChannel(
     ) {
         val payload = requiredPayload(label.epc)
         val titleLines = largeQrTitleLines(label, label.itemName.ifBlank { label.itemCode })
-        var y = PROGRESS_TEXT_TOP_Y
-        for (field in titleLines) {
-            for (line in wrapLabelText(field, PROGRESS_FIELD_WIDTH_CHARS)) {
-                sdkBoldText(printer, LABEL_LEFT_MARGIN_DOTS, y, line)
-                y += PROGRESS_TEXT_LINE_HEIGHT_DOTS + PROGRESS_FIELD_GAP_DOTS
-            }
+        var lines = titleLines.flatMap { wrapLabelText(it, PROGRESS_FIELD_WIDTH_CHARS) }
+        val availableHeight = PROGRESS_PACK_QR_Y - 8 - PROGRESS_TEXT_TOP_Y
+        var fontHeight = if (lines.size * 24 <= availableHeight) 24 else 20
+        if (lines.size * fontHeight > availableHeight) {
+            lines = titleLines.flatMap { wrapLabelText(it, 46) }
+            fontHeight = 12
+        }
+        require(lines.size * fontHeight <= availableHeight) {
+            "Paddon label text does not fit the 56 x 60 mm label"
+        }
+        val font = when (fontHeight) {
+            24 -> TSPLConst.FNT_16_24
+            20 -> TSPLConst.FNT_12_20
+            else -> TSPLConst.FNT_8_12
+        }
+        val lineHeight = ((availableHeight - fontHeight) / (lines.size - 1).coerceAtLeast(1))
+            .coerceAtMost(fontHeight + PROGRESS_FIELD_GAP_DOTS)
+        lines.forEachIndexed { index, line ->
+            sdkBoldText(
+                printer,
+                LABEL_LEFT_MARGIN_DOTS,
+                PROGRESS_TEXT_TOP_Y + index * lineHeight,
+                line,
+                font,
+            )
         }
         printProgressQr(printer, payload)
     }
@@ -1203,7 +1222,7 @@ class BluetoothPrinterChannel(
         label: BluetoothLabelRequest,
         rawTitle: String,
     ): List<String> {
-        if (label.labelKind == "paddon_code" && label.paddonLabelLines.size == 4) {
+        if (label.labelKind == "paddon_code" && label.paddonLabelLines.isNotEmpty()) {
             return label.paddonLabelLines.map(::cleanLabelText)
         }
         if (label.isMaterialProduct) {

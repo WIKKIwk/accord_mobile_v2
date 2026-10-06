@@ -292,7 +292,8 @@ extension MobileApiPaddons on MobileApi {
           : UsbRpsPrintRequest.fromPrintJson(
               printMap,
               paddonLabelLines: printTransport.isBluetooth
-                  ? _paddonBluetoothLabelLines(rawPaddon.cast<String, dynamic>())
+                  ? _paddonBluetoothLabelLines(
+                      rawPaddon.cast<String, dynamic>(), payload['items'])
                   : const [],
             ),
       printStatus: printMap['status']?.toString() ?? '',
@@ -455,11 +456,17 @@ extension MobileApiPaddons on MobileApi {
   }
 }
 
-List<String> _paddonBluetoothLabelLines(Map<String, dynamic> paddon) {
+List<String> _paddonBluetoothLabelLines(
+  Map<String, dynamic> paddon,
+  Object? rawItems,
+) {
   // Use the same authoritative summary that prepared this label, including
   // frozen receipt totals. Never infer kilograms from WIP lengths/quantities.
   final rawCount = paddon['item_count'];
-  final count = rawCount is num && rawCount.isFinite && rawCount >= 0 &&
+  final count =
+      rawCount is num &&
+          rawCount.isFinite &&
+          rawCount >= 0 &&
           rawCount == rawCount.toInt()
       ? rawCount.toInt().toString()
       : '—';
@@ -469,9 +476,70 @@ List<String> _paddonBluetoothLabelLines(Map<String, dynamic> paddon) {
         ? '—'
         : kg.toStringAsFixed(6).replaceFirst(RegExp(r'\.?0+$'), '');
   }
+
+  final items = rawItems is List && rawItems.every((item) => item is Map)
+      ? rawItems
+            .cast<Map>()
+            .map((item) => item.cast<String, dynamic>())
+            .toList()
+      : null;
+  // Require the full print snapshot, never the page's filtered WIP list.
+  final complete = items != null && items.length.toString() == count;
+  var bobinaCount = count == '0' ? '0' : '—';
+  (String, String)? product;
+  if (complete) {
+    final weights = <int>{};
+    var knownWeights = true;
+    var sameProduct = items.isNotEmpty;
+    String identity(String value) =>
+        value.trim().replaceAll(RegExp(r'\s+'), ' ').toUpperCase();
+    for (final item in items) {
+      final kg = _paddonWeight(item['bobina_kg'] ?? item['babina_kg']);
+      final units = kg != null && kg > 0 ? (kg * 1000000).round() : 0;
+      if (units > 0) {
+        weights.add(units);
+      } else {
+        knownWeights = false;
+      }
+      final payload = item['payload_json'];
+      final customer = payload is Map
+          ? payload['customer_name']?.toString().trim() ?? ''
+          : '';
+      var name = payload is Map
+          ? payload['order_title']?.toString().trim() ?? ''
+          : '';
+      if (name.isEmpty) {
+        // Remove the production-stage suffix using the same markers as WIP.
+        name = (item['label_item_name']?.toString() ?? '')
+            .split(
+              RegExp(
+                r'\s+(?:yarim tayyor(?: mahsulot)?|tayyor mahsulot)|,\s*apparat:',
+                caseSensitive: false,
+              ),
+            )
+            .first
+            .trim();
+      }
+      final candidate = (customer, name);
+      if (name.isEmpty ||
+          (product != null &&
+              (identity(product.$1) != identity(customer) ||
+                  identity(product.$2) != identity(name)))) {
+        sameProduct = false;
+      }
+      product ??= candidate;
+    }
+    if (knownWeights) bobinaCount = weights.length.toString();
+    if (!sameProduct) product = null;
+  }
   return [
+    if (product != null) ...[
+      'Mijoz: ${product.$1.isEmpty ? '—' : product.$1}',
+      'Mahsulot nomi: ${product.$2}',
+    ],
     'Paddon ${paddon['code']?.toString().trim() ?? ''}',
     'Mahsulot soni: $count',
+    'Turli babinalar soni: $bobinaCount',
     'Brutto: ${weight(paddon['total_gross_kg'])} kg',
     'Netto: ${weight(paddon['total_net_kg'])} kg',
   ];

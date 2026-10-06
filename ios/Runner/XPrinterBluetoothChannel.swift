@@ -915,18 +915,30 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       label,
       rawTitle: label.itemName.isEmpty ? label.itemCode : label.itemName
     )
+    var lines = titleLines.flatMap { wrapLabelText($0, width: Self.progressFieldWidthChars) }
+    let availableHeight = Self.progressPackQrY - 8 - Self.progressTextTopY
+    var fontHeight = lines.count * 24 <= availableHeight ? 24 : 20
+    if lines.count * fontHeight > availableHeight {
+      lines = titleLines.flatMap { wrapLabelText($0, width: 46) }
+      fontHeight = 12
+    }
+    guard lines.count * fontHeight <= availableHeight else {
+      return nil
+    }
+    let font = fontHeight == 24 ? kFNT_16_24 : (fontHeight == 20 ? kFNT_12_20 : kFNT_8_12)
+    let lineHeight = min(
+      (availableHeight - fontHeight) / max(1, lines.count - 1),
+      fontHeight + Self.progressFieldGapDots
+    )
     var result = command
-    var y = Self.progressTextTopY
-    for field in titleLines {
-      for line in wrapLabelText(field, width: Self.progressFieldWidthChars) {
-        result = appendBoldText(
-          result,
-          x: Self.labelLeftMarginDots,
-          y: y,
-          value: line
-        )
-        y += Self.progressTextLineHeightDots + Self.progressFieldGapDots
-      }
+    for (index, line) in lines.enumerated() {
+      result = appendBoldText(
+        result,
+        x: Self.labelLeftMarginDots,
+        y: Self.progressTextTopY + index * lineHeight,
+        value: line,
+        font: font
+      )
     }
     return appendProgressQr(result, payload: payload)
   }
@@ -1393,7 +1405,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     _ label: BluetoothLabelRequest,
     rawTitle: String
   ) -> [String] {
-    if label.labelKind == "paddon_code" && label.paddonLabelLines.count == 4 {
+    if label.labelKind == "paddon_code" && !label.paddonLabelLines.isEmpty {
       return label.paddonLabelLines.map { cleanLabelText($0) }
     }
     if label.labelKind == "material_product" {
