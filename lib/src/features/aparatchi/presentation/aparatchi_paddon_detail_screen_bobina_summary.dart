@@ -41,13 +41,13 @@ class _PaddonBobinaSummary extends StatelessWidget {
         Row(
           children: [
             Icon(Icons.view_carousel_outlined,
-                size: 18, color: scheme.onPrimaryContainer),
+                size: 18, color: scheme.onSurface),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 context.l10n.productionText('worker.paddon.bobina_summary'),
                 style: theme.textTheme.labelLarge?.copyWith(
-                  color: scheme.onPrimaryContainer,
+                  color: scheme.onSurface,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -121,7 +121,7 @@ class _PaddonBobinaGroup extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final countText = context.l10n.productionCount(count);
-    final foreground = selected ? scheme.onPrimary : scheme.onPrimaryContainer;
+    final foreground = selected ? scheme.onPrimary : scheme.onSurface;
     return Semantics(
       label: '$label, $countText',
       button: true,
@@ -131,13 +131,13 @@ class _PaddonBobinaGroup extends StatelessWidget {
       child: Material(
         color: selected
             ? scheme.primary
-            : scheme.onPrimaryContainer.withValues(alpha: 0.05),
+            : scheme.onSurface.withValues(alpha: 0.05),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
           side: BorderSide(
             color: selected
                 ? scheme.primary
-                : scheme.onPrimaryContainer.withValues(alpha: 0.08),
+                : scheme.onSurface.withValues(alpha: 0.08),
           ),
         ),
         child: InkWell(

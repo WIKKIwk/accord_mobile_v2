@@ -5,6 +5,7 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_paddon_detail_screen.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_paddons_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_progress_qr_scan_screen.dart';
@@ -153,6 +154,7 @@ void main() {
     ), theme: ThemeData(
       useMaterial3: true,
       fontFamily: 'PaddonButtonTestFont',
+      colorScheme: AppTheme.light().colorScheme,
     )));
     await tester.pumpAndSettle();
 
@@ -176,6 +178,11 @@ void main() {
     expect(find.text('Paddon QR chop etish'), findsNothing);
     final card = find.ancestor(of: printAction, matching: find.byType(Card));
     expect(card, findsOneWidget);
+    final headerCard = tester.widget<Card>(card);
+    expect(headerCard.color, Colors.white);
+    expect(headerCard.color,
+        Theme.of(tester.element(card)).colorScheme.surfaceContainerLowest);
+    expect(headerCard.surfaceTintColor, Colors.transparent);
     final cardRect = tester.getRect(card);
     final printRect = tester.getRect(printAction);
     expect(printRect.width, lessThan(cardRect.width / 2));
@@ -572,12 +579,30 @@ void main() {
         AparatchiPaddonsScreen(
           loader: () async => [_paddon()],
         ),
+        theme: AppTheme.light(),
       ),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('00001'), findsOneWidget);
     expect(find.text('2 ta WIP'), findsOneWidget);
+    final padding = tester.widget<ListView>(find.byType(ListView)).padding!
+        as EdgeInsets;
+    expect(padding.top, 4);
+    expect(padding.left, 4);
+    expect(padding.right, 4);
+    final summary = find.ancestor(
+      of: find.text('Fizik joylashuv nazorati'),
+      matching: find.byType(Card),
+    );
+    final summaryCard = tester.widget<Card>(summary);
+    expect(summaryCard.color, Colors.white);
+    expect(summaryCard.surfaceTintColor, Colors.transparent);
+    final listMaterial = find.descendant(
+      of: find.byKey(const ValueKey('paddon-card-00001')),
+      matching: find.byType(Material),
+    ).first;
+    expect(summaryCard.color, tester.widget<Material>(listMaterial).color);
     expect(
       find.byKey(const ValueKey('paddon-card-00001')),
       findsOneWidget,

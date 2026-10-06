@@ -77,7 +77,8 @@ class _PaddonDetailHeader extends StatelessWidget {
     final theme = Theme.of(context);
     return Card.filled(
       margin: EdgeInsets.zero,
-      color: scheme.primaryContainer,
+      color: scheme.surfaceContainerLowest,
+      surfaceTintColor: Colors.transparent,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
         child: Column(
@@ -93,7 +94,7 @@ class _PaddonDetailHeader extends StatelessWidget {
                       Text(
                         paddon.code,
                         style: theme.textTheme.titleLarge?.copyWith(
-                          color: scheme.onPrimaryContainer,
+                          color: scheme.onSurface,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -105,7 +106,7 @@ class _PaddonDetailHeader extends StatelessWidget {
                             Icon(
                               Icons.place_outlined,
                               size: 18,
-                              color: scheme.onPrimaryContainer,
+                              color: scheme.onSurface,
                             ),
                             const SizedBox(width: 6),
                             Expanded(
@@ -116,7 +117,7 @@ class _PaddonDetailHeader extends StatelessWidget {
                                   context.l10n,
                                 ),
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: scheme.onPrimaryContainer,
+                                  color: scheme.onSurface,
                                 ),
                               ),
                             ),
@@ -184,7 +185,7 @@ class _PaddonDetailHeader extends StatelessWidget {
               const SizedBox(height: 16),
               Divider(
                 height: 1,
-                color: scheme.onPrimaryContainer.withValues(alpha: 0.14),
+                color: scheme.onSurface.withValues(alpha: 0.14),
               ),
               const SizedBox(height: 14),
               _PaddonBobinaSummary(
@@ -198,7 +199,7 @@ class _PaddonDetailHeader extends StatelessWidget {
               Text(
                 paddon.note,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: scheme.onPrimaryContainer,
+                  color: scheme.onSurface,
                 ),
               ),
             ],
@@ -220,7 +221,7 @@ class _PaddonDetailMetric extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: scheme.onPrimaryContainer.withValues(alpha: 0.12),
+        color: scheme.onSurface.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -228,7 +229,7 @@ class _PaddonDetailMetric extends StatelessWidget {
         child: UrduAwareText(
           '$label: $value',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: scheme.onPrimaryContainer,
+                color: scheme.onSurface,
                 fontWeight: FontWeight.w800,
               ),
         ),

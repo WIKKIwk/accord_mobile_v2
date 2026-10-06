@@ -223,7 +223,7 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
           child: ListView(
             padding: EdgeInsets.fromLTRB(
               4,
-              12,
+              4,
               4,
               MediaQuery.viewPaddingOf(context).bottom + 120,
             ),
@@ -284,7 +284,8 @@ class _PaddonsSummary extends StatelessWidget {
     final theme = Theme.of(context);
     return Card.filled(
       margin: EdgeInsets.zero,
-      color: scheme.primaryContainer,
+      color: scheme.surfaceContainerLowest,
+      surfaceTintColor: Colors.transparent,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
         child: Column(
@@ -293,7 +294,7 @@ class _PaddonsSummary extends StatelessWidget {
             Text(
               context.l10n.productionText('worker.paddon.location.title'),
               style: theme.textTheme.titleLarge?.copyWith(
-                color: scheme.onPrimaryContainer,
+                color: scheme.onSurface,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -301,7 +302,7 @@ class _PaddonsSummary extends StatelessWidget {
             Text(
               context.l10n.productionText('worker.paddon.location.subtitle'),
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onPrimaryContainer,
+                color: scheme.onSurface,
               ),
             ),
             const SizedBox(height: 14),
@@ -337,7 +338,7 @@ class _PaddonMetric extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: scheme.onPrimaryContainer.withValues(alpha: 0.12),
+        color: scheme.onSurface.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -345,7 +346,7 @@ class _PaddonMetric extends StatelessWidget {
         child: UrduAwareText(
           '$label: $value',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: scheme.onPrimaryContainer,
+                color: scheme.onSurface,
                 fontWeight: FontWeight.w800,
               ),
         ),
