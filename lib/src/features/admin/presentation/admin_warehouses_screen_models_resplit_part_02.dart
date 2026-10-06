@@ -212,7 +212,7 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
               onEdit: widget.allowRawStockEdit
                   ? (stock) => unawaited(_editRawStock(stock))
                   : null,
-              onQr: widget.allowRawStockEdit
+              onQr: widget.allowRawStockQr
                   ? (stock) => unawaited(_showRawStockQr(stock))
                   : null,
             ),
@@ -247,11 +247,17 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
             _WarehouseReservationListModule(
               reservations: current.reservations,
               apparatus: current.apparatus,
+              stock: current.rawStock,
+              onQr: widget.allowRawStockQr
+                  ? (stock, orderId) => unawaited(
+                        _showRawStockQr(stock, orderId: orderId),
+                      )
+                  : null,
             )
           else if (reservedRawStock.isNotEmpty)
             _WarehouseRawStockListModule(
               stock: reservedRawStock,
-              onQr: widget.allowRawStockEdit
+              onQr: widget.allowRawStockQr
                   ? (stock) => unawaited(_showRawStockQr(stock))
                   : null,
             ),

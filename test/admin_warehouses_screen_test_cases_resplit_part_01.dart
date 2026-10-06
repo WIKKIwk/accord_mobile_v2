@@ -135,7 +135,7 @@ void _registeradmin_warehouses_screen_testCases01() {
     expect(find.text('Kirim raqami'), findsOneWidget);
     expect(find.text('GSR-30AA'), findsOneWidget);
     expect(find.byKey(const ValueKey('raw-stock-edit-30AA')), findsNothing);
-    expect(find.byKey(const ValueKey('raw-stock-qr-30AA')), findsNothing);
+    expect(find.byKey(const ValueKey('raw-stock-qr-30AA')), findsOneWidget);
   });
 
   testWidgets('state-located material is excluded from warehouse stock', (

@@ -254,13 +254,20 @@ class _WarehouseReservationListModule extends StatelessWidget {
   const _WarehouseReservationListModule({
     required this.reservations,
     required this.apparatus,
+    required this.stock,
+    this.onQr,
   });
 
   final List<AdminRawMaterialAssignment> reservations;
   final List<AdminApparatus> apparatus;
+  final List<AdminRawMaterialStockEntry> stock;
+  final void Function(AdminRawMaterialStockEntry stock, String orderId)? onQr;
 
   @override
   Widget build(BuildContext context) {
+    final stockByBarcode = {
+      for (final item in stock) item.barcode.trim().toLowerCase(): item,
+    };
     return M3SegmentSpacedColumn(
       padding: EdgeInsets.zero,
       children: [
@@ -272,6 +279,9 @@ class _WarehouseReservationListModule extends StatelessWidget {
             ),
             reservation: reservations[index],
             apparatus: apparatus,
+            stock:
+                stockByBarcode[reservations[index].barcode.trim().toLowerCase()],
+            onQr: onQr,
           ),
       ],
     );
@@ -283,11 +293,15 @@ class _WarehouseReservationRow extends StatelessWidget {
     required this.slot,
     required this.reservation,
     required this.apparatus,
+    required this.stock,
+    this.onQr,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminRawMaterialAssignment reservation;
   final List<AdminApparatus> apparatus;
+  final AdminRawMaterialStockEntry? stock;
+  final void Function(AdminRawMaterialStockEntry stock, String orderId)? onQr;
 
   @override
   Widget build(BuildContext context) {
@@ -321,19 +335,32 @@ class _WarehouseReservationRow extends StatelessWidget {
       ),
       title: title,
       subtitle: subtitle,
+      reservedOrderId: reservation.orderId,
       details: [
         _WarehouseDetailEntry(
           context.l10n.adminText('calculate.order'),
           reservation.orderId,
         ),
-        _WarehouseDetailEntry(
-          context.l10n.adminText('label.code'),
-          reservation.itemCode,
-        ),
-        _WarehouseDetailEntry(
-          context.l10n.adminText('label.barcode'),
-          reservation.barcode,
-        ),
+        if (stock case final stock?)
+          ..._warehouseRawStockDetails(
+            stock,
+            context.l10n,
+            includeReservation: false,
+          )
+        else ...[
+          _WarehouseDetailEntry(
+            context.l10n.adminText('label.item_code'),
+            reservation.itemCode,
+          ),
+          _WarehouseDetailEntry(
+            context.l10n.adminText('label.barcode'),
+            reservation.barcode,
+          ),
+          _WarehouseDetailEntry(
+            context.l10n.adminText('label.quantity'),
+            '${_formatQty(reservation.stockQty)} ${reservation.stockUom}'.trim(),
+          ),
+        ],
         if (reservation.itemGroup.trim().isNotEmpty)
           _WarehouseDetailEntry(
             context.l10n.adminText('label.group'),
@@ -349,15 +376,45 @@ class _WarehouseReservationRow extends StatelessWidget {
           ),
         if (reservation.assignedByName.trim().isNotEmpty)
           _WarehouseDetailEntry(
-            context.l10n.adminText('action.assign'),
+            context.l10n.adminText('warehouse.reserved_by'),
             reservation.assignedByName,
           ),
         if (reservation.assignedAt.trim().isNotEmpty)
           _WarehouseDetailEntry(
             context.l10n.adminText('label.date'),
-            reservation.assignedAt,
+            formatParsedLocalDateTimeOrRaw(reservation.assignedAt),
+          ),
+        if (reservation.stockStatus.trim().isNotEmpty)
+          _WarehouseDetailEntry(
+            context.l10n.productionText('worker.material.balance'),
+            context.l10n.productionText(
+              'worker.material.balance.summary',
+              values: {
+                'received':
+                    '${_formatQty(reservation.receivedQty)} ${reservation.stockUom}'
+                        .trim(),
+                'used':
+                    '${_formatQty(reservation.consumedQty)} ${reservation.stockUom}'
+                        .trim(),
+                'remaining':
+                    '${_formatQty(reservation.remainingQty)} ${reservation.stockUom}'
+                        .trim(),
+              },
+            ),
           ),
       ],
+      expandedFooter:
+          stock == null || onQr == null || stock!.barcode.trim().isEmpty
+          ? null
+          : Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: IconButton.filledTonal(
+                key: ValueKey('raw-stock-qr-${stock!.barcode}'),
+                onPressed: () => onQr!(stock!, reservation.orderId),
+                tooltip: context.l10n.adminText('warehouse.qr_view'),
+                icon: const Icon(Icons.qr_code_2_rounded),
+              ),
+            ),
     );
   }
 }
@@ -378,6 +435,7 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
     required this.details,
     this.expandedFooter,
     this.onTap,
+    this.reservedOrderId = '',
   });
 
   final M3SegmentVerticalSlot slot;
@@ -387,6 +445,7 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
   final List<_WarehouseDetailEntry> details;
   final Widget? expandedFooter;
   final VoidCallback? onTap;
+  final String reservedOrderId;
 
   @override
   Widget build(BuildContext context) {
@@ -407,6 +466,7 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
                 title: title,
                 details: details,
                 expandedFooter: expandedFooter,
+                reservedOrderId: reservedOrderId,
               ),
       leading: leading,
       titleMaxLines: 1,

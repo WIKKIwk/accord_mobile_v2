@@ -148,6 +148,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
             },
             onWarehouseChanged: _openWarehouseDetailByName,
             allowRawStockEdit: materialScoped,
+            allowRawStockQr: materialScoped || _adminScoped,
             onRawStockChanged: _reload,
           );
           if (materialScoped) {

@@ -78,34 +78,8 @@ class _WarehouseRawStockRow extends StatelessWidget {
       ),
       title: title.isEmpty ? stock.barcode : title,
       subtitle: subtitle,
-      details: [
-        _WarehouseDetailEntry(
-          context.l10n.adminText('label.item_code'),
-          stock.itemCode,
-        ),
-        _WarehouseDetailEntry(
-          context.l10n.adminText('label.barcode'),
-          stock.barcode,
-        ),
-        _WarehouseDetailEntry(
-          context.l10n.adminText('label.quantity'),
-          '${_formatQty(stock.qty)} ${stock.uom}'.trim(),
-        ),
-        _WarehouseDetailEntry(
-          context.l10n.adminText('label.status'),
-          _warehouseStockStatusLabel(stock.status, context.l10n),
-        ),
-        if (stock.reservedOrderId.trim().isNotEmpty)
-          _WarehouseDetailEntry(
-            context.l10n.adminText('label.reserved'),
-            stock.reservedOrderId,
-          ),
-        if (stock.sourceReceiptId.trim().isNotEmpty)
-          _WarehouseDetailEntry(
-            context.l10n.adminText('label.receipt'),
-            stock.sourceReceiptId,
-          ),
-      ],
+      details: _warehouseRawStockDetails(stock, context.l10n),
+      reservedOrderId: stock.reservedOrderId,
       expandedFooter: onEdit == null && onQr == null
           ? null
           : Align(
@@ -136,9 +110,10 @@ class _WarehouseRawStockRow extends StatelessWidget {
 }
 
 class _RawMaterialStockQrSheet extends StatefulWidget {
-  const _RawMaterialStockQrSheet({required this.stock});
+  const _RawMaterialStockQrSheet({required this.stock, this.orderId = ''});
 
   final AdminRawMaterialStockEntry stock;
+  final String orderId;
 
   @override
   State<_RawMaterialStockQrSheet> createState() =>
@@ -147,8 +122,10 @@ class _RawMaterialStockQrSheet extends StatefulWidget {
 
 class _RawMaterialStockQrSheetState extends State<_RawMaterialStockQrSheet> {
   Future<String?> _reprint() async {
-    final prepared = await MobileApi.instance
-        .adminPrepareRawMaterialStockReprint(barcode: widget.stock.barcode);
+    final prepared = await MobileApi.instance.adminPrepareRawMaterialStockReprint(
+      barcode: widget.stock.barcode,
+      orderId: widget.orderId,
+    );
     final expectedBarcode = widget.stock.barcode.trim().toUpperCase();
     if (prepared.reprintId.trim().isEmpty ||
         prepared.stock.barcode.trim().toUpperCase() != expectedBarcode ||
@@ -187,14 +164,12 @@ class _RawMaterialStockQrSheetState extends State<_RawMaterialStockQrSheet> {
       previewKey: ValueKey('raw-stock-qr-preview-${stock.barcode}'),
       reprintButtonKey: const ValueKey('raw-stock-qr-reprint'),
       details: [
-        RpsQrDetail(
-          context.l10n.adminText('label.receipt'),
-          stock.sourceReceiptId,
-        ),
-        RpsQrDetail(
-          'Miqdor',
-          '${_formatQty(stock.qty)} ${stock.uom}'.trim(),
-        ),
+        for (final detail in _warehouseRawStockDetails(
+          stock,
+          context.l10n,
+          includeBarcode: false,
+        ))
+          RpsQrDetail(detail.label, detail.value),
       ],
       onReprint: _reprint,
       errorMessage: (error) => error is MobileApiException

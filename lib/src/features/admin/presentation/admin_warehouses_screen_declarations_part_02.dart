@@ -15,6 +15,7 @@ class _WarehouseDetailsTab extends StatefulWidget {
     required this.onFilterToggle,
     required this.onWarehouseChanged,
     this.allowRawStockEdit = false,
+    this.allowRawStockQr = false,
     this.onRawStockChanged,
   });
 
@@ -29,6 +30,7 @@ class _WarehouseDetailsTab extends StatefulWidget {
   final VoidCallback onFilterToggle;
   final ValueChanged<String> onWarehouseChanged;
   final bool allowRawStockEdit;
+  final bool allowRawStockQr;
   final Future<void> Function()? onRawStockChanged;
 
   @override

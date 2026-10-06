@@ -1,18 +1,26 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/formatters/date_time_formatters.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_warehouses_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/inventory_movement_models.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 part 'admin_warehouses_screen_test_helpers_part_01.dart';
 part 'admin_warehouses_screen_test_cases_resplit_part_01.dart';
 part 'admin_warehouses_screen_test_cases_resplit_part_02.dart';
+part 'admin_warehouses_stock_details_test_part.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -71,6 +79,7 @@ void main() {
   _registeradmin_warehouses_screen_testCases01();
 
   _registeradmin_warehouses_screen_testCases02();
+  _registerWarehouseStockDetailsTests();
 }
 
 const _warehouseFilterKey = ValueKey('admin-warehouse-filter-chip');

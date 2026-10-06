@@ -93,8 +93,11 @@ extension __WarehouseDetailsTabStateAstPart02 on _WarehouseDetailsTabState {
     }
   }
 
-  Future<void> _showRawStockQr(AdminRawMaterialStockEntry stock) async {
-    if (!widget.allowRawStockEdit || stock.barcode.trim().isEmpty) {
+  Future<void> _showRawStockQr(
+    AdminRawMaterialStockEntry stock, {
+    String orderId = '',
+  }) async {
+    if (!widget.allowRawStockQr || stock.barcode.trim().isEmpty) {
       return;
     }
     await showModalBottomSheet<void>(
@@ -107,7 +110,10 @@ extension __WarehouseDetailsTabStateAstPart02 on _WarehouseDetailsTabState {
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.32),
       sheetAnimationStyle: kM3PickerSheetAnimation,
-      builder: (context) => _RawMaterialStockQrSheet(stock: stock),
+      builder: (context) => _RawMaterialStockQrSheet(
+        stock: stock,
+        orderId: orderId.trim().isEmpty ? stock.reservedOrderId : orderId,
+      ),
     );
   }
 

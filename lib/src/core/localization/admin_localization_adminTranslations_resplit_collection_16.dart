@@ -2,6 +2,42 @@
 part of 'admin_localization.dart';
 
 const _admin_localization_adminTranslations_resplitPart16 = {
+  'admin.warehouse.reservation_reason': {
+    'uz': 'Band qilish sababi',
+    'en': 'Reservation reason',
+    'ru': 'Причина резерва',
+    'ur': 'ریزرو کرنے کی وجہ',
+  },
+  'admin.warehouse.reservation_for_order': {
+    'uz': '“{order}” buyurtmasi uchun xomashyo',
+    'en': 'Raw material for order “{order}”',
+    'ru': 'Сырьё для заказа «{order}»',
+    'ur': 'آرڈر “{order}” کے لیے خام مال',
+  },
+  'admin.warehouse.reserved_by': {
+    'uz': 'Band qilgan',
+    'en': 'Reserved by',
+    'ru': 'Зарезервировал',
+    'ur': 'ریزرو کرنے والا',
+  },
+  'admin.warehouse.reserved_order_load_failed': {
+    'uz': 'Buyurtma ma’lumoti yuklanmadi. Qayta urinish',
+    'en': 'Could not load order details. Retry',
+    'ru': 'Не удалось загрузить данные заказа. Повторить',
+    'ur': 'آرڈر کی تفصیلات لوڈ نہیں ہو سکیں۔ دوبارہ کوشش کریں',
+  },
+  'admin.warehouse.roll_width': {
+    'uz': 'Rulon eni',
+    'en': 'Roll width',
+    'ru': 'Ширина рулона',
+    'ur': 'رول کی چوڑائی',
+  },
+  'admin.warehouse.roll_length': {
+    'uz': 'Uzunlik',
+    'en': 'Length',
+    'ru': 'Длина',
+    'ur': 'لمبائی',
+  },
   'admin.warehouse.delete_blocked_message': {
     'uz':
         '“{warehouse}” omborida {count} ta faol band qilingan mahsulot bor. Avval ularni bo‘shating.',

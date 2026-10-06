@@ -6,6 +6,7 @@ Future<void> _showWarehouseSummaryDetails(
   required String title,
   required List<_WarehouseDetailEntry> details,
   Widget? expandedFooter,
+  String reservedOrderId = '',
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -18,6 +19,7 @@ Future<void> _showWarehouseSummaryDetails(
       title: title,
       details: details,
       footer: expandedFooter,
+      reservedOrderId: reservedOrderId,
     ),
   );
 }
@@ -27,11 +29,13 @@ class _WarehouseSummaryDetailsSheet extends StatelessWidget {
     required this.title,
     required this.details,
     this.footer,
+    this.reservedOrderId = '',
   });
 
   final String title;
   final List<_WarehouseDetailEntry> details;
   final Widget? footer;
+  final String reservedOrderId;
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +60,8 @@ class _WarehouseSummaryDetailsSheet extends StatelessWidget {
                     ),
               ),
               const SizedBox(height: 16),
+              if (reservedOrderId.trim().isNotEmpty)
+                _WarehouseReservationOrderDetails(orderId: reservedOrderId),
               for (final detail in details)
                 _WarehouseDetailLine(
                   label: detail.label,
