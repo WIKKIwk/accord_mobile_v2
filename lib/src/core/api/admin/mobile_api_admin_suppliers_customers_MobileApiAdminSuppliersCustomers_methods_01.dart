@@ -391,14 +391,17 @@ extension MobileApiAdminSuppliersCustomersAstPart01 on MobileApi {
 
   Future<CustomerDirectoryEntry> adminCreateCustomer({
     required String name,
-    required String phone,
+    String phone = '',
   }) async {
     final response = await _sendAuthorized(
       () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/customers'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({'name': name, 'phone': phone}),
+        body: jsonEncode({
+          'name': name,
+          if (phone.trim().isNotEmpty) 'phone': phone.trim(),
+        }),
       ),
     );
     if (response.statusCode != 200) {

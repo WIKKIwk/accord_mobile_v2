@@ -287,6 +287,26 @@ const _admin_localization_adminTranslations_resplitPart14 = {
     'en': 'User phone number',
     'ru': 'Телефон пользователя',
   },
+  'admin.user.phone_optional': {
+    'uz': 'Foydalanuvchi telefoni (ixtiyoriy)',
+    'en': 'User phone number (optional)',
+    'ru': 'Телефон пользователя (необязательно)',
+  },
+  'admin.user.name_required': {
+    'uz': 'Foydalanuvchi nomini kiriting',
+    'en': 'Enter the user name',
+    'ru': 'Введите имя пользователя',
+  },
+  'admin.user.phone_invalid': {
+    'uz': 'Telefon raqamini to‘g‘ri kiriting',
+    'en': 'Enter a valid phone number',
+    'ru': 'Введите корректный номер телефона',
+  },
+  'admin.user.phone_exists': {
+    'uz': 'Bu telefon raqami boshqa foydalanuvchiga biriktirilgan',
+    'en': 'This phone number is assigned to another user',
+    'ru': 'Этот номер телефона назначен другому пользователю',
+  },
   'admin.user.save': {
     'uz': 'Foydalanuvchi saqlash',
     'en': 'Save user',

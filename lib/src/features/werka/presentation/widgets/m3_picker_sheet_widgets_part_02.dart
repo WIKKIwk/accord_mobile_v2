@@ -16,6 +16,8 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
     this.cacheKey,
     this.emptyActionLabel,
     this.onEmptyAction,
+    this.showAddAction = false,
+    this.addActionTooltip,
     this.onMultiSelected,
     this.itemKey,
     this.itemSelected,
@@ -44,6 +46,8 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
   final String? cacheKey;
   final String Function(String query)? emptyActionLabel;
   final Future<T?> Function(String query)? onEmptyAction;
+  final bool showAddAction;
+  final String? addActionTooltip;
   final ValueChanged<List<T>>? onMultiSelected;
   final Object Function(T item)? itemKey;
   final bool Function(T item)? itemSelected;

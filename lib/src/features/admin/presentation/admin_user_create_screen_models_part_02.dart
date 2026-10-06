@@ -2,9 +2,15 @@
 part of 'admin_user_create_screen.dart';
 
 class _CustomerCreateTabState extends State<_CustomerCreateTab> {
-  final TextEditingController name = TextEditingController();
+  late final TextEditingController name;
   final TextEditingController phone = TextEditingController();
   bool saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    name = TextEditingController(text: widget.initialName);
+  }
 
   @override
   void dispose() {
@@ -14,6 +20,13 @@ class _CustomerCreateTabState extends State<_CustomerCreateTab> {
   }
 
   Future<void> _create() async {
+    if (saving) {
+      return;
+    }
+    if (name.text.trim().isEmpty) {
+      showAdminTopNotice(context, context.l10n.adminText('user.name_required'));
+      return;
+    }
     setState(() => saving = true);
     try {
       final customer = await MobileApi.instance.adminCreateCustomer(
@@ -28,18 +41,32 @@ class _CustomerCreateTabState extends State<_CustomerCreateTab> {
       if (!mounted) {
         return;
       }
+      AdminSuppliersScreen.invalidateCache();
+      M3AsyncPickerSheet.clearMemoryCache();
+      final onCreated = widget.onCreated;
+      if (onCreated != null) {
+        onCreated(customer);
+        return;
+      }
       name.clear();
       phone.clear();
-      AdminSuppliersScreen.invalidateCache();
       showAdminTopNotice(
         context,
         context.l10n.adminText('user.customer_created'),
       );
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
+        final errorKey = error is MobileApiException
+            ? switch (error.code) {
+                'invalid phone' => 'user.phone_invalid',
+                'phone already exists' => 'user.phone_exists',
+                'customer name is required' => 'user.name_required',
+                _ => 'user.customer_create_failed',
+              }
+            : 'user.customer_create_failed';
         showAdminTopNotice(
           context,
-          context.l10n.adminText('user.customer_create_failed'),
+          context.l10n.adminText(errorKey),
         );
       }
     } finally {
@@ -55,7 +82,7 @@ class _CustomerCreateTabState extends State<_CustomerCreateTab> {
       name: name,
       phone: phone,
       nameLabel: context.l10n.adminText('user.name'),
-      phoneLabel: context.l10n.adminText('user.phone'),
+      phoneLabel: context.l10n.adminText('user.phone_optional'),
       actionLabel: saving
           ? context.l10n.adminText('user.saving')
           : context.l10n.adminText('user.save'),
@@ -162,8 +189,10 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
   bool get _isAparatchiRole => widget.assignedRole.id == 'aparatchi';
   bool get _isQolipchiRole => widget.assignedRole.id == 'qolipchi';
   bool get _isBoyoqchiRole => widget.assignedRole.id == 'boyoqchi';
-  bool get _isPreparationRole => widget.assignedRole.baseRole == UserRole.tayyorlovMasteri;
-  bool get _isRawMaterialSplitRole => widget.assignedRole.baseRole == UserRole.homashyoRezkachi;
+  bool get _isPreparationRole =>
+      widget.assignedRole.baseRole == UserRole.tayyorlovMasteri;
+  bool get _isRawMaterialSplitRole =>
+      widget.assignedRole.baseRole == UserRole.homashyoRezkachi;
   bool get _isMaterialTaminotchiAssignedRole =>
       _isMaterialTaminotchiRole(widget.assignedRole);
 
@@ -239,15 +268,27 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
     setState(() => saving = true);
     try {
       var issuedCode = '';
-      if (_isQolipchiRole || _isBoyoqchiRole || _isPreparationRole || _isRawMaterialSplitRole) {
-        final role = _isRawMaterialSplitRole ? UserRole.homashyoRezkachi : _isPreparationRole ? UserRole.tayyorlovMasteri : _isBoyoqchiRole ? UserRole.boyoqchi : UserRole.qolipchi;
+      if (_isQolipchiRole ||
+          _isBoyoqchiRole ||
+          _isPreparationRole ||
+          _isRawMaterialSplitRole) {
+        final role = _isRawMaterialSplitRole
+            ? UserRole.homashyoRezkachi
+            : _isPreparationRole
+                ? UserRole.tayyorlovMasteri
+                : _isBoyoqchiRole
+                    ? UserRole.boyoqchi
+                    : UserRole.qolipchi;
         final user = await MobileApi.instance.adminCreateSystemUser(
           role: role,
           name: name.text.trim(),
           phone: phone.text.trim(),
         );
-        issuedCode = (await MobileApi.instance.adminRegenerateSystemUserCode(user.id)).code;
-        if ((_isPreparationRole || _isRawMaterialSplitRole) && !widget.assignedRole.system) {
+        issuedCode =
+            (await MobileApi.instance.adminRegenerateSystemUserCode(user.id))
+                .code;
+        if ((_isPreparationRole || _isRawMaterialSplitRole) &&
+            !widget.assignedRole.system) {
           await _assignCustomRole(widget.assignedRole, role, user.id);
         }
       } else if (_isMaterialTaminotchiAssignedRole) {
@@ -270,7 +311,9 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
                 ..sort(),
             ),
           );
-          issuedCode = (await MobileApi.instance.adminRegenerateCustomerCode(user.ref)).code;
+          issuedCode =
+              (await MobileApi.instance.adminRegenerateCustomerCode(user.ref))
+                  .code;
         } else {
           final principalRole = _principalRoleForAssignedRole(
             widget.assignedRole,

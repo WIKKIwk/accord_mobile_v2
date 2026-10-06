@@ -24,6 +24,7 @@ part 'admin_item_create_screen_test_cases_resplit_part_01.dart';
 part 'admin_item_create_screen_test_cases_resplit_part_02.dart';
 part 'admin_item_create_screen_test_group_filter_part.dart';
 part 'admin_item_create_screen_test_selection_part.dart';
+part 'admin_item_create_screen_test_auto_code_part.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +44,11 @@ void main() {
       ref: 'ADMIN-001',
       phone: '',
       avatarUrl: '',
+      capabilities: [
+        'admin.access',
+        'catalog.item.read',
+        'catalog.item.create'
+      ],
     );
   });
 
@@ -56,4 +62,5 @@ void main() {
   _registeradmin_item_create_screen_testCases02();
   _registerAdminItemGroupFilterTests();
   _registerAdminItemSelectionTests();
+  _registerAdminItemAutoCodeTests();
 }

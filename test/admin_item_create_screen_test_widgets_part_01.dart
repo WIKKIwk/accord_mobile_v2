@@ -61,18 +61,61 @@ class _AdminItemCreateHttpClient implements HttpClient {
     this.sameNameDifferentCode = false,
     this.duplicateOnPost = false,
     this.customerRequiredOnPost = false,
+    this.autoCodeOnPost = false,
   });
 
   final List<String> seenRequests;
   final bool sameNameDifferentCode;
   final bool duplicateOnPost;
   final bool customerRequiredOnPost;
+  final bool autoCodeOnPost;
+  final List<Map<String, dynamic>> itemCreateBodies = [];
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
     final key =
         '$method ${url.path}${url.query.isEmpty ? '' : '?${url.query}'}';
     seenRequests.add(key);
+
+    if (autoCodeOnPost && key == 'GET /v1/mobile/admin/item-groups/tree') {
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode([
+            for (final group in [
+              'All Item Groups',
+              'Tayyor mahsulot',
+              'Paketlar',
+              'Homashyo'
+            ])
+              {
+                'name': group,
+                'item_group_name': group,
+                'parent_item_group': group == 'All Item Groups'
+                    ? ''
+                    : group == 'Paketlar'
+                        ? 'Tayyor mahsulot'
+                        : 'All Item Groups',
+                'is_group': true,
+              },
+          ]),
+          statusCode: HttpStatus.ok,
+        ),
+      );
+    }
+    if (autoCodeOnPost && url.path == '/v1/mobile/admin/customers/list') {
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode([
+            {
+              'ref': 'CUST-001',
+              'name': 'Customer One',
+              'phone': '+998901112233'
+            }
+          ]),
+          statusCode: HttpStatus.ok,
+        ),
+      );
+    }
 
     if (method == 'GET' &&
         url.path == '/v1/mobile/admin/items' &&
@@ -147,6 +190,21 @@ class _AdminItemCreateHttpClient implements HttpClient {
       );
     }
     if (key == 'POST /v1/mobile/admin/items') {
+      if (autoCodeOnPost) {
+        return _FakeHttpClientRequest(
+          onBody: (body) =>
+              itemCreateBodies.add(jsonDecode(body) as Map<String, dynamic>),
+          response: _FakeHttpClientResponse(
+            body: jsonEncode({
+              'code': '307822819AF46D1581D4AEC1',
+              'name': 'Finished item',
+              'uom': 'Kg',
+              'item_group': 'Tayyor mahsulot'
+            }),
+            statusCode: HttpStatus.ok,
+          ),
+        );
+      }
       final statusCode = sameNameDifferentCode
           ? HttpStatus.ok
           : customerRequiredOnPost
@@ -264,9 +322,11 @@ List<Map<String, String>> _itemsPage(int start, int count) {
 }
 
 class _FakeHttpClientRequest implements HttpClientRequest {
-  _FakeHttpClientRequest({required this.response});
+  _FakeHttpClientRequest({required this.response, this.onBody});
 
   final _FakeHttpClientResponse response;
+  final void Function(String)? onBody;
+  final List<int> _body = [];
   final _FakeHttpHeaders _headers = _FakeHttpHeaders();
   final Completer<HttpClientResponse> _done = Completer<HttpClientResponse>();
 
@@ -295,10 +355,14 @@ class _FakeHttpClientRequest implements HttpClientRequest {
   Future<HttpClientResponse> get done => _done.future;
 
   @override
-  void add(List<int> data) {}
+  void add(List<int> data) => _body.addAll(data);
 
   @override
-  Future<void> addStream(Stream<List<int>> stream) async {}
+  Future<void> addStream(Stream<List<int>> stream) async {
+    await for (final data in stream) {
+      add(data);
+    }
+  }
 
   @override
   void write(Object? object) {}
@@ -318,6 +382,7 @@ class _FakeHttpClientRequest implements HttpClientRequest {
   @override
   Future<HttpClientResponse> close() {
     if (!_done.isCompleted) {
+      onBody?.call(utf8.decode(_body));
       _done.complete(response);
     }
     return _done.future;

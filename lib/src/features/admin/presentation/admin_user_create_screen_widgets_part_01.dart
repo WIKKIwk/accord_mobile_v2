@@ -2,7 +2,15 @@
 part of 'admin_user_create_screen.dart';
 
 class AdminUserCreateScreen extends StatefulWidget {
-  const AdminUserCreateScreen({super.key});
+  const AdminUserCreateScreen({super.key})
+      : customerOnly = false,
+        initialName = '';
+
+  const AdminUserCreateScreen.customer({super.key, this.initialName = ''})
+      : customerOnly = true;
+
+  final bool customerOnly;
+  final String initialName;
 
   @override
   State<AdminUserCreateScreen> createState() => _AdminUserCreateScreenState();
@@ -15,7 +23,12 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
   @override
   void initState() {
     super.initState();
-    _roleChoices = _loadRoleChoices();
+    if (widget.customerOnly) {
+      _choice = _AdminUserCreateChoice.system(_AdminUserCreateKind.customer);
+      _roleChoices = Future.value([_choice!]);
+    } else {
+      _roleChoices = _loadRoleChoices();
+    }
   }
 
   Future<List<_AdminUserCreateChoice>> _loadRoleChoices() async {
@@ -104,7 +117,9 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: const AdminDock(activeTab: AdminDockTab.settings),
+      bottom: widget.customerOnly
+          ? null
+          : const AdminDock(activeTab: AdminDockTab.settings),
       contentPadding: EdgeInsets.zero,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(
@@ -123,7 +138,10 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _RoleSelector(choice: choice, onTap: _openRolePicker),
+              _RoleSelector(
+                choice: choice,
+                onTap: widget.customerOnly ? null : _openRolePicker,
+              ),
               if (choice != null)
                 switch (kind) {
                   _AdminUserCreateKind.werka => _WerkaCreateTab(
@@ -131,6 +149,10 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
                     ),
                   _AdminUserCreateKind.customer => _CustomerCreateTab(
                       assignedRole: choice.customRole,
+                      initialName: widget.initialName,
+                      onCreated: widget.customerOnly
+                          ? (customer) => Navigator.of(context).pop(customer)
+                          : null,
                     ),
                   _AdminUserCreateKind.supplier => _SupplierCreateTab(
                       assignedRole: choice.customRole,
@@ -305,7 +327,7 @@ class _RoleSelector extends StatelessWidget {
   const _RoleSelector({required this.choice, required this.onTap});
 
   final _AdminUserCreateChoice? choice;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -393,11 +415,13 @@ class _RoleSelector extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Icon(
-                        Icons.expand_more_rounded,
-                        color: scheme.onSurfaceVariant,
-                      ),
+                      if (onTap != null) ...[
+                        const SizedBox(width: 10),
+                        Icon(
+                          Icons.expand_more_rounded,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -411,9 +435,15 @@ class _RoleSelector extends StatelessWidget {
 }
 
 class _CustomerCreateTab extends StatefulWidget {
-  const _CustomerCreateTab({required this.assignedRole});
+  const _CustomerCreateTab({
+    required this.assignedRole,
+    this.initialName = '',
+    this.onCreated,
+  });
 
   final AdminRoleDefinition? assignedRole;
+  final String initialName;
+  final ValueChanged<CustomerDirectoryEntry>? onCreated;
 
   @override
   State<_CustomerCreateTab> createState() => _CustomerCreateTabState();

@@ -347,7 +347,7 @@ extension MobileApiAdminItemsAstPart04 on MobileApi {
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
-          'code': code,
+          if (code.trim().isNotEmpty) 'code': code.trim(),
           'name': name,
           'uom': uom,
           'item_group': itemGroup,

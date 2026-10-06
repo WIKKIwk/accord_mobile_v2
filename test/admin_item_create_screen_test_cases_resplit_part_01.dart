@@ -52,7 +52,7 @@ void _registeradmin_item_create_screen_testCases01() {
       );
       expect(find.text('Item allaqachon yaratilgan'), findsOneWidget);
 
-      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(seconds: 6));
       await tester.pumpAndSettle();
 
       expect(find.text('Item allaqachon yaratilgan'), findsNothing);
@@ -112,7 +112,7 @@ void _registeradmin_item_create_screen_testCases01() {
       );
       expect(find.text('Item yaratildi: ITEM-UNIQUE'), findsOneWidget);
       expect(find.text('Item allaqachon yaratilgan'), findsNothing);
-      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(seconds: 6));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     }, createHttpClient: (_) => client);
@@ -169,7 +169,7 @@ void _registeradmin_item_create_screen_testCases01() {
         contains('POST /v1/mobile/admin/items'),
       );
       expect(find.text('Bu item code allaqachon mavjud'), findsOneWidget);
-      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(seconds: 6));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     }, createHttpClient: (_) => client);
@@ -223,7 +223,7 @@ void _registeradmin_item_create_screen_testCases01() {
         find.text('Tayyor mahsulot uchun kamida bitta customer kerak'),
         findsOneWidget,
       );
-      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pump(const Duration(seconds: 6));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     }, createHttpClient: (_) => client);

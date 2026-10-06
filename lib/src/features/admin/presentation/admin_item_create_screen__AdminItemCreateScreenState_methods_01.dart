@@ -23,10 +23,17 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
       _itemGroupTree = tree;
       final ordered = orderAdminItemGroupsByParent(tree);
       if (ordered.isNotEmpty) {
+        if (mounted) {
+          _syncItemGroupSelection(ordered);
+        }
         return ordered;
       }
     } catch (_) {}
-    return MobileApi.instance.adminItemGroups();
+    final groups = await MobileApi.instance.adminItemGroups();
+    if (mounted) {
+      _syncItemGroupSelection(groups);
+    }
+    return groups;
   }
 
   void _syncItemGroupSelection(List<String> groups) {
@@ -54,6 +61,9 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
   }
 
   Future<bool> _save() async {
+    if (saving) {
+      return false;
+    }
     List<String> availableUoms;
     try {
       availableUoms = await itemUomsFuture;
@@ -66,7 +76,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
       }
       return false;
     }
-    if (!mounted) {
+    if (!mounted || saving) {
       return false;
     }
     String? selectedUom;
@@ -85,7 +95,15 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
     }
     uom.text = selectedUom.trim();
     final group = itemGroup.text.trim();
-    if (_requiresCustomer(group) && selectedCustomer == null) {
+    final isFinishedGoods = _requiresCustomer(group);
+    if (isFinishedGoods && name.text.trim().isEmpty) {
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('item.name_required'),
+      );
+      return false;
+    }
+    if (isFinishedGoods && selectedCustomer == null) {
       showAdminTopNotice(
         context,
         context.l10n.adminText('item.customer_required'),
@@ -94,7 +112,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
     }
     setState(() => saving = true);
     try {
-      if (await _itemCodeAlreadyExists()) {
+      if (!isFinishedGoods && await _itemCodeAlreadyExists()) {
         if (mounted) {
           showAdminTopNotice(
             context,
@@ -104,12 +122,11 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
         return false;
       }
       final item = await MobileApi.instance.adminCreateItem(
-        code: code.text.trim(),
+        code: isFinishedGoods ? '' : code.text.trim(),
         name: name.text.trim(),
         uom: uom.text.trim(),
         itemGroup: group,
-        customerRef:
-            _requiresCustomer(group) ? selectedCustomer?.ref.trim() ?? '' : '',
+        customerRef: isFinishedGoods ? selectedCustomer?.ref.trim() ?? '' : '',
       );
       if (!mounted) {
         return false;
@@ -253,11 +270,19 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
       barrierColor: Colors.black.withValues(alpha: 0.32),
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
+        final canCreateCustomer =
+            AppSession.instance.can('party.customer.manage');
         return M3AsyncPickerSheet<CustomerDirectoryEntry>(
           title: context.l10n.adminText('item.customer_select'),
           hintText: context.l10n.adminText('item.customer_search'),
           pageSize: 50,
           cacheKey: 'admin:item-create-customers',
+          showAddAction: canCreateCustomer,
+          addActionTooltip: context.l10n.adminText('user.add_customer'),
+          emptyActionLabel: canCreateCustomer
+              ? (_) => context.l10n.adminText('user.add_customer')
+              : null,
+          onEmptyAction: canCreateCustomer ? _createCustomerFromPicker : null,
           loadPage: (query, offset, limit) {
             return MobileApi.instance.adminCustomers(
               query: query,
@@ -266,7 +291,9 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
             );
           },
           itemTitle: (customer) => customer.name,
-          itemSubtitle: (customer) => '${customer.ref} • ${customer.phone}',
+          itemSubtitle: (customer) => customer.phone.trim().isEmpty
+              ? customer.ref
+              : '${customer.ref} • ${customer.phone}',
           onSelected: (customer) => Navigator.of(context).pop(customer),
         );
       },
@@ -275,6 +302,20 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
       return;
     }
     setState(() => selectedCustomer = picked);
+  }
+
+  Future<CustomerDirectoryEntry?> _createCustomerFromPicker(
+      String query) async {
+    if (!mounted || !AppSession.instance.can('party.customer.manage')) {
+      return null;
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    return Navigator.of(context, rootNavigator: true)
+        .push<CustomerDirectoryEntry>(
+      MaterialPageRoute(
+        builder: (_) => AdminUserCreateScreen.customer(initialName: query),
+      ),
+    );
   }
 
   Future<void> _openItemCreateDialog() async {

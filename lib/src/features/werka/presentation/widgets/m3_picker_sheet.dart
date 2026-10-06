@@ -285,6 +285,17 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
                             tooltip: widget.confirmSelectionTooltip,
                             icon: const Icon(Icons.check_rounded),
                           ),
+                        if (widget.showAddAction &&
+                            widget.onEmptyAction != null)
+                          IconButton(
+                            onPressed: _runningEmptyAction
+                                ? null
+                                : () => _handleEmptyAction(
+                                      allowEmptyQuery: true,
+                                    ),
+                            tooltip: widget.addActionTooltip,
+                            icon: const Icon(Icons.add_rounded),
+                          ),
                         IconButton(
                           onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(Icons.close_rounded),

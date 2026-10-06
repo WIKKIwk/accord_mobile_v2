@@ -396,10 +396,12 @@ extension __M3AsyncPickerSheetStateAstPart01<T> on _M3AsyncPickerSheetState<T> {
     ];
   }
 
-  Future<void> _handleEmptyAction() async {
+  Future<void> _handleEmptyAction({bool allowEmptyQuery = false}) async {
     final action = widget.onEmptyAction;
     final query = _query.trim();
-    if (action == null || query.isEmpty || _runningEmptyAction) {
+    if (action == null ||
+        (!allowEmptyQuery && query.isEmpty) ||
+        _runningEmptyAction) {
       return;
     }
     setState(() => _runningEmptyAction = true);

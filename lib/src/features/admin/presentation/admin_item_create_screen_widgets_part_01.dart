@@ -75,15 +75,27 @@ class _ItemCreateDialogCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextField(
-                    key: const ValueKey('admin-item-create-code'),
-                    controller: code,
-                    decoration: appSoftInputDecoration(
-                      context,
-                      labelText: context.l10n.adminText('item.code'),
-                    ),
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: itemGroup,
+                    builder: (context, value, _) {
+                      if (requiresCustomer(value.text)) {
+                        return const SizedBox.shrink();
+                      }
+                      return Column(
+                        children: [
+                          TextField(
+                            key: const ValueKey('admin-item-create-code'),
+                            controller: code,
+                            decoration: appSoftInputDecoration(
+                              context,
+                              labelText: context.l10n.adminText('item.code'),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                      );
+                    },
                   ),
-                  const SizedBox(height: 12),
                   TextField(
                     key: const ValueKey('admin-item-create-name'),
                     controller: name,
