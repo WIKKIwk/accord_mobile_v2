@@ -2,6 +2,37 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+({ButtonStyle cancel, ButtonStyle confirm}) m3ConfirmDialogActionStyles({
+  required BuildContext context,
+  bool destructive = false,
+  double buttonRadius = 20,
+  Color? confirmBackgroundColor,
+  Color? confirmForegroundColor,
+}) {
+  final scheme = Theme.of(context).colorScheme;
+  return (
+    confirm: FilledButton.styleFrom(
+      backgroundColor: destructive
+          ? scheme.errorContainer
+          : confirmBackgroundColor ?? scheme.primaryContainer,
+      foregroundColor: destructive
+          ? scheme.onErrorContainer
+          : confirmForegroundColor ?? scheme.onPrimaryContainer,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(buttonRadius),
+      ),
+    ),
+    cancel: OutlinedButton.styleFrom(
+      backgroundColor: scheme.surfaceContainerLow,
+      foregroundColor: scheme.onSurface,
+      side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.95)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(buttonRadius),
+      ),
+    ),
+  );
+}
+
 Future<bool?> showM3ConfirmDialog({
   required BuildContext context,
   required String title,
@@ -24,36 +55,24 @@ Future<bool?> showM3ConfirmDialog({
     builder: (dialogContext) {
       final theme = Theme.of(dialogContext);
       final scheme = theme.colorScheme;
-      final confirmStyle = FilledButton.styleFrom(
-        backgroundColor: destructive
-            ? scheme.errorContainer
-            : confirmBackgroundColor ?? scheme.primaryContainer,
-        foregroundColor: destructive
-            ? scheme.onErrorContainer
-            : confirmForegroundColor ?? scheme.onPrimaryContainer,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(buttonRadius),
-        ),
-      );
-      final cancelStyle = OutlinedButton.styleFrom(
-        backgroundColor: scheme.surfaceContainerLow,
-        foregroundColor: scheme.onSurface,
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.95)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(buttonRadius),
-        ),
+      final actionStyles = m3ConfirmDialogActionStyles(
+        context: dialogContext,
+        destructive: destructive,
+        buttonRadius: buttonRadius,
+        confirmBackgroundColor: confirmBackgroundColor,
+        confirmForegroundColor: confirmForegroundColor,
       );
 
       final cancelButton = OutlinedButton(
         key: cancelButtonKey,
-        style: cancelStyle,
+        style: actionStyles.cancel,
         onPressed: () => Navigator.of(dialogContext).pop(false),
         child: Text(cancelLabel),
       );
       final confirmButton = FilledButton(
         key: confirmButtonKey,
         onPressed: () => Navigator.of(dialogContext).pop(true),
-        style: confirmStyle,
+        style: actionStyles.confirm,
         child: Text(confirmLabel),
       );
       final actions = verticalActions

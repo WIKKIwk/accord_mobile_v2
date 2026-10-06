@@ -118,33 +118,28 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
       confirmText: context.l10n.productionText('worker.action.select'),
       builder: (dialogContext, child) {
         final theme = Theme.of(dialogContext);
-        final scheme = theme.colorScheme;
-        final shape = RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
+        final actionStyles = m3ConfirmDialogActionStyles(
+          context: dialogContext,
         );
-        final textStyle = theme.textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w700,
-        );
+        final cancelStyle =
+            (theme.outlinedButtonTheme.style ?? const ButtonStyle())
+                .merge(actionStyles.cancel);
+        final confirmStyle =
+            (theme.filledButtonTheme.style ?? const ButtonStyle())
+                .merge(actionStyles.confirm);
         return DatePickerTheme(
           data: DatePickerTheme.of(dialogContext).copyWith(
-            cancelButtonStyle: OutlinedButton.styleFrom(
-              foregroundColor: scheme.onSurface,
-              backgroundColor: scheme.surfaceContainerLowest,
-              side: BorderSide(color: scheme.outline),
-              minimumSize: const Size(0, 48),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: shape,
-              textStyle: textStyle,
+            cancelButtonStyle: cancelStyle.copyWith(
+              minimumSize: const WidgetStatePropertyAll(Size(0, 56)),
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
             ),
-            confirmButtonStyle: FilledButton.styleFrom(
-              foregroundColor: scheme.onPrimary,
-              backgroundColor: scheme.primary,
-              disabledForegroundColor: scheme.onSurface.withValues(alpha: 0.38),
-              disabledBackgroundColor: scheme.onSurface.withValues(alpha: 0.12),
-              minimumSize: const Size(0, 48),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: shape,
-              textStyle: textStyle,
+            confirmButtonStyle: confirmStyle.copyWith(
+              minimumSize: const WidgetStatePropertyAll(Size(0, 56)),
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
             ),
           ),
           child: child!,
