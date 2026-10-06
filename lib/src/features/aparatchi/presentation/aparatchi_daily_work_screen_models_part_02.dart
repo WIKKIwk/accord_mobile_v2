@@ -108,43 +108,13 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
 
   Future<void> _chooseDate() async {
     final today = _dailyWorkDateOnly(DateTime.now());
-    final selected = await showDatePicker(
+    final selected = await showDialog<DateTime>(
       context: context,
-      initialDate: _selectedDate.isAfter(today) ? today : _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: today,
-      helpText: context.l10n.productionText('worker.daily.choose_date.title'),
-      cancelText: context.l10n.productionText('worker.action.cancel'),
-      confirmText: context.l10n.productionText('worker.action.select'),
-      builder: (dialogContext, child) {
-        final theme = Theme.of(dialogContext);
-        final actionStyles = m3ConfirmDialogActionStyles(
-          context: dialogContext,
-        );
-        final cancelStyle =
-            (theme.outlinedButtonTheme.style ?? const ButtonStyle())
-                .merge(actionStyles.cancel);
-        final confirmStyle =
-            (theme.filledButtonTheme.style ?? const ButtonStyle())
-                .merge(actionStyles.confirm);
-        return DatePickerTheme(
-          data: DatePickerTheme.of(dialogContext).copyWith(
-            cancelButtonStyle: cancelStyle.copyWith(
-              minimumSize: const WidgetStatePropertyAll(Size(0, 56)),
-              padding: const WidgetStatePropertyAll(
-                EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-            confirmButtonStyle: confirmStyle.copyWith(
-              minimumSize: const WidgetStatePropertyAll(Size(0, 56)),
-              padding: const WidgetStatePropertyAll(
-                EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: (dialogContext) => _DailyWorkDatePickerDialog(
+        initialDate: _selectedDate.isAfter(today) ? today : _selectedDate,
+        firstDate: DateTime(2020),
+        lastDate: today,
+      ),
     );
     if (!mounted || selected == null) {
       return;

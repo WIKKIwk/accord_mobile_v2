@@ -31,3 +31,4 @@ part 'aparatchi_daily_work_screen_models_part_03.dart';
 part 'aparatchi_daily_work_screen_models_part_04.dart';
 part 'aparatchi_daily_work_screen_models_part_05.dart';
 part 'aparatchi_daily_work_screen_models_part_06.dart';
+part 'aparatchi_daily_work_screen_date_picker.dart';
