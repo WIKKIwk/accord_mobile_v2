@@ -505,8 +505,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         qolipCodes: _scannedQolipCodes.values.toList(growable: false),
         requiredQolips: _visibleRequiredQolips,
         onResetQolips: () {
-          if (_actionInFlight) return;
+          if (_actionInFlight || _quickScanInFlight) return;
           setState(() {
+            for (final qolip in _requiredQolips.values) {
+              _seenQuickScanValues.remove(qolip.qolipCode.trim().toUpperCase());
+            }
             _scannedQolipCodes.clear();
             _quickScanStatus = '';
           });
@@ -1752,6 +1755,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         if (requiredQolip != null) {
           final selectedSet = _selectedQolipSetId;
           if (selectedSet != null && selectedSet != requiredQolip.setId) {
+            _seenQuickScanValues.remove(scanKey);
             _showSheetNotice(context.l10n.productionText('worker.error.mixed_mold_sets'));
             _showQuickScanFeedback(
               ProductionQuickScanFeedback.rejected,

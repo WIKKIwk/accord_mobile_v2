@@ -118,6 +118,14 @@ void _registerQolipAlternativeSetTests() {
     await tester.tap(find.text('Komplektni almashtirish'));
     await tester.pumpAndSettle();
     expect(find.text('Muqobil qoliplar'), findsOneWidget);
+    await scan('ALT-A1');
+    expect(progress('1/2'), findsOneWidget,
+        reason: 'Reset allows rescanning a mold from the previous set');
+    await scan('ALT-B1');
+    expect(progress('1/2'), findsOneWidget);
+    await tester.ensureVisible(find.text('Komplektni almashtirish'));
+    await tester.tap(find.text('Komplektni almashtirish'));
+    await tester.pumpAndSettle();
     await scan('ALT-B1');
     expect(progress('1/2'), findsOneWidget);
     await scan('ALT-B2');

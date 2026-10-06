@@ -291,6 +291,8 @@ extension MobileApiQolipAstPart01 on MobileApi {
         }
         products.add(
           QolipProduct(
+            qolipSetId: spec.setId,
+            warehouse: spec.warehouse,
             code: spec.code,
             name: spec.name,
             itemGroup: spec.itemGroup,
