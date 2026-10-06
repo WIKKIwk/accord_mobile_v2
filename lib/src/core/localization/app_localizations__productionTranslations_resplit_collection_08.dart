@@ -479,7 +479,8 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
     'ru': 'Нет WIP, доступных для добавления в паддон.',
   },
   'worker.paddon.assigned.empty': {
-    'uz': 'Bu paddonda hozircha WIP yo‘q.',
+    'uz':
+        "bu paddon'da hozircha tayyor mahsulot yo'q yoki joylanmagan",
     'en': 'This paddon has no WIPs yet.',
     'ru': 'В этом паддоне пока нет WIP.',
   },

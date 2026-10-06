@@ -1,6 +1,7 @@
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/widgets/lists/m3_segmented_list.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_paddon_detail_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -355,10 +356,27 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('empty pallet has no bobbin groups', (tester) async {
+  testWidgets('empty pallet displays centered message without a card',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(_app(() async => _snapshot([])));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('paddon-bobina-summary')), findsNothing);
+    final message = find.text(
+      "bu paddon'da hozircha tayyor mahsulot yo'q yoki joylanmagan",
+    );
+    expect(message, findsOneWidget);
+    expect(tester.widget<Text>(message).textAlign, TextAlign.center);
+    expect(find.ancestor(of: message, matching: find.byType(Card)),
+        findsNothing);
+    expect(find.ancestor(
+      of: message,
+      matching: find.byType(M3SegmentFilledSurface),
+    ), findsNothing);
+    expect(tester.getRect(message).center.dx,
+        closeTo(tester.getRect(find.byType(RefreshIndicator)).center.dx, 0.1));
+    expect(tester.takeException(), isNull);
   });
 
   for (final locale in ['uz', 'en', 'ru', 'ur']) {

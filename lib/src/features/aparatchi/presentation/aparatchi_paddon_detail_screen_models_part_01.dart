@@ -344,11 +344,9 @@ class _PaddonItemsEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return M3SegmentFilledSurface(
-      slot: M3SegmentVerticalSlot.top,
-      cornerRadius: M3SegmentedListGeometry.cornerLarge,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Center(
         child: Text(
           message,
           textAlign: TextAlign.center,
