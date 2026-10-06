@@ -42,6 +42,7 @@ import '../cache/order_image_cache.dart';
 
 part 'admin/mobile_api_admin.dart';
 part 'admin/mobile_api_material_link.dart';
+part 'admin/mobile_api_material_start_receipt.dart';
 part 'admin/mobile_api_order_alert.dart';
 part 'admin/mobile_api_push_config.dart';
 part 'admin/mobile_api_order_images.dart';

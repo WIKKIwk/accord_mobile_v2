@@ -372,6 +372,11 @@ extension MobileApiAdminRawMaterialsAstPart02 on MobileApi {
       if (normalizedApparatus.isNotEmpty) 'apparatus': normalizedApparatus,
     };
     if (await TestModeController.instance.isEnabled()) {
+      final stock = _testModeInventoryAssets
+          .where((asset) =>
+              asset.kind == InventoryAssetKind.rawMaterial &&
+              asset.identifier.trim().toUpperCase() == barcode.trim().toUpperCase())
+          .firstOrNull;
       final assignment = AdminRawMaterialAssignment(
         orderId: body['order_id']!,
         apparatus: body['apparatus'] ?? '',
@@ -382,6 +387,7 @@ extension MobileApiAdminRawMaterialsAstPart02 on MobileApi {
         assignedByRef: AppSession.instance.profile?.ref ?? '',
         assignedByName: AppSession.instance.profile?.displayName ?? '',
         stockStatus: 'available',
+        stockQty: stock?.qty ?? 0,
       );
       final assignmentBarcode = assignment.barcode.trim().toUpperCase();
       final existing = _testModeRawMaterialAssignments.where(

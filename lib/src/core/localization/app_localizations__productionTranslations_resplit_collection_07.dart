@@ -2,6 +2,52 @@
 part of 'app_localizations.dart';
 
 const _app_localizations_declarations__productionTranslations_resplitPart07 = {
+  'worker.delivery.title': {
+    'uz': 'Bu homashyoni kim olib keldi?',
+    'en': 'Who delivered this material?',
+    'ru': 'Кто принёс это сырьё?',
+  },
+  'worker.delivery.message': {
+    'uz': 'Homashyo apparat oldiga kelganini tasdiqlang va olib kelgan xodimni tanlang. Barcha majburiy skanlar tugagach ish avtomatik boshlanadi.',
+    'en': 'Confirm that the material has arrived at the machine and select who delivered it. Work will start automatically once all required scans are complete.',
+    'ru': 'Подтвердите, что сырьё доставлено к аппарату, и выберите сотрудника. Работа начнётся автоматически после всех обязательных сканирований.',
+  },
+  'worker.delivery.confirm': {
+    'uz': 'Qabul qilish', 'en': 'Receive', 'ru': 'Принять',
+  },
+  'worker.delivery.cancel': {
+    'uz': 'Bekor qilish', 'en': 'Cancel', 'ru': 'Отмена',
+  },
+  'worker.delivery.no_deliverers': {
+    'uz': 'Bu homashyoni ko‘chirishga ruxsati bor xodim topilmadi. Iltimos, adminga xabar bering.',
+    'en': 'No employee is authorized to move this material. Please contact an admin.',
+    'ru': 'Нет сотрудников с правом перемещения этого сырья. Обратитесь к администратору.',
+  },
+  'worker.delivery.deliverer_unavailable': {
+    'uz': 'Tanlangan xodim endi bu homashyoni ko‘chira olmaydi. Ro‘yxatni yangilab, qayta tanlang.',
+    'en': 'The selected employee can no longer move this material. Refresh the list and select again.',
+    'ru': 'Выбранный сотрудник больше не может перемещать это сырьё. Обновите список и выберите снова.',
+  },
+  'worker.delivery.location_missing': {
+    'uz': 'Apparatning homashyo qabul qilish joyi sozlanmagan. Iltimos, adminga xabar bering.',
+    'en': 'The machine has no material receiving location. Please contact an admin.',
+    'ru': 'Для аппарата не настроено место приёма сырья. Обратитесь к администратору.',
+  },
+  'worker.delivery.unconfirmed': {
+    'uz': 'Homashyo qabul qilingani tasdiqlanmadi. Holatni yangilab, qayta skan qiling.',
+    'en': 'Material receipt was not confirmed. Refresh the status and scan again.',
+    'ru': 'Приём сырья не подтверждён. Обновите состояние и сканируйте снова.',
+  },
+  'worker.delivery.failed': {
+    'uz': 'Homashyoni qabul qilib bo‘lmadi. Holatni yangilab, qayta urinib ko‘ring.',
+    'en': 'Could not receive the material. Refresh the status and try again.',
+    'ru': 'Не удалось принять сырьё. Обновите состояние и попробуйте снова.',
+  },
+  'worker.delivery.needs_cutting': {
+    'uz': 'Rulon apparatingiz uchun katta. Homashyo rezkasini kuting.',
+    'en': 'The roll is too wide for this machine. Wait for material cutting.',
+    'ru': 'Рулон слишком широкий для аппарата. Дождитесь резки сырья.',
+  },
   'worker.daily.correction.title': {
     'uz': 'O‘zgartirish sababi',
     'en': 'Reason for change',

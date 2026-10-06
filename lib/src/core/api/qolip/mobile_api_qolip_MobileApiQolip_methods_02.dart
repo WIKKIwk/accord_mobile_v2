@@ -130,8 +130,12 @@ extension MobileApiQolipAstPart02 on MobileApi {
     required int size,
     String qolipColor = '',
     String? previousQolipCode,
+    String? qolipSetId,
   }) async {
     var saved = QolipProduct(
+      qolipSetId: previousQolipCode?.trim().isNotEmpty == true
+          ? product.setId
+          : (qolipSetId ?? 'test-qolip-set:${product.code}:${qolipCode.trim()}'),
       warehouse:
           warehouse.trim().isEmpty ? product.warehouse : warehouse.trim(),
       code: product.code.trim(),
@@ -153,6 +157,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
         () => saved.firstQolipCode,
       );
       saved = QolipProduct(
+        qolipSetId: saved.qolipSetId,
         warehouse: saved.warehouse,
         code: saved.code,
         name: saved.name,
@@ -276,6 +281,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
       );
       try {
         final saved = <QolipProduct>[];
+        final setId = 'test-qolip-set:${product.code}:${specs.first.qolipCode.trim()}';
         for (final item in specs) {
           saved.add(
             await qolipSaveProductSpec(
@@ -284,6 +290,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
               qolipCode: item.qolipCode,
               size: item.size,
               qolipColor: item.qolipColor,
+              qolipSetId: setId,
             ),
           );
         }

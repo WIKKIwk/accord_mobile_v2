@@ -212,6 +212,16 @@ const _app_localizations_declarations__productionTranslations_resplitPart11 = {
     'en': 'Warehouse',
     'ru': 'Склад',
   },
+  'qolip.products.add_alternative': {
+    'uz': 'Muqobil qo‘shish',
+    'en': 'Add alternative',
+    'ru': 'Добавить альтернативу',
+  },
+  'qolip.products.alternative_set': {
+    'uz': 'Muqobil komplekt',
+    'en': 'Alternative set',
+    'ru': 'Альтернативный комплект',
+  },
   'qolip.products.add': {
     'uz': 'Qolip qo‘shish',
     'en': 'Add mold',

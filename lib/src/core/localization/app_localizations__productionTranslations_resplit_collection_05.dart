@@ -99,6 +99,36 @@ const _app_localizations_declarations__productionTranslations_resplitPart05 = {
     'en': 'No materials attached',
     'ru': 'Сырье не прикреплено',
   },
+  'worker.mold.alternatives': {
+    'uz': 'Muqobil qoliplar',
+    'en': 'Alternative molds',
+    'ru': 'Альтернативные формы',
+  },
+  'worker.mold.alternative_set': {
+    'uz': 'Muqobil komplekt',
+    'en': 'Alternative set',
+    'ru': 'Альтернативный комплект',
+  },
+  'worker.mold.choose_set': {
+    'uz': 'Bitta komplektni to‘liq scan qiling',
+    'en': 'Scan one complete set',
+    'ru': 'Отсканируйте один полный комплект',
+  },
+  'worker.mold.set_unit': {
+    'uz': 'komplekt',
+    'en': 'sets',
+    'ru': 'компл.',
+  },
+  'worker.mold.change_set': {
+    'uz': 'Komplektni almashtirish',
+    'en': 'Change set',
+    'ru': 'Сменить комплект',
+  },
+  'worker.error.mixed_mold_sets': {
+    'uz': 'Bu qolip boshqa komplektga tegishli. Bitta komplektni to‘liq scan qiling.',
+    'en': 'This mold belongs to another set. Scan one complete set.',
+    'ru': 'Эта форма из другого комплекта. Отсканируйте один полный комплект.',
+  },
   'worker.molds': {
     'uz': 'Qoliplar',
     'en': 'Molds',

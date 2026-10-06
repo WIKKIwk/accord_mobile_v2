@@ -56,6 +56,13 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
         'worker.qr.invalid_response',
       'raw_material_assignment_required' =>
         'worker.error.incomplete_material_groups',
+      'material_deliverer_missing' => 'worker.delivery.no_deliverers',
+      'material_deliverer_not_allowed' => 'worker.delivery.deliverer_unavailable',
+      'material_delivery_location_missing' => 'worker.delivery.location_missing',
+      'material_delivery_receipt_unconfirmed' => 'worker.delivery.unconfirmed',
+      'material_delivery_candidates' || 'material_delivery_receipt' => 'worker.delivery.failed',
+      'raw_material_needs_cutting' => 'worker.delivery.needs_cutting',
+      'raw_material_width_mismatch' => 'worker.error.material_width_mismatch',
       'waiting_sequence' => 'worker.waiting.sequence',
       'waiting_previous_stage' => 'worker.waiting.previous_short',
       'waiting_opening_wip' => 'worker.waiting.opening_wip',

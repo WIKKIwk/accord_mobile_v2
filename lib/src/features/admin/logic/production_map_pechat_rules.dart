@@ -53,6 +53,18 @@ bool productionMapAllRequiredQolipsScanned({
       required.containsAll(scanned);
 }
 
+bool productionMapAllRequiredQolipSetsScanned({
+  required Map<String, Iterable<String>> requiredQolipSets,
+  required Iterable<String> scannedQolipCodes,
+}) {
+  final scanned = scannedQolipCodes.toList(growable: false);
+  return requiredQolipSets.values.any((codes) =>
+      productionMapAllRequiredQolipsScanned(
+        requiredQolipCodes: codes,
+        scannedQolipCodes: scanned,
+      ));
+}
+
 int? productionMapRecommendedPechatColorCount({
   double? rollCount,
   double? widthMm,

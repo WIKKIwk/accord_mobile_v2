@@ -317,6 +317,7 @@ class AdminRawMaterialEvent {
     required this.sourceId,
     required this.occurredAtUnix,
     required this.recordedAtUnix,
+    this.payloadJson = const {},
   });
 
   final String eventId;
@@ -341,6 +342,7 @@ class AdminRawMaterialEvent {
   final String sourceId;
   final int occurredAtUnix;
   final int recordedAtUnix;
+  final Map<String, dynamic> payloadJson;
 
   factory AdminRawMaterialEvent.fromJson(Map<String, dynamic> json) {
     return AdminRawMaterialEvent(
@@ -369,6 +371,7 @@ class AdminRawMaterialEvent {
       sourceId: json['source_id']?.toString() ?? '',
       occurredAtUnix: (json['occurred_at_unix'] as num?)?.toInt() ?? 0,
       recordedAtUnix: (json['recorded_at_unix'] as num?)?.toInt() ?? 0,
+      payloadJson: _jsonObject(json['payload_json']),
     );
   }
 }

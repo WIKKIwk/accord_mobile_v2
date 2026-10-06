@@ -245,6 +245,7 @@ class QolipBlocksResult {
 
 class QolipProduct {
   const QolipProduct({
+    this.qolipSetId = '',
     this.warehouse = '',
     required this.code,
     required this.name,
@@ -258,6 +259,13 @@ class QolipProduct {
     this.isInUse = false,
     this.orderImageOrderId = '',
   });
+
+  final String qolipSetId;
+  String get setId {
+    if (qolipSetId.trim().isNotEmpty) return qolipSetId.trim();
+    final item = code.trim().toLowerCase();
+    return 'legacy:${item.runes.length}:$item:${warehouse.trim().toLowerCase()}';
+  }
 
   final String warehouse;
   final String code;
@@ -274,6 +282,7 @@ class QolipProduct {
 
   factory QolipProduct.fromJson(Map<String, dynamic> json) {
     return QolipProduct(
+      qolipSetId: json['qolip_set_id']?.toString() ?? '',
       warehouse: json['warehouse']?.toString() ?? '',
       code: json['code']?.toString() ?? '',
       name: json['name']?.toString() ?? '',

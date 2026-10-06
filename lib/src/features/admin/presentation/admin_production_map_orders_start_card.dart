@@ -32,6 +32,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.requiresQolipScan,
     required this.qolipScanned,
     required this.qolipCodes,
+    this.onResetQolips,
     required this.requiredQolips,
     required this.qolipRequirementsLoaded,
     required this.qolipRequirementsStatusText,
@@ -96,6 +97,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool requiresQolipScan;
   final bool qolipScanned;
   final List<String> qolipCodes;
+  final VoidCallback? onResetQolips;
   final List<AdminProductionMapRequiredQolip> requiredQolips;
   final bool qolipRequirementsLoaded;
   final String qolipRequirementsStatusText;
@@ -140,7 +142,11 @@ class _OrderStartUnifiedCard extends StatelessWidget {
         .map((code) => code.trim().toLowerCase())
         .where((code) => code.isNotEmpty)
         .toSet();
-    final qolipProgressText = requiredQolips.isEmpty
+    final setIds = requiredQolips.map((q) => q.setId).toSet().toList();
+    final showAlternatives = setIds.length > 1;
+    final qolipProgressText = showAlternatives
+        ? context.l10n.productionText('worker.mold.choose_set')
+        : requiredQolips.isEmpty
         ? context.l10n.productionCount(qolipCodes.length, kind: 'molds')
         : context.l10n.productionText(
             'worker.mold.progress',
@@ -572,13 +578,18 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-qolips-expansion'),
               title: qolipsExpandable
-                  ? context.l10n.productionText('worker.molds')
+                  ? context.l10n.productionText(showAlternatives
+                      ? 'worker.mold.alternatives' : 'worker.molds')
                   : qolipRequirementsStatusText,
               countText: qolipProgressText,
-              countNumber: requiredQolips.isEmpty
+              countNumber: qolipCodes.isEmpty && showAlternatives
+                  ? '${setIds.length}'
+                  : requiredQolips.isEmpty
                   ? '${qolipCodes.length}'
                   : '${qolipCodes.length}/${requiredQolips.length}',
-              countUnit: requiredQolips.isEmpty
+              countUnit: showAlternatives
+                  ? context.l10n.productionText('worker.mold.set_unit')
+                  : requiredQolips.isEmpty
                   ? _countUnitForKind(context.l10n, 'molds')
                   : (context.l10n.isUzbek ? 'ta' : ''),
               expanded: qolipsExpandable && qolipsExpanded,
@@ -586,6 +597,15 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   quickScanHighlight == ProductionQuickScanHighlight.qolips,
               onTap: qolipsExpandable ? onToggleQolipsExpanded : null,
             ),
+            if (qolipCodes.isNotEmpty && onResetQolips != null)
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: TextButton.icon(
+                  onPressed: actionInFlight ? null : onResetQolips,
+                  icon: const Icon(Icons.swap_horiz_rounded),
+                  label: Text(context.l10n.productionText('worker.mold.change_set')),
+                ),
+              ),
             if (qolipsExpandable && qolipsExpanded) ...[
               const SizedBox(height: 12),
               Column(
@@ -594,6 +614,15 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                       index < requiredQolips.length;
                       index++) ...[
                     if (index > 0) const SizedBox(height: 8),
+                    if (showAlternatives &&
+                        (index == 0 || requiredQolips[index - 1].setId != requiredQolips[index].setId))
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          '${context.l10n.productionText("worker.mold.alternative_set")} ${setIds.indexOf(requiredQolips[index].setId) + 1}',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                      ),
                     _ScannedQolipTile(
                       qolip: requiredQolips[index],
                       scanned: scannedQolipKeys.contains(

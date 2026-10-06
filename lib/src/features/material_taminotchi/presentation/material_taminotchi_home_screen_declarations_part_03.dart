@@ -103,8 +103,14 @@ List<({String label, String value})> _materialHistoryDetails(
   );
 
   final actorName = event.actorDisplayName.trim();
+  if (event.eventType == 'delivery_received') {
+    final deliveredBy = event.payloadJson['delivered_by'];
+    if (deliveredBy is Map) {
+      add('Olib kelgan', deliveredBy['name']?.toString() ?? '');
+    }
+  }
   add(
-    'Bajargan',
+    event.eventType == 'delivery_received' ? 'Qabul qilgan' : 'Bajargan',
     actorName.isNotEmpty && !actorName.contains(':')
         ? actorName
         : _materialFriendlyRef(event.actorRef),
@@ -150,6 +156,7 @@ String _materialHistoryEventTypeLabel(String type) {
     'order_reserved' => 'Zakaz uchun band qilindi',
     'order_unreserved' => 'Zakaz bandi yechildi',
     'usage_started' => 'Ishlatishga o‘tkazildi',
+    'delivery_received' => 'Apparat oldiga yetkazildi va qabul qilindi',
     'consumption_posted' => 'Material sarflandi',
     'adjustment_increase' => 'Miqdor oshirildi',
     'adjustment_decrease' => 'Miqdor kamaytirildi',
@@ -198,6 +205,7 @@ String _materialHistorySourceLabel(String source) {
     'consumption' => 'Sarflanish',
     'manual_adjustment' => 'Qo‘lda tuzatish',
     'warehouse_transfer' => 'Omborlararo transfer',
+    'material_delivery' => 'Apparat oldiga yetkazish',
     'system' => 'Tizim',
     final value when value.isEmpty => '',
     final value => value,
@@ -216,6 +224,7 @@ String _materialHistoryTitle(AdminRawMaterialEvent event) {
     'order_reserved' => '$item berildi',
     'order_unreserved' => '$item yechildi',
     'usage_started' => '$item ishlatishga o‘tdi',
+    'delivery_received' => '$item apparat oldiga yetkazildi',
     'consumption_posted' => '$item sarflandi$qty',
     'adjustment_increase' => '$item tuzatildi$qty',
     'adjustment_decrease' => '$item kamaytirildi$qty',

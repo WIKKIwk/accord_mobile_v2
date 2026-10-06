@@ -51,6 +51,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   String _scanBootstrapEpoch = '';
   bool _lastQueueActionPrintFailed = false;
   bool _materialIntakeMode = false;
+  bool _materialDeliveryPending = false;
+  bool _autoStartAfterMaterialDelivery = false;
   bool _mergeScanMode = false;
   bool _mergeConfirmationPending = false;
   bool _materialsLoading = true;
@@ -187,6 +189,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _qolipRequirementsLoading = false;
       _scannedMaterialBarcodes.clear();
       _scannedQolipCodes.clear();
+      _autoStartAfterMaterialDelivery = false;
     });
   }
 
@@ -220,6 +223,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _attachedQolipsError = '';
       _attachedQolipsLoadGeneration++;
       _materialIntakeMode = false;
+      _autoStartAfterMaterialDelivery = false;
       _mergeScanMode = false;
       _seenQuickScanValues.clear();
       _quickScanFeedbackColorTimer?.cancel();
@@ -259,9 +263,32 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
-  bool get _allRequiredQolipsScanned => productionMapAllRequiredQolipsScanned(
-        requiredQolipCodes:
-            _requiredQolips.values.map((qolip) => qolip.qolipCode),
+  Map<String, List<String>> get _requiredQolipSets {
+    final sets = <String, List<String>>{};
+    for (final qolip in _requiredQolips.values) {
+      sets.putIfAbsent(qolip.setId, () => []).add(qolip.qolipCode);
+    }
+    return sets;
+  }
+
+  String? get _selectedQolipSetId => _scannedQolipCodes.isEmpty
+      ? null
+      : _requiredQolips[_scannedQolipCodes.keys.first]?.setId;
+
+  List<AdminProductionMapRequiredQolip> get _visibleRequiredQolips {
+    final selected = _selectedQolipSetId;
+    final result = _requiredQolips.values
+        .where((qolip) => selected == null || qolip.setId == selected)
+        .toList();
+    result.sort((a, b) {
+      final group = a.setId.compareTo(b.setId);
+      return group == 0 ? a.qolipCode.compareTo(b.qolipCode) : group;
+    });
+    return result;
+  }
+
+  bool get _allRequiredQolipsScanned => productionMapAllRequiredQolipSetsScanned(
+        requiredQolipSets: _requiredQolipSets,
         scannedQolipCodes: _scannedQolipCodes.values,
       );
   bool get _bypassStartMaterialScan =>
@@ -300,7 +327,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   ({bool visible, bool materialIntake, bool merge}) _quickScanTasks(
     _ReadOnlyOrderDetailUiState uiState,
   ) {
-    if (!_queueActionContractSynchronized || _actionControlLoads > 0) {
+    if (!_queueActionContractSynchronized ||
+        _actionControlLoads > 0 ||
+        _materialDeliveryPending) {
       return (visible: false, materialIntake: false, merge: false);
     }
     if (uiState.showPrintPreflightHold) {
@@ -343,6 +372,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return (
       visible: !_mergeConfirmationPending &&
           (startMaterialScanPending ||
+              _materialDeliveryScanPending ||
               qolipScanPending ||
               inputWipScanPending ||
               materialIntake ||
@@ -473,7 +503,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         requiresQolipScan: requiresQolipScan,
         qolipScanned: qolipScanAllowsStart,
         qolipCodes: _scannedQolipCodes.values.toList(growable: false),
-        requiredQolips: _requiredQolips.values.toList(growable: false),
+        requiredQolips: _visibleRequiredQolips,
+        onResetQolips: () {
+          if (_actionInFlight) return;
+          setState(() {
+            _scannedQolipCodes.clear();
+            _quickScanStatus = '';
+          });
+        },
         qolipRequirementsLoaded: _qolipRequirementsLoaded &&
             !_qolipRequirementsLoading &&
             _qolipRequirementsError.isEmpty,
@@ -1474,7 +1511,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           'worker.error.scan_molds_count',
           values: {
             'scanned': _scannedQolipCodes.length,
-            'required': _requiredQolips.length,
+            'required': _visibleRequiredQolips.length,
           },
         ),
       );
@@ -1512,7 +1549,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     // A camera callback can arrive after the scan task has ended.
     final scanTasks = _quickScanTasks(_detailUiState);
     if (!scanTasks.visible) return;
-    if (scanTasks.merge && (_quickScanInFlight || _actionInFlight)) return;
+    if (_quickScanInFlight || _actionInFlight || _materialDeliveryPending) return;
     final normalized = rawMaterialBarcodeFromQr(rawValue).trim();
     final scanKey = normalized.toUpperCase();
     if (normalized.isEmpty || !_seenQuickScanValues.add(scanKey)) {
@@ -1643,19 +1680,40 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               ? ProductionQuickScanFeedback.accepted
               : ProductionQuickScanFeedback.rejected,
         );
+        if (accepted) await _maybeAutoStartAfterMaterialDelivery();
         return;
       }
       final assignments = _materialStartRequirements == null
           ? (_isTrainingOrder
               ? _materialAssignments
               : const <AdminRawMaterialAssignment>[])
-          : _startAssignments;
+          : (_detailUiState.showStartMaterials
+              ? _materialAssignments
+                  .where((material) => material.apparatus.trim() == station)
+                  .toList(growable: false)
+              : _startAssignments);
       final material = _materialAssignmentForScannedBarcode(
         assignments: assignments,
         barcode: normalized,
       );
       if (material != null) {
         final key = _materialBarcodeKey(material.barcode);
+        if (_materialStartRequirements != null &&
+            !_materialStartRequirements!.normalizedStagedBarcodes
+                .contains(key)) {
+          setState(() => _materialDeliveryPending = true);
+          bool received;
+          try {
+            received = await _receiveScannedMaterialForStart(material);
+          } finally {
+            if (mounted) setState(() => _materialDeliveryPending = false);
+          }
+          if (!mounted) return;
+          if (!received) {
+            setState(() => _quickScanStatus = _defaultQuickScanStatus());
+            return;
+          }
+        }
         final alreadyScanned = _scannedMaterialBarcodes.contains(key);
         if (mounted) {
           setState(() {
@@ -1683,6 +1741,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           ProductionQuickScanFeedback.accepted,
           highlight: ProductionQuickScanHighlight.materials,
         );
+        await _maybeAutoStartAfterMaterialDelivery();
         return;
       }
 
@@ -1691,6 +1750,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           AdminQueueQolipMode.scanRequired) {
         final requiredQolip = _requiredQolips[normalized.toLowerCase()];
         if (requiredQolip != null) {
+          final selectedSet = _selectedQolipSetId;
+          if (selectedSet != null && selectedSet != requiredQolip.setId) {
+            _showSheetNotice(context.l10n.productionText('worker.error.mixed_mold_sets'));
+            _showQuickScanFeedback(
+              ProductionQuickScanFeedback.rejected,
+              highlight: ProductionQuickScanHighlight.qolips,
+            );
+            return;
+          }
           final validatedCode = requiredQolip.qolipCode.trim();
           if (mounted) {
             final key = validatedCode.trim().toLowerCase();
@@ -1702,14 +1770,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
                       'worker.mold.already_scanned',
                       values: {
                         'scanned': _scannedQolipCodes.length,
-                        'required': _requiredQolips.length,
+                        'required': _visibleRequiredQolips.length,
                       },
                     )
                   : context.l10n.productionText(
                       'worker.mold.added',
                       values: {
                         'scanned': _scannedQolipCodes.length,
-                        'required': _requiredQolips.length,
+                        'required': _visibleRequiredQolips.length,
                       },
                     );
             });
@@ -1718,6 +1786,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             ProductionQuickScanFeedback.accepted,
             highlight: ProductionQuickScanHighlight.qolips,
           );
+          await _maybeAutoStartAfterMaterialDelivery();
           return;
         }
         scanError = MobileApiException(
@@ -1747,6 +1816,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         });
         if (_acceptProgressBatch(batch)) {
           _showQuickScanFeedback(ProductionQuickScanFeedback.accepted);
+          await _maybeAutoStartAfterMaterialDelivery();
           return;
         }
         scanError ??= MobileApiException(

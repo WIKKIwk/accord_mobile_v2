@@ -18,17 +18,21 @@ class AdminProductionMapRequiredQolip {
     required this.qolipCode,
     required this.color,
     this.isInUse = false,
+    this.qolipSetId = '',
   });
 
   final String qolipCode;
   final String color;
   final bool isInUse;
+  final String qolipSetId;
+  String get setId => qolipSetId.trim().isEmpty ? 'legacy' : qolipSetId.trim();
 
   factory AdminProductionMapRequiredQolip.fromJson(Map<String, dynamic> json) {
     return AdminProductionMapRequiredQolip(
       qolipCode: json['qolip_code']?.toString().trim() ?? '',
       color: json['color']?.toString().trim() ?? '',
       isInUse: json['in_use'] == true,
+      qolipSetId: json['qolip_set_id']?.toString().trim() ?? '',
     );
   }
 }
@@ -127,6 +131,7 @@ Future<AdminProductionMapQolipValidation>
                 AdminProductionMapRequiredQolip(
                   qolipCode: product.qolipCode.trim(),
                   color: product.qolipColor.trim(),
+                  qolipSetId: product.setId,
                 ),
           ],
         );
@@ -149,6 +154,7 @@ Future<AdminProductionMapQolipValidation>
               AdminProductionMapRequiredQolip(
                 qolipCode: candidate.qolipCode.trim(),
                 color: candidate.qolipColor.trim(),
+                qolipSetId: candidate.setId,
               ),
         ],
       );

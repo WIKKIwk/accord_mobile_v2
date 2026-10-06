@@ -118,7 +118,7 @@ class _ProductionQuickScannerPanelState
     setState(() => _activeDetections += 1);
     try {
       await widget.onCodeDetected(value);
-      _manualController.clear();
+      if (mounted) _manualController.clear();
     } finally {
       if (mounted) {
         setState(() {

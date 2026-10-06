@@ -37,6 +37,14 @@ class QolipProductContainer {
 
   bool get hasInUseQolip => children.any((child) => child.isInUse);
 
+  Map<String, List<QolipProduct>> get qolipSets {
+    final sets = <String, List<QolipProduct>>{};
+    for (final child in children) {
+      sets.putIfAbsent(child.setId, () => []).add(child);
+    }
+    return sets;
+  }
+
   String get orderImageOrderId {
     for (final child in children) {
       final orderId = child.orderImageOrderId.trim();
@@ -53,6 +61,7 @@ class QolipProductContainer {
       code: code,
       name: name,
       itemGroup: itemGroup,
+      warehouse: first.warehouse,
       customerNames: first.customerNames,
       firstQolipCode: first.firstQolipCode.trim().isEmpty
           ? first.qolipCode
@@ -166,6 +175,7 @@ class _QolipProductContainerCard extends StatelessWidget {
     final l10n = context.l10n;
     final container = this.container;
     final selectionDisabled = container.hasInUseQolip;
+    final sets = container.qolipSets;
     final radius = M3SegmentedListGeometry.borderRadius(
       slot,
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
@@ -188,7 +198,7 @@ class _QolipProductContainerCard extends StatelessWidget {
               children: [
                 InkWell(
                   onTap: onToggle,
-                  onLongPress: selectionDisabled ? () {} : onLongPress,
+                  onLongPress: onLongPress,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(
                       minHeight: kAdminOrderCoverWidth,
@@ -201,8 +211,7 @@ class _QolipProductContainerCard extends StatelessWidget {
                           if (containerSelectionMode) ...[
                             Checkbox(
                               value: selectedContainer,
-                              onChanged:
-                                  selectionDisabled ? null : (_) => onToggle(),
+                              onChanged: (_) => onToggle(),
                             ),
                             const SizedBox(width: 8),
                           ],
@@ -286,7 +295,16 @@ class _QolipProductContainerCard extends StatelessWidget {
                               color:
                                   scheme.outlineVariant.withValues(alpha: 0.65),
                             ),
-                            for (final child in container.children)
+                            for (final entry in sets.entries) ...[
+                              if (sets.length > 1)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                                  child: Text(
+                                    '${l10n.qolipText('products.alternative_set')} ${sets.keys.toList().indexOf(entry.key) + 1}',
+                                    style: Theme.of(context).textTheme.labelLarge,
+                                  ),
+                                ),
+                              for (final child in entry.value)
                               Padding(
                                 padding:
                                     const EdgeInsets.fromLTRB(14, 9, 14, 0),
@@ -305,6 +323,7 @@ class _QolipProductContainerCard extends StatelessWidget {
                                   onEdit: () => onEditQolip(child),
                                 ),
                               ),
+                            ],
                             const SizedBox(height: 10),
                           ],
                         )

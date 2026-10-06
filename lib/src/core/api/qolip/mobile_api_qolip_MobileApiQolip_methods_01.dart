@@ -252,6 +252,8 @@ extension MobileApiQolipAstPart01 on MobileApi {
           );
           products.add(
             QolipProduct(
+              qolipSetId: spec.setId,
+              warehouse: spec.warehouse,
               code: spec.code,
               name: spec.name,
               itemGroup: spec.itemGroup,
@@ -327,6 +329,8 @@ extension MobileApiQolipAstPart01 on MobileApi {
           }
         }
         final product = QolipProduct(
+          qolipSetId: _testModeQolipSpecs[qolipKey]?.qolipSetId ?? '',
+          warehouse: location.warehouse,
           code: location.itemCode,
           name: catalogProduct?.name ?? location.itemName,
           itemGroup: catalogProduct?.itemGroup ?? '',

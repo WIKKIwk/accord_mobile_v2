@@ -66,6 +66,7 @@ extension MobileApiQolipProductTransfer on MobileApi {
               code: 'qolip_in_use', message: 'qolip_in_use');
         }
         saved.add(QolipProduct(
+          qolipSetId: 'test-qolip-set:$requestId:${mold.setId}',
           warehouse: mold.warehouse,
           code: target.first.code,
           name: target.first.name,
