@@ -304,6 +304,16 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'en': 'No products were produced on the selected date.',
     'ru': 'В выбранный день продукция не выпускалась.',
   },
+  'worker.paddon.wip.produced_at': {
+    'uz': 'Chiqarilgan vaqt',
+    'en': 'Produced at',
+    'ru': 'Время выпуска',
+  },
+  'worker.paddon.wip.produced_by': {
+    'uz': 'Chiqargan',
+    'en': 'Produced by',
+    'ru': 'Выпустил',
+  },
   'worker.daily.edit.title': {
     'uz': 'WIPni o‘zgartirish',
     'en': 'Edit WIP',

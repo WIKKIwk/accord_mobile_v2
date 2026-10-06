@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/features/werka/presentation/werka_paddon_receive_screen.dart';
+import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_paddon_detail_screen.dart';
+import 'package:accord_mobile_v2/src/core/formatters/date_time_formatters.dart';
+import 'package:accord_mobile_v2/src/core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -107,7 +110,7 @@ void main() {
       },
   ];
 
-  testWidgets('legacy titles use business names and retain receipt behavior',
+  testWidgets('shared details retain apparatus labels and receipt behavior',
       (tester) async {
     var calls = 0;
     await showScreen(tester,
@@ -122,16 +125,13 @@ void main() {
           expect(p.snapshotToken, 'token');
           return receipt;
         });
-    expect(find.text('2 ta rulon • Rezka 1'), findsOneWidget);
-    expect(find.text(removedLabel.replaceAll(apparatusId, 'Rezka 1')),
-        findsOneWidget);
-    expect(find.text(finishedLabel.replaceAll(apparatusId, 'Rezka 1')),
-        findsOneWidget);
+    expect(find.byType(AparatchiPaddonDetailScreen), findsOneWidget);
+    expect(find.text('Rezka 1'), findsOneWidget);
+    expect(find.text('Order: order-1'), findsNWidgets(2));
     expect(find.textContaining('apparatus:'), findsNothing);
     expect(find.text('Jami brutto: 21 kg'), findsOneWidget);
     expect(find.text('Jami netto: 19.875 kg'), findsOneWidget);
-    expect(find.text('Buyurtma: order-1\nQR: QR-0\n10 kg • 100 m\nBrutto: 10 kg • Netto: —'),
-        findsOneWidget);
+    expect(find.text('EPC: QR-0 • 100 m'), findsOneWidget);
     await confirm(tester);
     expect(calls, 1);
     expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
@@ -139,11 +139,7 @@ void main() {
     expect(accept, findsNothing);
   });
 
-  for (final (language, fallback) in [
-    ('uz', 'Apparat nomi mavjud emas'),
-    ('en', 'Machine name unavailable'),
-    ('ru', 'Название аппарата недоступно'),
-  ]) {
+  for (final language in ['uz', 'en', 'ru']) {
     testWidgets('unavailable apparatus names have a $language fallback',
         (tester) async {
       await showScreen(tester,
@@ -155,10 +151,13 @@ void main() {
             }
             return {apparatusId: language == 'en' ? '  ' : apparatusId};
           });
-      expect(find.text('2 ta rulon • $fallback'), findsOneWidget);
-      expect(find.text(removedLabel.replaceAll(apparatusId, fallback)),
-          findsOneWidget);
-      expect(find.text(finishedLabel.replaceAll(apparatusId, fallback)),
+      final unspecified = tester
+          .element(find.byType(AparatchiPaddonDetailScreen))
+          .l10n.adminText('wip.unspecified');
+      final locationRow = find.byWidgetPredicate((widget) =>
+          widget is Row && widget.children.any((child) =>
+              child is Icon && child.icon == Icons.place_outlined));
+      expect(find.descendant(of: locationRow, matching: find.text(unspecified)),
           findsOneWidget);
       expect(find.textContaining('apparatus:'), findsNothing);
       expect(find.byKey(const ValueKey('werka-paddon-error')), findsNothing);
@@ -170,20 +169,74 @@ void main() {
       (tester) async {
     final names = Completer<Map<String, String>>();
     await showScreen(tester,
-        load: (_) async => preview(items: legacyRolls),
+        load: (_) async => preview(items: legacyRolls, location: apparatusId),
         loadApparatusNames: () => names.future,
         receive: (_, warehouse) async => receipt);
     expect(find.textContaining('apparatus:'), findsNothing);
-    expect(find.textContaining('Apparat nomi mavjud emas'), findsNWidgets(2));
+    final unspecified = tester
+        .element(find.byType(AparatchiPaddonDetailScreen))
+        .l10n.adminText('wip.unspecified');
+    expect(find.text(unspecified), findsOneWidget);
     await confirm(tester);
     expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
     names.complete({apparatusId: 'Rezka 1'});
     await tester.pumpAndSettle();
-    expect(find.textContaining('Apparat nomi mavjud emas'), findsNothing);
-    expect(find.text(removedLabel.replaceAll(apparatusId, 'Rezka 1')),
-        findsOneWidget);
+    expect(find.text(unspecified), findsNothing);
+    expect(find.text('Rezka 1'), findsOneWidget);
     expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
     expect(accept, findsNothing);
+  });
+
+
+  testWidgets('warehouse reuses bobbin filtering and WIP provenance sheet',
+      (tester) async {
+    const producedAt = 1700000000;
+    var writes = 0;
+    await showScreen(
+      tester,
+      load: (_) async => preview(items: [
+        for (var i = 0; i < 3; i++)
+          {
+            'batch_id': 'roll-$i',
+            'apparatus': 'apparatus:default:asset-010',
+            'order_id': 'order-1',
+            'qr_payload': 'QR-$i',
+            'bobina_kg': i == 1 ? 4 : 2,
+            'completed_at_unix': producedAt,
+            'worker_display_name': 'Anis',
+            'executor_name': 'Old label name',
+          },
+      ]),
+      receive: (paddon, warehouse) async {
+        writes++;
+        return receipt;
+      },
+    );
+    expect(find.byType(AparatchiPaddonDetailScreen), findsOneWidget);
+    expect(find.byKey(const ValueKey('app-primary-navigation-button')),
+        findsNothing);
+    final group = find.byKey(const ValueKey('paddon-bobina-group-2000000'));
+    expect(find.descendant(of: group, matching: find.text('2 ta')),
+        findsOneWidget);
+    await tester.tap(group);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('paddon-wip-card-roll-1')), findsNothing);
+    expect(find.byKey(const ValueKey('paddon-wip-card-roll-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('paddon-wip-card-roll-2')), findsOneWidget);
+    await tester.longPress(
+        find.byKey(const ValueKey('paddon-wip-card-roll-0')));
+    await tester.pumpAndSettle();
+    final sheet = tester.widget<RpsQrReprintSheet>(find.byType(RpsQrReprintSheet));
+    expect(sheet.details.any((detail) =>
+        detail.label == 'Chiqarilgan vaqt' &&
+        detail.value == formatUnixSecondsLocalDateTime(producedAt)), isTrue);
+    expect(sheet.details.any((detail) =>
+        detail.label == 'Chiqargan' && detail.value == 'Anis'), isTrue);
+    expect(sheet.onReprint, isNotNull);
+    final reprint = tester.widget<FilledButton>(
+        find.byKey(const ValueKey('paddon-wip-reprint-roll-0')));
+    expect(reprint.onPressed, isNotNull);
+    expect(writes, 0);
   });
 
   testWidgets('shared QR scanner opens the pallet preview', (tester) async {
@@ -220,9 +273,9 @@ void main() {
       return receipt;
     });
     expect(
-        find.byKey(const ValueKey('werka-paddon-roll-roll-0')), findsOneWidget);
+        find.byKey(const ValueKey('paddon-wip-card-roll-0')), findsOneWidget);
     expect(
-        find.byKey(const ValueKey('werka-paddon-roll-roll-1')), findsOneWidget);
+        find.byKey(const ValueKey('paddon-wip-card-roll-1')), findsOneWidget);
     await confirm(tester);
     expect(calls, 1);
     expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
@@ -305,7 +358,7 @@ void main() {
     await tester.ensureVisible(find.text('Qayta tekshirish'));
     await tester.tap(find.text('Qayta tekshirish')); await tester.pumpAndSettle();
     expect(loads,2);
-    await tester.ensureVisible(find.byKey(const ValueKey('werka-paddon-weights')));
+    await tester.ensureVisible(find.byKey(const ValueKey('paddon-detail-weights')));
     await tester.pumpAndSettle();
     expect(find.text('Jami brutto: 22.125 kg'),findsOneWidget);
     expect(find.text('Jami netto: 20.875 kg'),findsOneWidget);

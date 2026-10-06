@@ -4,6 +4,7 @@ part of 'aparatchi_paddon_detail_screen.dart';
 extension __AparatchiPaddonDetailScreenStateAstPart02
     on _AparatchiPaddonDetailScreenState {
   Widget _buildDock(BuildContext context) {
+    if (!widget.manageItems) return const SizedBox.shrink();
     return FutureBuilder<AdminPaddonSnapshot>(
       future: _future,
       builder: (context, snapshot) {
@@ -110,7 +111,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
                         : !showingAvailableItems && _selectionMode && !_busy
                             ? () => _toggleAssignedWip(items[index])
                             : null,
-                    onLongPress: _busy
+                    onLongPress: _busy || widget.busy
                         ? null
                         : () => _showPaddonWipReprint(items[index]),
                     selectionIcon: showingAvailableItems
@@ -139,6 +140,12 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
       return;
     }
     final orderId = batch.orderId.trim().isEmpty ? '—' : batch.orderId.trim();
+    final producedAt = formatUnixSecondsLocalDateTime(
+      batch.completedAtUnix > 0 ? batch.completedAtUnix : batch.startedAtUnix,
+    );
+    final producedBy = batch.workerDisplayName.trim().isNotEmpty
+        ? batch.workerDisplayName.trim()
+        : batch.executorName.trim();
     final lengthM = batch.finishedGoodsMeter;
     final hasLength = lengthM != null && lengthM.isFinite && lengthM > 0 ||
         (batch.uom.trim().toLowerCase() == 'm' &&
@@ -177,6 +184,14 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
           RpsQrDetail(
             context.l10n.productionText('worker.daily.field.length'),
             lengthText,
+          ),
+          RpsQrDetail(
+            context.l10n.productionText('worker.paddon.wip.produced_at'),
+            producedAt.isEmpty ? '—' : producedAt,
+          ),
+          RpsQrDetail(
+            context.l10n.productionText('worker.paddon.wip.produced_by'),
+            producedBy.isEmpty ? '—' : producedBy,
           ),
         ],
         onReprint: () => _reprintPaddonWip(batch),
@@ -257,7 +272,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
             message: context.l10n.productionText('worker.paddon.load_failed'),
           );
         }
-        final data = snapshot.data;
+        final data = widget.snapshot ?? snapshot.data;
         if (data == null) {
           return AppRetryState(
             onRetry: _retry,
@@ -276,14 +291,19 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
             children: [
               _PaddonDetailHeader(
                 snapshot: data,
-                apparatus: _apparatus,
-                onPrintQr: _busy || _printingQr ? null : _printPaddonQr,
+                apparatus: widget.apparatus ?? _apparatus,
+                onPrintQr: _busy || widget.busy || _printingQr
+                    ? null : _printPaddonQr,
                 printingQr: _printingQr,
                 selectedBobinaWeightUnits: _bobinaFilterUnits,
                 onBobinaWeightSelected: _toggleBobinaFilter,
               ),
               const SizedBox(height: 12),
               _buildPaddonItemsSection(context, data),
+              if (widget.footerBuilder != null) ...[
+                const SizedBox(height: 16),
+                widget.footerBuilder!(context, _retry),
+              ],
             ],
           ),
         );

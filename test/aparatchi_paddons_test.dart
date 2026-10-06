@@ -6,6 +6,8 @@ import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
+import 'package:accord_mobile_v2/src/core/formatters/date_time_formatters.dart';
+import 'package:accord_mobile_v2/src/core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_paddon_detail_screen.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_paddons_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_progress_qr_scan_screen.dart';
@@ -134,6 +136,42 @@ void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+  });
+
+  testWidgets('operator WIP sheet shows production time and creator fallbacks',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    _setSession();
+    const producedAt = 1700000000;
+    final snapshot = _snapshot();
+    final batch = AdminProgressBatch.fromJson({
+      'batch_id': 'wip-001',
+      'order_id': 'order-001',
+      'qr_payload': '40011234567890ABCDEF',
+      'apparatus': 'apparatus:default:asset-010',
+      'started_at_unix': producedAt,
+      'executor_name': 'Qobil',
+    });
+    await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+      code: '00001',
+      loader: () async => AdminPaddonSnapshot(
+        paddon: snapshot.paddon,
+        items: [batch],
+      ),
+      apparatusLoader: () async => const [],
+    )));
+    await tester.pumpAndSettle();
+    final card = find.byKey(const ValueKey('paddon-wip-card-wip-001'));
+    await tester.ensureVisible(card);
+    await tester.longPress(card);
+    await tester.pumpAndSettle();
+    final sheet = tester.widget<RpsQrReprintSheet>(find.byType(RpsQrReprintSheet));
+    expect(sheet.details.any((detail) =>
+        detail.label == 'Chiqarilgan vaqt' &&
+        detail.value == formatUnixSecondsLocalDateTime(producedAt)), isTrue);
+    expect(sheet.details.any((detail) =>
+        detail.label == 'Chiqargan' && detail.value == 'Qobil'), isTrue);
+    expect(sheet.onReprint, isNotNull);
   });
 
   testWidgets('paddon header has 4px inset and add actions live only in FAB',

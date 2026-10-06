@@ -10,6 +10,7 @@ import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/werka/presentation/werka_archive_batch_qr_lookup_screen.dart';
 import 'package:accord_mobile_v2/src/features/werka/presentation/werka_paddon_receive_screen.dart';
+import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_paddon_detail_screen.dart';
 import 'package:accord_mobile_v2/src/features/werka/presentation/werka_stock_entry_lookup_screen.dart';
 import 'package:accord_mobile_v2/src/features/werka/presentation/werka_stock_entry_qr_scan_screen.dart';
 import 'package:flutter/material.dart';
@@ -121,7 +122,7 @@ void main() {
       expectSync(find.byType(WerkaPaddonReceiveScreen), findsOneWidget);
       for (var i = 0; i < 2; i++) {
         expectSync(
-            find.byKey(ValueKey('werka-paddon-roll-roll-$i')), findsOneWidget);
+            find.byKey(ValueKey('paddon-wip-card-roll-$i')), findsOneWidget);
       }
       expectSync(
           requests
@@ -363,7 +364,9 @@ void main() {
       _detect(tester, 'PALLET-A-2026');
       await tester.pumpAndSettle();
       expectSync(routes.single.name, AppRoutes.werkaQrPreview);
-      expectSync(find.text('Paddon PALLET-A-2026'), findsOneWidget);
+      expectSync(tester.widget<AparatchiPaddonDetailScreen>(
+        find.byType(AparatchiPaddonDetailScreen),
+      ).code, 'PALLET-A-2026');
       await tester.ensureVisible(find.text('Qayta tekshirish'));
       await tester.tap(find.text('Qayta tekshirish'));
       await tester.pumpAndSettle();

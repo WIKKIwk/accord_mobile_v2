@@ -6,6 +6,7 @@ import '../../../core/widgets/paddon_weight_totals.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/session/session_read_scope.dart';
+import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
@@ -46,9 +47,10 @@ class _AparatchiPaddonDetailScreenState
   @override
   void initState() {
     super.initState();
-    final initial = widget.initialSnapshot?.takeForCode(widget.code);
+    final initial =
+        widget.snapshot ?? widget.initialSnapshot?.takeForCode(widget.code);
     _future = initial == null ? _load() : Future.value(initial);
-    unawaited(_loadApparatus());
+    if (widget.apparatus == null) unawaited(_loadApparatus());
   }
 
   Future<void> _loadApparatus() async {
@@ -84,13 +86,15 @@ class _AparatchiPaddonDetailScreenState
       title: widget.code,
       subtitle: context.l10n.productionText('worker.paddon.detail.subtitle'),
       nativeTopBar: true,
-      drawer: AparatchiNavigationDrawer(
-        selectedIndex: 2,
-        selectedRouteName: AppRoutes.apparatusPaddons,
-        onNavigate: (routeName) =>
-            AdminDrawerNavigation.openRoute(context, routeName),
-      ),
-      bottom: _buildDock(context),
+      drawer: widget.manageItems
+          ? AparatchiNavigationDrawer(
+              selectedIndex: 2,
+              selectedRouteName: AppRoutes.apparatusPaddons,
+              onNavigate: (routeName) =>
+                  AdminDrawerNavigation.openRoute(context, routeName),
+            )
+          : null,
+      bottom: widget.bottom ?? _buildDock(context),
       contentPadding: EdgeInsets.zero,
       child: ColoredBox(
         color: AppTheme.shellStart(context),

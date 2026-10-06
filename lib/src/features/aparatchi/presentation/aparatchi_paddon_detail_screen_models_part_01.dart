@@ -41,12 +41,24 @@ class AparatchiPaddonDetailScreen extends StatefulWidget {
     this.loader,
     this.apparatusLoader,
     this.initialSnapshot,
+    this.snapshot,
+    this.apparatus,
+    this.bottom,
+    this.footerBuilder,
+    this.manageItems = true,
+    this.busy = false,
   });
 
   final String code;
   final AparatchiPaddonDetailLoader? loader;
   final PaddonApparatusLoader? apparatusLoader;
   final AparatchiPaddonDetailSeed? initialSnapshot;
+  final AdminPaddonSnapshot? snapshot;
+  final List<AdminApparatus>? apparatus;
+  final Widget? bottom;
+  final Widget Function(BuildContext, Future<void> Function())? footerBuilder;
+  final bool manageItems;
+  final bool busy;
 
   @override
   State<AparatchiPaddonDetailScreen> createState() =>
