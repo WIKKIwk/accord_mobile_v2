@@ -154,7 +154,21 @@ void main() {
     expect(padding.right, 4);
     expect(find.text('Qo‘shish'), findsNothing);
     expect(find.text('WIP QR scan qilib qo‘shish'), findsNothing);
-    expect(find.byKey(const ValueKey('paddon-print-qr')), findsOneWidget);
+    final printAction = find.byKey(const ValueKey('paddon-print-qr'));
+    expect(printAction, findsOneWidget);
+    final printButton = tester.widget<IconButton>(printAction);
+    expect(printButton.onPressed, isNotNull);
+    expect(printButton.tooltip, 'Paddon QR chop etish');
+    expect(printButton.iconSize, 20);
+    expect(find.text('Paddon QR chop etish'), findsNothing);
+    final card = find.ancestor(of: printAction, matching: find.byType(Card));
+    expect(card, findsOneWidget);
+    final cardRect = tester.getRect(card);
+    final printRect = tester.getRect(printAction);
+    expect(printRect.width, lessThanOrEqualTo(48));
+    expect(printRect.height, lessThanOrEqualTo(48));
+    expect(printRect.top, closeTo(cardRect.top + 16, 0.1));
+    expect(printRect.right, closeTo(cardRect.right - 16, 0.1));
 
     await _openPaddonFab(tester);
     expect(find.text('Qo‘shish'), findsOneWidget);

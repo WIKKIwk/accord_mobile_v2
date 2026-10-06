@@ -268,24 +268,13 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
               MediaQuery.viewPaddingOf(context).bottom + 120,
             ),
             children: [
-              _PaddonDetailHeader(snapshot: data, apparatus: _apparatus),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                key: const ValueKey('paddon-print-qr'),
-                onPressed: _busy || _printingQr ? null : _printPaddonQr,
-                icon: _printingQr
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.qr_code_2_rounded),
-                label: Text(
-                  _printingQr
-                      ? context.l10n.productionText('worker.paddon.printing')
-                      : context.l10n.productionText('worker.paddon.print'),
-                ),
+              _PaddonDetailHeader(
+                snapshot: data,
+                apparatus: _apparatus,
+                onPrintQr: _busy || _printingQr ? null : _printPaddonQr,
+                printingQr: _printingQr,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               _buildPaddonItemsSection(context, data),
             ],
           ),

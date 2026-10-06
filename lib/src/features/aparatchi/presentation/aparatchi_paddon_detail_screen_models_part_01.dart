@@ -54,10 +54,17 @@ class AparatchiPaddonDetailScreen extends StatefulWidget {
 }
 
 class _PaddonDetailHeader extends StatelessWidget {
-  const _PaddonDetailHeader({required this.snapshot, required this.apparatus});
+  const _PaddonDetailHeader({
+    required this.snapshot,
+    required this.apparatus,
+    required this.onPrintQr,
+    required this.printingQr,
+  });
 
   final AdminPaddonSnapshot snapshot;
   final List<AdminApparatus> apparatus;
+  final VoidCallback? onPrintQr;
+  final bool printingQr;
 
   @override
   Widget build(BuildContext context) {
@@ -72,39 +79,76 @@ class _PaddonDetailHeader extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              paddon.code,
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: scheme.onPrimaryContainer,
-                fontWeight: FontWeight.w800,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        paddon.code,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          color: scheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (paddon.location.trim().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.place_outlined,
+                              size: 18,
+                              color: scheme.onPrimaryContainer,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                AparatchiPaddonDisplay.apparatusOrLocation(
+                                  paddon.location,
+                                  apparatus,
+                                  context.l10n,
+                                ),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: scheme.onPrimaryContainer,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  key: const ValueKey('paddon-print-qr'),
+                  onPressed: onPrintQr,
+                  tooltip: context.l10n.productionText(
+                    printingQr
+                        ? 'worker.paddon.printing'
+                        : 'worker.paddon.print',
+                  ),
+                  iconSize: 20,
+                  style: IconButton.styleFrom(
+                    fixedSize: const Size.square(36),
+                    minimumSize: const Size.square(36),
+                    padding: EdgeInsets.zero,
+                    backgroundColor:
+                        scheme.onPrimaryContainer.withValues(alpha: 0.1),
+                    foregroundColor: scheme.onPrimaryContainer,
+                  ),
+                  icon: printingQr
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.qr_code_2_rounded),
+                ),
+              ],
             ),
-            if (paddon.location.trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.place_outlined,
-                    size: 18,
-                    color: scheme.onPrimaryContainer,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      AparatchiPaddonDisplay.apparatusOrLocation(
-                        paddon.location,
-                        apparatus,
-                        context.l10n,
-                      ),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: scheme.onPrimaryContainer,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
             const SizedBox(height: 14),
             PaddonWeightTotals(
                 key: const ValueKey('paddon-detail-weights'), paddon: paddon),
