@@ -190,7 +190,7 @@ void _registeradmin_production_map_test_screen_testCases07() {
       await tester.tap(find.text('Buyurtmalar'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
+      await tester.tap(find.byKey(const ValueKey('opened-order-$orderId')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Mahsulot ishlab chiqarish xaritasi'));
       await tester.pumpAndSettle();
@@ -227,7 +227,7 @@ void _registeradmin_production_map_test_screen_testCases07() {
       await tester.longPress(find.text('22 m'));
       await tester.pumpAndSettle();
       expect(find.text('Qayta chop etish'), findsOneWidget);
-      expect(find.text('WIP ID'), findsWidgets);
+      expect(find.text('WIP ID'), findsNothing);
       await tester.tap(find.text('Qayta chop etish'));
       await tester.pumpAndSettle();
       expect(find.text('WIP QR qayta chop etildi'), findsOneWidget);
@@ -238,6 +238,30 @@ void _registeradmin_production_map_test_screen_testCases07() {
       await tester.pumpAndSettle();
       await tester.longPress(find.text('12 m'));
       await tester.pumpAndSettle();
+      final qrSheet = find.byType(BottomSheet).last;
+      expect(
+        find.descendant(
+          of: qrSheet,
+          matching: find.text('Admin map apparatus WIP yarim tayyor mahsulot'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: qrSheet, matching: find.text('WIP ID')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: qrSheet, matching: find.textContaining('apparat:')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: qrSheet, matching: find.text('Holat')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: qrSheet, matching: find.text('Qayerdan chiqdi')),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Qayta chop etish'));
       await tester.pumpAndSettle();
       expect(find.text('WIP QR qayta chop etildi'), findsOneWidget);

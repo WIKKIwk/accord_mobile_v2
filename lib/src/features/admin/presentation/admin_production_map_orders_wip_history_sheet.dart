@@ -241,7 +241,10 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                 ]),
               ].join(' • ')
             : _workerWipFirstNotEmpty([
-                batch.labelItemName,
+                batch.labelItemName
+                    .split(RegExp(r',?\s*apparat:', caseSensitive: false))
+                    .first
+                    .trim(),
                 batch.labelItemCode,
                 sheetContext.l10n.productionText('worker.daily.wip'),
               ]),
@@ -535,11 +538,6 @@ List<RpsQrDetail> _workerWipReprintDetails(
       RpsQrDetail(
         l10n.productionText('worker.daily.order'),
         batch.orderId.trim(),
-      ),
-    if (batch.batchId.trim().isNotEmpty)
-      RpsQrDetail(
-        l10n.productionText('worker.wip.info.id'),
-        batch.batchId.trim(),
       ),
     RpsQrDetail(
       l10n.productionText('worker.wip.info.quantity'),
