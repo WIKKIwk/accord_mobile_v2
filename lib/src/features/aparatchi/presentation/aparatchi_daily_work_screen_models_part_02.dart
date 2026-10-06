@@ -116,6 +116,40 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
       helpText: context.l10n.productionText('worker.daily.choose_date.title'),
       cancelText: context.l10n.productionText('worker.action.cancel'),
       confirmText: context.l10n.productionText('worker.action.select'),
+      builder: (dialogContext, child) {
+        final theme = Theme.of(dialogContext);
+        final scheme = theme.colorScheme;
+        final shape = RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        );
+        final textStyle = theme.textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+        );
+        return DatePickerTheme(
+          data: DatePickerTheme.of(dialogContext).copyWith(
+            cancelButtonStyle: OutlinedButton.styleFrom(
+              foregroundColor: scheme.onSurface,
+              backgroundColor: scheme.surfaceContainerLowest,
+              side: BorderSide(color: scheme.outline),
+              minimumSize: const Size(0, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: shape,
+              textStyle: textStyle,
+            ),
+            confirmButtonStyle: FilledButton.styleFrom(
+              foregroundColor: scheme.onPrimary,
+              backgroundColor: scheme.primary,
+              disabledForegroundColor: scheme.onSurface.withValues(alpha: 0.38),
+              disabledBackgroundColor: scheme.onSurface.withValues(alpha: 0.12),
+              minimumSize: const Size(0, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: shape,
+              textStyle: textStyle,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (!mounted || selected == null) {
       return;
