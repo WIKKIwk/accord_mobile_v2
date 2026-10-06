@@ -184,6 +184,7 @@ class MobileApiException implements Exception {
     this.details = const [],
     this.activeKadrCount,
     this.scannedKadrCount,
+    this.orderTitle = '',
   });
 
   final String code;
@@ -193,6 +194,7 @@ class MobileApiException implements Exception {
   final List<String> details;
   final int? activeKadrCount;
   final int? scannedKadrCount;
+  final String orderTitle;
 
   @override
   String toString() => message;

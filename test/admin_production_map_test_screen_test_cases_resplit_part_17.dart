@@ -166,7 +166,7 @@ void _registeradmin_production_map_test_screen_testCases17() {
     );
   });
 
-  testWidgets('frozen orders stay in the common worker sequence rows',
+  testWidgets('frozen orders are hidden from worker sequence and history',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
     const apparatus = _godexId;
@@ -231,21 +231,11 @@ void _registeradmin_production_map_test_screen_testCases17() {
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('worker-order-$orderId')),
-      findsOneWidget,
+      findsNothing,
     );
-    final workerRow = find.byKey(const ValueKey('worker-order-$orderId'));
-    expect(
-      tester
-          .widget<Material>(
-            find.descendant(of: workerRow, matching: find.byType(Material))
-                .first,
-          )
-          .color,
-      Color.alphaBlend(
-        const Color(0xFFC62828).withValues(alpha: 0.16),
-        theme.colorScheme.surfaceContainerLowest,
-      ),
-    );
+    await tester.tap(find.text('Tugallangan'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Common frozen worker row'), findsNothing);
     expect(find.text('Frozen — $orderId'), findsNothing);
   });
 
@@ -253,7 +243,7 @@ void _registeradmin_production_map_test_screen_testCases17() {
       (tester) async {
     await TestModeController.instance.setEnabled(true);
     const apparatus = _godexId;
-    const orderId = 'zakaz-common-frozen-admin-row';
+    const orderId = 'zakaz-0047';
     await AppSession.instance.setSession(
       token: 'common-frozen-admin-token',
       profile: const SessionProfile(

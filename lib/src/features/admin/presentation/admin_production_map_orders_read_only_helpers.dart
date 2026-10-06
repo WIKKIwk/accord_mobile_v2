@@ -421,8 +421,13 @@ String? _materialStartUnavailableReason({
 
 String _readOnlyQueueActionErrorText(
   Object error,
-  AppLocalizations l10n,
-) {
+  AppLocalizations l10n, {
+  String orderTitle = '',
+}) {
+  if (error is MobileApiException && error.code == 'order_frozen') {
+    return _workerFrozenOrderMessage(l10n,
+        error.orderTitle.trim().isEmpty ? orderTitle : error.orderTitle);
+  }
   if (error is TimeoutException || error is http.ClientException) {
     return l10n.productionText('worker.error.network_timeout');
   }

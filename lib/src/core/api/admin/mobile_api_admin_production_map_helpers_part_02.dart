@@ -78,6 +78,7 @@ MobileApiException _adminProductionMapException(
     details: details,
     activeKadrCount: activeKadrCount,
     scannedKadrCount: scannedKadrCount,
+    orderTitle: assignedOrderTitle,
     message: earlyCloseMessage ?? switch (code.trim().toLowerCase()) {
       'duplicate_order_number' => 'Bu raqam boshqa zakazga berilgan',
       'order_number_immutable' => 'Zakaz raqamini o‘zgartirish mumkin emas',

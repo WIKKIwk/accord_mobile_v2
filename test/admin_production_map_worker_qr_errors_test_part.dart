@@ -5,12 +5,16 @@ void _registerWorkerQrErrorTests() {
   const qr = 'QR-BOSMA-WAITING-WIP';
   final l10n = AppLocalizations(const Locale('uz'));
   final scenarios = <String, String>{
-    'frozen-lamination': 'worker.freeze.active',
-    'frozen-cold-glue': 'worker.freeze.active',
-    'frozen-rezka': 'worker.freeze.active',
-    'frozen-before-route-error': 'worker.freeze.active',
+    'frozen-lamination': 'worker.freeze.named',
+    'frozen-cold-glue': 'worker.freeze.named',
+    'frozen-rezka': 'worker.freeze.named',
+    'frozen-before-route-error': 'worker.freeze.named',
+    'frozen-server': 'worker.freeze.named',
+    'frozen-scoped-server': 'worker.freeze.named',
+    'frozen-legacy-error': 'worker.freeze.named',
     'freeze-requested': 'worker.qr.freeze_requested',
-    'frozen-after-lookup': 'worker.freeze.active',
+    'frozen-after-lookup': 'worker.freeze.named',
+    'frozen-after-lookup-route-error': 'worker.freeze.named',
     'not-found': 'worker.qr.not_found',
     'not-accepted': 'worker.qr.not_accepted',
     'no-assignment': 'worker.qr.no_assignment',
@@ -85,11 +89,14 @@ void _registerWorkerQrErrorTests() {
       var legacyControlReads = 0;
       final qrRequests = <Map<String, dynamic>>[];
       AdminOrderControlState controlState() {
+        if (scenario.key == 'frozen-scoped-server') {
+          return AdminOrderControlState.active;
+        }
         if (scenario.key == 'freeze-requested') {
           return AdminOrderControlState.freezeRequested;
         }
         if (scenario.key.startsWith('frozen-') &&
-            (scenario.key != 'frozen-after-lookup' || scanned)) {
+            (!scenario.key.startsWith('frozen-after-lookup') || scanned)) {
           return AdminOrderControlState.frozen;
         }
         return AdminOrderControlState.active;
@@ -184,7 +191,8 @@ void _registerWorkerQrErrorTests() {
         await tester.pump(const Duration(milliseconds: 500));
         await scan;
         await tester.pump(const Duration(milliseconds: 300));
-        expect(find.text(l10n.productionText(scenario.value)), findsOneWidget,
+        expect(find.text(l10n.productionText(scenario.value,
+            values: const {'order': 'Frozen WIP'})), findsOneWidget,
             reason: tester
                 .widgetList<Text>(find.byType(Text))
                 .map((text) => text.data)
@@ -196,14 +204,20 @@ void _registerWorkerQrErrorTests() {
             find.byWidgetPredicate((widget) =>
                 widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet'),
             findsNothing);
-        expect(scopedLookups, scenario.key == 'unconfirmed' ? 1 : 0);
+        expect(scopedLookups,
+            ['unconfirmed', 'frozen-scoped-server'].contains(scenario.key) ? 1 : 0);
         expect(qrRequests, isNotEmpty);
         for (final body in qrRequests) {
-          expect(body['require_active_order'], true);
+          expect(body['require_active_order'],
+              scenario.key == 'frozen-legacy-error' && body == qrRequests.last
+                  ? null : true);
           expect(body['qr_payload'], qr);
         }
         if (scenario.key.startsWith('frozen-') &&
-                scenario.key != 'frozen-after-lookup' ||
+                !scenario.key.startsWith('frozen-after-lookup') &&
+                scenario.key != 'frozen-server' &&
+                scenario.key != 'frozen-scoped-server' &&
+                scenario.key != 'frozen-legacy-error' ||
             scenario.key == 'freeze-requested') {
           expect(legacyControlReads, 1);
         }
@@ -221,6 +235,16 @@ void _registerWorkerQrErrorTests() {
                   final scoped = body.containsKey('apparatus');
                   if (scoped) scopedLookups++;
                   scanned = true;
+                  if (scenario.key == 'frozen-server' ||
+                      (scenario.key == 'frozen-scoped-server' && scoped) ||
+                      (scenario.key == 'frozen-legacy-error' &&
+                          body['require_active_order'] == true)) {
+                    return http.Response(jsonEncode({
+                      'error': 'order_frozen',
+                      if (scenario.key != 'frozen-legacy-error')
+                        'order_title': 'Frozen WIP',
+                    }), 409);
+                  }
                   switch (scenario.key) {
                     case 'timeout':
                       throw TimeoutException('QR timeout');
@@ -254,7 +278,8 @@ void _registerWorkerQrErrorTests() {
                         // Simulate old servers for global-freeze precedence tests.
                         if (!scenario.key.startsWith('frozen-') &&
                                 scenario.key != 'freeze-requested' ||
-                            scenario.key == 'frozen-after-lookup')
+                            scenario.key.startsWith('frozen-after-lookup') ||
+                            scenario.key == 'frozen-scoped-server')
                           'active_order_validated': true,
                         'batch': {
                           'batch_id': 'bosma-output',
@@ -271,7 +296,8 @@ void _registerWorkerQrErrorTests() {
                                 consumer == _rezkaId ? 'rezka' : 'lamination'
                           }
                         },
-                        if (scenario.key == 'frozen-before-route-error')
+                        if (scenario.key == 'frozen-before-route-error' ||
+                            scenario.key == 'frozen-after-lookup-route-error')
                           'input_route_error':
                               'wip_route_destination_unresolved'
                         else

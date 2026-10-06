@@ -430,4 +430,10 @@ const _app_localizations_declarations__productionTranslations_resplitPart04 = {
     'ru':
         'Заказ заморожен. Чтобы продолжить работу, пожалуйста, сообщите администратору и попросите разморозить заказ.',
   },
+  'worker.freeze.named': {
+    'uz': 'Bu buyurtma ({order}) muzlatilgan. Adminga xabar bering.',
+    'en': 'This order ({order}) is frozen. Please notify an admin.',
+    'ru': 'Этот заказ ({order}) заморожен. Сообщите администратору.',
+    'ur': 'یہ آرڈر ({order}) منجمد ہے۔ ایڈمن کو اطلاع دیں۔',
+  },
 };

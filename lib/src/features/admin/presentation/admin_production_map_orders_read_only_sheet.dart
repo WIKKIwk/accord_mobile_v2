@@ -1835,7 +1835,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         setState(() {
           _quickScanStatus = scanError == null
               ? context.l10n.productionText('worker.error.machine_flow')
-              : _readOnlyQueueActionErrorText(scanError, context.l10n);
+              : _readOnlyQueueActionErrorText(scanError, context.l10n,
+                  orderTitle: widget.order.map.title);
         });
       }
       _showQuickScanFeedback(ProductionQuickScanFeedback.rejected);
@@ -1848,6 +1849,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           _quickScanStatus = _readOnlyQueueActionErrorText(
             error,
             context.l10n,
+            orderTitle: widget.order.map.title,
           );
         });
       }
@@ -2829,7 +2831,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         return detail;
       }
     }
-    return _readOnlyQueueActionErrorText(error, context.l10n);
+    return _readOnlyQueueActionErrorText(error, context.l10n,
+        orderTitle: widget.order.map.title);
   }
 
   /// _queueActionUnavailableText chaqiriqlari uchun bandlik yorliqlari.

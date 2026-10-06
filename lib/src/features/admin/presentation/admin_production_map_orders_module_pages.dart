@@ -747,6 +747,8 @@ class _WorkerWatchBody extends StatelessWidget {
       queueActionControlsByApparatus: queueActionControlsByApparatus,
       orderStatusesByOrderId: orderStatusesByOrderId,
       workerMode: true,
+      orderControlsByOrderId: orderControlsByOrderId,
+      excludeFrozen: true,
       query: searchQuery,
     );
     return _workerDisplayOrderSequence(
@@ -795,6 +797,11 @@ class _WorkerWatchBody extends StatelessWidget {
                             completedOrders: completedOrders,
                             apparatus: apparatus,
                             assignedApparatus: assignedApparatus,
+                            orderControlsByOrderId: orderControlsByOrderId,
+                            queueStatesByApparatus: queueStatesByApparatus,
+                            queueActionControlsByApparatus:
+                                queueActionControlsByApparatus,
+                            orderStatusesByOrderId: orderStatusesByOrderId,
                             query: searchQuery,
                           ),
                           bottomPadding: bottomPadding,

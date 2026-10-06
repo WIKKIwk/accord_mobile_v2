@@ -436,8 +436,11 @@ void _registerWorkerActivityTests() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.byKey(const ValueKey('worker-order-$orderId')), findsNothing,
           reason: 'completed apparatus work leaves the active queue');
-      await emit(snapshot(revision: 10, globalState: 'frozen'),
-          tint(const Color(0xFFC62828)));
+      events.add(snapshot(revision: 10, globalState: 'frozen'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byKey(const ValueKey('worker-order-$orderId')), findsNothing,
+          reason: 'a global freeze hides the order on every worker apparatus');
       await emit(snapshot(revision: 11, globalState: 'completed_with_issue'),
           tint(const Color(0xFFC62828)));
       // A restarted server can reset revisions; the retired epoch cannot return.

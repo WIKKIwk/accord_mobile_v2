@@ -1,5 +1,32 @@
 part of 'admin_production_map_orders_screen.dart';
 
+bool _workerOrderIsFrozen({
+  required String orderId,
+  required Map<String, AdminOrderControlState> orderControlsByOrderId,
+  required Map<String, Map<String, String>> queueStatesByApparatus,
+  required Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      queueActionControlsByApparatus,
+  required Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId,
+}) {
+  final id = orderId.trim();
+  return orderControlsByOrderId[id] == AdminOrderControlState.frozen ||
+      orderStatusesByOrderId[id]?.orderStatus.trim().toLowerCase() == 'frozen' ||
+      queueStatesByApparatus.values.any(
+        (states) => apparatusQueueOrderStateFromRaw(states[id]) ==
+            ApparatusQueueOrderState.frozen,
+      ) ||
+      queueActionControlsByApparatus.values.any((controls) =>
+          controls[id]?.state.trim().toLowerCase() == 'frozen' ||
+          controls[id]?.interaction?.mode == AdminQueueInteractionMode.frozen);
+}
+
+String _workerFrozenOrderMessage(AppLocalizations l10n, String orderTitle) {
+  final title = orderTitle.trim();
+  return title.isEmpty
+      ? l10n.productionText('worker.freeze.active')
+      : l10n.productionText('worker.freeze.named', values: {'order': title});
+}
+
 List<ProductionMapSaved> _workerDisplayOrderSequence({
   required List<ProductionMapSaved> orders,
   required ApparatusQueuePolicy policy,
@@ -45,6 +72,11 @@ List<_WorkerCompletedOrderEntry> _workerCompletedOrders({
   required List<AdminCompletedQueueOrder> completedOrders,
   required List<AdminApparatus> apparatus,
   required List<String> assignedApparatus,
+  required Map<String, AdminOrderControlState> orderControlsByOrderId,
+  required Map<String, Map<String, String>> queueStatesByApparatus,
+  required Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      queueActionControlsByApparatus,
+  required Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId,
   required String query,
 }) {
   final byId = {for (final order in orders) order.map.id.trim(): order};
@@ -56,6 +88,14 @@ List<_WorkerCompletedOrderEntry> _workerCompletedOrders({
     // alternative's more recent event must neither appear here nor mask ours.
     if (!assigned.contains(completed.apparatus.trim())) continue;
     final orderId = completed.orderId.trim();
+    if (completed.status.trim().toLowerCase() == 'frozen' ||
+        _workerOrderIsFrozen(
+          orderId: orderId,
+          orderControlsByOrderId: orderControlsByOrderId,
+          queueStatesByApparatus: queueStatesByApparatus,
+          queueActionControlsByApparatus: queueActionControlsByApparatus,
+          orderStatusesByOrderId: orderStatusesByOrderId,
+        )) continue;
     if (orderId.isEmpty || !seen.add(orderId)) {
       continue;
     }

@@ -130,8 +130,13 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
   final queueOrders = visibleOrders.where(
     (order) {
       final orderId = order.map.id.trim();
-      if (excludeFrozen && (orderControlsByOrderId[orderId] == AdminOrderControlState.frozen ||
-          states[orderId] == 'frozen')) {
+      if (excludeFrozen && _workerOrderIsFrozen(
+        orderId: orderId,
+        orderControlsByOrderId: orderControlsByOrderId,
+        queueStatesByApparatus: queueStatesByApparatus,
+        queueActionControlsByApparatus: queueActionControlsByApparatus,
+        orderStatusesByOrderId: orderStatusesByOrderId,
+      )) {
         return false;
       }
       final lifecycle = orderStatusesByOrderId[orderId]?.lifecycleStatus;

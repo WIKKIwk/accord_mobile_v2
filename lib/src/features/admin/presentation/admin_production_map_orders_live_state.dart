@@ -936,7 +936,7 @@ extension _AdminProductionMapOrdersLiveState
         final id = order.map.id.trim();
         final work = _queueActionControlsByApparatus[apparatus.id]?[id]?.stageWork;
         if (work == null || !work.needsReportPrompt ||
-            _orderControlsByOrderId[id] == AdminOrderControlState.frozen) continue;
+            _isWorkerOrderFrozen(id)) continue;
         final key = '$id:${apparatus.id}:${work.reportSessionId}';
         if (!_shownStageAstatkaSessions.add(key)) continue;
         _stageAstatkaPromptOpen = true;

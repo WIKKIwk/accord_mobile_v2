@@ -795,6 +795,14 @@ class _AdminProductionMapOrdersScreenState
     AdminProgressBatch? initialOrderSwitchBatch,
     String initialScanQrPayload = '',
   }) {
+    if (widget.workerMode && _isWorkerOrderFrozen(order.map.id)) {
+      showAdminTopNotice(
+        context,
+        _workerFrozenOrderMessage(context.l10n, order.map.title),
+        icon: Icons.warning_amber_rounded,
+      );
+      return;
+    }
     final mapId = order.map.id.trim();
     final sheetFuture = showModalBottomSheet<bool>(
       context: context,
@@ -922,12 +930,38 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _handleWorkerFabQr(String qrPayload) async {
+    var orderTitle = '';
     try {
       final batch = await MobileApi.instance.adminProgressQrLookup(
         qrPayload,
         requireActiveOrder: true,
       );
       if (!mounted) return;
+      final targetOrderId = batch.orderId.trim();
+      final stationId = batch.nextApparatus.trim();
+      if (targetOrderId.isEmpty) {
+        throw const MobileApiException(
+          code: 'progress_qr_invalid_response', message: '');
+      }
+      await _refreshLive();
+      if (!mounted) return;
+      final targetMaps =
+          _orders.where((order) => order.map.id.trim() == targetOrderId);
+      orderTitle = targetMaps.firstOrNull?.map.title.trim() ?? '';
+      final orderControl = adminProductionMapOrderControlFor(
+        _orderControlsByOrderId,
+        targetOrderId,
+      );
+      if (_isWorkerOrderFrozen(targetOrderId) ||
+          orderControl != AdminOrderControlState.active) {
+        throw MobileApiException(
+          code: _isWorkerOrderFrozen(targetOrderId)
+              ? 'order_frozen'
+              : 'order_freeze_requested',
+          message: '',
+          orderTitle: orderTitle,
+        );
+      }
       final usageError = switch (batch.wipStatus.trim().toLowerCase()) {
         'in_use' => 'progress_batch_in_use',
         'processed' => 'progress_batch_already_used',
@@ -955,36 +989,10 @@ class _AdminProductionMapOrdersScreenState
           ),
         );
       }
-      final targetOrderId = batch.orderId.trim();
-      final stationId = batch.nextApparatus.trim();
-      if (targetOrderId.isEmpty) {
-        showAdminTopNotice(
-          context,
-          context.l10n.productionText('worker.qr.invalid_response'),
-          icon: Icons.warning_amber_rounded,
-        );
-        return;
-      }
-      await _refreshLive();
-      if (!mounted) return;
-      final orderControl = adminProductionMapOrderControlFor(
-        _orderControlsByOrderId,
-        targetOrderId,
-      );
-      if (orderControl != AdminOrderControlState.active) {
-        throw MobileApiException(
-          code: orderControl == AdminOrderControlState.frozen
-              ? 'order_frozen'
-              : 'order_freeze_requested',
-          message: '',
-        );
-      }
       if (_loadError != null || _queueSnapshotContractError ||
           !_workerCatalogReady) {
         throw const MobileApiException(code: 'worker_qr_sync', message: '');
       }
-      final targetMaps =
-          _orders.where((order) => order.map.id.trim() == targetOrderId);
       if (targetMaps.isEmpty) {
         showAdminTopNotice(context,
             context.l10n.productionText('worker.qr.order_unavailable'));
@@ -1045,6 +1053,10 @@ class _AdminProductionMapOrdersScreenState
         requireActiveOrder: true,
       );
       if (!mounted) return;
+      if (_isWorkerOrderFrozen(targetOrderId)) {
+        throw MobileApiException(
+            code: 'order_frozen', message: '', orderTitle: orderTitle);
+      }
       final targetControl = _queueActionControlForApparatus(
         apparatus: station,
         orderId: targetOrderId,
@@ -1100,6 +1112,10 @@ class _AdminProductionMapOrdersScreenState
         await _refreshWorkerCompletedOrders();
         if (!mounted) return;
       }
+      if (_isWorkerOrderFrozen(targetOrderId)) {
+        throw MobileApiException(
+            code: 'order_frozen', message: '', orderTitle: orderTitle);
+      }
       final currentOrder = _workerCurrentOrderForApparatus(
         apparatus: station,
       );
@@ -1151,15 +1167,32 @@ class _AdminProductionMapOrdersScreenState
       );
     } catch (error) {
       if (!mounted) return;
+      if (error is MobileApiException && error.code == 'order_frozen' &&
+          error.orderTitle.trim().isEmpty && orderTitle.isEmpty) {
+        // Older servers reject the QR without its title. This history read
+        // identifies the order for the notice; it never authorizes a Start.
+        try {
+          final batch = await MobileApi.instance.adminProgressQrLookup(qrPayload);
+          orderTitle = _orders
+              .where((order) => order.map.id.trim() == batch.orderId.trim())
+              .firstOrNull?.map.title.trim() ?? '';
+          if (orderTitle.isEmpty) {
+            orderTitle = batch.labelItemName
+                .split(RegExp(r',?\s*apparat:', caseSensitive: false))
+                .first.trim();
+          }
+        } catch (_) {}
+        if (!mounted) return;
+      }
       showAdminTopNotice(
         context,
-        _workerQrErrorText(error),
+        _workerQrErrorText(error, orderTitle: orderTitle),
         icon: Icons.warning_amber_rounded,
       );
     }
   }
 
-  String _workerQrErrorText(Object error) {
+  String _workerQrErrorText(Object error, {String orderTitle = ''}) {
     final l10n = context.l10n;
     if (error is TimeoutException) {
       return l10n.productionText('worker.error.network_timeout');
@@ -1171,6 +1204,10 @@ class _AdminProductionMapOrdersScreenState
       return l10n.productionText('worker.qr.invalid_response');
     }
     if (error is MobileApiException) {
+      if (error.code.trim().toLowerCase() == 'order_frozen') {
+        return _workerFrozenOrderMessage(l10n,
+            error.orderTitle.trim().isEmpty ? orderTitle : error.orderTitle);
+      }
       final key = switch (error.code.trim().toLowerCase()) {
         'order_freeze_requested' => 'worker.qr.freeze_requested',
         'progress_batch_not_found' || 'progress_qr_not_found' =>
@@ -1212,6 +1249,7 @@ class _AdminProductionMapOrdersScreenState
     required AdminApparatus apparatus,
   }) {
     AdminQueueInteractionMode? modeFor(ProductionMapSaved order) {
+      if (_isWorkerOrderFrozen(order.map.id)) return null;
       final orderId = order.map.id.trim();
       final control = _queueActionControlForApparatus(
         apparatus: apparatus,
@@ -1341,8 +1379,7 @@ class _AdminProductionMapOrdersScreenState
         !supportsAstatka) {
       return;
     }
-    if (_orderControlsByOrderId[order.map.id.trim()] ==
-        AdminOrderControlState.frozen) {
+    if (_isWorkerOrderFrozen(order.map.id)) {
       return;
     }
     final queueStates = _queueStatesForApparatus(
@@ -1862,6 +1899,7 @@ class _AdminProductionMapOrdersScreenState
   }
 
   void _showCompletedOrderDetail(_WorkerCompletedOrderEntry entry) {
+    if (entry.isFrozen || _isWorkerOrderFrozen(entry.order.map.id)) return;
     if (entry.hasFreezeIssue) {
       _showWorkerFrozenOrderDetails(entry);
       return;
@@ -1952,7 +1990,16 @@ class _AdminProductionMapOrdersScreenState
       orderStatusesByOrderId: _orderStatusesByOrderId,
       workerMode: widget.workerMode,
       orderControlsByOrderId: _orderControlsByOrderId,
+      excludeFrozen: widget.workerMode,
       query: _searchQuery,
     );
   }
+
+  bool _isWorkerOrderFrozen(String orderId) => _workerOrderIsFrozen(
+    orderId: orderId,
+    orderControlsByOrderId: _orderControlsByOrderId,
+    queueStatesByApparatus: _queueStatesByApparatus,
+    queueActionControlsByApparatus: _queueActionControlsByApparatus,
+    orderStatusesByOrderId: _orderStatusesByOrderId,
+  );
 }
