@@ -35,7 +35,13 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
   ) {
     final showingAvailableItems =
         _selectionMode && _editMode == _PaddonEditMode.add;
-    final items = showingAvailableItems ? data.availableItems : data.items;
+    final allItems = showingAvailableItems ? data.availableItems : data.items;
+    final items = _bobinaFilterUnits == null
+        ? allItems
+        : allItems
+            .where((item) =>
+                _paddonBobinaWeightUnits(item.bobinaKg) == _bobinaFilterUnits)
+            .toList(growable: false);
     final selectedBatchIds = showingAvailableItems
         ? _selectedAvailableBatchIds
         : _selectedAssignedBatchIds;
@@ -273,6 +279,8 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
                 apparatus: _apparatus,
                 onPrintQr: _busy || _printingQr ? null : _printPaddonQr,
                 printingQr: _printingQr,
+                selectedBobinaWeightUnits: _bobinaFilterUnits,
+                onBobinaWeightSelected: _toggleBobinaFilter,
               ),
               const SizedBox(height: 12),
               _buildPaddonItemsSection(context, data),

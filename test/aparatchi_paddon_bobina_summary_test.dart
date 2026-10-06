@@ -88,6 +88,43 @@ void _expectGroup(Object weight, String label, String count) {
       findsOneWidget);
 }
 
+Finder _wips({bool available = false}) => find.byWidgetPredicate((widget) {
+  final key = widget.key;
+  return key is ValueKey<String> &&
+      key.value.startsWith(
+        available ? 'paddon-available-wip-card-' : 'paddon-wip-card-',
+      );
+});
+
+Future<void> _tapGroup(WidgetTester tester, Object weight) async {
+  await tester.ensureVisible(_group(weight));
+  await tester.pumpAndSettle();
+  await tester.tap(_group(weight));
+  await tester.pumpAndSettle();
+}
+
+void _expectSelected(Object weight, bool selected) {
+  expect(
+    find.descendant(
+      of: _group(weight),
+      matching: find.byWidgetPredicate((widget) =>
+          widget is Semantics &&
+          widget.properties.button == true &&
+          widget.properties.selected == selected),
+    ),
+    findsOneWidget,
+  );
+}
+
+Future<void> _tapFabEditAction(WidgetTester tester) async {
+  await tester.tap(
+    find.byKey(const ValueKey('app-primary-navigation-button')),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.textContaining(RegExp(r'^(Qo‘shish|Olib tashlash)')));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -106,6 +143,139 @@ void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+  });
+
+  testWidgets('bobbin groups filter WIPs and toggle back to the full list',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var loads = 0;
+    await tester.pumpWidget(_app(() async {
+      loads++;
+      return _snapshot([2, 2, 4, 3, 4]);
+    }));
+    await tester.pumpAndSettle();
+    expect(_wips(), findsNWidgets(5));
+
+    await _tapGroup(tester, 2000000);
+    expect(_wips(), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('paddon-wip-card-assigned-0')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('paddon-wip-card-assigned-1')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('paddon-wip-card-assigned-2')),
+        findsNothing);
+    _expectSelected(2000000, true);
+    _expectSelected(4000000, false);
+    _expectGroup(2000000, '2 kg', '2 ta');
+    _expectGroup(4000000, '4 kg', '2 ta');
+    expect(find.text('WIP: 5'), findsOneWidget);
+    final heading = find.ancestor(
+      of: find.text('Paddon ichidagi WIP lar'),
+      matching: find.byType(Row),
+    );
+    expect(find.descendant(of: heading, matching: find.text('2 ta')),
+        findsOneWidget);
+
+    await _tapGroup(tester, 4000000);
+    expect(_wips(), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('paddon-wip-card-assigned-2')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('paddon-wip-card-assigned-4')),
+        findsOneWidget);
+    _expectSelected(2000000, false);
+    _expectSelected(4000000, true);
+
+    await _tapGroup(tester, 4000000);
+    expect(_wips(), findsNWidgets(5));
+    _expectSelected(4000000, false);
+    expect(loads, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('filter matches grouped precision and unknown bobbin weights',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(_app(() async => _snapshot([
+      0.8080001, 0.808, 0.808001, null, 0, -1,
+      double.nan, double.infinity,
+    ])));
+    await tester.pumpAndSettle();
+    await _tapGroup(tester, 808000);
+    expect(_wips(), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('paddon-wip-card-assigned-0')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('paddon-wip-card-assigned-1')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('paddon-wip-card-assigned-2')),
+        findsNothing);
+
+    await _tapGroup(tester, 'unknown');
+    expect(_wips(), findsNWidgets(5));
+    for (var index = 3; index < 8; index++) {
+      expect(find.byKey(ValueKey('paddon-wip-card-assigned-$index')),
+          findsOneWidget);
+    }
+    _expectSelected('unknown', true);
+    _expectSelected(808000, false);
+    await _tapGroup(tester, 'unknown');
+    expect(_wips(), findsNWidgets(8));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('refresh clears a filter when the pallet contents change',
+      (tester) async {
+    var loads = 0;
+    await tester.pumpWidget(_app(
+      () async => _snapshot(loads++ == 0 ? [2, 4, 4] : [4, null]),
+    ));
+    await tester.pumpAndSettle();
+    await _tapGroup(tester, 2000000);
+    expect(_wips(), findsOneWidget);
+    final refresh = tester
+        .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
+        .show();
+    await tester.pumpAndSettle();
+    await refresh;
+    expect(_wips(), findsNWidgets(2));
+    expect(_group(2000000), findsNothing);
+    _expectSelected(4000000, false);
+    _expectSelected('unknown', false);
+    expect(loads, 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('filters respect add and remove lists without hidden selections',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(_app(() async => _snapshot(
+      [2, 4], availableWeights: [2, 2, 4, 99],
+    )));
+    await tester.pumpAndSettle();
+    await _tapGroup(tester, 2000000);
+    expect(_wips(), findsOneWidget);
+    await _tapFabEditAction(tester);
+    expect(_wips(available: true), findsNWidgets(4));
+    _expectSelected(2000000, false);
+    await _tapGroup(tester, 4000000);
+    expect(_wips(available: true), findsOneWidget);
+    final availableWip = find.byKey(
+      const ValueKey('paddon-available-wip-card-available-2'),
+    );
+    await tester.ensureVisible(availableWip);
+    await tester.pumpAndSettle();
+    await tester.tap(availableWip);
+    await tester.pumpAndSettle();
+    await _tapGroup(tester, 2000000);
+    expect(_wips(available: true), findsNWidgets(2));
+    // No selected hidden 4kg WIP remains: the action switches to remove mode.
+    await _tapFabEditAction(tester);
+    expect(_wips(), findsNWidgets(2));
+    expect(_wips(available: true), findsNothing);
+    _expectSelected(2000000, false);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('header counts assigned physical rolls by bobbin weight',

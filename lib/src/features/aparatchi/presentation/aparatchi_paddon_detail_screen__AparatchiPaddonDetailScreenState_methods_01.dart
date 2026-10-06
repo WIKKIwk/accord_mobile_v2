@@ -14,6 +14,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
     final future = _load();
     setState(() {
       _future = future;
+      _bobinaFilterUnits = null;
       _selectedAvailableBatchIds.clear();
       _selectedAssignedBatchIds.clear();
     });
@@ -262,6 +263,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
       _clearMessages();
       setState(() {
         _future = Future<AdminPaddonSnapshot>.value(snapshot);
+        _bobinaFilterUnits = null;
       });
       return true;
     } catch (error) {
@@ -274,6 +276,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
           final applied = confirmsApplied(refreshed);
           setState(() {
             _future = Future<AdminPaddonSnapshot>.value(refreshed);
+            _bobinaFilterUnits = null;
           });
           if (applied) {
             _clearMessages();
@@ -319,6 +322,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
     if (!_selectionMode) {
       setState(() {
         _selectionMode = true;
+        _bobinaFilterUnits = null;
         _editMode = _PaddonEditMode.add;
         _selectedAvailableBatchIds.clear();
         _selectedAssignedBatchIds.clear();
@@ -340,6 +344,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
       _editMode = _editMode == _PaddonEditMode.add
           ? _PaddonEditMode.remove
           : _PaddonEditMode.add;
+      _bobinaFilterUnits = null;
       _selectedAvailableBatchIds.clear();
       _selectedAssignedBatchIds.clear();
     });

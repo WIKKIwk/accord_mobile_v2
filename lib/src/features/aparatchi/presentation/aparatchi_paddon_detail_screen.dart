@@ -41,6 +41,7 @@ class _AparatchiPaddonDetailScreenState
   bool _printingQr = false;
   bool _selectionMode = false;
   _PaddonEditMode _editMode = _PaddonEditMode.add;
+  int? _bobinaFilterUnits;
 
   @override
   void initState() {
@@ -67,6 +68,15 @@ class _AparatchiPaddonDetailScreenState
   IconData get _editModeActionIcon => _editMode == _PaddonEditMode.add
       ? Icons.playlist_add_rounded
       : Icons.playlist_remove_rounded;
+
+  void _toggleBobinaFilter(int weightUnits) {
+    setState(() {
+      _bobinaFilterUnits =
+          _bobinaFilterUnits == weightUnits ? null : weightUnits;
+      _selectedAvailableBatchIds.clear();
+      _selectedAssignedBatchIds.clear();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -59,12 +59,16 @@ class _PaddonDetailHeader extends StatelessWidget {
     required this.apparatus,
     required this.onPrintQr,
     required this.printingQr,
+    required this.selectedBobinaWeightUnits,
+    required this.onBobinaWeightSelected,
   });
 
   final AdminPaddonSnapshot snapshot;
   final List<AdminApparatus> apparatus;
   final VoidCallback? onPrintQr;
   final bool printingQr;
+  final int? selectedBobinaWeightUnits;
+  final ValueChanged<int> onBobinaWeightSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +187,11 @@ class _PaddonDetailHeader extends StatelessWidget {
                 color: scheme.onPrimaryContainer.withValues(alpha: 0.14),
               ),
               const SizedBox(height: 14),
-              _PaddonBobinaSummary(items: snapshot.items),
+              _PaddonBobinaSummary(
+                items: snapshot.items,
+                selectedWeightUnits: selectedBobinaWeightUnits,
+                onWeightSelected: onBobinaWeightSelected,
+              ),
             ],
             if (paddon.note.trim().isNotEmpty) ...[
               const SizedBox(height: 12),

@@ -1,20 +1,30 @@
 part of 'aparatchi_paddon_detail_screen.dart';
 
+int _paddonBobinaWeightUnits(double? kg) {
+  // Match the six decimal places used to store kilograms in PostgreSQL.
+  final units =
+      kg != null && kg.isFinite && kg > 0 ? (kg * 1000000).round() : 0;
+  return units > 0 ? units : 0;
+}
+
 class _PaddonBobinaSummary extends StatelessWidget {
-  const _PaddonBobinaSummary({required this.items});
+  const _PaddonBobinaSummary({
+    required this.items,
+    required this.selectedWeightUnits,
+    required this.onWeightSelected,
+  });
 
   final List<AdminProgressBatch> items;
+  final int? selectedWeightUnits;
+  final ValueChanged<int> onWeightSelected;
 
   @override
   Widget build(BuildContext context) {
     // Count physical WIPs, independent of metrage or contained kadr count.
-    // Match the six decimal places used to store kilograms in PostgreSQL.
     final counts = <int, int>{};
     var unknownCount = 0;
     for (final item in items) {
-      final kg = item.bobinaKg;
-      final units =
-          kg != null && kg.isFinite && kg > 0 ? (kg * 1000000).round() : 0;
+      final units = _paddonBobinaWeightUnits(item.bobinaKg);
       if (units <= 0) {
         unknownCount++;
       } else {
@@ -67,6 +77,8 @@ class _PaddonBobinaSummary extends StatelessWidget {
                         trimTrailingZeros: true,
                       ),
                       count: counts[weight]!,
+                      selected: selectedWeightUnits == weight,
+                      onTap: () => onWeightSelected(weight),
                     ),
                   ),
                 if (unknownCount > 0)
@@ -77,6 +89,8 @@ class _PaddonBobinaSummary extends StatelessWidget {
                       label: context.l10n
                           .productionText('worker.paddon.bobina_unknown'),
                       count: unknownCount,
+                      selected: selectedWeightUnits == 0,
+                      onTap: () => onWeightSelected(0),
                     ),
                   ),
               ],
@@ -89,56 +103,78 @@ class _PaddonBobinaSummary extends StatelessWidget {
 }
 
 class _PaddonBobinaGroup extends StatelessWidget {
-  const _PaddonBobinaGroup(
-      {super.key, required this.label, required this.count});
+  const _PaddonBobinaGroup({
+    super.key,
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
   final int count;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final countText = context.l10n.productionCount(count);
+    final foreground = selected ? scheme.onPrimary : scheme.onPrimaryContainer;
     return Semantics(
       label: '$label, $countText',
+      button: true,
+      selected: selected,
+      onTap: onTap,
       excludeSemantics: true,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: scheme.onPrimaryContainer.withValues(alpha: 0.05),
+      child: Material(
+        color: selected
+            ? scheme.primary
+            : scheme.onPrimaryContainer.withValues(alpha: 0.05),
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: scheme.onPrimaryContainer.withValues(alpha: 0.08),
+          side: BorderSide(
+            color: selected
+                ? scheme.primary
+                : scheme.onPrimaryContainer.withValues(alpha: 0.08),
           ),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: scheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w600,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: foreground,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: scheme.onPrimaryContainer.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                countText,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: scheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w800,
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: foreground.withValues(alpha: selected ? 0.16 : 0.10),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    countText,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: foreground,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
