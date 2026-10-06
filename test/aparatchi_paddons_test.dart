@@ -11,6 +11,7 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/admin_progress_
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -99,9 +100,9 @@ void _setSession({bool canManage = false}) {
   );
 }
 
-Widget _app(Widget home, {RouteFactory? onGenerateRoute}) {
+Widget _app(Widget home, {RouteFactory? onGenerateRoute, ThemeData? theme}) {
   return MaterialApp(
-    theme: ThemeData(useMaterial3: true),
+    theme: theme ?? ThemeData(useMaterial3: true),
     locale: const Locale('uz'),
     localizationsDelegates: const [
       AppLocalizations.delegate,
@@ -140,10 +141,18 @@ void main() {
     _setSession();
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    final font = FontLoader('PaddonButtonTestFont')
+      ..addFont(rootBundle.load(
+        'assets/fonts/google_sans/GoogleSans-Regular.ttf',
+      ));
+    await font.load();
     await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
       code: '00001',
       loader: () async => _snapshot(),
       apparatusLoader: () async => const [],
+    ), theme: ThemeData(
+      useMaterial3: true,
+      fontFamily: 'PaddonButtonTestFont',
     )));
     await tester.pumpAndSettle();
 
@@ -158,7 +167,10 @@ void main() {
     expect(printAction, findsOneWidget);
     final printButton = tester.widget<FilledButton>(printAction);
     expect(printButton.onPressed, isNotNull);
-    expect(printButton.style!.shape!.resolve({}), isA<StadiumBorder>());
+    expect(printButton.style!.shape!.resolve({}), isA<RoundedRectangleBorder>());
+    expect(printButton.onLongPress, isNull);
+    expect(find.ancestor(of: printAction, matching: find.byType(Tooltip)),
+        findsNothing);
     expect(find.text('Chop etish'), findsOneWidget);
     expect(find.byIcon(Icons.qr_code_2_rounded), findsOneWidget);
     expect(find.text('Paddon QR chop etish'), findsNothing);
@@ -170,6 +182,12 @@ void main() {
     expect(printRect.height, lessThanOrEqualTo(48));
     expect(printRect.top, closeTo(cardRect.top + 16, 0.1));
     expect(printRect.right, closeTo(cardRect.right - 16, 0.1));
+
+    final press = await tester.startGesture(tester.getCenter(printAction));
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('Paddon QR chop etish'), findsNothing);
+    await press.cancel();
+    await tester.pumpAndSettle();
 
     await _openPaddonFab(tester);
     expect(find.text('Qo‘shish'), findsOneWidget);

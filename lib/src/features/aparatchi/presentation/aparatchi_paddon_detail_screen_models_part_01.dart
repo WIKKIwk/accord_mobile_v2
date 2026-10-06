@@ -124,13 +124,9 @@ class _PaddonDetailHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: Tooltip(
-                    message: context.l10n.productionText(
-                      printingQr
-                          ? 'worker.paddon.printing'
-                          : 'worker.paddon.print',
-                    ),
-                    child: FilledButton.tonalIcon(
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: FilledButton.icon(
                       key: const ValueKey('paddon-print-qr'),
                       onPressed: onPrintQr,
                       style: FilledButton.styleFrom(
@@ -139,10 +135,9 @@ class _PaddonDetailHeader extends StatelessWidget {
                           horizontal: 12,
                           vertical: 6,
                         ),
-                        shape: const StadiumBorder(),
-                        backgroundColor:
-                            scheme.onPrimaryContainer.withValues(alpha: 0.1),
-                        foregroundColor: scheme.onPrimaryContainer,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         textStyle: theme.textTheme.labelMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
