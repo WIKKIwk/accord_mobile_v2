@@ -88,7 +88,7 @@ void _registerAdminItemAutoCodeTests() {
             seenRequests
                 .any((request) => request.contains('q=STALE-MANUAL-CODE')),
             isFalse);
-        expect(find.text('Item yaratildi: 307822819AF46D1581D4AEC1'),
+        expect(find.text('Mahsulot qo‘shildi: Finished item'),
             findsOneWidget);
         await tester.pump(const Duration(seconds: 6));
         await tester.pumpAndSettle();

@@ -143,7 +143,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
         context,
         context.l10n.adminText(
           'item.created',
-          values: {'code': item.code},
+          values: {'name': item.name},
         ),
       );
       return true;

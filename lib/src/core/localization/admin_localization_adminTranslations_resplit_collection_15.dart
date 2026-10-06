@@ -178,9 +178,9 @@ const _admin_localization_adminTranslations_resplitPart15 = {
     'ru': 'Группа товаров',
   },
   'admin.item.created': {
-    'uz': 'Item yaratildi: {code}',
-    'en': 'Item created: {code}',
-    'ru': 'Товар создан: {code}',
+    'uz': 'Mahsulot qo‘shildi: {name}',
+    'en': 'Product added: {name}',
+    'ru': 'Товар добавлен: {name}',
   },
   'admin.item.create_failed': {
     'uz': 'Item yaratilmadi',
