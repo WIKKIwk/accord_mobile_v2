@@ -27,6 +27,7 @@ import '../../../core/localization/urdu_aware_text.dart';
 part 'aparatchi_paddon_detail_screen__AparatchiPaddonDetailScreenState_methods_01.dart';
 part 'aparatchi_paddon_detail_screen__AparatchiPaddonDetailScreenState_methods_02.dart';
 part 'aparatchi_paddon_detail_screen_models_part_01.dart';
+part 'aparatchi_paddon_detail_screen_bobina_summary.dart';
 
 class _AparatchiPaddonDetailScreenState
     extends State<AparatchiPaddonDetailScreen> {

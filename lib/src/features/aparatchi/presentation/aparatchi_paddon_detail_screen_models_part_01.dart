@@ -125,6 +125,15 @@ class _PaddonDetailHeader extends StatelessWidget {
                   ),
               ],
             ),
+            if (snapshot.items.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Divider(
+                height: 1,
+                color: scheme.onPrimaryContainer.withValues(alpha: 0.14),
+              ),
+              const SizedBox(height: 14),
+              _PaddonBobinaSummary(items: snapshot.items),
+            ],
             if (paddon.note.trim().isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(

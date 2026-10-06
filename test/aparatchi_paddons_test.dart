@@ -383,6 +383,8 @@ void main() {
   testWidgets('paddon detail switches between add and remove modes', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     _setSession();
 
@@ -527,6 +529,8 @@ void main() {
   });
   testWidgets('missing EPC never exposes an internal cutting batch ID',
       (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     SharedPreferences.setMockInitialValues({});
     _setSession();
     const id = 'progress-batch:17894018964434500:apparatus-default-asset-010';

@@ -162,6 +162,18 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'ru': 'Всего нетто',
     'en': 'Total net',
   },
+  'worker.paddon.bobina_summary': {
+    'uz': 'Babina og‘irligi bo‘yicha',
+    'en': 'By bobbin weight',
+    'ru': 'По весу втулки',
+    'ur': 'بوبن کے وزن کے مطابق',
+  },
+  'worker.paddon.bobina_unknown': {
+    'uz': 'Kiritilmagan',
+    'en': 'Not recorded',
+    'ru': 'Не указано',
+    'ur': 'درج نہیں',
+  },
   'worker.paddon.subtitle': {
     'uz': 'WIP va rulonlarni fizik paddonlar bo‘yicha boshqarish',
     'en': 'Manage WIPs and rolls by physical paddons',
