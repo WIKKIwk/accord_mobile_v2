@@ -438,9 +438,11 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
 
   int? _availablePantonNumber(QolipProduct product) {
     final currentCode = product.qolipCode.trim().toLowerCase();
+    final currentSetId = product.setId;
     final used = <int>{};
     for (final item in _cachedProducts ?? const <QolipProduct>[]) {
-      if (item.qolipCode.trim().toLowerCase() == currentCode) {
+      if (item.setId != currentSetId ||
+          item.qolipCode.trim().toLowerCase() == currentCode) {
         continue;
       }
       final number = qolipPantonNumber(item.qolipColor);
