@@ -149,24 +149,17 @@ class _DailyWorkEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card.filled(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Icon(
-              Icons.event_available_rounded,
-              size: 42,
-              color: scheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              context.l10n.productionText('worker.daily.empty'),
-              textAlign: TextAlign.center,
-            ),
-          ],
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: Text(
+          context.l10n.productionText('worker.daily.empty'),
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            height: 1.5,
+          ),
         ),
       ),
     );

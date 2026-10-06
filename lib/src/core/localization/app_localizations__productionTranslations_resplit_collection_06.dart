@@ -300,9 +300,9 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'ru': 'Изменить WIP',
   },
   'worker.daily.empty': {
-    'uz': 'Bu kunda WIP chiqarilmagan',
-    'en': 'No WIP was produced on this date',
-    'ru': 'В этот день WIP не выпускался',
+    'uz': 'Tanlangan kunda mahsulot ishlab chiqarilmagan.',
+    'en': 'No products were produced on the selected date.',
+    'ru': 'В выбранный день продукция не выпускалась.',
   },
   'worker.daily.edit.title': {
     'uz': 'WIPni o‘zgartirish',

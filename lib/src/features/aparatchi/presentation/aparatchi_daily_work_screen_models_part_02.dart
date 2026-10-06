@@ -455,9 +455,9 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
           child: ListView(
             physics: const TopRefreshScrollPhysics(),
             padding: EdgeInsets.fromLTRB(
-              12,
-              12,
-              12,
+              4,
+              4,
+              4,
               MediaQuery.viewPaddingOf(context).bottom + 120,
             ),
             children: [
