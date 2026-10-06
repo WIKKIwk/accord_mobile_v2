@@ -75,36 +75,6 @@ class _ItemCreateDialogCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: itemGroup,
-                    builder: (context, value, _) {
-                      if (requiresCustomer(value.text)) {
-                        return const SizedBox.shrink();
-                      }
-                      return Column(
-                        children: [
-                          TextField(
-                            key: const ValueKey('admin-item-create-code'),
-                            controller: code,
-                            decoration: appSoftInputDecoration(
-                              context,
-                              labelText: context.l10n.adminText('item.code'),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                      );
-                    },
-                  ),
-                  TextField(
-                    key: const ValueKey('admin-item-create-name'),
-                    controller: name,
-                    decoration: appSoftInputDecoration(
-                      context,
-                      labelText: context.l10n.adminText('item.name'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   FutureBuilder<List<String>>(
                     future: itemGroupsFuture,
                     builder: (context, snapshot) {
@@ -116,9 +86,6 @@ class _ItemCreateDialogCard extends StatelessWidget {
                       final selectedGroup = itemGroup.text.trim().isEmpty
                           ? null
                           : itemGroup.text.trim();
-                      final requiresCustomer = this.requiresCustomer(
-                        selectedGroup ?? '',
-                      );
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -185,84 +152,19 @@ class _ItemCreateDialogCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          if (requiresCustomer) ...[
-                            Text(
-                              context.l10n.adminText('item.customer_label'),
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            _TapBox(
-                              key: const ValueKey(
-                                'admin-item-create-customer-picker',
-                              ),
-                              onTap: saving ? null : onOpenCustomerPicker,
-                              borderRadius: _itemCreateFieldRadius,
-                              child: Container(
-                                constraints:
-                                    const BoxConstraints(minHeight: 58),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: fieldSurface,
-                                  borderRadius: BorderRadius.circular(
-                                    _itemCreateFieldRadius,
-                                  ),
-                                  border: Border.all(
-                                    color: scheme.outlineVariant,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        selectedCustomer == null
-                                            ? context.l10n.adminText(
-                                                'item.customer_required_short',
-                                              )
-                                            : selectedCustomer!.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style:
-                                            theme.textTheme.bodyLarge?.copyWith(
-                                          color: selectedCustomer == null
-                                              ? scheme.onSurfaceVariant
-                                              : scheme.onSurface,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                    if (selectedCustomer != null) ...[
-                                      const SizedBox(width: 10),
-                                      IconButton(
-                                        tooltip: context.l10n.adminText(
-                                          'action.clear',
-                                        ),
-                                        onPressed:
-                                            saving ? null : onClearCustomer,
-                                        icon: const Icon(Icons.close_rounded),
-                                      ),
-                                    ] else ...[
-                                      const SizedBox(width: 10),
-                                      Icon(
-                                        Icons.expand_more_rounded,
-                                        color: scheme.onSurfaceVariant,
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                          ],
                         ],
                       );
                     },
                   ),
+                  TextField(
+                    key: const ValueKey('admin-item-create-name'),
+                    controller: name,
+                    decoration: appSoftInputDecoration(
+                      context,
+                      labelText: context.l10n.adminText('item.name'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   FutureBuilder<List<String>>(
                     future: itemUomsFuture,
                     builder: (context, snapshot) {
@@ -342,6 +244,102 @@ class _ItemCreateDialogCard extends StatelessWidget {
                                   ),
                                 ],
                               ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: itemGroup,
+                    builder: (context, value, _) {
+                      if (requiresCustomer(value.text)) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              context.l10n.adminText('item.customer_label'),
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            _TapBox(
+                              key: const ValueKey(
+                                'admin-item-create-customer-picker',
+                              ),
+                              onTap: saving ? null : onOpenCustomerPicker,
+                              borderRadius: _itemCreateFieldRadius,
+                              child: Container(
+                                constraints:
+                                    const BoxConstraints(minHeight: 58),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: fieldSurface,
+                                  borderRadius: BorderRadius.circular(
+                                    _itemCreateFieldRadius,
+                                  ),
+                                  border: Border.all(
+                                    color: scheme.outlineVariant,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        selectedCustomer == null
+                                            ? context.l10n.adminText(
+                                                'item.customer_required_short',
+                                              )
+                                            : selectedCustomer!.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style:
+                                            theme.textTheme.bodyLarge?.copyWith(
+                                          color: selectedCustomer == null
+                                              ? scheme.onSurfaceVariant
+                                              : scheme.onSurface,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    if (selectedCustomer != null) ...[
+                                      const SizedBox(width: 10),
+                                      IconButton(
+                                        tooltip: context.l10n.adminText(
+                                          'action.clear',
+                                        ),
+                                        onPressed:
+                                            saving ? null : onClearCustomer,
+                                        icon: const Icon(Icons.close_rounded),
+                                      ),
+                                    ] else ...[
+                                      const SizedBox(width: 10),
+                                      Icon(
+                                        Icons.expand_more_rounded,
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                      return Column(
+                        children: [
+                          TextField(
+                            key: const ValueKey('admin-item-create-code'),
+                            controller: code,
+                            decoration: appSoftInputDecoration(
+                              context,
+                              labelText: context.l10n.adminText('item.code'),
                             ),
                           ),
                         ],
