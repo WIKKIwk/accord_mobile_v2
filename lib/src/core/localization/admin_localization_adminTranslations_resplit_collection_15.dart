@@ -73,9 +73,9 @@ const _admin_localization_adminTranslations_resplitPart15 = {
     'ru': 'Пользователь {name} добавлен',
   },
   'admin.user.customer_create_failed': {
-    'uz': 'Haridor yaratilmadi',
-    'en': 'Could not create customer',
-    'ru': 'Не удалось создать клиента',
+    'uz': '{name} nomli foydalanuvchi qo‘shilmadi',
+    'en': 'User {name} could not be added',
+    'ru': 'Пользователь {name} не добавлен',
   },
   'admin.user.supplier_created': {
     'uz': 'Ta’minotchi yaratildi',

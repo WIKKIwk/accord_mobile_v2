@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+enum AdminTopNoticeTone { neutral, success, error }
+
 _AdminTopNoticeHandle? _currentAdminTopNotice;
 
 class _AdminTopNoticeHandle {
@@ -37,7 +39,7 @@ void showAdminTopNotice(
   String message, {
   IconData? icon,
   GlobalKey? anchorKey,
-  bool success = false,
+  AdminTopNoticeTone tone = AdminTopNoticeTone.neutral,
 }) {
   _currentAdminTopNotice?.close();
   _currentAdminTopNotice = null;
@@ -47,7 +49,7 @@ void showAdminTopNotice(
         message,
         icon: icon,
         anchorKey: anchorKey,
-        success: success,
+        tone: tone,
       )) {
     return;
   }
@@ -58,7 +60,7 @@ void showAdminTopNotice(
   messenger.hideCurrentMaterialBanner();
 
   messenger.showMaterialBanner(
-    _adminNoticeBanner(context, message, icon: icon, success: success),
+    _adminNoticeBanner(context, message, icon: icon, tone: tone),
   );
   final handle = _AdminTopNoticeHandle(
     messenger.hideCurrentMaterialBanner,
@@ -78,7 +80,7 @@ bool _showAnchoredAdminTopNotice(
   String message, {
   required GlobalKey anchorKey,
   IconData? icon,
-  required bool success,
+  required AdminTopNoticeTone tone,
 }) {
   final overlay = Overlay.maybeOf(context, rootOverlay: true);
   final anchorContext = anchorKey.currentContext;
@@ -110,7 +112,7 @@ bool _showAnchoredAdminTopNotice(
               context,
               message,
               icon: icon,
-              success: success,
+              tone: tone,
             ),
           ),
         ),
@@ -128,15 +130,20 @@ MaterialBanner _adminNoticeBanner(
   BuildContext context,
   String message, {
   IconData? icon,
-  bool success = false,
+  AdminTopNoticeTone tone = AdminTopNoticeTone.neutral,
 }) {
   const successBackground = Color(0xFFE6F4EA);
   const successForeground = Color(0xFF173A24);
+  const errorBackground = Color(0xFFFCE8E6);
+  const errorForeground = Color(0xFF5F1412);
   return MaterialBanner(
     elevation: 0,
-    backgroundColor: success
-        ? successBackground
-        : Theme.of(context).colorScheme.surfaceContainerHighest,
+    backgroundColor: switch (tone) {
+      AdminTopNoticeTone.success => successBackground,
+      AdminTopNoticeTone.error => errorBackground,
+      AdminTopNoticeTone.neutral =>
+        Theme.of(context).colorScheme.surfaceContainerHighest,
+    },
     surfaceTintColor: Colors.transparent,
     shadowColor: Colors.transparent,
     dividerColor: Colors.transparent,
@@ -144,9 +151,12 @@ MaterialBanner _adminNoticeBanner(
     leading: icon == null ? null : Icon(icon),
     content: Text(message),
     contentTextStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: success
-              ? successForeground
-              : Theme.of(context).colorScheme.onSurface,
+          color: switch (tone) {
+            AdminTopNoticeTone.success => successForeground,
+            AdminTopNoticeTone.error => errorForeground,
+            AdminTopNoticeTone.neutral =>
+              Theme.of(context).colorScheme.onSurface,
+          },
         ),
     actions: const [SizedBox.shrink()],
     minActionBarHeight: 0,

@@ -24,7 +24,11 @@ class _CustomerCreateTabState extends State<_CustomerCreateTab> {
       return;
     }
     if (name.text.trim().isEmpty) {
-      showAdminTopNotice(context, context.l10n.adminText('user.name_required'));
+      showAdminTopNotice(
+        context,
+        context.l10n.adminText('user.name_required'),
+        tone: AdminTopNoticeTone.error,
+      );
       return;
     }
     setState(() => saving = true);
@@ -56,7 +60,7 @@ class _CustomerCreateTabState extends State<_CustomerCreateTab> {
           'user.customer_created',
           values: {'name': customer.name},
         ),
-        success: true,
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       if (mounted) {
@@ -68,9 +72,17 @@ class _CustomerCreateTabState extends State<_CustomerCreateTab> {
                 _ => 'user.customer_create_failed',
               }
             : 'user.customer_create_failed';
+        final failureMessage = context.l10n.adminText(
+          'user.customer_create_failed',
+          values: {'name': name.text.trim()},
+        );
+        final detail = errorKey == 'user.customer_create_failed'
+            ? ''
+            : context.l10n.adminText(errorKey);
         showAdminTopNotice(
           context,
-          context.l10n.adminText(errorKey),
+          detail.isEmpty ? failureMessage : '$failureMessage\n$detail',
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {
