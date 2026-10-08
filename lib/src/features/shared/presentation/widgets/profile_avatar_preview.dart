@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/display/image_fade.dart';
+import 'order_image_viewer.dart';
 
 const String profileAvatarPreviewHeroTag = 'profile-avatar-preview';
 
@@ -16,6 +17,7 @@ class ProfileAvatarPreview extends StatelessWidget {
     this.previewOnLongPress = false,
     this.previewFit = BoxFit.cover,
     this.previewMaxScale = 3,
+    this.previewFullScreen = false,
   });
 
   final String displayName;
@@ -26,6 +28,7 @@ class ProfileAvatarPreview extends StatelessWidget {
   final bool previewOnLongPress;
   final BoxFit previewFit;
   final double previewMaxScale;
+  final bool previewFullScreen;
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +46,7 @@ class ProfileAvatarPreview extends StatelessWidget {
                   heroTag: heroTag,
                   previewFit: previewFit,
                   previewMaxScale: previewMaxScale,
+                  previewFullScreen: previewFullScreen,
                 ),
         onLongPress: previewOnLongPress
             ? () => showProfileAvatarPreview(
@@ -52,6 +56,7 @@ class ProfileAvatarPreview extends StatelessWidget {
                   heroTag: heroTag,
                   previewFit: previewFit,
                   previewMaxScale: previewMaxScale,
+                  previewFullScreen: previewFullScreen,
                 )
             : null,
         child: Hero(
@@ -73,6 +78,7 @@ Future<void> showProfileAvatarPreview(
   Object heroTag = profileAvatarPreviewHeroTag,
   BoxFit previewFit = BoxFit.cover,
   double previewMaxScale = 3,
+  bool previewFullScreen = false,
 }) {
   return Navigator.of(context).push(
     PageRouteBuilder<void>(
@@ -83,6 +89,13 @@ Future<void> showProfileAvatarPreview(
       transitionDuration: const Duration(milliseconds: 200),
       reverseTransitionDuration: const Duration(milliseconds: 200),
       pageBuilder: (context, animation, secondaryAnimation) {
+        if (previewFullScreen) {
+          return OrderImageViewer(
+            image: avatarImage,
+            heroTag: heroTag,
+            maxScale: previewMaxScale,
+          );
+        }
         return _ProfileAvatarPreviewOverlay(
           displayName: displayName,
           avatarImage: avatarImage,

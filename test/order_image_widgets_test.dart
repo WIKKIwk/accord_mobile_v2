@@ -99,7 +99,7 @@ void main() {
         expect(
             requests.last.url.queryParameters.containsKey('variant'), isFalse);
         final fullImages = tester.widgetList<RawImage>(find.descendant(
-            of: find.byType(InteractiveViewer),
+            of: find.byKey(const ValueKey('order-image-viewport')),
             matching: find.byType(RawImage)));
         expect(fullImages.any((image) => image.image?.width == 1200), isTrue,
             reason:

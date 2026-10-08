@@ -1,3 +1,4 @@
+import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../shared/models/app_models.dart';
 
@@ -5,6 +6,32 @@ typedef PaddonApparatusLoader = Future<List<AdminApparatus>> Function();
 
 /// Display formatting only: batch identities and quantities remain unchanged.
 class AparatchiPaddonDisplay {
+  static String orderSummary(AdminProgressBatch batch) {
+    final payloadNumber =
+        batch.payloadJson['order_number']?.toString().trim() ?? '';
+    final orderId = batch.orderId.trim();
+    final number = payloadNumber.isNotEmpty
+        ? payloadNumber
+        : RegExp(r'^zakaz-(\d+)$').firstMatch(orderId)?.group(1) ??
+            (RegExp(r'^\d+$').hasMatch(orderId) ? orderId : '—');
+    final payloadTitle =
+        batch.payloadJson['order_title']?.toString().trim() ?? '';
+    final title = payloadTitle.isNotEmpty
+        ? payloadTitle
+        : batch.labelItemName
+            .split(RegExp(r',\s*apparat:', caseSensitive: false))
+            .first
+            .replaceFirst(
+              RegExp(
+                r'\s+(?:yarim tayyor(?: mahsulot)?|tayyor mahsulot)\s*$',
+                caseSensitive: false,
+              ),
+              '',
+            )
+            .trim();
+    return '$number - ${title.isEmpty ? '—' : title}';
+  }
+
   static String apparatusOrLocation(
     String value,
     List<AdminApparatus> catalog,

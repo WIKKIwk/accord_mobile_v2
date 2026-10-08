@@ -9,6 +9,7 @@ import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
 import 'package:accord_mobile_v2/src/core/formatters/date_time_formatters.dart';
 import 'package:accord_mobile_v2/src/core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_paddon_detail_screen.dart';
+import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_paddon_display.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_paddons_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_progress_qr_scan_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -44,6 +45,7 @@ AdminPaddonSnapshot _snapshot() {
       AdminProgressBatch.fromJson({
         'batch_id': 'wip-001',
         'order_id': 'order-001',
+        'payload_json': {'order_number': '0001', 'order_title': 'Bosma paket'},
         'qr_payload': '40011234567890ABCDEF',
         'label_item_name': '1 metr rulon',
         'produced_qty': 1,
@@ -55,6 +57,7 @@ AdminPaddonSnapshot _snapshot() {
       AdminProgressBatch.fromJson({
         'batch_id': 'free-wip-001',
         'order_id': 'order-002',
+        'payload_json': {'order_number': '0002', 'order_title': 'Shaffof paket'},
         'qr_payload': '40019876543210FEDCBA',
         'label_item_name': 'Bo‘sh rulon',
         'produced_qty': 2,
@@ -103,10 +106,11 @@ void _setSession({bool canManage = false}) {
   );
 }
 
-Widget _app(Widget home, {RouteFactory? onGenerateRoute, ThemeData? theme}) {
+Widget _app(Widget home, {RouteFactory? onGenerateRoute, ThemeData? theme,
+    Locale locale = const Locale('uz')}) {
   return MaterialApp(
     theme: theme ?? ThemeData(useMaterial3: true),
-    locale: const Locale('uz'),
+    locale: locale,
     localizationsDelegates: const [
       AppLocalizations.delegate,
       GlobalMaterialLocalizations.delegate,
@@ -138,6 +142,87 @@ void main() {
     AppSession.instance.profile = null;
   });
 
+  for (final item in [
+    (
+      orderId: 'zakaz-0037',
+      payload: <String, dynamic>{'order_title': 'Asl buyurtma nomi'},
+      label: 'Eski yorliq tayyor mahsulot, apparat: rezka, ish tugatildi',
+      expected: '0037 - Asl buyurtma nomi',
+    ),
+    (
+      orderId: 'zakaz-0037',
+      payload: <String, dynamic>{'order_number': '0042', 'order_title': 'Asl nom'},
+      label: 'Eski nom',
+      expected: '0042 - Asl nom',
+    ),
+    (
+      orderId: 'zakaz-0007',
+      payload: <String, dynamic>{},
+      label: 'Shaffof paket yarim tayyor mahsulot, apparat: rezka, chiqarildi',
+      expected: '0007 - Shaffof paket',
+    ),
+    (
+      orderId: '0024',
+      payload: <String, dynamic>{},
+      label: 'Bosma paket tayyor mahsulot, apparat: rezka, ish tugatildi',
+      expected: '0024 - Bosma paket',
+    ),
+    (
+      orderId: 'internal-order-id',
+      payload: <String, dynamic>{},
+      label: '',
+      expected: '— - —',
+    ),
+  ]) {
+    test('paddon order summary: ${item.expected}', () {
+      final batch = AdminProgressBatch.fromJson({
+        'batch_id': 'wip-1',
+        'apparatus': 'apparatus:default:asset-010',
+        'order_id': item.orderId,
+        'payload_json': item.payload,
+        'label_item_name': item.label,
+      });
+      expect(AparatchiPaddonDisplay.orderSummary(batch), item.expected);
+    });
+  }
+
+  for (final language in [('uz', 'Buyurtma'), ('en', 'Order'), ('ru', 'Заказ')]) {
+    testWidgets('paddon WIP order title and icon, locale: ${language.$1}',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      SharedPreferences.setMockInitialValues({});
+      _setSession();
+      await tester.pumpWidget(_app(
+        AparatchiPaddonDetailScreen(
+          code: '00001',
+          loader: () async => _snapshot(),
+          apparatusLoader: () async => const [],
+        ),
+        locale: Locale(language.$1),
+      ));
+      await tester.pumpAndSettle();
+      final assigned = find.byKey(const ValueKey('paddon-wip-card-wip-001'));
+      expect(find.text('${language.$2}: 0001 - Bosma paket'), findsOneWidget);
+      expect(find.descendant(of: assigned,
+          matching: find.byIcon(Icons.view_carousel_outlined)), findsNothing);
+      expect(find.textContaining('order-001'), findsNothing);
+      await _openPaddonFab(tester);
+      await tester.tap(find.byIcon(Icons.playlist_add_rounded));
+      await tester.pumpAndSettle();
+      final available = find.byKey(
+        const ValueKey('paddon-available-wip-card-free-wip-001'),
+      );
+      expect(find.text('${language.$2}: 0002 - Shaffof paket'), findsOneWidget);
+      expect(find.descendant(of: available,
+          matching: find.byIcon(Icons.view_carousel_outlined)), findsNothing);
+      expect(find.descendant(of: available,
+          matching: find.byIcon(Icons.add_circle_outline_rounded)), findsOneWidget);
+      expect(find.textContaining('order-002'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('operator WIP sheet shows production time and creator fallbacks',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -152,26 +237,29 @@ void main() {
       'started_at_unix': producedAt,
       'executor_name': 'Qobil',
     });
-    await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
-      code: '00001',
-      loader: () async => AdminPaddonSnapshot(
-        paddon: snapshot.paddon,
-        items: [batch],
-      ),
-      apparatusLoader: () async => const [],
-    )));
-    await tester.pumpAndSettle();
-    final card = find.byKey(const ValueKey('paddon-wip-card-wip-001'));
-    await tester.ensureVisible(card);
-    await tester.longPress(card);
-    await tester.pumpAndSettle();
-    final sheet = tester.widget<RpsQrReprintSheet>(find.byType(RpsQrReprintSheet));
-    expect(sheet.details.any((detail) =>
-        detail.label == 'Chiqarilgan vaqt' &&
-        detail.value == formatUnixSecondsLocalDateTime(producedAt)), isTrue);
-    expect(sheet.details.any((detail) =>
-        detail.label == 'Chiqargan' && detail.value == 'Qobil'), isTrue);
-    expect(sheet.onReprint, isNotNull);
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+        code: '00001',
+        loader: () async => AdminPaddonSnapshot(
+          paddon: snapshot.paddon,
+          items: [batch],
+        ),
+        apparatusLoader: () async => const [],
+      )));
+      await tester.pumpAndSettle();
+      final card = find.byKey(const ValueKey('paddon-wip-card-wip-001'));
+      await tester.ensureVisible(card);
+      await tester.longPress(card);
+      await tester.pumpAndSettle();
+      final sheet = tester.widget<RpsQrReprintSheet>(find.byType(RpsQrReprintSheet));
+      expect(sheet.details.any((detail) =>
+          detail.label == 'Chiqarilgan vaqt' &&
+          detail.value == formatUnixSecondsLocalDateTime(producedAt)), isTrue);
+      expect(sheet.details.any((detail) =>
+          detail.label == 'Chiqargan' && detail.value == 'Qobil'), isTrue);
+      expect(sheet.onReprint, isNotNull);
+    }, () => MockClient((request) async =>
+        http.Response('{"error":"not_found"}', 404)));
   });
 
   testWidgets('paddon header has 4px inset and add actions live only in FAB',
@@ -665,7 +753,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Order: order-001'), findsOneWidget);
+    expect(find.text('Buyurtma: 0001 - Bosma paket'), findsOneWidget);
     expect(
       find.text('EPC: 40011234567890ABCDEF • 1 m'),
       findsOneWidget,
@@ -678,7 +766,7 @@ void main() {
       find.text('Paddonga qo‘shish mumkin bo‘lgan WIP lar'),
       findsOneWidget,
     );
-    expect(find.text('Order: order-002'), findsOneWidget);
+    expect(find.text('Buyurtma: 0002 - Shaffof paket'), findsOneWidget);
     expect(
       find.text('EPC: 40019876543210FEDCBA • 2 m'),
       findsOneWidget,
@@ -695,7 +783,7 @@ void main() {
 
     await _tapPaddonFabEditAction(tester);
     expect(find.text('Paddon ichidagi WIP lar'), findsOneWidget);
-    expect(find.text('Order: order-002'), findsNothing);
+    expect(find.text('Buyurtma: 0002 - Shaffof paket'), findsNothing);
     expect(
       find.byKey(const ValueKey('paddon-wip-card-wip-001')),
       findsOneWidget,
@@ -731,6 +819,400 @@ void main() {
     expect(rect.bottom, greaterThan(0));
   });
 
+  testWidgets('paddon WIP swipe reveals minus only to the left and can close',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    SharedPreferences.setMockInitialValues({});
+    _setSession(canManage: true);
+    var requests = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+        code: '00001',
+        loader: () async => _snapshot(),
+        apparatusLoader: () async => const [],
+      )));
+      await tester.pumpAndSettle();
+      final card = find.byKey(const ValueKey('paddon-wip-card-wip-001'));
+      final remove = find.byKey(const ValueKey('paddon-remove-wip-wip-001'));
+      expect(remove.hitTestable(), findsNothing);
+      await tester.drag(card, const Offset(120, 0));
+      await tester.pumpAndSettle();
+      expect(remove.hitTestable(), findsNothing);
+      await tester.drag(card, const Offset(-120, 0));
+      await tester.pumpAndSettle();
+      expect(remove.hitTestable(), findsOneWidget);
+      expect(find.descendant(of: remove,
+          matching: find.byIcon(Icons.remove_rounded)), findsOneWidget);
+      expect(requests, 0);
+
+      await tester.drag(card, const Offset(120, 0));
+      await tester.pumpAndSettle();
+      expect(remove.hitTestable(), findsNothing);
+      await tester.drag(card, const Offset(-120, 0));
+      await tester.pumpAndSettle();
+      await tester.tapAt(tester.getCenter(card) - const Offset(60, 0));
+      await tester.pumpAndSettle();
+      expect(remove.hitTestable(), findsNothing);
+
+      await _tapPaddonFabEditAction(tester);
+      final available = find.byKey(
+        const ValueKey('paddon-available-wip-card-free-wip-001'),
+      );
+      await tester.drag(available, const Offset(-120, 0));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('paddon-remove-wip-free-wip-001')),
+          findsNothing);
+      await tester.tap(available);
+      await tester.pumpAndSettle();
+      await _openPaddonFab(tester);
+      expect(find.text('Qo‘shish (1)'), findsOneWidget);
+      expect(find.text('Bekor qilish'), findsOneWidget);
+      await tester.tap(find.text('Bekor qilish'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('paddon-cancel-selection-confirm')),
+      );
+      await tester.pumpAndSettle();
+      expect(requests, 0);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+      requests++;
+      return http.Response('{}', 500);
+    }));
+  });
+
+  for (final cancelAction in ['no', 'dismiss']) {
+    testWidgets('swipe minus confirmation cancels without a write: $cancelAction',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      SharedPreferences.setMockInitialValues({});
+      _setSession(canManage: true);
+      var writes = 0;
+      await http.runWithClient(() async {
+        await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+          code: '00001',
+          loader: () async => _snapshot(),
+          apparatusLoader: () async => const [],
+        )));
+        await tester.pumpAndSettle();
+        final card = find.byKey(const ValueKey('paddon-wip-card-wip-001'));
+        final remove = find.byKey(const ValueKey('paddon-remove-wip-wip-001'));
+        await tester.drag(card, const Offset(-120, 0));
+        await tester.pumpAndSettle();
+        await tester.tap(remove);
+        await tester.pumpAndSettle();
+        expect(find.byType(Dialog), findsOneWidget);
+        expect(find.widgetWithText(OutlinedButton, 'Yo‘q'), findsOneWidget);
+        expect(find.widgetWithText(FilledButton, 'Ha'), findsOneWidget);
+        expect(writes, 0);
+
+        if (cancelAction == 'no') {
+          await tester.tap(find.byKey(const ValueKey('paddon-remove-cancel')));
+        } else {
+          await tester.tapAt(const Offset(10, 10));
+        }
+        await tester.pumpAndSettle();
+        expect(find.byType(Dialog), findsNothing);
+        expect(card, findsOneWidget);
+        expect(find.text('Jami brutto: 24.375 kg'), findsOneWidget);
+        expect(writes, 0);
+
+        await tester.drag(card, const Offset(-120, 0));
+        await tester.pumpAndSettle();
+        await tester.tap(remove);
+        await tester.pumpAndSettle();
+        expect(find.byType(Dialog), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('paddon-remove-cancel')));
+        await tester.pumpAndSettle();
+        expect(writes, 0);
+        expect(tester.takeException(), isNull);
+      }, () => MockClient((request) async {
+        writes++;
+        return http.Response('{}', 500);
+      }));
+    });
+  }
+
+  for (final outcome in ['success', 'response lost', 'rejected']) {
+    testWidgets('swipe minus removes one WIP, server result: $outcome',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      SharedPreferences.setMockInitialValues({});
+      _setSession(canManage: true);
+      var writes = 0;
+      final response = Completer<http.Response>();
+      final remaining = {
+        'paddon': {'code': '00001', 'item_count': 1, 'total_gross_kg': 12},
+        'items': [
+          {'batch_id': 'wip-2', 'order_id': 'order-2',
+            'apparatus': 'apparatus:default:asset-010'},
+        ],
+      };
+      await http.runWithClient(() async {
+        await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+          code: '00001',
+          loader: () async => writes > 0 && outcome != 'rejected'
+              ? AdminPaddonSnapshot.fromJson(remaining)
+              : _snapshotWithAssignedWips(2),
+          apparatusLoader: () async => const [],
+        )));
+        await tester.pumpAndSettle();
+        final card = find.byKey(const ValueKey('paddon-wip-card-wip-001'));
+        await tester.drag(card, const Offset(-120, 0));
+        await tester.pumpAndSettle();
+        expect(writes, 0);
+        await tester.tap(
+          find.byKey(const ValueKey('paddon-remove-wip-wip-001')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(Dialog), findsOneWidget);
+        expect(find.widgetWithText(OutlinedButton, 'Yo‘q'), findsOneWidget);
+        expect(find.widgetWithText(FilledButton, 'Ha'), findsOneWidget);
+        expect(writes, 0);
+        expect(card, findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('paddon-remove-confirm')));
+        await tester.pumpAndSettle();
+        expect(find.byType(Dialog), findsNothing);
+        expect(writes, 1);
+        expect(card, findsOneWidget);
+        expect(find.byKey(const ValueKey('paddon-remove-wip-wip-001')),
+            findsNothing);
+
+        if (outcome == 'response lost') {
+          response.completeError(TimeoutException('response lost'));
+        } else if (outcome == 'rejected') {
+          response.complete(http.Response(
+            jsonEncode({'error': 'paddon_item_remove'}), 409,
+          ));
+        } else {
+          response.complete(http.Response(jsonEncode(remaining), 200));
+        }
+        await tester.pumpAndSettle();
+        expect(card, outcome == 'rejected' ? findsOneWidget : findsNothing);
+        expect(find.byKey(const ValueKey('paddon-wip-card-wip-2')),
+            findsOneWidget);
+        expect(find.text('Paddon ichidagi WIP lar'), findsOneWidget);
+        if (outcome == 'rejected') {
+          await tester.drag(card, const Offset(-120, 0));
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('paddon-remove-wip-wip-001'))
+              .hitTestable(), findsOneWidget);
+        } else {
+          expect(find.text('Jami brutto: 12 kg'), findsOneWidget);
+        }
+        expect(writes, 1);
+        expect(tester.takeException(), isNull);
+      }, () => MockClient((request) async {
+        writes++;
+        expect(request.method, 'POST');
+        expect(request.url.path,
+            '/v1/mobile/admin/production-maps/paddons/items/remove');
+        expect(jsonDecode(request.body), {
+          'code': '00001',
+          'progress_batch_id': 'wip-001',
+        });
+        return response.future;
+      }));
+    });
+  }
+
+  for (final readOnly in [true, false]) {
+    testWidgets('paddon swipe removal is disabled, read only: $readOnly',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      _setSession(canManage: true);
+      await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+        code: '00001',
+        loader: () async => _snapshot(),
+        apparatusLoader: () async => const [],
+        manageItems: !readOnly,
+        busy: !readOnly,
+      )));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byKey(const ValueKey('paddon-wip-card-wip-001')),
+          const Offset(-120, 0));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('paddon-remove-wip-wip-001')),
+          findsNothing);
+      expect(find.text('Paddon ichidagi WIP lar'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final action in ['add', 'cancel-selection']) {
+    for (final decline in ['no', 'dismiss']) {
+      testWidgets('$action confirmation keeps selection on $decline',
+          (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        _setSession();
+        var writes = 0;
+        await http.runWithClient(() async {
+          await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+            code: '00001',
+            loader: () async => _snapshot(),
+            apparatusLoader: () async => const [],
+          )));
+          await tester.pumpAndSettle();
+          await _tapPaddonFabEditAction(tester);
+          final card = find.byKey(
+            const ValueKey('paddon-available-wip-card-free-wip-001'),
+          );
+          await tester.tap(card);
+          await tester.pumpAndSettle();
+          await _openPaddonFab(tester);
+          await tester.tap(find.text(
+            action == 'add' ? 'Qo‘shish (1)' : 'Bekor qilish',
+          ));
+          await tester.pumpAndSettle();
+          expect(find.byType(Dialog), findsOneWidget);
+          expect(find.widgetWithText(OutlinedButton, 'Yo‘q'), findsOneWidget);
+          expect(find.widgetWithText(FilledButton, 'Ha'), findsOneWidget);
+          expect(find.text(action == 'add'
+              ? 'Tanlangan rulonlar ushbu paddonga qo‘shilsinmi?'
+              : 'Rulonni paddonga qo‘shish bekor qilinsinmi?'), findsOneWidget);
+          if (action == 'add') {
+            expect(find.text('1 ta WIP paddon tarkibiga qo‘shiladi.'),
+                findsOneWidget);
+          }
+          expect(writes, 0);
+
+          if (decline == 'no') {
+            await tester.tap(find.byKey(ValueKey('paddon-$action-cancel')));
+          } else {
+            await tester.tapAt(const Offset(10, 10));
+          }
+          await tester.pumpAndSettle();
+          expect(find.byType(Dialog), findsNothing);
+          expect(card, findsOneWidget);
+          expect(find.descendant(of: card,
+              matching: find.byIcon(Icons.check_circle_rounded)), findsOneWidget);
+          expect(find.text('Paddonga qo‘shish mumkin bo‘lgan WIP lar'),
+              findsOneWidget);
+          await _openPaddonFab(tester);
+          expect(find.text('Qo‘shish (1)'), findsOneWidget);
+          expect(find.text('Bekor qilish'), findsOneWidget);
+          expect(writes, 0);
+          expect(tester.takeException(), isNull);
+        }, () => MockClient((request) async {
+          writes++;
+          return http.Response('{}', 500);
+        }));
+      });
+    }
+  }
+
+  testWidgets('cancel selected WIPs restores detail without a write',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    _setSession();
+    var requests = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+        code: '00001',
+        loader: () async => _snapshot(),
+        apparatusLoader: () async => const [],
+      )));
+      await tester.pumpAndSettle();
+      await _tapPaddonFabEditAction(tester);
+      final availableCard = find.byKey(
+        const ValueKey('paddon-available-wip-card-free-wip-001'),
+      );
+      await tester.tap(availableCard);
+      await tester.pumpAndSettle();
+      await _openPaddonFab(tester);
+      expect(find.text('Qo‘shish (1)'), findsOneWidget);
+      expect(find.text('Bekor qilish'), findsOneWidget);
+      expect(find.text('WIP QR scan qilib qo‘shish'), findsNothing);
+
+      await tester.tap(find.text('Bekor qilish'));
+      await tester.pumpAndSettle();
+      expect(requests, 0);
+      expect(find.byType(Dialog), findsOneWidget);
+      expect(availableCard, findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('paddon-cancel-selection-confirm')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.text('Paddon ichidagi WIP lar'), findsOneWidget);
+      expect(find.byKey(const ValueKey('paddon-wip-card-wip-001')),
+          findsOneWidget);
+      expect(availableCard, findsNothing);
+      await _openPaddonFab(tester);
+      expect(find.text('Qo‘shish'), findsOneWidget);
+      expect(find.text('WIP QR scan qilib qo‘shish'), findsOneWidget);
+      expect(find.text('Bekor qilish'), findsNothing);
+
+      await tester.tap(find.text('Qo‘shish'));
+      await tester.pumpAndSettle();
+      expect(availableCard, findsOneWidget);
+      expect(find.descendant(of: availableCard,
+          matching: find.byIcon(Icons.check_circle_rounded)), findsNothing);
+      expect(requests, 0);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+      requests++;
+      return http.Response('{}', 500);
+    }));
+  });
+
+  testWidgets('failed selected WIP add keeps selection and cancel available',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    _setSession();
+    var writes = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+        code: '00001',
+        loader: () async => _snapshot(),
+        apparatusLoader: () async => const [],
+      )));
+      await tester.pumpAndSettle();
+      await _tapPaddonFabEditAction(tester);
+      final availableCard = find.byKey(
+        const ValueKey('paddon-available-wip-card-free-wip-001'),
+      );
+      await tester.tap(availableCard);
+      await tester.pumpAndSettle();
+      await _tapPaddonFabEditAction(tester);
+
+      expect(writes, 0);
+      expect(find.byType(Dialog), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('paddon-add-confirm')));
+      await tester.pumpAndSettle();
+      expect(writes, 1);
+      expect(availableCard, findsOneWidget);
+      expect(find.descendant(of: availableCard,
+          matching: find.byIcon(Icons.check_circle_rounded)), findsOneWidget);
+      await _openPaddonFab(tester);
+      expect(find.text('Qo‘shish (1)'), findsOneWidget);
+      expect(find.text('Bekor qilish'), findsOneWidget);
+      expect(find.text('WIP QR scan qilib qo‘shish'), findsNothing);
+      await tester.tap(find.text('Bekor qilish'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('paddon-cancel-selection-confirm')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Paddon ichidagi WIP lar'), findsOneWidget);
+      expect(writes, 1);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+      writes++;
+      expect(request.method, 'POST');
+      expect(request.url.path,
+          '/v1/mobile/admin/production-maps/paddons/items/add-batch');
+      expect(jsonDecode(request.body), {
+        'code': '00001',
+        'progress_batch_ids': ['free-wip-001'],
+      });
+      return http.Response(jsonEncode({'error': 'paddon_items_add'}), 409);
+    }));
+  });
+
   testWidgets(
     'available WIPs use the detail snapshot when the add list opens',
     (tester) async {
@@ -759,7 +1241,7 @@ void main() {
         find.text('Paddonga qo‘shish mumkin bo‘lgan WIP lar'),
         findsOneWidget,
       );
-      expect(find.text('Order: order-002'), findsOneWidget);
+      expect(find.text('Buyurtma: 0002 - Shaffof paket'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('paddon-available-wip-card-free-wip-001')),
         findsOneWidget,
@@ -811,7 +1293,7 @@ void main() {
     )));
     await tester.pumpAndSettle();
 
-    expect(find.text('Order: order-001'), findsOneWidget);
+    expect(find.text('Buyurtma: — - —'), findsOneWidget);
     expect(find.text('EPC: —'), findsOneWidget);
     expect(find.textContaining('progress-batch:'), findsNothing);
     expect(find.textContaining('…'), findsNothing);
@@ -909,12 +1391,30 @@ void main() {
           if (removing) {
             await tester.tap(find.widgetWithText(FilledButton, 'Olib tashlash'));
             await tester.pumpAndSettle();
+          } else {
+            expect(writes, 0);
+            expect(find.byType(Dialog), findsOneWidget);
+            await tester.tap(find.byKey(const ValueKey('paddon-add-confirm')));
+            await tester.pumpAndSettle();
           }
           expect(writes,1); expect(loads,responseLost ? 2 : 1);
           await tester.ensureVisible(find.byKey(const ValueKey('paddon-detail-weights')));
           await tester.pumpAndSettle();
           expect(find.text('Jami brutto: ${removing ? '0' : '44.375'} kg'), findsOneWidget);
           expect(find.text('Jami netto: ${removing ? '0' : '42.125'} kg'), findsOneWidget);
+          if (!removing) {
+            expect(find.text('Paddon ichidagi WIP lar'), findsOneWidget);
+            expect(find.byKey(const ValueKey('paddon-wip-card-free-wip-001')),
+                findsOneWidget);
+            expect(find.byKey(const ValueKey('paddon-available-wip-card-free-wip-001')),
+                findsNothing);
+            await _openPaddonFab(tester);
+            expect(find.text('Qo‘shish'), findsOneWidget);
+            expect(find.text('WIP QR scan qilib qo‘shish'), findsOneWidget);
+            expect(find.text('Bekor qilish'), findsNothing);
+            await tester.tap(find.byKey(const ValueKey('admin-hub-toggle-button')));
+            await tester.pumpAndSettle();
+          }
           expect(tester.takeException(), isNull);
         }, () => MockClient((request) async {
           writes++; expect(request.url.path, '/v1/mobile/admin/production-maps/paddons/items/${removing ? 'remove' : 'add'}-batch');

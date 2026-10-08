@@ -259,6 +259,7 @@ class _PaddonWipCard extends StatelessWidget {
     this.onSelect,
     required this.selectionIcon,
     this.onLongPress,
+    this.onRemove,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -267,12 +268,13 @@ class _PaddonWipCard extends StatelessWidget {
   final VoidCallback? onSelect;
   final IconData selectionIcon;
   final VoidCallback? onLongPress;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
-    final orderId = batch.orderId.trim().isEmpty ? '—' : batch.orderId.trim();
+    final orderSummary = AparatchiPaddonDisplay.orderSummary(batch);
     final qr = batch.qrPayload.trim();
     final epc = qr.isNotEmpty ? qr : '—';
     final lengthM = batch.finishedGoodsMeter;
@@ -289,7 +291,7 @@ class _PaddonWipCard extends StatelessWidget {
             'm',
             trimTrailingZeros: true,
           );
-    return M3SegmentFilledSurface(
+    final card = M3SegmentFilledSurface(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       onTap: onSelect,
@@ -301,21 +303,13 @@ class _PaddonWipCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(
-                Icons.view_carousel_outlined,
-                color: scheme.primary,
-                size: 24,
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     UrduAwareText(
-                      '${context.l10n.productionText('worker.daily.order')}: $orderId',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      '${context.l10n.productionText('worker.paddon.order')}: $orderSummary',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -346,6 +340,17 @@ class _PaddonWipCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+    if (onRemove == null) return card;
+    return _PaddonSwipeRemoveCard(
+      actionKey: ValueKey('paddon-remove-wip-${batch.batchId}'),
+      borderRadius: M3SegmentedListGeometry.borderRadius(
+        slot,
+        M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      ),
+      label: context.l10n.productionText('worker.paddon.remove'),
+      onRemove: onRemove!,
+      child: card,
     );
   }
 }

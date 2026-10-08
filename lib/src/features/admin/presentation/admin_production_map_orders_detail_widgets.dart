@@ -507,41 +507,7 @@ void _showProductionMapOrderImageDialog(
       final scheme = Theme.of(context).colorScheme;
       return Dialog.fullscreen(
         backgroundColor: scheme.surfaceContainerLowest,
-        child: SafeArea(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: InteractiveViewer(
-                  minScale: 1,
-                  maxScale: 4,
-                  child: Center(
-                    child: Image(
-                      image: image,
-                      fit: BoxFit.contain,
-                      frameBuilder: (context, child, frame, synchronous) =>
-                          frame != null || synchronous
-                              ? child
-                              : const Center(
-                                  child: CircularProgressIndicator()),
-                      errorBuilder: (_, __, ___) => Icon(
-                        Icons.broken_image_outlined,
-                        color: scheme.primary,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 10,
-                right: 10,
-                child: IconButton.filledTonal(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: OrderImageViewer(image: image),
       );
     },
   );

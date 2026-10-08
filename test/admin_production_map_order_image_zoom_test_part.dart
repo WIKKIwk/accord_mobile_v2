@@ -47,6 +47,12 @@ void _registerOrderImageZoomTests() {
               product: 'Legacy'));
       expect(saved.map.imageId, isEmpty);
       final apparatus = await MobileApi.instance.adminApparatus(limit: 200);
+      if (role == UserRole.admin) {
+        await AdminSequenceApparatusStore.instance.saveApparatus(
+          apparatus.firstWhere((item) => item.id == apparatusId),
+        );
+        addTearDown(AdminSequenceApparatusStore.instance.clearCache);
+      }
       final snapshot = AdminApparatusQueueSnapshot(maps: [
         saved
       ], sequences: {
@@ -100,7 +106,7 @@ void _registerOrderImageZoomTests() {
         expect(
             tester
                 .widgetList<RawImage>(find.descendant(
-                    of: find.byType(InteractiveViewer),
+                    of: find.byKey(const ValueKey('order-image-viewport')),
                     matching: find.byType(RawImage)))
                 .any((image) => image.image?.width == 1200),
             isTrue);
@@ -149,7 +155,7 @@ void _registerOrderImageZoomTests() {
           expect(
               tester
                   .widgetList<RawImage>(find.descendant(
-                      of: find.byType(InteractiveViewer),
+                      of: find.byKey(const ValueKey('order-image-viewport')),
                       matching: find.byType(RawImage)))
                   .any((image) => image.image?.width == 1200),
               isTrue);
@@ -262,7 +268,7 @@ void _registerOrderImageZoomTests() {
       expect(
           tester
               .widgetList<RawImage>(find.descendant(
-                  of: find.byType(InteractiveViewer),
+                  of: find.byKey(const ValueKey('order-image-viewport')),
                   matching: find.byType(RawImage)))
               .any((image) => image.image?.width == 1200),
           isTrue);

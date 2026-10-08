@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import '../../../core/widgets/paddon_weight_totals.dart';
@@ -11,6 +12,7 @@ import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -20,6 +22,7 @@ import '../../admin/presentation/admin_progress_qr_scan_screen.dart';
 import '../../admin/presentation/progress_printer_picker.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
+import '../../admin/presentation/widgets/admin_order_image_thumb.dart';
 import '../../shared/models/app_models.dart';
 import 'aparatchi_paddon_display.dart';
 import 'widgets/aparatchi_dock.dart';
@@ -30,6 +33,8 @@ part 'aparatchi_paddon_detail_screen__AparatchiPaddonDetailScreenState_methods_0
 part 'aparatchi_paddon_detail_screen__AparatchiPaddonDetailScreenState_methods_02.dart';
 part 'aparatchi_paddon_detail_screen_models_part_01.dart';
 part 'aparatchi_paddon_detail_screen_bobina_summary.dart';
+part 'aparatchi_paddon_detail_screen_swipe_remove.dart';
+part 'aparatchi_paddon_detail_screen_order_header.dart';
 
 class _AparatchiPaddonDetailScreenState
     extends State<AparatchiPaddonDetailScreen> {
@@ -70,6 +75,17 @@ class _AparatchiPaddonDetailScreenState
   IconData get _editModeActionIcon => _editMode == _PaddonEditMode.add
       ? Icons.playlist_add_rounded
       : Icons.playlist_remove_rounded;
+
+  void _exitAddSelection() {
+    if (_busy || !mounted) return;
+    setState(() {
+      _selectionMode = false;
+      _editMode = _PaddonEditMode.add;
+      _bobinaFilterUnits = null;
+      _selectedAvailableBatchIds.clear();
+      _selectedAssignedBatchIds.clear();
+    });
+  }
 
   void _toggleBobinaFilter(int weightUnits) {
     setState(() {

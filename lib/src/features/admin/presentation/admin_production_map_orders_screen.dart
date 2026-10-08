@@ -70,6 +70,7 @@ import '../models/production_map_models.dart';
 import '../state/calculate_order_store.dart';
 import '../state/admin_sequence_apparatus_store.dart';
 import '../../shared/models/app_models.dart';
+import '../../shared/presentation/widgets/order_image_viewer.dart';
 import 'raw_material_scan_dialog.dart';
 import 'admin_production_map_test_screen.dart'
     show ProductionMapOrderContext, ProductionMapTestArgs;

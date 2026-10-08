@@ -463,6 +463,26 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
     'en': '{count} WIP(s) will be removed from the paddon.',
     'ru': 'WIP будет убрано из паддона: {count}.',
   },
+  'worker.paddon.confirm.add.title': {
+    'uz': 'Tanlangan rulonlar ushbu paddonga qo‘shilsinmi?',
+    'en': 'Add selected WIPs?',
+    'ru': 'Добавить выбранные WIP?',
+  },
+  'worker.paddon.confirm.add.body.count': {
+    'uz': '{count} ta WIP paddon tarkibiga qo‘shiladi.',
+    'en': '{count} WIP(s) will be added to the paddon.',
+    'ru': 'WIP будет добавлено в паддон: {count}.',
+  },
+  'worker.paddon.confirm.cancel.title': {
+    'uz': 'Rulonni paddonga qo‘shish bekor qilinsinmi?',
+    'en': 'Cancel adding WIPs?',
+    'ru': 'Отменить добавление WIP?',
+  },
+  'worker.paddon.confirm.cancel.body': {
+    'uz': 'Tanlangan WIP lar qo‘shilmaydi va paddon tarkibiga qaytiladi.',
+    'en': 'The selected WIPs will not be added. You will return to the paddon contents.',
+    'ru': 'Выбранные WIP не будут добавлены. Вы вернётесь к содержимому паддона.',
+  },
   'worker.paddon.available.title': {
     'uz': 'Paddonga qo‘shish mumkin bo‘lgan WIP lar',
     'en': 'WIPs available to add to the paddon',
@@ -472,6 +492,26 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
     'uz': 'Paddon ichidagi WIP lar',
     'en': 'WIPs in the paddon',
     'ru': 'WIP в паддоне',
+  },
+  'worker.paddon.order': {
+    'uz': 'Buyurtma',
+    'en': 'Order',
+    'ru': 'Заказ',
+  },
+  'worker.image.rotate_left': {
+    'uz': 'Chapga aylantirish',
+    'en': 'Rotate left',
+    'ru': 'Повернуть влево',
+  },
+  'worker.image.rotate_right': {
+    'uz': 'O‘ngga aylantirish',
+    'en': 'Rotate right',
+    'ru': 'Повернуть вправо',
+  },
+  'worker.image.reset': {
+    'uz': 'Ekranga moslash',
+    'en': 'Fit to screen',
+    'ru': 'По размеру экрана',
   },
   'worker.paddon.available.empty': {
     'uz': 'Paddonga qo‘shish mumkin bo‘lgan WIP topilmadi.',

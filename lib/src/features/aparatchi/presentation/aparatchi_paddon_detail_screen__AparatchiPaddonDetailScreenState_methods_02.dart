@@ -9,21 +9,32 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
       future: _future,
       builder: (context, snapshot) {
         final actionsEnabled = snapshot.hasData && !_busy && !_printingQr;
+        final confirmingAdd = _selectionMode &&
+            _editMode == _PaddonEditMode.add &&
+            _selectedAvailableBatchIds.isNotEmpty;
         return AparatchiDock(
           activeTab: null,
           primaryActions: [
-            AdminFabMenuAction(
-              title: context.l10n.productionText('worker.paddon.add_wip'),
-              icon: Icons.qr_code_scanner_rounded,
-              enabled: actionsEnabled,
-              onTap: () => unawaited(_scanAndAdd()),
-            ),
+            if (!confirmingAdd)
+              AdminFabMenuAction(
+                title: context.l10n.productionText('worker.paddon.add_wip'),
+                icon: Icons.qr_code_scanner_rounded,
+                enabled: actionsEnabled,
+                onTap: () => unawaited(_scanAndAdd()),
+              ),
             AdminFabMenuAction(
               title: _editModeActionLabel(context),
               icon: _editModeActionIcon,
               enabled: actionsEnabled,
               onTap: () => unawaited(_handleEditModeAction()),
             ),
+            if (confirmingAdd)
+              AdminFabMenuAction(
+                title: context.l10n.productionText('worker.action.cancel'),
+                icon: Icons.close_rounded,
+                enabled: actionsEnabled,
+                onTap: () => unawaited(_cancelAddSelection()),
+              ),
           ],
         );
       },
@@ -114,6 +125,11 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
                     onLongPress: _busy || widget.busy
                         ? null
                         : () => _showPaddonWipReprint(items[index]),
+                    onRemove: widget.manageItems && !_selectionMode &&
+                            !_busy && !widget.busy && !_printingQr &&
+                            items[index].batchId.trim().isNotEmpty
+                        ? () => unawaited(_removeWip(items[index]))
+                        : null,
                     selectionIcon: showingAvailableItems
                         ? Icons.add_circle_outline_rounded
                         : Icons.remove_circle_outline_rounded,
@@ -139,7 +155,9 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
       );
       return;
     }
-    final orderId = batch.orderId.trim().isEmpty ? '—' : batch.orderId.trim();
+    final orderSummary = AparatchiPaddonDisplay.orderSummary(batch);
+    final orderLabel = context.l10n.productionText('worker.paddon.order');
+    final orderTitle = '$orderLabel: $orderSummary';
     final producedAt = formatUnixSecondsLocalDateTime(
       batch.completedAtUnix > 0 ? batch.completedAtUnix : batch.startedAtUnix,
     );
@@ -168,14 +186,14 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
       builder: (sheetContext) => RpsQrReprintSheet(
         title: context.l10n.productionText('worker.daily.wip_qr'),
         payload: payload,
-        itemName:
-            '${context.l10n.productionText('worker.daily.order')}: $orderId',
+        itemName: orderTitle,
+        itemHeader: _PaddonWipOrderHeader(batch: batch, title: orderTitle),
         previewKey: ValueKey('paddon-wip-preview-${batch.batchId}'),
         reprintButtonKey: ValueKey('paddon-wip-reprint-${batch.batchId}'),
         details: [
           RpsQrDetail(
-            context.l10n.productionText('worker.daily.order'),
-            orderId,
+            orderLabel,
+            orderSummary,
           ),
           RpsQrDetail(
             context.l10n.productionText('worker.wip.info.qr'),

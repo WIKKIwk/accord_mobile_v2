@@ -175,6 +175,19 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
       return;
     }
     final selectedBatchIds = _selectedAvailableBatchIds.toList(growable: false);
+    final confirmed = await showM3ConfirmDialog(
+      context: context,
+      title: context.l10n.productionText('worker.paddon.confirm.add.title'),
+      message: context.l10n.productionText(
+        'worker.paddon.confirm.add.body.count',
+        values: {'count': selectedBatchIds.length},
+      ),
+      cancelLabel: context.l10n.no,
+      confirmLabel: context.l10n.yes,
+      confirmButtonKey: const ValueKey('paddon-add-confirm'),
+      cancelButtonKey: const ValueKey('paddon-add-cancel'),
+    );
+    if (confirmed != true || !mounted) return;
     final applied = await _runMutation(
       () => MobileApi.instance.adminPaddonAddWips(
         paddonCode: widget.code,
@@ -190,8 +203,55 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
       ),
     );
     if (applied && mounted) {
-      setState(() => _selectedAvailableBatchIds.clear());
+      _exitAddSelection();
     }
+  }
+
+  Future<void> _cancelAddSelection() async {
+    if (_busy || !_selectionMode || _selectedAvailableBatchIds.isEmpty) return;
+    final confirmed = await showM3ConfirmDialog(
+      context: context,
+      title: context.l10n.productionText('worker.paddon.confirm.cancel.title'),
+      message: context.l10n.productionText('worker.paddon.confirm.cancel.body'),
+      cancelLabel: context.l10n.no,
+      confirmLabel: context.l10n.yes,
+      confirmButtonKey: const ValueKey('paddon-cancel-selection-confirm'),
+      cancelButtonKey: const ValueKey('paddon-cancel-selection-cancel'),
+    );
+    if (confirmed != true || !mounted) return;
+    _exitAddSelection();
+  }
+
+  Future<void> _removeWip(AdminProgressBatch batch) async {
+    final batchId = batch.batchId.trim();
+    if (_busy || widget.busy || _printingQr || _selectionMode ||
+        !widget.manageItems || batchId.isEmpty) {
+      return;
+    }
+    final confirmed = await showM3ConfirmDialog(
+      context: context,
+      title: context.l10n.productionText('worker.paddon.confirm.remove.title'),
+      message: context.l10n.productionText(
+        'worker.paddon.confirm.remove.body.count',
+        values: {'count': 1},
+      ),
+      cancelLabel: context.l10n.no,
+      confirmLabel: context.l10n.yes,
+      destructive: true,
+      confirmButtonKey: const ValueKey('paddon-remove-confirm'),
+      cancelButtonKey: const ValueKey('paddon-remove-cancel'),
+    );
+    if (confirmed != true || !mounted) return;
+    await _runMutation(
+      () => MobileApi.instance.adminPaddonRemoveWip(
+        paddonCode: widget.code,
+        progressBatchId: batchId,
+      ),
+      confirmsApplied: (snapshot) => !snapshot.items.any(
+        (item) => item.batchId.trim() == batchId,
+      ),
+      fallbackMessage: context.l10n.productionText('worker.paddon.remove_failed'),
+    );
   }
 
   Future<void> _removeSelectedWips() async {

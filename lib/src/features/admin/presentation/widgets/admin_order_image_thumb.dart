@@ -17,12 +17,14 @@ class AdminOrderImageThumb extends StatelessWidget {
     required this.displayName,
     required this.heroTag,
     this.dimension = 30,
+    this.previewOnLongPress = true,
   });
 
   final String imageUrl;
   final String displayName;
   final String heroTag;
   final double dimension;
+  final bool previewOnLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -52,9 +54,10 @@ class AdminOrderImageThumb extends StatelessWidget {
           'worker.action.view_order_image',
         ),
         heroTag: heroTag,
-        previewOnLongPress: true,
+        previewOnLongPress: previewOnLongPress,
         previewFit: BoxFit.contain,
-        previewMaxScale: 8,
+        previewMaxScale: 64,
+        previewFullScreen: true,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: ImageFade(
@@ -164,7 +167,8 @@ class AdminOrderCoverImage extends StatelessWidget {
         heroTag: heroTag,
         previewOnLongPress: true,
         previewFit: BoxFit.contain,
-        previewMaxScale: 8,
+        previewMaxScale: 64,
+        previewFullScreen: true,
         // Aniq o'lcham beriladi: rasm ajratilgan joyni to'liq to'ldirib
         // (cover/zoom-crop) chiqadi, chetda bo'shliq qolmaydi.
         child: LayoutBuilder(
