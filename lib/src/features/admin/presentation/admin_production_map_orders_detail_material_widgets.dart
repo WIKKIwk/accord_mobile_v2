@@ -615,7 +615,7 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
                       key: ValueKey<String>(title),
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: highlightedForeground,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -664,7 +664,7 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
                                   color: highlighted
                                       ? highlightedForeground
                                       : scheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
@@ -677,7 +677,7 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
                                   color: highlighted
                                       ? highlightedForeground
                                       : scheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w400,
                                 ),
                               ),
                             ],
