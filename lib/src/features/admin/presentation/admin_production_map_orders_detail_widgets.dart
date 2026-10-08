@@ -247,7 +247,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                                         .labelSmall
                                         ?.copyWith(
                                           color: scheme.onSurfaceVariant,
-                                          fontWeight: FontWeight.w700,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                   ),
                                   Text(
@@ -259,7 +259,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleLarge
-                                        ?.copyWith(fontWeight: FontWeight.w900),
+                                        ?.copyWith(fontWeight: FontWeight.w700),
                                   ),
                                 ],
                               ),
@@ -931,7 +931,7 @@ class _OrderSummaryCard extends StatelessWidget {
                                 : 'worker.summary.expected.title',
                           ),
                           style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -941,7 +941,7 @@ class _OrderSummaryCard extends StatelessWidget {
                           ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
