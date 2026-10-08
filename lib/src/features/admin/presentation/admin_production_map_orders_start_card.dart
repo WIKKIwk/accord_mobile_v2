@@ -391,7 +391,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   materialStartBlockingText,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: scheme.onErrorContainer,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
@@ -758,7 +758,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   textStyle: workerMode
                       ? theme.textTheme.titleMedium?.copyWith(
                           fontSize: 22,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         )
                       : null,
                   shape: RoundedRectangleBorder(
@@ -860,7 +860,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                             textStyle: workerMode
                                 ? theme.textTheme.titleMedium?.copyWith(
                                     fontSize: 22,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w600,
                                   )
                                 : null,
                             shape: RoundedRectangleBorder(
