@@ -88,7 +88,7 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'ru': 'Сначала выполните расчёт',
   },
   'admin.calculate.order_opened': {
-    'uz': 'Zakaz ochildi: {order}',
+    'uz': 'Buyurtma ochildi: {order}',
     'en': 'Order opened: {order}',
     'ru': 'Заказ открыт: {order}',
   },

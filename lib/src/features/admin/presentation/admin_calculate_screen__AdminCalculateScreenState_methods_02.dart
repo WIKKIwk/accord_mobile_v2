@@ -83,6 +83,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           'calculate.order_opened',
           values: {'order': normalizedOrder},
         ),
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       if (!mounted) {
@@ -147,6 +148,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           values: {'order': result.saved.map.orderNumber},
         ),
         icon: Icons.check_circle_outline,
+        tone: AdminTopNoticeTone.success,
       );
       Navigator.of(context).pop(true);
     } catch (error) {
@@ -233,6 +235,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           values: {'order': saved.saved.map.orderNumber},
         ),
         icon: Icons.check_circle_outline,
+        tone: AdminTopNoticeTone.success,
       );
       Navigator.of(context).pop(true);
     } catch (error) {
