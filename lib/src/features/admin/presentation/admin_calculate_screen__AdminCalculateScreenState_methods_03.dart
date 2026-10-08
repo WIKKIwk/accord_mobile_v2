@@ -231,6 +231,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('calculate.product_select'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -238,6 +239,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('calculate.required_fields'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -284,6 +286,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('calculate.calculate_error'),
+        tone: AdminTopNoticeTone.error,
       );
     } finally {
       if (mounted) {
@@ -339,6 +342,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('calculate.image_upload_failed'),
+        tone: AdminTopNoticeTone.error,
       );
     } finally {
       if (mounted) {

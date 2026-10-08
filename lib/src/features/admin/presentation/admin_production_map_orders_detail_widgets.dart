@@ -633,6 +633,7 @@ class _TayyorlovFormulaButton extends StatelessWidget {
         context,
         loadError.toString(),
         anchorKey: noticeAnchorKey,
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -641,6 +642,7 @@ class _TayyorlovFormulaButton extends StatelessWidget {
         context,
         'Bu orderda sizga biriktirilgan homashyo topilmadi.',
         anchorKey: noticeAnchorKey,
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }

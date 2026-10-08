@@ -10,6 +10,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('calculate.calculate_first'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -18,12 +19,13 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('calculate.quick_map_unlinked'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
     final error = _templateValidationError();
     if (error != null) {
-      showAdminTopNotice(context, error);
+      showAdminTopNotice(context, error, tone: AdminTopNoticeTone.error);
       return;
     }
     final confirmed = await showProductionMapOrderConfirmationSheet(context);
@@ -98,6 +100,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
         error is MobileApiException
             ? error.message
             : context.l10n.adminText('calculate.order_open_failed'),
+        tone: AdminTopNoticeTone.error,
       );
     } finally {
       if (mounted) {
@@ -118,12 +121,13 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('calculate.calculate_first'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
     final error = _templateValidationError();
     if (error != null) {
-      showAdminTopNotice(context, error);
+      showAdminTopNotice(context, error, tone: AdminTopNoticeTone.error);
       return;
     }
     if (!mounted) {
@@ -158,6 +162,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           error is MobileApiException
               ? error.message
               : context.l10n.adminText('calculate.auto_open_failed'),
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {
@@ -175,6 +180,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('calculate.training_order_open_hint'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -182,12 +188,13 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('calculate.calculate_first'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
     final error = _templateValidationError();
     if (error != null) {
-      showAdminTopNotice(context, error);
+      showAdminTopNotice(context, error, tone: AdminTopNoticeTone.error);
       return;
     }
     final confirmed = await showProductionMapOrderConfirmationSheet(context);
@@ -245,6 +252,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           error is MobileApiException
               ? error.message
               : context.l10n.adminText('calculate.training_order_failed'),
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {
@@ -274,6 +282,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('calculate.quick_map_missing'),
+        tone: AdminTopNoticeTone.error,
       );
     }
   }

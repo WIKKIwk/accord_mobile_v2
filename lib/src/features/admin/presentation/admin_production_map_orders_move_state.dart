@@ -301,7 +301,7 @@ extension _AdminProductionMapOrdersMoveState
   void _cancelSequenceMoves(String apparatus, String message) {
     _sequenceRetryTimers.remove(apparatus)?.cancel();
     _updateScreenState(() => _pendingSequenceMoves.remove(apparatus));
-    showAdminTopNotice(context, message, icon: Icons.warning_amber_rounded);
+    showAdminTopNotice(context, message, icon: Icons.warning_amber_rounded, tone: AdminTopNoticeTone.error);
     _requestSequenceReconcile(apparatus);
   }
 
@@ -384,7 +384,7 @@ extension _AdminProductionMapOrdersMoveState
             showAdminTopNotice(context,
                 context.l10n.adminText('sequence.nearest_position',
                     values: {'position': position}),
-                icon: Icons.info_outline);
+                icon: Icons.info_outline, tone: AdminTopNoticeTone.success);
           }
           if (!stillCurrent) {
             _requestSequenceReconcile(apparatus);
@@ -416,7 +416,7 @@ extension _AdminProductionMapOrdersMoveState
             if (move.connectionFailures == 1) {
               showAdminTopNotice(context,
                   'Aloqa tiklangach, navbatdagi o‘zgarishlar saqlanadi.',
-                  icon: Icons.info_outline);
+                  icon: Icons.info_outline, tone: AdminTopNoticeTone.error);
             }
             final delay = 1 << min(move.connectionFailures - 1, 3);
             _sequenceRetryTimers.remove(apparatus)?.cancel();
@@ -501,6 +501,7 @@ extension _AdminProductionMapOrdersMoveState
       context,
       _adminActionErrorText(error, fallbackMessage),
       icon: Icons.warning_amber_rounded,
+      tone: AdminTopNoticeTone.error,
     );
     await _load();
   }
@@ -559,6 +560,7 @@ extension _AdminProductionMapOrdersMoveState
         context,
         context.l10n.adminText('production.move.invalid_target'),
         icon: Icons.warning_amber_rounded,
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -576,6 +578,7 @@ extension _AdminProductionMapOrdersMoveState
         context,
         context.l10n.adminText('production.move.in_progress'),
         icon: Icons.warning_amber_rounded,
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -660,6 +663,7 @@ extension _AdminProductionMapOrdersMoveState
       showAdminTopNotice(
         context,
         _moveOrdersSuccessText(context.l10n, orders.length),
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       await _resyncAfterMoveActionError(
@@ -685,6 +689,7 @@ extension _AdminProductionMapOrdersMoveState
         context,
         context.l10n.adminText('production.move.not_unassigned'),
         icon: Icons.warning_amber_rounded,
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -706,6 +711,7 @@ extension _AdminProductionMapOrdersMoveState
       showAdminTopNotice(
         context,
         _returnOrdersToUnassignedSuccessText(context.l10n, orders.length),
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       await _resyncAfterMoveActionError(
@@ -730,6 +736,7 @@ extension _AdminProductionMapOrdersMoveState
         context,
         context.l10n.adminText('production.move.invalid_target'),
         icon: Icons.warning_amber_rounded,
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -755,6 +762,7 @@ extension _AdminProductionMapOrdersMoveState
       showAdminTopNotice(
         context,
         _assignAlternativeOrdersSuccessText(context.l10n, orders.length),
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       await _resyncAfterMoveActionError(

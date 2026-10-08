@@ -17,6 +17,7 @@ extension __AdminTrainingScreenStateAstPart03 on _AdminTrainingScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('training.order_apparatus_missing'),
+        tone: AdminTopNoticeTone.error,
       );
       return null;
     }
@@ -29,6 +30,7 @@ extension __AdminTrainingScreenStateAstPart03 on _AdminTrainingScreenState {
         context,
         context.l10n.adminText('training.no_active_material'),
         icon: Icons.inventory_2_outlined,
+        tone: AdminTopNoticeTone.error,
       );
       return null;
     }
@@ -53,6 +55,7 @@ extension __AdminTrainingScreenStateAstPart03 on _AdminTrainingScreenState {
           showAdminTopNotice(
             context,
             context.l10n.adminText('training.printer_missing'),
+            tone: AdminTopNoticeTone.error,
           );
         }
         return null;
@@ -101,6 +104,7 @@ extension __AdminTrainingScreenStateAstPart03 on _AdminTrainingScreenState {
         context,
         context.l10n.adminText('training.material_linked'),
         icon: Icons.link_rounded,
+        tone: AdminTopNoticeTone.success,
       );
       return assignment;
     } catch (error) {
@@ -111,6 +115,7 @@ extension __AdminTrainingScreenStateAstPart03 on _AdminTrainingScreenState {
               ? error.message
               : context.l10n.adminText('training.material_link_failed'),
           icon: Icons.error_outline,
+          tone: AdminTopNoticeTone.error,
         );
       }
       return null;
@@ -171,6 +176,7 @@ extension __AdminTrainingScreenStateAstPart03 on _AdminTrainingScreenState {
         context,
         l10n.adminText('training.no_material_assigned'),
         icon: Icons.inventory_2_outlined,
+        tone: AdminTopNoticeTone.error,
       );
       return false;
     }
@@ -194,6 +200,7 @@ extension __AdminTrainingScreenStateAstPart03 on _AdminTrainingScreenState {
             context,
             l10n.adminText('training.printer_missing'),
             icon: Icons.print_disabled_outlined,
+            tone: AdminTopNoticeTone.error,
           );
         }
         return false;
@@ -213,6 +220,7 @@ extension __AdminTrainingScreenStateAstPart03 on _AdminTrainingScreenState {
           context,
           l10n.adminText('training.material_qolip_printed'),
           icon: Icons.print_rounded,
+          tone: AdminTopNoticeTone.success,
         );
       }
       return true;
@@ -227,6 +235,7 @@ extension __AdminTrainingScreenStateAstPart03 on _AdminTrainingScreenState {
               ? l10n.adminText('training.material_qolip_print_failed')
               : message,
           icon: Icons.error_outline,
+          tone: AdminTopNoticeTone.error,
         );
       }
       return false;

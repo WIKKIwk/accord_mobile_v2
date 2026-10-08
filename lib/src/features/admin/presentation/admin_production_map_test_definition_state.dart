@@ -144,7 +144,7 @@ extension _AdminProductionMapTestDefinitionState
           _savedOrderMapId = result.saved.map.id.trim();
           _orderNumber = result.saved.map.orderNumber.trim();
         }
-        showAdminTopNotice(context, 'Production map va zakaz saqlandi');
+        showAdminTopNotice(context, 'Production map va zakaz saqlandi', tone: AdminTopNoticeTone.success);
         if (widget.orderContext?.pendingOrderId.isNotEmpty ?? false) {
           Navigator.of(context).pop(savedTemplate);
           return;
@@ -160,7 +160,7 @@ extension _AdminProductionMapTestDefinitionState
           _savedOrderMapId = saved.map.id.trim();
           _orderNumber = saved.map.orderNumber.trim();
         }
-        showAdminTopNotice(context, 'Production map saqlandi');
+        showAdminTopNotice(context, 'Production map saqlandi', tone: AdminTopNoticeTone.success);
       }
     } catch (error) {
       if (!mounted) {
@@ -171,6 +171,7 @@ extension _AdminProductionMapTestDefinitionState
         error is MobileApiException
             ? error.message
             : 'Production map saqlanmadi',
+        tone: AdminTopNoticeTone.error,
       );
     } finally {
       if (mounted) {

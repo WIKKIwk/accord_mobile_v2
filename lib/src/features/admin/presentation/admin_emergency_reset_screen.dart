@@ -95,6 +95,7 @@ class _AdminEmergencyResetScreenState extends State<AdminEmergencyResetScreen> {
         context,
         l10n.adminText('emergency_reset.orders.completed'),
         icon: Icons.check_circle_outline_rounded,
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       if (!mounted) {
@@ -106,6 +107,7 @@ class _AdminEmergencyResetScreenState extends State<AdminEmergencyResetScreen> {
             ? error.message
             : l10n.adminText('emergency_reset.orders.failed'),
         icon: Icons.error_outline_rounded,
+        tone: AdminTopNoticeTone.error,
       );
     } finally {
       if (mounted) {

@@ -59,6 +59,7 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
             context,
             context.l10n.adminTelegramUserDeleted,
             icon: Icons.delete_outline_rounded,
+            tone: AdminTopNoticeTone.success,
           );
         }
       }
@@ -68,6 +69,7 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
           context,
           context.l10n.adminTelegramDeleteUserFailed,
           icon: Icons.error_outline_rounded,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }
@@ -99,6 +101,7 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
         context,
         context.l10n.adminTelegramSettingsSaved,
         icon: Icons.verified_rounded,
+        tone: AdminTopNoticeTone.success,
       );
     } catch (_) {
       if (mounted) {
@@ -106,6 +109,7 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
           context,
           context.l10n.adminTelegramSettingsSaveFailed,
           icon: Icons.error_outline_rounded,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }
@@ -139,6 +143,7 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
         context,
         context.l10n.adminTelegramSettingsSaved,
         icon: Icons.verified_rounded,
+        tone: AdminTopNoticeTone.success,
       );
     } catch (_) {
       if (mounted) {
@@ -146,6 +151,7 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
           context,
           context.l10n.adminTelegramSettingsSaveFailed,
           icon: Icons.error_outline_rounded,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }
@@ -158,11 +164,11 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
         return;
       }
       setState(() => _future = Future.value(updated));
-      showAdminTopNotice(context, context.l10n.adminTelegramSettingsSaved);
+      showAdminTopNotice(context, context.l10n.adminTelegramSettingsSaved, tone: AdminTopNoticeTone.success);
     } catch (_) {
       if (mounted) {
         showAdminTopNotice(
-            context, context.l10n.adminTelegramSettingsSaveFailed);
+            context, context.l10n.adminTelegramSettingsSaveFailed, tone: AdminTopNoticeTone.error);
       }
     }
   }
@@ -189,6 +195,7 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
           context,
           context.l10n.adminTelegramInviteFailed,
           icon: Icons.error_outline_rounded,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }
@@ -218,6 +225,7 @@ class _AdminTelegramScreenState extends State<AdminTelegramScreen> {
           context,
           context.l10n.adminTelegramInviteFailed,
           icon: Icons.error_outline_rounded,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }

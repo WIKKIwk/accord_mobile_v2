@@ -725,6 +725,7 @@ class _AdminProductionMapOrdersScreenState
         context.l10n.productionText(
           'worker.notice.completion_request_sent',
         ),
+        tone: AdminTopNoticeTone.success,
       );
     }
     // Catalog/history refreshes are not prerequisites for a queue mutation.
@@ -800,6 +801,7 @@ class _AdminProductionMapOrdersScreenState
         context,
         _workerFrozenOrderMessage(context.l10n, order.map.title),
         icon: Icons.warning_amber_rounded,
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -885,7 +887,7 @@ class _AdminProductionMapOrdersScreenState
             return;
           }
           showAdminTopNotice(context,
-              context.l10n.productionText('worker.error.other_order_lookup'));
+              context.l10n.productionText('worker.error.other_order_lookup'), tone: AdminTopNoticeTone.error);
           return;
         }
         if (mounted && result == true) unawaited(_refreshLive());
@@ -976,6 +978,7 @@ class _AdminProductionMapOrdersScreenState
                 : 'worker.error.wip_used',
           ),
           icon: Icons.warning_amber_rounded,
+          tone: AdminTopNoticeTone.error,
         );
         return;
       }
@@ -995,7 +998,7 @@ class _AdminProductionMapOrdersScreenState
       }
       if (targetMaps.isEmpty) {
         showAdminTopNotice(context,
-            context.l10n.productionText('worker.qr.order_unavailable'));
+            context.l10n.productionText('worker.qr.order_unavailable'), tone: AdminTopNoticeTone.error);
         return;
       }
       final targetOrder = targetMaps.first;
@@ -1043,6 +1046,7 @@ class _AdminProductionMapOrdersScreenState
           context,
           context.l10n.productionText('worker.error.assigned_machine'),
           icon: Icons.warning_amber_rounded,
+          tone: AdminTopNoticeTone.error,
         );
         return;
       }
@@ -1093,6 +1097,7 @@ class _AdminProductionMapOrdersScreenState
                 : '',
           ),
           icon: Icons.warning_amber_rounded,
+          tone: AdminTopNoticeTone.error,
         );
         return;
       }
@@ -1149,6 +1154,7 @@ class _AdminProductionMapOrdersScreenState
                 : '',
           ),
           icon: Icons.warning_amber_rounded,
+          tone: AdminTopNoticeTone.error,
         );
         return;
       }
@@ -1188,6 +1194,7 @@ class _AdminProductionMapOrdersScreenState
         context,
         _workerQrErrorText(error, orderTitle: orderTitle),
         icon: Icons.warning_amber_rounded,
+        tone: AdminTopNoticeTone.error,
       );
     }
   }
@@ -1356,6 +1363,7 @@ class _AdminProductionMapOrdersScreenState
                 )
               : context.l10n.productionText('worker.error.machine_roll'),
           icon: Icons.warning_amber_rounded,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }
@@ -1561,6 +1569,7 @@ class _AdminProductionMapOrdersScreenState
               ? error.message
               : context.l10n.adminText('production.open_failed'),
           icon: Icons.warning_amber_rounded,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }
@@ -1579,6 +1588,7 @@ class _AdminProductionMapOrdersScreenState
         context,
         context.l10n.productionText('worker.error.sync'),
         icon: Icons.warning_amber_rounded,
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -1707,7 +1717,7 @@ class _AdminProductionMapOrdersScreenState
                 error is MobileApiException
                     ? error.message
                     : 'Buyurtma yopilmadi',
-                icon: Icons.warning_amber_rounded);
+                icon: Icons.warning_amber_rounded, tone: AdminTopNoticeTone.error);
           return;
         }
         if (!mounted) return;
@@ -1731,7 +1741,7 @@ class _AdminProductionMapOrdersScreenState
             context,
             next == AdminOrderControlState.frozen
                 ? 'Buyurtma erta yopildi. Tarix Yopilganlar bo‘limida saqlandi.'
-                : 'Yopish so‘rovi yuborildi. Oxirgi rulon yechilishi kutilmoqda.');
+                : 'Yopish so‘rovi yuborildi. Oxirgi rulon yechilishi kutilmoqda.', tone: AdminTopNoticeTone.success);
         // Refresh helpers report their own read errors. They must not turn
         // an already accepted close into a "Buyurtma yopilmadi" notice.
         await _refreshLive();
@@ -1751,7 +1761,7 @@ class _AdminProductionMapOrdersScreenState
           builder: (_) => AdminCalculateScreen(openedOrder: source),
         ));
         if (mounted && saved == true) {
-          showAdminTopNotice(context, 'Buyurtma o‘zgarishlari saqlandi');
+          showAdminTopNotice(context, 'Buyurtma o‘zgarishlari saqlandi', tone: AdminTopNoticeTone.success);
           await _refreshLive();
         }
       } catch (error) {
@@ -1830,6 +1840,7 @@ class _AdminProductionMapOrdersScreenState
         context,
         context.l10n.productionText('worker.error.sync'),
         icon: Icons.warning_amber_rounded,
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -1878,6 +1889,7 @@ class _AdminProductionMapOrdersScreenState
           AdminOrderControlAction.unfreeze => 'Buyurtma aktiv holatga qaytdi',
           AdminOrderControlAction.delete => 'Buyurtma o‘chirildi',
         },
+        tone: AdminTopNoticeTone.success,
       );
       unawaited(_refreshLive());
     } catch (error) {
@@ -1888,6 +1900,7 @@ class _AdminProductionMapOrdersScreenState
               ? error.message
               : 'Buyurtma amali bajarilmadi',
           icon: Icons.warning_amber_rounded,
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {

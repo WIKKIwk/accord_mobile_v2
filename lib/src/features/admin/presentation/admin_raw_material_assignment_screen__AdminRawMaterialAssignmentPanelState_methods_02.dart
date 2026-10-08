@@ -155,6 +155,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
       showAdminTopNotice(
         context,
         context.l10n.adminText('raw_material.assigned'),
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       if (!mounted) {
@@ -165,6 +166,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
         error is MobileApiException
             ? error.message
             : context.l10n.adminText('raw_material.assign_failed'),
+        tone: AdminTopNoticeTone.error,
       );
       await _loadManualCandidates(force: true);
     } finally {
@@ -250,6 +252,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
       showAdminTopNotice(
         context,
         context.l10n.adminText('raw_material.unlinked'),
+        tone: AdminTopNoticeTone.success,
       );
       if (_manualCandidatesOrderId == assignment.orderId.trim()) {
         await _loadManualCandidates(force: true);
@@ -263,6 +266,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
         error is MobileApiException
             ? error.message
             : context.l10n.adminText('raw_material.unlink_failed'),
+        tone: AdminTopNoticeTone.error,
       );
     } finally {
       if (mounted) {

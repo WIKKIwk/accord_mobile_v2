@@ -197,6 +197,7 @@ class _WorkerCreateDialogCardState extends State<_WorkerCreateDialogCard> {
           context,
           context.l10n.adminText('worker.add_failed'),
           icon: Icons.error,
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {
@@ -358,6 +359,7 @@ class _WorkerNameEditDialogCardState extends State<_WorkerNameEditDialogCard> {
           context,
           context.l10n.adminText('worker.name_save_failed'),
           icon: Icons.error,
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {

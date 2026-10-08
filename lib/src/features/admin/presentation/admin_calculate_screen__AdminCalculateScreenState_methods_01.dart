@@ -235,12 +235,13 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('calculate.calculate_first'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
     final error = _templateValidationError();
     if (error != null) {
-      showAdminTopNotice(context, error);
+      showAdminTopNotice(context, error, tone: AdminTopNoticeTone.error);
       return;
     }
     if (!mounted) {
@@ -272,6 +273,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
           showAdminTopNotice(
             context,
             context.l10n.adminText('calculate.quick_map_load_failed'),
+            tone: AdminTopNoticeTone.error,
           );
         }
         return;
@@ -307,6 +309,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('calculate.quick_map_unlinked'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -331,6 +334,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
           showAdminTopNotice(
             context,
             context.l10n.adminText('calculate.quick_map_load_failed'),
+            tone: AdminTopNoticeTone.error,
           );
         }
       }

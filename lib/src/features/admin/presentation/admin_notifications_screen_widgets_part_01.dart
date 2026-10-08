@@ -141,13 +141,14 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
             _requests.where((item) => item.eventId.trim() != eventId).toList();
         _expandedRequestId = null;
       });
-      showAdminTopNotice(context, result.message);
+      showAdminTopNotice(context, result.message, tone: AdminTopNoticeTone.success);
       unawaited(_load());
     } catch (_) {
       if (mounted) {
         showAdminTopNotice(
           context,
           context.l10n.adminText('notification.completion_failed'),
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {

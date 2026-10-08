@@ -964,6 +964,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (mounted) {
         _showSheetNotice(
           context.l10n.productionText('worker.material.unlink.success'),
+          tone: AdminTopNoticeTone.success,
         );
       }
     } on MobileApiException catch (error) {
@@ -1172,6 +1173,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (mounted && completed) {
       _showSheetNotice(
         context.l10n.productionText('worker.freeze.print_preflight.success'),
+        tone: AdminTopNoticeTone.success,
       );
     }
     return completed;
@@ -1239,7 +1241,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       unawaited(_refreshQueueActionControlAfterWrite());
       _showSheetNotice(error is TimeoutException
           ? context.l10n.productionText('worker.notice.action_sent')
-          : _sheetActionErrorText(error));
+          : _sheetActionErrorText(error), tone: error is TimeoutException ? AdminTopNoticeTone.success : AdminTopNoticeTone.error);
       return null;
     }
   }
@@ -1443,7 +1445,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           unawaited(_loadInputProgressBatches());
           return true;
         }
-        _showSheetNotice(l10n.productionText('worker.notice.action_sent'));
+        _showSheetNotice(l10n.productionText('worker.notice.action_sent'), tone: AdminTopNoticeTone.success);
         return false;
       }
       if (!mounted) {
@@ -1472,6 +1474,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         error is TimeoutException
             ? context.l10n.productionText('worker.notice.action_sent')
             : _sheetActionErrorText(error),
+        tone: error is TimeoutException ? AdminTopNoticeTone.success : AdminTopNoticeTone.error,
       );
       return false;
     } finally {
@@ -1653,6 +1656,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           _showSheetNotice(
             context.l10n
                 .productionText('worker.notice.merge_complete', values: labels),
+            tone: AdminTopNoticeTone.success,
           );
         }
         _showQuickScanFeedback(
@@ -2184,6 +2188,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         setState(() => _actionInFlight = false);
         _showSheetNotice(
           context.l10n.productionText('worker.notice.astatka_recorded'),
+          tone: AdminTopNoticeTone.success,
         );
       }
       return _ProgressActionOutcome.completed;
@@ -2368,6 +2373,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           context.l10n.productionText(
             'worker.freeze.safe_stop.issue_success',
           ),
+          tone: AdminTopNoticeTone.success,
         );
       }
       return completed
@@ -2455,6 +2461,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         context.l10n.productionText(
           'worker.freeze.safe_stop.healthy_success',
         ),
+        tone: AdminTopNoticeTone.success,
       );
     }
     if (completed && action == 'complete') {
@@ -2555,6 +2562,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           'worker.notice.material_received_short',
           values: {'qty': quantityLabel},
         ),
+        tone: AdminTopNoticeTone.success,
       );
       return true;
     } catch (error) {
@@ -2746,11 +2754,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     );
   }
 
-  void _showSheetNotice(String message) {
+  void _showSheetNotice(
+    String message, {
+    AdminTopNoticeTone tone = AdminTopNoticeTone.error,
+  }) {
     showAdminTopNotice(
       context,
       message,
       anchorKey: _noticeAnchorKey,
+      tone: tone,
     );
   }
 

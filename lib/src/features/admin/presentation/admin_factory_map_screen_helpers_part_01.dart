@@ -174,7 +174,7 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
     }
     if (factoryMapObjectOwners(_apparatus, selection.objectId).length > 1) {
       showAdminTopNotice(
-          context, context.l10n.adminText('factory_map.binding_duplicate'));
+          context, context.l10n.adminText('factory_map.binding_duplicate'), tone: AdminTopNoticeTone.error);
       return;
     }
     final mapped = resolveFactoryMapApparatus(_apparatus, selection.objectId);
@@ -183,6 +183,7 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
         showAdminTopNotice(
           context,
           context.l10n.adminText('factory_map.legacy_object_binding'),
+          tone: AdminTopNoticeTone.error,
         );
         return;
       }
@@ -275,6 +276,7 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
         context.l10n.adminText(normalized.isEmpty
             ? 'apparatus.map_removed'
             : 'apparatus.map_assigned'),
+        tone: AdminTopNoticeTone.success,
       );
       return saved;
     } catch (error) {
@@ -286,6 +288,7 @@ class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen>
               : error is MobileApiException
                   ? error.message
                   : context.l10n.adminText('apparatus.map_save_failed'),
+          tone: AdminTopNoticeTone.error,
         );
       }
       return null;

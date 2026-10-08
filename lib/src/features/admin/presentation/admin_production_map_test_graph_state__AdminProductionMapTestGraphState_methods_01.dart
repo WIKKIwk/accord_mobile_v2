@@ -50,7 +50,7 @@ extension __AdminProductionMapTestGraphStateAstPart01
       return;
     }
     if (compatible.isEmpty) {
-      showAdminTopNotice(context, 'Mos aparat topilmadi');
+      showAdminTopNotice(context, 'Mos aparat topilmadi', tone: AdminTopNoticeTone.error);
       return;
     }
     final picked = await showModalBottomSheet<_ApparatusGroupPickResult>(
@@ -149,6 +149,7 @@ extension __AdminProductionMapTestGraphStateAstPart01
             showAdminTopNotice(
               context,
               'Tanlangan aparat aniqlanmadi. Mapni qayta oching.',
+              tone: AdminTopNoticeTone.error,
             );
             return;
           }

@@ -25,7 +25,7 @@ extension __AdminProductionMapTestGraphStateAstPart03
         }
       } catch (_) {
         if (mounted) {
-          showAdminTopNotice(context, 'Buyurtma kadrlarini yuklab bo‘lmadi. Qayta urinib ko‘ring.');
+          showAdminTopNotice(context, 'Buyurtma kadrlarini yuklab bo‘lmadi. Qayta urinib ko‘ring.', tone: AdminTopNoticeTone.error);
         }
         return null;
       }

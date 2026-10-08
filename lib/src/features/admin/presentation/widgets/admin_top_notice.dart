@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-enum AdminTopNoticeTone { neutral, success, error }
+enum AdminTopNoticeTone { success, error }
 
 _AdminTopNoticeHandle? _currentAdminTopNotice;
 
@@ -39,7 +39,7 @@ void showAdminTopNotice(
   String message, {
   IconData? icon,
   GlobalKey? anchorKey,
-  AdminTopNoticeTone tone = AdminTopNoticeTone.neutral,
+  required AdminTopNoticeTone tone,
 }) {
   _currentAdminTopNotice?.close();
   _currentAdminTopNotice = null;
@@ -130,7 +130,7 @@ MaterialBanner _adminNoticeBanner(
   BuildContext context,
   String message, {
   IconData? icon,
-  AdminTopNoticeTone tone = AdminTopNoticeTone.neutral,
+  required AdminTopNoticeTone tone,
 }) {
   const successBackground = Color(0xFFE6F4EA);
   const successForeground = Color(0xFF173A24);
@@ -141,8 +141,6 @@ MaterialBanner _adminNoticeBanner(
     backgroundColor: switch (tone) {
       AdminTopNoticeTone.success => successBackground,
       AdminTopNoticeTone.error => errorBackground,
-      AdminTopNoticeTone.neutral =>
-        Theme.of(context).colorScheme.surfaceContainerHighest,
     },
     surfaceTintColor: Colors.transparent,
     shadowColor: Colors.transparent,
@@ -154,8 +152,6 @@ MaterialBanner _adminNoticeBanner(
           color: switch (tone) {
             AdminTopNoticeTone.success => successForeground,
             AdminTopNoticeTone.error => errorForeground,
-            AdminTopNoticeTone.neutral =>
-              Theme.of(context).colorScheme.onSurface,
           },
         ),
     actions: const [SizedBox.shrink()],

@@ -92,6 +92,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
       showAdminTopNotice(
         context,
         context.l10n.adminText('raw_material.groups_not_found'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -129,6 +130,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
       showAdminTopNotice(
         context,
         context.l10n.adminText('raw_material.apparatus_group_required'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -156,6 +158,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
       showAdminTopNotice(
         context,
         context.l10n.adminText('raw_material.rule_saved'),
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       if (!mounted) {
@@ -166,6 +169,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
         error is MobileApiException
             ? error.message
             : context.l10n.adminText('raw_material.rule_save_failed'),
+        tone: AdminTopNoticeTone.error,
       );
     } finally {
       if (mounted) {
@@ -183,6 +187,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
       showAdminTopNotice(
         context,
         context.l10n.adminText('raw_material.save_rule_first'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -204,6 +209,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
           context,
           context.l10n.adminText('raw_material.requirement_save_failed'),
           icon: Icons.error_rounded,
+          tone: AdminTopNoticeTone.error,
         );
         return;
       }
@@ -213,6 +219,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
       showAdminTopNotice(
         context,
         context.l10n.adminText('raw_material.requirement_saved'),
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       if (!mounted) {
@@ -225,6 +232,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
             : context.l10n.adminText(
                 'raw_material.requirement_save_failed_short',
               ),
+        tone: AdminTopNoticeTone.error,
       );
     } finally {
       if (mounted) {

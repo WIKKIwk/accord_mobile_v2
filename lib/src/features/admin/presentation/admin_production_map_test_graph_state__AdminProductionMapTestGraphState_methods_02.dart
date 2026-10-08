@@ -209,7 +209,7 @@ extension __AdminProductionMapTestGraphStateAstPart02
       final groupId = node.alternativeGroupId.trim();
       if (groupId.isNotEmpty && nodes.any((item) =>
           item.alternativeGroupId.trim() == groupId && _isNodeLocked(item.id))) {
-        showAdminTopNotice(context, 'Ish boshlangan Rezka guruhi sozlamasini o‘zgartirib bo‘lmaydi.');
+        showAdminTopNotice(context, 'Ish boshlangan Rezka guruhi sozlamasini o‘zgartirib bo‘lmaydi.', tone: AdminTopNoticeTone.error);
         return;
       }
       final edited = await _showRezkaEditSheet(node);
@@ -375,7 +375,7 @@ extension __AdminProductionMapTestGraphStateAstPart02
             enabled: !_apparatusGroupBlocked(group),
             onTap: () => _runMapToolAction(() {
               if (_apparatusGroupBlocked(group)) {
-                showAdminTopNotice(context, _laminatsiyaOversizeMessage);
+                showAdminTopNotice(context, _laminatsiyaOversizeMessage, tone: AdminTopNoticeTone.error);
                 return;
               }
               unawaited(_addApparatusGroup(group));

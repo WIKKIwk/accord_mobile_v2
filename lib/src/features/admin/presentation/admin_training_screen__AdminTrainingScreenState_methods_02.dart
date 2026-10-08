@@ -29,6 +29,7 @@ extension __AdminTrainingScreenStateAstPart02 on _AdminTrainingScreenState {
         context,
         l10n.adminText('training.batch_created'),
         icon: Icons.qr_code_2_rounded,
+        tone: AdminTopNoticeTone.success,
       );
       return batch;
     } catch (error) {
@@ -39,6 +40,7 @@ extension __AdminTrainingScreenStateAstPart02 on _AdminTrainingScreenState {
               ? error.message
               : l10n.adminText('training.batch_create_failed'),
           icon: Icons.error_outline,
+          tone: AdminTopNoticeTone.error,
         );
       }
       return null;
@@ -123,6 +125,7 @@ extension __AdminTrainingScreenStateAstPart02 on _AdminTrainingScreenState {
       context,
       context.l10n.adminText('training.batch_deleted'),
       icon: Icons.delete_outline_rounded,
+      tone: AdminTopNoticeTone.success,
     );
   }
 
@@ -204,6 +207,7 @@ extension __AdminTrainingScreenStateAstPart02 on _AdminTrainingScreenState {
         context,
         context.l10n.adminText('training.material_deleted'),
         icon: Icons.link_off_rounded,
+        tone: AdminTopNoticeTone.success,
       );
       return true;
     } catch (error) {
@@ -214,6 +218,7 @@ extension __AdminTrainingScreenStateAstPart02 on _AdminTrainingScreenState {
               ? error.message
               : context.l10n.adminText('training.material_delete_failed'),
           icon: Icons.error_outline,
+          tone: AdminTopNoticeTone.error,
         );
       }
       return false;

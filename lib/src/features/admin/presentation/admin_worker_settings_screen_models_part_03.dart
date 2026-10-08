@@ -78,6 +78,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
           context,
           context.l10n.adminText('worker.group_load_failed'),
           icon: Icons.error,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }
@@ -101,6 +102,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
           context,
           context.l10n.adminText('worker.load_failed'),
           icon: Icons.error,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }
@@ -144,6 +146,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
           context,
           context.l10n.adminText('worker.group_load_failed'),
           icon: Icons.error,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }
@@ -256,6 +259,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
           'worker.group_saved',
           values: {'code': saved.groupCode},
         ),
+        tone: AdminTopNoticeTone.success,
       );
       await _loadGroups();
     } catch (_) {
@@ -267,6 +271,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
             values: {'code': code},
           ),
           icon: Icons.error,
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {

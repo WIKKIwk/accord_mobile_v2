@@ -132,6 +132,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
                 showAdminTopNotice(
                   context,
                   context.l10n.adminText('apparatus.kind_required'),
+                  tone: AdminTopNoticeTone.error,
                 );
                 return;
               }
@@ -156,6 +157,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
                       'max': _options.colorStationsMax,
                     },
                   ),
+                  tone: AdminTopNoticeTone.error,
                 );
                 return;
               }
@@ -198,6 +200,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
                             ? 'apparatus.added'
                             : 'apparatus.master_saved',
                       ),
+                  tone: AdminTopNoticeTone.success,
                 );
               } catch (error) {
                 if (mounted) {
@@ -206,6 +209,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
                     error is MobileApiException
                         ? error.message
                         : this.context.l10n.adminText('apparatus.add_failed'),
+                    tone: AdminTopNoticeTone.error,
                   );
                 }
               } finally {
@@ -380,6 +384,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
               ? 'apparatus.map_removed'
               : 'apparatus.map_assigned',
         ),
+        tone: AdminTopNoticeTone.success,
       );
       return saved;
     } catch (error) {
@@ -391,6 +396,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
               : error is MobileApiException
                   ? error.message
                   : context.l10n.adminText('apparatus.map_save_failed'),
+          tone: AdminTopNoticeTone.error,
         );
       }
       return null;

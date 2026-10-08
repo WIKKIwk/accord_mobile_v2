@@ -171,6 +171,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
       showAdminTopNotice(
         context,
         context.l10n.adminText('capacity.value_invalid'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -178,6 +179,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
       showAdminTopNotice(
         context,
         context.l10n.adminText('capacity.window_invalid'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -209,10 +211,11 @@ extension __AdminApparatusCapacityPanelStateAstPart01
         showAdminTopNotice(
           context,
           context.l10n.adminText('capacity.profile_saved'),
+          tone: AdminTopNoticeTone.success,
         );
       }
     } catch (error) {
-      if (mounted) showAdminTopNotice(context, _errorMessage(error));
+      if (mounted) showAdminTopNotice(context, _errorMessage(error), tone: AdminTopNoticeTone.error);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -229,6 +232,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
       showAdminTopNotice(
         context,
         context.l10n.adminText('capacity.order_required'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -258,10 +262,11 @@ extension __AdminApparatusCapacityPanelStateAstPart01
         showAdminTopNotice(
           context,
           context.l10n.adminText('capacity.order_scheduled'),
+          tone: AdminTopNoticeTone.success,
         );
       }
     } catch (error) {
-      if (mounted) showAdminTopNotice(context, _errorMessage(error));
+      if (mounted) showAdminTopNotice(context, _errorMessage(error), tone: AdminTopNoticeTone.error);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -277,7 +282,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
       );
       await _load(showLoading: false);
     } catch (error) {
-      if (mounted) showAdminTopNotice(context, _errorMessage(error));
+      if (mounted) showAdminTopNotice(context, _errorMessage(error), tone: AdminTopNoticeTone.error);
     }
   }
 
@@ -313,6 +318,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
       showAdminTopNotice(
         context,
         context.l10n.adminText('capacity.downtime_required'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -336,10 +342,11 @@ extension __AdminApparatusCapacityPanelStateAstPart01
         showAdminTopNotice(
           context,
           context.l10n.adminText('capacity.downtime_saved'),
+          tone: AdminTopNoticeTone.success,
         );
       }
     } catch (error) {
-      if (mounted) showAdminTopNotice(context, _errorMessage(error));
+      if (mounted) showAdminTopNotice(context, _errorMessage(error), tone: AdminTopNoticeTone.error);
     }
   }
 

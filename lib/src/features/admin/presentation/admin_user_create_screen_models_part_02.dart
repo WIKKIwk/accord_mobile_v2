@@ -150,6 +150,7 @@ class _SupplierCreateTabState extends State<_SupplierCreateTab> {
       showAdminTopNotice(
         context,
         context.l10n.adminText('user.supplier_created'),
+        tone: AdminTopNoticeTone.success,
       );
       await _showIssuedCode(context, supplier.code);
     } catch (_) {
@@ -157,6 +158,7 @@ class _SupplierCreateTabState extends State<_SupplierCreateTab> {
         showAdminTopNotice(
           context,
           context.l10n.adminText('user.supplier_create_failed'),
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {
@@ -271,6 +273,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
       showAdminTopNotice(
         context,
         context.l10n.adminText('user.minimum_apparatus'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -278,6 +281,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
       showAdminTopNotice(
         context,
         context.l10n.adminText('user.minimum_item_group'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -352,6 +356,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
       showAdminTopNotice(
         context,
         context.l10n.adminText('user.created'),
+        tone: AdminTopNoticeTone.success,
       );
       await _showIssuedCode(context, issuedCode);
     } catch (error) {
@@ -359,6 +364,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
         showAdminTopNotice(
           context,
           _adminCreateErrorMessage(error, context.l10n),
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {

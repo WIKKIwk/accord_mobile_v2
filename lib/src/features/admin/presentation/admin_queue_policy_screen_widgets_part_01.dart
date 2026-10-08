@@ -162,6 +162,7 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
         error is MobileApiException
             ? error.message
             : context.l10n.adminText('queue.save_failed'),
+        tone: AdminTopNoticeTone.error,
       );
     } finally {
       if (mounted) {

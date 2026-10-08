@@ -158,6 +158,7 @@ class _AdminItemGroupParentMovePanelState
           'item_group.parent_updated',
           values: {'name': moved.itemGroupName},
         ),
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       if (!mounted) {

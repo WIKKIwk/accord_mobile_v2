@@ -76,6 +76,7 @@ class _AdminCalculateOrdersScreenState
     showAdminTopNotice(
       context,
       context.l10n.adminText('calculate.saved_deleted'),
+      tone: AdminTopNoticeTone.success,
     );
   }
 

@@ -304,12 +304,14 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
       showAdminTopNotice(
         context,
         context.l10n.adminText('user.warehouse_saved'),
+        tone: AdminTopNoticeTone.success,
       );
     } catch (_) {
       if (mounted) {
         showAdminTopNotice(
           context,
           context.l10n.adminText('user.warehouse_save_failed'),
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {
@@ -333,12 +335,14 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
       showAdminTopNotice(
         context,
         context.l10n.adminText('user.warehouse_code_updated'),
+        tone: AdminTopNoticeTone.success,
       );
     } catch (_) {
       if (mounted) {
         showAdminTopNotice(
           context,
           context.l10n.adminText('user.code_update_failed'),
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {
@@ -353,7 +357,7 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
     if (!mounted) {
       return;
     }
-    showAdminTopNotice(context, context.l10n.adminText('user.code_copied'));
+    showAdminTopNotice(context, context.l10n.adminText('user.code_copied'), tone: AdminTopNoticeTone.success);
   }
 
   @override

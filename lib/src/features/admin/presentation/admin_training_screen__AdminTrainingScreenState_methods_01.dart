@@ -162,12 +162,14 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
         enabled
             ? context.l10n.adminText('training.enabled')
             : context.l10n.adminText('training.disabled'),
+        tone: AdminTopNoticeTone.success,
       );
     } catch (_) {
       if (mounted) {
         showAdminTopNotice(
           context,
           context.l10n.adminText('training.save_failed'),
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {
@@ -211,6 +213,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
           values: {'apparatus': apparatus.name},
         ),
         icon: Icons.restart_alt_rounded,
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       if (mounted) {
@@ -220,6 +223,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
               ? error.message
               : context.l10n.adminText('training.restart_failed'),
           icon: Icons.error_outline,
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {
@@ -237,6 +241,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('training.enable_first'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -262,6 +267,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
               ? error.message
               : context.l10n.adminText('training.order_page_failed'),
           icon: Icons.error_outline,
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {
@@ -280,6 +286,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
         context,
         context.l10n.adminText('training.enable_one'),
         icon: Icons.school_outlined,
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -379,6 +386,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
         context,
         l10n.adminText('training.order_deleted'),
         icon: Icons.check_circle_outline,
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       if (mounted) {
@@ -388,6 +396,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
               ? error.message
               : l10n.adminText('training.order_delete_failed'),
           icon: Icons.error_outline,
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {

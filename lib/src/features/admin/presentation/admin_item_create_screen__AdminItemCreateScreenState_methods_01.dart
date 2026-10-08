@@ -72,6 +72,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
         showAdminTopNotice(
           context,
           context.l10n.adminText('item.uom_load_failed'),
+          tone: AdminTopNoticeTone.error,
         );
       }
       return false;
@@ -90,6 +91,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('item.uom_required'),
+        tone: AdminTopNoticeTone.error,
       );
       return false;
     }
@@ -100,6 +102,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('item.name_required'),
+        tone: AdminTopNoticeTone.error,
       );
       return false;
     }
@@ -107,6 +110,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
       showAdminTopNotice(
         context,
         context.l10n.adminText('item.customer_required'),
+        tone: AdminTopNoticeTone.error,
       );
       return false;
     }
@@ -117,6 +121,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
           showAdminTopNotice(
             context,
             context.l10n.adminText('item.already_exists'),
+            tone: AdminTopNoticeTone.error,
           );
         }
         return false;
@@ -145,6 +150,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
           'item.created',
           values: {'name': item.name},
         ),
+        tone: AdminTopNoticeTone.success,
       );
       return true;
     } catch (error) {
@@ -154,6 +160,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
           error is MobileApiException
               ? error.message
               : context.l10n.adminText('item.create_failed'),
+          tone: AdminTopNoticeTone.error,
         );
       }
       return false;

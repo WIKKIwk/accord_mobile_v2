@@ -113,6 +113,7 @@ class _AdminItemGroupCreateScreenState extends State<AdminItemGroupCreateScreen>
                   'item_group.saved',
                   values: {'name': group.name},
                 ),
+                tone: AdminTopNoticeTone.success,
               );
             },
             onClose: () => Navigator.of(dialogContext).pop(),

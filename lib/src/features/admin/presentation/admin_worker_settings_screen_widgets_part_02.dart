@@ -59,6 +59,7 @@ class _WorkerGroupCreateDialogCardState
               'worker.group_already_exists',
               values: {'code': code},
             ),
+            tone: AdminTopNoticeTone.error,
           );
         }
         return;
@@ -79,6 +80,7 @@ class _WorkerGroupCreateDialogCardState
             values: {'code': code},
           ),
           icon: Icons.error,
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {

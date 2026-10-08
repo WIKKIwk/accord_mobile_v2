@@ -15,6 +15,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
         context,
         context.l10n.adminText('worker.load_failed'),
         icon: Icons.error,
+        tone: AdminTopNoticeTone.error,
       );
     });
   }
@@ -99,6 +100,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
                   'scope.already_assigned',
                   values: {'apparatus': assignedLabels.join(', ')},
                 ),
+          tone: AdminTopNoticeTone.success,
         );
       }
       return true;
@@ -118,7 +120,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
         ),
       );
       if (mounted) {
-        showAdminTopNotice(context, context.l10n.adminText('scope.saved'));
+        showAdminTopNotice(context, context.l10n.adminText('scope.saved'), tone: AdminTopNoticeTone.success);
         setState(() {
           _future = _load();
         });
@@ -133,6 +135,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
             values: {'error': error},
           ),
           icon: Icons.error,
+          tone: AdminTopNoticeTone.error,
         );
       }
       return false;
@@ -157,6 +160,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
         showAdminTopNotice(
           context,
           context.l10n.adminText('worker.level_saved'),
+          tone: AdminTopNoticeTone.success,
         );
       }
     } catch (_) {
@@ -165,6 +169,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
           context,
           context.l10n.adminText('worker.level_save_failed'),
           icon: Icons.error,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }
@@ -191,6 +196,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
               showAdminTopNotice(
                 context,
                 context.l10n.adminText('worker.name_saved'),
+                tone: AdminTopNoticeTone.success,
               );
             },
             onClose: () => Navigator.of(dialogContext).pop(),
@@ -261,6 +267,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
               showAdminTopNotice(
                 context,
                 context.l10n.adminText('worker.saved'),
+                tone: AdminTopNoticeTone.success,
               );
             },
             onClose: () => Navigator.of(dialogContext).pop(),
@@ -278,6 +285,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
         context,
         context.l10n.adminText('worker.load_failed'),
         icon: Icons.error,
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -298,6 +306,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
               showAdminTopNotice(
                 context,
                 context.l10n.adminText('worker.group_created'),
+                tone: AdminTopNoticeTone.success,
               );
             },
             onClose: () => Navigator.of(dialogContext).pop(),
@@ -345,6 +354,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
       showAdminTopNotice(
         context,
         context.l10n.adminText('worker.deactivated'),
+        tone: AdminTopNoticeTone.success,
       );
     } on AdminWorkerDeletionRejected catch (error) {
       if (!mounted) {
@@ -361,11 +371,12 @@ extension __AdminWorkerSettingsScreenStateAstPart01
           context,
           context.l10n.adminText('worker.connections_changed'),
           icon: Icons.error,
+          tone: AdminTopNoticeTone.error,
         );
       }
     } on MobileApiException catch (error) {
       if (mounted) {
-        showAdminTopNotice(context, error.message, icon: Icons.error);
+        showAdminTopNotice(context, error.message, icon: Icons.error, tone: AdminTopNoticeTone.error);
       }
     } catch (_) {
       if (mounted) {
@@ -373,6 +384,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
           context,
           context.l10n.adminText('worker.deactivation_failed'),
           icon: Icons.error,
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {

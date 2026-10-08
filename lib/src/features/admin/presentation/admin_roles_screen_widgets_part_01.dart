@@ -80,6 +80,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
           context,
           context.l10n.serverDisconnectedRetry,
           icon: Icons.error_outline,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }
@@ -116,6 +117,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
         context,
         context.l10n.adminRoleSaved,
         icon: Icons.verified_user,
+        tone: AdminTopNoticeTone.success,
       );
     } catch (_) {
       if (mounted) {
@@ -123,6 +125,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
           context,
           context.l10n.adminRoleSaveFailed,
           icon: Icons.error,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }
@@ -162,6 +165,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
         context,
         context.l10n.adminRoleAssigned,
         icon: Icons.assignment_turned_in_outlined,
+        tone: AdminTopNoticeTone.success,
       );
     } catch (_) {
       if (mounted) {
@@ -169,6 +173,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
           context,
           context.l10n.adminRoleAssignFailed,
           icon: Icons.error,
+          tone: AdminTopNoticeTone.error,
         );
       }
     }

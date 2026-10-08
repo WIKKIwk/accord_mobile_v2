@@ -1022,6 +1022,7 @@ extension _AdminProductionMapOrdersLiveState
         context,
         _completionRejectedNoticeText(decision),
         icon: Icons.warning_amber_rounded,
+        tone: AdminTopNoticeTone.error,
       );
     }
   }

@@ -401,6 +401,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
       showAdminTopNotice(
         context,
         context.l10n.adminText('raw_material.order_scan_required'),
+        tone: AdminTopNoticeTone.error,
       );
       return;
     }
@@ -429,6 +430,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
       showAdminTopNotice(
         context,
         context.l10n.adminText('raw_material.assigned'),
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       if (!mounted) {
@@ -439,6 +441,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
         error is MobileApiException
             ? error.message
             : context.l10n.adminText('raw_material.assign_failed'),
+        tone: AdminTopNoticeTone.error,
       );
     } finally {
       if (mounted) {

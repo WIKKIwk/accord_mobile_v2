@@ -23,6 +23,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
               ? 'apparatus.training_enabled'
               : 'apparatus.training_disabled',
         ),
+        tone: AdminTopNoticeTone.success,
       );
       return saved;
     } catch (error) {
@@ -32,6 +33,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
           error is MobileApiException
               ? error.message
               : context.l10n.adminText('apparatus.training_save_failed'),
+          tone: AdminTopNoticeTone.error,
         );
       }
       return null;
@@ -149,6 +151,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
                           ? 'apparatus.group_added'
                           : 'apparatus.group_updated',
                     ),
+                tone: AdminTopNoticeTone.success,
               );
             } catch (error) {
               if (mounted) {
@@ -159,6 +162,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
                       : this.context.l10n.adminText(
                             'apparatus.group_save_failed',
                           ),
+                  tone: AdminTopNoticeTone.error,
                 );
               }
             } finally {
@@ -306,6 +310,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
       showAdminTopNotice(
         context,
         context.l10n.adminText('apparatus.group_deleted'),
+        tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
       if (mounted) {
@@ -314,6 +319,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
           error is MobileApiException
               ? error.message
               : context.l10n.adminText('apparatus.group_delete_failed'),
+          tone: AdminTopNoticeTone.error,
         );
       }
     } finally {
