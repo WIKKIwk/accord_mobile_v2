@@ -48,8 +48,16 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen> {
   void initState() {
     super.initState();
     _itemsSearchFocusNode.addListener(_handleItemsSearchFocus);
+    itemGroup.text = widget.initialItemGroup.trim();
     itemGroupsFuture = _loadItemGroups();
     itemUomsFuture = _loadItemUoms();
+    if (widget.openCreateDialog) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(_openItemCreateDialog());
+        }
+      });
+    }
   }
 
   @override

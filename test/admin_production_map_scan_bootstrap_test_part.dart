@@ -209,10 +209,10 @@ void _registerScanBootstrapTests() {
             await tester.pumpAndSettle();
             expect(requests.where(_scanDetailRequest), hasLength(1));
             expect(requests.where((r) => r.method == 'POST'), isEmpty);
-            if (change != 'token') {
+            if (change != 'token' && change != 'live') {
               _expectNoScanBootstrapData(tester);
             }
-            if (change == 'token') {
+            if (change == 'token' || change == 'live') {
               _expectScanBootstrapLoaded(tester);
             }
             await tester.pumpWidget(const SizedBox.shrink());
@@ -231,7 +231,7 @@ void _registerScanBootstrapTests() {
     );
   }
   testWidgets(
-    'scan bootstrap late fallback cannot overwrite newer live state',
+    'scan bootstrap late fallback survives unchanged target at newer live revision',
     (tester) async {
       final fixture = await _prepareScanBootstrapFixture(tester);
       final pending = Completer<http.Response>();
@@ -246,7 +246,7 @@ void _registerScanBootstrapTests() {
           await tester.pump();
           pending.complete(http.Response(jsonEncode(scanMaterials()), 200));
           await tester.pumpAndSettle();
-          _expectNoScanBootstrapData(tester);
+          _expectScanBootstrapLoaded(tester);
           expect(requests.where((r) => r.method == 'POST'), isEmpty);
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.pump();

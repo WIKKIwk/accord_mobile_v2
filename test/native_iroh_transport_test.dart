@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io' show gzip;
 import 'package:accord_mobile_v2/src/core/native_iroh_transport.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+part 'native_iroh_gzip_test_part.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -218,7 +221,7 @@ void main() {
       if (call.method == 'isSupported') return true;
       if (call.method == 'request') {
         expect(((call.arguments as Map)['headers'] as Map)['accept-encoding'],
-            'identity');
+            'gzip');
         return {
           'statusCode': 200,
           'headers': {'transfer-encoding': 'chunked'},
@@ -237,6 +240,8 @@ void main() {
         () => MockClient(
             (_) async => throw StateError('must use ready native route')));
   });
+
+  _registerNativeGzipTests(cached);
 
   for (final enabled in [false, true]) {
     test('server opt-in $enabled controls first bootstrap', () async {

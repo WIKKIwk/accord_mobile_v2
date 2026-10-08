@@ -250,7 +250,7 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
       completionRequestsLoader;
   final Future<AdminApparatusQueueSnapshot> Function()? queueSnapshotLoader;
   final Future<List<AdminApparatus>> Function()? apparatusLoader;
-  final Stream<AdminProductionMapLiveSnapshot> Function()? liveEventsLoader;
+  final Stream<Object> Function()? liveEventsLoader;
 
   @override
   State<AdminProductionMapOrdersScreen> createState() =>

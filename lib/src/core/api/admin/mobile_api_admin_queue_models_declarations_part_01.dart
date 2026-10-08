@@ -218,6 +218,7 @@ class AdminApparatusQueueOrderActionControl {
     this.freezeRequest,
     this.printPreflightAllowed = false,
     this.printPreflight,
+    this.serverContractSignature = '',
   });
 
   final AdminQueueWorkActivity? workActivity;
@@ -242,6 +243,9 @@ class AdminApparatusQueueOrderActionControl {
   final AdminProductionOrderFreezeDetails? freezeRequest;
   final bool printPreflightAllowed;
   final AdminPrintPreflightHold? printPreflight;
+  // Preserve every server field, including lineage/report fields that the
+  // presentation equality check does not need. Empty means unproven equality.
+  final String serverContractSignature;
 
   bool allows(String action) => allowedActions.contains(action.trim());
 
@@ -501,6 +505,7 @@ class AdminApparatusQueueOrderActionControl {
       }
     }
     return AdminApparatusQueueOrderActionControl(
+      serverContractSignature: jsonEncode(json),
       workActivity: AdminQueueWorkActivity.tryFromJson(json['work_activity']),
       lastWorkedAtUnix: _positiveJsonInt(json['last_worked_at_unix']) ?? 0,
       state: json['state']?.toString().trim() ?? '',

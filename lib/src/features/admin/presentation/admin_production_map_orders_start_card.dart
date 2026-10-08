@@ -570,7 +570,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 );
               },
             ),
-          if (uiState.showStart && requiresQolipScan) ...[
+          if ((uiState.showStart || uiState.showResume) && requiresQolipScan) ...[
             Divider(
               height: 28,
               color: scheme.outlineVariant.withValues(alpha: 0.5),
@@ -995,7 +995,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                       children: [
                         const SizedBox(height: 10),
                         FilledButton.icon(
-                          onPressed: actionInFlight ? null : onResume,
+                          onPressed: actionInFlight ||
+                                  (requiresQolipScan && (!qolipScanned || !qolipRequirementsLoaded))
+                              ? null : onResume,
                           icon: const Icon(Icons.play_arrow_rounded),
                           label: Text(
                             context.l10n.productionText('worker.action.resume'),

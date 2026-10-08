@@ -40,149 +40,189 @@ void _registeradmin_production_map_test_screen_testCases23() {
     );
   });
 
-  testWidgets(
-    'worker renders backend requeued-ready contract and resumes the order',
-    (tester) async {
-      await TestModeController.instance.setEnabled(true);
-      const apparatus = 'apparatus:test:godex-contract';
-      const apparatusName = 'Godex aparat - CONTRACT';
-      const requeuedOrderId = 'zakaz-contract-requeued';
-      const nextOrderId = 'zakaz-contract-next';
-      await AppSession.instance.setSession(
-        token: 'worker-contract-token',
-        profile: const SessionProfile(
-          role: UserRole.aparatchi,
-          displayName: 'Contract worker',
-          legalName: '',
-          ref: 'worker-contract',
-          phone: '',
-          avatarUrl: '',
-          capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-          assignedApparatus: [apparatus],
-        ),
-      );
-      await MobileApi.instance.adminCreateApparatus(
-        apparatusName,
-        id: apparatus,
-      );
-      for (final order in const [
-        (requeuedOrderId, 'Requeued contract order', 'RC-1'),
-        (nextOrderId, 'Next contract order', 'RC-2'),
-      ]) {
-        await MobileApi.instance.adminSaveProductionMap(
-          _productionOrderMap(
-            id: order.$1,
-            title: order.$2,
-            productCode: order.$3,
-            apparatusId: apparatus,
-            apparatusName: apparatusName,
-            product: order.$2,
+  for (final requiresQolipScan in [false, true]) {
+    testWidgets(
+      'worker renders backend requeued-ready contract and resumes the order (mold scan: $requiresQolipScan)',
+      (tester) async {
+        await TestModeController.instance.setEnabled(true);
+        const apparatus = 'apparatus:test:godex-contract';
+        const apparatusName = 'Godex aparat - CONTRACT';
+        const requeuedOrderId = 'zakaz-contract-requeued';
+        const nextOrderId = 'zakaz-contract-next';
+        await AppSession.instance.setSession(
+          token: 'worker-contract-token',
+          profile: const SessionProfile(
+            role: UserRole.aparatchi,
+            displayName: 'Contract worker',
+            legalName: '',
+            ref: 'worker-contract',
+            phone: '',
+            avatarUrl: '',
+            capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+            assignedApparatus: [apparatus],
           ),
         );
-      }
-      await MobileApi.instance.adminSaveProductionMapSequence(
-        apparatus: apparatus,
-        orderIds: const [requeuedOrderId, nextOrderId],
-      );
-      await MobileApi.instance.adminApparatusQueueActionResult(
-        apparatus: apparatus,
-        orderId: requeuedOrderId,
-        action: 'start',
-      );
-      await MobileApi.instance.adminApparatusQueueActionResult(
-        apparatus: apparatus,
-        orderId: requeuedOrderId,
-        action: 'freeze',
-        freezeWithIssue: true,
-        issueNote: 'Contract test issue',
-      );
-      await MobileApi.instance.adminProductionMapOrderControl(
-        orderId: requeuedOrderId,
-        action: AdminOrderControlAction.unfreeze,
-      );
-      setMobileApiTestModeQueueActionControlFixture(
-        apparatus: apparatus,
-        orderId: requeuedOrderId,
-        control: _requeuedQueueControl(ready: false),
-      );
-
-      await _usePhoneViewport(tester);
-      Future<void> pumpWorkerScreen() async {
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: ThemeData(useMaterial3: true),
-            locale: const Locale('uz'),
-            localizationsDelegates: const [
-              AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-            ],
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: const AdminProductionMapOrdersScreen(
-              readOnly: true,
-              workerMode: true,
+        await MobileApi.instance.adminCreateApparatus(
+          apparatusName,
+          id: apparatus,
+        );
+        for (final order in const [
+          (requeuedOrderId, 'Requeued contract order', 'RC-1'),
+          (nextOrderId, 'Next contract order', 'RC-2'),
+        ]) {
+          await MobileApi.instance.adminSaveProductionMap(
+            _productionOrderMap(
+              id: order.$1,
+              title: order.$2,
+              productCode: order.$3,
+              apparatusId: apparatus,
+              apparatusName: apparatusName,
+              product: order.$2,
             ),
-          ),
+          );
+        }
+        await MobileApi.instance.adminSaveProductionMapSequence(
+          apparatus: apparatus,
+          orderIds: const [requeuedOrderId, nextOrderId],
+        );
+        await MobileApi.instance.adminApparatusQueueActionResult(
+          apparatus: apparatus,
+          orderId: requeuedOrderId,
+          action: 'start',
+        );
+        await MobileApi.instance.adminApparatusQueueActionResult(
+          apparatus: apparatus,
+          orderId: requeuedOrderId,
+          action: 'freeze',
+          freezeWithIssue: true,
+          issueNote: 'Contract test issue',
+        );
+        await MobileApi.instance.adminProductionMapOrderControl(
+          orderId: requeuedOrderId,
+          action: AdminOrderControlAction.unfreeze,
+        );
+        setMobileApiTestModeQueueActionControlFixture(
+          apparatus: apparatus,
+          orderId: requeuedOrderId,
+          control: _requeuedQueueControl(ready: false),
+        );
+
+        await _usePhoneViewport(tester);
+        Future<void> pumpWorkerScreen() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: ThemeData(useMaterial3: true),
+              locale: const Locale('uz'),
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+              ],
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: const AdminProductionMapOrdersScreen(
+                readOnly: true,
+                workerMode: true,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await pumpWorkerScreen();
+        await tester.tap(
+          find.byKey(const ValueKey('worker-order-$requeuedOrderId')),
         );
         await tester.pumpAndSettle();
-      }
 
-      await pumpWorkerScreen();
-      await tester.tap(
-        find.byKey(const ValueKey('worker-order-$requeuedOrderId')),
-      );
-      await tester.pumpAndSettle();
+        expect(find.text('Boshlash'), findsNothing);
+        expect(find.text('Davom ettirish'), findsNothing);
+        expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
+        expect(
+          find.text('Buyurtma apparat navbatidagi o‘z vaqtini kutmoqda'),
+          findsOneWidget,
+        );
 
-      expect(find.text('Boshlash'), findsNothing);
-      expect(find.text('Davom ettirish'), findsNothing);
-      expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
-      expect(
-        find.text('Buyurtma apparat navbatidagi o‘z vaqtini kutmoqda'),
-        findsOneWidget,
-      );
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        await MobileApi.instance.adminApparatusQueueActionResult(
+          apparatus: apparatus,
+          orderId: nextOrderId,
+          action: 'start',
+        );
+        await MobileApi.instance.adminApparatusQueueActionResult(
+          apparatus: apparatus,
+          orderId: nextOrderId,
+          action: 'complete',
+        );
+        if (requiresQolipScan) {
+          await MobileApi.instance.qolipSaveProductSpecsBatch(
+            product: const QolipProduct(
+                code: 'RC-1', name: 'Requeued contract order', itemGroup: ''),
+            warehouse: 'Qolip ombori',
+            specs: const [
+              QolipProductSpecBatchItem(qolipCode: 'REACQUIRE-1', size: 42),
+              QolipProductSpecBatchItem(qolipCode: 'REACQUIRE-2', size: 42),
+            ],
+          );
+        }
+        setMobileApiTestModeQueueActionControlFixture(
+          apparatus: apparatus,
+          orderId: requeuedOrderId,
+          control: _requeuedQueueControl(
+              ready: true, requiresQolipScan: requiresQolipScan),
+        );
 
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpAndSettle();
-      await MobileApi.instance.adminApparatusQueueActionResult(
-        apparatus: apparatus,
-        orderId: nextOrderId,
-        action: 'start',
-      );
-      await MobileApi.instance.adminApparatusQueueActionResult(
-        apparatus: apparatus,
-        orderId: nextOrderId,
-        action: 'complete',
-      );
-      setMobileApiTestModeQueueActionControlFixture(
-        apparatus: apparatus,
-        orderId: requeuedOrderId,
-        control: _requeuedQueueControl(ready: true),
-      );
+        await pumpWorkerScreen();
+        await tester.tap(
+          find.byKey(const ValueKey('worker-order-$requeuedOrderId')),
+        );
+        await tester.pumpAndSettle();
 
-      await pumpWorkerScreen();
-      await tester.tap(
-        find.byKey(const ValueKey('worker-order-$requeuedOrderId')),
-      );
-      await tester.pumpAndSettle();
+        expect(find.text('Davom ettirish'), findsOneWidget);
+        expect(find.text('Boshlash'), findsNothing);
+        expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
+        if (requiresQolipScan) {
+          Finder resumeButton() =>
+              find.widgetWithText(FilledButton, 'Davom ettirish');
+          expect(tester.widget<FilledButton>(resumeButton()).onPressed, isNull);
+          expect(find.byKey(const ValueKey('production-qolips-expansion')),
+              findsOneWidget);
+          expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
+          await tester.tap(find
+              .byKey(const ValueKey('production-quick-scanner-manual-toggle')));
+          await tester.pumpAndSettle();
+          for (final code in ['REACQUIRE-1', 'REACQUIRE-2']) {
+            await tester.enterText(
+                find.byKey(const ValueKey('production-quick-scanner-manual')),
+                code);
+            await tester.tap(find.byTooltip('Qabul qilish'));
+            await tester.pumpAndSettle();
+            if (code == 'REACQUIRE-1') {
+              expect(tester.widget<FilledButton>(resumeButton()).onPressed,
+                  isNull);
+            }
+          }
+          expect(
+              tester.widget<FilledButton>(resumeButton()).onPressed, isNotNull);
+          expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+        }
+        await tester.ensureVisible(find.text('Davom ettirish'));
+        await tester.tap(find.text('Davom ettirish'));
+        setMobileApiTestModeQueueActionControlFixture(
+          apparatus: apparatus,
+          orderId: requeuedOrderId,
+          control: _inProgressQueueControl(completeRequiresFullReport: true),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('Davom ettirish'), findsOneWidget);
-      expect(find.text('Boshlash'), findsNothing);
-      expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
-      await tester.tap(find.text('Davom ettirish'));
-      setMobileApiTestModeQueueActionControlFixture(
-        apparatus: apparatus,
-        orderId: requeuedOrderId,
-        control: _inProgressQueueControl(completeRequiresFullReport: true),
-      );
-      await tester.pumpAndSettle();
-
-      final snapshot =
-          await MobileApi.instance.adminProductionMapQueueSnapshot();
-      expect(
-        snapshot.queueStates[apparatus]?[requeuedOrderId],
-        'in_progress',
-      );
-    },
-  );
+        final snapshot =
+            await MobileApi.instance.adminProductionMapQueueSnapshot();
+        expect(
+          snapshot.queueStates[apparatus]?[requeuedOrderId],
+          'in_progress',
+        );
+      },
+    );
+  }
 }

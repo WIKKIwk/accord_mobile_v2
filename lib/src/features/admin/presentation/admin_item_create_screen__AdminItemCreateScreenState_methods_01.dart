@@ -38,8 +38,15 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
 
   void _syncItemGroupSelection(List<String> groups) {
     final current = itemGroup.text.trim();
-    if (current.isNotEmpty && groups.contains(current)) {
-      return;
+    if (current.isNotEmpty) {
+      for (final group in groups) {
+        if (group.trim().toLowerCase() == current.toLowerCase()) {
+          if (itemGroup.text != group) {
+            itemGroup.text = group;
+          }
+          return;
+        }
+      }
     }
     final fallback = groups.contains('All Item Groups')
         ? 'All Item Groups'
@@ -60,9 +67,9 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
     uom.text = values.first.trim();
   }
 
-  Future<bool> _save() async {
+  Future<SupplierItem?> _save() async {
     if (saving) {
-      return false;
+      return null;
     }
     List<String> availableUoms;
     try {
@@ -75,10 +82,10 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
           tone: AdminTopNoticeTone.error,
         );
       }
-      return false;
+      return null;
     }
     if (!mounted || saving) {
-      return false;
+      return null;
     }
     String? selectedUom;
     for (final value in availableUoms) {
@@ -93,7 +100,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
         context.l10n.adminText('item.uom_required'),
         tone: AdminTopNoticeTone.error,
       );
-      return false;
+      return null;
     }
     uom.text = selectedUom.trim();
     final group = itemGroup.text.trim();
@@ -104,7 +111,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
         context.l10n.adminText('item.name_required'),
         tone: AdminTopNoticeTone.error,
       );
-      return false;
+      return null;
     }
     if (isFinishedGoods && selectedCustomer == null) {
       showAdminTopNotice(
@@ -112,7 +119,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
         context.l10n.adminText('item.customer_required'),
         tone: AdminTopNoticeTone.error,
       );
-      return false;
+      return null;
     }
     setState(() => saving = true);
     try {
@@ -124,7 +131,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
             tone: AdminTopNoticeTone.error,
           );
         }
-        return false;
+        return null;
       }
       final item = await MobileApi.instance.adminCreateItem(
         code: isFinishedGoods ? '' : code.text.trim(),
@@ -133,16 +140,21 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
         itemGroup: group,
         customerRef: isFinishedGoods ? selectedCustomer?.ref.trim() ?? '' : '',
       );
+      if (item.code.trim().isEmpty) {
+        throw StateError('Created item has no code');
+      }
       if (!mounted) {
-        return false;
+        return null;
       }
       code.clear();
       name.clear();
       selectedCustomer = null;
       AdminItemsListTab.clearMemoryCache();
-      await _itemsListTabKey.currentState?._loadFirstPage(forceRefresh: true);
+      if (!widget.returnOnCreate) {
+        await _itemsListTabKey.currentState?._loadFirstPage(forceRefresh: true);
+      }
       if (!mounted) {
-        return true;
+        return item;
       }
       showAdminTopNotice(
         context,
@@ -152,7 +164,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
         ),
         tone: AdminTopNoticeTone.success,
       );
-      return true;
+      return item;
     } catch (error) {
       if (mounted) {
         showAdminTopNotice(
@@ -163,7 +175,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
           tone: AdminTopNoticeTone.error,
         );
       }
-      return false;
+      return null;
     } finally {
       if (mounted) {
         setState(() => saving = false);
@@ -329,7 +341,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
     code.clear();
     name.clear();
     selectedCustomer = null;
-    await showDialog<void>(
+    final saved = await showDialog<SupplierItem>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.32),
       builder: (dialogContext) {
@@ -376,8 +388,8 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
                     ? null
                     : () async {
                         final saved = await _save();
-                        if (saved && dialogContext.mounted) {
-                          Navigator.of(dialogContext).pop();
+                        if (saved != null && dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop(saved);
                         } else if (context.mounted) {
                           setDialogState(() {});
                         }
@@ -389,6 +401,9 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
         );
       },
     );
+    if (saved != null && widget.returnOnCreate && mounted) {
+      Navigator.of(context).pop(saved);
+    }
   }
 
   bool _requiresCustomer(String group) {

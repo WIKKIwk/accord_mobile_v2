@@ -124,6 +124,7 @@ void _registerWorkerLatencyTests() {
           expect(requests.where((r) => r.method == 'GET'), isNotEmpty);
           if (outcome == 'timeout') {
             await tester.pump(const Duration(seconds: 5));
+            await tester.pump();
           } else {
             refresh.complete(outcome == 'failure'
                 ? http.Response('{"error":"store_failed"}', 503)
@@ -132,8 +133,14 @@ void _registerWorkerLatencyTests() {
             await tester.pump(const Duration(milliseconds: 100));
           }
           expect(
-              syncWarning, outcome == 'success' ? findsNothing : findsOneWidget,
-              reason: 'only failed or invalid refreshes show a sync warning');
+              syncWarning,
+              outcome == 'success' || outcome == 'timeout'
+                  ? findsNothing : findsOneWidget,
+              reason: 'a timed out read retries automatically; failed or invalid settled reads show a sync warning');
+          if (outcome == 'timeout') {
+            expect(requests.where((r) => r.method == 'GET').length, greaterThan(1));
+            expect(start, findsNothing);
+          }
           if (outcome == 'success') {
             expect(
                 find.widgetWithText(
@@ -154,6 +161,9 @@ void _registerWorkerLatencyTests() {
         },
             () => MockClient((request) {
                   requests.add(request);
+                  if (request.url.path.endsWith('/order-scan-bootstrap')) {
+                    return Future.value(http.Response('', 404));
+                  }
                   return request.method == 'POST'
                       ? post.future
                       : refresh.future;

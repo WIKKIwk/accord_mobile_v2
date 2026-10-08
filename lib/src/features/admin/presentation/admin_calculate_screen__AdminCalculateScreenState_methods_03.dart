@@ -4,7 +4,9 @@ part of 'admin_calculate_screen.dart';
 extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
   Future<void> _openProductPicker() async {
     final pickerCustomerName = _customer.text.trim();
-    final picked = await showModalBottomSheet<SupplierItem>(
+    final canCreateProduct = AppSession.instance.can('catalog.item.create');
+    var openProductCreate = false;
+    var selection = await showModalBottomSheet<SupplierItem>(
       context: context,
       isDismissible: true,
       enableDrag: true,
@@ -17,6 +19,15 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         return M3AsyncPickerSheet<CalculateProductPickerOption>(
           title: context.l10n.adminText('calculate.product_select'),
           hintText: context.l10n.adminText('calculate.product_search'),
+          showAddAction: canCreateProduct,
+          addActionTooltip: context.l10n.adminText('item.add_title'),
+          onEmptyAction: canCreateProduct
+              ? (_) async {
+                  openProductCreate = true;
+                  Navigator.of(context).pop();
+                  return null;
+                }
+              : null,
           pageSize: 80,
           cacheKey: _customerRef.trim().isEmpty
               ? 'calculate:finished-items:v2:customer-names'
@@ -41,6 +52,24 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         );
       },
     );
+    if (!mounted) {
+      return;
+    }
+    if (openProductCreate) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      selection = await Navigator.of(context).push<SupplierItem>(
+        MaterialPageRoute<SupplierItem>(
+          settings: const RouteSettings(name: AppRoutes.adminItemCreate),
+          builder: (_) => const AdminItemCreateScreen(
+            initialItemGroup: kCalculateFinishedProductGroup,
+            openCreateDialog: true,
+            returnOnCreate: true,
+          ),
+        ),
+      );
+      M3AsyncPickerSheet.clearMemoryCache();
+    }
+    final picked = selection;
     if (picked == null || !mounted) {
       return;
     }

@@ -3,33 +3,33 @@ part of 'admin_production_map_orders_screen.dart';
 extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
   bool _liveAllowsScanControl(int? revision, String epoch) {
     final live = widget.currentQueueSnapshot?.call();
-    return revision == null ||
-        live == null ||
-        live.epoch.isEmpty ||
-        (live.epoch == epoch && (live.revision ?? -1) <= revision);
+    if (revision == null || live == null || live.epoch.isEmpty) return true;
+    if (live.epoch != epoch) return false;
+    if ((live.revision ?? -1) <= revision) return true;
+    final control = _queueActionControl;
+    if (control == null) return false;
+    return _liveAllowsDetailControl(AdminPrintPreflightControlState(
+      apparatus: widget.apparatus?.id.trim() ?? '',
+      orderId: widget.order.map.id.trim(), revision: revision,
+      epoch: epoch, control: control,
+      queueState: _queueStates[widget.order.map.id.trim()] ?? '',
+      stageStates: _stageStates, orderControl: _orderControlState,
+    ));
   }
 
   /// Returns true when the aggregate owns this load, including failures. Only
   /// a positively unsupported route may fall through to the legacy readers.
   Future<bool> _loadScanBootstrap(int generation) async {
-    final interaction = _queueActionControl?.interaction;
     if (!widget.workerMode ||
         widget.apparatus == null ||
         _isTrainingOrder ||
         widget.startPauseOnOpen ||
-        widget.currentQueueSnapshot == null ||
-        (!_usesScanBootstrap &&
-            interaction?.startMaterialsMode !=
-                AdminQueueStartMaterialsMode.scanRequired &&
-            interaction?.qolipMode != AdminQueueQolipMode.scanRequired)) {
+        _scanBootstrapUnsupported ||
+        widget.currentQueueSnapshot == null) {
       return false;
     }
     if (await TestModeController.instance.isEnabled()) return false;
     if (!mounted || generation != _scanBootstrapGeneration) return true;
-    // A failed authoritative read must retry this same scoped endpoint rather
-    // than losing the initial interaction hint and falling through to broader
-    // legacy readers on the next click.
-    _usesScanBootstrap = true;
     if (_detailReadScope != currentSessionReadScope()) return true;
     final orderId = widget.order.map.id.trim();
     final apparatus = widget.apparatus!.id.trim();
@@ -44,10 +44,7 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
     bool current() =>
         contextCurrent() &&
         (acceptedControl == null ||
-            _liveAllowsScanControl(
-              acceptedControl.revision,
-              acceptedControl.epoch,
-            ));
+            _liveAllowsDetailControl(acceptedControl));
     _setScanBootstrapState(() {
       _actionControlLoads++;
       _materialsLoading = true;
@@ -65,11 +62,14 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
           )
           .timeout(_queueActionControlRefreshTimeout);
       if (!current()) return true;
-      if (result == null) return false;
+      if (result == null) {
+        _scanBootstrapUnsupported = true;
+        return false;
+      }
       final control = result.controlState;
-      // A scoped read does not fill global delta history. Use the live cursor
-      // solely to reject delayed controls, never to advance or replace it.
-      if (!_liveAllowsScanControl(control.revision, control.epoch)) {
+      // A scoped read never fills global delta history or advances its cursor.
+      // A newer revision is harmless only when the target state is unchanged.
+      if (!_liveAllowsDetailControl(control)) {
         throw const MobileApiException(
           code: 'order_scan_bootstrap_stale',
           message: 'Order state changed while scan requirements loaded',
@@ -130,6 +130,7 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
           message: 'Order state changed while scan requirements loaded',
         );
       }
+      if (current()) _detailRecoveryAttempt = 0;
       return true;
     } catch (error) {
       if (!mounted || !contextCurrent()) return true;
@@ -149,6 +150,7 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
       if (context.mounted) {
         _showSheetNotice(context.l10n.productionText('worker.error.sync'));
       }
+      _scheduleDetailRecovery(error: error);
       return true;
     } finally {
       if (mounted) _setScanBootstrapState(() => _actionControlLoads--);

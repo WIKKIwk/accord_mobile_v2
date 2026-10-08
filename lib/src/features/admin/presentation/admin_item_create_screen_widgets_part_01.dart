@@ -2,9 +2,18 @@
 part of 'admin_item_create_screen.dart';
 
 class AdminItemCreateScreen extends StatefulWidget {
-  const AdminItemCreateScreen({super.key, this.initialTabIndex = 0});
+  const AdminItemCreateScreen({
+    super.key,
+    this.initialTabIndex = 0,
+    this.initialItemGroup = '',
+    this.openCreateDialog = false,
+    this.returnOnCreate = false,
+  });
 
   final int initialTabIndex;
+  final String initialItemGroup;
+  final bool openCreateDialog;
+  final bool returnOnCreate;
 
   @override
   State<AdminItemCreateScreen> createState() => _AdminItemCreateScreenState();

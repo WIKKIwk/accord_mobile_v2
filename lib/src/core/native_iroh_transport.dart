@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' show chunkedCoding;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'network/native_gzip_decoder_stub.dart'
+    if (dart.library.io) 'network/native_gzip_decoder_io.dart';
 import 'network/resilient_iroh_route.dart';
 export 'network/resilient_iroh_route.dart' show IrohEndpointConfig;
 
@@ -401,7 +403,7 @@ class NativeIrohTransport {
         for (final entry in (headers ?? const <String, String>{}).entries)
           if (entry.key.toLowerCase() != 'accept-encoding')
             entry.key: entry.value,
-        'accept-encoding': 'identity',
+        'accept-encoding': 'gzip',
       },
       'body': Uint8List.fromList(bodyBytes),
     });
@@ -455,6 +457,20 @@ class NativeIrohTransport {
         declaredLength != null &&
         declaredLength != bytes.length) {
       throw const FormatException('Incomplete native HTTP response');
+    }
+    if (method != 'HEAD' && status != 204 && status != 304) {
+      final encoding = responseHeaders['content-encoding']?.trim().toLowerCase();
+      if (encoding == 'gzip') {
+        // Validate the wire body before decoding. Expose only complete decoded
+        // bytes to API readers, with headers describing that decoded body.
+        bytes = decodeNativeGzip(bytes);
+        responseHeaders.remove('content-encoding');
+        responseHeaders['content-length'] = bytes.length.toString();
+      } else if (encoding != null &&
+          encoding.isNotEmpty &&
+          encoding != 'identity') {
+        throw const FormatException('Unsupported native content encoding');
+      }
     }
     return http.Response.bytes(
       bytes,

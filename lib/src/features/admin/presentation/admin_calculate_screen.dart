@@ -5,6 +5,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/session/session.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/spring_pressable.dart';
 import '../../../core/widgets/forms/forms.dart';
@@ -15,6 +16,7 @@ import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/production_map_models.dart';
 import '../state/calculate_order_store.dart';
 import 'calculate_product_picker_loader.dart';
+import 'admin_item_create_screen.dart';
 import '../logic/production_map_pechat_rules.dart';
 import 'admin_production_map_test_screen.dart';
 import 'widgets/admin_dock.dart';
@@ -200,7 +202,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     final resolvedName = _resolvedOrderName().trim();
     final defaultOrderLabel = l10n.adminText('calculate.order');
     final pageTitle = resolvedName.isEmpty || resolvedName == defaultOrderLabel
-        ? l10n.adminText('calculate.create_title')
+        ? l10n.adminText('calculate.order_open')
         : resolvedName;
     return AppShell(
       drawer: AdminNavigationDrawer(

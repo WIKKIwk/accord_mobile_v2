@@ -190,7 +190,7 @@ class _AdminItemCreateHttpClient implements HttpClient {
       );
     }
     if (key == 'POST /v1/mobile/admin/items') {
-      if (autoCodeOnPost) {
+      if (autoCodeOnPost && !duplicateOnPost) {
         return _FakeHttpClientRequest(
           onBody: (body) =>
               itemCreateBodies.add(jsonDecode(body) as Map<String, dynamic>),

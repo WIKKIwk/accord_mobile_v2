@@ -8,6 +8,7 @@ import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_loading_indicator.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/admin_item_group_tree_entry.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_calculate_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_item_create_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_expandable_filter_chip.dart';
@@ -25,6 +26,7 @@ part 'admin_item_create_screen_test_cases_resplit_part_02.dart';
 part 'admin_item_create_screen_test_group_filter_part.dart';
 part 'admin_item_create_screen_test_selection_part.dart';
 part 'admin_item_create_screen_test_auto_code_part.dart';
+part 'admin_item_create_order_return_test_part.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -63,4 +65,5 @@ void main() {
   _registerAdminItemGroupFilterTests();
   _registerAdminItemSelectionTests();
   _registerAdminItemAutoCodeTests();
+  _registerAdminItemOrderReturnTests();
 }

@@ -84,9 +84,12 @@ class AdminRezkaOutputReport {
 class AdminApparatusQueueActionResult {
   const AdminApparatusQueueActionResult({
     required this.states,
+    this.revision,
+    this.epoch = '',
     this.workActivity,
     this.hasWorkActivity = false,
     this.orderStatus = const AdminProductionOrderStatusDetail(),
+    this.hasOrderStatus = true,
     this.orderControl,
     this.progressBatch,
     this.progressBatches = const [],
@@ -97,9 +100,15 @@ class AdminApparatusQueueActionResult {
   });
 
   final Map<String, String> states;
+  final int? revision;
+  final String epoch;
+
+  bool get hasSnapshotCursor =>
+      revision != null && revision! >= 0 && epoch.isNotEmpty;
   final AdminQueueWorkActivity? workActivity;
   final bool hasWorkActivity;
   final AdminProductionOrderStatusDetail orderStatus;
+  final bool hasOrderStatus;
   final AdminOrderControlState? orderControl;
   final AdminProgressBatch? progressBatch;
   final List<AdminProgressBatch> progressBatches;

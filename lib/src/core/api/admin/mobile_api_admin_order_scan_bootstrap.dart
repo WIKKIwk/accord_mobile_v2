@@ -145,6 +145,7 @@ extension MobileApiAdminOrderScanBootstrap on MobileApi {
     required String apparatus,
     required String orderId,
     List<String> materialBarcodes = const [],
+    bool includeSections = true,
   }) async {
     final station = _requireCanonicalApparatusId(apparatus);
     final order = orderId.trim();
@@ -156,6 +157,7 @@ extension MobileApiAdminOrderScanBootstrap on MobileApi {
           queryParameters: {
             'apparatus': station,
             'order_id': order,
+            if (!includeSections) 'include_sections': 'false',
             if (materialBarcodes.isNotEmpty)
               'material_barcodes': materialBarcodes.join(','),
           },

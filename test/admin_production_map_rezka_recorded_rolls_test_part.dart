@@ -579,6 +579,9 @@ void _registerRezkaRecordedRollTests() {
     final releaseFirstPrint = Completer<void>();
     var firstPrintAttempts = 0;
     final client = MockClient((request) async {
+      if (request.url.path.endsWith('/order-scan-bootstrap')) {
+        return http.Response('', 404);
+      }
       if (request.method == 'GET') {
         return http.Response(
             jsonEncode(_rezkaAutofillSnapshot(order, cycle, frames)), 200);

@@ -32,6 +32,7 @@ bool _queueActionControlsEqual(
     final other = right[entry.key];
     final control = entry.value;
     if (other == null ||
+        control.serverContractSignature != other.serverContractSignature ||
         control.workActivity != other.workActivity ||
         control.lastWorkedAtUnix != other.lastWorkedAtUnix ||
         control.state != other.state ||

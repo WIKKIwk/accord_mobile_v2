@@ -46,6 +46,11 @@ class _AdminProductionMapOrdersScreenState
   int? _lastAppliedSnapshotRevision;
   String _lastAppliedSnapshotEpoch = '';
   AdminApparatusQueueSnapshot? _canonicalQueueSnapshot;
+  final _sheetQueueSnapshot =
+      ValueNotifier<AdminApparatusQueueSnapshot?>(null);
+  Timer? _queueActionReconcileTimer;
+  int? _pendingQueueActionRevision;
+  String _pendingQueueActionEpoch = '';
   final Set<String> _retiredSnapshotEpochs = {};
   final Map<String, int> _sequenceRevisions = {};
   final Set<String> _sequenceReplayInFlight = {};
@@ -191,6 +196,8 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void dispose() {
+    _queueActionReconcileTimer?.cancel();
+    _sheetQueueSnapshot.dispose();
     for (final timer in _sequenceRetryTimers.values) {
       timer.cancel();
     }
@@ -224,6 +231,8 @@ class _AdminProductionMapOrdersScreenState
             state == AppLifecycleState.hidden ||
             state == AppLifecycleState.detached)) {
       _workerForeground = false;
+      _queueActionReconcileTimer?.cancel();
+      _queueActionReconcileTimer = null;
       _workerRecoveryTimer?.cancel();
       _workerRecoveryTimer = null;
       _stopWorkerLiveStream();
@@ -620,6 +629,40 @@ class _AdminProductionMapOrdersScreenState
 
   void _updateScreenState(VoidCallback callback) {
     setState(callback);
+    if (_pendingQueueActionRevision != null &&
+        _snapshotCoversAction(_pendingQueueActionRevision!,
+            _pendingQueueActionEpoch)) {
+      _queueActionReconcileTimer?.cancel();
+      _queueActionReconcileTimer = null;
+      _pendingQueueActionRevision = null;
+    }
+    _sheetQueueSnapshot.value =
+        _queueSnapshotNeedsReconcile || _queueSnapshotContractError ||
+                _canonicalQueueSnapshot?.revision == null ||
+                (_canonicalQueueSnapshot?.epoch.isEmpty ?? true)
+            ? null
+            : _canonicalQueueSnapshot;
+  }
+
+  bool _snapshotCoversAction(int revision, String epoch) =>
+      !_queueSnapshotNeedsReconcile &&
+      _canonicalQueueSnapshot?.epoch == epoch &&
+      (_canonicalQueueSnapshot?.revision ?? -1) >= revision;
+
+  void _awaitQueueActionDelta(AdminApparatusQueueActionResult result) {
+    if (_snapshotCoversAction(result.revision!, result.epoch)) return;
+    if (_pendingQueueActionEpoch != result.epoch ||
+        (_pendingQueueActionRevision ?? -1) < result.revision!) {
+      _pendingQueueActionRevision = result.revision;
+      _pendingQueueActionEpoch = result.epoch;
+    }
+    _queueActionReconcileTimer ??= Timer(const Duration(seconds: 2), () {
+      _queueActionReconcileTimer = null;
+      if (!mounted || _pendingQueueActionRevision == null) return;
+      _queueSnapshotNeedsReconcile = true;
+      _sheetQueueSnapshot.value = null;
+      unawaited(_refreshQueueSnapshot());
+    });
   }
 
   List<AdminApparatus> _workerVisibleApparatusFor(
@@ -662,13 +705,14 @@ class _AdminProductionMapOrdersScreenState
     if (mounted) {
       setState(() {});
     }
+    final actionReadScope = currentSessionReadScope();
     try {
       final snapshotGeneration = _queueSnapshotGeneration;
       final result = await _submitAdminApparatusQueueAction(
         request,
         apparatusKey: apparatusKey,
       );
-      if (!mounted) {
+      if (!mounted || actionReadScope != currentSessionReadScope()) {
         return null;
       }
       _applyQueueActionResult(
@@ -679,6 +723,17 @@ class _AdminProductionMapOrdersScreenState
         applyState: snapshotGeneration == _queueSnapshotGeneration,
       );
       return result;
+    } catch (error) {
+      if (mounted && widget.workerMode &&
+          actionReadScope == currentSessionReadScope() &&
+          (error is! MobileApiException || error.statusCode == null ||
+              error.statusCode! >= 500)) {
+        // A lost response can follow a committed write. Reconcile read-only.
+        _queueSnapshotNeedsReconcile = true;
+        _sheetQueueSnapshot.value = null;
+        if (_workerForeground) unawaited(_refreshQueueSnapshot());
+      }
+      rethrow;
     } finally {
       _queueActionsInFlight.remove(actionKey);
       if (mounted) {
@@ -694,11 +749,19 @@ class _AdminProductionMapOrdersScreenState
     required AdminApparatusQueueActionResult result,
     bool applyState = true,
   }) {
+    final usesDelta = widget.workerMode &&
+        result.hasSnapshotCursor &&
+        !orderId.startsWith('training-');
+    final alreadyApplied = usesDelta &&
+        _snapshotCoversAction(result.revision!, result.epoch);
     setState(() {
-      _queueSnapshotGeneration++;
-      _queueSnapshotNeedsReconcile = true;
-      if (applyState) {
-        _queueActionControlsByApparatus.remove(apparatusKey);
+      if (!alreadyApplied) _queueSnapshotGeneration++;
+      if (!usesDelta) _queueSnapshotNeedsReconcile = true;
+      if (applyState && !alreadyApplied) {
+        _queueActionControlsByApparatus[apparatusKey] =
+            Map<String, AdminApparatusQueueOrderActionControl>.from(
+                _queueActionControlsByApparatus[apparatusKey] ?? const {})
+              ..remove(orderId);
         _queueStatesByApparatus[apparatusKey] = result.states;
         if (result.hasWorkActivity) {
           final activities =
@@ -710,7 +773,9 @@ class _AdminProductionMapOrdersScreenState
             activities[orderId] = activity;
           }
         }
-        _orderStatusesByOrderId[orderId] = result.orderStatus;
+        if (result.hasOrderStatus) {
+          _orderStatusesByOrderId[orderId] = result.orderStatus;
+        }
         if (result.orderControl != null) {
           _orderControlsByOrderId[orderId] = result.orderControl!;
         }
@@ -729,8 +794,14 @@ class _AdminProductionMapOrdersScreenState
       );
     }
     // Catalog/history refreshes are not prerequisites for a queue mutation.
-    unawaited(_refreshQueueSnapshot());
-    if (widget.workerMode) {
+    if (usesDelta && _workerLiveHealthy) {
+      _awaitQueueActionDelta(result);
+    } else if (!alreadyApplied) {
+      _queueSnapshotNeedsReconcile = true;
+      _sheetQueueSnapshot.value = null;
+      unawaited(_refreshQueueSnapshot());
+    }
+    if (widget.workerMode && !usesDelta) {
       // Stage history is actor-scoped and may change even when the whole
       // order is not finished yet. Keep the worker's completed tab current.
       unawaited(_refreshWorkerCompletedOrders());
@@ -829,6 +900,7 @@ class _AdminProductionMapOrdersScreenState
         },
         workerMode: widget.workerMode,
         currentQueueSnapshot: () => _canonicalQueueSnapshot,
+        queueSnapshotListenable: _sheetQueueSnapshot,
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
         canManageQueue: widget.workerMode &&
             _isAssignedWatchApparatus(

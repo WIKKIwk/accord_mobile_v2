@@ -144,6 +144,12 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
       throw _adminProductionMapException(response, 'queue_action_not_allowed');
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final revision = payload['rev'] is int && (payload['rev'] as int) >= 0
+        ? payload['rev'] as int
+        : null;
+    final epoch = payload['epoch'] is String
+        ? (payload['epoch'] as String).trim()
+        : '';
     final raw = payload['states'];
     final rawOrderControl = payload['order_control'];
     final orderControl = rawOrderControl is Map
@@ -156,6 +162,7 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
       return AdminApparatusQueueActionResult(
         states: const {},
         orderStatus: orderStatus,
+        hasOrderStatus: payload['order_status'] is Map,
         orderControl: orderControl,
       );
     }
@@ -200,9 +207,12 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
     };
     return AdminApparatusQueueActionResult(
       states: Map<String, String>.unmodifiable(parsedStates),
+      revision: revision,
+      epoch: epoch,
       workActivity: AdminQueueWorkActivity.tryFromJson(payload['work_activity']),
       hasWorkActivity: payload.containsKey('work_activity'),
       orderStatus: orderStatus,
+      hasOrderStatus: payload['order_status'] is Map,
       orderControl: orderControl,
       progressBatch: legacyProgressBatch,
       progressBatches: progressBatches,

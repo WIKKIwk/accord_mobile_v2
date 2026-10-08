@@ -70,6 +70,43 @@ Map<String, dynamic> nested(Object value) => {
     };
 
 void main() {
+  test('1000 consecutive deltas preserve state and reject every gap and restart atomically', () {
+    var current = snapshot();
+    final original = current;
+    for (var index = 0; index < 1000; index++) {
+      final status = index % 3 == 0 ? 'pending' : 'print_preflight';
+      final trial = index % 3 == 0 ? null : index % 3 == 1 ? 'running' : 'passed';
+      final patch = {
+        'queue_states': nested(status),
+        'queue_action_controls': nested(control(status, trial: trial)),
+        'stage_states': {
+          'scopes': {'order': {'upsert': {apparatus: status}, 'remove': <String>[]}},
+          'remove': <String>[],
+        },
+        'order_customers': field('Customer $index'),
+      };
+      final revision = current.revision!;
+      final before = current;
+      expect(() => delta(patch, base: revision - 1).applyTo(before),
+          throwsA(isA<MobileApiException>()));
+      expect(() => delta(patch, base: revision, epoch: 'restart-$index').applyTo(before),
+          throwsA(isA<MobileApiException>()));
+      current = delta(patch, base: revision).applyTo(before);
+      expect(current.revision, revision + 1);
+      expect(before.revision, revision);
+      expect(current.queueStates[apparatus]!['order'], status);
+      expect(current.stageStates['order']![apparatus], status);
+      expect(current.orderCustomers['order'], 'Customer $index');
+      expect(current.queueActionControls[apparatus]!['order']!.serverContractSignature,
+          AdminApparatusQueueOrderActionControl.fromJson(control(status, trial: trial)).serverContractSignature);
+      expect(current.sequences[apparatus], ['order']);
+      expect(current.visibleOrderIds[apparatus], ['order']);
+      expect(identical(current.maps, original.maps), isTrue);
+    }
+    expect(original.revision, 10);
+    expect(original.queueStates[apparatus]!['order'], 'pending');
+  });
+
   test('malformed optional colour controls preserve the committed hold', () {
     final response = AdminPrintPreflightResponse.fromJson({
       'hold': {

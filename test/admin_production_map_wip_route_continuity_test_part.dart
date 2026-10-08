@@ -307,6 +307,9 @@ void _registerWipRouteContinuityTests() {
         expect(tester.takeException(), isNull);
       },
           () => MockClient((request) async {
+                if (request.url.path.endsWith('/order-scan-bootstrap')) {
+                  return http.Response('', 404);
+                }
                 if (request.url.path.endsWith('/progress-qr/lookup')) {
                   final body =
                       (jsonDecode(request.body) as Map).cast<String, dynamic>();

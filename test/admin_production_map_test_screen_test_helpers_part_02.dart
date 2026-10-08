@@ -211,6 +211,7 @@ AdminApparatusQueueOrderActionControl _completedQueueControl() {
 
 AdminApparatusQueueOrderActionControl _requeuedQueueControl({
   required bool ready,
+  bool requiresQolipScan = false,
 }) {
   return AdminApparatusQueueOrderActionControl(
     state: 'pending',
@@ -225,7 +226,9 @@ AdminApparatusQueueOrderActionControl _requeuedQueueControl({
       assignedMaterialsDisplayOnly: true,
       materialIntakeAllowed: false,
       previousWipMode: AdminQueuePreviousWipMode.notRequired,
-      qolipMode: AdminQueueQolipMode.notRequired,
+      qolipMode: requiresQolipScan
+          ? AdminQueueQolipMode.scanRequired
+          : AdminQueueQolipMode.notRequired,
       blockingReasonCode: ready ? '' : 'waiting_sequence',
     ),
   );

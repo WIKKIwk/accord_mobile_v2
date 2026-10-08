@@ -851,6 +851,13 @@ extension _AdminProductionMapOrdersLiveState
 
   void _replaceQueueSnapshotMaps(AdminApparatusQueueSnapshot snapshot,
       {Set<String>? changedFields}) {
+    // ACK overlays can touch fields absent from this delta. Once its cursor
+    // is covered, restore every UI field from the canonical model in memory.
+    if (_pendingQueueActionRevision != null &&
+        snapshot.epoch == _pendingQueueActionEpoch &&
+        (snapshot.revision ?? -1) >= _pendingQueueActionRevision!) {
+      changedFields = null;
+    }
     _canonicalQueueSnapshot = snapshot;
     if (widget.workerMode) _recreateWorkerTabController(_apparatus);
     bool changed(String field) => changedFields == null || changedFields.contains(field);
