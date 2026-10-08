@@ -52,7 +52,11 @@ class _CustomerCreateTabState extends State<_CustomerCreateTab> {
       phone.clear();
       showAdminTopNotice(
         context,
-        context.l10n.adminText('user.customer_created'),
+        context.l10n.adminText(
+          'user.customer_created',
+          values: {'name': customer.name},
+        ),
+        success: true,
       );
     } catch (error) {
       if (mounted) {

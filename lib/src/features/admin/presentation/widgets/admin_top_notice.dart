@@ -37,6 +37,7 @@ void showAdminTopNotice(
   String message, {
   IconData? icon,
   GlobalKey? anchorKey,
+  bool success = false,
 }) {
   _currentAdminTopNotice?.close();
   _currentAdminTopNotice = null;
@@ -46,6 +47,7 @@ void showAdminTopNotice(
         message,
         icon: icon,
         anchorKey: anchorKey,
+        success: success,
       )) {
     return;
   }
@@ -56,7 +58,7 @@ void showAdminTopNotice(
   messenger.hideCurrentMaterialBanner();
 
   messenger.showMaterialBanner(
-    _adminNoticeBanner(context, message, icon: icon),
+    _adminNoticeBanner(context, message, icon: icon, success: success),
   );
   final handle = _AdminTopNoticeHandle(
     messenger.hideCurrentMaterialBanner,
@@ -76,6 +78,7 @@ bool _showAnchoredAdminTopNotice(
   String message, {
   required GlobalKey anchorKey,
   IconData? icon,
+  required bool success,
 }) {
   final overlay = Overlay.maybeOf(context, rootOverlay: true);
   final anchorContext = anchorKey.currentContext;
@@ -103,7 +106,12 @@ bool _showAnchoredAdminTopNotice(
                 child: Opacity(opacity: value, child: child),
               );
             },
-            child: _adminNoticeBanner(context, message, icon: icon),
+            child: _adminNoticeBanner(
+              context,
+              message,
+              icon: icon,
+              success: success,
+            ),
           ),
         ),
       );
@@ -120,10 +128,15 @@ MaterialBanner _adminNoticeBanner(
   BuildContext context,
   String message, {
   IconData? icon,
+  bool success = false,
 }) {
+  const successBackground = Color(0xFFE6F4EA);
+  const successForeground = Color(0xFF173A24);
   return MaterialBanner(
     elevation: 0,
-    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+    backgroundColor: success
+        ? successBackground
+        : Theme.of(context).colorScheme.surfaceContainerHighest,
     surfaceTintColor: Colors.transparent,
     shadowColor: Colors.transparent,
     dividerColor: Colors.transparent,
@@ -131,7 +144,9 @@ MaterialBanner _adminNoticeBanner(
     leading: icon == null ? null : Icon(icon),
     content: Text(message),
     contentTextStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Theme.of(context).colorScheme.onSurface,
+          color: success
+              ? successForeground
+              : Theme.of(context).colorScheme.onSurface,
         ),
     actions: const [SizedBox.shrink()],
     minActionBarHeight: 0,

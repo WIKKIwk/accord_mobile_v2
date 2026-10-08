@@ -68,9 +68,9 @@ const _admin_localization_adminTranslations_resplitPart15 = {
     'ru': 'Пользователь создан',
   },
   'admin.user.customer_created': {
-    'uz': 'Haridor yaratildi',
-    'en': 'Customer created',
-    'ru': 'Клиент создан',
+    'uz': '{name} nomli foydalanuvchi qo‘shildi',
+    'en': 'User {name} added',
+    'ru': 'Пользователь {name} добавлен',
   },
   'admin.user.customer_create_failed': {
     'uz': 'Haridor yaratilmadi',
