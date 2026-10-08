@@ -281,17 +281,17 @@ const _admin_localization_adminTranslations_resplitPart03 = {
     'ru': 'Производственные зоны ещё не созданы',
   },
   'admin.calculate.order_search': {
-    'uz': 'Zakaz qidirish',
+    'uz': 'Buyurtma qidirish',
     'en': 'Search orders',
     'ru': 'Поиск заказов',
   },
   'admin.calculate.order': {
-    'uz': 'Zakaz',
+    'uz': 'Buyurtma',
     'en': 'Order',
     'ru': 'Заказ',
   },
   'admin.calculate.order_empty': {
-    'uz': 'Zakaz topilmadi',
+    'uz': 'Buyurtma topilmadi',
     'en': 'No orders found',
     'ru': 'Заказы не найдены',
   },
@@ -301,7 +301,7 @@ const _admin_localization_adminTranslations_resplitPart03 = {
     'ru': 'Сохранённых шаблонов пока нет',
   },
   'admin.calculate.saved_deleted': {
-    'uz': 'Zakaz o‘chirildi',
+    'uz': 'Buyurtma o‘chirildi',
     'en': 'Order deleted',
     'ru': 'Заказ удалён',
   },

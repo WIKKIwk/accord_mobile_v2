@@ -130,7 +130,9 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
 
   String _resolvedOrderName() {
     final product = _product.text.trim();
-    return product.isEmpty ? 'Zakaz' : product;
+    return product.isEmpty
+        ? context.l10n.adminText('calculate.order')
+        : product;
   }
 
   double _derivedWidthMm() {

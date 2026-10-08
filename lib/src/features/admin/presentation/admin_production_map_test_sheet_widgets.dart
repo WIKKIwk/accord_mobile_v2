@@ -224,8 +224,8 @@ class _ProductionMapOrderConfirmationDialog extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: UrduAwareText(
-                          'Zakaz ochish',
+                        child: Text(
+                          context.l10n.adminText('calculate.order_open'),
                           style: Theme.of(context)
                               .textTheme
                               .titleLarge
@@ -243,8 +243,10 @@ class _ProductionMapOrderConfirmationDialog extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  UrduAwareText(
-                    'Zakaz ochilsinmi? Raqam tizim tomonidan avtomatik beriladi.',
+                  Text(
+                    context.l10n.adminText(
+                      'calculate.order_open_confirmation',
+                    ),
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 20),

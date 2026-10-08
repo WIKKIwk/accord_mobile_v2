@@ -198,7 +198,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         ? _fullEditChildren(l10n)
         : _compactTemplateChildren(l10n);
     final resolvedName = _resolvedOrderName().trim();
-    final pageTitle = resolvedName.isEmpty || resolvedName == 'Zakaz'
+    final defaultOrderLabel = l10n.adminText('calculate.order');
+    final pageTitle = resolvedName.isEmpty || resolvedName == defaultOrderLabel
         ? l10n.adminText('calculate.create_title')
         : resolvedName;
     return AppShell(

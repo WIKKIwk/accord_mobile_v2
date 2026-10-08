@@ -73,12 +73,12 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'ru': 'Микронов: {count}',
   },
   'admin.calculate.quick_map_load_failed': {
-    'uz': 'Tezkor zakaz mapini yuklab bo‘lmadi',
+    'uz': 'Tezkor buyurtma mapini yuklab bo‘lmadi',
     'en': 'Could not load the quick-order map',
     'ru': 'Не удалось загрузить карту быстрого заказа',
   },
   'admin.calculate.quick_map_unlinked': {
-    'uz': 'Bu tezkor zakazga map ulanmagan',
+    'uz': 'Bu tezkor buyurtmaga map ulanmagan',
     'en': 'No map is linked to this quick order',
     'ru': 'К этому быстрому заказу не привязана карта',
   },
@@ -93,12 +93,12 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'ru': 'Заказ открыт: {order}',
   },
   'admin.calculate.order_open_failed': {
-    'uz': 'Zakaz ochilmadi',
+    'uz': 'Buyurtma ochilmadi',
     'en': 'Could not open the order',
     'ru': 'Не удалось открыть заказ',
   },
   'admin.calculate.auto_open_failed': {
-    'uz': 'Zakazni avtomatik ochib bo‘lmadi',
+    'uz': 'Buyurtmani avtomatik ochib bo‘lmadi',
     'en': 'Could not open the order automatically',
     'ru': 'Не удалось автоматически открыть заказ',
   },
@@ -128,12 +128,12 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'ru': 'Не удалось открыть учебный заказ',
   },
   'admin.calculate.quick_map_missing': {
-    'uz': 'Tezkor zakaz mapi topilmadi. Qayta ulang',
+    'uz': 'Tezkor buyurtma mapi topilmadi. Qayta ulang',
     'en': 'The quick-order map was not found. Link it again.',
     'ru': 'Карта быстрого заказа не найдена. Привяжите её снова.',
   },
   'admin.calculate.order_details_required': {
-    'uz': 'Zakaz ma’lumotlarini to‘ldiring',
+    'uz': 'Buyurtma ma’lumotlarini to‘ldiring',
     'en': 'Complete the order details',
     'ru': 'Заполните данные заказа',
   },
@@ -253,17 +253,17 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'ru': 'Тестовый режим',
   },
   'admin.calculate.create_title': {
-    'uz': 'Zakaz yaratish',
+    'uz': 'Buyurtma yaratish',
     'en': 'Create order',
     'ru': 'Создать заказ',
   },
   'admin.calculate.order_create_default': {
-    'uz': 'Zakaz',
+    'uz': 'Buyurtma',
     'en': 'Order',
     'ru': 'Заказ',
   },
   'admin.calculate.quick_order_exists': {
-    'uz': 'Bu tezkor zakazlar ro‘yxatida bor',
+    'uz': 'Bu tezkor buyurtmalar ro‘yxatida bor',
     'en': 'This item is already in quick orders',
     'ru': 'Этот товар уже есть в быстрых заказах',
   },

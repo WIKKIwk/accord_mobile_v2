@@ -33,12 +33,12 @@ const _admin_localization_adminTranslations_resplitPart12 = {
     'ru': 'Сначала выберите материал слоя',
   },
   'admin.calculate.map_not_attached': {
-    'uz': 'Bu tezkor zakazga map ulanmagan',
+    'uz': 'Bu tezkor buyurtmaga map ulanmagan',
     'en': 'No map is linked to this quick order',
     'ru': 'К этому быстрому заказу не привязана карта',
   },
   'admin.calculate.map_load_failed': {
-    'uz': 'Tezkor zakaz mapini yuklab bo‘lmadi',
+    'uz': 'Tezkor buyurtma mapini yuklab bo‘lmadi',
     'en': 'Could not load the quick order map',
     'ru': 'Не удалось загрузить карту быстрого заказа',
   },

@@ -58,14 +58,21 @@ const _admin_localization_adminTranslations_resplitPart04 = {
     'ru': 'Поиск клиентов',
   },
   'admin.calculate.order_create': {
-    'uz': 'Zakaz yaratish',
+    'uz': 'Buyurtma yaratish',
     'en': 'Create order',
     'ru': 'Создать заказ',
   },
   'admin.calculate.order_open': {
-    'uz': 'Zakaz ochish',
+    'uz': 'Buyurtma ochish',
     'en': 'Open order',
     'ru': 'Открыть заказ',
+    'ur': 'آرڈر کھولیں',
+  },
+  'admin.calculate.order_open_confirmation': {
+    'uz': 'Buyurtma ochilsinmi? Raqam tizim tomonidan avtomatik beriladi.',
+    'en': 'Open the order? The system will assign its number automatically.',
+    'ru': 'Открыть заказ? Номер будет автоматически присвоен системой.',
+    'ur': 'کیا آرڈر کھولیں؟ نمبر سسٹم خودکار طور پر دے گا۔',
   },
   'admin.calculate.opening': {
     'uz': 'Ochilmoqda...',
